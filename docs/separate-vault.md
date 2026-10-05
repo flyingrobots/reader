@@ -1,5 +1,7 @@
 # Separate code and private vault
 
+Reader’s Python backend and installed integrations currently require macOS or Linux (POSIX locks, signals, and resource limits). Windows and mobile backend operation are not supported. A Windows executable-path substitution alone is insufficient.
+
 Reader software and private reading material live in independent Git repositories. The code repository starts with fresh history. The vault retains its library history and must only have private remotes. A gitignore rule does not remove tracked content or historical commits.
 
 ## Install

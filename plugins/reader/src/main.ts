@@ -528,7 +528,7 @@ export default class ReaderPlugin extends Plugin {
     const adapter = this.app.vault.adapter;
     if (!(adapter instanceof FileSystemAdapter)) { done('Library search requires a local desktop vault.'); return () => {}; }
     const base = adapter.getBasePath();
-    const executable = join(this.readerSettings.backendRoot || base, '.venv', process.platform === 'win32' ? 'Scripts/reader.exe' : 'bin/reader');
+    const executable = join(this.readerSettings.backendRoot || base, '.venv', 'bin/reader');
     let canceled = false;
     const child = execFile(executable, ['--root', base, 'search', query, '--mode', mode, '--limit', '30'],
       { cwd: base, timeout: 60000, maxBuffer: 2 * 1024 * 1024, env: { ...process.env, OMP_NUM_THREADS: '2', TOKENIZERS_PARALLELISM: 'false' } },

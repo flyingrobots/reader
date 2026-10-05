@@ -1,5 +1,7 @@
 # System capabilities and boundaries
 
+Reader’s Python backend and installed integrations currently require macOS or Linux (POSIX locks, signals, and resource limits). Windows and mobile backend operation are not supported. A Windows executable-path substitution alone is insufficient.
+
 ## Reading and curation
 
 Reader is a plain-file Markdown library intended for Obsidian. Its [catalog](../library/index.md) links documents, original attachments, and librarian-authored reading material. Reading requires no plugin, database, or running service.

@@ -1,5 +1,7 @@
 # Reader sidebar
 
+Reader’s Python backend and installed integrations currently require macOS or Linux (POSIX locks, signals, and resource limits). Windows and mobile backend operation are not supported. A Windows executable-path substitution alone is insufficient.
+
 The optional desktop plugin adds **Reader** to Obsidian's right sidebar. It follows the open document and shows librarian notes, documents cited together in connection notes, and links from an associated catalog. Each result has **Why this appears**, with the recorded citation and a link to its evidence. Co-citation does not establish compatibility or a stronger relationship.
 
 ## Install and update
@@ -32,7 +34,7 @@ Typing in the search field filters all relationship results by title and path, i
 
 Press Enter or **Search library** to use the existing local search engine. Choose hybrid, semantic, fuzzy, or keyword search. The separate **Library matches** list shows up to 30 results in relevance order, matching channels, expanded passages with highlighted literal matches, index time, and freshness warnings. If no literal query word occurs in a semantic result, the returned passage is highlighted as passage-level semantic evidence. These matches are retrieval suggestions, not new recorded connections. Markdown results open at the returned line; PDF results use physical-page links.
 
-Library search requires the checkout's `.venv/bin/reader` (`.venv/Scripts/reader.exe` on Windows), installed with `uv sync --locked`, and an index created with `reader index`. See [search setup](search.md). The sidebar invokes the CLI with argument arrays, no shell, a 60-second timeout, and a 2 MiB output limit. It never indexes or downloads models automatically. Changing the query, changing search mode, closing the view, or unloading the plugin cancels a pending search. The relationship view and name filter work without Python or embeddings.
+Library search requires the checkout's `.venv/bin/reader`, installed with `uv sync --locked`, and an index created with `reader index`. See [search setup](search.md). The sidebar invokes the CLI with argument arrays, no shell, a 60-second timeout, and a 2 MiB output limit. It never indexes or downloads models automatically. Changing the query, changing search mode, closing the view, or unloading the plugin cancels a pending search. The relationship view and name filter work without Python or embeddings.
 
 ## Sidebar tabs
 
