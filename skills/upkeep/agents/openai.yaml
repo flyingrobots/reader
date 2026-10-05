@@ -1,0 +1,4 @@
+interface:
+  display_name: "Upkeep"
+  short_description: "Maintain Reader intake, discussion, and useful connections"
+  default_prompt: "Use $upkeep to check Reader arrivals and unread discussion, then surface any connection relevant to our current work."
