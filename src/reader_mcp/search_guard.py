@@ -7,6 +7,7 @@ import resource
 import shutil
 from .resources import has_capacity, minimum_free_bytes
 import signal
+import stat
 import subprocess
 import sys
 import time
@@ -15,7 +16,22 @@ GIB = 1024 ** 3
 
 
 def usage(path):
-    return sum(p.stat().st_size for p in path.rglob('*') if p.is_file() and not p.is_symlink()) if path.exists() else 0
+    try:
+        path.stat()
+    except FileNotFoundError:
+        return 0
+    total = 0
+    for item in path.rglob('*'):
+        try:
+            if item.is_symlink():
+                continue
+            info = item.stat()
+        except FileNotFoundError:
+            # SQLite may remove a journal between discovery and measurement.
+            continue
+        if stat.S_ISREG(info.st_mode):
+            total += info.st_size
+    return total
 
 
 def run_index(root, semantic):

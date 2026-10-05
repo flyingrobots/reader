@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Keep guarded reindexing running when SQLite removes a transient journal during disk accounting; other measurement errors still stop the worker.
+
 - Upgrade FastEmbed to the compatible 0.8 line and require Pillow 12.3 or newer to exclude the affected image-decoding releases.
 
 - Pass an explicit external backend command to inbox jobs so fresh private vaults need no colocated environment.
