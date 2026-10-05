@@ -3,6 +3,8 @@ name = "reader-library"
 version = "0.1.0"
 description = "Local delivery, search, and reading for the Reader library"
 requires-python = ">=3.11"
+license = "Apache-2.0"
+license-files = ["LICENSE"]
 dependencies = [
     "fastembed>=0.7,<0.8",
     "fonttools>=4,<5",
