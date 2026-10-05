@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Pass an explicit external backend command to inbox jobs so fresh private vaults need no colocated environment.
+
 - Preserve existing plugin preferences when a settings write is interrupted by publishing settings atomically.
 
 - License Reader software under Apache-2.0; vault content retains its existing rights.

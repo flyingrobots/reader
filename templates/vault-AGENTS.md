@@ -12,7 +12,7 @@ Read `docs/capabilities.md`, `docs/design.md`, and `docs/operations.md` before c
 
 ## Turn-boundary upkeep
 
-At the start and end of every Reader librarian turn, apply [Upkeep](skills/upkeep/SKILL.md). Check inbox arrivals, delegate complete intake bundles within its concurrency limits, inspect new highlights/comments/replies, record only your own actually-read versions, and surface useful source-grounded connections to the user's current work. This is standing authorization for intake subagents and substantive local discussion, not remote publication. Intake workers do not recursively launch upkeep. Honor user interruptions and coordinate shared catalog writers and local commits.
+At the start and end of every Reader librarian turn, apply the installed Upkeep skill. Check inbox arrivals, delegate complete intake bundles within its concurrency limits, inspect new highlights/comments/replies, record only your own actually-read versions, and surface useful source-grounded connections to the user's current work. This is standing authorization for intake subagents and substantive local discussion, not remote publication. Intake workers do not recursively launch upkeep. Honor user interruptions and coordinate shared catalog writers and local commits.
 
 ## Intake and stewardship
 
@@ -30,7 +30,7 @@ At the start and end of every Reader librarian turn, apply [Upkeep](skills/upkee
 
 ## Reflective reading
 
-Use [Reflective Reading](skills/reflective-reading/SKILL.md) for sustained reading, study, or critique. Pause at natural section boundaries to reflect, leave source-anchored highlights with useful comments, and use warning annotations with an explanation for concerns or suspected errors. Revisit the notes for connections, revised judgments, and original writing when warranted; do not force a quota. Keep uncertainties and actual reading coverage explicit, preserve originals, and record only your own inspected versions as seen.
+Use the installed Reflective Reading skill for sustained reading, study, or critique. Pause at natural section boundaries to reflect, leave source-anchored highlights with useful comments, and use warning annotations with an explanation for concerns or suspected errors. Revisit the notes for connections, revised judgments, and original writing when warranted; do not force a quota. Keep uncertainties and actual reading coverage explicit, preserve originals, and record only your own inspected versions as seen.
 
 ## Editorial stewardship
 
@@ -70,3 +70,7 @@ Document new components and their configuration, dependencies, recovery, and ver
 ## Verification
 
 Before handing off a change, check affected relative links, frontmatter where applicable, file destinations, attachment references, and consistency between implementation, documentation, and plans. For any added executable tooling, run relevant functional checks and document how to reproduce them. Record outcomes in the activity log and report validation boundaries honestly.
+
+## Separate software checkout
+
+This is the private vault. Use the installed Reader skill helper for CLI operations; it resolves the separate software environment and vault. Do not assume a vault-local package manifest or virtual environment. Keep documents and their Git history out of the public code repository.

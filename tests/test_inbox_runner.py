@@ -59,3 +59,19 @@ def test_duplicate_launch_and_cancel(tmp_path):
         assert json.loads((runtime/'state.json').read_text())['status']=='stopped'
     finally:
         if process.poll() is None:process.kill();process.wait()
+
+
+def test_split_vault_job_receives_a_working_external_cli_prefix(tmp_path):
+    fake=fixture(tmp_path,'''import sys,pathlib
+pathlib.Path('received-prompt.txt').write_text(sys.stdin.read())
+''')
+    assert run(tmp_path,str(fake))==0
+    prompt=(tmp_path/'received-prompt.txt').read_text()
+    marker='Reader CLI prefix (JSON argv): '
+    assert marker in prompt, 'Split-vault jobs need the external backend command, not a vault-local environment'
+    command=json.loads(prompt.split(marker,1)[1].splitlines()[0])
+    assert command==[sys.executable,'-m','reader_mcp.cli','--root',str(tmp_path)]
+    assert not (tmp_path/'.venv').exists()
+    result=subprocess.run(command+['status','11111111-1111-4111-8111-111111111111'],cwd=tmp_path,capture_output=True,text=True)
+    assert result.returncode==0,result.stderr
+    assert json.loads(result.stdout)['status']=='not_found'

@@ -31,3 +31,5 @@ If the supervisor disappears, the UI marks the run interrupted and refuses anoth
 Run `uv run --locked pytest -q tests/test_inbox_runner.py`. Tests use a controlled executable to check argument/prompt delivery, reports, failures, empty inboxes, duplicate exclusion, and cancellation. Live acceptance must separately verify the Obsidian button and a real authenticated Codex run, including the resulting preserved files, catalog links, report, and local commit. Do not mistake a fake executable test for model-driven filing acceptance.
 
 Upkeep workers and the standalone runner share an intake admission mutex. Existing `.reader/upkeep-claims.json` owners block runner startup; finish or reconcile their batches before retrying. Starting/running/interrupted runner state blocks new Upkeep claims. See [claim coordination and recovery](engagement.md).
+
+The generated job prompt includes the running backend interpreter and explicit vault root as a JSON argument prefix. Maintenance commands use that prefix, so a private vault needs no local package manifest or virtual environment. The source inventory is still a separate untrusted JSON list.
