@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Upgrade FastEmbed to the compatible 0.8 line and require Pillow 12.3 or newer to exclude the affected image-decoding releases.
+
 - Pass an explicit external backend command to inbox jobs so fresh private vaults need no colocated environment.
 
 - Preserve existing plugin preferences when a settings write is interrupted by publishing settings atomically.

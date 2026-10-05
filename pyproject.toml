@@ -6,7 +6,8 @@ requires-python = ">=3.11"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
 dependencies = [
-    "fastembed>=0.7,<0.8",
+    "fastembed>=0.8.1,<0.9",
+    "pillow>=12.3.0,<13",
     "fonttools>=4,<5",
     "mcp>=1.28,<2",
     "pydantic>=2,<3",
