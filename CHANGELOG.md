@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Preserve existing plugin preferences when a settings write is interrupted by publishing settings atomically.
+
 - License Reader software under Apache-2.0; vault content retains its existing rights.
 
 - Separate reusable Reader code from the private vault and its Git history.

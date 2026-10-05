@@ -1,6 +1,7 @@
 import { readFile, mkdir, copyFile, lstat } from 'node:fs/promises';
 import { resolve, join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import {writeSettings} from './settings.mjs';
 const project = dirname(fileURLToPath(import.meta.url));
 if (!process.argv[2]) throw new Error('Pass the private vault path: npm run install:vault -- /path/to/vault');
 const vault = resolve(process.argv[2]);
@@ -30,4 +31,4 @@ try {
   if ((await lstat(settingsPath)).isSymbolicLink()) throw new Error('Refusing symlink settings');
   settings = JSON.parse(await readFile(settingsPath, 'utf8'));
 } catch (error) { if (error.code !== 'ENOENT') throw error; }
-await (await import('node:fs/promises')).writeFile(settingsPath, JSON.stringify({...settings, backendRoot: code}, null, 2));
+await writeSettings(settingsPath, {...settings, backendRoot: code});
