@@ -17,7 +17,7 @@ for (const path of [join(config, 'plugins'), dest]) {
   catch (error) { if (error.code !== 'ENOENT') throw error; }
 }
 await mkdir(dest, { recursive: true });
-for (const name of ['main.js', 'manifest.json', 'styles.css']) {
+for (const name of ['main.js', 'manifest.json', 'styles.css', 'LICENSE']) {
   const path = join(dest, name);
   try { if ((await lstat(path)).isSymbolicLink()) throw new Error(`Refusing symlink: ${path}`); }
   catch (error) { if (error.code !== 'ENOENT') throw error; }

@@ -12,6 +12,7 @@ async function fixture(){
   await copyFile(resolve('install.mjs'),join(project,'install.mjs'));
   try{await copyFile(resolve('settings.mjs'),join(project,'settings.mjs'));}catch(e){if((e as NodeJS.ErrnoException).code!=='ENOENT')throw e;}
   await writeFile(join(project,'dist/manifest.json'),JSON.stringify({id:'reader',version:'test'}));
+  await writeFile(join(project,'dist/LICENSE'),'Apache-2.0 fixture');
   await writeFile(join(project,'dist/main.js'),'// fixture');await writeFile(join(project,'dist/styles.css'),'/* fixture */');
   const settings=JSON.stringify({participant:'A reader',codexPath:'/example/tool',dateMode:'arrival'});
   await writeFile(join(dest,'data.json'),settings);
