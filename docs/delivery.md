@@ -14,16 +14,16 @@ Say “you got mail” in Reader when you want the librarian to file the deliver
 
 Supported execution environment: macOS or Linux, Python 3.11+, `uv`, and a local Codex installation for the provided installer. The reader-facing Markdown vault has no runtime dependency. Delivery uses Pydantic 2 and the official MCP Python SDK v1 maintenance line (`mcp>=1.28,<2`); `uv.lock` fixes the resolved environment.
 
-From the Reader checkout:
+Set `READER_ROOT` to your private vault path. From the separate code checkout:
 
 ```sh
 uv sync --locked
-python3 scripts/install.py
+python3 scripts/install.py --vault "$READER_ROOT"
 uv run --locked pytest -q
 uv run --locked python scripts/verify_installation.py
 ```
 
-The installer registers `reader` through `codex mcp add` using this checkout's absolute virtual-environment interpreter and an explicit vault root. It symlinks `skills/reader` into `$CODEX_HOME/skills/reader`, falling back to `~/.codex/skills/reader`. Runtime machine paths are generated during installation, not embedded in source. It refuses to overwrite an unrelated skill or an MCP entry with a different launch command. An identical installation is safe to repeat. The environment must already exist; the installer does not install packages or alter shell configuration.
+The installer registers `reader` through `codex mcp add` using this checkout's absolute virtual-environment interpreter and an explicit vault root. It installs Reader, Upkeep, and Reflective Reading skill symlinks; the Reader link is `$CODEX_HOME/skills/reader`, falling back to `~/.codex/skills/reader`. Runtime machine paths are generated during installation, not embedded in source. It refuses to overwrite an unrelated skill or an MCP entry with a different launch command. An identical installation is safe to repeat. The environment must already exist; the installer does not install packages or alter shell configuration.
 
 The symlink keeps the installed skill current with the checked-out source. Keep this checkout available. Run `uv sync --locked` after dependency changes. If the checkout moves, remove the old Reader registration and skill symlink using the uninstall procedure, recreate the virtual environment at the new path, and reinstall.
 

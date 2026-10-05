@@ -4,14 +4,14 @@ The optional desktop plugin adds **Reader** to Obsidian's right sidebar. It foll
 
 ## Install and update
 
-Use Node 22.18 or later. From this checkout:
+Use Node 22.18 or later. Set `READER_ROOT` to the existing private vault path. From the code checkout:
 
 ```sh
 npm --prefix plugins/reader ci
 npm --prefix plugins/reader run check
 npm --prefix plugins/reader test
 npm --prefix plugins/reader run build
-npm --prefix plugins/reader run install:vault
+npm --prefix plugins/reader run install:vault -- "$READER_ROOT"
 ```
 
 The installer copies `main.js`, `manifest.json`, and `styles.css` to `.obsidian/plugins/reader/`. It preserves plugin settings and other plugins. An optional path argument to `node plugins/reader/install.mjs /path/to/vault` selects another existing vault. That vault must have the same Reader library layout for relationship features.

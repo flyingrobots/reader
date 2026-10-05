@@ -10,7 +10,7 @@ The existing installer in [delivery setup](delivery.md#setup-and-dependencies) r
 
 ## Setup and use
 
-From the Reader checkout:
+Set `READER_ROOT` to the private vault path. From the code checkout:
 
 ```sh
 uv sync --locked

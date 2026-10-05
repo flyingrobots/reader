@@ -21,7 +21,7 @@ def docker(*args, **kwargs):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('kind', choices=['python', 'node'])
+    parser.add_argument('kind', choices=['python', 'node', 'formatter'])
     args = parser.parse_args()
     RUNTIME.mkdir(parents=True, exist_ok=True)
     with (RUNTIME / 'validation.lock').open('w') as lock:
@@ -30,7 +30,7 @@ def main():
             raise RuntimeError('Host free space below 50 GiB')
         kind = args.kind
         name = 'reader-' + kind + '-checks'
-        image = 'python:3.12-bookworm' if kind == 'python' else 'node:24.18.0'
+        image = {'python':'python:3.12-bookworm','node':'node:24.18.0','formatter':'rust:1.96.0'}[kind]
         docker('image', 'inspect', image, stdout=subprocess.DEVNULL)
         prior = subprocess.run(['docker', 'inspect', name], capture_output=True, text=True)
         if prior.returncode == 0:
@@ -38,12 +38,12 @@ def main():
         # Only selected software paths. No host mount and no vault files enter the worker.
         stream = io.BytesIO()
         with tarfile.open(fileobj=stream, mode='w') as archive:
-            for top in ['src','tests','scripts','skills','schemas','plugins','pyproject.toml','uv.lock']:
+            for top in ['src','tests','scripts','skills','schemas','plugins','pyproject.toml','uv.lock','.reader/tooling/bin/wide-md','.reader/tooling/installed.json']:
                 for path in ([ROOT/top] if (ROOT/top).is_file() else sorted((ROOT/top).rglob('*'))):
                     rel = path.relative_to(ROOT)
                     if path.is_file() and not path.is_symlink() and not any(p in ('node_modules','dist','__pycache__') for p in rel.parts):
                         archive.add(path, arcname=str(rel), recursive=False)
-        if stream.tell() > 16 * 1024**2:
+        if stream.tell() > 24 * 1024**2:
             raise RuntimeError('Unexpectedly large software input')
         contract = dict(worker=name,image=image,host_free=shutil.disk_usage(ROOT).free,
                         writable_paths={'/work':2*GIB,'/tmp':1024**3},read_only_root=True,
@@ -67,6 +67,12 @@ def main():
                    'npm --prefix plugins/reader ci --cache /work/npm-cache && '
                    'npm --prefix plugins/reader run check && npm --prefix plugins/reader test && '
                    'npm --prefix plugins/reader run build')
+            if kind=='formatter':
+                cmd = ('git init /work/formatter && git -C /work/formatter fetch --depth=1 '
+                       'https://github.com/flyingrobots/wide-md c167101b32bbe37954429e9de5db33efcdc0a16c && '
+                       'git -C /work/formatter checkout --detach FETCH_HEAD && '
+                       'CARGO_HOME=/work/cargo CARGO_TARGET_DIR=/work/target CARGO_INCREMENTAL=0 '
+                       'cargo build --manifest-path /work/formatter/Cargo.toml --release --locked -j 2')
             log = RUNTIME/(kind+'.log')
             with log.open('wb') as output:
                 process = subprocess.Popen(['docker','exec',name,'sh','-c',cmd],stdout=subprocess.PIPE,stderr=subprocess.STDOUT)
@@ -91,6 +97,15 @@ def main():
                     if process.poll() is None:process.kill();process.wait()
             usage=docker('exec',name,'du','-sk','/work','/tmp',capture_output=True,text=True).stdout
             (RUNTIME/(kind+'-usage.txt')).write_text(usage)
+            if kind=='formatter':
+                import hashlib
+                data=docker('exec',name,'cat','/work/target/release/wide-md',capture_output=True).stdout
+                if len(data)>16*1024**2:raise RuntimeError('Formatter artifact limit reached')
+                target=ROOT/'.reader/tooling/bin/wide-md';target.parent.mkdir(parents=True,exist_ok=True)
+                target.write_bytes(data);target.chmod(0o755)
+                (ROOT/'.reader/tooling/installed.json').write_text(json.dumps({
+                    'revision':'c167101b32bbe37954429e9de5db33efcdc0a16c',
+                    'executable_sha256':hashlib.sha256(data).hexdigest(),'platform':'linux-container'}))
             if kind=='node':
                 (ROOT/'plugins/reader/dist').mkdir(exist_ok=True)
                 for file in ['main.js','styles.css','manifest.json']:
