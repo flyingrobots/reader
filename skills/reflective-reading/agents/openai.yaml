@@ -1,0 +1,4 @@
+interface:
+  display_name: "Reflective Reading"
+  short_description: "Read, reflect, annotate, and develop new connections"
+  default_prompt: "Use $reflective-reading to study this document, annotate worthwhile passages and concerns, and revisit the notes for new connections."

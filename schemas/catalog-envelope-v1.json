@@ -1,0 +1,167 @@
+{
+  "$defs": {
+    "JsonValue": {}
+  },
+  "additionalProperties": {
+    "$ref": "#/$defs/JsonValue"
+  },
+  "description": "Catalog identity belongs to its metadata owner, which may be a sidecar.",
+  "properties": {
+    "frontmatter_schema_version": {
+      "const": 1,
+      "title": "Frontmatter Schema Version",
+      "type": "integer"
+    },
+    "document_revision": {
+      "maximum": 9223372036854775807,
+      "minimum": 1,
+      "title": "Document Revision",
+      "type": "integer"
+    },
+    "title": {
+      "maxLength": 1000,
+      "minLength": 1,
+      "pattern": "\\S",
+      "title": "Title",
+      "type": "string"
+    },
+    "type": {
+      "maxLength": 100,
+      "minLength": 1,
+      "pattern": "\\S",
+      "title": "Type",
+      "type": "string"
+    },
+    "added": {
+      "anyOf": [
+        {
+          "format": "date",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Added"
+    },
+    "created": {
+      "anyOf": [
+        {
+          "format": "date",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Created"
+    },
+    "updated": {
+      "anyOf": [
+        {
+          "format": "date",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Updated"
+    },
+    "author": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Author"
+    },
+    "source": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Source"
+    },
+    "tags": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Tags",
+      "type": "array"
+    },
+    "document_id": {
+      "format": "uuid",
+      "title": "Document Id",
+      "type": "string"
+    },
+    "document_path": {
+      "title": "Document Path",
+      "type": "string"
+    },
+    "metadata_created": {
+      "format": "date",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+      "title": "Metadata Created",
+      "type": "string"
+    },
+    "kind": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Kind"
+    },
+    "schema_version": {
+      "anyOf": [
+        {
+          "const": 1,
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "deprecated": true,
+      "title": "Schema Version"
+    }
+  },
+  "required": [
+    "frontmatter_schema_version",
+    "document_revision",
+    "title",
+    "type",
+    "document_id",
+    "document_path",
+    "metadata_created"
+  ],
+  "title": "CatalogEnvelope",
+  "type": "object"
+}
