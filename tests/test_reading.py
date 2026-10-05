@@ -19,7 +19,7 @@ TOOLING = PROJECT / '.reader/tooling'
 @pytest.fixture
 def vault(tmp_path):
     if not (TOOLING / 'installed.json').exists():
-        pytest.skip('Run python3 scripts/install_wide_md.py for real formatter integration tests')
+        pytest.skip('Run python3 scripts/check_container.py formatter for code-local Linux formatter tests')
     (tmp_path / 'library').mkdir()
     (tmp_path / 'inbox').mkdir()
     tools = tmp_path / '.reader/tooling'
