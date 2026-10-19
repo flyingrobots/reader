@@ -6,7 +6,7 @@ Reader accepts reports from other local projects through a reusable skill, deliv
 
 In another project, ask **“Use $reader to write your report to Reader”** or **“Add this document to Reader.”** The skill records known provenance, delivers the document with its attachments, and returns a clickable document path and receipt ID. If MCP is unavailable in that session, the skill uses its local command helper.
 
-For a new installation, start a fresh Codex session if the skill or tools do not appear. This is a local stdio integration: it does not make the library available to hosted chats or agents on another machine.
+For a new installation, start a fresh Codex session if the skill or tools do not appear. This is a local stdio integration: it does not make the library available to hosted chats. Agents on another of your machines can deliver over SSH; see [remote delivery](#remote-delivery-over-ssh).
 
 Say “you got mail” in Reader when you want the librarian to file the delivered material. A successful submission reports `awaiting_filing` and `integrity: intact`; that is receipt of the material, not editorial review or cataloging.
 
@@ -82,6 +82,37 @@ python3 "$HOME/.codex/skills/reader/scripts/reader.py" status RECEIPT_UUID
 
 The core CLI also accepts `READER_ROOT` instead of `--root`, and `ingest -` reads JSON from standard input. It does not infer the vault from the calling project's current directory. Successful output is JSON; CLI failures exit nonzero and describe the error on stderr. MCP failures are tool errors. Neither adapter executes source content.
 
+## Remote delivery over SSH
+
+Another computer can deliver into this vault's inbox through the skill's command helper. The delivering machine needs Python 3, OpenSSH and a copy of the Reader skill (for example a clone of this repository with `skills/reader` linked into its agent's skills folder). It does not need the Reader environment or a vault. The vault machine needs SSH login enabled (on macOS, System Settings → General → Sharing → Remote Login), an installed Reader checkout, and `python3` on the login `PATH`.
+
+Set it up once, from the delivering machine, in a terminal where you can type the vault machine's password:
+
+```sh
+python3 /path/to/skills/reader/scripts/reader.py remote-setup user@vault-host
+```
+
+`remote-setup` checks whether a working Reader key is already configured and stops if it is. Otherwise it creates a dedicated key (`~/.ssh/reader_ed25519`, no passphrase unless `--passphrase`), logs in once with your existing SSH credentials or password, and runs `remote-authorize` on the vault machine. That adds one entry to the vault user's `~/.ssh/authorized_keys`:
+
+```text
+restrict,command="/path/to/python3 /path/to/skills/reader/scripts/reader.py remote-gate --scope deliver" ssh-ed25519 AAAA… reader-remote@laptop
+```
+
+`restrict` disables shells, terminals, port, agent and X11 forwarding for that key; the forced command means it can run only `remote-gate`. Setup then writes `~/.config/reader/remote.json` (mode 600) on the delivering machine and verifies the key in batch mode. It changes nothing else: no SSH client configuration, and no other `authorized_keys` line. Rerunning is safe; `--force` reauthorizes, and a scope change replaces the Reader entry. If the same key is already authorized without the forced command, `remote-authorize` refuses rather than restricting a key used for other logins. Options: `--port`, `--key`, `--passphrase` (then load it into `ssh-agent`), `--server-helper PATH` when the vault machine's helper is not in `~/.claude/skills/reader` or `$CODEX_HOME/skills/reader`, and `--scope`.
+
+| Scope | Allowed operations |
+| --- | --- |
+| `deliver` (default) | `ingest`, `status`, `ping` |
+| `library` | also `search`, `read`, `annotate`, `curation`, and `serve` (the MCP server over SSH) |
+
+`deliver` cannot read library contents. Choose `library` only for a machine you would trust with the whole vault: anyone holding that key file can read it.
+
+While `remote.json` exists, the helper sends commands to the vault machine instead of looking for a local checkout (`READER_REMOTE=local` overrides this, and `READER_REMOTE_CONFIG` names another config file). `ingest` reads `document_path` and attachment sources on the delivering machine, sends their bytes after a JSON header line with each file's length and SHA-256, and the gate stages them under the vault's ignored `.reader/remote-staging/`, checks them, runs the ordinary ingest, and removes the staging copy. Receipts, retries and limits are the same as local delivery; because the receipt fingerprint excludes source paths, retrying with the same UUID returns the original receipt. The returned `document_path` is a path on the vault machine.
+
+With `library` scope, an MCP client on the delivering machine can launch `ssh -i ~/.ssh/reader_ed25519 -o IdentitiesOnly=yes user@vault-host reader-remote serve` as its stdio command. Through that route `reader_ingest` accepts inline Markdown only, since `document_path` would name a file on the vault machine; use the helper for files.
+
+Use a stable address for the vault machine, such as its local hostname or a private network name (Tailscale, WireGuard). Exposing SSH to the internet is outside this design. To revoke a machine, delete its `reader-remote` line from the vault user's `authorized_keys`; delete `remote.json` and the key on the delivering machine to return it to local mode.
+
 ## Receipts, retries, and filing
 
 Each accepted request publishes `inbox/<uuid>/` containing its payloads and `receipt.json`. The receipt records a schema version, ID, title, document path relative to the bundle, optional provenance, UTC receipt time, per-file byte lengths and SHA-256 hashes, and a fingerprint of the submission's title, document path, provenance, and file descriptors. It is a content integrity record, not a cryptographic signature or proof that a report's claims are true.
@@ -106,13 +137,15 @@ Files are staged under ignored `.reader/staging/`. Cooperating processes seriali
 
 Before cleaning staging residue, stop active Reader server/client processes, inspect the leftover files, and check the corresponding receipt ID. Retain recoverable material until the original or a complete delivery is verified. Only remove the specific abandoned staging directory you have inspected. Never clear the inbox or library to recover from a failed submission. This design addresses process interruption and cooperating local writers; it is not a power-loss durability guarantee or protection against hostile filesystem mutation. Local receipts are not remote backups.
 
-The MCP process has the operating-system access of its local caller and may read explicitly supplied paths, including resolved symlink sources. It exposes only local stdio, with no remote authentication layer. Do not expose this server as a remote service without a separately designed access boundary. Payload size limits apply after protocol decoding, so they are not a transport-level memory isolation mechanism.
+The MCP process has the operating-system access of its local caller and may read explicitly supplied paths, including resolved symlink sources. It exposes only local stdio, with no remote authentication layer of its own. Remote access goes only through the restricted SSH gate described above; do not expose the server in any other way. Payload size limits apply after protocol decoding, so they are not a transport-level memory isolation mechanism.
 
 ## Verification and removal
 
 `uv run --locked pytest -q` runs isolated functional tests. `scripts/verify_installation.py` additionally reads the actual Codex Reader registration, launches its stdio command from a temporary external project, delivers a Markdown document and binary attachment into the real inbox, checks status, and retries through the installed skill helper. It removes only its own verified temporary bundle. If that fixture has changed, it leaves it for inspection. It does not start a model session or verify automatic conversational skill selection.
 
-The skill's frontmatter can be checked with the skill-creator package's `scripts/quick_validate.py` when available; that validator requires PyYAML. When validating installation, compare parsed Codex settings before and after to check that unrelated configuration is preserved. Record observed versions and results in `activity/`. Whole-library link validation, real Obsidian rendering, remote-client support, and automatic classification are not provided by these delivery checks. Search has its own [verification procedure](search.md#verification).
+The skill's frontmatter can be checked with the skill-creator package's `scripts/quick_validate.py` when available; that validator requires PyYAML. When validating installation, compare parsed Codex settings before and after to check that unrelated configuration is preserved. Record observed versions and results in `activity/`. Whole-library link validation, real Obsidian rendering, and automatic classification are not provided by these delivery checks. Search has its own [verification procedure](search.md#verification).
+
+`tests/test_remote_delivery.py` covers remote delivery without a network: framing, damaged streams, scope refusals, `authorized_keys` updates, and the helper in remote mode through a stand-in `ssh` (`READER_SSH`). To check a real SSH path, run a throwaway `sshd` as your own user on a loopback port with its own host key, `AuthorizedKeysFile`, and `SetEnv READER_AUTHORIZED_KEYS=… READER_ROOT=<test vault>`, point `READER_SSH` at a wrapper that adds `-p` and a temporary known-hosts file, and run `remote-setup`, `ingest`, a retry, and a refused shell login.
 
 To uninstall, stop active clients, run `codex mcp remove reader`, and remove only the installed `reader` skill symlink after checking its target. The repository, inbox bundles, library, and receipts remain intact. The virtual environment can be recreated with `uv sync --locked`; it contains no canonical library documents.
 

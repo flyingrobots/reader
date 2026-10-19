@@ -91,6 +91,18 @@ Success requires `status: awaiting_filing` (or `filed` on a retry) and `integrit
 
 On an uncertain response, query `reader_status` with the same UUID before retrying. Retry with the same UUID and identical content and provenance; never generate a fresh UUID merely to bypass an error. A reused ID with different content is a conflict. If integrity needs attention, stop and report the receipt details instead of overwriting the delivery.
 
+## Deliver from another machine
+
+If this machine has no Reader vault, the helper can deliver to the user's vault on another computer over SSH. When `~/.config/reader/remote.json` exists, the helper commands above (`ingest`, `status`, and with the `library` key scope also `search`, `read`, `annotate`, `curation`) run on that computer automatically. Use the helper, not MCP; local paths in the request are read on this machine and their bytes are sent. The returned `document_path` is on the vault computer, so report it as a path there.
+
+If delivery is requested and neither a local vault nor `remote.json` exists, or the helper reports an SSH failure, offer remote setup. It needs the vault computer's SSH address and, once, the user's login there, so ask the user to run it in their own terminal (in Claude Code, `! python3 /path/to/this/skill/scripts/reader.py remote-setup user@vault-host`):
+
+```sh
+python3 /path/to/this/skill/scripts/reader.py remote-setup user@vault-host
+```
+
+It reuses an existing working setup, otherwise creates a dedicated Reader key and authorizes it on the vault computer for delivery only. Do not create or change SSH keys, `authorized_keys` or SSH configuration yourself. Suggest `--scope library` only when the user wants search and reading from this machine too. Details are in the checkout's `docs/delivery.md`.
+
 ## Separate private vault
 
 Code and library have separate roots. Helpers resolve the vault from `READER_ROOT`, otherwise the ignored code-checkout `.reader/config.json`. Run `python3 scripts/reader_paths.py` from the code checkout to locate it. Read library documents, AGENTS.md, activity, and inbox only from that configured vault. Use code-checkout helpers; do not infer a vault from the current project. If no vault is configured, report the missing setup instead of creating one in the code repository.
