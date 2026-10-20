@@ -84,7 +84,9 @@ The core CLI also accepts `READER_ROOT` instead of `--root`, and `ingest -` read
 
 ## Remote delivery over SSH
 
-Another computer can deliver into this vault's inbox through the skill's command helper. The delivering machine needs Python 3, OpenSSH and a copy of the Reader skill (for example a clone of this repository with `skills/reader` linked into its agent's skills folder). It does not need the Reader environment or a vault. The vault machine needs SSH login enabled (on macOS, System Settings → General → Sharing → Remote Login), an installed Reader checkout, and `python3` on the login `PATH`.
+Remote delivery is optional and off by default. Nothing listens on the network, and nothing changes on either machine until you run `remote-setup`. Without `~/.config/reader/remote.json`, the helper behaves exactly as described above.
+
+Once set up, another computer can deliver into this vault's inbox through the skill's command helper. The delivering machine needs Python 3, OpenSSH and a copy of the Reader skill (for example a clone of this repository with `skills/reader` linked into its agent's skills folder). It does not need the Reader environment or a vault. The vault machine needs SSH login enabled (on macOS, System Settings → General → Sharing → Remote Login), an installed Reader checkout, and `python3` on the login `PATH`.
 
 Set it up once, from the delivering machine, in a terminal where you can type the vault machine's password:
 

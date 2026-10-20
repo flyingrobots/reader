@@ -6,6 +6,6 @@ The backend currently supports macOS and Linux.
 
 Reader code and your private vault live in separate repositories. This repository contains no library documents or vault history.
 
-See [separate-vault setup](docs/separate-vault.md), [Obsidian](docs/obsidian-plugin.md), [search](docs/search.md), [annotations](docs/annotations.md), and the [roadmap](planning/roadmap.md).
+See [separate-vault setup](docs/separate-vault.md), [Obsidian](docs/obsidian-plugin.md), [search](docs/search.md), [annotations](docs/annotations.md), [delivery](docs/delivery.md) (including optional [delivery from another machine over SSH](docs/delivery.md#remote-delivery-over-ssh)), and the [roadmap](planning/roadmap.md).
 
 Licensed under the [Apache License 2.0](LICENSE). This software license does not relicense documents stored in private vaults; their existing rights and attribution remain in force.
