@@ -23,7 +23,9 @@ def main():
     reading.add_argument("path", help="Library-relative original Markdown path")
     status = commands.add_parser("status", help="Inspect a receipt by UUID")
     status.add_argument("request_id")
-    commands.add_parser("serve", help="Run the local MCP server over stdio")
+    serve_parser = commands.add_parser("serve", help="Run the local MCP server over stdio")
+    serve_parser.add_argument("--inline-only", action="store_true",
+                              help="Refuse ingest requests that name local files (used for remote sessions)")
     index = commands.add_parser("index", help="Refresh the rebuildable library search index")
     index.add_argument("--no-semantic", action="store_true", help="Skip model download and embedding")
     search = commands.add_parser("search", help="Search library paths and contents")
@@ -65,7 +67,7 @@ def main():
         store = Store(Path(args.root))
         if args.command == "serve":
             from .server import serve
-            serve(store)
+            serve(store, inline_only=args.inline_only)
             return
         if args.command == "ingest":
             request = sys.stdin.read() if args.request == "-" else Path(args.request).read_text()
