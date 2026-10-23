@@ -7,6 +7,7 @@ the Reader operations allowed by its scope.
 """
 
 import argparse
+import fcntl
 import hashlib
 import json
 import os
@@ -25,6 +26,8 @@ MAX_FILE = 32 * 1024 * 1024
 MAX_TOTAL = 64 * 1024 * 1024
 MAX_FILES = 64
 MAX_HEADER = 48 * 1024 * 1024
+PING_TIMEOUT = 30
+GATE_REFUSAL = 'this key only accepts reader-remote commands'
 DEFAULT_KEY = '~/.ssh/reader_ed25519'
 SCOPES = {
     'deliver': {'ping', 'ingest', 'status'},
@@ -48,7 +51,17 @@ def load_config():
     if os.environ.get('READER_REMOTE', '').lower() in ('0', 'off', 'local'):
         return None
     path = config_path()
-    return json.loads(path.read_text()) if path.is_file() else None
+    if not path.is_file():
+        return None
+    try:
+        config = json.loads(path.read_text())
+    except ValueError:
+        config = None
+    if not (isinstance(config, dict) and isinstance(config.get('host'), str)
+            and isinstance(config.get('identity'), str)):
+        raise ValueError(f'{path} is not a valid remote configuration; run reader.py remote-setup again '
+                         'or set READER_REMOTE=local')
+    return config
 
 
 def ssh_command(config: dict, remote_args, batch=True) -> list:
@@ -82,6 +95,8 @@ def read_local(value: str) -> bytes:
 def encode_delivery(submission: dict) -> bytes:
     """Replace local source paths with the bytes they name, framed after one JSON header line."""
     submission = dict(submission)
+    if len(submission.get('attachments') or []) + (submission.get('document_path') is not None) > MAX_FILES:
+        raise ValueError('Delivery exceeds the 64-file limit')
     payloads, files = [], []
     document = submission.pop('document_path', None)
     if document is not None:
@@ -93,8 +108,10 @@ def encode_delivery(submission: dict) -> bytes:
         payloads.append(read_local(attachment.pop('source_path')))
         files.append({'role': 'attachment'})
         attachments.append(attachment)
-    if len(payloads) > MAX_FILES or sum(map(len, payloads)) > MAX_TOTAL:
-        raise ValueError('Delivery exceeds the 64-file or 64 MiB limit')
+        if sum(map(len, payloads)) > MAX_TOTAL:
+            raise ValueError('Delivery exceeds the 64 MiB limit')
+    if document is not None and sum(map(len, payloads)) > MAX_TOTAL:
+        raise ValueError('Delivery exceeds the 64 MiB limit')
     for item, data in zip(files, payloads):
         item.update(bytes=len(data), sha256=hashlib.sha256(data).hexdigest())
     header = {'remote_delivery': 1, 'submission': {**submission, 'attachments': attachments}, 'files': files}
@@ -111,8 +128,9 @@ def client(args, config) -> int:
             raise ValueError('Usage: ingest REQUEST.json (or - for stdin)')
         raw = sys.stdin.buffer.read() if rest[0] == '-' else Path(rest[0]).read_bytes()
         stdin, rest = encode_delivery(json.loads(raw)), []
-    elif op in ('annotate', 'curation') and rest and rest[-1] != '-' and (op == 'annotate' or rest[0] == 'mark'):
-        stdin, rest[-1] = Path(rest[-1]).read_bytes(), '-'
+    elif op in ('annotate', 'curation') and rest and (op == 'annotate' or rest[0] == 'mark'):
+        stdin = sys.stdin.buffer.read() if rest[-1] == '-' else Path(rest[-1]).read_bytes()
+        rest[-1] = '-'
     elif op == 'serve':
         raise ValueError('For MCP, configure your client to run: ' + shlex.join(ssh_command(config, ['reader-remote', 'serve'])))
     result = subprocess.run(ssh_command(config, ['reader-remote', op, *rest]), input=stdin)
@@ -122,7 +140,11 @@ def client(args, config) -> int:
 
 
 def ping(config) -> bool:
-    result = subprocess.run(ssh_command(config, ['reader-remote', 'ping']), capture_output=True, text=True)
+    try:
+        result = subprocess.run(ssh_command(config, ['reader-remote', 'ping']), capture_output=True, text=True,
+                                stdin=subprocess.DEVNULL, timeout=PING_TIMEOUT)
+    except subprocess.TimeoutExpired:
+        return False
     return result.returncode == 0 and '"ok": true' in result.stdout
 
 
@@ -138,9 +160,12 @@ def setup(argv) -> int:
     parser.add_argument('--server-helper', help="Absolute path of reader.py on the vault machine, if not in a skills folder")
     parser.add_argument('--force', action='store_true', help='Authorize again even if the key already works')
     args = parser.parse_args(argv)
-    key = Path(args.key).expanduser()
+    key = Path(os.path.abspath(Path(args.key).expanduser()))
     config = {'host': args.host, 'identity': str(key), 'scope': args.scope, **({'port': args.port} if args.port else {})}
-    existing = load_config()
+    try:
+        existing = load_config()
+    except ValueError:
+        existing = None  # setup rewrites a damaged configuration
     if not args.force and existing and {k: existing.get(k) for k in config} == config and key.is_file() and ping(config):
         print(f'Reader remote delivery to {args.host} is already set up ({args.scope} scope).')
         return 0
@@ -157,8 +182,14 @@ def setup(argv) -> int:
     remote = (shlex.join(['python3', args.server_helper, 'remote-authorize', '--scope', args.scope])
               if args.server_helper else HELPER_SEARCH % args.scope)
     print(f'Authorizing the key on {args.host}. SSH may ask for your password on that machine once.')
-    login = [os.environ.get('READER_SSH', 'ssh')] + (['-p', str(args.port)] if args.port else []) + [args.host, remote]
-    if subprocess.run(login, input=public).returncode != 0:
+    login = [os.environ.get('READER_SSH', 'ssh')] + (['-p', str(args.port)] if args.port else [])
+    result = subprocess.run(login + [args.host, remote], input=public, stderr=subprocess.PIPE)
+    sys.stderr.buffer.write(result.stderr)
+    if result.returncode != 0 and GATE_REFUSAL.encode() in result.stderr:
+        # ssh-agent offered the Reader key itself, which reaches the gate; log in with configured identities only.
+        print('Retrying without ssh-agent keys, which included the Reader key.', file=sys.stderr)
+        result = subprocess.run(login + ['-o', 'IdentitiesOnly=yes', args.host, remote], input=public)
+    if result.returncode != 0:
         print('Reader: authorization failed; nothing was saved on this machine', file=sys.stderr)
         return 1
     path = config_path()
@@ -195,6 +226,8 @@ def stage_delivery(stream, staging: Path) -> dict:
     if not line.endswith(b'\n') or len(line) > MAX_HEADER:
         raise ValueError('Missing or oversized delivery header')
     header = json.loads(line)
+    if not isinstance(header, dict):
+        raise ValueError('Unrecognized delivery header')
     files, submission = header.get('files'), header.get('submission')
     if header.get('remote_delivery') != 1 or not isinstance(files, list) or not isinstance(submission, dict):
         raise ValueError('Unrecognized delivery header')
@@ -205,6 +238,8 @@ def stage_delivery(stream, staging: Path) -> dict:
         raise ValueError('Delivery exceeds the 32 MiB per-file or 64 MiB total limit')
     roles = [item.get('role') for item in files]
     attachments = submission.get('attachments') or []
+    if not isinstance(attachments, list) or not all(isinstance(a, dict) for a in attachments):
+        raise ValueError('Delivery header does not match its submission')
     expected = (['document'] if submission.get('markdown') is None else []) + ['attachment'] * len(attachments)
     if roles != expected or 'document_path' in submission or any('source_path' in a for a in attachments):
         raise ValueError('Delivery header does not match its submission')
@@ -234,7 +269,7 @@ def gate(scope: str, cli: list, state: Path, environ=os.environ, stdin=None) -> 
     except ValueError:
         argv = []
     if len(argv) < 2 or argv[0] != 'reader-remote':
-        print('Reader: this key only accepts reader-remote commands', file=sys.stderr)
+        print(f'Reader: {GATE_REFUSAL}', file=sys.stderr)
         return 2
     op, rest = argv[1], argv[2:]
     if op not in SCOPES.get(scope, ()):
@@ -246,12 +281,20 @@ def gate(scope: str, cli: list, state: Path, environ=os.environ, stdin=None) -> 
     if op == 'ping':
         print(json.dumps({'ok': True, 'scope': scope}))
         return 0
-    if op == 'status' and len(rest) == 1:
+    if op == 'status':
         try:
+            if len(rest) != 1:
+                raise ValueError
             UUID(rest[0])
         except ValueError:
-            print('Reader: status needs a receipt UUID', file=sys.stderr)
+            print('Reader: status needs exactly one receipt UUID', file=sys.stderr)
             return 2
+    if op == 'serve':
+        if rest:
+            print('Reader: remote serve takes no arguments', file=sys.stderr)
+            return 2
+        # Remote MCP clients must not name files on this machine.
+        rest = ['--inline-only']
     if op in ('annotate', 'curation') and rest[-1:] != ['-'] and rest[:1] != ['list']:
         print('Reader: remote annotate/curation mark requests are read from stdin', file=sys.stderr)
         return 2
@@ -291,6 +334,16 @@ def authorize(argv, helper: Path, python=sys.executable, stdin=None) -> int:
     entry = f'restrict,command="{command}" {kind} {blob}' + (f' {comment}' if comment else '')
     path = Path(os.environ.get('READER_AUTHORIZED_KEYS') or '~/.ssh/authorized_keys').expanduser()
     path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+    # Hold a sidecar lock across read-modify-replace so concurrent setups cannot drop each other's keys.
+    lock_fd = os.open(path.with_name(path.name + '.reader-lock'), os.O_WRONLY | os.O_CREAT, 0o600)
+    try:
+        fcntl.flock(lock_fd, fcntl.LOCK_EX)
+        return update_authorized_keys(path, entry, blob, args.scope)
+    finally:
+        os.close(lock_fd)
+
+
+def update_authorized_keys(path: Path, entry: str, blob: str, scope: str) -> int:
     existing = path.read_bytes().decode().splitlines(keepends=True) if path.exists() else []
     output, changed, found = [], False, False
     for line in existing:
@@ -314,5 +367,5 @@ def authorize(argv, helper: Path, python=sys.executable, stdin=None) -> int:
             stream.write(''.join(output))
         os.chmod(temporary, 0o600)
         os.replace(temporary, path)
-    print(json.dumps({'authorized': True, 'scope': args.scope, 'changed': changed}))
+    print(json.dumps({'authorized': True, 'scope': scope, 'changed': changed}))
     return 0

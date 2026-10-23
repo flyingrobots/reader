@@ -46,12 +46,13 @@ def main():
             raise SystemExit(remote.gate(scope, cli, root / ".reader"))
         except (ValueError, OSError, subprocess.CalledProcessError) as exc:
             sys.exit(f"Reader: {exc}")
-    config = load_remote().load_config()
-    if config:
-        try:
-            raise SystemExit(load_remote().client(args, config))
-        except (ValueError, OSError) as exc:
-            sys.exit(f"Reader: {exc}")
+    remote = load_remote()
+    try:
+        config = remote.load_config()
+        if config:
+            raise SystemExit(remote.client(args, config))
+    except (ValueError, OSError) as exc:
+        sys.exit(f"Reader: {exc}")
     _, cli = local()
     raise SystemExit(subprocess.call([*cli, *args]))
 

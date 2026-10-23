@@ -103,11 +103,104 @@ def test_deliver_scope_refuses_other_commands(vault, command):
     assert run_gate(vault, command) == 2
 
 
-def test_library_scope_allows_search_and_ping(vault, capfd):
+def test_library_scope_pings_and_refuses_file_requests(vault, capfd):
     assert run_gate(vault, 'reader-remote ping', scope='library') == 0
     assert json.loads(capfd.readouterr().out) == {'ok': True, 'scope': 'library'}
     assert run_gate(vault, 'reader-remote search notes', scope='deliver') == 2
     assert run_gate(vault, 'reader-remote annotate /tmp/request.json', scope='library') == 2
+
+
+ECHO_ARGV = [sys.executable, '-c', 'import json, sys; print(json.dumps([sys.argv[1:], sys.stdin.read()]))']
+
+
+@pytest.mark.parametrize('command, expected', [
+    ('reader-remote search notes --limit 3', ['search', 'notes', '--limit', '3']),
+    ('reader-remote annotate -', ['annotate', '-']),
+    ('reader-remote serve', ['serve', '--inline-only']),
+])
+def test_library_scope_dispatches_to_the_cli(vault, tmp_path, capfd, command, expected):
+    stdin = tmp_path / 'stdin'
+    stdin.write_text('{"op": "list"}')
+    with stdin.open('rb') as stream:
+        assert remote.gate('library', ECHO_ARGV, vault / '.reader', {'SSH_ORIGINAL_COMMAND': command}, stream) == 0
+    assert json.loads(capfd.readouterr().out) == [expected, '{"op": "list"}']
+
+
+@pytest.mark.parametrize('command', ['reader-remote serve --root /tmp', 'reader-remote serve x',
+                                     'reader-remote status', 'reader-remote status a b'])
+def test_gate_refuses_malformed_arguments(vault, command):
+    assert run_gate(vault, command, scope='library') == 2
+
+
+@pytest.mark.parametrize('header', [
+    b'[]', b'"x"',
+    (b'{"remote_delivery": 1, "files": [], '
+     b'"submission": {"markdown": "x", "attachments": "abc"}}'),
+    (b'{"remote_delivery": 1, "files": [{"role": "attachment", "bytes": 0}], '
+     b'"submission": {"markdown": "x", "attachments": [1]}}'),
+])
+def test_malformed_header_is_a_controlled_refusal(vault, capfd, header):
+    assert run_gate(vault, 'reader-remote ingest', header + b'\n') == 1
+    assert 'Traceback' not in capfd.readouterr().err
+
+
+def test_inline_only_mcp_session_refuses_server_files(vault, tmp_path):
+    from mcp import ClientSession, StdioServerParameters
+    from mcp.client.stdio import stdio_client
+    import asyncio
+    secret = tmp_path / 'secret.txt'
+    secret.write_text('private')
+
+    async def exercise():
+        parameters = StdioServerParameters(command=sys.executable, env=dict(os.environ),
+                                           args=['-m', 'reader_mcp.cli', '--root', str(vault), 'serve', '--inline-only'])
+        async with stdio_client(parameters) as (read, write):
+            async with ClientSession(read, write) as client:
+                await client.initialize()
+                base = {'title': 'x', 'provenance': {}}
+                for named in ({'document_path': str(secret)},
+                              {'markdown': '# x', 'attachments': [{'source_path': str(secret), 'path': 'a.txt'}]}):
+                    result = await client.call_tool('reader_ingest', {'submission': {
+                        **base, **named, 'request_id': str(uuid4())}})
+                    assert result.isError and 'inline markdown only' in result.content[0].text
+                inline = await client.call_tool('reader_ingest', {'submission': {
+                    **base, 'markdown': '# x', 'request_id': str(uuid4())}})
+                assert not inline.isError, inline
+    asyncio.run(exercise())
+    assert len(list((vault / 'inbox').iterdir())) == 1
+
+
+def test_encode_delivery_checks_count_before_reading(tmp_path):
+    request = {'markdown': 'x', 'attachments': [{'source_path': '/nonexistent', 'path': f'{i}'} for i in range(65)]}
+    with pytest.raises(ValueError, match='64-file'):
+        remote.encode_delivery(request)
+
+
+def test_client_forwards_stdin_for_dash(tmp_path, monkeypatch):
+    seen = {}
+    monkeypatch.setattr(remote.subprocess, 'run', lambda command, input: seen.update(command=command, input=input)
+                        or subprocess.CompletedProcess(command, 0))
+    monkeypatch.setattr(remote.sys, 'stdin', io.TextIOWrapper(io.BytesIO(b'{"op": "highlight"}')))
+    assert remote.client(['annotate', '-'], {'host': 'h', 'identity': '/k'}) == 0
+    assert seen['input'] == b'{"op": "highlight"}' and seen['command'][-1] == 'reader-remote annotate -'
+
+
+def test_ping_timeout_is_a_failed_ping(monkeypatch):
+    def stalled(*args, **kwargs):
+        assert kwargs['timeout'] == remote.PING_TIMEOUT
+        raise subprocess.TimeoutExpired(args[0], kwargs['timeout'])
+    monkeypatch.setattr(remote.subprocess, 'run', stalled)
+    assert remote.ping({'host': 'h', 'identity': '/k'}) is False
+
+
+def test_damaged_config_is_reported_not_a_traceback(tmp_path, monkeypatch):
+    config = tmp_path / 'remote.json'
+    config.write_text('{"host": ')
+    env = dict(os.environ, READER_REMOTE_CONFIG=str(config))
+    result = subprocess.run([sys.executable, str(SCRIPTS / 'reader.py'), 'status', str(uuid4())],
+                            env=env, capture_output=True, text=True)
+    assert result.returncode == 1 and 'not a valid remote configuration' in result.stderr
+    assert 'Traceback' not in result.stderr
 
 
 PUBLIC = 'ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOtestkeyblobAAAAAAAAAAAAAAAAAAAAAAAAAAAA reader-remote@laptop'
@@ -133,6 +226,33 @@ def test_authorize_writes_one_restricted_entry(tmp_path, monkeypatch, capfd):
     assert json.loads(capfd.readouterr().out)['changed'] is False
     assert authorize(tmp_path, monkeypatch, scope='library') == 0
     assert len(keys.read_text().splitlines()) == 2 and '--scope library' in keys.read_text()
+
+
+def test_concurrent_authorizations_keep_both_keys(tmp_path, monkeypatch):
+    """Each authorization stalls after reading; without the lock the second replace drops the first key."""
+    import threading
+    keys = [PUBLIC.replace('testkeyblob', f'testkey{n}lob') for n in (1, 2)]
+    original, barrier = remote.Path.read_bytes, threading.Barrier(2, timeout=2)
+
+    def slow_read(self):
+        data = original(self)
+        if self.name == 'authorized_keys':
+            try:
+                barrier.wait()
+            except threading.BrokenBarrierError:
+                pass  # the lock serialized the readers, as intended
+        return data
+    monkeypatch.setattr(remote.Path, 'read_bytes', slow_read)
+    (tmp_path / 'ssh').mkdir()
+    (tmp_path / 'ssh/authorized_keys').write_text('')
+    results = []
+    threads = [threading.Thread(target=lambda k=k: results.append(authorize(tmp_path, monkeypatch, key=k))) for k in keys]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join()
+    text = (tmp_path / 'ssh/authorized_keys').read_text()
+    assert results == [0, 0] and all(k.split()[1] in text for k in keys)
 
 
 def test_authorize_refuses_unrestricted_key_and_bad_input(tmp_path, monkeypatch):
@@ -171,3 +291,25 @@ raise SystemExit(remote.gate('deliver', {cli(vault)!r}, __import__('pathlib').Pa
     assert json.loads(status.stdout)['status'] == 'awaiting_filing'
     refused = subprocess.run([*helper, 'search', 'x'], env=env, capture_output=True, text=True)
     assert refused.returncode == 2 and 'not allowed' in refused.stderr
+
+
+def test_setup_saves_absolute_key_and_retries_without_agent_keys(tmp_path, monkeypatch):
+    """The first login is answered by the gate, as when ssh-agent offers the Reader key itself."""
+    fake = tmp_path / 'fake-ssh'
+    fake.write_text(f'''#!{sys.executable}
+import sys
+if '-i' in sys.argv:
+    print('{{"ok": true, "scope": "deliver"}}')
+elif 'IdentitiesOnly=yes' in sys.argv:
+    sys.stdin.read()
+else:
+    sys.exit('Reader: {remote.GATE_REFUSAL}')
+''')
+    fake.chmod(0o755)
+    config = tmp_path / 'config/remote.json'
+    monkeypatch.setenv('READER_SSH', str(fake))
+    monkeypatch.setenv('READER_REMOTE_CONFIG', str(config))
+    monkeypatch.chdir(tmp_path)
+    assert remote.setup(['user@vault-host', '--key', 'keys/reader']) == 0
+    identity = Path(json.loads(config.read_text())['identity'])
+    assert identity.is_absolute() and identity.samefile(tmp_path / 'keys/reader')
