@@ -127,7 +127,8 @@ def test_library_scope_dispatches_to_the_cli(vault, tmp_path, capfd, command, ex
 
 
 @pytest.mark.parametrize('command', ['reader-remote serve --root /tmp', 'reader-remote serve x',
-                                     'reader-remote status', 'reader-remote status a b'])
+                                     'reader-remote status', 'reader-remote status a b',
+                                     'reader-remote annotate list', 'reader-remote curation list'])
 def test_gate_refuses_malformed_arguments(vault, command):
     assert run_gate(vault, command, scope='library') == 2
 
@@ -138,6 +139,7 @@ def test_gate_refuses_malformed_arguments(vault, command):
      b'"submission": {"markdown": "x", "attachments": "abc"}}'),
     (b'{"remote_delivery": 1, "files": [{"role": "attachment", "bytes": 0}], '
      b'"submission": {"markdown": "x", "attachments": [1]}}'),
+    b'[' * 100_000,
 ])
 def test_malformed_header_is_a_controlled_refusal(vault, capfd, header):
     assert run_gate(vault, 'reader-remote ingest', header + b'\n') == 1
@@ -168,6 +170,18 @@ def test_inline_only_mcp_session_refuses_server_files(vault, tmp_path):
                 assert not inline.isError, inline
     asyncio.run(exercise())
     assert len(list((vault / 'inbox').iterdir())) == 1
+
+
+@pytest.mark.parametrize('request_', [[1], {'markdown': 'x', 'attachments': 5}, {'markdown': 'x', 'attachments': [1]},
+                                      {'markdown': 'x', 'attachments': [{'path': 'a'}]}, {'document_path': 5}])
+def test_encode_delivery_refuses_malformed_requests(request_):
+    with pytest.raises(ValueError):
+        remote.encode_delivery(request_)
+
+
+def test_restricted_requests_never_share_a_connection():
+    command = remote.ssh_command({'host': 'h', 'identity': '/k'}, ['reader-remote', 'ping'])
+    assert command[1:3] == ['-S', 'none']
 
 
 def test_encode_delivery_checks_count_before_reading(tmp_path):

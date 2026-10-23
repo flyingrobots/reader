@@ -93,7 +93,7 @@ On an uncertain response, query `reader_status` with the same UUID before retryi
 
 ## Deliver from another machine
 
-Remote delivery is optional; never set it up unasked. If this machine has no Reader vault, the helper can deliver to the user's vault on another computer over SSH. When `~/.config/reader/remote.json` exists, the helper commands above (`ingest`, `status`, and with the `library` key scope also `search`, `read`, `annotate`, `curation`) run on that computer automatically. Use the helper, not MCP; local paths in the request are read on this machine and their bytes are sent. The returned `document_path` is on the vault computer, so report it as a path there.
+Remote delivery is optional; never set it up unasked. If this machine has no Reader vault, the helper can deliver to the user's vault on another computer over SSH. When `~/.config/reader/remote.json` exists, the helper commands above (`ingest`, `status`, and with the `library` key scope also `search`, `read`, `annotate`) run on that computer automatically. Use the helper, not MCP; local paths in the request are read on this machine and their bytes are sent. The returned `document_path` is on the vault computer, so report it as a path there.
 
 If delivery is requested and neither a local vault nor `remote.json` exists, or the helper reports an SSH failure, offer remote setup. It needs the vault computer's SSH address and, once, the user's login there, so ask the user to run it in their own terminal (in Claude Code, `! python3 /path/to/this/skill/scripts/reader.py remote-setup user@vault-host`):
 

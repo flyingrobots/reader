@@ -31,7 +31,7 @@ GATE_REFUSAL = 'this key only accepts reader-remote commands'
 DEFAULT_KEY = '~/.ssh/reader_ed25519'
 SCOPES = {
     'deliver': {'ping', 'ingest', 'status'},
-    'library': {'ping', 'ingest', 'status', 'search', 'read', 'annotate', 'curation', 'serve'},
+    'library': {'ping', 'ingest', 'status', 'search', 'read', 'annotate', 'serve'},
 }
 KEY_LINE = re.compile(r'^(ssh-ed25519|sk-ssh-ed25519@openssh\.com|ecdsa-sha2-nistp(?:256|384|521)|'
                       r'sk-ecdsa-sha2-nistp256@openssh\.com|ssh-rsa) ([A-Za-z0-9+/]+={0,3})(?: ([\x21-\x7e ]{0,200}))?$')
@@ -65,7 +65,8 @@ def load_config():
 
 
 def ssh_command(config: dict, remote_args, batch=True) -> list:
-    command = [os.environ.get('READER_SSH', 'ssh')]
+    # -S none: never share a multiplexed connection, which may be authenticated with other credentials.
+    command = [os.environ.get('READER_SSH', 'ssh'), '-S', 'none']
     if batch:
         command += ['-i', str(Path(config['identity']).expanduser()), '-o', 'IdentitiesOnly=yes',
                     '-o', 'BatchMode=yes', '-o', 'ConnectTimeout=10']
@@ -94,6 +95,13 @@ def read_local(value: str) -> bytes:
 
 def encode_delivery(submission: dict) -> bytes:
     """Replace local source paths with the bytes they name, framed after one JSON header line."""
+    if not isinstance(submission, dict):
+        raise ValueError('The request must be a JSON object')
+    listed = submission.get('attachments') or []
+    if (not isinstance(listed, list)
+            or not all(isinstance(a, dict) and isinstance(a.get('source_path'), str) for a in listed)
+            or not isinstance(submission.get('document_path', ''), (str, type(None)))):
+        raise ValueError('document_path must be a string and attachments a list of objects with a source_path')
     submission = dict(submission)
     if len(submission.get('attachments') or []) + (submission.get('document_path') is not None) > MAX_FILES:
         raise ValueError('Delivery exceeds the 64-file limit')
@@ -128,7 +136,7 @@ def client(args, config) -> int:
             raise ValueError('Usage: ingest REQUEST.json (or - for stdin)')
         raw = sys.stdin.buffer.read() if rest[0] == '-' else Path(rest[0]).read_bytes()
         stdin, rest = encode_delivery(json.loads(raw)), []
-    elif op in ('annotate', 'curation') and rest and (op == 'annotate' or rest[0] == 'mark'):
+    elif op == 'annotate' and rest:
         stdin = sys.stdin.buffer.read() if rest[-1] == '-' else Path(rest[-1]).read_bytes()
         rest[-1] = '-'
     elif op == 'serve':
@@ -182,7 +190,7 @@ def setup(argv) -> int:
     remote = (shlex.join(['python3', args.server_helper, 'remote-authorize', '--scope', args.scope])
               if args.server_helper else HELPER_SEARCH % args.scope)
     print(f'Authorizing the key on {args.host}. SSH may ask for your password on that machine once.')
-    login = [os.environ.get('READER_SSH', 'ssh')] + (['-p', str(args.port)] if args.port else [])
+    login = [os.environ.get('READER_SSH', 'ssh'), '-S', 'none'] + (['-p', str(args.port)] if args.port else [])
     result = subprocess.run(login + [args.host, remote], input=public, stderr=subprocess.PIPE)
     sys.stderr.buffer.write(result.stderr)
     if result.returncode != 0 and GATE_REFUSAL.encode() in result.stderr:
@@ -225,7 +233,10 @@ def stage_delivery(stream, staging: Path) -> dict:
     line = stream.readline(MAX_HEADER + 1)
     if not line.endswith(b'\n') or len(line) > MAX_HEADER:
         raise ValueError('Missing or oversized delivery header')
-    header = json.loads(line)
+    try:
+        header = json.loads(line)
+    except RecursionError:
+        raise ValueError('Unrecognized delivery header') from None
     if not isinstance(header, dict):
         raise ValueError('Unrecognized delivery header')
     files, submission = header.get('files'), header.get('submission')
@@ -295,8 +306,8 @@ def gate(scope: str, cli: list, state: Path, environ=os.environ, stdin=None) -> 
             return 2
         # Remote MCP clients must not name files on this machine.
         rest = ['--inline-only']
-    if op in ('annotate', 'curation') and rest[-1:] != ['-'] and rest[:1] != ['list']:
-        print('Reader: remote annotate/curation mark requests are read from stdin', file=sys.stderr)
+    if op == 'annotate' and rest != ['-']:
+        print('Reader: remote annotate requests are read from stdin', file=sys.stderr)
         return 2
     if op != 'ingest':
         return subprocess.call([*cli, op, *rest], stdin=stdin)
