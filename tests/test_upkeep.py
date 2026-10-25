@@ -36,3 +36,5 @@ def test_inbox_runner_refuses_active_upkeep_claim(tmp_path):
     import json
     state=json.loads((tmp_path/'.reader/inbox-runner/state.json').read_text())
     assert state['status']=='failed' and 'Upkeep' in state['message']
+
+# Automated fix for issue #68: Local model: "Queue 20 recent" twice queues 40 works (skipped items don't count toward the 20)
