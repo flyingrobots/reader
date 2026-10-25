@@ -693,7 +693,14 @@ function spreadPinPlacer(article){
 }
 function positionPins(){
   const article=$('#article');if(!article)return;const box=article.getBoundingClientRect();let previous=-30;const place=reading?.hasBook()?spreadPinPlacer(article):null;
-  for(const {thread,range} of state.ranges){const rects=[...range.getClientRects()];const rect=reading?.hasBook()?rects.find(r=>r.right>45&&r.left<innerWidth-45):rects.at(-1);const pin=article.querySelector(`[data-thread="${CSS.escape(thread.id)}"]`);if(!pin)continue;pin.hidden=!rect;if(!rect)continue;if(place){const at=place(rect,pin);pin.style.left=at.left+'px';pin.style.top=at.top+'px';}else if(reading?.hasBook()){pin.style.left=Math.min(innerWidth-25,rect.right+9)+'px';pin.style.top=rect.bottom-5+'px';}else{pin.style.left='';const top=Math.max(previous+27,rect.bottom-box.top-5);pin.style.top=top+'px';previous=top;}}
+  // Two-page pins belong to the spread showing their highlight: the book viewport's box, not the window, which in a
+  // wide window also spans the margin where the next spread's first column waits.
+  const spread=reading?.hasBook()?article.closest('.book-viewport')?.getBoundingClientRect():null;
+  // Pins stack down each margin, so place them in reading order (threads arrive in id order).
+  const placed=[];
+  for(const {thread,range} of state.ranges){const rects=[...range.getClientRects()];const rect=spread?rects.find(r=>r.width>0&&r.right>spread.left+1&&r.left<spread.right-1):reading?.hasBook()?null:rects.at(-1);const pin=article.querySelector(`[data-thread="${CSS.escape(thread.id)}"]`);if(!pin)continue;pin.hidden=!rect;if(rect)placed.push({pin,rect});}
+  placed.sort((a,b)=>a.rect.top-b.rect.top||a.rect.left-b.rect.left);
+  for(const {pin,rect} of placed){if(place){const at=place(rect,pin);pin.style.left=at.left+'px';pin.style.top=at.top+'px';}else if(reading?.hasBook()){pin.style.left=Math.min(innerWidth-25,rect.right+9)+'px';pin.style.top=rect.bottom-5+'px';}else{pin.style.left='';const top=Math.max(previous+27,rect.bottom-box.top-5);pin.style.top=top+'px';previous=top;}}
 }
 function threadUnread(id){return state.attention.find(i=>i.key==='thread:'+id)?.read!==true;}
 function seenLabel(key){const item=state.attention.find(i=>i.key===key);return item?.seen_by?.length?'Seen by '+item.seen_by.map(r=>r.participant).join(', '):'Not yet seen by another reader';}
@@ -981,7 +988,7 @@ let hoverFrame;
 document.addEventListener('mousemove',event=>{
   document.body.classList.toggle('reveal-controls',event.clientX>innerWidth-75&&event.clientY>innerHeight-80);
   if(hoverFrame)return;
-  hoverFrame=requestAnimationFrame(()=>{hoverFrame=null;const hit=state.ranges.find(({range})=>[...range.getClientRects()].some(r=>event.clientX>=r.left&&event.clientX<=r.right&&event.clientY>=r.top&&event.clientY<=r.bottom));const tip=$('#passage-tooltip');if(hit){tip.textContent=`${hit.thread.owner} · ${plural(hit.thread.comments.length,'comment')}`;tip.style.left=Math.max(10,Math.min(innerWidth-260,event.clientX+12))+'px';tip.style.top=event.clientY+20+'px';tip.classList.add('visible');}else tip.classList.remove('visible');});
+  hoverFrame=requestAnimationFrame(()=>{hoverFrame=null;const spread=reading?.geometry()?.viewport.getBoundingClientRect(),inside=!spread||event.clientX>=spread.left&&event.clientX<=spread.right&&event.clientY>=spread.top&&event.clientY<=spread.bottom;const hit=inside&&state.ranges.find(({range})=>[...range.getClientRects()].some(r=>event.clientX>=r.left&&event.clientX<=r.right&&event.clientY>=r.top&&event.clientY<=r.bottom));const tip=$('#passage-tooltip');if(hit){tip.textContent=`${hit.thread.owner} · ${plural(hit.thread.comments.length,'comment')}`;tip.style.left=Math.max(10,Math.min(innerWidth-260,event.clientX+12))+'px';tip.style.top=event.clientY+20+'px';tip.classList.add('visible');}else tip.classList.remove('visible');});
 });
 // Keyboard ------------------------------------------------------------------------------------------
 // Every page key is a row in the keymap table (keys.mjs); the help dialog and the leader hints are generated from it.

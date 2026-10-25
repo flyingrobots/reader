@@ -439,6 +439,12 @@ def main():
             writer.write(root / 'library/outlined.pdf')
         start = source.index('a precise passage')
         Annotations(root).create(path='library/thought.md', start=start, end=start+len('a precise passage'), owner='Ada', kind='warning', comment='An observation to check.', request_id=str(uuid4()))
+        if '--spread-pins' in sys.argv:
+            # A margin thread on every chapter's closing sentence, so every two-page spread carries pins in both columns.
+            for i in range(1, 45):
+                quote = f'distinct observation for chapter {i} waits'
+                at = source.index(quote)
+                Annotations(root).create(path='library/thought.md', start=at, end=at + len(quote), owner='Bo', comment=f'Margin note {i}.', request_id=str(uuid4()))
         if '--reading-log' in sys.argv:
             from reader_mcp.engagement import Engagement
             engagement = Engagement(root)

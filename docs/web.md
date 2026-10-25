@@ -441,7 +441,12 @@ resizes in a row don't drift.
 
 Annotation pins in two-page mode sit in the gutter right of their passage's column
 (the outer margin for the last column), vertically centred on the passage's first
-visible line and stacked per column, so they never cover the following words.
+visible line and stacked per column in reading order, so they never cover the following words.
+Only passages on the current spread get pins or a hover label: a spread is the book
+viewport's box, not the window, so in a wide window the next spread's first column, which
+lies clipped beyond the outer margin, shows no pin there. `node tests/web_spread_pin_pages.cjs`
+(synthetic fixture with `--spread-pins`: a thread on every chapter) checks each spread at
+several sizes, after resizes, through sliding and 3D turns, and in continuous reading.
 
 **Page turn.** Turning one spread (j/k, h/l, wheel, Ctrl-d/f/u/b or the Pagination
 previous/next pair) flips a real sheet in 3D. `controls/page-turn.js` bundles
@@ -2985,6 +2990,8 @@ READER_PLAYWRIGHT=/absolute/path/to/playwright-core \
 READER_CHROME=/path/to/chrome node tests/web_themes.cjs
 READER_PLAYWRIGHT=/absolute/path/to/playwright-core \
 READER_CHROME=/path/to/chrome node tests/web_page_turn.cjs
+READER_PLAYWRIGHT=/absolute/path/to/playwright-core \
+READER_CHROME=/path/to/chrome node tests/web_spread_pin_pages.cjs
 READER_PLAYWRIGHT=/absolute/path/to/playwright-core \
 READER_CHROME=/path/to/chrome node tests/web_shape.cjs
 READER_PLAYWRIGHT=/absolute/path/to/playwright-core \
