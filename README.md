@@ -129,6 +129,8 @@ cd reader
 uv sync --locked
 ```
 
+### Try the demo
+
 Try it on a ready-made example library first:
 
 ```sh
@@ -140,7 +142,9 @@ fictional software project, with highlights, threads, editions, a reading queue,
 inbox arrivals and chat with scripted voices that need no AI), indexes it, and
 opens the reader in your browser. Ctrl-C stops it; run it again to refresh the
 dates. It never touches a folder that is not an earlier demo. See
-[the demo vault](docs/demo.md) for options and sources.
+[the demo vault](docs/demo.md) for options and sources. `reader demo --export-static DIR`
+writes the same library as a static website that runs entirely in the browser; see
+[static web demo](docs/demo.md#static-web-demo).
 
 When you are ready for your own documents: a vault is a Git repository with `library/` and `inbox/` folders. Put your Markdown
 and PDF files anywhere under `library/`:

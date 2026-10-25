@@ -22,6 +22,10 @@ It builds the vault, indexes it, prints the URL and serves the web reader until 
 
 `reader demo` ignores `--root` and `READER_ROOT`: it never opens your own vault.
 
+| `--export-static DIR` | Write the demo as a static website into `DIR` instead of serving it; see [Static web demo](#static-web-demo). |
+| `--base-path PATH` | With `--export-static`: the URL path the site is served under, such as `/reader/`. Default `/`. |
+| `--site-url URL` | With `--export-static`: the public `https://` URL ending in `/`, for social previews and the canonical link. |
+
 ## Safety: the marker
 
 The builder writes only into a path that does not exist yet, an empty directory, or a directory
@@ -79,10 +83,76 @@ The inbox runner (**You got mail**) needs a signed-in `codex`, the Local model c
 Read aloud needs an AI-TTS daemon and Prose colors needs Colorful Language. The demo shows their
 controls but does not fake them; see [optional connections](../README.md#optional-connections).
 
+## Static web demo
+
+`reader demo --export-static DIR [--base-path /reader/] [--site-url https://…/reader/]` writes the demo
+as a folder that any static file server can host (GitHub Pages, a CDN, `python3 -m http.server`).
+Nothing in it calls a Reader server.
+
+How it is made:
+
+1. It builds and indexes a fresh demo vault in a temporary folder (or in `--dir`; with `--keep`, an
+   existing demo vault is exported as it is).
+2. It serves that vault with the real web server on a loopback port and requests every GET route the
+   reader needs for it: the library, each document and edition, margins, readers, editions and
+   history, every recorded version, What changed against you, each reader and the newer edition,
+   Read next, the link graph, standfirsts, article shapes, the queue, history, the inbox, chats and
+   every magazine issue window. Each distinct answer is stored once under `data/r/`, and
+   `data/manifest.json` maps each request (route plus sorted query, without the UTC offset `tz`) to
+   its answer and status.
+3. It writes `data/search.json` (the passages of the vault's keyword index), `data/resolve.json`
+   (each document's link targets, resolved by the server), `data/paths.json`, copies of `library/`
+   and `inbox/` under `files/`, and the web UI under `assets/`, with root-absolute `/assets/` and
+   `/?pane=1` URLs rewritten for the base path.
+4. `index.html` is the normal page plus a `<meta name="reader-static-demo">` flag, a
+   Content-Security-Policy that allows only the site itself, social-preview tags, and
+   `assets/static-demo.js` loaded before the app.
+
+**The shim** (`src/reader_mcp/web_ui/static-demo.js`) does nothing unless that flag is present, so
+the normal server, which never loads it, is unaffected. With the flag it replaces `fetch` and
+`EventSource` for same-origin `/api/*` requests:
+
+| Request | Static answer |
+| --- | --- |
+| Recorded GETs | The exported answer; a different or missing `participant` falls back to the demo reader |
+| `/api/search` (fuzzy, keyword), `/api/search/page` | Searched in the browser over `data/search.json` and the work list; semantic and meaning modes say they need Reader locally and show word matches |
+| `/api/resolve`, `/api/resolve-batch` | `data/resolve.json`, else a relative path that exists in the export |
+| `/api/file?path=…`, image `src` | The copy under `files/` |
+| `POST /api/annotations` (create, reply, resolve), `/api/bookmark`, `/api/seen`, `/api/history` | Kept in this browser's `localStorage` (`reader.static-demo.v1`) and merged into margins and bookmarks |
+| Chat posts, the queue, themes, maintenance, inbox runner, local model, service, speech, prose colors, comparing two arbitrary versions | A JSON error with `unavailable: true` that says to run Reader locally (status 501, or 503 for machine routes) |
+| `/api/chat/stream` | A quiet stream (`hello`, then `ping` every 15 s) |
+
+A dismissible note says that changes stay in this browser and links to the local demo, with
+**Reset this demo** to clear them.
+
+**Safety and limits.** The output folder must be new, empty, or an earlier export (it carries a
+`.reader-static-demo` marker; a refresh replaces everything else). Exported answers drop
+`absolute_path`, `token` and `codex` fields, and the export refuses to finish if any text file
+contains the vault's absolute path or the home folder. The routes that describe the machine (local
+model, service, health, prose colors, speech) are never exported. The budget is 5,000 files and
+64 MiB; the demo is about 12 MiB in under 1,000 files, of which the UI (`assets/`, mostly PDF.js
+fonts and maps, Three.js and KaTeX) is about 9 MiB. Issue windows, queue views and history are
+snapshots of the export day; history is grouped in UTC.
+
+**GitHub Pages.** `.github/workflows/pages-demo.yml` exports with the repository name as the base
+path on every push to `main`, weekly on Mondays (so the magazine has a current issue) and by hand.
+It does nothing until a maintainer selects **GitHub Actions** as the Pages source and sets the
+Actions variable `READER_PAGES_DEMO` to `true`.
+
+To try an export locally:
+
+```sh
+uv run --locked reader demo --export-static /tmp/reader-site/reader --base-path /reader/
+python3 -m http.server 8000 --bind 127.0.0.1 --directory /tmp/reader-site
+# open http://127.0.0.1:8000/reader/
+```
+
 ## Source layout and tests
 
 - `src/reader_mcp/demo/__init__.py`: the command (arguments, indexing, server).
 - `src/reader_mcp/demo/build.py`: `check`, `prepare` and `build(root, today=None, now=None)`.
+- `src/reader_mcp/demo/static.py`: `export(root, out, base='/', site_url=None)` for `--export-static`,
+  with `src/reader_mcp/web_ui/static-demo.js` as its browser shim.
 - `src/reader_mcp/demo/content/`: `texts/` (public-domain excerpts), `library/` (fictional
   documents with `@@MON±N@@` and `@@WEEKSTART@@` date placeholders), `assets/` (the image, the PDF
   and its HTML source), `voice/` (the scripted voice and its replies) and `NOTICE.md`.
@@ -90,9 +160,17 @@ controls but does not fake them; see [optional connections](../README.md#optiona
 ```sh
 PYTHONPATH=src .venv/bin/python -m pytest -q tests/test_demo.py
 READER_PYTHON=.venv/bin/python PYTHONPATH=src node tests/web_demo.cjs
+PYTHONPATH=src .venv/bin/python -m pytest -q tests/test_static_demo.py
+READER_PYTHON=.venv/bin/python PYTHONPATH=src node tests/web_static_demo.cjs
 ```
 
 `tests/test_demo.py` covers marker safety, a byte-identical refresh for a fixed clock, preserved
 models, and dates relative to the build day. `tests/web_demo.cjs` runs the real command into a
 temporary folder with `--port 0`, then checks the magazine cover, a document's highlights, the
-seeded chat, a scripted reply and the manual voice's paste label.
+seeded chat, a scripted reply and the manual voice's paste label. `tests/test_static_demo.py`
+covers the export's folder safety, lookup keys, base paths, scrubbing, the privacy guard and a full
+export. `tests/web_static_demo.cjs` exports under `/reader/`, serves the folder with a plain static
+file server, and checks the magazine, margins, outline, Read next, the link graph, editions, What
+changed, an image, a PDF, keyword and fuzzy search, a theme, a local-only highlight across a reload,
+the labelled server-only features and an inert shim on a page without the flag, while asserting
+that no request reaches `/api/*`, leaves the base path or leaves the origin.

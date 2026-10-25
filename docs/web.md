@@ -2981,6 +2981,9 @@ READER_CHROME=/path/to/chrome node tests/web_magazine.cjs
 .venv/bin/python -m pytest -q tests/test_demo.py
 READER_PLAYWRIGHT=/absolute/path/to/playwright-core \
 READER_CHROME=/path/to/chrome node tests/web_demo.cjs
+.venv/bin/python -m pytest -q tests/test_static_demo.py
+READER_PLAYWRIGHT=/absolute/path/to/playwright-core \
+READER_CHROME=/path/to/chrome node tests/web_static_demo.cjs
 READER_PLAYWRIGHT=/absolute/path/to/playwright-core \
 READER_CHROME=/path/to/chrome node tests/web_controls.cjs
 READER_PLAYWRIGHT=/absolute/path/to/playwright-core \

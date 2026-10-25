@@ -36,6 +36,8 @@ HISTORY = ('CHANGELOG.md',)
 ALLOWED = {
     ('tests/fixtures/codex-exec-real.jsonl', '/home/reader/'):
         'synthetic home folder of a fictional fixture user in a recorded Codex transcript',
+    ('tests/test_static_demo.py', '/home/someone/'):
+        'synthetic absolute path the static export must refuse or strip (the test proves scrubbing)',
     # TODO(#95): the companion-handling work replaces these with configurable or relative forms.
     ('src/reader_mcp/local_model.py', '/Users/Shared/git-locks/workstation.git'): '#95: fixed workstation git-locks store path, pending configuration',
     ('tests/test_inbox_view.py', '/Users/Shared/git-locks/workstation.git'): '#95: test passes the fixed workstation git-locks store path',

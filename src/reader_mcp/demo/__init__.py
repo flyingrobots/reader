@@ -25,6 +25,10 @@ def add_arguments(parser):
     parser.add_argument('--no-serve', action='store_true', help='Build the vault and its indexes, then exit')
     parser.add_argument('--semantic', action='store_true',
                         help='Allow downloading the embedding model (~130 MB, once) to enable semantic search')
+    parser.add_argument('--export-static', metavar='DIR',
+                        help='Write the demo as a static website into DIR (new, empty, or an earlier export) instead of serving it')
+    parser.add_argument('--base-path', default='/', help='With --export-static: the URL path the site is served under, such as /reader/ (default /)')
+    parser.add_argument('--site-url', help='With --export-static: the public https:// URL of the site, for social previews and the canonical link')
 
 
 def say(message):
@@ -36,6 +40,9 @@ def run(args):
         # Nothing in a demo run may reach the network for model files unless asked to.
         os.environ['HF_HUB_OFFLINE'] = '1'
     from . import build as builder
+    if getattr(args, 'export_static', None):
+        export_static(args, builder)
+        return
     root = Path(args.dir).expanduser() if args.dir else default_dir()
     if not root.is_absolute():
         root = Path.cwd() / root
@@ -62,6 +69,24 @@ def run(args):
         say(f'Demo vault ready: {root}')
         return
     serve(root, args.port, args.open)
+
+
+def export_static(args, builder):
+    """Build a demo vault (in a temporary folder unless --dir is given), then export it as a static site."""
+    import tempfile
+    from . import static
+    out = Path(args.export_static).expanduser()
+    static.check_output(out.absolute())
+    base = static.normal_base(args.base_path)
+    with tempfile.TemporaryDirectory(prefix='reader-demo-') as scratch:
+        root = Path(args.dir).expanduser().absolute() if args.dir else Path(scratch) / 'vault'
+        if not (args.keep and builder.marker_info(root) is not None):
+            builder.check(root)
+            say(f'Building the Reader demo vault in {root} …')
+            builder.build(root)
+            builder.index(root, args.semantic or builder.semantic_model_present(root))
+        static.export(root, out, base, args.site_url, say=say)
+    say(f'Static demo written to {out}. Serve it with any static web server; nothing in it calls a Reader server.')
 
 
 def _quote(path):

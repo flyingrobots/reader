@@ -1,0 +1,48 @@
+# The web demo on GitHub Pages (RW-42): `reader demo --export-static` on every push to main and weekly,
+# so the magazine's "this week" stays current. It does nothing until a maintainer turns it on:
+#   1. Settings → Pages → Source: GitHub Actions.
+#   2. Settings → Secrets and variables → Actions → Variables: READER_PAGES_DEMO = true.
+# The site is the public-domain and fictional demo vault only; no other vault is ever built here.
+name: Web demo (GitHub Pages)
+on:
+  push:
+    branches: [main]
+  schedule:
+    - cron: '17 6 * * 1'  # Mondays, so a new ISO week gets its issue.
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: pages-demo
+  cancel-in-progress: true
+jobs:
+  build:
+    if: vars.READER_PAGES_DEMO == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - name: Export the static demo
+        env:
+          HF_HUB_OFFLINE: '1'
+        run: |
+          uv run --locked reader demo --export-static _site \
+            --base-path "/${GITHUB_REPOSITORY#*/}/" \
+            --site-url "https://${GITHUB_REPOSITORY_OWNER}.github.io/${GITHUB_REPOSITORY#*/}/"
+          du -sh _site && find _site -type f | wc -l
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+  deploy:
+    needs: build
+    runs-on: ubuntu-24.04
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

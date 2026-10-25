@@ -268,6 +268,13 @@ Semantic search is on only when the embedding model is already in the vault or
 `--semantic` explicitly allows the download. Chat uses scripted demo voices that
 never call a model. See [demo vault](demo.md).
 
+`reader demo --export-static DIR` writes the demo vault as a static website for any static host
+(GitHub Pages included), under a configurable base path. It reads from pre-rendered answers, searches
+by keyword in the browser, and keeps highlights, comments and reading positions only in the
+visitor's browser. Chat voices, semantic search, the inbox runner, the local model, speech, prose
+colors, the queue, themes and index maintenance need Reader running locally and say so. See
+[static web demo](demo.md#static-web-demo).
+
 ## Verification boundaries
 
 The test suite exercises delivery preservation, validation, retry/conflict behavior, concurrency, failure cleanup, and the MCP boundary. The installation verification script exercises the configured server and skill helper from outside the checkout. Commands and fixture behavior are documented in [delivery integration](delivery.md).
