@@ -113,3 +113,13 @@ source/output hashes. The npm lockfile records package integrity. Tailwind CSS
 follows shadcn's AI Elements (Base UI) recipes. It uses only the registry items above
 (`trace`, `message`, `marker` and `hover-card` among them) and adds
 no npm dependency. The recipes' Vercel AI SDK demos are not included.
+
+## Demo vault content
+
+`reader demo` ships a small example library in `src/reader_mcp/demo/content/`. Its texts are
+public-domain excerpts from Project Gutenberg eBooks (Thoreau, Emerson, Montaigne in Charles
+Cotton's translation, Bacon, Woolf, Darwin, Babbage and Lovelace) and its one image is Darwin's
+diagram of divergence (1859) from Wikimedia Commons, marked public domain there. Everything else in
+it (the Lantern project, its people and numbers, the newsletter and the voices) is fictional and
+written for Reader under Apache-2.0. [`src/reader_mcp/demo/content/NOTICE.md`](src/reader_mcp/demo/content/NOTICE.md)
+lists every work, its eBook number and URL; the built vault carries a copy as `NOTICE.md`.

@@ -492,6 +492,24 @@ def read_events(stream, until, limit=40):
     raise AssertionError(f'No {until} event in {events}')
 
 
+def test_paste_names_the_registry_manual_voice_not_a_fixed_one(vault):
+    registry = json.loads((vault / 'voices.json').read_text())
+    registry['voices'] = [v for v in registry['voices'] if not v.get('manual') and v.get('cli') is not None] + [
+        {'name': 'Wren', 'mention': ['wren'], 'cli': None, 'manual': True}, {'name': 'Ash', 'mention': ['ash'], 'cli': None}]
+    (vault / 'voices.json').write_text(json.dumps(registry))
+    conversations = service(vault)
+    chat = new_chat(conversations)
+    assert conversations.paste(chat['id'], 'Wren by default.', 'You')['message']['author'] == 'Wren', 'the first manual voice'
+    assert conversations.paste(chat['id'], 'Ash by name.', 'You', voice='Ash')['message']['author'] == 'Ash'
+    with pytest.raises(ValueError, match='marked manual'):
+        conversations.paste(chat['id'], 'Not a manual voice here.', 'You', voice='Kai')
+    with pytest.raises(ValueError, match='marked manual'):
+        conversations.paste(chat['id'], 'Runnable voices answer themselves.', 'You', voice=registry['voices'][0]['name'])
+    (vault / 'voices.json').write_text(json.dumps({'schema_version': 1, 'voices': [v for v in registry['voices'] if v.get('cli')]}))
+    with pytest.raises(ValueError, match='marked manual'):
+        conversations.paste(chat['id'], 'Nobody to paste for.', 'You')
+
+
 def test_stream_pings_with_revision_and_publishes_other_tabs_messages(web):
     root, library, server, request = web
     server.chat_heartbeat = 0.3

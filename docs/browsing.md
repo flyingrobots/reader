@@ -23,7 +23,7 @@ python3 "${CODEX_HOME:-$HOME/.codex}/skills/reader/scripts/reader.py" browse --c
 
 Librarian sessions refresh after completed intake, original-writing changes or metadata corrections, before committing the changed navigation. This is active-turn maintenance, not a watcher. The installed Upkeep skill retains the observer/librarian boundary; delivery couriers do not gain permission to rewrite the vault.
 
-A refresh owns `indexes/index.md`, five `indexes/by-*.md` pages, four SVG charts under `indexes/assets/`, `indexes/coverage.json` and only the marked `reader-dashboard` block in `README.md`. Other README prose remains intact. Edit `indexes/settings.json` or source metadata rather than generated pages. Settings are never regenerated.
+A refresh owns `indexes/index.md`, five `indexes/by-*.md` pages, four SVG charts under `indexes/assets/`, `indexes/coverage.json` and only the marked `reader-dashboard` block in `README.md`. Other README prose remains intact. Edit `indexes/settings.json` or source metadata rather than generated pages. Settings are never regenerated. The optional `navigation_author` setting (a one-line name, default `Reader librarian`) sets the `author` frontmatter of the generated pages.
 
 ## What one entry means
 

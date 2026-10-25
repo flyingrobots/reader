@@ -1576,11 +1576,15 @@ store lock); only **+** starts a second chat.
   highlighted one. Voices mentioned in a message answer in mention order. A message
   with no mention is answered by one voice drawn uniformly at random from the
   enabled voices with an installed CLI, and the reply records `chosen_by: random`.
-  A message mentioning only voices that cannot run (Kai, a disabled voice) gets no
-  turn.
-- **Kai.** Kai has no local CLI. **Paste Kai's reply** saves pasted text as a
-  message authored by Kai with `runtime: {manual: true}`. A pasted reply that
-  @mentions a voice routes to it; an unmentioned paste triggers nothing.
+  A message mentioning only voices that cannot run (a manual or disabled voice) gets
+  no turn; a toast names the manual voice and its paste control.
+- **Manual voices.** A voice with `"cli": null` (or `manual: true`) has no local CLI:
+  you paste its replies. The composer's paste control is labelled from the registry
+  (**Paste Wren's reply** for a manual voice named Wren); with several manual voices it
+  reads **Paste a reply** and the paste form has a picker; with none it is hidden.
+  Saving stores the text as a message authored by that voice with
+  `runtime: {manual: true}`. A pasted reply that @mentions a voice routes to it; an
+  unmentioned paste triggers nothing.
 - **Voices talking to voices.** A reply that @mentions another voice queues that
   voice's turn. One message starts at most three turns in total, counting these
   hops, so voices cannot loop.
@@ -1590,8 +1594,8 @@ store lock); only **+** starts a second chat.
   mention, and shows a *Replying to* chip with the first 80 characters of that
   message (× cancels). The sent message carries `reply_to` and shows a quote bar
   that scrolls to and briefly highlights the original. A reply with no mention goes
-  to the voice it answers (`routing.chosen_by: reply`). Replying to Kai reminds you
-  to paste Kai's answer.
+  to the voice it answers (`routing.chosen_by: reply`). Replying to a manual voice
+  reminds you to paste its answer.
 - **Chime-ins.** The Select under the chat title sets, per chat,
   `settings.chime_ins`: **Chime-ins off**, **Voices raise hands** (the default) or
   **Voices speak freely**. After an addressed exchange (a message with mentions or a
@@ -1924,12 +1928,13 @@ binary), `colorful` on `PATH`, `~/.cargo/bin/colorful`, and
 `~/.colorful-language/bin/colorful` (Colorful's `scripts/install-local.sh`). It
 runs `colorful --version` once per binary identity (path, inode, mtime, size) and
 requires 0.3.0 or newer. The path is not settable from the browser: a page would
-otherwise choose an executable for the server to run. To install from a clone:
+otherwise choose an executable for the server to run. To install, in your
+[Colorful Language](https://github.com/flyingrobots/colorful-language) clone:
 
 ```sh
-cd ~/git/colorful-language && cargo build --release --locked -p colorful-cli
-READER_COLORFUL=~/git/colorful-language/target/release/colorful reader web
-# or install it for every tool: cargo install --path ~/git/colorful-language/crates/colorful-cli --locked
+cd colorful-language && cargo build --release --locked -p colorful-cli
+READER_COLORFUL="$PWD/target/release/colorful" reader web
+# or install it for every tool: cargo install --path crates/colorful-cli --locked
 ```
 
 Without a usable binary, Space c shows a toast that names the problem and that
@@ -2703,7 +2708,8 @@ fixture's `--chat-heartbeat N` shortens it). At most four streams may be open, t
 neither request pool, and each closes after an hour (the browser reconnects).
 POST `/api/chat` takes `{"action": "create"|"send"|"paste"|"cancel"|"retry"|"hand"|"settings"|"hush", …}`
 and an optional `participant`. `send` accepts `reply_to` (a message id in the same
-chat, otherwise 400); `hand` takes `message_id` and `decision` (`accept` or
+chat, otherwise 400); `paste` takes `body` and an optional `voice`, which must name a
+manual voice in `voices.json` (default: the first one; 400 when there is none); `hand` takes `message_id` and `decision` (`accept` or
 `decline`); `settings` takes `chime_ins` (`off`, `hands` or `free`); `hush` stops the
 chat's listening checks. Pending turns carry `kind` (`turn`, `chime_in` or
 `listen`); listening checks never stream text.
@@ -2828,7 +2834,8 @@ prints one JSON object.
 
 Defaults: the repo is the checkout's common Git repository (the main
 `reader-code`), the interpreter `REPO/.venv/bin/python`, the vault `READER_ROOT`
-or `REPO/.reader/config.json`, the live worktree `~/git/reader-code-live`, the
+or `REPO/.reader/config.json`, the live worktree the existing install recorded
+(else `~/Library/Application Support/Reader/live`, outside any checkout), the
 source `preview/integration` and the port 8766. Executable paths (launchctl,
 tailscale, git, git-locks) are resolved at install and recorded;
 `READER_SERVICE_LAUNCHCTL`, `READER_SERVICE_TAILSCALE`, `READER_SERVICE_GIT` and
@@ -2839,7 +2846,8 @@ tailscale, git, git-locks) are resolved at install and recorded;
 `RunAtLoad`, `KeepAlive`, `ProcessType` Interactive and `ThrottleInterval` 10.
 `com.flyingrobots.reader.updater.plist` runs `PYTHON LIVE/scripts/reader_service.py
 update` every 600 seconds (`StartInterval`, Background, low-priority I/O). Both set
-`PATH`, `READER_ROOT`, `PYTHONPATH=LIVE/src` (ahead of the editable install of the
+`PATH` (the installer's absolute `PATH` entries, then `/opt/homebrew/bin`,
+`/usr/local/bin`, the system directories and `~/.local/bin`), `READER_ROOT`, `PYTHONPATH=LIVE/src` (ahead of the editable install of the
 main checkout), and pass through `GIT_LOCKS_STORE` and every `READER_*` variable
 present at install except `READER_SERVICE_*`. The script's own worktree and checkout
 changes take the repo `.git/` key in the repository's default git-locks store, with
@@ -2903,7 +2911,8 @@ an `apple-touch-icon`, and a `theme-color` meta tag that follows the theme's
 `--bg`. On iPhone use **Share › Add to Home Screen** on the tailnet address.
 
 **Recovery.** If the web agent crash-loops, read `web.log`, then `status`; `update
---now` retries, and `git -C ~/git/reader-code-live checkout --detach <good commit>`
+--now` retries, and `git -C LIVE checkout --detach <good commit>` (`LIVE` is
+`status`'s live worktree)
 followed by `restart` pins a known-good commit. `uninstall` and `tailscale off`
 revert what they changed.
 
@@ -2938,9 +2947,19 @@ in `web_ui/vendor/manifest.json`. Review dependency changes and retained license
 [third-party notices](../THIRD_PARTY_NOTICES.md) describe the exceptions to Reader's
 own Apache license. Browser assets ship inside the Python package.
 
+Tracked files stay repo-relative: `tests/test_no_absolute_paths.py` scans every
+tracked text file (except lockfiles and the built `web_ui/controls` and `web_ui/vendor`
+bytes) and fails on macOS, Linux and Windows home-folder paths, a checkout under a
+home `git` folder, the macOS temporary folder, and names of sibling checkouts or
+worktrees of this repository (outside the changelog), apart from a short allowlist
+that gives a reason for each entry and is itself checked for stale entries. Reader's
+own locations outside the vault are the app data, log and LaunchAgents folders under
+`~/Library`, the AI-TTS socket and tool caches.
+
 Synthetic checks, without opening the configured vault:
 
 ```sh
+.venv/bin/python -m pytest -q tests/test_no_absolute_paths.py
 .venv/bin/python -m pytest -q tests/test_web.py
 node --test tests/web_logic.test.mjs tests/callouts.test.mjs
 READER_PLAYWRIGHT=/absolute/path/to/playwright-core \
@@ -2954,6 +2973,9 @@ READER_PLAYWRIGHT=/absolute/path/to/playwright-core \
 READER_CHROME=/path/to/chrome node tests/web_dashboard.cjs
 READER_PLAYWRIGHT=/absolute/path/to/playwright-core \
 READER_CHROME=/path/to/chrome node tests/web_magazine.cjs
+.venv/bin/python -m pytest -q tests/test_demo.py
+READER_PLAYWRIGHT=/absolute/path/to/playwright-core \
+READER_CHROME=/path/to/chrome node tests/web_demo.cjs
 READER_PLAYWRIGHT=/absolute/path/to/playwright-core \
 READER_CHROME=/path/to/chrome node tests/web_controls.cjs
 READER_PLAYWRIGHT=/absolute/path/to/playwright-core \
@@ -3069,7 +3091,7 @@ browser fixture takes `--prose` (fake CLI), `--prose-missing` (no binary) or
 case runs the real binary when discovery finds it and is skipped otherwise:
 
 ```sh
-READER_COLORFUL=~/git/colorful-language/target/release/colorful \
+READER_COLORFUL=/path/to/colorful-language/target/release/colorful \
   .venv/bin/python -m pytest -q tests/test_prose.py
 ```
 

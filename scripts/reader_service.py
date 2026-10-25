@@ -70,6 +70,18 @@ def support():
     return home() / 'Library/Application Support/Reader'
 
 
+def default_live():
+    """The live worktree lives in Reader's app data, never beside or inside a developer checkout."""
+    return support() / 'live'
+
+
+def launch_path():
+    """PATH for the agents: the installer's absolute PATH entries first, then the usual tool locations."""
+    entries = [p for p in os.environ.get('PATH', '').split(os.pathsep) if os.path.isabs(p)]
+    entries += DEFAULT_PATH.split(':') + [str(home() / '.local/bin')]
+    return ':'.join(dict.fromkeys(entries))
+
+
 def logs():
     return home() / 'Library/Logs/Reader'
 
@@ -516,10 +528,10 @@ def install(args):
         raise ServiceError(f'Missing Python interpreter: {python}')
     state = {
         'version': 1, 'repo': str(repo), 'python': str(python), 'vault': str(vault),
-        'live': str(Path(args.live or previous.get('live') or home() / 'git/reader-code-live').expanduser()),
+        'live': str(Path(args.live or previous.get('live') or default_live()).expanduser()),
         'source': args.source or previous.get('source') or DEFAULT_SOURCE,
         'port': args.port or previous.get('port') or DEFAULT_PORT,
-        'env_path': f'{DEFAULT_PATH}:{home() / ".local/bin"}',
+        'env_path': launch_path(),
         'env': {k: v for k, v in os.environ.items() if k in PASS_ENV or (k.startswith('READER_') and not k.startswith('READER_SERVICE_') and k != 'READER_ROOT')},
         'executables': {name: executable(name, previous) for name in EXECUTABLES if name != 'tailscale'},
         'paused': previous.get('paused', False), 'installed_at': now(),
@@ -795,7 +807,7 @@ def parser():
     sub = p.add_subparsers(dest='command', required=True)
     i = sub.add_parser('install', help='Write and load the LaunchAgents (creates the live worktree if needed)')
     i.add_argument('--repo', help='Main code checkout holding .git and .venv (default: this checkout\'s common Git repository)')
-    i.add_argument('--live', help='Live worktree path (default ~/git/reader-code-live)')
+    i.add_argument('--live', help='Live worktree path (default: the recorded one, else ~/Library/Application Support/Reader/live)')
     i.add_argument('--python', help='Interpreter (default REPO/.venv/bin/python)')
     i.add_argument('--vault', help='Reader vault (default READER_ROOT or REPO/.reader/config.json)')
     i.add_argument('--source', help=f'Branch or ref to follow (default {DEFAULT_SOURCE})')

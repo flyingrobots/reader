@@ -163,7 +163,7 @@ def world(tmp_path, monkeypatch):
 
         def do_GET(self):
             state = json.loads(file.read_text())
-            commit = state['heads'].get(str(home / 'git/reader-code-live'))
+            commit = state['heads'].get(str(home / 'Library/Application Support/Reader/live'))
             if self.path != '/api/health' or commit in state['unhealthy']:
                 self.send_response(503); self.end_headers(); return
             body = json.dumps({'status': 'ok', 'commit': commit, 'busy': state['busy']}).encode()
@@ -224,7 +224,7 @@ def test_install_writes_agents_with_the_right_keys_and_backs_up_existing_ones(wo
         assert world.run('update')['outcome'] == 'updated'
     finally:
         del os.environ['GIT_LOCKS_STORE'], os.environ['READER_COLORFUL']
-    live = world.home / 'git/reader-code-live'
+    live = world.home / 'Library/Application Support/Reader/live'
     assert result['installed'] and result['healthy'] and result['live_created'] and result['commit'] == GOOD
     assert [s['step'] for s in result['smoke']] == ['pytest', 'GET /', 'GET /api/library', 'GET /api/document']
     web = plistlib.loads((agents / 'com.flyingrobots.reader.web.plist').read_bytes())
@@ -253,6 +253,19 @@ def test_install_writes_agents_with_the_right_keys_and_backs_up_existing_ones(wo
     assert len(list(backups[0].parent.glob('com.flyingrobots.reader.web.plist.*'))) == 1
 
 
+def test_live_worktree_defaults_to_app_data_and_a_recorded_location_is_kept(world, monkeypatch):
+    custom = world.home / 'elsewhere/live'
+    world.install('--live', str(custom))
+    assert world.service_state()['live'] == str(custom) and custom.is_dir()
+    world.install()
+    assert world.service_state()['live'] == str(custom), 'an existing install keeps its recorded live worktree'
+    assert not (world.home / 'Library/Application Support/Reader/live').exists()
+    monkeypatch.setenv('PATH', f'/opt/example/tools:relative/bin:{os.environ["PATH"]}')
+    path = world.module.launch_path().split(':')
+    assert path[0] == '/opt/example/tools' and 'relative/bin' not in path, 'the installer PATH comes first; only absolute entries'
+    assert path.index('/usr/bin') > 0 and str(world.home / '.local/bin') in path and len(path) == len(set(path))
+
+
 def test_uninstall_restores_the_original_state(world):
     agents = world.home / 'Library/LaunchAgents'
     agents.mkdir(parents=True)
@@ -266,7 +279,7 @@ def test_uninstall_restores_the_original_state(world):
     assert world.state['loaded'] == [], 'the replaced plist was not loaded before install, so it stays unloaded'
     assert not (world.home / 'Library/Application Support/Reader/service.json').exists()
     assert world.run('status') == {'installed': False}
-    assert (world.home / 'git/reader-code-live').is_dir(), 'the live worktree stays unless asked'
+    assert (world.home / 'Library/Application Support/Reader/live').is_dir(), 'the live worktree stays unless asked'
 
 
 def test_install_refuses_a_port_held_by_another_process_and_a_failing_source(world):
@@ -279,7 +292,7 @@ def test_install_refuses_a_port_held_by_another_process_and_a_failing_source(wor
     result = world.run('install', '--repo', str(world.repo), '--vault', str(world.vault), '--port', str(world.port), expect=1)
     assert 'failed its smoke test' in result['error']
     assert not (world.home / 'Library/LaunchAgents/com.flyingrobots.reader.web.plist').exists()
-    assert not (world.home / 'git/reader-code-live').exists()
+    assert not (world.home / 'Library/Application Support/Reader/live').exists()
 
 
 def test_update_advances_only_after_the_smoke_test_passes(world):
@@ -289,12 +302,12 @@ def test_update_advances_only_after_the_smoke_test_passes(world):
     kicks = len(world.state['kicks'])
     result = world.run('update')
     assert result['outcome'] == 'smoke-failed' and result['steps'][0] == {'step': 'pytest', 'ok': False, 'detail': result['steps'][0]['detail']}
-    assert world.state['heads'][str(world.home / 'git/reader-code-live')] == GOOD and len(world.state['kicks']) == kicks
+    assert world.state['heads'][str(world.home / 'Library/Application Support/Reader/live')] == GOOD and len(world.state['kicks']) == kicks
     assert world.run('update')['outcome'] == 'skipped', 'a failed commit is not retested every interval'
     world.edit(branches={'preview/integration': NEWER})
     result = world.run('update')
     assert result['outcome'] == 'updated' and result['from'] == GOOD and result['to'] == NEWER
-    assert world.state['heads'][str(world.home / 'git/reader-code-live')] == NEWER
+    assert world.state['heads'][str(world.home / 'Library/Application Support/Reader/live')] == NEWER
     assert world.state['kicks'][-1] == 'com.flyingrobots.reader.web'
     assert ['kickstart', '-k', f'gui/{os.getuid()}/com.flyingrobots.reader.web'] in world.calls('launchctl')
     checkout = [c for c in world.calls('git-locks') if 'checkout' in c]
@@ -311,7 +324,7 @@ def test_update_rolls_back_when_the_restarted_server_is_unhealthy(world):
     world.edit(branches={'preview/integration': SICK})
     result = world.run('update')
     assert result['outcome'] == 'rolled-back' and result['to'] == SICK
-    assert world.state['heads'][str(world.home / 'git/reader-code-live')] == GOOD
+    assert world.state['heads'][str(world.home / 'Library/Application Support/Reader/live')] == GOOD
     assert world.state['kicks'][-2:] == ['com.flyingrobots.reader.web'] * 2
     assert world.service_state()['current'] == GOOD and world.service_state()['failed_commit'] == SICK
 
@@ -323,7 +336,7 @@ def test_update_waits_while_a_chat_turn_or_inbox_run_is_active(world, monkeypatc
     kicks = len(world.state['kicks'])
     result = world.run('update')
     assert result['outcome'] == 'deferred' and result['busy'] == [{'kind': 'inbox', 'label': 'Inbox run'}]
-    assert world.state['heads'][str(world.home / 'git/reader-code-live')] == GOOD and len(world.state['kicks']) == kicks
+    assert world.state['heads'][str(world.home / 'Library/Application Support/Reader/live')] == GOOD and len(world.state['kicks']) == kicks
     # The work finishes while the updater waits: it then switches and restarts.
     monkeypatch.setenv('READER_SERVICE_BUSY_WAIT', '30')
     timer = threading.Timer(1.0, lambda: world.edit(busy=[]))
@@ -332,7 +345,7 @@ def test_update_waits_while_a_chat_turn_or_inbox_run_is_active(world, monkeypatc
         result = world.run('update')
     finally:
         timer.cancel()
-    assert result['outcome'] == 'updated' and world.state['heads'][str(world.home / 'git/reader-code-live')] == NEWER
+    assert result['outcome'] == 'updated' and world.state['heads'][str(world.home / 'Library/Application Support/Reader/live')] == NEWER
 
 
 def test_pause_resume_request_update_and_a_dirty_live_worktree(world):
@@ -343,7 +356,7 @@ def test_pause_resume_request_update_and_a_dirty_live_worktree(world):
     assert world.run('request-update')['requested'] is True
     assert world.state['kicks'][-1] == 'com.flyingrobots.reader.updater'
     assert ['kickstart', f'gui/{os.getuid()}/com.flyingrobots.reader.updater'] in world.calls('launchctl'), 'no -k: a running update is never killed'
-    live = str(world.home / 'git/reader-code-live')
+    live = str(world.home / 'Library/Application Support/Reader/live')
     world.edit(dirty={live: ' M src/reader_mcp/web.py'})
     result = world.run('update')
     assert result['outcome'] == 'checkout-failed' and 'local changes' in result['error']

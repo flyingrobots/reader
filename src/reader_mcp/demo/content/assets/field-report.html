@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Lantern 0.9 field report</title>
+<style>
+@page { size: Letter; margin: 0.9in 0.85in; }
+body { font-family: Georgia, 'Times New Roman', serif; color: #1d232a; font-size: 11.5pt; line-height: 1.5; }
+h1 { font-size: 26pt; font-weight: normal; margin: 0 0 4pt; letter-spacing: -0.01em; }
+h2 { font-family: 'Helvetica Neue', Arial, sans-serif; font-size: 12pt; text-transform: uppercase; letter-spacing: 0.08em; color: #8a4b18; margin: 22pt 0 6pt; }
+.kicker { font-family: 'Helvetica Neue', Arial, sans-serif; font-size: 9pt; letter-spacing: 0.12em; text-transform: uppercase; color: #6b7280; }
+.lede { font-size: 13pt; color: #374151; margin: 10pt 0 18pt; }
+table { border-collapse: collapse; width: 100%; font-family: 'Helvetica Neue', Arial, sans-serif; font-size: 9.5pt; margin: 8pt 0; }
+th, td { border-bottom: 1px solid #d6d3cc; padding: 5pt 6pt; text-align: left; }
+th { color: #6b7280; font-weight: 600; }
+td.n { text-align: right; font-variant-numeric: tabular-nums; }
+.bar { height: 9pt; background: #c2410c; display: inline-block; vertical-align: middle; border-radius: 2pt; }
+.page { page-break-after: always; }
+.note { font-size: 9pt; color: #6b7280; }
+</style></head><body>
+<section class="page">
+<div class="kicker">Lantern · Field report · Release 0.9</div>
+<h1>Lantern 0.9 in the field</h1>
+<p class="lede">Six weeks of sync on real devices: how often highlights arrived, how long catch-up took, and where anchors went missing.</p>
+<h2>Summary</h2>
+<p>Between the 0.9 release and the end of the trial, fourteen volunteer readers used Lantern on two to four devices each. They made 9,412 highlights and 2,086 margin notes. Every event that was written on one device arrived on every other device that came online; none was lost.</p>
+<p>Two findings changed the plan. First, catch-up time is dominated by re-anchoring against revised sources, not by the network. Second, readers read an orphaned note as lost work even when its quote was preserved, so the interface has to show what the note was written against.</p>
+<h2>Arrival time</h2>
+<table>
+<tr><th>Both devices online</th><th>Median</th><th>95th percentile</th><th></th></tr>
+<tr><td>Same network</td><td class="n">1.2 s</td><td class="n">3.8 s</td><td><span class="bar" style="width:38pt"></span></td></tr>
+<tr><td>Through the relay</td><td class="n">4.1 s</td><td class="n">19 s</td><td><span class="bar" style="width:120pt"></span></td></tr>
+<tr><td>One device asleep</td><td class="n">at wake</td><td class="n">at wake</td><td></td></tr>
+</table>
+</section>
+<section class="page">
+<h2>Catch-up after time away</h2>
+<table>
+<tr><th>Offline for</th><th>Devices</th><th>Events missing (median)</th><th>Catch-up</th></tr>
+<tr><td>Under a day</td><td class="n">31</td><td class="n">22</td><td class="n">0.4 s</td></tr>
+<tr><td>1–7 days</td><td class="n">18</td><td class="n">160</td><td class="n">1.1 s</td></tr>
+<tr><td>8–30 days</td><td class="n">9</td><td class="n">740</td><td class="n">3.6 s</td></tr>
+<tr><td>Over 30 days</td><td class="n">3</td><td class="n">3,208</td><td class="n">11.4 s</td></tr>
+</table>
+<p>On the longest absence, 8.9 of the 11.4 seconds were spent re-anchoring highlights against two documents whose authors had revised their introductions.</p>
+<h2>Where anchors went</h2>
+<table>
+<tr><th>Outcome after a source revision</th><th>Anchors</th><th>Share</th></tr>
+<tr><td>Exact quote found in place</td><td class="n">1,804</td><td class="n">88.6%</td></tr>
+<tr><td>Quote found elsewhere (relocated)</td><td class="n">171</td><td class="n">8.4%</td></tr>
+<tr><td>Orphaned, quote kept</td><td class="n">61</td><td class="n">3.0%</td></tr>
+</table>
+<p class="note">Counts cover anchors that crossed at least one edition change. No anchor was moved to a guessed position.</p>
+</section>
+<section>
+<h2>Recommendations for 1.0</h2>
+<ol>
+<li>Keep relay events for thirty days, configurable, with a seven-day floor.</li>
+<li>Show the edition an orphaned note was written against, one click away.</li>
+<li>Cap retry attempts; a device in a drawer should go quiet, not drain its battery.</li>
+<li>Measure re-anchoring separately from transfer in every catch-up report.</li>
+</ol>
+<p class="note">Lantern is an illustrative project in the Reader demo library. All figures in this report are invented for demonstration.</p>
+</section>
+</body></html>

@@ -1,4 +1,4 @@
-/* Chat with the voices about the open document: history, streamed turns, @mentions, Kai paste, replies and chime-ins. */
+/* Chat with the voices about the open document: history, streamed turns, @mentions, pasted replies for manual voices, replies and chime-ins. */
 import {useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState} from 'react';
 import {Autocomplete as AutocompletePrimitive, Combobox as ComboboxPrimitive} from '@base-ui/react';
 import {ArrowUpIcon, ClipboardPasteIcon, CornerUpLeftIcon, PlusIcon, RefreshCwIcon, RotateCcwIcon, SquareIcon, XIcon} from 'lucide-react';
@@ -110,7 +110,7 @@ export function ChatPanel(props:ChatProps){
   const [voices,setVoices]=useState<Voice[]>([]),[configured,setConfigured]=useState(true);
   const [history,setHistory]=useState<Summary[]>([]),[chat,setChat]=useState<Chat|null>(null);
   const [turns,setTurns]=useState<Record<string,Turn>>({}),[commit,setCommit]=useState<Commit|null>(null);
-  const [draft,setDraft]=useState(''),[pasting,setPasting]=useState(false),[pasteText,setPasteText]=useState(''),[busy,setBusy]=useState(false);
+  const [draft,setDraft]=useState(''),[pasting,setPasting]=useState(false),[pasteText,setPasteText]=useState(''),[pasteVoice,setPasteVoice]=useState<string|null>(null),[busy,setBusy]=useState(false);
   const [mention,setMention]=useState<{start:number;query:string}|null>(null);
   const [replyTo,setReplyTo]=useState<ChatMessage|null>(null),[flash,setFlash]=useState<string|null>(null);
   const hushed=useRef(false),raisedBatch=useRef(0),raisedTimer=useRef<number|undefined>(undefined);
@@ -207,6 +207,8 @@ export function ChatPanel(props:ChatProps){
   const reconnect=()=>{setGeneration(g=>g+1);if(chatRef.current)load(chatRef.current.id).catch(()=>{});};
 
   const runnable=voices.filter(v=>v.runnable),mentionable=voices.filter(v=>v.enabled);
+  // Manual voices (`"cli": null` in voices.json) answer by paste; the paste control names the one chosen.
+  const manual=voices.filter(v=>v.manual),pasteName=manual.find(v=>v.name===pasteVoice)?.name??manual[0]?.name??null;
   const listening=pending.filter(t=>t.kind==='listen'),speaking=pending.filter(t=>t.kind!=='listen');
   const chimeIns:ChimeIns=chat?.settings?.chime_ins||'hands';
   const byId=useMemo(()=>new Map((chat?.messages||[]).map(m=>[m.id,m])),[chat]);
@@ -221,11 +223,12 @@ export function ChatPanel(props:ChatProps){
     if(!body.trim()||busy)return false;setBusy(true);
     try{const current=await ensureChat(),key=action+':'+current.id+':'+body;requests.current[key]||=uuid();
       const reply=action==='send'&&replyTo&&replyTo.id&&current.messages.some(m=>m.id===replyTo.id)?replyTo.id:undefined;
-      const data=await api('/api/chat',{action,id:current.id,body,participant,request_id:requests.current[key],...(reply?{reply_to:reply}:{})});delete requests.current[key];
+      const data=await api('/api/chat',{action,id:current.id,body,participant,request_id:requests.current[key],...(reply?{reply_to:reply}:{}),...(action==='paste'&&pasteName?{voice:pasteName}:{})});delete requests.current[key];
       setChat(data.chat);setTurns(old=>merge(old,data.pending));if(action==='send')setReplyTo(null);hushed.current=false;
       const routing=data.message?.routing;
       if(action==='send'&&!data.turns.length){const named=(data.message?.mentions||[]) as string[];
-        notify(named.includes('Kai')?'Kai answers by paste: use “Paste Kai’s reply”.':runnable.length?'No enabled voice was mentioned.':'No voices are configured for chat; add voices.json to the vault.');}
+        const pasted=manual.find(v=>named.includes(v.name))?.name;
+        notify(pasted?`${pasted} answers by paste: use “Paste ${pasted}’s reply”.`:runnable.length?'No enabled voice was mentioned.':'No voices are configured for chat; add voices.json to the vault.');}
       else if(routing?.chosen_by==='random')notify(`${routing.voices[0]} was chosen at random to answer.`);
       return true;
     }catch(error){fail(error);return false;}finally{setBusy(false);}
@@ -275,7 +278,7 @@ export function ChatPanel(props:ChatProps){
       <MessageScroller className="chat-scroller">
         <MessageScrollerViewport>
           <MessageScrollerContent className="chat-messages" aria-live="polite">
-            {!chat?.messages.length&&!pending.length?<p className="chat-empty">{configured?<>Ask about this document. <kbd>@</kbd> chooses who answers{runnable.length?<>: {runnable.map(v=>'@'+(v.mention[0]||v.name)).join(', ')}</>:null}. Without a mention, one voice is chosen at random.</>:<>No voices are configured for chat. Add <code>voices.json</code> to the vault to run them; you can still write and paste Kai’s replies.</>}</p>:null}
+            {!chat?.messages.length&&!pending.length?<p className="chat-empty">{configured?<>Ask about this document. <kbd>@</kbd> chooses who answers{runnable.length?<>: {runnable.map(v=>'@'+(v.mention[0]||v.name)).join(', ')}</>:null}. Without a mention, one voice is chosen at random.</>:<>No voices are configured for chat. Add <code>voices.json</code> to the vault to run them.</>}</p>:null}
             {chat?.messages.map(message=>message.kind==='hand'?<MessageScrollerItem key={message.id}>
               <Card size="sm" className="chat-hand" data-chat-hand={message.id} data-author={message.author} data-hand-state={handOpen(message)?'raised':message.state}>
                 <p>✋ <strong>{message.author}</strong> has something to add: {message.reason}</p>
@@ -312,13 +315,16 @@ export function ChatPanel(props:ChatProps){
       </MessageScroller>
     </MessageScrollerProvider>
     {commit?.status==='failed'?<p className="chat-commit-error" role="status">The last change to this chat isn’t committed: {commit.error}</p>:null}
-    {pasting?<form className="chat-paste" onSubmit={event=>{event.preventDefault();paste();}}>
-      <label htmlFor="chat-paste-body">Kai’s reply, pasted from ChatGPT</label>
-      <InputGroup><InputGroupTextarea id="chat-paste-body" rows={4} maxLength={65536} value={pasteText} onChange={event=>setPasteText(event.target.value)} placeholder="Paste Kai’s reply…"/>
-        <InputGroupAddon align="block-end"><InputGroupButton variant="ghost" size="xs" onClick={()=>{setPasting(false);setPasteText('');}}>Cancel</InputGroupButton><InputGroupButton type="submit" variant="default" size="xs" className="ml-auto" disabled={!pasteText.trim()||busy}>Save as Kai</InputGroupButton></InputGroupAddon></InputGroup>
+    {pasting&&pasteName?<form className="chat-paste" onSubmit={event=>{event.preventDefault();paste();}}>
+      {manual.length>1?<Select items={manual.map(v=>({value:v.name,label:v.name}))} value={pasteName} onValueChange={value=>{if(value)setPasteVoice(value as string);}}>
+        <SelectTrigger id="chat-paste-voice" size="sm" aria-label="Whose reply you are pasting"><SelectValue/></SelectTrigger>
+        <SelectContent alignItemWithTrigger={false}><SelectGroup>{manual.map(v=><SelectItem key={v.name} value={v.name}>{v.name}</SelectItem>)}</SelectGroup></SelectContent></Select>:null}
+      <label htmlFor="chat-paste-body">{pasteName}’s reply, pasted by hand</label>
+      <InputGroup><InputGroupTextarea id="chat-paste-body" rows={4} maxLength={65536} value={pasteText} onChange={event=>setPasteText(event.target.value)} placeholder={`Paste ${pasteName}’s reply…`}/>
+        <InputGroupAddon align="block-end"><InputGroupButton variant="ghost" size="xs" onClick={()=>{setPasting(false);setPasteText('');}}>Cancel</InputGroupButton><InputGroupButton type="submit" variant="default" size="xs" className="ml-auto" disabled={!pasteText.trim()||busy}>Save as {pasteName}</InputGroupButton></InputGroupAddon></InputGroup>
     </form>:null}
     {replyTo?<div className="chat-replying" data-chat-replying={replyTo.id}>
-      <span><CornerUpLeftIcon/>Replying to {replyTo.author} · “{excerpt(replyTo.body)}”{replyTo.runtime?.manual?<em> Kai answers by paste: use “Paste Kai’s reply” for the answer.</em>:null}</span>
+      <span><CornerUpLeftIcon/>Replying to {replyTo.author} · “{excerpt(replyTo.body)}”{replyTo.runtime?.manual?<em> {replyTo.author} answers by paste: use “Paste {manual.length>1?'a':replyTo.author+'’s'} reply” for the answer.</em>:null}</span>
       <Button variant="ghost" size="icon-xs" aria-label="Cancel the reply" onClick={()=>setReplyTo(null)} data-chat-reply-cancel=""><XIcon/></Button></div>:null}
     <form className="chat-composer" onSubmit={event=>{event.preventDefault();send();}}>
       {/* Base UI Autocomplete is the free-text member of the Combobox family: the textarea keeps the whole message. */}
@@ -333,7 +339,7 @@ export function ChatPanel(props:ChatProps){
             }}
             onSelect={event=>{const element=event.currentTarget as unknown as HTMLTextAreaElement;setMention(mentionAt(element.value,element.selectionStart??element.value.length));}}/>
           <InputGroupAddon align="block-end">
-            <InputGroupButton variant="ghost" size="xs" onClick={()=>setPasting(value=>!value)} aria-pressed={pasting} id="chat-paste-toggle"><ClipboardPasteIcon/>Paste Kai’s reply</InputGroupButton>
+            {pasteName?<InputGroupButton variant="ghost" size="xs" onClick={()=>setPasting(value=>!value)} aria-pressed={pasting} id="chat-paste-toggle"><ClipboardPasteIcon/>{manual.length>1?'Paste a reply':`Paste ${pasteName}’s reply`}</InputGroupButton>:null}
             <InputGroupButton type="submit" variant="default" size="icon-xs" className="ml-auto" aria-label="Send" disabled={!draft.trim()||busy} id="chat-send"><ArrowUpIcon/></InputGroupButton>
           </InputGroupAddon>
         </InputGroup>

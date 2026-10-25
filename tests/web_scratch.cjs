@@ -13,7 +13,7 @@ const shots=process.env.READER_SHOTS||'.reader/web-dev';
   const {url,root}=await new Promise((resolve,reject)=>{createInterface({input:fixture.stdout}).once('line',line=>resolve(JSON.parse(line)));fixture.once('exit',code=>reject(new Error('Fixture exited '+code)));});
   browser=await chromium.launch({headless:true,executablePath:process.env.READER_CHROME||'/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',args:['--disable-gpu','--disable-background-networking','--disable-breakpad','--disable-crash-reporter','--disk-cache-size=10485760']});
   mkdirSync(shots,{recursive:true});
-  const git=(...args)=>execFileSync('git',['-C',root,...args],{encoding:'utf8',env:{PATH:'/usr/bin:/bin:/usr/local/bin:/opt/homebrew/bin',GIT_CONFIG_GLOBAL:'/dev/null',HOME:'/dev/null'}});
+  const git=(...args)=>execFileSync('git',['-C',root,...args],{encoding:'utf8',env:{PATH:process.env.PATH,GIT_CONFIG_GLOBAL:'/dev/null',HOME:'/dev/null'}});
   const context=await browser.newContext({viewport:{width:1280,height:900},reducedMotion:'reduce'});
   await context.addInitScript(value=>{try{if(!localStorage.getItem('reader.preferences.v1'))localStorage.setItem('reader.preferences.v1',value);}catch{}},JSON.stringify({smooth:false,theme:'paper',nextReads:false}));
   const page=await context.newPage();

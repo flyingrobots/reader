@@ -129,7 +129,20 @@ cd reader
 uv sync --locked
 ```
 
-A vault is a Git repository with `library/` and `inbox/` folders. Put your Markdown
+Try it on a ready-made example library first:
+
+```sh
+uv run --locked reader demo --open
+```
+
+This builds a disposable demo vault in `~/Reader Demo` (public-domain essays and a
+fictional software project, with highlights, threads, editions, a reading queue,
+inbox arrivals and chat with scripted voices that need no AI), indexes it, and
+opens the reader in your browser. Ctrl-C stops it; run it again to refresh the
+dates. It never touches a folder that is not an earlier demo. See
+[the demo vault](docs/demo.md) for options and sources.
+
+When you are ready for your own documents: a vault is a Git repository with `library/` and `inbox/` folders. Put your Markdown
 and PDF files anywhere under `library/`:
 
 ```sh
@@ -158,6 +171,19 @@ server by hand. The Obsidian sidebar plugin is optional. Both are covered in
 [separate-vault setup](docs/separate-vault.md), [delivery](docs/delivery.md) and
 [the Obsidian plugin](docs/obsidian-plugin.md).
 
+### Companion projects
+
+For the full experience, install these sibling projects as well. Each is a
+separate repository, not a package dependency, so `uv sync` does not fetch them;
+Reader finds them on your PATH and works without them.
+
+| Project | What it adds | Install |
+| --- | --- | --- |
+| [AI-TTS](https://github.com/flyingrobots/AI-TTS) | Read aloud (Space s): a local speech daemon that queues speech, keeps history and honours pauses | Follow its README; Reader talks to the running daemon |
+| [Colorful Language](https://github.com/flyingrobots/colorful-language) | Prose colors (Space c): syntax highlighting for English prose | `cargo install --path crates/colorful-cli --locked` in a clone, or set its path in Settings |
+| [wide-md](https://github.com/flyingrobots/wide-md) | Reading copies: removes artificial line wrapping from filed Markdown | `python3 scripts/install_wide_md.py` builds the pinned revision ([details](docs/reading-copies.md)) |
+| [git-locks](https://github.com/git-stunts/locks) | Safe commits when several agents or Reader processes write to the vault at once | Follow its README so `git-locks` is on your PATH; without it Reader falls back to a local file lock |
+
 ### Optional connections
 
 | To get | Install | Then |
@@ -165,7 +191,7 @@ server by hand. The Obsidian sidebar plugin is optional. Both are covered in
 | Chat voices | Any of `claude`, `codex` or `agy`, signed in with your own account | Copy [`templates/voices.json`](templates/voices.json) into the vault and edit it ([voice registry](docs/web.md#voice-registry)) |
 | Inbox librarian | `codex`, signed in (`codex login`) | Press **You got mail** in Behind the scenes ([inbox runner](docs/inbox-runner.md)) |
 | Local model | Any OpenAI-compatible server: [LM Studio](https://lmstudio.ai/) (Reader can start it and load models through `lms`), [Ollama](https://ollama.com/), llama.cpp's `llama-server`, vLLM, LocalAI, Jan | Behind the scenes, Local model, Provider: pick a preset or enter its `/v1` base URL ([details](docs/web.md#behind-the-scenes-local-model-any-openai-compatible-server)) |
-| Read aloud | A local AI-TTS daemon | Space s ([details](docs/web.md#send-to-ai-tts)) |
+| Read aloud | A local [AI-TTS](https://github.com/flyingrobots/AI-TTS) daemon | Space s ([details](docs/web.md#send-to-ai-tts)) |
 | Prose colors | [Colorful Language](https://github.com/flyingrobots/colorful-language) 0.3.0 or newer | Space c ([details](docs/web.md#prose-colors-colorful-language)) |
 
 The local model writes standfirsts and key terms, checked against the source and
@@ -245,6 +271,7 @@ unless you choose `--scope library` for search and reading too. See
 ## Documentation
 
 - [Web reader](docs/web.md): every feature, key, limit and recovery step
+- [Demo vault](docs/demo.md): `reader demo`, its contents, sources and scripted voices
 - [Capabilities and boundaries](docs/capabilities.md): what is and is not supported
 - [Search](docs/search.md), [annotations](docs/annotations.md),
   [delivery](docs/delivery.md), [metadata](docs/metadata.md),

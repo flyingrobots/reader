@@ -252,7 +252,7 @@ def main():
             # A committed edition with receipts and a highlight, then a changed working copy.
             import subprocess
             from reader_mcp.engagement import Engagement
-            env = {'PATH': '/usr/bin:/bin:/usr/local/bin:/opt/homebrew/bin', 'GIT_CONFIG_GLOBAL': '/dev/null', 'GIT_CONFIG_NOSYSTEM': '1', 'HOME': '/dev/null',
+            env = {'PATH': os.environ.get('PATH', os.defpath), 'GIT_CONFIG_GLOBAL': '/dev/null', 'GIT_CONFIG_NOSYSTEM': '1', 'HOME': '/dev/null',
                    'GIT_AUTHOR_NAME': 'Fixture', 'GIT_AUTHOR_EMAIL': 'fixture@example.invalid', 'GIT_COMMITTER_NAME': 'Fixture', 'GIT_COMMITTER_EMAIL': 'fixture@example.invalid'}
             paragraph = lambda i: f'Gate {i} opens onto a long corridor of careful reading and patient thought about the library.'
             old = '# Gates of reading\n\n' + '\n\n'.join(paragraph(i) for i in range(1, 41)) + '\n'
@@ -279,7 +279,7 @@ def main():
         if '--versions' in sys.argv:
             # The --editions family in git: v1 filed on Oct 12 and revised on Oct 15 with v2, v3 and the reading copy.
             import subprocess
-            env = {'PATH': '/usr/bin:/bin:/usr/local/bin:/opt/homebrew/bin', 'GIT_CONFIG_GLOBAL': '/dev/null', 'GIT_CONFIG_NOSYSTEM': '1', 'HOME': '/dev/null',
+            env = {'PATH': os.environ.get('PATH', os.defpath), 'GIT_CONFIG_GLOBAL': '/dev/null', 'GIT_CONFIG_NOSYSTEM': '1', 'HOME': '/dev/null',
                    'GIT_AUTHOR_NAME': 'Ada', 'GIT_AUTHOR_EMAIL': 'ada@example.invalid', 'GIT_COMMITTER_NAME': 'Ada', 'GIT_COMMITTER_EMAIL': 'ada@example.invalid'}
             run = lambda *args, when: subprocess.run(['git', '-C', str(root), *args], env=env | {'GIT_AUTHOR_DATE': when, 'GIT_COMMITTER_DATE': when}, check=True, capture_output=True)
             essay = root / 'library/essays/tidal'
@@ -492,7 +492,6 @@ def main():
         if '--inbox' in sys.argv:
             inbox_environ = inbox_fixture(root)
         # Never reach the real AI-TTS daemon: --speech starts a fake one, otherwise the socket is absent.
-        import os
         speech_folder = tempfile.mkdtemp(prefix='rs-', dir='/tmp' if Path('/tmp').is_dir() else None)
         os.environ['AI_TTS_SOCKET'] = str(Path(speech_folder) / 'ai-tts.sock')
         fake = None
@@ -569,7 +568,7 @@ def main():
         if '--writing' in sys.argv:
             # A synthetic vault repository for scratch pad saves; commits use flock only (never the workstation lock store).
             import subprocess
-            env = {'PATH': '/usr/bin:/bin:/usr/local/bin:/opt/homebrew/bin', 'GIT_CONFIG_GLOBAL': '/dev/null', 'GIT_CONFIG_NOSYSTEM': '1', 'HOME': '/dev/null'}
+            env = {'PATH': os.environ.get('PATH', os.defpath), 'GIT_CONFIG_GLOBAL': '/dev/null', 'GIT_CONFIG_NOSYSTEM': '1', 'HOME': '/dev/null'}
             if not (root / '.git').exists():
                 subprocess.run(['git', '-C', str(root), 'init', '-q', '-b', 'main'], env=env, check=True, capture_output=True)
             for key, value in (('user.name', 'Synthetic Writer'), ('user.email', 'writer@example.invalid')):

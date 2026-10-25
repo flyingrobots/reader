@@ -15,6 +15,7 @@ import hashlib
 import json
 import os
 import re
+import shutil
 import subprocess
 import threading
 import time
@@ -31,7 +32,8 @@ TEXT_TYPES = ('.md', '.markdown', '.txt')
 FRONT = re.compile(r'^﻿?---\r?\n[\s\S]*?\r?\n---(?:\r?\n|$)')
 FENCE = re.compile(r'^ {0,3}(`{3,}|~{3,})')
 WORD = re.compile(r'\s+|\w+|[^\w\s]', re.UNICODE)
-GIT_ENV = {'PATH': '/usr/bin:/bin:/usr/local/bin:/opt/homebrew/bin', 'LC_ALL': 'C', 'GIT_OPTIONAL_LOCKS': '0',
+# A minimal, sanitized Git environment. PATH is the server's own (see Changes), never a fixed list.
+GIT_ENV = {'LC_ALL': 'C', 'GIT_OPTIONAL_LOCKS': '0',
            'GIT_PAGER': 'cat', 'PAGER': 'cat', 'GIT_TERMINAL_PROMPT': '0', 'GIT_CONFIG_NOSYSTEM': '1',
            'GIT_CONFIG_GLOBAL': os.devnull, 'GIT_NO_REPLACE_OBJECTS': '1', 'GIT_ATTR_NOSYSTEM': '1', 'HOME': os.devnull}
 SHA = re.compile(r'^[0-9a-f]{64}$')
@@ -155,11 +157,13 @@ def bounded(hunks):
 
 
 class Changes:
-    def __init__(self, root, git='git', clock=time.monotonic):
+    def __init__(self, root, git=None, clock=time.monotonic):
         self.root = os.fspath(root)
         # Only a repository at the vault root counts; never one discovered in a parent folder.
-        self.env = GIT_ENV | {'GIT_CEILING_DIRECTORIES': os.path.dirname(os.path.realpath(self.root))}
-        self.git = git
+        self.env = GIT_ENV | {'PATH': os.environ.get('PATH', os.defpath),
+                              'GIT_CEILING_DIRECTORIES': os.path.dirname(os.path.realpath(self.root))}
+        # Resolve git once on the server's PATH (wherever it is installed) and run it by absolute path.
+        self.git = git or shutil.which('git') or 'git'
         self.clock = clock
         self.cache = OrderedDict()   # sha256 -> text
         self.cached_bytes = 0

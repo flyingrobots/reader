@@ -27,7 +27,7 @@ MAX_TITLE = 200
 SLUG = re.compile(r'^[a-z0-9-]{1,60}$')
 VERSION = re.compile(r'^(?P<stem>.+?)(?:\.v(?P<n>[0-9]{1,4}))?\.md$')
 FIELDS = {'action', 'body', 'title', 'slug', 'status', 'responds_to', 'request_id', 'base', 'shifted'}
-GIT_ENV = {'PATH': '/usr/bin:/bin:/usr/local/bin:/opt/homebrew/bin', 'LC_ALL': 'C', 'GIT_TERMINAL_PROMPT': '0', 'GIT_PAGER': 'cat'}
+GIT_ENV = {'LC_ALL': 'C', 'GIT_TERMINAL_PROMPT': '0', 'GIT_PAGER': 'cat'}
 
 
 class WritingConflict(Exception):
@@ -159,7 +159,7 @@ class Writing:
         git = shutil.which('git')
         if git:
             try:
-                name = subprocess.run([git, 'config', 'user.name'], cwd=self.root, capture_output=True, text=True, timeout=10, env=GIT_ENV | {'HOME': os.environ.get('HOME', '')}).stdout.strip()
+                name = subprocess.run([git, 'config', 'user.name'], cwd=self.root, capture_output=True, text=True, timeout=10, env=GIT_ENV | {'PATH': os.environ.get('PATH', os.defpath), 'HOME': os.environ.get('HOME', '')}).stdout.strip()
                 if name:
                     return name
             except (OSError, subprocess.SubprocessError):

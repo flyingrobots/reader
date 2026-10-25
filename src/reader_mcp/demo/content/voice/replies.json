@@ -1,0 +1,34 @@
+{
+  "replies": {
+    "Architect": [
+      {"match": ["retention|thirty|30 days"],
+       "reply": "Thirty days is a good **default**, but make it a setting with a floor. The relay's job is to cover the gap between two devices being online, and the longest gap we measured was the old laptop at 41 days.\n\n- Default: 30 days, which covers the tablet and phone cases outright.\n- Floor: 7 days, so a misconfiguration cannot turn the relay back into a pure forwarder.\n- Past the window, a device falls back to a full catch-up from a peer, which is slower but never loses events.\n\nThe cost of keeping events is small: they are encrypted, content-addressed and deduplicated, so a month of one reader's highlights is a few megabytes."},
+      {"match": ["measure|metric|number"],
+       "reply": "First, the **re-anchoring hit rate on real revisions**: of the anchors that cross an edition change, how many land on the exact quote, how many move, and how many orphan. The journal's 31 orphans all came from one rewritten introduction, which is one data point, not a rate.\n\nSecond, the catch-up time split into network and re-anchoring. On the old laptop most of the 11.4 s was re-anchoring, so that is where the budget goes."},
+      {"reply": "Reading {title} as a system: the parts that can be retried belong in the engine, and the parts that need judgment should come back to you. I would check where this piece draws that line."}
+    ],
+    "Archivist": [
+      {"match": ["connect|related|link"],
+       "reply": "Yes, two threads run through this month's shelf.\n\n1. **Woolf on the ordinary mind** sits beside her own essay on [the common reader](library/essayists/woolf/the-common-reader.md): both are about what a reader keeps from an ordinary day of reading.\n2. My essay [On keeping the margins](library/reading-room/on-keeping-the-margins.md) takes the same question to annotations: what a margin owes the text when the text changes.\n\nI would not claim more than a family resemblance; Woolf is writing about novels, not notes."},
+      {"match": ["provenance|edition|version"],
+       "reply": "Keep the edition with the note. A margin records a reading of particular words; if the words change, the reader should be able to see what the note was written against."},
+      {"reply": "From the archive's side: {title} is filed with its source and date. I would keep its earlier editions one click away."}
+    ],
+    "Plain Reader": [
+      {"match": ["five minutes|one paragraph|short"],
+       "reply": "Read the paragraph that begins **\"Examine for a moment an ordinary mind on an ordinary day.\"** It is the essay in miniature: the mind receives \"a myriad impressions\", and Woolf asks why the novel keeps only the plot.\n\nCoverage: I read the whole essay once and that paragraph three times. It takes about two minutes."},
+      {"reply": "**Opinion first:** {title} earns its length in the first third. Coverage: I read it once, start to finish."}
+    ]
+  },
+  "hands": {
+    "Archivist": [
+      {"match": ["retention|relay|thirty"], "reason": "Retention is also a provenance question: orphaned notes need the edition they were written against."}
+    ]
+  },
+  "chime": {
+    "Archivist": [
+      {"match": ["provenance|retention|relay"],
+       "reply": "One addition the Architect didn't cover: when the relay drops an event past the window, keep the **edition hash** it named. An orphaned note without its edition can't be explained later, and that is the part a reader will ask about."}
+    ]
+  }
+}

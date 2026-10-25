@@ -1194,10 +1194,11 @@ class Conversations:
     def send(self, id, body, participant, request_id=None, author=None, reply_to=None):
         return self.post(id, author or participant, body, request_id, None, True, participant, reply_to)
 
-    def paste(self, id, body, participant, request_id=None, voice='Kai'):
-        registry = self.registry.load()
-        manual = next((v for v in registry['voices'] if v['name'] == voice and v['manual']), None)
-        if voice != 'Kai' and not manual:
+    def paste(self, id, body, participant, request_id=None, voice=None):
+        """Post a reply you pasted for a manual voice (`"cli": null` in voices.json); default: the first one."""
+        manual = [v['name'] for v in self.registry.load()['voices'] if v['manual']]
+        voice = manual[0] if voice is None and manual else voice
+        if voice not in manual:
             raise ValueError('Paste a reply only for a voice marked manual in voices.json')
         return self.post(id, voice, body, request_id, {'manual': True, 'pasted_by': participant}, False, participant)
 

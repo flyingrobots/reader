@@ -2,6 +2,7 @@
 from datetime import datetime, timezone
 import hashlib
 import json
+import os
 from pathlib import Path
 import subprocess
 import threading
@@ -14,7 +15,7 @@ import pytest
 from reader_mcp.web import WebLibrary, WebServer
 from reader_mcp.writing import Writing, WritingConflict
 
-ENV = {'PATH': '/usr/bin:/bin:/usr/local/bin:/opt/homebrew/bin', 'GIT_CONFIG_GLOBAL': '/dev/null', 'GIT_CONFIG_NOSYSTEM': '1', 'HOME': '/dev/null'}
+ENV = {'PATH': os.environ.get('PATH', os.defpath), 'GIT_CONFIG_GLOBAL': '/dev/null', 'GIT_CONFIG_NOSYSTEM': '1', 'HOME': '/dev/null'}
 CLOCK = lambda: datetime(2026, 10, 24, 15, 30, tzinfo=timezone.utc)
 
 

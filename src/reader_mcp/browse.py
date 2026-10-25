@@ -71,6 +71,11 @@ def week(day):
     return f'{y}-W{w:02} · {monday} to {monday + timedelta(days=6)}'
 
 
+def yaml_name(value):
+    """A frontmatter scalar: bare when plain (the default name stays byte-identical), else JSON-quoted."""
+    return value if re.fullmatch(r'[A-Za-z][A-Za-z0-9 .()_-]*', value) else json.dumps(value, ensure_ascii=False)
+
+
 class Browse:
     def __init__(self, root):
         self.root = Path(root).resolve(strict=True)
@@ -258,6 +263,10 @@ class Browse:
         result = json.loads(self.read(path, 128 * 1024))
         if not isinstance(result, dict):
             raise ValueError('Browse settings must be an object')
+        author = result.get('navigation_author', 'Reader librarian')
+        if not isinstance(author, str) or not 0 < len(author.strip()) <= 100 or '\n' in author:
+            raise ValueError('navigation_author must be a one-line name of 1–100 characters')
+        self.navigation_author = author.strip()
         for key in ('topics','projects'):
             rules = result.get(key, [])
             if not isinstance(rules, list):
@@ -289,7 +298,7 @@ class Browse:
             for key, field in VIEWS.items():
                 for name in ([u['week']] if key=='week' else u[field]):
                     groups[key][name].append(u)
-        header = f'---\nfrontmatter_schema_version: 1\ndocument_revision: 1\nauthor: Reader librarian\ncreated: {today}\nupdated: {today}\ntype: navigation\n'
+        header = f'---\nfrontmatter_schema_version: 1\ndocument_revision: 1\nauthor: {yaml_name(getattr(self, "navigation_author", "Reader librarian"))}\ncreated: {today}\nupdated: {today}\ntype: navigation\n'
         common = f'{MARKER}\n\nSnapshot `{generation[:12]}` · **{len(units):,} work entries**. '
         common += 'Deliveries and cataloged packages are grouped; standalone writing is separate. This is navigation, not proof of reading or source verification.\n\n'
         result = {}

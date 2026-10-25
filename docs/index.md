@@ -11,6 +11,7 @@ This corpus describes how Reader works: its architecture, contracts, capabilitie
 - [Shared highlights and discussion](annotations.md) — source anchors, replies, persistence, and CLI/MCP tools.
 - [Codex inbox runner](inbox-runner.md) — explicit Obsidian launch, deterministic controls, librarian judgment, and recovery.
 - [Obsidian Reader sidebar](obsidian-plugin.md) — relationships, dates, filtering, library search, read-aloud, installation, and recovery.
+- [Demo vault](demo.md) — `reader demo`: a disposable example vault with public-domain texts, scripted voices and every feature seeded.
 - [Library website](web.md) — local dashboard, Vim navigation, two-page reading, automatic bookmarks and shared margins.
 - [Library search](search.md) — CLI/MCP search, source reading, indexing, local model setup, and recovery.
 - [Versioned document metadata](metadata.md) — frontmatter schema, Obsidian placeholders, SQL mirror, migration, and validation.

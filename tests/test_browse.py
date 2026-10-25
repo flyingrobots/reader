@@ -161,3 +161,15 @@ def test_receipt_timezone_defines_week_and_retains_precise_recency(vault):
     u=Browse(vault).inventory({})[0]
     assert u['date']=='2026-10-19' and u['week'].startswith('2026-W43')
     assert u['arrival_time']=='2026-10-19T01:30:00+00:00'
+
+
+def test_navigation_author_comes_from_settings_and_defaults_unchanged(vault):
+    note(vault,'library/a.md','title: A\nauthor: Someone\nadded: 2026-10-20')
+    Browse(vault).run(today=TODAY)
+    assert '\nauthor: Reader librarian\n' in (vault/'indexes/index.md').read_text(),'default bytes unchanged'
+    (vault/'indexes/settings.json').write_text(json.dumps({'navigation_author':'Demo: the editors'}))
+    Browse(vault).run(today=TODAY)
+    assert '\nauthor: "Demo: the editors"\n' in (vault/'indexes/by-author.md').read_text(),'quoted when not plain'
+    (vault/'indexes/settings.json').write_text(json.dumps({'navigation_author':'two\nlines'}))
+    with pytest.raises(ValueError,match='navigation_author'):
+        Browse(vault).run(today=TODAY)

@@ -29,6 +29,9 @@ def main():
     web = commands.add_parser("web", help="Open the local zen reading web application")
     web.add_argument("--port", type=int, default=8766)
     web.add_argument("--participant", default="You")
+    demo = commands.add_parser("demo", help="Build a disposable example vault (public-domain texts) and open the web reader on it")
+    from .demo import add_arguments as demo_arguments
+    demo_arguments(demo)
     index = commands.add_parser("index", help="Refresh the rebuildable library search index")
     index.add_argument("--no-semantic", action="store_true", help="Skip model download and embedding")
     search = commands.add_parser("search", help="Search library paths and contents")
@@ -77,6 +80,14 @@ def main():
     if args.command == "metadata-schema":
         from .metadata import schema
         print(json.dumps(schema(args.profile), indent=2))
+        return
+    if args.command == "demo":  # Never uses --root or READER_ROOT: it builds its own vault.
+        from .demo import run as run_demo
+        try:
+            run_demo(args)
+        except (ValueError, OSError, sqlite3.Error) as exc:
+            print(f"Reader: {exc}", file=sys.stderr)
+            sys.exit(1)
         return
     if not args.root:
         parser.error("Pass --root or set READER_ROOT")

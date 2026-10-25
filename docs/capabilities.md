@@ -179,7 +179,8 @@ Uncommitted older bytes, merges' own changes and PDFs are not covered.
 Space m opens a chat with the voices about the open document. You choose who
 answers with `@` mentions (one voice at random otherwise); the Reader librarian,
 Agy and Claude run through their own CLIs as configured in the vault's
-`voices.json`, with their normal authority, and Kai's replies are pasted by hand.
+`voices.json`, with their normal authority, and manual voices' replies are pasted by
+hand (the paste control names the registry's manual voice).
 Replies stream into the panel; turns run one at a time per vault with timeouts,
 cancel, resource guards and waiting for the inbox runner. Each chat is stored in
 `chats/` and committed after every message. Panels in several tabs share a
@@ -254,6 +255,18 @@ reading rail, Pagination in facing-page mode, Select and Switch in the Behind th
 Card and Badge for index status, Sonner toasts, a paired light/dark Switch, Code Block with exact-text copying, and Skeleton
 loading placeholders. The compiled assets ship with the Python package; rebuilding
 these controls requires the separate `web/` Node toolchain.
+
+## Demo vault
+
+`reader demo` builds a disposable example vault (by default `~/Reader Demo`) from
+public-domain texts and clearly fictional notes, initializes Git with backdated
+commits, builds the browse, catalog, keyword and link indexes and serves the web
+reader on it. It writes only into a new or empty directory or one carrying its
+`.reader-demo-vault` marker, and every run rebuilds the vault from scratch so dates
+stay relative to today; only downloaded embedding models survive a refresh.
+Semantic search is on only when the embedding model is already in the vault or
+`--semantic` explicitly allows the download. Chat uses scripted demo voices that
+never call a model. See [demo vault](demo.md).
 
 ## Verification boundaries
 
