@@ -18,6 +18,8 @@ export type EditorOptions={
   onMode?:(mode:EditorMode)=>void;
   /** Escape in Vim normal mode (the second Escape from insert mode): leave the editor. */
   onExit?:()=>void;
+  /** Ctrl-r {a-z or "} in insert mode: paste that Reader register (Vim's own registers are not used). */
+  onRegister?:(name:string)=>void;
   /** Ex commands by name: `:w` calls commands.write(args). */
   commands?:Record<string,(args:string)=>void>;
 };
@@ -80,6 +82,19 @@ export function createMarkdownEditor(parent:HTMLElement,options:EditorOptions={}
     const normal=cm?!state?.insertMode&&!state?.visualMode&&!state?.inputState?.operator&&!view.dom.querySelector('.cm-vim-panel input'):true;
     if(normal){event.preventDefault();event.stopPropagation();options.onExit?.();}
   },true);
+  // Ctrl-r then a register name, in insert mode, before Vim sees either key.
+  let awaitingRegister=false;
+  if(options.onRegister)view.dom.addEventListener('keydown',event=>{
+    if(event.isComposing||['Shift','Control','Alt','Meta','CapsLock'].includes(event.key))return;
+    if(awaitingRegister){
+      awaitingRegister=false;event.preventDefault();event.stopPropagation();
+      if(/^[a-z"]$/.test(event.key)&&!event.ctrlKey&&!event.metaKey&&!event.altKey)options.onRegister?.(event.key);
+      return;
+    }
+    const insert=cm?!!(cm as any).state?.vim?.insertMode:true;
+    if(insert&&event.ctrlKey&&!event.metaKey&&!event.altKey&&event.key==='r'){event.preventDefault();event.stopPropagation();awaitingRegister=true;}
+  },true);
+  view.dom.addEventListener('blur',()=>{awaitingRegister=false;},true);
   return {
     view,
     text:()=>view.state.doc.toString(),

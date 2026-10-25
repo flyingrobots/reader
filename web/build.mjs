@@ -6,7 +6,11 @@ import {createHash} from 'node:crypto';
 const out='../src/reader_mcp/web_ui/controls';
 const hash=path=>createHash('sha256').update(readFileSync(path)).digest('hex');
 mkdirSync(out,{recursive:true});
-const result=await build({entryPoints:{'reader-controls':'src/reader-controls.tsx','page-turn':'src/page-turn/page-turn.ts'},bundle:true,format:'esm',target:'es2022',minify:true,jsx:'automatic',outdir:out,entryNames:'[name]',define:{'process.env.NODE_ENV':'"production"'},metafile:true,legalComments:'linked'});
+const result=await build({entryPoints:{'reader-controls':'src/reader-controls.tsx'},bundle:true,format:'esm',target:'es2022',minify:true,jsx:'automatic',outdir:out,entryNames:'[name]',define:{'process.env.NODE_ENV':'"production"'},metafile:true,legalComments:'linked'});
+// Three.js entries: the page turn and article shapes load on demand and share one Three.js chunk
+// under controls/three/. Stale chunks are removed.
+rmSync(out+'/three',{recursive:true,force:true});for(const name of ['page-turn','shape'])rmSync(out+'/'+name+'.js.LEGAL.txt',{force:true});
+const three=await build({entryPoints:{'page-turn':'src/page-turn/page-turn.ts',shape:'src/shape/shape.ts'},bundle:true,splitting:true,format:'esm',target:'es2022',minify:true,outdir:out,entryNames:'[name]',chunkNames:'three/[name]-[hash]',metafile:true,legalComments:'linked'});
 // Diagrams: an on-demand entry whose diagram types are split into their own chunks under
 // controls/diagrams/, so a document loads only the renderers it uses. Stale chunks are removed.
 rmSync(out+'/diagrams',{recursive:true,force:true});
@@ -19,7 +23,7 @@ writeFileSync(out+'/katex/katex.css',readFileSync(katexDist+'/katex.min.css','ut
 for(const font of readdirSync(katexDist+'/fonts').filter(name=>name.endsWith('.woff2')))writeFileSync(out+'/katex/fonts/'+font,readFileSync(katexDist+'/fonts/'+font));
 // Editor: the CodeMirror 6 Markdown editor with Vim keys, loaded only when a scratch buffer opens.
 const editor=await build({entryPoints:{editor:'src/markdown-editor.ts'},bundle:true,format:'esm',target:'es2022',minify:true,outdir:out,entryNames:'[name]',metafile:true,legalComments:'linked'});
-const inputs=[...Object.keys(result.metafile.inputs),...Object.keys(diagrams.metafile.inputs),...Object.keys(math.metafile.inputs),...Object.keys(editor.metafile.inputs)];
+const inputs=[...Object.keys(result.metafile.inputs),...Object.keys(three.metafile.inputs),...Object.keys(diagrams.metafile.inputs),...Object.keys(math.metafile.inputs),...Object.keys(editor.metafile.inputs)];
 // Famous themes: resolve palettes to tokens with the same code the editor uses.
 mkdirSync('node_modules/.cache',{recursive:true});
 await build({entryPoints:['src/theme/famous-build.ts'],bundle:true,format:'esm',platform:'node',target:'es2022',outfile:'node_modules/.cache/famous-build.mjs',logLevel:'error'});

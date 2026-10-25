@@ -26,11 +26,13 @@ rules to the minimal selectable page layer and uses the library's theme selectio
 color. PDF rendering and text layout follow the [PDF.js examples](https://mozilla.github.io/pdf.js/examples/)
 and TextLayer API. All bundled license texts and notices remain in `vendor/`.
 
-## Page turn
+## Page turn and article shapes
 
-The two-page page turn bundles [Three.js](https://threejs.org) 0.186.1 (MIT, license
-retained in `controls/licenses/`) into `controls/page-turn.js`, which loads only in
-two-page reading. The curl model, shaders and DOM rasterizer are Reader's own.
+The two-page page turn and article shapes bundle [Three.js](https://threejs.org) 0.186.1
+(MIT, license retained in `controls/licenses/`) into one shared chunk under
+`controls/three/`, loaded on demand by `controls/page-turn.js` (two-page reading) and
+`controls/shape.js` (article shapes). The curl model, shaders, DOM rasterizer and the
+shape scene are Reader's own.
 
 ## Diagrams
 

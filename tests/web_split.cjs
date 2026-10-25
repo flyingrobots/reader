@@ -156,6 +156,35 @@ const shots=process.env.READER_SHOTS||'.reader/web-dev';
    assert.equal(await now.evaluate(()=>scrollY),before,'unlinked panes scroll on their own');
    await context.close();}
 
+  // The window keys live in the keymap (RW-18): Space W is the same prefix, the shell shows WINDOW with generated hints,
+  // Ctrl held for the second key works, Ctrl-w in a text field is left alone, and :vsplit / :split / :set scrollbind work in a pane.
+  {const {page,context}=await open({},{width:1600,height:900});
+   await page.goto(url+'#read='+encodeURIComponent('library/thought.md'));await ready(page.mainFrame());
+   await page.locator('#main').focus();await page.keyboard.press('/');await page.locator('#find-query').focus();
+   await page.keyboard.press('Control+w');await page.keyboard.press('v');
+   assert.equal(await count(page),0,'Ctrl-w v while typing does not split');assert.notEqual(await page.locator('#vim-mode').textContent(),'WINDOW');
+   await page.keyboard.press('Escape');await page.locator('#main').focus();
+   await page.keyboard.press('Space');await page.keyboard.press('Shift+W');
+   assert.equal(await page.locator('#vim-mode').textContent(),'WINDOW');assert.match(await page.locator('#status-keys').textContent(),/v side by side.*s stacked/);
+   await page.keyboard.press('v');await page.waitForFunction(()=>document.querySelectorAll('.split-pane iframe').length===2);
+   const two=await pane(page,2);await ready(two);await two.waitForFunction(()=>document.querySelector('#picker').open);await page.keyboard.press('Escape');
+   await two.waitForFunction(()=>!document.querySelector('#picker').open);
+   await page.keyboard.press('Control+w');await page.keyboard.press('Control+w');await page.waitForFunction(()=>document.querySelector('#split-indicator').textContent==='1/2');
+   await page.keyboard.press('Control+w');await page.keyboard.press('l');await page.waitForFunction(()=>document.querySelector('#split-indicator').textContent==='2/2');
+   // A pane's command line shows in its own status bar while typing.
+   const paneEx=async command=>{await page.keyboard.press(':');await two.locator('#command-input').waitFor({state:'visible'});await page.keyboard.type(command);await page.keyboard.press('Enter');};
+   await paneEx('set scrollbind');await page.waitForFunction(()=>document.querySelector('#split-indicator').textContent.includes('⇅'));
+   assert.equal(await page.locator('.split-bind[aria-pressed=true]').count(),1,':set scrollbind links the panes');
+   await paneEx('set noscrollbind');await page.waitForFunction(()=>!document.querySelector('#split-indicator').textContent.includes('⇅'));
+   await paneEx('split Another thought');await page.waitForFunction(()=>document.querySelectorAll('.split-pane iframe').length===3);
+   const three=await pane(page,3);await three.waitForFunction(()=>document.querySelector('.document-title')?.textContent==='Another thought');
+   assert.equal(await three.evaluate(()=>document.querySelector('#picker').open),false,':split with a document skips the picker');
+   assert.equal(await indicator(page),'3/3');
+   await page.keyboard.press(':');await three.locator('#command-input').waitFor({state:'visible'});await page.keyboard.type('vsplit');await page.keyboard.press('Enter');
+   await page.waitForFunction(()=>document.querySelectorAll('.split-pane iframe').length===4);
+   assert.equal(await page.evaluate(()=>[...document.querySelectorAll('.split-pane')].filter(p=>p.style.top===document.querySelector('.split-pane.focused').style.top).length),2,':vsplit splits the focused pane side by side');
+   await context.close();}
+
   // Two-page reading in vertical panes uses one column each at 1280px; at 390px splitting is refused.
   {const {page,context}=await open({layout:'spread'});
    await page.goto(url+'#read='+encodeURIComponent('library/thought.md'));await ready(page.mainFrame());
@@ -176,6 +205,6 @@ const shots=process.env.READER_SHOTS||'.reader/web-dev';
    await context.close();}
 
   assert.deepEqual(external,[]);assert.deepEqual(busy,[]);assert.deepEqual(errors,[]);
-  console.log('Split view passed: Ctrl-w v with picker and Esc, per-pane highlights and j, Ctrl-w h/l focus with status number and breadcrumb, panes replace history, per-pane receipts and bookmarks, theme to every pane, Ctrl-w s/x/=/drag, fifth pane refused, four panes without 429, reload restore, q and o back to one pane without iframes, Shift-click and Ctrl-w f, Back leaves the split, side-by-side compare aligned within a frame plus 50 ms and unlinking, one column per two-page pane at 1280px, narrow fallback, 390px refusal, local-only requests.');
+  console.log('Split view passed: Space W prefix with WINDOW hints, Ctrl-w Ctrl-w, Ctrl-w ignored while typing, :set scrollbind / noscrollbind and :vsplit / :split from a pane, Ctrl-w v with picker and Esc, per-pane highlights and j, Ctrl-w h/l focus with status number and breadcrumb, panes replace history, per-pane receipts and bookmarks, theme to every pane, Ctrl-w s/x/=/drag, fifth pane refused, four panes without 429, reload restore, q and o back to one pane without iframes, Shift-click and Ctrl-w f, Back leaves the split, side-by-side compare aligned within a frame plus 50 ms and unlinking, one column per two-page pane at 1280px, narrow fallback, 390px refusal, local-only requests.');
  }catch(error){console.error('Page errors:',errors);throw error;}finally{await browser?.close();if(fixture.exitCode===null&&fixture.signalCode===null){fixture.kill('SIGTERM');await new Promise(resolve=>fixture.once('exit',resolve));}}
 })().catch(error=>{console.error(error);process.exitCode=1;});

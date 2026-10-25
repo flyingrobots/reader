@@ -31,15 +31,26 @@ cover story, up to four features from different projects and an "In this issue"
 contents list, chosen from the week's additions with unread pieces first,
 newsletter picks and a spread across projects. On wide windows the issue fills the
 window with more columns and a sticky rail rather than longer lines. Standfirsts come from a `standfirst` field, else a
-current local-model standfirst marked with its model, else each source's opening prose. It also provides an interactive D3 dashboard, local GSAP
+current local-model standfirst marked with its model, else each source's opening prose. An experimental
+setting (on by default) draws the cover story's art, feature thumbnails and, with
+Space g, an article's opening figure from the article's own text: its search passages
+projected into 3D in reading order with Three.js, key terms by TF-IDF and related works
+as stars, still under reduced motion and in two-page reading, and an SVG without WebGL.
+It needs search-index embeddings for the full form and falls back to a term-only form. It also provides an interactive D3 dashboard, local GSAP
 scrolling, Vim keys, fuzzy/content/semantic search, shared Markdown passage
-discussion (selectable by mouse, touch or keyboard), a progress rail and a modal statusline. Continuous and facing-page
+discussion (selectable by mouse, touch or keyboard), a progress rail and a modal statusline. One keymap table drives
+every page key and generates the help: VISUAL and VISUAL LINE select passages from the keyboard (word, sentence,
+block and line motions, text objects, counts) to highlight, comment, warn, speak, yank with a citation or search for
+more like them; a `:` command line with completion and per-device history runs 30 commands; registers, a
+500-entry location list (`:grep`, `]q`), per-edition marks and a 100-place jump list (Ctrl-o / Ctrl-i) stay in the
+browser's local storage and never reach the vault. Footnote, figure, link, thread and first-use motions round it
+out. Continuous and facing-page
 layouts share automatic participant-specific, source-version-bound bookmarks.
 Obsidian callouts (types, aliases, titles, folding and nesting) render as
 annotatable asides.
 Document URLs can carry a heading, so links to sections survive reload and sharing.
-The window splits into up to four panes (`Ctrl-w v` / `s`, or `Space W`), side by side or stacked, each a full reader with its own place, receipts and highlights; panes are same-origin iframes of the app in embedded mode, the layout survives reload in `#split=`, linked panes scroll together (across version hunks for two versions), and the Versions panel can compare two versions side by side. Splitting is refused below 700px.
-A scratch pad (`Space w`, `#scratch=<id>`) edits Markdown with Vim keys beside a live preview from the document renderer; drafts stay in the browser (IndexedDB) until "Save to vault" writes one `library/notebook/YYYY-MM-DD-<slug>.md` (never overwriting; revisions as `.vN.md`) and commits only that file. It does not file pieces into collection indexes.
+The window splits into up to four panes (`Ctrl-w v` / `s`, `Space W`, or `:vsplit` / `:split [doc]`), side by side or stacked, each a full reader with its own place, receipts and highlights; panes are same-origin iframes of the app in embedded mode, the layout survives reload in `#split=`, linked panes (`:set scrollbind` or the divider button) scroll together (across version hunks for two versions), and the Versions panel can compare two versions side by side. Splitting is refused below 700px.
+A scratch pad (`Space w`, `#scratch=<id>`) edits Markdown with Vim keys (`Ctrl-r a` pastes a Reader register as a cited quote; `:enew` and `:e scratch` work from the page command line) beside a live preview from the document renderer; drafts stay in the browser (IndexedDB) until "Save to vault" writes one `library/notebook/YYYY-MM-DD-<slug>.md` (never overwriting; revisions as `.vN.md`) and commits only that file. It does not file pieces into collection indexes.
 PDFs have selectable text, page-based resume and bounded find/rendering;
 PDF annotations are not implemented. Assets and fonts are served locally and are
 never refused by the request limits; margins load regardless of a document's

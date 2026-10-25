@@ -15,7 +15,7 @@ const hit=(r:DOMRect|Box,b:Box)=>('width' in r?r.width:r.w)>0&&('height' in r?r.
 const concealed=(el:Element):boolean=>{const details=el.closest('details:not([open])');if(!details)return false;const summary=el.closest('summary');return !(summary&&summary.parentElement===details)||concealed(details);};
 const shown=(el:Element)=>!concealed(el);
 const visible=(color:string)=>!!color&&color!=='transparent'&&!/rgba?\([^)]*,\s*0\)$/.test(color)&&!/\/\s*0\)$/.test(color);
-const HIGHLIGHTS:Record<string,{fill?:string;wavy?:string;ink?:string}>={'reader-own':{fill:'--own'},'reader-other':{fill:'--other'},'reader-find':{fill:'--selection'},'reader-current':{fill:'--accent',ink:'--accent-ink'},'reader-warning':{wavy:'--warning'}};
+const HIGHLIGHTS:Record<string,{fill?:string;wavy?:string;ink?:string;line?:string}>={'reader-own':{fill:'--own'},'reader-other':{fill:'--other'},'reader-find':{fill:'--selection'},'reader-current':{fill:'--accent',ink:'--accent-ink'},'reader-warning':{wavy:'--warning'},'reader-visual':{fill:'--selection'},'reader-cursor':{line:'--accent'}};
 // Prose colors (Colorful Language) are read from <body>, where the intensity class sets them,
 // and lose to every annotation or find ink. Their ranges never cross a text node.
 const PROSE=['function','proper','quote','number','punct','noun','verb','adjective','adverb'];
@@ -99,6 +99,7 @@ export function rasterize(article:HTMLElement,page:Box,dx:number,background:stri
     for(const range of set){if(!(range instanceof Range)||!article.contains(range.commonAncestorContainer))continue;
       for(const r of range.getClientRects()){if(!hit(r,src))continue;
         if(spec.fill){ctx.fillStyle=token(spec.fill);ctx.fillRect(r.left,r.top,r.width,r.height);}
+        if(spec.line){ctx.fillStyle=token(spec.line);ctx.fillRect(r.left,r.bottom-1,r.width,2);}
         if(spec.wavy){ctx.strokeStyle=token(spec.wavy);ctx.lineWidth=1.5;ctx.beginPath();for(let x=r.left,i=0;x<=r.right;x+=3,i++)ctx.lineTo(x,r.bottom-1+(i%2?1.5:-1.5));ctx.stroke();}}
       if(spec.ink)inkRanges.push({range,ink:token(spec.ink)});}}
   const proseInk=new Map<Node,[number,number,string][]>();

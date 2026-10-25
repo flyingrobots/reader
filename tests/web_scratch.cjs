@@ -98,12 +98,29 @@ const shots=process.env.READER_SHOTS||'.reader/web-dev';
   await dialog.locator('[data-save-close]').first().click();
   assert.equal(git('status','--porcelain','library/index.md').trim(),'','collection navigation is untouched');
   assert.equal(existsSync(root+'/writings'),false);
+  // The page command line: :enew opens a new buffer and :e scratch the latest draft (RW-18 folds these in).
+  const pageEx=async command=>{await page.locator('#main').focus();await page.keyboard.press(':');await page.keyboard.type(command);await page.keyboard.press('Enter');};
+  await page.goto(url+'#read='+encodeURIComponent('library/thought.md'));await ready();
+  // "ay yanks the sentence under the reading cursor into register a.
+  await page.locator('#main').focus();for(const key of ['v','"','a','y'])await page.keyboard.press(key);await toast('register a');
+  await pageEx('enew');await page.locator('.cm-editor').waitFor();
+  const fresh=new URL(page.url()).hash;assert.match(fresh,/^#scratch=[0-9a-f-]{36}$/);assert.doesNotMatch(await text(),/On splits|thinking/,'a new, empty buffer');
+  // Ctrl-r a in insert mode pastes register a as a cited block; Ctrl-w in the editor is Vim's, never the window prefix.
+  await page.keyboard.press('i');await page.keyboard.type('Quoted: ');await page.keyboard.press('Control+r');await page.keyboard.press('a');
+  assert.match(await text(),/^Quoted: > .+\n>\n> — \[A quiet thought\]\(\.\.\/thought\.md\)/,'register a, cited');
+  await page.keyboard.press('Control+w');await page.keyboard.press('v');
+  assert.equal(await page.locator('.split-pane').count(),0,'Ctrl-w v inside the editor does not split');
+  assert.notEqual(await mode(),'WINDOW');
+  await page.keyboard.press('Escape');await page.keyboard.press('Escape');
+  await page.waitForFunction(()=>document.querySelector('.scratch-state')?.textContent==='Saved on this device');
+  await pageEx('e scratch');await page.waitForFunction(fresh=>location.hash===fresh,fresh);await page.locator('.cm-editor').waitFor();
+  assert.match(await text(),/^Quoted: /,':e scratch opens the latest draft');
   // Phone width: one column with 16px gutters and no horizontal scroll.
   await page.setViewportSize({width:390,height:844});await page.waitForTimeout(150);
   const layout=await page.evaluate(()=>{const s=document.querySelector('.scratch'),e=document.querySelector('.scratch-editor').getBoundingClientRect();return {scroll:document.documentElement.scrollWidth<=innerWidth,left:e.left,right:innerWidth-e.right,preview:getComputedStyle(document.querySelector('.scratch-preview')).display};});
   assert.deepEqual(layout,{scroll:true,left:16,right:16,preview:'none'});
   await page.screenshot({path:shots+'/scratch-phone.png'});
   assert.deepEqual(external,[]);assert.deepEqual(errors,[]);
-  console.log('Scratch pad passed: lazy editor chunk, Space w route, Vim insert/normal and double Esc, Mermaid and math preview, :cite quote, reload restore, :drafts, :preview layouts, Save to vault with exact frontmatter and a one-file commit, .v2.md with original bytes kept, Edit in scratch, 390px layout, local-only requests.');
+  console.log('Scratch pad passed: lazy editor chunk, Space w route, Vim insert/normal and double Esc, Mermaid and math preview, :cite quote, reload restore, :drafts, :preview layouts, Save to vault with exact frontmatter and a one-file commit, :enew and :e scratch from the page command line, Ctrl-r a register paste, Ctrl-w left to the editor, .v2.md with original bytes kept, Edit in scratch, 390px layout, local-only requests.');
  }catch(error){console.error('Page errors:',errors);throw error;}finally{await browser?.close();if(fixture.exitCode===null&&fixture.signalCode===null){fixture.kill('SIGTERM');await new Promise(resolve=>fixture.once('exit',resolve));}}
 })().catch(error=>{console.error(error);process.exitCode=1;});

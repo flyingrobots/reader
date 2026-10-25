@@ -442,6 +442,7 @@ body:is(.prose-subtle,.prose-clear,.prose-vivid) .textLayer ::highlight(reader-p
 .issue-queue{margin-left:-.5rem}
 /* Split view (RW-32): the shell lays out same-origin pane iframes; each pane hides its own chrome. */
 html.embedded-pane #statusline,html.embedded-pane #summon,html.embedded-pane .skip-link{display:none!important}
+html.embedded-pane #statusline.commanding{display:flex!important}  /* A pane's `:` command line shows in its own status bar while typing. */
 html.embedded-pane .thread-panel{bottom:0}html.embedded-pane .find-bar{bottom:12px}html.embedded-pane body.two-page #smooth-wrapper{bottom:0!important}
 body.split-active #smooth-wrapper,body.split-active #summon,body.split-active .skip-link,body.split-active #reading-progress,body.split-active #status-version,body.split-active #outline-slot,body.split-active #speech-slot,body.split-active #pagination-slot,body.split-active #status-section,body.split-active #prose-chip,body.split-active #search-chip{display:none!important}
 .split-root{position:fixed;inset:0;z-index:30;background:var(--bg)}
@@ -471,3 +472,37 @@ body.split-active #smooth-wrapper,body.split-active #summon,body.split-active .s
 .scratch-save-form input,.scratch-save-form select{font:14px var(--sans);color:var(--ink);background:var(--surface);border:1px solid var(--line);border-radius:4px;padding:7px 9px}
 .scratch-save-path{font:12px var(--sans);color:var(--muted);overflow-wrap:anywhere}.scratch-save-error{color:var(--warning);font:12px var(--sans)}.scratch-save-actions{display:flex;justify-content:flex-end;gap:8px}
 @media(max-width:700px){.scratch{padding:10px 16px;height:calc(100dvh - 38px)}.scratch-panes{grid-template-columns:minmax(0,1fr)}.scratch[data-layout=split] .scratch-preview{display:none}.scratch-actions{margin-left:0}}
+/* Modal keyboard (keys.mjs, visual.mjs, lists.mjs): VISUAL, the command line, lists and the generated help. */
+::highlight(reader-cursor){text-decoration:underline 2px var(--accent);text-underline-offset:3px}
+.vim-mode:is([data-mode=VISUAL],[data-mode="VISUAL LINE"]){background:var(--mode-thread)}.vim-mode[data-mode=COMMAND]{background:var(--mode-leader)}.vim-mode:is([data-mode=QUICKFIX],[data-mode=REGISTERS],[data-mode=MARKS]){background:var(--mode-browse)}
+.status-pending{font:600 11px var(--mono);color:var(--ink);white-space:nowrap}
+.status-count{color:var(--ink);margin-right:8px}
+.status-qf{font-variant-numeric:tabular-nums;white-space:nowrap}
+.command-line{display:flex;align-items:center;gap:4px;flex:1 1 auto;min-width:0;align-self:stretch}
+.command-prompt{font:600 13px var(--mono);color:var(--accent)}
+.command-line input{flex:1 1 12ch;min-width:6ch;border:0;background:none;padding:0;font:13px var(--mono);color:var(--ink);caret-color:var(--accent)}
+.command-menu{display:flex;gap:12px;min-width:0;overflow:hidden;white-space:nowrap;color:var(--muted);font:11px var(--mono)}
+.command-choice[aria-selected=true]{color:var(--ink);text-decoration:underline 1px var(--accent);text-underline-offset:3px}.command-more{color:var(--faint)}
+.statusline.commanding :is(.status-location,.status-keys,.search-chip,#pagination-slot,.status-section,.status-position){display:none}
+.list-item small kbd{font:600 10px var(--mono);color:var(--accent);margin-right:4px}.list-item.current{box-shadow:inset 2px 0 0 var(--accent);padding-left:12px}.list-item blockquote{font-size:17px;overflow-wrap:anywhere}
+.help-group{font:650 10px var(--sans);letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin:28px 0 -14px}.help-keys .keymap{margin:24px 0}.help-keys>.quiet{margin:20px 0 -8px}
+.keymap .help-target,.keymap .help-target+dd{background:color-mix(in srgb,var(--accent) 16%,transparent)}
+@media(max-width:700px){.command-menu{display:none}.status-pending{font-size:10px}}
+/* Article shapes (RW-20, experiment): cover art, feature thumbnails and Show shape. Theme tokens only. */
+.issue-cover:has(>.cover-shape){display:flex;flex-direction:column;align-items:flex-start}
+/* The figure follows the title in the document (g c, then Tab, reaches it) but is drawn above the kicker. */
+.issue-cover>.cover-shape{order:-1;align-self:stretch}
+.cover-shape,.article-shape{position:relative;width:100%;aspect-ratio:2/1;max-height:380px;margin:0 0 40px;border-radius:6px;outline-offset:6px}
+.cover-shape:focus-visible,.article-shape:focus-visible{outline:2px solid var(--accent)}
+.shape-surface{position:absolute;inset:0;overflow:hidden}
+.shape-surface>canvas,.shape-surface>img,.shape-surface>svg{display:block;width:100%;height:100%}
+.article .article-shape img{margin:0;max-width:none}
+.shape-caption{position:absolute;right:0;bottom:-20px;font:600 9px/1 var(--sans);letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.cover-shape[data-form=terms] .shape-caption,.article-shape[data-form=terms] .shape-caption{color:var(--faint)}
+.shape-marker{position:absolute;border:1.5px solid var(--ink);border-radius:50%;pointer-events:none}
+.shape-pointing{cursor:pointer}
+.feature-shape{width:100%;aspect-ratio:320/150;margin:0 0 18px;overflow:hidden;border-radius:4px}
+.feature-shape img,.feature-shape svg{display:block;width:100%;height:100%;object-fit:cover}
+.article-shape{max-height:320px;margin-bottom:44px}
+body.two-page .article-shape{break-inside:avoid;max-height:38vh}
+@media(max-width:640px){.cover-shape{aspect-ratio:16/10;margin-bottom:32px}.feature-shape{aspect-ratio:2.4/1}}

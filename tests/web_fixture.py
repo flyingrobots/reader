@@ -199,6 +199,18 @@ def main():
                                ('heading-code', '# Code sample\n\n    [not a link](nowhere-in-code.md)\n\nSee [the sampler](source.md).\n')]:
                 (root / f'library/linked/{name}.md').write_text(body)
             works.append(dict(id='library/linked/source.md', title='Link sampler', primary='library/linked/source.md', authors=['Cy'], topics=['Links'], projects=['Citations'], date='2026-10-02', primary_format='.md', primary_bytes=200))
+        if '--modal' in sys.argv:
+            # The modal keyboard suite: footnote markers, links, a table and a figure (tests/web_modal.cjs).
+            notes = ('---\ntitle: Field notes\nauthor: Ada\n---\n\n# Field notes\n\n'
+                     'The first claim needs a source.[^1] A second sentence follows here. A third sentence closes the paragraph.\n\n'
+                     'See [a quiet thought](thought.md) and [the other note](other.md).\n\n'
+                     '| Term | Meaning |\n| - | - |\n| stacks | shelves of books |\n\n'
+                     + '\n\n'.join(f'Filler paragraph {n} keeps the notes below the fold.' for n in range(1, 30)) + '\n\n'
+                     '## Later section\n\nThe term stacks appears again. Another mention of stacks.[^2]\n\n'
+                     '<figure><figcaption>A figure caption</figcaption></figure>\n\n'
+                     '[^1]: The source for the first claim.\n\n[^2]: A second note.\n')
+            (root / 'library/notes.md').write_text(notes)
+            works.append(dict(id='library/notes.md', title='Field notes', primary='library/notes.md', authors=['Ada'], topics=['Ideas'], projects=['Synthetic'], date='2026-10-21', primary_format='.md', primary_bytes=len(notes)))
         if '--diagrams' in sys.argv:
             diagrams = ('# Diagrams\n\nA paragraph before the figures.\n\n'
                 '```mermaid\nflowchart LR\n  Intake[Intake desk] --> Catalog{Catalog?}\n  Catalog -->|yes| Shelf[Library shelf]\n  Catalog -->|no| Inbox[Inbox]\n  click Shelf "https://example.invalid/shelf"\n```\n\n'
@@ -394,6 +406,8 @@ def main():
                 (root / path).write_text(text)
                 works.append(dict(id=path, title=text.split('\n')[0][2:], primary=path, authors=['Ada'], topics=['Ideas'], projects=['Synthetic'], date='2026-10-21', primary_format='.md', primary_bytes=len(text.encode())))
         (root / 'indexes/coverage.json').write_text(json.dumps({'as_of':'2026-10-23', 'works':works}))
+        if '--shapes' in sys.argv:
+            shapes_fixture(root, works, embed='--shapes-terms' not in sys.argv)
         if magazine_reads:
             from reader_mcp.engagement import Engagement
             engagement = Engagement(root)
@@ -604,6 +618,29 @@ class ConceptModel:
         if 'kept' in text.casefold():  # "somewhere volumes are kept" leans on the library concept.
             vector = vector + np.array([1, 0, 0, 0, 0], dtype=np.float32)
         yield vector
+
+
+def shapes_fixture(root, works, embed=True):
+    """Article shapes (with --magazine): a long wandering cover essay, a tight feature note, short related works, an index."""
+    sys.path.insert(0, str(Path(__file__).parent))
+    from shape_fixture import TopicModel, neighbours, tight, wandering
+    from reader_mcp.search import Search
+    by_path = {w['primary']: w for w in works}
+    for path, text in {'library/issue/cover.md': wandering('The distance between the map and the coast'),
+                       'library/issue/keep.md': tight('A ledger that remembers the tide')}.items():
+        (root / path).write_text(text)
+        if path in by_path:
+            by_path[path]['primary_bytes'] = len(text.encode())
+    (root / 'library/near').mkdir(exist_ok=True)
+    for path, text in neighbours().items():
+        (root / path).write_text(text)
+        works.append(dict(id=path, title=text.split('\n')[0][2:], primary=path, authors=['Cy'], topics=['Ideas'], projects=['Elsewhere'],
+                          types=['Note'], date='2026-01-05', primary_format='.md', primary_bytes=len(text.encode())))
+    (root / 'indexes/coverage.json').write_text(json.dumps({'as_of': '2026-10-23', 'works': works}))
+    engine = Search(root)
+    engine._model = TopicModel()
+    engine._signature = 'topic-model'
+    engine.index(embed)
 
 
 def search_page_fixture(root, works, library):

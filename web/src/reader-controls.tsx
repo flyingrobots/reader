@@ -10,6 +10,7 @@ import {Skeleton} from './components/ui/skeleton';
 import {Field, FieldGroup, FieldLabel, FieldDescription} from './components/ui/field';
 import {Input} from './components/ui/input';
 import {Button} from './components/ui/button';
+import {Badge} from './components/ui/badge';
 import {CodeBlock, CodeBlockHeader, CodeBlockTitle, CodeBlockActions, CodeBlockCopyButton, CodeBlockContent} from './components/ui/code-block';
 import {Toaster} from './components/ui/sonner';
 import {toast} from 'sonner';
@@ -38,7 +39,7 @@ import {FAMOUS, famousId} from './theme/famous';
 import {plural} from './plural';
 export const famousThemeIds=FAMOUS.flatMap(t=>[famousId(t.id,'light'),famousId(t.id,'dark')]);
 
-type Preferences={participant:string;theme:string;recent:number;pace:number;layout:string;pageTurn:string;proseColors:string;atlas:boolean;activity:boolean;smooth:boolean;nextReads:boolean;backlinks:boolean;outline:boolean;inboxSandbox?:string;issueExclude:string};
+type Preferences={participant:string;theme:string;recent:number;pace:number;layout:string;pageTurn:string;proseColors:string;atlas:boolean;activity:boolean;smooth:boolean;nextReads:boolean;backlinks:boolean;outline:boolean;shapes?:boolean;inboxSandbox?:string;issueExclude:string};
 export type ProseStatus={available:boolean;version:string|null;path:string|null;origin:string|null;message:string|null;install:string};
 type Pip={id:string;owner:string;quote:string;kind:string;own:boolean;fraction:number};
 type Model={value:number;words:number;pdfPages:number|null;pace:number;spread:number;spreads:number;pages:number;columns:number;theme:string;pips:Pip[];prefs:Preferences;participants:string[];themeEditorOpen:boolean;customThemes:Theme[];fonts:InstalledFont[];maintenance:MaintenanceStatus|null;prose:ProseStatus|null;outline:OutlineModel;outlineActive:number;inbox:InboxStatus|null;inboxStarting:boolean;chat:{open:boolean;path:string|null;title:string;participant:string};localModel:LocalModelStatus|null;activity:ActivityModel};
@@ -73,6 +74,8 @@ function SettingsForm({model,actions}:{model:Model;actions:Actions}){
       <Choice id="reading-speed" label="Reading pace" value={String(draft.pace)} items={[160,220,300].map(n=>({value:String(n),label:`${n} words / min`}))} onChange={value=>set('pace',+value)}/>
       <Field><FieldLabel htmlFor="issue-exclude">Leave out of the issue</FieldLabel><Input id="issue-exclude" name="issueExclude" value={draft.issueExclude??''} maxLength={500} onChange={event=>set('issueExclude',event.target.value)}/><FieldDescription>Kinds of writing the homepage issue never features, separated by commas, such as Task, Receipt, Manifest, Handoff.</FieldDescription></Field>
       {(['atlas','activity','smooth','nextReads','backlinks','outline'] as const).map((key,index)=><Field key={key} orientation="horizontal"><FieldLabel htmlFor={'setting-'+key}>{['Library atlas','Reading activity','Smooth scrolling','Read next at the end of articles','Linked from at the end of articles','Outline beside long documents'][index]}</FieldLabel><Switch id={'setting-'+key} checked={draft[key]!==false} onCheckedChange={value=>set(key,value)}/></Field>)}
+      <Field orientation="horizontal"><FieldLabel htmlFor="setting-shapes">Article shapes <Badge variant="outline">Experiment</Badge></FieldLabel><Switch id="setting-shapes" aria-describedby="setting-shapes-note" checked={draft.shapes!==false} onCheckedChange={value=>set('shapes',value)}/></Field>
+      <FieldDescription id="setting-shapes-note">Cover art drawn from each article’s own text: the path its passages take through meaning, its key terms, and related works as distant stars. <kbd>Space</kbd> <kbd>g</kbd> shows an open article’s shape.</FieldDescription>
     </FieldGroup>
     <div className="backstage-settings-foot"><Button type="submit" disabled={busy||!draft.participant.trim()}>{busy?'Saving…':'Save preferences'}</Button></div>
   </form>;

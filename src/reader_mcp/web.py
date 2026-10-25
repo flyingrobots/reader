@@ -34,6 +34,7 @@ from .prose import Prose, ProseUnavailable
 from .reading_queue import ReadingQueue
 from .related import DIVERSE, SAME_EDITION, VAGUE, Related, base_title
 from .search import PAGE_POOL, Search, excerpt as passage_excerpt
+from .shape import Shapes
 from .speech import MAX_TEXT, Speech, SpeechUnavailable
 from .service import Service, health
 from .web_access import WebAccess
@@ -193,6 +194,7 @@ class WebLibrary:
         self.search_lock = threading.Lock()
         self.hashes = {}
         self.magazine = Magazine(self)
+        self.shapes = Shapes(self)
         self.conversations = Conversations(self.root, self.chat_document, **(chat_options or {}))
         self.writing = Writing(self.root, self.path, self.digest, **(writing_options or {}))
 
@@ -1075,7 +1077,7 @@ class WebLibrary:
 # admission and limited only by its own four-stream semaphore, so it never holds a slot.
 STATIC_PREFIXES = ('/assets/', '/fonts/')
 UNGATED = frozenset({'/', '/api/health'})  # The page itself and the cheap liveness probe.
-EXPENSIVE_GETS = frozenset({'/api/search', '/api/search/page', '/api/next', '/api/prose', '/api/service'})
+EXPENSIVE_GETS = frozenset({'/api/search', '/api/search/page', '/api/next', '/api/prose', '/api/service', '/api/shape'})
 EXPENSIVE_GET_PREFIXES = ('/api/chat',)  # /api/chat, /api/chats, /api/chat/raw
 EXPENSIVE_LIMIT, READ_LIMIT, READ_WAIT = 8, 32, 5.0
 
@@ -1368,6 +1370,8 @@ class WebHandler(BaseHTTPRequestHandler):
                 self.json(library.next_reads(args.get('path', ''), args.get('participant', self.server.participant)))
             elif parsed.path == '/api/standfirst':
                 self.json(library.magazine.standfirst(args.get('path', '')))
+            elif parsed.path == '/api/shape':
+                self.json(library.shapes.shape(args.get('path', '')))
             elif parsed.path == '/api/issue':
                 self.json(library.magazine.issue(args.get('start', ''), args.get('end', '')))
             elif parsed.path == '/api/editions':

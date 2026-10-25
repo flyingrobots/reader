@@ -14,10 +14,14 @@ import {mountDashboard} from './dashboard.mjs';
 import {DEFAULT_EXCLUDED_TYPES,currentIssue,isoWeek,issueWindow,issueWeeks,selectIssue,mountMagazine} from './magazine.mjs';
 import {THEMES,oppositeTheme} from './themes.mjs';
 import {calloutPlugin} from './callouts.mjs';
-import {applyThemes,installControls,mountSkeleton,mountCodeBlocks,clearControlsWithin,mountDocumentTree,visibleDocumentNodes,revealDocumentRow,mountBackstage,mountChangesPanel,notify as shellNotify,openChat,closeChat,chatOpen,trackSpeech,renderQueuePanel,mountCallouts} from './controls/reader-controls.js';
+import {drawable,fetchShape,paintShape,paintThumb} from './shapes.mjs';
+import {applyThemes,installControls,mountSkeleton,mountCodeBlocks,clearControlsWithin,mountDocumentTree,visibleDocumentNodes,revealDocumentRow,mountBackstage,mountChangesPanel,notify as shellNotify,openChat,closeChat,chatOpen,trackSpeech,renderQueuePanel,mountCallouts,startJob} from './controls/reader-controls.js';
 import {installVersions,chipMarkup,historicalMarkup,splitRef,compareLabel} from './versions.mjs';
 import {installSplit,installPane,cleanRoute} from './split.mjs';
 import {installScratch} from './scratch.mjs';
+import {createKeys,closest as keysClosest} from './keys.mjs';
+import {installVisual} from './visual.mjs';
+import {installLists} from './lists.mjs';
 
 const $ = selector => document.querySelector(selector);
 // Split view: a pane is this app in an embedded same-origin iframe (/?pane=1#…); the top document is the shell.
@@ -26,7 +30,7 @@ if(EMBEDDED)document.documentElement.classList.add('embedded-pane');
 let split=null,pane=null;
 /** Toasts from a pane appear in the shell's toaster. */
 function notify(message,type,options){if(pane){pane.post({type:'toast',message:String(message),kind:type,options:options&&{id:options.id,duration:options.duration}});return;}return shellNotify(message,type,options);}
-const defaults = {theme:'ink', participant:null, recent:20, atlas:true, activity:true, smooth:true, layout:'scroll', pace:220, zen:false, pageTurn:'curl', nextReads:true, backlinks:true, outline:true, inboxSandbox:'workspace-write', issueExclude:DEFAULT_EXCLUDED_TYPES.join(', '), proseColors:'clear'};
+const defaults = {theme:'ink', participant:null, recent:20, atlas:true, activity:true, smooth:true, layout:'scroll', pace:220, zen:false, pageTurn:'curl', nextReads:true, backlinks:true, outline:true, inboxSandbox:'workspace-write', issueExclude:DEFAULT_EXCLUDED_TYPES.join(', '), proseColors:'clear', shapes:true};
 // Route sentinel for Behind the scenes; document routes are always library/ paths.
 const BACKSTAGE=':backstage',SEARCH=':search',SCRATCH=':scratch';  // A scratch buffer: ':scratch' (the latest draft) or ':scratch=<id>'.
 // Past issues use ':issue=<ISO week>'; the bare homepage (null) is the current issue.
@@ -51,7 +55,7 @@ function passageFromHash(){
     return {line:Number.isInteger(at.line)&&at.line>0?at.line:1,page:Number.isInteger(at.page)&&at.page>0?at.page:null,terms:Array.isArray(at.terms)?at.terms.filter(t=>typeof t==='string'&&t.length<=200).slice(0,32):[],query:typeof at.query==='string'?at.query.slice(0,1000):''};}
   catch{return null;}
 }
-let reading,controls,links,outline,speech,versions,search,prose,queue,scratch;
+let reading,controls,links,outline,speech,versions,search,prose,queue,scratch,keys,visual,registers,quickfix,marks,jumps,panels;
 let saved = {};
 try { saved = JSON.parse(localStorage.getItem('reader.preferences.v1') || '{}'); } catch {}
 const state = {prefs:{...defaults,...saved}, data:null, doc:null, threads:[], attention:[], token:null, mode:'fuzzy', results:[], resultIndex:0, searchId:0, routeId:0, pdf:null, smoother:null, find:[], findIndex:-1, selected:null, activeThread:null, replyTo:null, visits:[null], cursor:0, ranges:[], leader:null,themeEditorOpen:false,view:null};
@@ -184,11 +188,69 @@ async function renderHome(path=null,id=state.routeId) {
   if(id!==state.routeId)return;
   const issue=selectIssue(works,{window:span,today:state.data.today,exclude:options.exclude,picks:signals.picks,near:signals.near});
   state.issue=issue;
+  const shapes=await issueShapes(issue);if(id!==state.routeId)return;
   clearControlsWithin($('#main'));
-  state.magazine=mountMagazine({root:$('#main'),issue,weeks:issueWeeks(works,{exclude:options.exclude,through:isoWeek(state.data.today).end}),signals,prefs:state.prefs,api,wireDocumentLinks,openIssue,motion:()=>!reduced.matches});
+  state.magazine=mountMagazine({root:$('#main'),issue,weeks:issueWeeks(works,{exclude:options.exclude,through:isoWeek(state.data.today).end}),signals,prefs:state.prefs,api,wireDocumentLinks,openIssue,motion:()=>!reduced.matches,shapes});
   $('#issue-backstage').onclick=()=>navigate(BACKSTAGE);
   $('#main').querySelectorAll('.issue [data-queue-add]').forEach(button=>button.onclick=event=>{event.preventDefault();queue.add(button.dataset.queueAdd);});
   resetScroll();reading?.updateStatus();
+  paintIssueShapes(shapes,id).catch(error=>console.warn('Article shapes',error));
+}
+// Article shapes (RW-20, experiment): fetched for the cover and features before the issue mounts, so
+// their figures are part of the first layout; each request waits at most SHAPE_WAIT ms.
+const SHAPE_WAIT=1500;
+const shapeTitle=path=>state.data?.works.find(w=>w.primary===path)?.title||path.split('/').pop();
+async function issueShapes(issue){
+  if(state.prefs.shapes===false)return {};
+  const works=[issue.cover,...issue.features].filter(Boolean).map(entry=>entry.work).filter(work=>TEXTUAL.test(work.primary)),found={};
+  await Promise.all(works.map(async work=>{try{const shape=await Promise.race([fetchShape(api,work.primary),new Promise(resolve=>setTimeout(()=>resolve(null),SHAPE_WAIT))]);if(drawable(shape))found[work.primary]=shape;}catch{/* No shape for this piece. */}}));
+  return found;
+}
+async function paintIssueShapes(shapes,id){
+  // Thumbnails first (still images from the shared renderer), then the cover's live canvas.
+  for(const slot of $('#main').querySelectorAll('[data-shape-thumb]')){if(id!==state.routeId)return;await paintThumb(slot,shapes[slot.dataset.shapeThumb]);}
+  const figure=$('#main .cover-shape');if(!figure||id!==state.routeId)return;
+  const path=figure.dataset.shape,shape=shapes[path];
+  await paintShape(figure,shape,{title:shapeTitle(path),live:true,motion:!reduced.matches,onPassage:i=>navigate(path,{at:{line:shape.lines[i],page:null,terms:[],query:''}}),onNeighbour:target=>navigate(target)});
+}
+/** Show shape (Space g): the article's shape above its kicker, for this session's articles until toggled off. */
+async function toggleShape(){
+  if(state.prefs.shapes===false){toast('Article shapes are off. Turn them on in Settings (Space p).');return;}
+  const doc=state.doc;
+  if(!doc||doc.preview||doc.historical||!TEXTUAL.test(doc.path)){toast('Open a Markdown or text article to see its shape.');return;}
+  const shown=$('#article .article-shape');
+  if(shown){state.showShape=false;shown.remove();refreshScroll();positionPins();return;}
+  state.showShape=true;
+  const shape=await articleShape(doc,state.routeId,true);if(!shape)return;
+  const figure=placeArticleShape(shape);refreshScroll();positionPins();
+  figure.scrollIntoView({block:'nearest'});await paintArticleShape(figure,shape);
+}
+async function articleShape(doc,id,explicit){
+  let shape;
+  try{shape=await Promise.race([fetchShape(api,doc.path),new Promise(resolve=>setTimeout(()=>resolve(undefined),SHAPE_WAIT))]);}catch(error){if(explicit)report(error);return null;}
+  if(id!==state.routeId||state.doc!==doc)return null;
+  if(shape===undefined){if(explicit)toast('The shape is taking a while; try again in a moment.');return null;}
+  if(!drawable(shape)){if(explicit)toast('This piece is too short to have a shape.');return null;}
+  return shape;
+}
+function placeArticleShape(shape){
+  const figure=document.createElement('figure');figure.className='article-shape';figure.dataset.readerDecoration='';figure.dataset.shape=shape.path;
+  $('#article').prepend(figure);return figure;
+}
+function paintArticleShape(figure,shape){
+  const path=shape.path;
+  return paintShape(figure,shape,{title:shapeTitle(path),live:!reading?.hasBook(),motion:!reduced.matches,
+    onPassage:i=>{if(state.doc?.path===path)revealPassage({line:shape.lines[i],page:null,terms:[],query:''});},onNeighbour:target=>navigate(target)});
+}
+// A theme change repaints the art in the new tokens.
+new MutationObserver(()=>{clearTimeout(repaintShapes.timer);repaintShapes.timer=setTimeout(repaintShapes,60);}).observe(document.documentElement,{attributes:true,attributeFilter:['data-theme']});
+function repaintShapes(){
+  if(state.view==='issue'&&!state.doc&&$('#main [data-shape],#main [data-shape-thumb]')){
+    const shapes={};const paths=[...$('#main').querySelectorAll('[data-shape],[data-shape-thumb]')].map(el=>el.dataset.shape||el.dataset.shapeThumb);
+    Promise.all(paths.map(path=>fetchShape(api,path).then(shape=>{shapes[path]=shape;}).catch(()=>{}))).then(()=>paintIssueShapes(shapes,state.routeId));
+  }
+  const figure=$('#article .article-shape');
+  if(figure&&state.doc)fetchShape(api,state.doc.path).then(shape=>{if(figure.isConnected)paintArticleShape(figure,shape);}).catch(()=>{});
 }
 function openIssue(week){
   const current=currentIssue(state.data.works,issueOptions()).week;
@@ -227,14 +289,17 @@ function wireDocumentLinks(root) {
 function closeDialog(id) { const el=$('#'+id);if(el.open)el.close();state.smoother?.paused(false); }
 function openDialog(id) { const el=$('#'+id); if(!el.open)el.showModal();state.smoother?.paused(true); }
 function closeContext() {
+  if(visual?.active())visual.exit();panels?.close(false);keys?.closeLine(false);
   closeChat();links?.hide();hideChartTooltip();$('#passage-tooltip').classList.remove('visible');$('#selection-tools').hidden=true;$('#thread-panel').hidden=true;$('#find-bar').hidden=true;versions?.close();
   for(const dialog of document.querySelectorAll('dialog[open]'))dialog.close();
   queue?.close(false);state.smoother?.paused(false);
 }
-async function navigate(path,{thread=null,fragment='',record=true,commit=null,at=null}={}) {
+async function navigate(path,{thread=null,fragment='',record=true,commit=null,at=null,jump=true}={}) {
   if(commit&&path)path=path+'@'+commit;
   // While the window is split, the shell's panels (queue, picker, chat links) open documents in the focused pane.
   if(split?.active()){split.openInFocused(path===SEARCH?'#search':cleanRoute(routeHash(path,null,fragment))||'#home');return;}
+  // Leaving a document by a link, the picker or the queue is a jump: Ctrl-o comes back to this place.
+  if(record&&jump&&state.doc)jumps?.record();
   const id=++state.routeId;await reading?.leave();if(state.view==='scratch'&&!path?.startsWith(SCRATCH))await scratch.leave();if(id!==state.routeId)return;closeContext();
   // The scratch pad's "responds to" defaults to the current document you came from.
   if(state.doc&&!state.doc.preview&&!state.doc.historical)state.lastDocPath=state.doc.path;
@@ -293,9 +358,14 @@ async function navigate(path,{thread=null,fragment='',record=true,commit=null,at
       article.prepend(kicker,heading,meta,$('.reading-log'),...$('#main').querySelectorAll('.document-shell>.version-line,.document-shell>.historical-banner,.document-shell>.change-banner'));
     }
     if(id!==state.routeId)return;
+    // Show shape is on for this session: reserve the figure before the reading position is restored.
+    const shape=state.showShape&&state.prefs.shapes!==false&&!historical&&!doc.preview&&TEXTUAL.test(path)?await articleShape(doc,id,false):null;
+    if(id!==state.routeId)return;
+    const shapeFigure=shape?placeArticleShape(shape):null;
     mountEditions();wireChanges();
     reading?.prepare();resetScroll();wireArticleLinks(article,path);await reading?.restore(doc);
     rendered=true; // From here on, failures are secondary: keep the article and toast quietly instead.
+    if(shapeFigure)paintArticleShape(shapeFigure,shape).catch(error=>console.warn('Article shape',error));
     if(id!==state.routeId)return;drawLate(article,id).catch(error=>console.error(error));await outline?.refresh(article);
     // Inbox previews are plain reading: no discussion, read receipt, recents or Read next.
     if(doc.preview){if(fragment)article.querySelector('#'+CSS.escape(fragment))?.scrollIntoView({block:'start'});focusMain();return;}
@@ -692,12 +762,14 @@ function quoteOccurrence(block,range,quote){
   while(needle&&(index=dom.text.indexOf(needle,index))>=0){count++;if(index<at)before++;index++;}
   return {occurrence:before,count};
 }
-function captureSelection(){
-  const article=$('#article'),selection=getSelection();if(!article||state.doc?.historical||!state.doc?.text||!selection?.rangeCount||selection.isCollapsed)return;
-  const range=selection.getRangeAt(0);
+/** Map the page selection (or VISUAL's range and text) to source coordinates in state.selected. */
+function captureSelection(given=null){
+  const article=$('#article'),selection=getSelection();if(!article||state.doc?.historical||!state.doc?.text)return;
+  if(!given&&(!selection?.rangeCount||selection.isCollapsed))return;
+  const range=given?.range||selection.getRangeAt(0);
   const parent=range.commonAncestorContainer.nodeType===1?range.commonAncestorContainer:range.commonAncestorContainer.parentElement;
   if(!article.contains(parent)||parent.closest('.document-embed,.annotation-pin,[data-reader-decoration]'))return;
-  const quote=selection.toString();if(!quote.trim())return;
+  const quote=given?.quote??selection.toString();if(!quote.trim())return;
   const block=parent.closest('[data-source-start]');
   try {
     const bounds=block?{start:+block.dataset.sourceStart,end:+block.dataset.sourceEnd,...quoteOccurrence(block,range,quote)}:null;
@@ -874,10 +946,12 @@ async function applyPreferences(prefs){
 }
 $('#annotation-form').onsubmit=async event=>{event.preventDefault();const button=event.currentTarget.querySelector('button');button.disabled=true;try{await createAnnotation($('#annotation-dialog').classList.contains('warning')?'warning':'highlight',$('#annotation-body').value);}catch(error){report(error);}finally{button.disabled=false;}};
 $('#selection-tools').onmousedown=event=>event.preventDefault();
-document.querySelectorAll('[data-annotate]').forEach(button=>button.onclick=()=>{
-  const kind=button.dataset.annotate;if(kind==='highlight'){createAnnotation('highlight').catch(report);return;}
+/** Highlight at once, or open the comment / warning dialog for the captured selection. */
+function annotate(kind){
+  if(kind==='highlight'){createAnnotation('highlight').catch(report);return;}
   $('#annotation-dialog').classList.toggle('warning',kind==='warning');$('#annotation-title').textContent=kind==='warning'?'Leave a warning.':'Leave a thought.';$('#annotation-quote').textContent=plainQuote(state.selected?.quote || '');$('#annotation-body').value='';$('#annotation-form button').textContent=kind==='warning'?'Leave warning':'Leave comment';openDialog('annotation-dialog');$('#annotation-body').focus();
-});
+}
+document.querySelectorAll('[data-annotate]').forEach(button=>button.onclick=()=>annotate(button.dataset.annotate));
 $('#chat-open').onclick=toggleChat;
 $('#thread-close').onclick=leaveThreadPanel;
 // The thread list moves like the other panels: j / k or arrows between threads, Enter opens one.
@@ -898,6 +972,8 @@ document.addEventListener('mouseup',event=>{mouseSelecting=false;if(!event.targe
 document.addEventListener('touchend',event=>{if(!event.target.closest('#selection-tools,dialog,#thread-panel')){clearTimeout(selectionTimer);selectionTimer=setTimeout(captureSelection,350);}},{passive:true});
 // Touch handles and keyboard selection never send mouseup, so a settled selection also shows the toolbar.
 document.addEventListener('selectionchange',()=>{
+  // VISUAL mirrors its selection into the page; its own keys act on it, without the toolbar.
+  if(state.visual)return;
   clearTimeout(selectionTimer);if(getSelection()?.isCollapsed){$('#selection-tools').hidden=true;captureSelection.failed=null;return;}
   selectionTimer=setTimeout(()=>{if(!mouseSelecting&&!document.querySelector('dialog[open]'))captureSelection();},450);
 });
@@ -907,55 +983,335 @@ document.addEventListener('mousemove',event=>{
   if(hoverFrame)return;
   hoverFrame=requestAnimationFrame(()=>{hoverFrame=null;const hit=state.ranges.find(({range})=>[...range.getClientRects()].some(r=>event.clientX>=r.left&&event.clientX<=r.right&&event.clientY>=r.top&&event.clientY<=r.bottom));const tip=$('#passage-tooltip');if(hit){tip.textContent=`${hit.thread.owner} · ${plural(hit.thread.comments.length,'comment')}`;tip.style.left=Math.max(10,Math.min(innerWidth-260,event.clientX+12))+'px';tip.style.top=event.clientY+20+'px';tip.classList.add('visible');}else tip.classList.remove('visible');});
 });
-let lastG=0,lastBracket={key:null,at:0},leaderTimer;
-document.addEventListener('keydown',event=>{
-  if(event.isComposing||event.defaultPrevented)return;
-  if(queue?.handleKey(event))return;
-  if(event.key==='F10'&&!event.metaKey&&!event.ctrlKey&&!event.altKey){event.preventDefault();state.leader=null;clearTimeout(leaderTimer);if(!state.themeEditorOpen)closeContext();setThemeEditorOpen(!state.themeEditorOpen);return;}
-  if(event.key==='Escape'){
-    state.leader=null;clearTimeout(leaderTimer);
-    if(event.target.closest?.('.cm-editor'))return;  // Vim's Escape stays in the scratch editor; Escape in normal mode leaves it.
-    if(state.themeEditorOpen||event.target.closest('[data-slot=popover-content],[data-slot=select-content],[data-slot=sheet-content]')||document.querySelector('dialog[open]'))return;
-    event.preventDefault();
-    if(!$('#thread-panel').hidden&&$('#thread-panel').contains(document.activeElement)){leaveThreadPanel();return;}
-    if(state.view==='search'&&!state.leader){if(!search.escape())goBack();return;}
-    if(state.fromSearch&&$('#find-bar').hidden){clearFind();return;}
-    state.windowKey=false;closeContext();if(split?.active())split.refocus();else focusMain();return;
-  }
-  if(state.themeEditorOpen||event.target.closest('input,textarea,select,[contenteditable="true"],dialog,[role=dialog],[role=listbox]:not(.queue-list),[data-slot=popover-content],[role=switch],[data-slot=pagination]'))return;
-  if(event.metaKey || event.altKey)return;
-  // Window keys: Ctrl-w (or Space W) then v s w h j k l x = o q f. A pane forwards them to the shell.
-  if(state.windowKey){event.preventDefault();state.windowKey=false;clearTimeout(leaderTimer);if(!['Shift','Control'].includes(event.key))windowCommand(event.key);else state.windowKey=true;reading?.updateStatus();return;}
-  if(event.ctrlKey&&!event.shiftKey&&event.key==='w'&&!state.leader){event.preventDefault();startWindowKey();return;}
-  if(split?.active()&&!state.leader&&!event.ctrlKey&&![' ',',','?'].includes(event.key)&&$('#queue-panel').hidden&&!chatOpen()&&!document.querySelector('dialog[open]')){event.preventDefault();split.refocus();return;}
-  if(state.leader===true&&event.key===','){event.preventDefault();clearTimeout(leaderTimer);state.leader=',';leaderTimer=setTimeout(()=>{state.leader=null;reading?.updateStatus();},1200);reading?.updateStatus();return;}
-  if(state.leader===','){event.preventDefault();state.leader=null;clearTimeout(leaderTimer);if(event.key==='t'){closeContext();setThemeEditorOpen(true);}else reading?.updateStatus();return;}
-  if(!state.leader&&!event.ctrlKey&&(event.key==='Enter'||event.key==='a')&&!event.target.closest('a,button,summary')&&getSelection()?.isCollapsed===false&&$('#article')?.contains(getSelection().anchorNode)){
-    event.preventDefault();captureSelection();if(!$('#selection-tools').hidden)$('#selection-tools button')?.focus({preventScroll:true});return;
-  }
-  if(state.leader){
-    event.preventDefault();state.leader=null;clearTimeout(leaderTimer);
-    if(pane&&['?','m','r','n'].includes(event.key)){pane.post({type:'window-key',key:event.key,shell:true});return;}
-    const commands={W:startWindowKey,w:()=>navigate(SCRATCH+'='+crypto.randomUUID()),'/':openSearch,e:()=>openPicker(),h:()=>navigate(null),t:openThreadList,m:toggleChat,p:openPreferences,r:()=>queue.toggle(),n:()=>queue.next(),v:openEditions,d:changesShortcut,o:()=>outline.toggle(),s:()=>speech.openMenu(),z:()=>{closeContext();reading.toggleZen();},c:()=>prose.press(),'?':()=>openDialog('help')};commands[event.key]?.();return;
-  }
-  if(event.key===' '||event.key===','){event.preventDefault();state.leader=true;leaderTimer=setTimeout(()=>{state.leader=null;reading?.updateStatus();},1200);return;}
-  if(event.ctrlKey&&['d','u','f','b'].includes(event.key)){event.preventDefault();if(reading.hasBook())reading.turn(['d','f'].includes(event.key)?1:-1);else scrollToPosition(scrollY+innerHeight*(['d','f'].includes(event.key)?1:-1)*(['d','u'].includes(event.key)?.5:.9));return;}
-  if(event.ctrlKey)return;
-  if(state.view==='search'&&search.key(event))return;
-  if(state.view==='issue'&&!state.doc&&['j','k','[',']'].includes(event.key)){event.preventDefault();if(event.key==='j'||event.key==='k')movePiece(event.key==='j'?1:-1);else stepIssue(event.key===']'?1:-1);}
-  else if(state.view==='issue'&&event.key==='c'&&Date.now()-lastG<650){event.preventDefault();lastG=0;const cover=$('[data-cover]');if(cover){cover.focus({preventScroll:true});scrollToPosition(0);}}
-  else if(reading.hasBook()&&['j','k','h','l'].includes(event.key)){event.preventDefault();reading.turn(['j','l'].includes(event.key)?1:-1);}
-  else if(event.key==='j'||event.key==='k'){event.preventDefault();scrollToPosition(scrollY+(event.key==='j'?85:-85));}
-  else if(event.key==='g'){event.preventDefault();if(Date.now()-lastG<650){reading.hasBook()?reading.seek(0):scrollToPosition(0);lastG=0;}else lastG=Date.now();}
-  else if(event.key===']'||event.key==='['){event.preventDefault();if(lastBracket.key===event.key&&Date.now()-lastBracket.at<650){outline.jump(event.key===']'?1:-1);lastBracket={key:null,at:0};}else lastBracket={key:event.key,at:Date.now()};}
-  else if(event.key==='G'){event.preventDefault();reading.hasBook()?reading.seek(1):scrollToPosition(document.documentElement.scrollHeight);}
-  else if(event.key==='/'){event.preventDefault();openFind();}
-  else if(event.key==='n'||event.key==='N'){event.preventDefault();nextFind(event.key==='n'?1:-1);}
-  else if(event.key==='?'){event.preventDefault();if(pane)pane.post({type:'window-key',key:'?',shell:true});else openDialog('help');}
-  else if(event.key==='q'){event.preventDefault();const offered=event.target.closest?.('[data-path]');if(offered?.dataset.path?.startsWith('library/'))queue.add(offered.dataset.path);else toast('Press q on a document in a list, or on a Read next item, to queue it.');}
-  else if(event.key==='h'&&state.cursor>0){event.preventDefault();goBack();}
-  else if(event.key==='l'&&state.cursor<state.visits.length-1){event.preventDefault();state.cursor++;navigate(state.visits[state.cursor],{record:false});history.replaceState({reader:true,path:state.visits[state.cursor]},'',routeHash(state.visits[state.cursor]));}
+// Keyboard ------------------------------------------------------------------------------------------
+// Every page key is a row in the keymap table (keys.mjs); the help dialog and the leader hints are generated from it.
+// A feature adds keys with keys.map({mode, keys, when, run, help, hint, group}) and commands with keys.command({...}).
+const typing=event=>state.themeEditorOpen||!!event.target.closest?.('input,textarea,select,[contenteditable="true"],dialog,[role=dialog],[role=listbox]:not(.queue-list),[data-slot=popover-content],[role=switch],[data-slot=pagination]');
+function pageEscape(event){
+  if(event.target.closest?.('.cm-editor'))return;  // Vim's Escape stays in the scratch editor; Escape in normal mode leaves it.
+  if(state.themeEditorOpen||event.target.closest('[data-slot=popover-content],[data-slot=select-content],[data-slot=sheet-content]')||document.querySelector('dialog[open]'))return;
+  event.preventDefault();
+  if(!$('#thread-panel').hidden&&$('#thread-panel').contains(document.activeElement)){leaveThreadPanel();return;}
+  if(panels.isOpen()&&panels.contains(document.activeElement)){panels.close();return;}
+  if(state.view==='search'){if(!search.escape())goBack();return;}
+  if(state.fromSearch&&$('#find-bar').hidden){clearFind();return;}
+  closeContext();if(split?.active())split.refocus();else focusMain();
+}
+function syncChips(){
+  const qf=quickfix?.get(),chip=$('#status-qf');
+  if(chip){chip.hidden=!qf?.items.length;chip.textContent=qf?.items.length?`QF ${qf.index>=0?qf.index+1:'–'}/${qf.items.length}`:'';}
+}
+keys=createKeys({guard:typing,escape:pageEscape,notify,changed(){
+  const pending=keys?.pending();state.leader=pending?.keys[0]==='<Space>'?(pending.keys[1]===','?',':true):null;state.windowKey=pending?.keys[0]==='<C-w>';
+  syncChips();reading?.updateStatus();
+}});
+const article=()=>$('#article');
+const inDoc=()=>!!state.doc&&!!article();
+const homepage=()=>state.view==='issue'&&!state.doc;
+const theme=()=>{closeContext();setThemeEditorOpen(true);};
+const scrollBy=(lines,count)=>scrollToPosition(scrollY+lines*Math.max(1,count||1));
+/** The current place for marks and the jump list: the first block in view of the current edition. */
+function position(){
+  const mark=reading?.capture();if(!mark||!state.doc)return null;
+  return {path:mark.path,sha256:mark.source_sha256,offset:mark.source_offset,page:mark.pdf_page,fraction:mark.block_fraction,progress:mark.progress};
+}
+function restorePlace(spot){
+  const size=el=>+el.dataset.sourceEnd-el.dataset.sourceStart;
+  const blocks=spot.page?[...document.querySelectorAll(`#article [data-pdf-page="${spot.page}"]`)]:spot.offset!=null?[...document.querySelectorAll(`#article [data-source-start="${spot.offset}"]`)].filter(el=>!el.closest('.document-embed')).sort((a,b)=>size(a)-size(b)):[];
+  const target=blocks[0];if(!target){reading.seek(spot.progress??0,false);return;}
+  const range=document.createRange();range.selectNode(target);
+  if(!reading.reveal(range,false)){const r=target.getBoundingClientRect();scrollToPosition(scrollY+r.top+r.height*(spot.fraction||0)-innerHeight*.22,false);}
+  reading.update();
+}
+async function goTo(spot){
+  if(!spot)return;
+  if(state.doc?.path!==spot.path){await navigate(spot.path,{jump:false});if(state.doc?.path!==spot.path)return;}
+  restorePlace(spot);
+}
+/** Open a list location: a search passage (line and terms) or a source range (a register). */
+async function openAt(item){
+  jumps.record();
+  if(item.at){if(state.doc?.path===item.path&&!state.doc.historical){clearFind();await revealPassage(item.at);}else await navigate(item.path,{at:item.at,jump:false});return;}
+  if(state.doc?.path!==item.path){await navigate(item.path,{jump:false});if(state.doc?.path!==item.path)return;}
+  if(item.sha256&&item.sha256!==state.doc.sha256){toast('This edition changed since then; showing the start of the document.');return;}
+  if(item.start!=null)seekChange(item.start,item.end??item.start);
+}
+({registers,quickfix,marks,jumps,lists:panels}=installLists({state,api,notify,openAt,position,goTo,param,onChange:()=>{syncChips();reading?.updateStatus();}}));
+const focusedLink=()=>{const a=document.activeElement;return a?.matches?.('a[href]')&&article()?.contains(a)?a:null;};
+const linkActions={
+  preview:a=>links.preview(a),
+  follow:a=>a.click(),
+  /** gx: a web link in a new tab; a library link opens its document in a new Reader tab. */
+  async external(a){
+    const href=a.getAttribute('href')||'';
+    if(/^(https?:|mailto:)/i.test(href)){window.open(href,'_blank','noopener,noreferrer');return;}
+    if(href.startsWith('#')){a.click();return;}
+    try{const from=a.closest('[data-source-path]')?.dataset.sourcePath||state.doc.path,resolved=await api('/api/resolve?from='+param(from)+'&target='+param(decode(href)));
+      window.open(location.pathname+'#read='+param(resolved.path)+(resolved.fragment?'&h='+param(resolved.fragment):''),'_blank','noopener');}catch(error){report(error);}
+  },
+};
+function onLink(run){const a=focusedLink();if(!a){toast('Move to a link with ]l or Tab first.');return;}run(a);}
+visual=installVisual({state,keys,reading:{geometry:()=>reading.geometry(),reveal:(range,animate)=>reading.reveal(range,animate)},scrollToPosition,notify,captureSelection,createAnnotation,annotate,speak:()=>speech.send('selection'),registers,quickfix,links:linkActions,jumps,report});
+/** Elements in document order around the reading place: the next one after it, or the last one before it. */
+function stepThrough(list,delta,current,count=1){
+  if(!list.length)return null;let index=current?list.indexOf(current):-1;
+  if(index<0){const place=readingPlace()?.block;if(!place)return delta>0?list[0]:null;
+    const after=list.findIndex(el=>{const p=place.compareDocumentPosition(el);return p&Node.DOCUMENT_POSITION_FOLLOWING||p&Node.DOCUMENT_POSITION_CONTAINED_BY||el===place;});
+    index=delta>0?(after<0?list.length:after)-1:(after<0?list.length:after);}
+  return list[index+delta*Math.max(1,count)]??null;
+}
+const rangeOf=el=>{const range=document.createRange();range.selectNode(el);return range;};
+function flashBlock(el){el.classList.remove('change-target');void el.offsetWidth;el.classList.add('change-target');setTimeout(()=>el.classList.remove('change-target'),1800);}
+/** ]c [c ]x [x: margin threads in reading order; the pin takes focus, so Enter opens the thread. */
+function stepThread(delta,{count,unread=false}={}){
+  if(!state.ranges.length){toast('No margin threads in this document.');return;}
+  const ordered=[...state.ranges].sort((a,b)=>a.range.compareBoundaryPoints(Range.START_TO_START,b.range)).filter(entry=>!unread||threadUnread(entry.thread.id));
+  if(!ordered.length){toast('No unread margin threads here.');return;}
+  const marker=entry=>{const pin=article().querySelector(`[data-thread="${CSS.escape(entry.thread.id)}"]`);return pin;};
+  const anchors=ordered.map(entry=>{const node=entry.range.startContainer;return node.nodeType===1?node:node.parentElement;});
+  const current=ordered.findIndex(entry=>entry.thread.id===state.threadCursor);
+  let next;if(current>=0)next=ordered[current+delta*Math.max(1,count||1)];else{const el=stepThrough(anchors,delta,null,count);next=el?ordered[anchors.indexOf(el)]:null;}
+  if(!next){toast(delta>0?'No more margin threads after this one.':'No margin threads before this one.');return;}
+  jumps.record();state.threadCursor=next.thread.id;moveToRange(next.range);visual.flash(next.range);
+  requestAnimationFrame(()=>requestAnimationFrame(()=>{positionPins();const pin=marker(next);if(pin&&!pin.hidden)pin.focus({preventScroll:true});}));
+}
+/** ]f [f figures (images, diagrams, tables); ]l [l links written in the document. */
+const figures=()=>[...article().querySelectorAll('figure,img,table')].filter(el=>!el.closest('.document-embed,[data-reader-decoration]')&&!el.parentElement.closest('figure'));
+const docLinks=()=>[...article().querySelectorAll('a[href]')].filter(a=>!a.closest('[data-reader-decoration],.annotation-pin,.embed-note')&&a.getAttribute('href'));
+function stepFigure(delta,{count}){
+  const list=figures();if(!list.length){toast('No figures, images or tables in this document.');return;}
+  const current=state.figureCursor?.isConnected&&list.includes(state.figureCursor)?state.figureCursor:null;
+  const next=stepThrough(list,delta,current,count);if(!next){toast(delta>0?'No more figures after this one.':'No figures before this one.');return;}
+  jumps.record();state.figureCursor=next;moveToRange(rangeOf(next));flashBlock(next);
+  const focusable=next.matches('[tabindex]')?next:next.querySelector('[tabindex]');focusable?.focus({preventScroll:true});
+}
+function stepLink(delta,{count}){
+  const list=docLinks();if(!list.length){toast('No links in this document.');return;}
+  const next=stepThrough(list,delta,focusedLink(),count);if(!next){toast(delta>0?'No more links after this one.':'No links before this one.');return;}
+  next.focus({preventScroll:true});const range=document.createRange();range.selectNodeContents(next);moveToRange(range);
+}
+function seekEdge(end){jumps.record();if(reading.hasBook())reading.seek(end?1:0);else scrollToPosition(end?document.documentElement.scrollHeight:0);}
+const R='Reading',L='Leader: Space or comma',H='Homepage',S='Search page',M='Marks and jumps',Q='Lists',P='In panels',W='Split view: Ctrl w or Space W',X='Scratch pad';
+keys.group('<Space>,','more');
+keys.prefix('<C-w>',{label:'WINDOW',ms:1500});
+keys.order([R,'Selecting (v, V)',M,Q,L,W,X,H,S,P]);
+/** In a split pane, the shell owns the queue, chat and help: the pane forwards those keys. */
+const inShell=(key,run)=>()=>{if(pane){pane.post({type:'window-key',key,shell:true});return;}run();};
+keys.map(
+  // Global: works even while writing.
+  {mode:['normal','visual'],keys:'<F10>',global:true,run(){keys.clear();if(visual.active())visual.exit();if(!state.themeEditorOpen)closeContext();setThemeEditorOpen(!state.themeEditorOpen);}},
+  // Leader, in the order the status line lists it.
+  {keys:'<Space>/',run:()=>openSearch(),hint:'search',group:L,help:'Search every passage: exact words or meaning'},
+  {keys:'<Space>e',run:()=>openPicker(),hint:'files',group:L,help:'Open files; filter by name or contents'},
+  {keys:'<Space>h',run:()=>navigate(null),hint:'home',group:L,help:'Return to your homepage'},
+  {keys:'<Space>r',run:inShell('r',()=>queue.toggle()),hint:'queue',group:L,help:'Reading queue: Up next and History (`Tab` switches)'},
+  {keys:'<Space>n',run:inShell('n',()=>queue.next()),hint:'next',group:L,help:'Open the next document in your queue'},
+  {keys:'<Space>t',run:()=>openThreadList(),hint:'threads',group:L,help:'Open passage discussions'},
+  {keys:'<Space>c',run:()=>prose.press(),hint:'colors',group:L,help:'Prose colors: Off, Subtle, Clear, Vivid, in turn, for this document'},
+  {keys:'<Space>m',run:inShell('m',()=>toggleChat()),hint:'chat',group:L,help:'Chat with the voices about this document; `@` chooses who answers, `r` on a focused voice message replies to it, `Ctrl r` `a` pastes register a'},
+  {keys:'<Space>o',run:()=>outline.toggle(),hint:'outline',group:L,help:'Show or hide the document outline'},
+  {keys:'<Space>s',run:()=>speech.openMenu(),hint:'speak',group:L,help:'Send to AI-TTS: the whole article, from here, or the selection'},
+  {keys:'<Space>p',run:()=>openPreferences(),hint:'backstage',group:L,help:'Behind the scenes: indexes, library statistics and settings'},
+  {keys:'<Space>v',run:()=>openEditions(),hint:'versions',group:L,help:'Versions: every edition and its history. In the timeline, `j` `k` move, `Enter` opens, `c` on two versions compares them'},
+  {keys:'<Space>d',run:()=>changesShortcut(),hint:'changes',group:L,help:'What changed since you read it, or against the newer version'},
+  {keys:'<Space>g',run:()=>toggleShape(),hint:'shape',group:L,help:'Article shapes (experiment): show or hide the open article’s shape'},
+  {keys:'<Space>z',run:()=>{closeContext();reading.toggleZen();},group:L,help:'Hide or reveal the reading chrome'},
+  {keys:'<Space>w',run:()=>navigate(SCRATCH+'='+crypto.randomUUID()),hint:'scratch',group:L,help:'Scratch pad: a new Markdown buffer with Vim keys and a live preview (see Scratch pad below)'},
+  {keys:'<Space>W',run:()=>{keys.feed('<C-w>');},hint:'window',group:L,display:'Space W',help:'The window prefix, as `Ctrl w` (for browsers that keep Ctrl W)'},
+  {keys:'<Space>?',run:inShell('?',()=>openHelp()),group:L,help:'This map of keys'},
+  {keys:'<Space>,t',run:theme,hint:'theme editor',group:L,display:'Space , t / F10',help:'Open or close the Theme Editor'},
+  // A selection made with the mouse or the shift keys: show its toolbar.
+  {keys:'a',when:event=>!event?.target.closest?.('a,button,summary')&&getSelection()?.isCollapsed===false&&!!article()?.contains(getSelection().anchorNode),run(){captureSelection();if(!$('#selection-tools').hidden)$('#selection-tools button')?.focus({preventScroll:true});},group:R,display:'a / Enter',help:'With a passage selected, show the Highlight / Comment / Warn toolbar'},
+  {keys:'<CR>',when:event=>!event?.target.closest?.('a,button,summary')&&getSelection()?.isCollapsed===false&&!!article()?.contains(getSelection().anchorNode),run(){captureSelection();if(!$('#selection-tools').hidden)$('#selection-tools button')?.focus({preventScroll:true});}},
+  // Paging, before the per-view keys so they work everywhere.
+  ...['<C-d>','<C-u>','<C-f>','<C-b>'].map(key=>({keys:key,run(){const down=key==='<C-d>'||key==='<C-f>',half=key==='<C-d>'||key==='<C-u>';if(reading.hasBook())reading.turn(down?1:-1);else scrollToPosition(scrollY+innerHeight*(down?1:-1)*(half?.5:.9));},
+    ...(key==='<C-d>'?{group:R,display:'Ctrl d / Ctrl u',help:'Half a page down / up (a spread in two-page reading)'}:key==='<C-f>'?{group:R,display:'Ctrl f / Ctrl b',help:'A page down / up'}:{})})),
+  // The search page's own keys come first while it is shown.
+  ...['j','k','<Down>','<Up>','J','K','<CR>','o','q','/'].map(key=>({keys:key,when:()=>state.view==='search',run:({event})=>search.key(event),
+    ...(key==='j'?{group:S,display:'j k / J K',help:'On Search: next / previous passage, or work; `Enter` opens it, `o` in a new tab, `q` queues it, `/` returns to the query'}:{})})),
+  // The homepage issue.
+  {keys:'j',when:homepage,run:({count})=>movePiece(Math.max(1,count)),group:H,display:'j k',help:'Move between the issue’s pieces'},
+  {keys:'k',when:homepage,run:({count})=>movePiece(-Math.max(1,count))},
+  {keys:'gc',when:()=>state.view==='issue',run(){const cover=$('[data-cover]');if(cover){cover.focus({preventScroll:true});scrollToPosition(0);}},group:H,display:'g c',help:'Go to the cover story'},
+  {keys:']',when:homepage,run:()=>stepIssue(1),group:H,display:'[ / ]',help:'Previous / next issue'},
+  {keys:'[',when:homepage,run:()=>stepIssue(-1)},
+  // Reading.
+  ...['j','k','h','l'].map(key=>({keys:key,when:()=>reading.hasBook(),run:({count})=>{for(let i=0;i<Math.max(1,count);i++)reading.turn(['j','l'].includes(key)?1:-1);}})),
+  {keys:'j',run:({count})=>scrollBy(85,count),group:R,display:'j k',help:'Scroll down / up; turn spreads in two-page mode; counts work (`5j`)'},
+  {keys:'k',run:({count})=>scrollBy(-85,count)},
+  {keys:'gg',run:()=>seekEdge(false),group:R,display:'g g / G',help:'Beginning / end'},
+  {keys:'G',run:()=>seekEdge(true)},
+  {keys:']]',when:()=>!homepage(),run:({count})=>{jumps.record();for(let i=0;i<Math.max(1,count);i++)outline.jump(1);},group:R,display:'] ] / [ [',help:'Next heading / start of this or the previous section'},
+  {keys:'[[',when:()=>!homepage(),run:({count})=>{jumps.record();for(let i=0;i<Math.max(1,count);i++)outline.jump(-1);}},
+  {keys:']c',when:inDoc,run:c=>stepThread(1,c),group:R,display:'] c / [ c',help:'Next / previous margin thread; `Enter` on its mark opens it'},
+  {keys:'[c',when:inDoc,run:c=>stepThread(-1,c)},
+  {keys:']x',when:inDoc,run:c=>stepThread(1,{...c,unread:true}),group:R,display:'] x / [ x',help:'Next / previous unread margin thread'},
+  {keys:'[x',when:inDoc,run:c=>stepThread(-1,{...c,unread:true})},
+  {keys:']f',when:inDoc,run:c=>stepFigure(1,c),group:R,display:'] f / [ f',help:'Next / previous figure, image or table'},
+  {keys:'[f',when:inDoc,run:c=>stepFigure(-1,c)},
+  {keys:']l',when:inDoc,run:c=>stepLink(1,c),group:R,display:'] l / [ l',help:'Next / previous link in the document; its preview opens'},
+  {keys:'[l',when:inDoc,run:c=>stepLink(-1,c)},
+  {keys:'K',when:inDoc,run:()=>onLink(linkActions.preview),group:R,display:'K / g f / g x',help:'On a focused link: show its preview / follow it / open it in a new tab'},
+  {keys:'gf',when:inDoc,run:()=>onLink(linkActions.follow)},
+  {keys:'gx',when:inDoc,run:()=>onLink(linkActions.external)},
+  {keys:'gd',when:inDoc,run:()=>visual.firstUse(),group:R,display:'g d',help:'First use of the term you found with `/` (in VISUAL, of the word under the cursor)'},
+  {keys:'%',when:inDoc,run:({count})=>{if(count){jumps.record();reading.seek(Math.min(100,count)/100);}else visual.footnote();},group:R,display:'% / 50 %',help:'Footnote reference ↔ its note; with a count, that percent of the document'},
+  {keys:'zz',when:inDoc,run:()=>visual.align('middle'),group:R,display:'z z / z t / z b',help:'Put the current place (find match, jump or cursor) in the middle / at the top / at the bottom of the window'},
+  {keys:'zt',when:inDoc,run:()=>visual.align('top')},
+  {keys:'zb',when:inDoc,run:()=>visual.align('bottom')},
+  {keys:'/',run:()=>openFind(),group:R,help:'Find inside the open document'},
+  {keys:'n',run:({count})=>{jumps.record();nextFind(Math.max(1,count));},group:R,display:'n / N',help:'Next / previous occurrence, including a search’s matches'},
+  {keys:'N',run:({count})=>{jumps.record();nextFind(-Math.max(1,count));}},
+  {keys:'q',run({event}){const offered=event?.target.closest?.('[data-path]');if(offered?.dataset.path?.startsWith('library/'))queue.add(offered.dataset.path);else toast('Press q on a document in a list, or on a Read next item, to queue it.');},group:R,help:'Add the focused document (Read next, files, home lists) to your queue'},
+  {keys:'h',when:()=>state.cursor>0,run:()=>goBack(),group:R,display:'h l',help:'Reading history; previous / next spread in two-page mode'},
+  {keys:'l',when:()=>state.cursor<state.visits.length-1,run(){state.cursor++;navigate(state.visits[state.cursor],{record:false});history.replaceState({reader:true,path:state.visits[state.cursor]},'',routeHash(state.visits[state.cursor]));}},
+  {keys:'?',run:inShell('?',()=>openHelp()),group:R,help:'This map of keys'},
+  {keys:':',run:()=>keys.openLine(),group:R,help:'Type a command in the status line (see Command line below)'},
+  // Marks, jumps and lists.
+  {keys:'m{a-z}',run:({args})=>marks.set(args[0]),group:M,display:'m a–z',help:'Mark your place in this edition'},
+  {keys:"'{mark}",run:({args})=>marks.jump(args[0]),group:M,display:"' a–z / ' '",help:'Return to a mark; `\'` `\'` returns to where you were before the last jump'},
+  {keys:'<C-o>',run:({count})=>jumps.back(count),group:M,display:'Ctrl o / Ctrl i',help:'Back / forward through the places you jumped from, across documents'},
+  {keys:'<C-i>',run:({count})=>jumps.forward(count)},
+  {keys:']q',when:()=>quickfix.active(),run:({count})=>quickfix.step(1,count),group:Q,display:'] q / [ q',help:'Next / previous location in the list (:grep, more like this)'},
+  {keys:'[q',when:()=>quickfix.active(),run:({count})=>quickfix.step(-1,count)},
+  // Keys that panels and pages handle themselves, listed here so the help is complete.
+  {keys:'',group:R,display:'Escape',help:'Return your attention to the page; in VISUAL or the command line, one step back toward NORMAL'},
+  {keys:'',group:P,display:'Tab Enter',help:'On a diagram: open it full size'},
+  {keys:'',group:P,display:'← → / ↑ ↓ / Enter',help:'On a focused article shape (`g c` then `Tab` on the homepage, or after `Space g`): passages / related works / open'},
+  {keys:'',group:P,display:'j k',help:'In Files, the queue, versions, margins, lists and the Activity transcript: next / previous item; `Enter` opens it'},
+  {keys:'',group:P,display:'h l / q',help:'In Files: close / open folders; queue the focused document'},
+  {keys:'',group:P,display:'J K / x / p',help:'In the queue: reorder, remove, pin'},
+  {keys:'',group:P,display:'Ctrl r a',help:'In a reply, comment or chat box, or the scratch pad in insert mode: paste register a (or `"`) as a quoted citation'},
+  // Split view (RW-32): Ctrl-w, or Space W, then one key. A pane forwards them to the shell, which owns the layout.
+  ...[['v','side by side','Split the window side by side / stacked (up to four panes); the new pane opens the file picker, `Esc` keeps the document','v / s'],['s','stacked'],
+    ['w','next','Next / previous pane','w / W'],['W'],['h','left','The pane to the left, below, above, right','h / j / k / l'],['j','below'],['k','above'],['l','right'],
+    ['x','swap','Swap with the next pane / equal sizes','x / ='],['=','equal'],['o','only','Keep only this pane / close it','o / q'],['q','close'],
+    ['f','link','Open the focused link in the other pane (or Shift-click a link)','f']].flatMap(([key,hint,help,display])=>{
+      return [{keys:'<C-w>'+key,run:()=>windowCommand(key),hint,group:W,...(help?{help,display:display.split(' / ').map(part=>'Ctrl w '+part).join(' / ')}:{})}];
+    }),
+  // The scratch pad's editor handles its own keys (CodeMirror Vim); listed here so the help is complete.
+  {keys:'',group:X,display:'i / Esc Esc',help:'Insert; `Esc` back to normal, a second `Esc` leaves the editor'},
+  {keys:'',group:X,display:':w / :write vault',help:'Keep the draft on this device / save it to the vault as your own writing'},
+  {keys:'',group:X,display:':preview / :drafts',help:'Side by side, Source or Preview layout / the Drafts panel'},
+  {keys:'',group:X,display:':cite / Ctrl r a',help:'Quote your last selection / register a (in insert mode) as a cited block'},
+  {keys:'',group:X,display:':enew / :e scratch',help:'A new buffer / the latest draft (`:e scratch=<id>` a given one); these also work from the page command line'},
+);
+// Ctrl-r {register} in a writing box pastes the citation; the queue panel's keys come before the table.
+let pasteInto=null;
+keys.intercept(event=>queue?.handleKey(event));
+// After Ctrl-w, Ctrl held for the second key works too (Ctrl-w Ctrl-v, Ctrl-w Ctrl-w), as in Vim.
+keys.intercept(event=>{
+  if(keys.pending().keys[0]!=='<C-w>'||!event.ctrlKey||event.metaKey||event.altKey||!/^[a-z]$/.test(event.key))return false;
+  event.preventDefault();keys.feed(event.key,event);return true;
 });
+// While split, the shell keeps only the leader, ?, : and Ctrl keys; any other key returns focus to the focused pane.
+keys.intercept(event=>{
+  if(!split?.active()||event.ctrlKey||event.metaKey||event.altKey||typing(event)||keys.mode()!=='normal'||keys.pending().keys.length)return false;
+  if([' ',',','?',':','Escape','F10','Shift','Control','Alt','Meta','CapsLock'].includes(event.key))return false;
+  if(!$('#queue-panel').hidden||chatOpen()||document.querySelector('dialog[open]'))return false;
+  event.preventDefault();split.refocus();return true;
+});
+keys.intercept(event=>{
+  if(['Shift','Control','Alt','Meta','CapsLock'].includes(event.key))return false;
+  if(pasteInto){const target=pasteInto;pasteInto=null;$('#status-pending').hidden=true;
+    if(event.target===target&&/^[a-z"]$/.test(event.key)&&!event.ctrlKey&&!event.metaKey){event.preventDefault();registers.paste(event.key,target);return true;}
+    if(event.key==='Escape'){event.preventDefault();return true;}return false;}
+  if(event.ctrlKey&&!event.metaKey&&!event.altKey&&event.key==='r'&&event.target.matches?.('textarea')){event.preventDefault();pasteInto=event.target;const hint=$('#status-pending');hint.textContent='Ctrl r';hint.hidden=false;return true;}
+  return false;
+});
+document.addEventListener('keydown',event=>keys.handle(event));
+// Read-only introspection of the table (tests, extensions): every mapped sequence and command.
+Object.defineProperty(window,'readerKeymap',{value:Object.freeze({listed:()=>keys.listed(),commands:()=>keys.commands()})});
+// Commands for the `:` line. Each maps to an existing action; features add theirs with keys.command().
+const prefixed=(list,typed)=>list.filter(item=>item.startsWith(typed));
+const JOBS={search:'search',keywords:'search-keyword',browse:'browse',catalog:'catalog',links:'links'};
+const SPEAK={article:'article',here:'from',from:'from',selection:'selection'};
+/** A document route for a fuzzy name, as :open finds it; null (with a toast) when nothing matches. */
+async function fuzzyRoute(text){
+  const draft=SCRATCH_ROUTE.exec(text);if(draft)return draft[1]?'#scratch='+draft[1].toLowerCase():'#scratch';
+  const known=state.data?.works.find(w=>w.primary===text);if(known)return '#read='+param(known.primary);
+  const {results}=await api('/api/search?q='+param(text)+'&mode=fuzzy&participant='+param(state.prefs.participant));
+  if(!results?.length){toast(`No document matches “${text}”.`);return null;}
+  return '#read='+param(results[0].path||results[0].primary);
+}
+const SCRATCH_ROUTE=/^scratch(?:=([0-9a-f-]{36}))?$/i;
+async function openFuzzy(text){
+  if(!text){openPicker('all');return;}
+  // :e scratch opens the latest scratch draft; :e scratch=<id> a given one.
+  const draft=SCRATCH_ROUTE.exec(text);if(draft){navigate(draft[1]?SCRATCH+'='+draft[1].toLowerCase():SCRATCH);return;}
+  const known=state.data?.works.find(w=>w.primary===text);if(known){navigate(known.primary);return;}
+  const {results}=await api('/api/search?q='+param(text)+'&mode=fuzzy&participant='+param(state.prefs.participant));
+  if(!results?.length){toast(`No document matches “${text}”.`);return;}
+  navigate(results[0].path||results[0].primary);
+}
+/** Tab completion for a document name (:open, :vsplit). */
+async function completeDocument(typed){if(!typed.trim())return (state.data?.recent||[]).slice(0,12).map(w=>({value:w.primary,label:w.title}));try{const {results}=await api('/api/search?q='+param(typed)+'&mode=fuzzy&participant='+param(state.prefs.participant));return results.slice(0,12).map(w=>({value:w.path||w.primary,label:w.title}));}catch{return [];}}
+keys.command({name:'open',aliases:['e','edit'],args:'<document>',help:'Open a document by fuzzy title, author or path (`:e scratch` the scratch pad); without a name, the stacks',
+  complete:completeDocument,
+  run:openFuzzy});
+keys.command({name:'shape',help:'Show or hide the open article’s shape (experiment), as `Space g`',run:()=>toggleShape()});
+keys.command({name:'enew',help:'A new scratch pad buffer',run:()=>navigate(SCRATCH+'='+crypto.randomUUID())});
+const SPLIT_DIRS={vsplit:['row','v'],split:['col','s']};
+for(const [name,[dir,key]] of Object.entries(SPLIT_DIRS))keys.command({name,aliases:name==='vsplit'?['vs','vsp']:['sp'],args:'[document]',
+  help:name==='vsplit'?'Split the window side by side; with a document, open it in the new pane':'Split the window stacked; with a document, open it in the new pane',
+  complete:completeDocument,
+  async run(text){
+    if(!text){windowCommand(key);return;}
+    const route=await fuzzyRoute(text);if(!route)return;
+    if(pane){pane.post({type:'window-key',key,route});return;}
+    if(split.active())split.split(dir,{route,picker:false});else split.start(dir,cleanRoute(location.hash),{route}).catch(report);
+  }});
+const SCROLLBIND={scrollbind:true,scb:true,noscrollbind:false,noscb:false,'scrollbind!':'toggle','scb!':'toggle','invscrollbind':'toggle'};
+keys.command({name:'set',args:'[scrollbind|noscrollbind]',help:'`:set scrollbind` scrolls the focused pane with its neighbor, `:set noscrollbind` stops; without an option, Behind the scenes',
+  complete:typed=>prefixed(['scrollbind','noscrollbind','scrollbind!'],typed),
+  run(text){
+    if(!text){openPreferences();return;}
+    if(!(text in SCROLLBIND)){toast(`Unknown option: ${text}. Try :set scrollbind or :set noscrollbind.`);return;}
+    const value=SCROLLBIND[text],key=value==='toggle'?'scrollbind!':value?'scrollbind':'noscrollbind';
+    if(pane){pane.post({type:'window-key',key});return;}
+    if(!split.active()){toast('There is one pane. :vsplit or Ctrl-w v splits the window.');return;}
+    split.command(key);
+  }});
+keys.command({name:'theme',aliases:['colorscheme'],args:'<id>',help:'Switch the theme, for example `:theme paper`',
+  complete:typed=>prefixed([...new Set([...THEMES,...themeCache.ids])].sort(),typed),
+  run(id){if(!id){toast('The theme is '+state.prefs.theme+'.');return;}if(!knownTheme(id)){const near=keysClosest(id,[...THEMES,...themeCache.ids]);toast(`No theme called ${id}.`+(near?` Did you mean ${near}?`:''));return;}useTheme(id);}});
+keys.command({name:'layout',args:'scroll|spread',help:'Continuous or two-page reading',complete:typed=>prefixed(['scroll','spread'],typed),
+  run(mode){if(!['scroll','spread'].includes(mode)){toast('Use :layout scroll or :layout spread.');return;}if(state.prefs.layout!==mode)$('#layout-swap').click();}});
+keys.command({name:'speak',args:'[article|here|selection]',help:'Send to AI-TTS: the whole article, from here, or the selection; without a scope, the menu',complete:typed=>prefixed(['article','here','selection'],typed),
+  run(scope){if(!scope){speech.openMenu();return;}if(!SPEAK[scope]){toast('Use :speak article, here or selection.');return;}if(SPEAK[scope]==='selection'&&visual.active()){visual.speak();return;}speech.send(SPEAK[scope]);}});
+keys.command({name:'rebuild',args:'search|keywords|browse|catalog|links',help:'Rebuild an index, as on Behind the scenes',complete:typed=>prefixed(Object.keys(JOBS),typed),
+  run(kind){if(!JOBS[kind]){toast('Rebuild what? search, keywords, browse, catalog or links.');return;}startJob(JOBS[kind]);}});
+keys.command({name:'check',help:'Check whether the indexes are fresh',run:()=>startJob('check')});
+keys.command({name:'changes',aliases:['diff'],help:'What changed since you read it, or against the newer version',run:()=>changesShortcut()});
+keys.command({name:'versions',aliases:['editions','edition'],help:'Every edition of this document and its history',run:()=>openEditions()});
+keys.command({name:'outline',aliases:['toc'],help:'Show or hide the document outline',run:()=>outline.toggle()});
+keys.command({name:'chat',help:'Chat with the voices about this document',run:()=>{if(!chatOpen())toggleChat();}});
+keys.command({name:'threads',aliases:['margins'],help:'This document’s margin threads',run:()=>openThreadList()});
+keys.command({name:'queue',help:'Your reading queue',run:()=>queue.toggle()});
+keys.command({name:'next',help:'The next document in your queue',run:()=>queue.next()});
+keys.command({name:'home',help:'Your homepage',run:()=>navigate(null)});
+keys.command({name:'files',aliases:['ls'],help:'The stacks: every document, by folder',run:()=>openPicker('all')});
+keys.command({name:'search',args:'[words]',help:'Search every passage; with words, search for them',run(text){if(!text){openSearch();return;}location.hash='#search='+param(new URLSearchParams({q:text.slice(0,1000)}).toString());}});
+keys.command({name:'backstage',aliases:['settings'],help:'Behind the scenes: indexes, statistics and settings',run:()=>openPreferences()});
+keys.command({name:'zen',help:'Hide or reveal the reading chrome',run:()=>{closeContext();reading.toggleZen();}});
+keys.command({name:'colors',help:'Next prose color strength for this document',run:()=>prose.press()});
+keys.command({name:'find',args:'<words>',help:'Find inside the open document',run:async text=>{if(!state.doc){toast('Open a document to find in it.');return;}if(!text){openFind();return;}$('#find-query').value=text;await updateFind();if(state.find.length){jumps.record();showFind();}else toast(`“${text}” is not in this document.`);}});
+keys.command({name:'nohlsearch',aliases:['noh'],help:'Clear the find highlights',run:()=>clearFind()});
+keys.command({name:'grep',args:'<words>',help:'Passages across the library with these words, as a location list (`]q` steps through it)',run:text=>quickfix.grep(text||visual.text())});
+keys.command({name:'copen',aliases:['cw','cwindow','clist'],help:'Show the location list',run:()=>panels.open('quickfix')});
+keys.command({name:'cclose',help:'Hide the location list',run:()=>panels.close()});
+keys.command({name:'cnext',aliases:['cn'],help:'Next location',run:()=>quickfix.step(1)});
+keys.command({name:'cprev',aliases:['cp','cprevious'],help:'Previous location',run:()=>quickfix.step(-1)});
+keys.command({name:'cclear',help:'Empty the location list',run:()=>quickfix.clear()});
+keys.command({name:'marks',help:'Your marks, in this document first',run:()=>panels.open('marks')});
+keys.command({name:'registers',aliases:['reg','display','di'],help:'What you have yanked, with citations',run:()=>panels.open('registers')});
+keys.command({name:'help',aliases:['h'],args:'[command]',help:'This map; `:help grep` jumps to a command',complete:typed=>prefixed(keys.commands(),typed),run:topic=>openHelp(topic)});
+$('#status-qf').onclick=()=>panels.open('quickfix');
+function openHelp(topic=''){
+  openDialog('help');
+  const row=topic&&$(`#help [data-command="${CSS.escape(topic.replace(/^:/,''))}"]`);
+  if(row){row.scrollIntoView({block:'center'});row.classList.add('help-target');setTimeout(()=>row.classList.remove('help-target'),1800);}
+}
 window.addEventListener('popstate',()=>{
   // Back into a split layout restores it; Back out of one leaves the split for the earlier single view.
   if(!EMBEDDED&&location.hash.startsWith('#split=')){if(!split.active()){suspendShell().then(()=>split.restore(location.hash));}return;}
@@ -966,13 +1322,13 @@ window.addEventListener('popstate',()=>{
   else if(state.visits[state.cursor]!==path){state.visits=state.visits.slice(0,state.cursor+1);state.visits.push(path);state.cursor++;}
   navigate(path,{record:false,at:passageFromHash(),fragment:routeHeading()});
 });
-function startWindowKey(){state.windowKey=true;clearTimeout(leaderTimer);leaderTimer=setTimeout(()=>{state.windowKey=false;reading?.updateStatus();},1500);reading?.updateStatus();}
+/** One window key (Ctrl-w v s w W h j k l x = o q f, and scrollbind from :set): a pane forwards it to the shell. */
 function windowCommand(key){
   if(key==='f'){linkInSplit().catch(report);return;}
   if(pane){pane.post({type:'window-key',key});return;}
   if(split.active()){split.command(key);return;}
   if(key==='v'||key==='s'){startSplit(key==='v'?'row':'col');return;}
-  if(['w','W','h','j','k','l','x','=','o','q'].includes(key))toast('There is one pane. Ctrl-w v or Ctrl-w s splits the window.');
+  if(['w','W','h','j','k','l','x','=','o','q','scrollbind','noscrollbind','scrollbind!'].includes(key))toast('There is one pane. Ctrl-w v or Ctrl-w s splits the window.');
 }
 function startSplit(dir){split.start(dir,cleanRoute(location.hash),{picker:true}).catch(report);}
 /** Open a route in the other pane (Shift-click, Ctrl-w f), splitting the window first when there is one pane. */
@@ -1026,15 +1382,15 @@ function paneStatus(){
 function paintSplitStatus(){
   if(document.querySelector('dialog[open]')||!$('#queue-panel').hidden||chatOpen())return false;
   const focused=split.focused();if(!focused)return false;
-  const mode=state.windowKey?'WINDOW':focused.status?.mode||'NORMAL';
+  // The shell's own keymap state (Ctrl-w, the leader, the command line) comes before the pane's mode.
+  const owned=keys.status(),mode=owned?.mode||focused.status?.mode||'NORMAL';
   $('#vim-mode').textContent=mode;$('#vim-mode').dataset.mode=mode;
-  $('#status-keys').innerHTML=state.windowKey?WINDOW_KEYS:'<kbd>Ctrl-w w</kbd> next pane <kbd>Ctrl-w v</kbd> <kbd>s</kbd> split <kbd>Ctrl-w q</kbd> close';
+  $('#status-keys').innerHTML=owned?owned.keys:'<kbd>Ctrl-w w</kbd> next pane <kbd>Ctrl-w v</kbd> <kbd>s</kbd> split <kbd>Ctrl-w q</kbd> close';
   breadcrumbs.update(focused.status?.path??null);$('#status-position').textContent=focused.status?.position||'';
   const indicator=$('#split-indicator');indicator.hidden=false;indicator.textContent=`${focused.number}/${focused.count}${focused.bound?' ⇅':''}`;
   indicator.title=`Pane ${focused.number} of ${focused.count}${focused.bound?', scrolling with its neighbor':''}`;
   return true;
 }
-const WINDOW_KEYS='<kbd>v</kbd> side by side <kbd>s</kbd> stacked <kbd>w</kbd> next <kbd>h j k l</kbd> move <kbd>x</kbd> swap <kbd>=</kbd> equal <kbd>o</kbd> only <kbd>q</kbd> close <kbd>f</kbd> link';
 function goBack(){
   if(state.cursor>0){state.cursor--;const path=state.visits[state.cursor];navigate(path,{record:false});history.replaceState({reader:true,path},'',routeHash(path));}
   else navigate(null);
@@ -1052,10 +1408,10 @@ speech=installSpeech({state,api,reading:{capture:()=>reading.capture(),hasBook:(
 prose=installProseColors({state,api,notify});
 queue=installQueue({state,api,navigate,notify,renderPanel:renderQueuePanel,focusMain:()=>focusMain(),onChange:()=>reading?.updateStatus()});
 queue.setCloseOthers(()=>{$('#thread-panel').hidden=true;state.activeThread=null;});
-reading=installReading({statusOverride:()=>{const on=!!split?.active();if(!on)$('#split-indicator').hidden=true;return on&&paintSplitStatus();},onStatus:()=>pane&&paneStatus(),mayCurl:()=>!pane||pane.focused(),scratchStatus:()=>state.view==='scratch'?scratch?.status():null,controls,updateBreadcrumbs:path=>breadcrumbs.update(path),state,api,toast,openPreferences,openThread,revealRange:moveToRange,scrollToPosition,savePrefs,reloadDocument:()=>navigate(state.doc.path,{record:false}),positionPins});
+reading=installReading({statusOverride:()=>{const on=!!split?.active();if(!on)$('#split-indicator').hidden=true;return on&&paintSplitStatus();},onStatus:()=>pane&&paneStatus(),mayCurl:()=>!pane||pane.focused(),scratchStatus:()=>state.view==='scratch'?scratch?.status():null,controls,updateBreadcrumbs:path=>breadcrumbs.update(path),state,api,toast,openPreferences,openThread,revealRange:moveToRange,scrollToPosition,savePrefs,reloadDocument:()=>navigate(state.doc.path,{record:false}),positionPins,keyStatus:()=>keys.status()});
 outline=installOutline({state,reading,$,controls,scrollToPosition,savePrefs,notify});
 links=installLinks({state,api,reading,navigate,openBackstage:()=>navigate(BACKSTAGE)});
-scratch=installScratch({state,api,notify,navigate,focusMain:()=>$('#main').focus({preventScroll:true}),updateStatus:()=>reading?.updateStatus(),openChat,
+scratch=installScratch({state,api,notify,navigate,focusMain:()=>$('#main').focus({preventScroll:true}),updateStatus:()=>reading?.updateStatus(),openChat,registers:()=>registers,
   renderMarkdown:(container,text)=>renderMarkdown(container,text,'library/notebook/scratch.md',0)});
 versions=installVersions({state,api,navigate:ref=>navigate(ref),openCompare:openComparison,openSideBySide:(older,newer)=>{if(pane)pane.post({type:'open-in-split',compare:{a:older,b:newer}});else split.compare(older,newer,cleanRoute(location.hash)).catch(report);},notify,param,onChange:()=>reading?.updateStatus()});
 if(EMBEDDED)pane=installPane({open:openRoute,save:()=>reading.save(),onFocus:paneFocus,
@@ -1063,7 +1419,7 @@ if(EMBEDDED)pane=installPane({open:openRoute,save:()=>reading.save(),onFocus:pan
   scrollBy:delta=>{if(Math.abs(delta)>=1)scrollToPosition(scrollY+delta,false);},seek:fraction=>reading.seek(fraction,false),docFraction:()=>reading.progress()});
 else{
   split=installSplit({notify,api,param,paint:()=>reading?.updateStatus(),suspend:suspendShell,resume:resumeShell});
-  split.setShellCommands({'?':()=>openDialog('help'),m:toggleChat,r:()=>queue.toggle(),n:()=>queue.next()});
+  split.setShellCommands({'?':()=>openHelp(),m:toggleChat,r:()=>queue.toggle(),n:()=>queue.next()});
   document.querySelectorAll('dialog').forEach(dialog=>dialog.addEventListener('close',()=>{if(split.active()&&!document.querySelector('dialog[open]'))split.refocus();}));
 }
 // Theme and preference changes made in another pane (or the shell) arrive as a storage event.

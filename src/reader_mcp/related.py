@@ -79,6 +79,30 @@ class Related:
             self.cache = (key, result)
         return result
 
+    def nearest(self, path, works, limit=12):
+        """The `limit` most related works with passage embeddings, as (score, work, unit mean vector).
+
+        Scored as Read next scores them (similarity plus shared projects and topics), without
+        read status, recency or diversity; other editions and copies of the same text are left out."""
+        current = next((w for w in works if path in (w.get('primary'), w.get('path'))), None)
+        vectors = self.vectors({w['primary'] for w in works} | {path})
+        mine = vectors.get(path)
+        if mine is None:
+            return []
+        own_labels = labels(current) if current else set()
+        own_title = base_title(current.get('title')) if current else None
+        scored = []
+        for work in works:
+            other = vectors.get(work['primary'])
+            if work is current or work['primary'] == path or other is None or (own_title and base_title(work.get('title')) == own_title):
+                continue
+            similarity = float(mine @ other)
+            if similarity >= SAME_EDITION:
+                continue
+            scored.append((similarity + SHARED_BONUS * len(own_labels & labels(work)), work['primary'], work, other))
+        scored.sort(key=lambda item: (-item[0], item[1]))
+        return [(score, work, vector) for score, _, work, vector in scored[:limit]]
+
     def suggest(self, path, works, read, limit=3):
         """Up to `limit` works: the most related, unread first, then latest; diverse.
 

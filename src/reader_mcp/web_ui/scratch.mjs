@@ -46,7 +46,7 @@ export const drafts={
   async remove(id){return tx('readwrite',s=>{s.delete(id);});},
 };
 
-export function installScratch({state,api,notify,renderMarkdown,navigate,focusMain,updateStatus,openChat,confirmAction=message=>confirm(message)}){
+export function installScratch({state,api,notify,renderMarkdown,navigate,focusMain,updateStatus,openChat,registers=()=>null,confirmAction=message=>confirm(message)}){
   const $=s=>document.querySelector(s);
   let editor=null,editorModule=null,draft=null,root=null,mode='NORMAL',layout=null,saveState='Unsaved',local=true,dirty=false,autosave=0,previewTimer=0,cursor=0,list=null,lastSaved=null;
   const narrow=()=>innerWidth<900;
@@ -131,7 +131,7 @@ export function installScratch({state,api,notify,renderMarkdown,navigate,focusMa
     root.querySelector('[data-scratch-voice]').hidden=!(openChat&&draft.vault_path);
     const module=await loadEditor();if(!root?.isConnected)return;
     editor=module.createMarkdownEditor(root.querySelector('.scratch-editor'),{doc:draft.body,label:'Scratch pad Markdown',placeholder:'Write in Markdown. i to insert, Esc Esc to leave.',
-      onChange:changed,onCursor:offset=>{cursor=offset;if(layout==='split'&&!previewTimer)follow();},onMode:next=>{mode=next;updateStatus();},onExit:()=>focusMain(),
+      onChange:changed,onCursor:offset=>{cursor=offset;if(layout==='split'&&!previewTimer)follow();},onMode:next=>{mode=next;updateStatus();},onExit:()=>focusMain(),onRegister:pasteRegister,
       commands:{write:args=>args==='vault'?saveDialog():persist().then(()=>notify(local?'Saved on this device.':'This browser can’t keep drafts; copy your text to keep it.',local?'success':'error')),preview:cycle,drafts:()=>toggleDrafts(true),cite,enew:()=>navigate(':scratch='+crypto.randomUUID()),
         edit:args=>{const m=/^scratch(?:=(\S+))?$/.exec(args);if(m)navigate(m[1]?':scratch='+m[1]:':scratch');else notify('In the scratch pad, :e scratch or :e scratch=<id> opens a draft.');}}});
     mode='NORMAL';editor.focus();if(layout!=='source')preview();paint();
@@ -167,7 +167,12 @@ export function installScratch({state,api,notify,renderMarkdown,navigate,focusMa
         notify('Draft deleted.');if(id===draft?.id){dirty=false;navigate(':scratch='+crypto.randomUUID());}else toggleDrafts(true);}
     };
   }
-  // Citing your last reader selection -----------------------------------------------------------------
+  // Citing your last reader selection, or a register (Ctrl-r a in insert mode) ----------------------------
+  function pasteRegister(name){
+    const entry=registers()?.get(name);
+    if(!entry){notify(`Register ${name} is empty. Select a passage with v and press "${name==='"'?'':name}y.`.replace('""','"'));return;}
+    editor?.insert(citation(entry));
+  }
   function cite(){
     const quote=state.lastQuote;if(!quote){notify('Select a passage in a document first; :cite inserts it here.');return;}
     editor?.insert(citation(quote));

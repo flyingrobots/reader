@@ -57,6 +57,18 @@ The web server does not rebuild indexes or download models at startup.
 | Space z | Hide or reveal reading chrome |
 | Tab to a diagram, Enter (or click) | Open the diagram full size; Escape closes it |
 | ? / Escape | Help / close the current interface |
+| v / V | VISUAL / VISUAL LINE: select from the keyboard (see [Modal keyboard](#modal-keyboard-visual-the-command-line-registers-and-lists)) |
+| `:` | Command line in the status line (`:theme paper`, `:grep words`, `:help`) |
+| ]c / [c, ]x / [x | Next / previous margin thread, or unread margin thread; Enter on its mark opens it |
+| ]f / [f, ]l / [l | Next / previous figure, image or table; next / previous link (its preview opens) |
+| K / g f / g x | On a focused link: preview / follow / open in a new tab |
+| % ; *n*% | Footnote reference ↔ its note; with a count, that percent of the document |
+| g d | First use of the term found with `/` (in VISUAL, the word under the cursor) |
+| z z / z t / z b | The current find match, jump target or cursor to the middle / top / bottom of the window |
+| m *a–z* / ' *a–z* / ' ' | Set a mark / return to it / back to before the last jump |
+| Ctrl-o / Ctrl-i | Back / forward through the jump list, across documents |
+| ]q / [q | Next / previous location in the location list |
+| Ctrl-r *a* in a writing box | Paste register *a* as a quoted citation |
 | Command-Enter or Ctrl-Enter in a comment | Submit the comment |
 
 **Routes.** A document's URL is `#read=<URL-encoded path>`; a link to a heading in
@@ -76,7 +88,8 @@ light/dark theme controls, an **Outline** button when the document has an outlin
 focus or when the pointer reaches the lower-right corner.
 
 The mode corner has a distinct background for Normal, Browse, Search, Insert,
-Leader, Settings (the Theme Editor and Backstage share one color), Help and Thread. Semantic mode colors mix with the selected
+Leader, Settings (the Theme Editor and Backstage share one color), Help and Thread;
+VISUAL shares Thread's color, COMMAND Leader's and the list panels Browse's. Semantic mode colors mix with the selected
 palette and use separate light/dark lightness levels. The printed mode remains
 the primary label; recognizing a color is not required to use it.
 
@@ -108,6 +121,144 @@ chart colors. CSS performs display-gamut mapping. Preview a palette with
 `/?theme=orchid`, `/?theme=orchid-dark`, `/?theme=harvest` or
 `/?theme=harvest-dark`; an explicit theme selection clears a conflicting preview
 parameter and saves the preference. Theme previews do not change participant data.
+
+### Modal keyboard: VISUAL, the command line, registers and lists
+
+Reader keeps the status line as its only chrome and adds three Vim-like tools to
+it. Every mode exits with Escape, one step at a time toward NORMAL: pending keys
+(a count, a `"a` register, half a sequence such as `g`) first, then VISUAL or the
+command line, then the page's own Escape (panels, find, the search page).
+
+**One keymap.** `web_ui/keys.mjs` holds the only page keydown listener. Every key
+is a row in its table: `{mode, keys, when, run, help, hint, group, display}`. The
+parser handles counts (`3)`, `5j`), register prefixes (`"a`), multi-key sequences
+(`gg`, `]]`, `gf`) with a 650 ms window, the Space or comma leader with a 1.2 s
+window, `{a-z}` arguments (`ma`, `'a`) and a mode stack. A row whose `when()` is
+false, or whose `run()` returns `false`, lets the next row for the same key (or the
+browser) have it, which is how two-page turns, the homepage and the search page
+share `j`/`k`. An unknown key after the leader is swallowed. `keys.prefix(token,
+{label, ms})` declares another family that behaves like the leader: `Ctrl-w` is one
+(label WINDOW, 1.5 s window), so its hints come from the table too and an unknown
+second key is swallowed. The leader hints in
+the status line and the help dialog (`?`) are generated from the table, so they
+cannot drift from the keys; rows without `run()` document keys that a panel
+handles itself. `window.readerKeymap.listed()` returns the table read-only.
+
+Adding a key or command from a feature module:
+
+```js
+keys.map({mode: 'normal', keys: '<Space>x', when: () => !!state.doc, run: ({count}) => openThing(count),
+          hint: 'thing', group: 'Leader: Space or comma', help: 'Open the thing'});
+keys.command({name: 'thing', args: '[name]', help: 'Open the thing', complete: typed => names(typed), run: name => openThing(name)});
+```
+
+Keys still never run while focus is in a text field, select, dialog or other
+owned control, except F10 and Ctrl-r in a writing box. The queue panel's keys run
+before the table (`keys.intercept`).
+
+**VISUAL (`v`) and VISUAL LINE (`V`).** `v` places a reading cursor, an accent
+underline under one word, on the first sentence on screen, or where the cursor
+last was in this document if that is still on screen. `web_ui/cursor.mjs` keeps a
+text model of `#article` that skips margin pins, embeds, decorations, buttons,
+diagram drawings, MathML twins and closed folds; words and sentences come from
+`Intl.Segmenter` within each block, so a heading is never part of the next
+sentence. The selection is the page selection, so it paints like a mouse
+selection and assistive technology reads it; the cursor is the `reader-cursor`
+custom highlight. Both reach the page-turn rasterizer (the selection as the
+style-less `reader-visual` highlight). The mouse toolbar stays hidden meanwhile.
+Entering VISUAL builds the text model once: about 0.2 s for a 2 MB synthetic
+document (1.7 million characters), a motion about 50 ms.
+
+| VISUAL key | Behavior |
+| --- | --- |
+| j / k, ↓ / ↑ | A visual line down / up, keeping the column (a block in VISUAL LINE) |
+| w / b / e, ← / → | Next word, previous word, end of word; one character |
+| ) / ( and } / { | Next sentence / start of this or the previous one; same for paragraphs and blocks |
+| 0 / $, g g / G | Start / end of the line; of the document |
+| H / M / L | Top / middle / bottom of the window; in two-page reading the left page, the right page, the last line |
+| i s, a s, i p, a p | Select the sentence (with its trailing space) or the block under the cursor |
+| o | Swap the cursor to the other end |
+| % , g d, z z / z t / z b | Matching footnote marker; first use of the selected word; align |
+| h / c / ! | Highlight / comment / warn, through the usual annotation path |
+| s | Send the selection to AI-TTS |
+| y, "*a*y | Yank with its citation into the unnamed register or register *a* |
+| * | More like this: a meaning search for the selection, as a location list |
+| K / g f / g x | Preview / follow / open in a new tab the link under the cursor |
+| : | Command line (the command may use the selection; VISUAL ends after it) |
+| v, V, Escape | Switch between VISUAL and VISUAL LINE, or leave |
+
+With nothing selected yet, an action applies to the sentence under the cursor, so
+`v` `h` highlights one sentence. Counts repeat motions: `v` `3)` selects three
+sentences. In two-page reading a motion past the page edge turns the spread (the
+3D curl for a one-spread move); in continuous reading the window scrolls when the
+cursor nears an edge. To start a selection elsewhere, move the cursor and press
+Escape, then `v` again: VISUAL resumes at the remembered cursor. The status line
+reads `VISUAL · 3 sentences · 22 words`. Actions map the model's text to source
+offsets with the same `sourceRangeForQuote()` and block bounds as a mouse
+selection, so keyboard annotations anchor identically, and historical versions
+stay read-only. A pointer press anywhere outside the status line leaves VISUAL.
+
+**Command line (`:`).** The key hints give way to an input with the mode label
+COMMAND. Tab completes command names and arguments (themes, layouts, speech
+scopes, rebuild kinds, documents through fuzzy search, help topics), repeated Tab
+cycles, and up to six choices show quietly beside the input. Up / Down (or Ctrl-p /
+Ctrl-n) recall earlier commands that start with what is typed; 100 are kept per
+device (`reader.commands.v1`). Enter runs, Escape (or Backspace on an empty line)
+cancels. A unique prefix runs its command (`:chan`), an unknown name toasts the
+closest match ("Did you mean :changes?"). Commands: `:open <document>` (`:e`),
+`:theme <id>`, `:layout scroll|spread`, `:speak [article|here|selection]`,
+`:rebuild search|keywords|browse|catalog|links`, `:check`, `:changes`, `:versions`,
+`:outline`, `:chat`, `:threads`, `:queue`, `:next`, `:home`, `:files`, `:search
+[words]`, `:backstage`, `:zen`, `:colors`, `:find <words>`, `:noh`, `:grep <words>`,
+`:copen`, `:cclose`, `:cnext`, `:cprev`, `:cclear`, `:marks`, `:registers` and
+`:help [command]`. The help dialog lists them all.
+
+**Registers.** `y` stores the passage with its citation: path, edition SHA-256,
+source code-point offsets, quote (at most 16 KiB) and title, in the unnamed
+register `"`, and with `"a` also in register *a*. Registers live per participant
+in this browser's `localStorage` (`reader.registers.v1`) and never reach the
+vault; a yank also copies the plain quote to the clipboard when the browser allows
+it. Ctrl-r then a register name in a reply, comment or chat box inserts the
+citation as a Markdown block quote ending in a link to the document; Escape
+cancels. `:registers` lists them in the side panel, and Enter opens one's passage.
+
+**Location list (quickfix).** `:grep <words>` fills it with up to 50 passages
+from the search page's keyword mode (`/api/search/page?mode=words`), `*` in
+VISUAL with meaning-search passages for the selection. `:copen` shows it in the
+right-side panel (mode QUICKFIX, `j`/`k`, Enter, Escape). `]q` / `[q` and `:cnext` /
+`:cprev` open the next and previous location at its line with its words found;
+a location in the current document is revealed in place. The status line shows
+`QF 3/17` while a list exists; `:cclear` empties it. Up to 500 entries are kept in
+`localStorage` (`reader.quickfix.v1`). Register locations open at their source
+offsets, or at the start of the document with a toast if the edition changed.
+
+**Marks and jumps.** `m`*a–z* marks the first block in view (its source offset,
+the fraction through it and the progress) for this document and edition;
+`'`*a* returns, with a toast if the edition changed since. Marks for the 200 most
+recently marked documents are kept per participant (`reader.marks.v1`);
+`:marks` lists them. Following a link, the picker, the queue, a mark, a location,
+`gg`, `G`, `]]`, `[[`, `n`, `N`, `]c`, `]f`, `%` and `gd` are jumps: the place you
+left goes on a jump list of 100 places for this tab. Ctrl-o / Ctrl-i walk it
+across documents, and `''` returns to where you were before the latest jump (and
+back again). The visit history on `h` / `l` is unchanged.
+
+**Document motions.** `]c` / `[c` step through margin threads in reading order and
+focus each margin mark (Enter opens the thread); `]x` / `[x` only unread ones.
+`]f` / `[f` reach figures, images, diagrams and tables, flashing each; a diagram's
+canvas takes focus, so Enter opens it full size. `]l` / `[l` focus the next link
+written in the document, which shows its preview; `K` shows it again, `gf`
+follows it and `gx` opens it in a new tab (a library link opens in a new Reader
+tab). `%` follows `[^label]` footnote markers between a reference and its
+`[^label]:` note; with a count it goes to that percent of the document (`50%`).
+`gd` goes to the first use of the term found with `/`. `zz`, `zt` and `zb` move the
+current find match, the last jump target or the focused element to the middle,
+top or bottom of the window in continuous reading.
+
+Deliberate changes from the earlier keys: Escape with a pending leader or
+sequence now only cancels it (one step), instead of also closing panels; `"`,
+`v`, `V`, `:`, `m`, `'`, `%`, `K`, `z`, digits and Ctrl-o / Ctrl-i are now bound in NORMAL;
+in the homepage `]` waits 650 ms for a second key while a location list exists.
+Every other key behaves as before.
 
 ### Dates and time zones
 
@@ -341,7 +492,8 @@ current one.
   issues** list of the last twelve weeks that hold pieces.
 - **Cover story:** a large serif headline with a kicker (Cover story · project ·
   type), a standfirst, and a byline with author, date, approximate reading time and
-  read state. The cover is typographic; no images are used.
+  read state. With [article shapes](#article-shapes-experiment) on, the cover's art
+  is the article's shape; otherwise the cover is typographic.
 - **Features:** up to four more pieces, each from a different project.
 - **Summary:** counts of new and unread pieces and sections, and a link to the
   week's newsletter when one exists.
@@ -437,6 +589,114 @@ receipt for the work, any version) and `threads` (open margin threads).
 Section slots for rediscovery, connections and open questions appear only when
 those features provide content; none is built in yet. Cover art from Mermaid
 diagrams is not implemented.
+
+### Article shapes (experiment)
+
+An experiment, on by default and switched off in Settings (**Article shapes ·
+Experiment**). Selected articles get a slowly moving Three.js figure computed from
+their own text: the path the argument takes through meaning-space, drawn as a ribbon
+through the article's passages in reading order, with its key terms as floating
+labels and its nearest works as faint stars in the direction their ideas lie. The
+same source always yields the same shape, and articles on similar subjects look
+alike. It is decoration (`data-reader-decoration`): find, selection and annotations
+ignore it.
+
+**Where it shows.**
+
+- **Cover story:** the cover art of the issue, drawn above the kicker. In the
+  document it follows the headline, so **g c** then **Tab** focuses it.
+- **Features:** a small still thumbnail above each feature's kicker.
+- **An article's opening page:** **Space g** or `:shape` (Show shape) draws the open article's
+  shape above its kicker and keeps showing shapes for articles opened later in this
+  tab; Space g again hides it. In two-page reading the figure is a still image, so the
+  page turn can rasterize it.
+
+Only Markdown and plain-text pieces with at least 6 search passages get a shape;
+shorter pieces would make a dot. Without a shape the layout is unchanged.
+
+**What it shows.** The ribbon is a tube along a centripetal Catmull-Rom curve through
+the projected passages, bright (`--chart-1`) where the article starts and cooler
+(`--chart-2` toward `--bg`) as it goes. Each bead is one passage; beads swell with
+passage length and with margin threads, and passages with threads glow in
+`--accent`. Thin rings (`--muted`) mark passages where a level 2–6 heading starts (at most 40:
+the shallowest heading levels that fit, else an even sample).
+Four to seven key terms float near the passage where each matters most, in `--sans`
+(`--ink` for the top three, `--muted` for the rest). Up to twelve related works are
+faint points (`--muted`). The background is the page itself, and colours are read
+from the current theme's tokens and redrawn on a theme change.
+
+**Motion.** A slow orbit of 90 seconds per turn, a gentle drift whose depth grows with
+the variance the second and third components explain, and beads breathing over seven
+seconds with phases from a PRNG seeded by the source digest. Only the motion is
+random; the frame at t = 0 is fixed for a source and theme. Under
+`prefers-reduced-motion` the figure is that single still frame, as an image, and no
+animation frames run. The live view is capped at 30 fps and pauses when it leaves
+the viewport or the tab is hidden. If its first three frames after shader
+compilation each take longer than 40 ms, it becomes the still image.
+
+**Interaction.** Hovering a bead shows the passage's first line; clicking it opens
+the article at that passage (on an article's own page, it moves there). Hovering a
+star shows the related work's title; clicking opens it. A focused figure (status
+line `SHAPE`) moves between passages with **←** / **→** (**Home** / **End**) and
+between related works with **↑** / **↓**, announcing each in a live region; **Enter**
+opens the current one. The figure's description (`aria-describedby`) lists the key
+terms, every drawn passage's first line and the related works.
+
+**Rendering.** `controls/shape.js` loads on demand and shares its Three.js chunk
+(`controls/three/`) with the page turn. One WebGL renderer serves the page: at most
+one live canvas (the cover, or Show shape in continuous reading), and still images
+(feature thumbnails, reduced motion, two-page reading) rendered by the same renderer
+to PNG data URLs and cached for the session by path, digest, theme and size. When
+nothing is live the renderer releases its WebGL context. Without WebGL (or if the
+chunk fails to load) the figure is a 2D SVG of the same projection, seen from the
+same angle, with the same hover, click and keys.
+
+**Data: `GET /api/shape?path=library/…`** (read-only, expensive pool). For a
+Markdown or text source of at most 4 MiB:
+
+1. The source's passages come from the published search index (format 2, else the
+   format 1 index), in reading order. A source the index does not hold yet uses the
+   indexer's own passage windows without vectors. At most 400 passages are drawn;
+   longer sources are evenly subsampled, keeping order, the first and the last.
+2. **Projection.** When at least 90% of the drawn passages have vectors, they are
+   centred and projected onto three principal components by SVD. Each component's
+   sign is fixed so the first passage with a nonzero coordinate is positive, and the
+   points are scaled into the unit sphere. `variance` is each component's share.
+   Ribbons of 40 or more passages are smoothed by a centred moving average over
+   ±(passages ÷ 80) neighbours in reading order (±5 at the 400 cap) and rescaled, so a
+   long article draws the path of its argument rather than every step.
+3. **Terms.** Words of at least three letters, without digits, outside the search
+   stop words and a short list of subject-free words, are scored per passage by
+   TF-IDF: term frequency in the passage times `log((N+1)/(df+1))`, where `df` is
+   the number of index passages containing the word (the FTS vocabulary, read through
+   a temporary `fts5vocab` table on the read-only connection, cached per index
+   publication) and `N` the number of index passages. A word in every passage scores
+   nothing. The top terms by total score (at least 4, at most 7, stopping below 40%
+   of the best after four; plural repeats dropped) each sit at their strongest passage
+   not adjacent to another label. A term keeps its capitalised form when most of its
+   uses are capitalised mid-sentence.
+4. **Neighbours.** The twelve works most related by Read next's scores (mean passage
+   similarity plus 0.03 per shared project or topic, other editions above 0.985
+   left out), projected through the same centre, basis and scale. Any that land within
+   0.15 of a ribbon point are dropped.
+5. **Threads:** placed (exact or relocated) margin threads per passage, by the source
+   line where each anchor starts.
+6. Response: `{path, sha256, seed, form, points, lines, weights, threads, headings,
+   terms:[{text,i}], neighbours:[{path,title,xyz,score}], variance, excerpts, count,
+   sampled, current, min_chunks, note, scope}`. `seed` is the first 32 bits of the
+   source SHA-256; `lines` the drawn passages' first source lines; `excerpts` their
+   first 90 characters, starting after the 150 characters each index passage repeats
+   from the one before; `current` whether the index holds this exact digest. The
+   response stays under 64 KiB (excerpts shorten to 48 characters, then drop, if
+   needed). Results are cached in memory (256 entries) by path, digest, index
+   publication and the `annotations/` folder's modification time.
+7. **Without vectors** (an index built without embeddings, or not covering this
+   source), `form: "terms"`: the passages lie along a helix whose turns, radius and
+   phase come from the seed, with the same terms, rings, beads and threads and no
+   neighbours. The figure says so ("Article shape · terms only") with the tooltip
+   *Rebuild the search index for the full shape*.
+
+No model is called and nothing leaves the machine; the route writes nothing.
 
 ### Behind the scenes: indexes, library statistics and settings
 
@@ -1841,6 +2101,16 @@ threads. Keys go to the focused pane, which has a 2px accent edge.
 | `Ctrl-w o` / `Ctrl-w q` | Keep only the focused pane / close it. |
 | `Ctrl-w f`, Shift-click | Open the focused (or clicked) library link in the other pane, splitting first if there is one pane; the target pane takes focus. |
 | `Space W` | The same prefix as `Ctrl-w`, for browsers that reserve Ctrl-W (Linux and Windows close the tab). |
+| `:vsplit [doc]` / `:split [doc]` | Split side by side / stacked; with a document name (fuzzy, as `:open`, with Tab completion) the new pane opens it and skips the picker. |
+| `:set scrollbind` / `:set noscrollbind` | Scroll the focused pane with the next pane / stop (`:set scrollbind!` toggles); the divider's ⇅ button does the same. `:set` alone opens Behind the scenes. |
+
+The window keys are rows in the RW-18 keymap (group *Split view* in the help); `Ctrl`
+may stay held for the second key (`Ctrl-w Ctrl-w`). They never run while focus is in
+a text field or the scratch pad's editor. In a pane, `Ctrl-w` keys and the window
+commands are posted to the shell, which owns the layout; `?`, `Space m`, `Space r`
+and `Space n` open the shell's help, chat and queue. A pane's `:` command line shows
+in the pane's own status bar while you type. While split, the shell itself keeps only
+the leader, `?`, `:` and Ctrl keys; any other key returns focus to the focused pane.
 
 Dragging a divider resizes its neighbours; panes stay at least 320px wide and
 200px tall, and a split that would go below that is refused with a toast. A fifth
@@ -1903,9 +2173,8 @@ press *Compare side by side*: it opens left of the current one in a vertical spl
 scrolling together.
 
 Limits and boundaries: at most four panes, each a full app instance with its own
-`/api/library` load; no per-pane themes; no splits on phones; `:vsplit` / `:split`
-and `:set scrollbind` wait for the `:` command line (RW-18), so the divider button
-is the scrollbind control.
+`/api/library` load; no per-pane themes; no splits on phones; `:set scrollbind` binds the focused pane
+with the next one in reading order (choose another pair with the divider button).
 
 Checks: `node --test tests/split.test.mjs` (tree operations, layout, routes, hunk
 mapping, heading fallback) and `node tests/web_split.cjs` (synthetic fixture with
@@ -1927,7 +2196,11 @@ markdown-it pipeline, DOMPurify, KaTeX and Mermaid diagrams as library documents
 - **Keys.** Inside the editor Vim owns the keys: modes, `/`, registers, and the Ex
   commands `:w` (save on this device), `:write vault` (the save dialog), `:preview`,
   `:drafts`, `:cite` (insert your last selected passage as a quote linked from the
-  notebook), `:enew`, `:e scratch` and `:e scratch=<id>`. Escape in insert or visual
+  notebook), `:enew`, `:e scratch` and `:e scratch=<id>`. In insert mode, `Ctrl-r`
+  then a register name (`a`–`z` or `"`) inserts that Reader register (a passage
+  yanked with `"ay` in VISUAL) as a cited quote linked from the notebook; Vim's own
+  `Ctrl-r` registers are not used there. On the page command line, `:enew` opens a
+  new buffer and `:e scratch` / `:e scratch=<id>` a draft. Escape in insert or visual
   mode returns to normal mode; Escape in normal mode leaves the editor for Reader
   NORMAL, where `Space` keys work again. The status line shows `SCRATCH · INSERT` (or
   NORMAL, VISUAL), the word count and the save state: *Unsaved*, *Saved on this
@@ -2691,11 +2964,13 @@ READER_CHROME=/path/to/chrome node tests/web_themes.cjs
 READER_PLAYWRIGHT=/absolute/path/to/playwright-core \
 READER_CHROME=/path/to/chrome node tests/web_page_turn.cjs
 READER_PLAYWRIGHT=/absolute/path/to/playwright-core \
+READER_CHROME=/path/to/chrome node tests/web_shape.cjs
+READER_PLAYWRIGHT=/absolute/path/to/playwright-core \
 READER_CHROME=/path/to/chrome node tests/web_diagrams.cjs
 node --test tests/math.test.mjs
 READER_PLAYWRIGHT=/absolute/path/to/playwright-core \
 READER_CHROME=/path/to/chrome node tests/web_math.cjs
-.venv/bin/python -m pytest -q tests/test_maintenance.py tests/test_related.py tests/test_index_scale.py
+.venv/bin/python -m pytest -q tests/test_maintenance.py tests/test_related.py tests/test_index_scale.py tests/test_shape.py
 READER_PLAYWRIGHT=/absolute/path/to/playwright-core \
 READER_CHROME=/path/to/chrome node tests/web_backstage.cjs
 node --test tests/reading_log.test.mjs
@@ -2764,6 +3039,8 @@ READER_PLAYWRIGHT=/absolute/path/to/playwright-core \
 READER_CHROME=/path/to/chrome node tests/web_chat_sync.cjs
 READER_PLAYWRIGHT=/absolute/path/to/playwright-core \
 READER_CHROME=/path/to/chrome node tests/web_selection.cjs
+READER_PLAYWRIGHT=/absolute/path/to/playwright-core \
+READER_CHROME=/path/to/chrome node tests/web_modal.cjs
 READER_PLAYWRIGHT=/absolute/path/to/playwright-core \
 READER_CHROME=/path/to/chrome node tests/web_spread_resize.cjs
 READER_PLAYWRIGHT=/absolute/path/to/playwright-core \
@@ -2958,8 +3235,31 @@ least four, then five). It also checks 1280px and phone width. `web_dashboard.cj
 pointing at `library/thought.md`, with a heading fragment, a wikilink, an external and a
 missing link. The link graph builds for real, quietly, on the first document opened.
 
+`web_modal.cjs` starts the fixture with `--modal --search-page`: a note with
+footnote markers, links, a table and a figure beside the synthetic thought and the
+indexed search-page documents. It checks that the generated help lists every
+mapped key, VISUAL highlight anchoring with unchanged source bytes, VISUAL LINE
+comments, `]c`, counts, command-line completion, history and suggestions, no key
+capture while typing, marks, `''`, Ctrl-o, registers and Ctrl-r, `:grep` with
+`]q`, footnotes, `]l` with `K`, `]f`, `gd` and two-page VISUAL turning the spread,
+with no page errors or external requests. `node --test tests/keys.test.mjs` covers
+the parser: counts, registers, timeouts, the leader, declining rows and Escape.
+
 `web_page_turn.cjs` launches Chrome with SwiftShader WebGL (`--use-angle=swiftshader`),
 so it needs no GPU.
+
+`web_shape.cjs` also runs on SwiftShader. It starts the fixture with `--magazine
+--shapes`: the cover becomes a long synthetic essay that wanders through invented
+topics and returns to its start, one feature a tight note on one topic, plus short
+related works, indexed with `tests/shape_fixture.py`'s deterministic topic model.
+It checks the still cover and thumbnails under reduced motion (one frame, identical
+pixels across reloads), the figure's order and description, g c / Tab / arrows /
+Enter, hover and click to a passage, Show shape on two articles (different pixels)
+and a short piece, the live canvas (one per page, at most 30 fps, paused off-screen),
+the SVG without WebGL, the setting off, 390px, and, in a second fixture run with
+`--shapes-terms` (an index without vectors), the term form. `tests/test_shape.py`
+covers the route: determinism, sign-fixed projection, the 400-passage cap, the term
+form, neighbours in the same basis, thread weights, the 64 KiB bound and refusals.
 
 Theme and font checks use a fake Google Fonts fetcher (`tests/test_themes.py`
 `FakeFonts`, also passed to the browser fixture with `--themes`) and never contact

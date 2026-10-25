@@ -1,6 +1,6 @@
 /** Quiet reading chrome, real column pagination, and version-bound resume positions. */
 import {codePointOffset} from './logic.mjs';
-export function installReading({scratchStatus, statusOverride, onStatus, mayCurl, controls, state, api, toast, openPreferences, openThread, revealRange, scrollToPosition, savePrefs, reloadDocument, positionPins, updateBreadcrumbs}) {
+export function installReading({scratchStatus, statusOverride, onStatus, mayCurl, controls, state, api, toast, openPreferences, openThread, revealRange, scrollToPosition, savePrefs, reloadDocument, positionPins, updateBreadcrumbs, keyStatus = () => null}) {
   const $ = selector => document.querySelector(selector);
   const clamp = n => Math.max(0, Math.min(1, n));
   let turner=null,turnerLoad=null,turnerModule=null;
@@ -26,10 +26,10 @@ export function installReading({scratchStatus, statusOverride, onStatus, mayCurl
     const active=document.activeElement;
     let mode='NORMAL',keys='<kbd>Space e</kbd> files <kbd>/</kbd> find <kbd>?</kbd> keys';
     const scratch=scratchStatus?.();
-    if(state.windowKey){mode='WINDOW';keys='<kbd>v</kbd> side by side <kbd>s</kbd> stacked <kbd>w</kbd> next <kbd>h j k l</kbd> move <kbd>x</kbd> swap <kbd>=</kbd> equal <kbd>o</kbd> only <kbd>q</kbd> close <kbd>f</kbd> link';}
-    else if(scratch&&!state.leader&&!document.querySelector('dialog[open]')){mode=scratch.mode;keys=scratch.keys;}
-    else if(state.leader===','){mode='LEADER';keys='<kbd>t</kbd> theme editor';}
-    else if(state.leader){mode='LEADER';keys='<kbd>/</kbd> search <kbd>e</kbd> files <kbd>h</kbd> home <kbd>r</kbd> queue <kbd>n</kbd> next <kbd>t</kbd> threads <kbd>c</kbd> colors <kbd>m</kbd> chat <kbd>o</kbd> outline <kbd>s</kbd> speak <kbd>p</kbd> backstage <kbd>v</kbd> versions <kbd>d</kbd> changes <kbd>w</kbd> scratch <kbd>,</kbd> more';}
+    // The keymap owns LEADER, WINDOW (Ctrl-w), VISUAL and COMMAND, and generates their hints from its table.
+    const owned=keyStatus();
+    if(owned){mode=owned.mode;keys=owned.keys;}
+    else if(scratch&&!document.querySelector('dialog[open]')){mode=scratch.mode;keys=scratch.keys;}
     else if($('#picker').open){mode=$('#picker-filter').hidden?'BROWSE':'SEARCH';keys=$('#picker-filter').hidden?'<kbd>j k</kbd> choose <kbd>/</kbd> filter <kbd>Enter</kbd> open <kbd>Esc</kbd> close':'<kbd>↑ ↓</kbd> choose <kbd>Enter</kbd> open <kbd>Esc</kbd> clear filter';}
     else if($('#status-location details[open]')){mode='BROWSE';keys='<kbd>↑ ↓</kbd> folders <kbd>Enter</kbd> browse <kbd>Esc</kbd> close';}
     else if(!$('#find-bar').hidden){mode='SEARCH';keys='<kbd>Enter</kbd> find <kbd>n N</kbd> next / previous <kbd>Esc</kbd> close';}
@@ -38,14 +38,18 @@ export function installReading({scratchStatus, statusOverride, onStatus, mayCurl
     else if(state.themeEditorOpen){mode='SETTINGS';keys='<kbd>Tab</kbd> move <kbd>F10</kbd> <kbd>Esc</kbd> close';}
     else if($('#help').open){mode='HELP';keys='<kbd>Esc</kbd> return to reading';}
     else if(!$('#queue-panel').hidden){mode='QUEUE';keys='<kbd>j k</kbd> move <kbd>Enter</kbd> open <kbd>Tab</kbd> up next / history <kbd>Esc</kbd> close';}
+    else if(!$('#list-panel').hidden){mode=$('#list-panel').dataset.mode||'LIST';keys='<kbd>j k</kbd> move <kbd>Enter</kbd> open <kbd>Esc</kbd> close';}
     else if(!$('#versions-panel').hidden){mode='VERSIONS';keys='<kbd>j k</kbd> move <kbd>Enter</kbd> open <kbd>c</kbd> compare <kbd>Esc</kbd> close';}
     else if($('#chat-panel')&&!$('#chat-panel').hidden){mode='CHAT';keys='<kbd>Tab</kbd> move to the composer <kbd>Space m</kbd> <kbd>Esc</kbd> close';}
     else if(!$('#thread-panel').hidden){mode='THREAD';keys='<kbd>Tab</kbd> move <kbd>Esc</kbd> return to reading';}
+    else if(active?.matches?.('.cover-shape,.article-shape')){mode='SHAPE';keys='<kbd>← →</kbd> passages <kbd>↑ ↓</kbd> related works <kbd>Enter</kbd> open <kbd>Esc</kbd> page';}
     else if(state.view==='issue'&&!state.doc){keys='<kbd>j k</kbd> pieces <kbd>↵</kbd> open <kbd>g c</kbd> cover <kbd>[ ]</kbd> issues <kbd>Space e</kbd> files';}
     else if(state.view==='search'&&!active?.matches('input,textarea')){mode='SEARCH';keys='<kbd>j k</kbd> passages <kbd>J K</kbd> works <kbd>Enter</kbd> open <kbd>o</kbd> new tab <kbd>/</kbd> query <kbd>Esc</kbd> back';}
     else if(state.view==='search'){mode='SEARCH';keys='<kbd>↓</kbd> results <kbd>Enter</kbd> open <kbd>Esc</kbd> results';}
     else if(state.view==='backstage'){mode='BACKSTAGE';keys='<kbd>Tab</kbd> move <kbd>h</kbd> back <kbd>Space h</kbd> home';}
     else if(book){keys='<kbd>j k</kbd> or wheel to turn <kbd>/</kbd> find <kbd>Space e</kbd> files';}
+    // Mode changes are announced once, for screen readers; the label itself is not a live region.
+    if($('#vim-mode').dataset.mode&&$('#vim-mode').dataset.mode!==mode&&$('#mode-live'))$('#mode-live').textContent=mode==='NORMAL'?'Normal mode':mode.charAt(0)+mode.slice(1).toLowerCase()+' mode';
     $('#vim-mode').textContent=mode;$('#vim-mode').dataset.mode=mode;$('#status-keys').innerHTML=keys;
     updateBreadcrumbs(state.doc?.path || (state.view==='backstage'?':backstage':state.view==='search'?':search':null));
     $('#status-position').textContent=state.doc?Math.round(progress()*100)+'%':scratch?scratch.position:'';
@@ -204,7 +208,7 @@ export function installReading({scratchStatus, statusOverride, onStatus, mayCurl
   document.addEventListener('keydown',event=>{if((event.metaKey||event.ctrlKey)&&event.key==='Enter'&&event.target.matches('textarea')){event.preventDefault();event.target.closest('form')?.requestSubmit();}queueMicrotask(updateStatus);});
   document.addEventListener('focusin',updateStatus);document.addEventListener('focusout',()=>queueMicrotask(updateStatus));
   for(const el of document.querySelectorAll('dialog'))el.addEventListener('toggle',updateStatus);
-  const observer=new MutationObserver(updateStatus);for(const el of [$('#find-bar'),$('#thread-panel'),$('#versions-panel'),$('#queue-panel')])observer.observe(el,{attributes:true,attributeFilter:['hidden']});
+  const observer=new MutationObserver(updateStatus);for(const el of [$('#find-bar'),$('#thread-panel'),$('#versions-panel'),$('#queue-panel'),$('#list-panel')])observer.observe(el,{attributes:true,attributeFilter:['hidden']});
   window.addEventListener('scroll',()=>{update();scheduleSave();},{passive:true});
   document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden')save(true);});window.addEventListener('pagehide',()=>save(true));
   /** The first visible character of the first visible block: the reading position a reflow must keep. */

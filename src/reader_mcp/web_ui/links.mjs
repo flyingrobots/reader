@@ -106,5 +106,7 @@ export function installLinks({state,api,reading,navigate,openBackstage}){
     place(data,path);
     if(data.state==='building'&&attempt<90)setTimeout(()=>backlinks(path,routeId,attempt+1),attempt<5?700:2000);
   }
-  return {backlinks,hide};
+  /** K: show a link's preview now, without the hover delay. */
+  function preview(a){clearTimeout(timer);show(a);}
+  return {backlinks,hide,preview};
 }

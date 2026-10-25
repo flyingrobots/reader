@@ -344,7 +344,7 @@ export function installSplit({notify,suspend,resume,paint,api,param,refocus}){
     else if(data.type==='doc'){pane.doc={hash:cleanRoute(data.hash),ref:typeof data.ref==='string'?data.ref.slice(0,2048):null,title:String(data.title||'').slice(0,300),path:typeof data.path==='string'?data.path:null,preview:!!data.preview,historical:!!data.historical};tree=setRoute(tree,id,pane.doc.hash);remember();if(id===focus)paint();}
     else if(data.type==='toast')notify(String(data.message||'').slice(0,2000),typeof data.kind==='string'?data.kind:undefined,data.options&&typeof data.options==='object'?{id:typeof data.options.id==='string'?data.options.id:undefined,duration:typeof data.options.duration==='number'?data.options.duration:undefined}:undefined);
     else if(data.type==='focus-request'){if(id!==focus)setFocus(id,{move:false});}
-    else if(data.type==='window-key')command(String(data.key||''),{shell:!!data.shell});
+    else if(data.type==='window-key')command(String(data.key||''),{shell:!!data.shell,route:typeof data.route==='string'?cleanRoute(data.route.slice(0,4096)):null});
     else if(data.type==='open-in-split'){if(data.compare&&typeof data.compare.a==='string'&&typeof data.compare.b==='string')compare(data.compare.a,data.compare.b);else openInSplit(cleanRoute(data.route));}
     else if(data.type==='scroll')onScroll(id,data);
     else if(data.type==='saved')waiting.get(id)?.();
@@ -358,10 +358,19 @@ export function installSplit({notify,suspend,resume,paint,api,param,refocus}){
   }
   function openInFocused(route){if(!route)return;post(focus,{type:'open',route});panes.get(focus)?.frame.focus();}
   let shellCommands={};
-  function command(key,{shell=false}={}){
+  /** :set scrollbind / noscrollbind / scrollbind!: bind the focused pane with the next one, or unbind it. */
+  function scrollbind(on){
+    const list=order(),i=list.findIndex(l=>l.id===focus);if(i<0||list.length<2)return;
+    if(on==='toggle')on=!bound(focus);
+    if(!on){if(bound(focus))toggleBind(...bind);else notify('This pane scrolls on its own.');return;}
+    if(bound(focus)){notify('This pane already scrolls with its neighbor.');return;}
+    toggleBind(focus,list[(i+1)%list.length].id);
+  }
+  function command(key,{shell=false,route=null}={}){
     if(shell){shellCommands[key]?.();return;}
     if(!tree)return;
-    const actions={v:()=>split('row'),s:()=>split('col'),w:()=>cycle(1),W:()=>cycle(-1),h:()=>move('h'),j:()=>move('j'),k:()=>move('k'),l:()=>move('l'),x:swap,'=':equal,o:()=>collapse(focus),q:()=>close(focus)};
+    const open=route?{route,picker:false}:{};
+    const actions={v:()=>split('row',open),s:()=>split('col',open),scrollbind:()=>scrollbind(true),noscrollbind:()=>scrollbind(false),'scrollbind!':()=>scrollbind('toggle'),w:()=>cycle(1),W:()=>cycle(-1),h:()=>move('h'),j:()=>move('j'),k:()=>move('k'),l:()=>move('l'),x:swap,'=':equal,o:()=>collapse(focus),q:()=>close(focus)};
     if(actions[key])actions[key]();
   }
   return {active,start,restore,split,close,collapse,dismiss,command,openInSplit,openInFocused,compare,
