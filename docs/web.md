@@ -409,7 +409,7 @@ Reading time is source bytes ÷ 6 as words, at the Settings reading pace, shown 
 **Standfirsts** come from `GET /api/standfirst?path=…`, requested for the cover and
 features only (at most 12 per view, three at a time). A `standfirst` frontmatter
 string wins. Next comes a local-model standfirst that is current for the source's
-exact SHA-256 (see [Local model](#behind-the-scenes-local-model-lm-studio)): the
+exact SHA-256 (see [Local model](#behind-the-scenes-local-model-any-openai-compatible-server)): the
 route returns `source: "local-model"` with its `model`, and the cover or feature
 shows a small `local model · <model>` mark under it (`data-reader-decoration`, text
 only). Otherwise the first prose paragraph of the source is used, after the
@@ -635,18 +635,21 @@ once when Behind the scenes opens. Durations are measured from when the browser
 received events, so a transcript loaded after the run shows none. Only the latest
 run exists, because the supervisor keeps one runtime directory.
 
-### Behind the scenes: Local model (LM Studio)
+### Behind the scenes: Local model (any OpenAI-compatible server)
 
 The **Local model** section, after Indexes (and the Inbox, when it is not first) and before Library,
 supervises a small work
-queue for LM Studio models on this Mac. It suits bulk, private, judgment-light
+queue for a model you run yourself: LM Studio, Ollama, llama.cpp's `llama-server`, or
+any other server with an OpenAI-compatible API (vLLM, LocalAI, Jan and others). It suits bulk, private, judgment-light
 language tasks. Outputs are suggestions labelled with their model; filing, catalog
 writes and anything under a voice's name stay with the voices. Machine-written text
 is a rebuildable cache and is never written into vault documents.
 
 | Card | Shows | Controls |
 | --- | --- | --- |
-| LM Studio server | State badge (Not installed, Server off, Starting…, Ready · *n* models loaded, Busy, Error with the CLI's message), CLI found or missing, port, loaded models and their memory, and every model on disk (`lms ls`) | **Start server** (`lms server start --port <port> --bind 127.0.0.1`), **Load** / **Unload** per model (`lms load <key> --yes --context-length 32768`, `lms unload <id>`), **Stop server…**, which asks for confirmation because other tools may share the server |
+| Provider | Server preset, model, base URL, API key (only whether one is saved, and where), the remote opt-in, and a *This machine only* / *Leaves this machine* badge | **Save provider**, **Remove saved key** |
+| *Provider* server, for LM Studio | State badge (Not installed, Server off, Starting…, Ready · *n* models loaded, Busy, Error with the CLI's message), CLI found or missing, port, loaded models and their memory, and every model on disk (`lms ls`) | **Start server** (`lms server start --port <port> --bind 127.0.0.1`), **Load** / **Unload** per model (`lms load <key> --yes --context-length 32768`, `lms unload <id>`), **Stop server…**, which asks for confirmation because other tools may share the server |
+| *Provider* server, for any other provider | State badge (Not reachable, Ready · *n* models, Busy, Error with the server's message), base URL, port, and the models the server lists on `GET /v1/models`. When nothing answers: the command to start it yourself (`ollama serve`, `llama-server -m <model>.gguf --port 8080`) and a hint | — (Reader does not start, stop, load or unload other servers) |
 | Now | The running item: task, title, path, model, elapsed time, tokens per second (LM Studio's reported rate when it sends one, otherwise measured from streamed tokens), token count and a streaming preview of the answer (or "Thinking…" with the reasoning tail). When idle, the last run's batch summary | **Pause queue** (finishes the current item first), **Cancel item** |
 | Queue | Waiting items grouped by task, with counts ("Standfirsts · 142 waiting") and the next titles | **Run**, **Pause** and **Clear** per task; **Queue 20 recent** (the 20 newest eligible works; those already waiting or current count toward the 20, so repeating it adds nothing) and **Queue all** |
 | Outputs in use | Per task: current, stale (source changed or gone) and cached counts, two marked samples, and cache size against its 256 MiB cap | **Remove *n* stale** |
@@ -662,13 +665,70 @@ probing LM Studio) shows one toast per run: a loading toast at start, then succe
 ("Standfirsts: 20 done, 2 rejected"), failure, or a warning when the server stopped
 while the queue was running. Items never toast individually.
 
+**Providers.** A provider is a base URL ending in the API's version path (`/v1`);
+Reader calls `GET <base>/models`, `POST <base>/chat/completions` and
+`POST <base>/embeddings` on it. Presets fill the URL:
+
+| Preset | Default base URL | Server control |
+| --- | --- | --- |
+| LM Studio (the default) | `http://127.0.0.1:1234/v1`, or `READER_LMSTUDIO_URL` | Start/stop and load/unload through `lms`, model state from `/api/v0/models` |
+| Ollama | `http://127.0.0.1:11434/v1` | Start it yourself (`ollama serve`, `ollama pull <model>`); Ollama loads models on request |
+| llama.cpp | `http://127.0.0.1:8080/v1` | Start it yourself (`llama-server -m <model>.gguf --port 8080`; add `--embeddings` for embeddings) |
+| Other OpenAI-compatible server | none: enter its URL | Start it yourself |
+
+Choosing a preset resets the URL to that preset's default; a saved URL equal to the
+default is stored as "the preset's default" (`null`). A URL without a path means
+`/v1`. Model discovery is `GET /v1/models`: Reader accepts the OpenAI shape
+(`data[].id`) and llama.cpp's `models[].model|name`, skips rows without an id, and
+treats names containing `embed`, `bge`, `minilm` or `e5-` as embedding models (the
+API has no type field). The **Model** field suggests the discovered names and accepts
+any name. Each task's model is either a specific model or *Provider model*, the
+default for new installs; existing explicit task models keep working. Enqueueing
+with no model anywhere is refused.
+
+The chat client streams (`stream: true`, `stream_options.include_usage`) and accepts
+what different servers send: `content` with reasoning in `reasoning_content` (LM
+Studio, llama.cpp) or `reasoning` (Ollama), role-only and `content: null` chunks,
+`:` keep-alive comments, a usage chunk with no choices, a rate from LM Studio's
+`stats.tokens_per_second` or llama.cpp's `timings.predicted_per_second` (otherwise
+measured from streamed tokens), and a plain JSON completion from a server that
+ignores `stream` (a missing `finish_reason` with text counts as `stop`). An error
+event in the stream fails the item with its message; a stream that ends before any
+`finish_reason` or `[DONE]` counts as the server stopping. Error bodies in the
+OpenAI shape (`{"error": {"message"}}`) or Ollama's are shown as the item's error; a
+401 or 403 adds *check the API key*. Embedding rows without `index` are taken in
+input order, and a 404 on `/embeddings` says that llama.cpp needs `--embeddings`.
+
+**Loopback by default; the remote opt-in.** A base URL whose host is not
+127.0.0.0/8, `::1` or `localhost` is refused unless **Allow a server on another
+machine** is on in the same save. With it on and a non-loopback URL saved, a notice
+heads the section (*Text leaves this machine. Document text and prompts are sent to
+<host>. They leave this machine*, plus *unencrypted over http* for `http`), the
+Provider badge reads *Leaves this machine*, and the embeddings setting notes that
+search queries go there too. Turning the opt-in off while a remote URL is saved is
+refused. A settings file edited by hand to name a remote URL without the opt-in is
+refused when used (server state *Refused*). `READER_LMSTUDIO_URL` and the built-in
+default can never be remote: a non-loopback value is refused at startup. URLs are
+`http` or `https`, with no credentials, query or fragment, and at most six plain path
+segments. The workstation GPU lock is taken only for loopback providers.
+
+**API key.** Optional, sent as `Authorization: Bearer <key>`. `READER_LLM_API_KEY`
+wins; otherwise the key is saved to `.reader/local-model/api-key` (mode 0600,
+written atomically, never a symlink). When the vault is a git repository, saving is
+refused unless `git check-ignore` confirms that file is ignored. The key is never in
+`settings.json`, `/api/local-model`, the page or a log: status reports only
+`{set, source: "file"|"environment"|null}`, and the key is replaced by `<redacted>`
+in any error message a server echoes. Saving an empty key or **Remove saved key**
+deletes the file. Changing the provider is refused while the queue runs.
+
 **Queue and worker.** Enqueueing skips works already waiting and works with a cached
 output for the same source hash, model and prompt version. Recent works come first.
 Queued items wait until you press **Run**. One worker thread in the web server runs
 one item at a time, in batches of up to ten items that share a model. It holds the
 workstation `host/gpu/` lock (git-locks store `/Users/Shared/git-locks/workstation.git`,
-lease 1,500 s, waiting up to 10 minutes) per batch, so other GPU users interleave. A
-store error fails closed. Before a batch, Reader loads the batch's model if nothing
+lease 1,500 s, waiting up to 10 minutes) per batch against a loopback provider, so
+other GPU users interleave; a remote provider takes no lock. A store error fails
+closed. For LM Studio only, before a batch Reader loads the batch's model if nothing
 equivalent is loaded, keeps at most one model it loaded itself, and unloads that one
 when the run ends. A model the user loaded stays loaded. If the server stops
 mid-item, the item fails, the queue pauses and the warning toast appears. When the
@@ -696,15 +756,19 @@ source makes the output stale, so the opening paragraph returns until the work i
 queued and run again.
 
 **Search embeddings backend.** The Tasks card's *Search embeddings* setting is
-`fastembed` (bge-small, the default) or `lmstudio:<embedding model>`. The backend
-identity is the index's `model` and embedding signature, so switching re-embeds
+`fastembed` (bge-small, the default) or `openai:<embedding model>`, served by the
+configured provider. The older `lmstudio:<model>` spelling also uses the configured
+provider and keeps its original signature, so existing indexes stay valid. The
+backend identity is the index's `model` and embedding signature (for `openai:` the
+signature includes the provider's base URL), so switching model or server re-embeds
 every passage at the next **Rebuild with embeddings**; a keywords-only rebuild after
-a switch is refused. With an LM Studio backend, semantic search needs the server
+a switch is refused. With a provider backend, semantic search needs the server
 running with that model, and nomic models get their `search_document:` /
 `search_query:` prefixes.
 
-**Limits and safety.** `READER_LMSTUDIO_URL` (default `http://127.0.0.1:1234`) must be
-plain `http` on 127.0.0.1, localhost or ::1; anything else is refused at startup.
+**Limits and safety.** `READER_LMSTUDIO_URL` (default `http://127.0.0.1:1234/v1`; a
+bare origin means its `/v1`) must be on 127.0.0.0/8, localhost or ::1; anything else
+is refused at startup. Other providers follow the loopback rule above.
 `lms` resolves from `READER_LMS` (no fallback when set), then `PATH`, then
 `~/.lmstudio/bin/lms`, and runs with explicit argv, no shell, closed stdin, captured
 output and a 60-second timeout (180 s for a load). Sources over 4 MiB are skipped.
@@ -718,11 +782,12 @@ any delimiters inside them defused, and the system prompt says never to follow
 instructions inside them.
 
 **Storage and recovery.** Everything lives in `.reader/local-model/`:
-`queue.jsonl` (an append-only journal of item states, compacted atomically when it
+`api-key` (only when a key is saved; see above), `queue.jsonl` (an append-only journal of item states, compacted atomically when it
 doubles; it keeps the last 200 finished items), `outputs.sqlite3` (key `(task,
 source_sha256, model, prompt_version)`, with path, output and timestamp) and
-`settings.json`. All three are rebuildable: deleting the folder clears the queue,
-cached outputs and task settings, and nothing else. A torn final journal line is
+`settings.json` (tasks, embeddings backend and `provider: {preset, base_url, model,
+allow_remote}`). They are rebuildable: deleting the folder clears the queue, cached
+outputs, task and provider settings and the saved key, and nothing else. A torn final journal line is
 ignored. A journal over 32 MiB is refused with a message.
 
 When the app runs from a checkout that has `scripts/reader_service.py`, a
@@ -2224,8 +2289,11 @@ accepts exactly `{"action": "start", "kind": …}` with a kind of `check`, `sear
 `search-keyword`, `browse`, `catalog` or `links`. POST `/api/local-model` accepts
 `{"action": …}` with `server-start`, `server-stop`, `load {model}`, `unload {model}`,
 `enqueue {task, scope: recent|all|path, path?}`, `run {task?}`, `pause {task?}`,
-`cancel {id}`, `clear {task}`, `prune {task}` or `settings {settings}`; any other
-field is refused. Stopping the server is refused while the queue runs. POST `/api/speak` accepts
+`cancel {id}`, `clear {task}`, `prune {task}` or `settings {settings}`, where
+`settings` may hold `tasks`, `embedding_backend` and `provider {preset, base_url,
+model, allow_remote, api_key}`; any other field is refused. The four server actions
+are refused for any provider other than LM Studio on this machine. Stopping the
+server is refused while the queue runs. POST `/api/speak` accepts
 `{path, source_sha256, scope: "article"|"from"|"selection", start?, end?, page?}`,
 re-reads and hash-checks the exact edition (as bookmarks do) and slices it by
 source code-point offsets (`page` for a PDF's From here). POST `/api/speak/<id>`
@@ -2504,9 +2572,11 @@ READER_CHROME=/path/to/chrome node tests/web_changes.cjs
 .venv/bin/python -m pytest -q tests/test_chats.py tests/test_llm_logs.py
 READER_PLAYWRIGHT=/absolute/path/to/playwright-core \
 READER_CHROME=/path/to/chrome node tests/web_chat.cjs
-.venv/bin/python -m pytest -q tests/test_local_model.py
+.venv/bin/python -m pytest -q tests/test_local_model.py tests/test_local_provider.py
 READER_PLAYWRIGHT=/absolute/path/to/playwright-core \
 READER_CHROME=/path/to/chrome node tests/web_local_model.cjs
+READER_PLAYWRIGHT=/absolute/path/to/playwright-core \
+READER_CHROME=/path/to/chrome node tests/web_local_provider.cjs
 READER_PLAYWRIGHT=/absolute/path/to/playwright-core \
 READER_CHROME=/path/to/chrome node tests/web_index_scale.cjs
 .venv/bin/python -m pytest -q tests/test_versions.py
@@ -2632,6 +2702,19 @@ document's own words, with planted markers for an invented name/number and a slo
 answer. The GPU lock is injected (`LocalModel(gpu_lock=…)`), so tests never use the
 workstation store. Every browser fixture gets a dead port and a missing CLI unless
 started with `--local-model`, which installs the fakes and three extra notes.
+
+`tests/fake_openai_servers.py` runs in-process fakes of Ollama's and llama.cpp's
+OpenAI-compatible APIs with their response shapes and omissions (no rate or usage
+unless asked for Ollama, `reasoning` versus `reasoning_content`, llama.cpp's
+`timings`, a `content: null` first chunk, embeddings without `index`, a plain JSON
+answer without `finish_reason`, Ollama's 404 for a missing model), plus switches for
+an API key, an error event and a cut stream. Its `guarded_connect` lets only
+running fakes answer, so a real server on 11434 or 8080 is never contacted;
+`loopback_connect` routes a "remote" URL to a fake. `tests/test_local_provider.py`
+uses them; the fixture flag `--local-provider` starts both fakes, prints their URLs
+as `providers`, refuses every other loopback port and answers non-loopback URLs with
+the fake Ollama, so `web_local_provider.cjs` exercises the remote opt-in without
+leaving the machine.
 
 `web_search_page.cjs` starts the fixture with `--search-page`. It adds works across
 projects, authors, types and dates, a reading copy, a catalog bundle with a machine

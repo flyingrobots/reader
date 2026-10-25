@@ -371,11 +371,16 @@ class Search:
 
     @property
     def model_name(self):
-        """fastembed's bge-small (default) or `lmstudio:<model>` from the local-model settings."""
+        """fastembed's bge-small (default) or `openai:<model>` (older `lmstudio:<model>`), served by the
+        local-model provider, from the local-model settings."""
         from .local_model import embedding_backend
         backend = embedding_backend(self.root)
-        if backend != self._backend:
-            self._backend, self._model, self._signature = backend, None, None
+        key = backend
+        if backend.startswith('openai:'):  # a new provider URL is a new embedder and signature
+            from .local_model import effective_provider
+            key += '\0' + effective_provider(self.root)['base_url']
+        if key != self._backend:
+            self._backend, self._model, self._signature = key, None, None
         return MODEL if backend == 'fastembed' else backend
 
     @property
@@ -386,9 +391,9 @@ class Search:
 
     def model(self, download=False):
         name = self.model_name
-        if self._model is None and name.startswith('lmstudio:'):
-            from .local_model import LMStudioEmbedder
-            self._model = LMStudioEmbedder(name[len('lmstudio:'):])
+        if self._model is None and name != MODEL:
+            from .local_model import embedder
+            self._model = embedder(self.root, name)
         if self._model is None:
             from fastembed import TextEmbedding
             try:
@@ -400,8 +405,9 @@ class Search:
         return self._model
 
     def model_signature(self):
-        if self._signature is None and self.model_name.startswith('lmstudio:'):
-            self._signature = hashlib.sha256(('lmstudio\0' + self.model_name).encode()).hexdigest()
+        if self._signature is None and self.model_name != MODEL:
+            from .local_model import embedding_signature
+            self._signature = embedding_signature(self.root, self.model_name)
         if self._signature is None:
             import fastembed
             digest = hashlib.sha256((MODEL + fastembed.__version__ + type(self._model).__name__).encode())

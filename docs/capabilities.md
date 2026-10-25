@@ -193,17 +193,24 @@ Each check is a cold CLI start for that voice; there is no spending cap beyond t
 90-second timeout. Threaded sub-conversations and voices starting chats are not
 implemented.
 
-Behind the scenes also supervises local LM Studio models. It starts and stops the
-loopback server, loads and unloads models through the `lms` CLI, and runs a queue of
-standfirst and key-term tasks one item at a time under the workstation GPU lock,
+Behind the scenes also supervises a local model on any OpenAI-compatible server:
+LM Studio (the default), Ollama, llama.cpp's `llama-server`, or another server such
+as vLLM, LocalAI or Jan, chosen by preset or base URL, with models discovered through
+`GET /v1/models` and an optional API key that is kept out of git and never shown or
+logged. For LM Studio only, it starts and stops the
+loopback server and loads and unloads models through the `lms` CLI; other servers
+are started by the user, and the page says how. It runs a queue of
+standfirst and key-term tasks one item at a time under the workstation GPU lock (for loopback providers),
 with a streaming preview, per-run toasts, a recent-items log with rejection reasons,
 and counts of current and stale outputs. Outputs are checked deterministically
 against the source, cached by source hash, model and prompt version in
 `.reader/local-model/`, labelled with their model wherever they appear, and never
 written into vault files. Runs happen only on request; nightly or idle triggers,
 connection triage and quiz drafting are not included. Search can optionally embed
-through an LM Studio embedding model instead of the built-in bge-small, which forces
-a full re-embed. Only a loopback LM Studio is supported, never a remote provider.
+through the provider's embedding model instead of the built-in bge-small, which
+forces a full re-embed. Providers must be on loopback unless the user explicitly allows a server
+on another machine; Reader then shows that document text leaves the machine. The
+local-model worker does not write to the LLM log archive.
 
 **Space c** highlights the grammar of Markdown prose and PDF text with the optional
 local [Colorful Language](https://github.com/flyingrobots/colorful-language) CLI

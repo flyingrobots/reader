@@ -300,10 +300,15 @@ def test_caps_and_budget(setup, monkeypatch):
 
 
 def test_loopback_only_and_dispatch_validation(setup, monkeypatch):
-    for url in ('http://192.168.1.4:1234', 'https://127.0.0.1:1234', 'http://example.com', 'http://user@127.0.0.1:1', 'http://127.0.0.1:1234/v1'):
+    for url in ('http://192.168.1.4:1234', 'http://example.com'):
         with pytest.raises(ValueError, match='loopback'):
             lm.Client(url)
-    assert lm.loopback_url('http://localhost:4321')[0] == 'http://localhost:4321'
+    with pytest.raises(ValueError, match='no credentials'):
+        lm.Client('http://user@127.0.0.1:1')
+    # A bare origin means its /v1; https and an explicit /v1 path are fine on loopback.
+    assert lm.loopback_url('http://localhost:4321')[0] == 'http://localhost:4321/v1'
+    assert lm.Client('http://127.0.0.1:1234/v1').url == lm.Client('http://127.0.0.1:1234').url == 'http://127.0.0.1:1234/v1'
+    assert lm.Client('https://127.0.0.1:1234').url == 'https://127.0.0.1:1234/v1'
     root, model, _, _, _ = setup
     monkeypatch.setenv('READER_LMSTUDIO_URL', 'http://10.0.0.2:1234')
     with pytest.raises(ValueError, match='loopback'):

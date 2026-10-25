@@ -522,6 +522,23 @@ def main():
                         'message': 'Stopped at the time limit; 18,400 passages saved. Run again to continue.', 'issues': 0}
             runners = {'search': stopped}
         local = {'url': f'http://127.0.0.1:{fake_lmstudio.free_port()}', 'cli': lms, 'gpu_lock': gpu_lock, 'data_usage': lambda: 0}
+        providers = {}
+        if '--local-provider' in sys.argv:
+            # Fake Ollama and llama.cpp servers in this process. Every other address, a real local
+            # server on its usual port included, looks switched off; a non-loopback ("remote") URL is
+            # answered by the fake Ollama, so nothing ever leaves loopback.
+            import http.client
+            from fake_openai_servers import FakeServer, LIVE
+            fake_ollama, fake_llamacpp = FakeServer('ollama'), FakeServer('llamacpp')
+            providers = {'ollama': fake_ollama.url, 'llamacpp': fake_llamacpp.url}
+
+            def connect(parts, timeout):
+                if not parts['loopback']:
+                    return http.client.HTTPConnection('127.0.0.1', fake_ollama.port, timeout=timeout)
+                if parts['port'] not in LIVE:
+                    raise ConnectionRefusedError('fixture: no server here')
+                return http.client.HTTPConnection('127.0.0.1', parts['port'], timeout=timeout)
+            local['connect'] = connect
         from reader_mcp.prose import Prose
         prose = None
         if '--prose' in sys.argv:
@@ -540,7 +557,7 @@ def main():
         server = WebServer(('127.0.0.1', 0), library, 'Browser tester')
         if '--chat-heartbeat' in sys.argv:
             server.chat_heartbeat = float(sys.argv[sys.argv.index('--chat-heartbeat') + 1])
-        print(json.dumps({'url':f'http://127.0.0.1:{server.server_port}', 'speech':speech_folder, 'root': str(root)}), flush=True)
+        print(json.dumps({'url':f'http://127.0.0.1:{server.server_port}', 'speech':speech_folder, 'root': str(root), 'providers': providers}), flush=True)
         try:
             server.serve_forever()
         finally:

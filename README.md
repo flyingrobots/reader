@@ -8,7 +8,8 @@ panel where AI voices can discuss the page with you.
 
 Reader has no hosted service, no account and no analytics. The AI parts are
 bring-your-own: Reader runs the command-line tools you already pay for (Claude
-Code, Codex, agy) or a local model in LM Studio, and everything works without them.
+Code, Codex, agy) or a model you run locally (LM Studio, Ollama, llama.cpp or any
+OpenAI-compatible server), and everything works without them.
 
 ![This week's issue: a magazine-style homepage with a cover story, features and a sections rail](docs/images/magazine.png)
 
@@ -57,8 +58,8 @@ any commit can be opened read-only or compared with another.
 
 **Space /** opens a search page that returns passages, not just titles, ranked by
 exact words, meaning, or a blend of both, with Project, Author and Type facets.
-Embeddings are computed on your machine (FastEmbed with bge-small, or an LM Studio
-embedding model). Hovering a link previews its target, and each article ends with
+Embeddings are computed on your machine (FastEmbed with bge-small, or an embedding
+model on your local model server). Hovering a link previews its target, and each article ends with
 **Linked from** and up to three **Read next** suggestions with their reasons.
 
 ![The search page with highlighted passages, a related passage without the exact words, and facets](docs/images/search.png)
@@ -105,7 +106,7 @@ as you edit. The checks are aids, not an accessibility certification.
 
 **Space p** opens Behind the scenes: the freshness of the search index, browse
 indexes, catalog mirror and link graph, with rebuilds on demand; library
-statistics; settings; and the LM Studio local-model controls. Other tools and
+statistics; settings; and the local-model provider, queue and controls. Other tools and
 agents deliver documents into the vault's `inbox/` with `reader ingest` or the
 `reader_ingest` MCP tool. **You got mail** then starts a librarian run through your
 own Codex CLI, which files the arrivals, and you can watch its live transcript
@@ -163,27 +164,34 @@ server by hand. The Obsidian sidebar plugin is optional. Both are covered in
 | --- | --- | --- |
 | Chat voices | Any of `claude`, `codex` or `agy`, signed in with your own account | Copy [`templates/voices.json`](templates/voices.json) into the vault and edit it ([voice registry](docs/web.md#voice-registry)) |
 | Inbox librarian | `codex`, signed in (`codex login`) | Press **You got mail** in Behind the scenes ([inbox runner](docs/inbox-runner.md)) |
-| Local model | [LM Studio](https://lmstudio.ai/) and its `lms` CLI | Behind the scenes, Local model ([details](docs/web.md#behind-the-scenes-local-model-lm-studio)) |
+| Local model | Any OpenAI-compatible server: [LM Studio](https://lmstudio.ai/) (Reader can start it and load models through `lms`), [Ollama](https://ollama.com/), llama.cpp's `llama-server`, vLLM, LocalAI, Jan | Behind the scenes, Local model, Provider: pick a preset or enter its `/v1` base URL ([details](docs/web.md#behind-the-scenes-local-model-any-openai-compatible-server)) |
 | Read aloud | A local AI-TTS daemon | Space s ([details](docs/web.md#send-to-ai-tts)) |
 | Prose colors | [Colorful Language](https://github.com/flyingrobots/colorful-language) 0.3.0 or newer | Space c ([details](docs/web.md#prose-colors-colorful-language)) |
 
 The local model writes standfirsts and key terms, checked against the source and
-cached outside your documents, and can serve search embeddings. Chat voices use
-the CLIs above; LM Studio is not one of them.
+cached outside your documents, and can serve search embeddings. Presets fill the
+usual addresses (LM Studio `http://127.0.0.1:1234/v1`, Ollama
+`http://127.0.0.1:11434/v1`, llama.cpp `http://127.0.0.1:8080/v1`); models are found
+with `GET /v1/models`. Servers other than LM Studio you start yourself. Only
+addresses on this machine are accepted unless you turn on **Allow a server on
+another machine**, and Reader then says plainly that document text leaves it. An
+optional API key goes in `READER_LLM_API_KEY` or a git-ignored, owner-only file and
+is never shown or logged. Chat voices use the CLIs above, not the local model.
 
 ## Privacy and the AI model
 
 - **Local first.** Documents, highlights, receipts, chats, themes and indexes live
   in your vault. Browser assets and fonts are served locally; there is no runtime
   CDN and no analytics.
-- **Bring your own subscription.** Reader stores no API keys and has no AI account
-  of its own. A voice turn runs the CLI you configured, with that CLI's account and
+- **Bring your own subscription.** Reader has no AI account of its own, and stores
+  no API key except an optional one for your local-model server, kept out of git. A voice turn runs the CLI you configured, with that CLI's account and
   the authority you gave it in `voices.json`. The template lets voices read, write
   and commit in the vault, so review it before you copy it.
 - **What leaves your machine.** A voice turn sends the document's identity, the
   chat transcript and whatever the voice chooses to read to that CLI's provider
-  (Anthropic, OpenAI or Google). LM Studio and the built-in embedding model run
-  locally.
+  (Anthropic, OpenAI or Google). The built-in embedding model runs locally, and so
+  does the local model unless you explicitly allow a server on another machine, in
+  which case Behind the scenes shows that the text of queued documents is sent there.
 - **Logs are kept.** Every chat turn's prompt, output and metadata are archived in
   the vault under `logs/llm/` and committed with the chat. Nothing prunes them, and
   a new turn will not start when the disk is low enough that its log could not be

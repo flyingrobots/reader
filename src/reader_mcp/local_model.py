@@ -1,18 +1,28 @@
-"""Supervised local-model jobs over LM Studio, for the web Behind the scenes page.
+"""Supervised local-model jobs over any OpenAI-compatible server, for the web Behind the scenes page.
 
-A single worker thread in the web server takes one queued item at a time, asks a
-loopback LM Studio server for it over the OpenAI-compatible API (streamed), checks
-the answer deterministically and caches accepted outputs by source hash. Outputs
-are a rebuildable cache under `.reader/local-model/`; vault files are never edited.
+A single worker thread in the web server takes one queued item at a time, asks the
+configured provider for it over the OpenAI-compatible API (streamed when the server
+streams), checks the answer deterministically and caches accepted outputs by source
+hash. Outputs are a rebuildable cache under `.reader/local-model/`; vault files are
+never edited.
 
-Server control goes through LM Studio's `lms` CLI with explicit argv and no shell.
-Each batch of up to ten items holds the workstation `host/gpu/` git-locks key, so
-other GPU users interleave. Everything here is Python stdlib."""
+The provider is LM Studio (the default), Ollama, llama.cpp's server or any other
+OpenAI-compatible server (vLLM, LocalAI, Jan, ...), named by a base URL such as
+`http://127.0.0.1:1234/v1`. Only loopback URLs are accepted unless the user turns on
+the remote opt-in, because document text then leaves the machine. An optional API
+key lives in the git-ignored `.reader/local-model/api-key` (or `READER_LLM_API_KEY`)
+and is never returned, logged or written to settings.
+
+Only LM Studio gets server control, through its `lms` CLI with explicit argv and no
+shell. Each batch of up to ten items against a loopback provider holds the
+workstation `host/gpu/` git-locks key, so other GPU users interleave. Everything
+here is Python stdlib."""
 from collections import deque
-from contextlib import closing, contextmanager
+from contextlib import closing, contextmanager, nullcontext
 from datetime import datetime, timezone
 import hashlib
 import http.client
+import ipaddress
 import json
 import os
 from pathlib import Path
@@ -20,6 +30,7 @@ import re
 import shutil
 import socket
 import sqlite3
+import ssl
 import subprocess
 import threading
 import time
@@ -29,7 +40,7 @@ import uuid
 
 from .metadata import FrontmatterError, decode_frontmatter
 
-DEFAULT_URL = 'http://127.0.0.1:1234'
+DEFAULT_URL = 'http://127.0.0.1:1234/v1'
 WORKSTATION_STORE = '/Users/Shared/git-locks/workstation.git'
 GPU_KEY = 'host/gpu/'
 MAX_QUEUE = 5000                # waiting + running items
@@ -50,7 +61,23 @@ BATCH = 10
 CLI_TIMEOUT = 60
 PREVIEW_CHARS = 2000
 KEPT_OUTPUT = 4000
-MODEL_ID = re.compile(r'[A-Za-z0-9][A-Za-z0-9._@:/-]{0,199}')
+MAX_MODELS = 200
+MODEL_ID = re.compile(r'[A-Za-z0-9/][A-Za-z0-9._@:/+-]{0,199}')
+URL_PATH = re.compile(r'(/[A-Za-z0-9._~-]+){0,6}')
+API_KEY = re.compile(r'[\x21-\x7e]{1,1024}')
+API_KEY_ENV = 'READER_LLM_API_KEY'
+
+# Presets fill the base URL; any OpenAI-compatible server works through "custom".
+PRESETS = {
+    'lmstudio': {'label': 'LM Studio', 'base_url': DEFAULT_URL, 'start': None,
+                 'hint': 'Reader can start LM Studio’s server and load models through its lms CLI.'},
+    'ollama': {'label': 'Ollama', 'base_url': 'http://127.0.0.1:11434/v1', 'start': 'ollama serve',
+               'hint': 'Start Ollama yourself (the app, or ollama serve) and pull a model with ollama pull <model>.'},
+    'llamacpp': {'label': 'llama.cpp', 'base_url': 'http://127.0.0.1:8080/v1', 'start': 'llama-server -m <model>.gguf --port 8080',
+                 'hint': 'Start llama-server yourself with a model; add --embeddings to serve embeddings.'},
+    'custom': {'label': 'OpenAI-compatible', 'base_url': None, 'start': None,
+               'hint': 'Start the server yourself (vLLM, LocalAI, Jan and others) and give its /v1 base URL.'},
+}
 
 
 def stamp():
@@ -72,23 +99,59 @@ def same_model(a, b):
 
 def model_id(value):
     if not isinstance(value, str) or not MODEL_ID.fullmatch(value) or '..' in value:
-        raise ValueError('Expected an LM Studio model key')
+        raise ValueError('Expected a model name (letters, digits and . _ @ : / + -)')
     return value
 
 
+def is_loopback(host):
+    if host == 'localhost':
+        return True
+    try:
+        return ipaddress.ip_address(host).is_loopback
+    except ValueError:
+        return False
+
+
+def provider_url(value, allow_remote=False):
+    """Normalize an OpenAI-compatible base URL to its parts.
+
+    `http(s)://host[:port][/path]`, without credentials, query or fragment. An empty path
+    means `/v1`. A host other than 127.0.0.0/8, ::1 or localhost is refused unless
+    `allow_remote` is set, because document text would leave the machine."""
+    if not isinstance(value, str) or len(value) > 300:
+        raise ValueError('Expected a base URL such as http://127.0.0.1:1234/v1')
+    parts = urlsplit(value.strip())
+    try:
+        port = parts.port
+    except ValueError as exc:
+        raise ValueError('The base URL has an invalid port') from exc
+    host = (parts.hostname or '').lower()
+    path = parts.path.rstrip('/') or '/v1'
+    if parts.scheme not in ('http', 'https') or not host or parts.username or parts.password or parts.query \
+            or parts.fragment or not URL_PATH.fullmatch(path) or '..' in path:
+        raise ValueError('Expected a base URL such as http://127.0.0.1:1234/v1 (http or https, no credentials or query)')
+    loopback = is_loopback(host)
+    if not loopback and not allow_remote:
+        raise ValueError(f'{host} is not a loopback address; only this machine (127.0.0.1, ::1, localhost) is allowed '
+                         'unless you turn on “Allow a server on another machine”')
+    port = port or (443 if parts.scheme == 'https' else 80)
+    shown = f'[{host}]' if ':' in host else host
+    origin = f'{parts.scheme}://{shown}:{port}'
+    return {'base': origin + path, 'origin': origin, 'scheme': parts.scheme, 'host': host, 'port': port,
+            'path': path, 'loopback': loopback}
+
+
 def loopback_url(value):
-    """Normalize an LM Studio base URL; anything but plain http on loopback is refused."""
-    parts = urlsplit(value or DEFAULT_URL)
-    if parts.scheme != 'http' or parts.hostname not in ('127.0.0.1', 'localhost', '::1') or parts.username or parts.password \
-            or parts.path not in ('', '/') or parts.query or parts.fragment:
-        raise ValueError('READER_LMSTUDIO_URL must be http://127.0.0.1:<port> (loopback only)')
-    port = parts.port or 1234
-    host = '[::1]' if parts.hostname == '::1' else parts.hostname
-    return f'http://{host}:{port}', parts.hostname, port
+    """The strict startup check for `READER_LMSTUDIO_URL` and the built-in default: loopback only."""
+    try:
+        parts = provider_url(value or DEFAULT_URL)
+    except ValueError as exc:
+        raise ValueError('READER_LMSTUDIO_URL must be http://127.0.0.1:<port>[/v1] (loopback only): ' + str(exc)) from exc
+    return parts['base'], parts['host'], parts['port']
 
 
 class ServerGone(ConnectionError):
-    """The LM Studio server is not reachable (off, or stopped mid-request)."""
+    """The model server is not reachable (off, or stopped mid-request)."""
 
 
 class Cancelled(Exception):
@@ -101,130 +164,246 @@ class Rejected(ValueError):
 
 # Client --------------------------------------------------------------------
 
-class Client:
-    """A small OpenAI-compatible client for a loopback LM Studio server."""
+def connect_direct(parts, timeout):
+    if parts['scheme'] == 'https':
+        return http.client.HTTPSConnection(parts['host'], parts['port'], timeout=timeout, context=ssl.create_default_context())
+    return http.client.HTTPConnection(parts['host'], parts['port'], timeout=timeout)
 
-    def __init__(self, url=None):
-        self.url, self.host, self.port = loopback_url(url)
+
+class Client:
+    """A small OpenAI-compatible client (`/models`, `/chat/completions`, `/embeddings`).
+
+    `connect(parts, timeout)` makes the HTTP connection; tests replace it so that no
+    request ever leaves loopback. The API key is sent as a Bearer token and scrubbed
+    from every error message."""
+
+    def __init__(self, url=None, *, api_key=None, allow_remote=False, label='model', lmstudio=False, connect=None):
+        parts = provider_url(url or DEFAULT_URL, allow_remote)
+        self.parts = parts
+        self.url, self.host, self.port, self.loopback = parts['base'], parts['host'], parts['port'], parts['loopback']
+        self.api_key = api_key or None
+        self.label = label
+        self.name = f'The {label} server'
+        self.lmstudio = lmstudio
+        self.connect = connect or connect_direct
 
     def connection(self, timeout):
-        return http.client.HTTPConnection(self.host, self.port, timeout=timeout)
+        try:
+            return self.connect(self.parts, timeout)
+        except (ConnectionRefusedError, socket.gaierror) as exc:
+            raise ServerGone(f'{self.name} is not running at {self.url}') from exc
 
-    def request(self, method, path, body=None, timeout=5.0, limit=8 * 1024 ** 2):
+    def headers(self, data=False, stream=False):
+        headers = {'Accept': 'text/event-stream' if stream else 'application/json'}
+        if data:
+            headers['Content-Type'] = 'application/json'
+        if self.api_key:
+            headers['Authorization'] = 'Bearer ' + self.api_key
+        return headers
+
+    def scrub(self, text):
+        return text.replace(self.api_key, '<redacted>') if self.api_key else text
+
+    def failure(self, status, payload):
+        """A readable error from an error body: OpenAI's {"error": {"message"}}, Ollama's {"error": "..."} or text."""
+        text = payload.decode('utf-8', 'replace')
+        try:
+            data = json.loads(text)
+            error = data.get('error') if isinstance(data, dict) else None
+            text = error.get('message') if isinstance(error, dict) else error if isinstance(error, str) else text
+        except ValueError:
+            pass
+        hint = ' (check the API key)' if status in (401, 403) else ''
+        return ValueError(self.scrub(f'{self.name} answered {status}{hint}: {short(str(text), 300)}'))
+
+    def request(self, method, path, body=None, timeout=5.0, limit=8 * 1024 ** 2, absolute=False):
         connection = self.connection(timeout)
+        target = path if absolute else self.parts['path'] + path
         try:
             data = json.dumps(body).encode() if body is not None else None
-            connection.request(method, path, data, {'Content-Type': 'application/json'} if data else {})
+            connection.request(method, target, data, self.headers(bool(data)))
             response = connection.getresponse()
             payload = response.read(limit + 1)
         except (ConnectionRefusedError, ConnectionResetError, http.client.RemoteDisconnected, socket.gaierror) as exc:
-            raise ServerGone('LM Studio server is not running') from exc
+            raise ServerGone(f'{self.name} is not running at {self.url}') from exc
+        except socket.timeout as exc:
+            raise ServerGone(f'{self.name} did not answer at {self.url}') from exc
         finally:
             connection.close()
         if len(payload) > limit:
-            raise ValueError('LM Studio response exceeds its size limit')
+            raise ValueError(f'{self.name}’s response exceeds its size limit')
         if response.status == 404:
             return None
         if response.status >= 400:
-            raise ValueError(f'LM Studio answered {response.status}: {short(payload.decode("utf-8", "replace"), 300)}')
-        return json.loads(payload)
+            raise self.failure(response.status, payload)
+        try:
+            return json.loads(payload)
+        except ValueError as exc:
+            raise ValueError(f'{self.name} did not answer with JSON at {target}') from exc
+
+    @staticmethod
+    def model_rows(data):
+        """Model ids from `/models`: OpenAI's `data[].id`; llama.cpp's `models[].model|name` too. Missing fields are skipped."""
+        if not isinstance(data, dict):
+            return []
+        ids = []
+        for row in (data.get('data') if isinstance(data.get('data'), list) else []) + (data.get('models') if isinstance(data.get('models'), list) else []):
+            if isinstance(row, str):
+                ident = row
+            elif isinstance(row, dict):
+                ident = row.get('id') or row.get('model') or row.get('name')
+            else:
+                continue
+            if isinstance(ident, str) and ident and ident not in ids:
+                ids.append(ident)
+        return ids[:MAX_MODELS]
 
     def models(self, timeout=1.5):
-        data = self.request('GET', '/v1/models', timeout=timeout) or {}
-        return [m['id'] for m in data.get('data', []) if isinstance(m, dict) and isinstance(m.get('id'), str)][:200]
+        return self.model_rows(self.request('GET', '/models', timeout=timeout))
 
     def native_models(self, timeout=1.5):
-        """LM Studio's own listing, with loaded state; None when the server lacks it."""
+        """LM Studio's own listing, with loaded state; None for other servers or when it is missing."""
+        if not self.lmstudio:
+            return None
         try:
-            data = self.request('GET', '/api/v0/models', timeout=timeout)
+            data = self.request('GET', '/api/v0/models', timeout=timeout, absolute=True)
         except ValueError:
             return None
         if not isinstance(data, dict):
             return None
-        return [m for m in data.get('data', []) if isinstance(m, dict) and isinstance(m.get('id'), str)][:200]
+        return [m for m in data.get('data', []) if isinstance(m, dict) and isinstance(m.get('id'), str)][:MAX_MODELS]
 
     def embeddings(self, model, texts, timeout=ITEM_TIMEOUT):
         if not texts or len(texts) > 256:
             raise ValueError('Expected 1–256 texts to embed')
-        data = self.request('POST', '/v1/embeddings', {'model': model, 'input': list(texts)}, timeout=timeout, limit=64 * 1024 ** 2)
-        rows = sorted((data or {}).get('data', []), key=lambda r: r.get('index', 0))
-        if len(rows) != len(texts):
-            raise ValueError('LM Studio returned the wrong number of embeddings')
-        return [row['embedding'] for row in rows]
+        data = self.request('POST', '/embeddings', {'model': model, 'input': list(texts)}, timeout=timeout, limit=64 * 1024 ** 2)
+        if data is None:
+            raise ValueError(f'{self.name} has no /embeddings endpoint (llama.cpp needs --embeddings)')
+        rows = [r for r in (data or {}).get('data') or [] if isinstance(r, dict)]
+        if all(isinstance(r.get('index'), int) for r in rows):  # servers that omit `index` answer in input order
+            rows.sort(key=lambda r: r['index'])
+        vectors = [r.get('embedding') for r in rows]
+        if len(vectors) != len(texts) or not all(isinstance(v, list) and v for v in vectors):
+            raise ValueError(f'{self.name} returned the wrong number of embeddings')
+        return vectors
 
     def chat(self, model, messages, *, on_delta=None, cancelled=lambda: False, timeout=ITEM_TIMEOUT,
              max_output=OUTPUT_TOKENS, reasoning=REASONING_TOKENS):
-        """Stream a chat completion. Returns text, reasoning, finish reason and rates."""
+        """A chat completion, streamed when the server streams. Returns text, reasoning, finish reason and rates.
+
+        Accepts the variants local servers send: `reasoning_content` (LM Studio, llama.cpp) or
+        `reasoning` (Ollama) beside `content`; usage, LM Studio `stats` or llama.cpp `timings`
+        for the rate; a plain JSON answer when the server ignores `stream`; and an error event."""
         body = {'model': model, 'messages': messages, 'stream': True, 'temperature': 0.2,
                 'max_tokens': max_output + reasoning, 'stream_options': {'include_usage': True}}
         started = time.monotonic()
         deadline = started + timeout
         connection = self.connection(min(timeout, 30))
-        text, thinking, finish, usage, stats = [], [], None, None, None
+        text, thinking, finish, usage, rate = [], [], None, None, None
         tokens, first = 0, None
+
+        def take(chunk):
+            nonlocal finish, usage, rate, tokens, first
+            if not isinstance(chunk, dict):
+                return
+            if chunk.get('error'):
+                error = chunk['error']
+                raise ValueError(self.scrub(f'{self.name} reported an error: ' + short(error.get('message') if isinstance(error, dict) else error, 300)))
+            usage = chunk.get('usage') or usage
+            for source, key in (('stats', 'tokens_per_second'), ('timings', 'predicted_per_second')):
+                value = (chunk.get(source) or {}).get(key) if isinstance(chunk.get(source), dict) else None
+                rate = value if isinstance(value, (int, float)) and value > 0 else rate
+            for choice in chunk.get('choices') or []:
+                if not isinstance(choice, dict):
+                    continue
+                delta = choice.get('delta') or choice.get('message') or {}
+                piece = delta.get('content') or '' if isinstance(delta, dict) else ''
+                thought = (delta.get('reasoning_content') or delta.get('reasoning') or '') if isinstance(delta, dict) else ''
+                piece, thought = (piece if isinstance(piece, str) else ''), (thought if isinstance(thought, str) else '')
+                if piece or thought:
+                    tokens += 1
+                    first = first or time.monotonic()
+                if piece:
+                    text.append(piece)
+                    if len(text) > max_output:
+                        raise Rejected(f'Output exceeded the {max_output}-token cap')
+                if thought:
+                    thinking.append(thought)
+                finish = choice.get('finish_reason') or finish
         try:
             try:
-                connection.request('POST', '/v1/chat/completions', json.dumps(body).encode(), {'Content-Type': 'application/json', 'Accept': 'text/event-stream'})
+                connection.request('POST', self.parts['path'] + '/chat/completions', json.dumps(body).encode(), self.headers(True, True))
                 sock = connection.sock  # kept: getresponse() may hand the socket to the response
                 response = connection.getresponse()
-            except (ConnectionRefusedError, ConnectionResetError, http.client.RemoteDisconnected) as exc:
-                raise ServerGone('LM Studio server is not running') from exc
+            except (ConnectionRefusedError, ConnectionResetError, http.client.RemoteDisconnected, socket.gaierror) as exc:
+                raise ServerGone(f'{self.name} is not running at {self.url}') from exc
             if response.status >= 400:
-                raise ValueError(f'LM Studio answered {response.status}: {short(response.read(4096).decode("utf-8", "replace"), 300)}')
-            while True:
-                if cancelled():
-                    raise Cancelled()
-                remaining = deadline - time.monotonic()
-                if remaining <= 0:
-                    raise TimeoutError(f'No answer within {timeout} s')
-                sock.settimeout(min(remaining, 30))
+                raise self.failure(response.status, response.read(4096))
+            if 'text/event-stream' not in (response.getheader('Content-Type') or ''):
+                # A server that ignores `stream` answers with one JSON completion.
+                if sock:
+                    sock.settimeout(max(1, deadline - time.monotonic()))
                 try:
-                    line = response.readline(1024 * 1024)
-                except (ConnectionResetError, http.client.IncompleteRead) as exc:
-                    raise ServerGone('LM Studio server stopped while answering') from exc
+                    payload = response.read(8 * 1024 ** 2 + 1)
                 except socket.timeout as exc:
                     raise TimeoutError(f'No answer within {timeout} s') from exc
-                if not line:
-                    if finish is None:  # a stream cut short is never taken as a complete answer
-                        raise ServerGone('LM Studio server stopped while answering')
-                    break
-                line = line.strip()
-                if not line.startswith(b'data:'):
-                    continue
-                payload = line[5:].strip()
-                if payload == b'[DONE]':
-                    break
-                chunk = json.loads(payload)
-                usage = chunk.get('usage') or usage
-                stats = chunk.get('stats') or stats
-                for choice in chunk.get('choices') or []:
-                    delta = choice.get('delta') or {}
-                    piece = delta.get('content') or ''
-                    thought = delta.get('reasoning_content') or delta.get('reasoning') or ''
-                    if piece or thought:
-                        tokens += 1
-                        first = first or time.monotonic()
-                    if piece:
-                        text.append(piece)
-                        if len(text) > max_output:
-                            raise Rejected(f'Output exceeded the {max_output}-token cap')
-                    if thought:
-                        thinking.append(thought)
-                    finish = choice.get('finish_reason') or finish
+                if len(payload) > 8 * 1024 ** 2:
+                    raise ValueError(f'{self.name}’s response exceeds its size limit')
+                try:
+                    whole = json.loads(payload)
+                except ValueError as exc:
+                    raise ValueError(f'{self.name} sent neither an event stream nor JSON') from exc
+                take(whole)
+                if finish is None and text:
+                    finish = 'stop'  # some servers omit finish_reason on a complete answer
+                if not (text or thinking) and finish is None:
+                    raise ValueError(f'{self.name} answered without any choices')
                 if on_delta and (text or thinking):
-                    elapsed = time.monotonic() - (first or started)
-                    on_delta(''.join(text), ''.join(thinking), tokens, round(tokens / elapsed, 1) if elapsed > .25 else None)
+                    on_delta(''.join(text), ''.join(thinking), tokens, None)
+            else:
+                while True:
+                    if cancelled():
+                        raise Cancelled()
+                    remaining = deadline - time.monotonic()
+                    if remaining <= 0:
+                        raise TimeoutError(f'No answer within {timeout} s')
+                    if sock:
+                        sock.settimeout(min(remaining, 30))
+                    try:
+                        line = response.readline(1024 * 1024)
+                    except (ConnectionResetError, http.client.IncompleteRead) as exc:
+                        raise ServerGone(f'{self.name} stopped while answering') from exc
+                    except socket.timeout as exc:
+                        raise TimeoutError(f'No answer within {timeout} s') from exc
+                    if not line:
+                        if finish is None:  # a stream cut short is never taken as a complete answer
+                            raise ServerGone(f'{self.name} stopped while answering')
+                        break
+                    line = line.strip()
+                    if not line.startswith(b'data:'):
+                        continue  # blank separators, `event:` names and `:` keep-alive comments
+                    payload = line[5:].strip()
+                    if payload == b'[DONE]':
+                        break
+                    try:
+                        chunk = json.loads(payload)
+                    except ValueError as exc:
+                        raise ValueError(f'{self.name} sent an unreadable stream event') from exc
+                    take(chunk)
+                    if on_delta and (text or thinking):
+                        elapsed = time.monotonic() - (first or started)
+                        on_delta(''.join(text), ''.join(thinking), tokens, round(tokens / elapsed, 1) if elapsed > .25 else None)
         finally:
             connection.close()
         elapsed = time.monotonic() - (first or started)
-        reported = (stats or {}).get('tokens_per_second')
         measured = round(tokens / elapsed, 1) if tokens and elapsed > .05 else None
         if finish == 'length':
             raise Rejected('Stopped at the token cap before finishing')
+        completion = (usage or {}).get('completion_tokens') if isinstance(usage, dict) else None
         return {'text': ''.join(text), 'reasoning': ''.join(thinking), 'finish_reason': finish, 'usage': usage,
-                'tokens': (usage or {}).get('completion_tokens') or tokens,
-                'tokens_per_second': round(reported, 1) if isinstance(reported, (int, float)) else measured,
-                'rate_reported': isinstance(reported, (int, float)), 'seconds': round(time.monotonic() - started, 2)}
+                'tokens': completion or tokens,
+                'tokens_per_second': round(rate, 1) if rate else measured,
+                'rate_reported': bool(rate), 'seconds': round(time.monotonic() - started, 2)}
 
 
 # The lms CLI ---------------------------------------------------------------
@@ -537,9 +716,12 @@ class KeyTerms(Task):
 
 TASKS = {task.name: task for task in (Standfirst(), KeyTerms())}
 DEFAULT_MODEL = 'google/gemma-4-e4b'
-DEFAULT_SETTINGS = {'tasks': {name: {'enabled': True, 'model': DEFAULT_MODEL, 'trigger': 'manual'} for name in TASKS},
-                    'embedding_backend': 'fastembed'}
+# A task's model of '' means the provider's model.
+DEFAULT_SETTINGS = {'tasks': {name: {'enabled': True, 'model': '', 'trigger': 'manual'} for name in TASKS},
+                    'embedding_backend': 'fastembed',
+                    'provider': {'preset': 'lmstudio', 'base_url': None, 'model': DEFAULT_MODEL, 'allow_remote': False}}
 TRIGGERS = ('manual',)  # nightly and idle triggers are a later setting
+EMBEDDING_PREFIXES = ('openai:', 'lmstudio:')  # `lmstudio:` is the older spelling; both use the configured provider
 
 
 def read_settings(root):
@@ -554,25 +736,90 @@ def read_settings(root):
                     settings['tasks'][name].update({k: v for k, v in task.items() if k in ('enabled', 'model', 'trigger')})
             if isinstance(saved.get('embedding_backend'), str):
                 settings['embedding_backend'] = saved['embedding_backend']
-    except (OSError, ValueError):
+            provider = saved.get('provider')
+            if isinstance(provider, dict):
+                clean = settings['provider']
+                if provider.get('preset') in PRESETS:
+                    clean['preset'] = provider['preset']
+                if provider.get('base_url') is None or isinstance(provider.get('base_url'), str):
+                    clean['base_url'] = provider.get('base_url') or None
+                if isinstance(provider.get('model'), str):
+                    clean['model'] = provider['model']
+                clean['allow_remote'] = provider.get('allow_remote') is True
+    except (OSError, ValueError, AttributeError):
         pass
     return settings
 
 
+def api_key_file(root):
+    return Path(root) / '.reader' / 'local-model' / 'api-key'
+
+
+def read_api_key(root, environ=None):
+    """(key, source): `READER_LLM_API_KEY` wins over the git-ignored key file. Never logged or returned to the page."""
+    value = (environ if environ is not None else os.environ).get(API_KEY_ENV, '').strip()
+    if value:
+        return value, 'environment'
+    file = api_key_file(root)
+    try:
+        if file.is_file() and not file.is_symlink() and file.stat().st_size <= 4096:
+            value = file.read_text().strip()
+            if API_KEY.fullmatch(value):
+                return value, 'file'
+    except OSError:
+        pass
+    return None, None
+
+
+def effective_provider(root, default_url=None, settings=None):
+    """The provider the worker and search use: preset, base URL, model and the remote opt-in."""
+    provider = (settings or read_settings(root))['provider']
+    preset = provider['preset']
+    if provider['base_url']:
+        base = provider['base_url']
+    elif preset == 'lmstudio':
+        base = default_url or os.environ.get('READER_LMSTUDIO_URL') or DEFAULT_URL
+    else:
+        base = PRESETS[preset]['base_url'] or DEFAULT_URL
+    return {'preset': preset, 'label': PRESETS[preset]['label'], 'base_url': base, 'model': provider['model'],
+            'allow_remote': provider['allow_remote']}
+
+
+def provider_client(root, default_url=None, connect=None, settings=None):
+    """A Client for the configured provider; raises ValueError for a refused (non-loopback) URL."""
+    provider = effective_provider(root, default_url, settings)
+    key, _ = read_api_key(root)
+    return Client(provider['base_url'], api_key=key, allow_remote=provider['allow_remote'], label=provider['label'],
+                  lmstudio=provider['preset'] == 'lmstudio', connect=connect)
+
+
 def embedding_backend(root):
     value = read_settings(root)['embedding_backend']
-    if value.startswith('lmstudio:'):
-        model_id(value[len('lmstudio:'):])
-        return value
+    for prefix in EMBEDDING_PREFIXES:
+        if value.startswith(prefix):
+            model_id(value[len(prefix):])
+            return value
     return 'fastembed'
 
 
-class LMStudioEmbedder:
-    """fastembed-shaped adapter over LM Studio's /v1/embeddings (for search.py)."""
+def embedding_signature(root, backend):
+    """The index identity of a provider backend. `lmstudio:` keeps its original signature;
+    `openai:` includes the base URL, since one model name on two servers can embed differently."""
+    if backend.startswith('lmstudio:'):
+        return hashlib.sha256(('lmstudio\0' + backend).encode()).hexdigest()
+    base = effective_provider(root)['base_url']
+    return hashlib.sha256(('openai\0' + base + '\0' + backend).encode()).hexdigest()
 
-    def __init__(self, model, url=None):
+
+class ProviderEmbedder:
+    """fastembed-shaped adapter over the provider's /v1/embeddings (for search.py)."""
+
+    def __init__(self, model, url=None, root=None, connect=None):
         self.model = model_id(model)
-        self.client = Client(url or os.environ.get('READER_LMSTUDIO_URL'))
+        if root is not None and url is None:
+            self.client = provider_client(root, connect=connect)
+        else:
+            self.client = Client(url or os.environ.get('READER_LMSTUDIO_URL'), connect=connect)
         nomic = 'nomic' in model.casefold()
         self.document, self.query = ('search_document: ', 'search_query: ') if nomic else ('', '')
 
@@ -585,18 +832,28 @@ class LMStudioEmbedder:
         yield from self.client.embeddings(self.model, [self.query + query])
 
 
+LMStudioEmbedder = ProviderEmbedder  # the older name
+
+
+def embedder(root, backend):
+    prefix = next(p for p in EMBEDDING_PREFIXES if backend.startswith(p))
+    return ProviderEmbedder(backend[len(prefix):], root=root)
+
+
 # Queue, cache and worker ----------------------------------------------------
 
 class LocalModel:
-    def __init__(self, root, library, *, url=None, cli=None, gpu_lock=None, data_usage=None):
+    def __init__(self, root, library, *, url=None, cli=None, gpu_lock=None, data_usage=None, connect=None):
         self.root = Path(root)
         self.library = library
         self.dir = self.root / '.reader' / 'local-model'
         self.journal = self.dir / 'queue.jsonl'
         self.cache = self.dir / 'outputs.sqlite3'
         self.settings_file = self.dir / 'settings.json'
-        self.url = url or os.environ.get('READER_LMSTUDIO_URL') or DEFAULT_URL
-        self.client = Client(self.url)
+        # The LM Studio default (constructor, READER_LMSTUDIO_URL, built in) is loopback-only and checked at startup.
+        self.default_url = loopback_url(url or os.environ.get('READER_LMSTUDIO_URL') or DEFAULT_URL)[0]
+        self.connect = connect
+        self.clients = {}
         self.cli = cli or CLI(os.environ.get('READER_LMS') or None)
         self.gpu_lock = gpu_lock or GitLocksGPU()
         self.data_usage = data_usage
@@ -616,6 +873,86 @@ class LocalModel:
         self.control = None          # the running or last server/model control action
         self.cli_cache = {}          # name -> (time, value)
         self.outputs_cache = None
+
+    # Provider -----------------------------------------------------------
+
+    def provider(self, settings=None):
+        return effective_provider(self.root, self.default_url, settings)
+
+    @property
+    def client(self):
+        """The configured provider's client (rebuilt when the settings or key change). Raises for a refused URL."""
+        provider = self.provider()
+        key, _ = read_api_key(self.root)
+        signature = (provider['preset'], provider['base_url'], provider['allow_remote'], key)
+        client = self.clients.get(signature)
+        if client is None:
+            client = Client(provider['base_url'], api_key=key, allow_remote=provider['allow_remote'], label=provider['label'],
+                            lmstudio=provider['preset'] == 'lmstudio', connect=self.connect)
+            self.clients = {signature: client}
+        return client
+
+    @property
+    def url(self):
+        return self.client.url
+
+    def lms_enabled(self, client=None):
+        """Server and model control through `lms` exists only for LM Studio on this machine."""
+        try:
+            client = client or self.client
+        except ValueError:
+            return False
+        return client.lmstudio and client.loopback
+
+    def provider_view(self, settings=None):
+        settings = settings or self.settings()
+        provider = self.provider(settings)
+        preset = PRESETS[provider['preset']]
+        key, source = read_api_key(self.root)
+        try:
+            parts = provider_url(provider['base_url'], True)
+            host, loopback = parts['host'], parts['loopback']
+        except ValueError:
+            host, loopback = None, False
+        notice = None if loopback or not host else (
+            f'Document text and prompts are sent to {host}. They leave this machine'
+            + (', unencrypted over http.' if provider['base_url'].startswith('http:') else '.'))
+        return {'preset': provider['preset'], 'label': provider['label'], 'base_url': provider['base_url'],
+                'saved_base_url': settings['provider']['base_url'], 'model': provider['model'],
+                'allow_remote': provider['allow_remote'], 'loopback': loopback, 'host': host, 'remote_notice': notice,
+                'api_key': {'set': bool(key), 'source': source, 'env': API_KEY_ENV},
+                'start': preset['start'], 'hint': preset['hint'],
+                'presets': {name: {'label': p['label'], 'base_url': p['base_url'] if name != 'lmstudio' else self.default_url}
+                            for name, p in PRESETS.items()}}
+
+    def save_api_key(self, value):
+        """Write or clear the key file (mode 0600). Refused when git would commit it."""
+        file = api_key_file(self.root)
+        if value in (None, ''):
+            if file.is_file() and not file.is_symlink():
+                file.unlink()
+            return
+        if not isinstance(value, str) or not API_KEY.fullmatch(value.strip()):
+            raise ValueError('An API key is 1–1,024 printable characters without spaces')
+        self.ensure_dir()
+        if file.is_symlink():
+            raise ValueError('The API key file must not be a symlink')
+        if (self.root / '.git').exists():
+            try:
+                done = subprocess.run(['git', '-C', str(self.root), 'check-ignore', '-q', '.reader/local-model/api-key'],
+                                      stdin=subprocess.DEVNULL, capture_output=True, timeout=10, check=False)
+                ignored = done.returncode == 0
+            except (OSError, subprocess.TimeoutExpired):
+                ignored = False
+            if not ignored:
+                raise ValueError('Refusing to store the API key: git does not ignore .reader/ in this vault. '
+                                 f'Add .reader/ to .gitignore, or set {API_KEY_ENV} instead.')
+        temp = file.with_name('.api-key.next')
+        temp.unlink(missing_ok=True)
+        fd = os.open(temp, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+        with os.fdopen(fd, 'w') as stream:
+            stream.write(value.strip() + '\n')
+        os.replace(temp, file)
 
     # Storage ------------------------------------------------------------
 
@@ -708,8 +1045,8 @@ class LocalModel:
         return read_settings(self.root)
 
     def save_settings(self, patch):
-        if not isinstance(patch, dict) or set(patch) - {'tasks', 'embedding_backend'}:
-            raise ValueError('Expected {"tasks": {...}, "embedding_backend": ...}')
+        if not isinstance(patch, dict) or set(patch) - {'tasks', 'embedding_backend', 'provider'}:
+            raise ValueError('Expected {"tasks": {...}, "embedding_backend": ..., "provider": {...}}')
         settings = self.settings()
         for name, task in (patch.get('tasks') or {}).items():
             if name not in TASKS or not isinstance(task, dict) or set(task) - {'enabled', 'model', 'trigger'}:
@@ -719,20 +1056,56 @@ class LocalModel:
                     raise ValueError('enabled must be true or false')
                 settings['tasks'][name]['enabled'] = task['enabled']
             if 'model' in task:
-                settings['tasks'][name]['model'] = model_id(task['model'])
+                settings['tasks'][name]['model'] = '' if task['model'] in ('', None) else model_id(task['model'])
             if 'trigger' in task:
                 if task['trigger'] not in TRIGGERS:
                     raise ValueError('Only on-request runs are available')
                 settings['tasks'][name]['trigger'] = task['trigger']
         if 'embedding_backend' in patch:
             value = patch['embedding_backend']
-            if value != 'fastembed' and not (isinstance(value, str) and value.startswith('lmstudio:') and model_id(value[9:])):
-                raise ValueError('embedding_backend must be fastembed or lmstudio:<model>')
+            if value != 'fastembed' and not (isinstance(value, str) and value.startswith(EMBEDDING_PREFIXES)
+                                             and model_id(value.split(':', 1)[1])):
+                raise ValueError('embedding_backend must be fastembed or openai:<model>')
             settings['embedding_backend'] = value
+        key_change = False
+        if 'provider' in patch:
+            change = patch['provider']
+            if not isinstance(change, dict) or set(change) - {'preset', 'base_url', 'model', 'allow_remote', 'api_key'}:
+                raise ValueError('Expected provider {preset, base_url, model, allow_remote, api_key}')
+            provider = settings['provider']
+            if 'preset' in change:
+                if change['preset'] not in PRESETS:
+                    raise ValueError('preset must be one of ' + ', '.join(PRESETS))
+                if change['preset'] != provider['preset'] and 'base_url' not in change:
+                    provider['base_url'] = None  # a new preset starts from its own default URL
+                provider['preset'] = change['preset']
+            if 'base_url' in change:
+                value = change['base_url']
+                if value not in (None, '') and not isinstance(value, str):
+                    raise ValueError('base_url must be a URL or null')
+                provider['base_url'] = (value.strip() or None) if isinstance(value, str) else None
+            if 'allow_remote' in change:
+                if not isinstance(change['allow_remote'], bool):
+                    raise ValueError('allow_remote must be true or false')
+                provider['allow_remote'] = change['allow_remote']
+            if 'model' in change:
+                provider['model'] = '' if change['model'] in ('', None) else model_id(change['model'])
+            if provider['preset'] == 'custom' and not provider['base_url']:
+                raise ValueError('A custom provider needs its base URL')
+            # Normalizes, and refuses a non-loopback URL unless the opt-in is on in this same settings.
+            parts = provider_url(self.provider(settings)['base_url'], provider['allow_remote'])
+            if provider['base_url']:
+                provider['base_url'] = parts['base']
+            if self.worker and self.worker.is_alive() and self.provider(settings) != self.provider():
+                raise BlockingIOError('Pause the local-model queue before changing the provider')
+            key_change = 'api_key' in change
+        if key_change:
+            self.save_api_key(patch['provider']['api_key'])
         self.ensure_dir()
         temp = self.settings_file.with_suffix('.tmp')
         temp.write_text(json.dumps(settings, indent=2) + '\n')
         os.replace(temp, self.settings_file)
+        self.cli_cache.clear()
         return settings
 
     # Server status and control -------------------------------------------
@@ -749,17 +1122,26 @@ class LocalModel:
         return value
 
     def server(self):
-        cli = self.cli.path
-        running, loaded, error = False, [], None
+        settings = self.settings()
+        provider = self.provider_view(settings)
         try:
-            ids = self.client.models()
+            client = self.client
+        except ValueError as exc:  # a hand-edited settings file naming a refused URL
+            return {'state': 'error', 'label': 'Refused', 'running': False, 'url': provider['base_url'], 'port': None,
+                    'cli': None, 'lms': False, 'loaded': [], 'available': [], 'available_error': None, 'control': None,
+                    'error': short(exc, 300), 'provider': provider}
+        lms = self.lms_enabled(client)
+        cli = self.cli.path if lms else None
+        running, loaded, served, error = False, [], [], None
+        try:
+            served = client.models()
             running = True
-            native = self.client.native_models()
+            native = client.native_models() if lms else None
             if native is not None:
                 loaded = [{'id': m['id'], 'type': m.get('type'), 'context_length': m.get('loaded_context_length') or m.get('max_context_length')}
                           for m in native if m.get('state') == 'loaded']
-            else:
-                loaded = [{'id': i} for i in ids]
+            elif lms:
+                loaded = [{'id': i} for i in served]
         except ServerGone:
             pass
         except (OSError, ValueError) as exc:
@@ -772,7 +1154,12 @@ class LocalModel:
                     match = next((row for ident, row in sizes.items() if same_model(ident, model['id']) or same_model(row['key'], model['id'])), None)
                     if match:
                         model['size_bytes'] = match.get('size_bytes')
-        available = self.cli_value('ls', self.cli.ls, 300) if cli else []
+        if lms:
+            available = self.cli_value('ls', self.cli.ls, 300) if cli else []
+        else:
+            # Other servers list what they serve on /v1/models; names say which embed (there is no type field).
+            available = [{'key': ident, 'type': 'embedding' if re.search(r'embed|bge|minilm|e5-', ident, re.I) else 'llm',
+                          'name': ident, 'size_bytes': None, 'params': None, 'format': None} for ident in served]
         with self.lock:
             control = dict(self.control) if self.control else None
             busy = bool(self.current)
@@ -781,25 +1168,31 @@ class LocalModel:
             model['loaded_by_reader'] = same_model(model['id'], reader_loaded)
         if control and control['state'] == 'running' and control['action'] == 'server-start':
             state, label = 'starting', 'Starting…'
-        elif not running and not cli:
+        elif lms and not running and not cli:
             state, label = 'not-installed', 'Not installed'
-        elif control and control['state'] == 'failed' and not running:
+        elif lms and control and control['state'] == 'failed' and not running:
             state, label = 'error', 'Error'
         elif error:
             state, label = 'error', 'Error'
         elif not running:
-            state, label = 'off', 'Server off'
+            state, label = 'off', 'Server off' if lms else 'Not reachable'
         elif busy:
             state, label = 'busy', 'Busy'
-        else:
+        elif lms:
             n = len(loaded)
             state, label = 'ready', f'Ready · {n} model{"" if n == 1 else "s"} loaded' if n else 'Ready · no model loaded'
-        return {'state': state, 'label': label, 'running': running, 'url': self.client.url, 'port': self.client.port,
-                'cli': cli, 'loaded': loaded, 'available': available if isinstance(available, list) else [],
+        else:
+            n = len(served)
+            state, label = 'ready', f'Ready · {n} model{"" if n == 1 else "s"}' if n else 'Ready · no models listed'
+        return {'state': state, 'label': label, 'running': running, 'url': client.url, 'port': client.port,
+                'cli': cli, 'lms': lms, 'loaded': loaded, 'available': available if isinstance(available, list) else [],
                 'available_error': available.get('error') if isinstance(available, dict) else None,
-                'control': control, 'error': error or (control or {}).get('error') if state == 'error' else None}
+                'control': control, 'error': error or (control or {}).get('error') if state == 'error' else None,
+                'provider': provider}
 
     def start_control(self, action, model=None):
+        if not self.lms_enabled():
+            raise ValueError(f'Reader controls only LM Studio on this machine; start {self.provider()["label"]} yourself')
         with self.lock:
             if self.control and self.control['state'] == 'running':
                 raise BlockingIOError(f'{self.control["label"]} is still running')
@@ -854,7 +1247,9 @@ class LocalModel:
         setting = self.settings()['tasks'][name]
         if not setting['enabled']:
             raise ValueError(f'{task.label} are turned off in the local-model settings')
-        model, version = setting['model'], task.version
+        model, version = setting['model'] or self.settings()['provider']['model'], task.version
+        if not model:
+            raise ValueError('Choose a model in the provider settings first')
         if scope == 'path':
             self.library.path(path)
             works = [w for w in self.library.works()[0] if w['primary'] == path] or [{'primary': path, 'title': Path(path).stem}]
@@ -999,7 +1394,10 @@ class LocalModel:
                     break
                 self.check_budget()
                 tasks = sorted({TASKS[i['task']].label for i in batch})
-                with self.gpu_lock(f'Reader local model: {", ".join(tasks)} ({len(batch)} items)', self.stopping.is_set):
+                # The workstation GPU lock covers servers on this machine; a remote provider uses no local GPU.
+                local = self.client.loopback
+                lock = self.gpu_lock(f'Reader local model: {", ".join(tasks)} ({len(batch)} items)', self.stopping.is_set) if local else nullcontext()
+                with lock:
                     self.ensure_model(batch[0]['model'])
                     for item in batch:
                         with self.lock:
@@ -1029,7 +1427,11 @@ class LocalModel:
             self.outputs_cache = None
 
     def ensure_model(self, model):
-        """Load the batch's model if nothing equivalent is loaded; Reader keeps at most one of its own."""
+        """Load the batch's model if nothing equivalent is loaded; Reader keeps at most one of its own.
+
+        Only for LM Studio; other servers load on request (Ollama) or serve one model (llama.cpp)."""
+        if not self.lms_enabled():
+            return
         try:
             native = self.client.native_models()
         except ServerGone:
@@ -1096,7 +1498,7 @@ class LocalModel:
         except Rejected as exc:
             item.update(state='rejected', error=short(exc))
         except ServerGone as exc:
-            item.update(state='failed', error='The LM Studio server stopped while this item ran')
+            item.update(state='failed', error=f'{self.client.name} stopped while this item ran')
             gone = exc
         except TimeoutError as exc:
             item.update(state='failed', error=short(exc))
@@ -1155,7 +1557,7 @@ class LocalModel:
         return result
 
     def brief(self):
-        """What the global toast watcher needs, without probing LM Studio."""
+        """What the global toast watcher needs, without probing the model server."""
         with self.lock:
             return {'running': bool(self.worker and self.worker.is_alive()),
                     'runs': [json.loads(json.dumps(r)) for r in self.runs],
@@ -1180,7 +1582,7 @@ class LocalModel:
             now = dict(self.current) if self.current else None
             brief = self.brief()
         return {'server': server, 'now': now, 'queue': queue, 'recent': recent, 'outputs': self.outputs(),
-                'settings': self.settings(), 'tasks': {name: {'label': t.label, 'noun': t.noun, 'prompt_version': t.version} for name, t in TASKS.items()},
+                'settings': self.settings(), 'provider': server['provider'], 'tasks': {name: {'label': t.label, 'noun': t.noun, 'prompt_version': t.version} for name, t in TASKS.items()},
                 'limits': {'queue': MAX_QUEUE, 'source_tokens': SOURCE_TOKENS, 'output_tokens': OUTPUT_TOKENS,
                            'item_seconds': ITEM_TIMEOUT, 'batch': BATCH, 'cache_bytes': CACHE_LIMIT},
                 'active': sorted(self.active)} | brief
