@@ -10,7 +10,7 @@ import {ButtonGroup} from './components/ui/button-group';
 import {Card, CardHeader, CardTitle, CardDescription, CardAction, CardContent, CardFooter} from './components/ui/card';
 import {plural} from './plural';
 
-export type Job={id:string;kind:string;label:string;quiet?:boolean;state:'running'|'succeeded'|'failed';started_at:string;finished_at:string|null;elapsed_seconds:number|null;result:Record<string,unknown>|null;error:string|null};
+export type Job={id:string;kind:string;label:string;quiet?:boolean;state:'running'|'succeeded'|'failed';started_at:string;finished_at:string|null;elapsed_seconds:number|null;result:Record<string,unknown>|null;error:string|null;progress?:string|null};
 export type Check={state:string;message?:string;checked_at:string;built_at?:string|null;[key:string]:unknown};
 export type MaintenanceStatus={running:Job|null;jobs:Job[];checks:Record<string,Check>;checking:boolean;kinds:Record<string,string>;local_model?:{running:boolean;runs:import('./local-model').Run[];labels:Record<string,string>}};
 
@@ -76,6 +76,7 @@ function summary(job:Job){
   if(job.kind==='links')return `${r.parsed} read · ${r.links} links · ${r.unresolved} unresolved`;
   if(job.kind==='remove-legacy-search')return `${Math.round(Number(r.freed_bytes)/1e6).toLocaleString()} MB freed`;
   if(job.kind==='check')return Object.entries(r).map(([k,v])=>`${k} ${v}`).join(' · ');
+  if(typeof r.message==='string')return r.message;
   return null;
 }
 
@@ -110,7 +111,7 @@ function Legacy({legacy,busy,onRemove}:{legacy:LegacyIndex;busy:boolean;onRemove
   </p>;
 }
 
-export function Backstage({status,onStart,settings,themeEditor,library,inbox,inboxFirst,editions,localModel,server}:{status:MaintenanceStatus|null;onStart:(kind:string)=>void;settings:ReactNode;themeEditor:()=>void;server?:ReactNode;library?:(element:HTMLElement)=>void;inbox:ReactNode;inboxFirst:boolean;editions?:ReactNode;localModel?:ReactNode}){
+export function Backstage({status,onStart,settings,themeEditor,library,inbox,inboxFirst,editions,localModel,server,companions}:{companions?:ReactNode;status:MaintenanceStatus|null;onStart:(kind:string)=>void;settings:ReactNode;themeEditor:()=>void;server?:ReactNode;library?:(element:HTMLElement)=>void;inbox:ReactNode;inboxFirst:boolean;editions?:ReactNode;localModel?:ReactNode}){
   const running=status?.running,busy=!!running||!!status?.checking,checkedAt=Object.values(status?.checks||{})[0]?.checked_at;
   const mail=<section className="backstage-section" id="backstage-inbox" aria-label="Inbox">{inbox}</section>;
   return <div className="backstage" id="backstage">
@@ -137,13 +138,14 @@ export function Backstage({status,onStart,settings,themeEditor,library,inbox,inb
       <Card size="sm" className="backstage-card"><CardHeader><CardTitle>Recent runs</CardTitle><CardDescription>This server’s jobs since it started. Toasts announce each start, finish and failure.</CardDescription></CardHeader>
         <CardContent>{status?.jobs.length||running?<ol className="backstage-jobs">{[...(running?[running]:[]),...status!.jobs].slice(0,10).map(job=><li key={job.id+job.state} data-job-state={job.state}>
           <span className="backstage-job-state">{job.state==='running'?<Loader2Icon className="size-3 animate-spin" aria-label="Running"/>:job.state==='succeeded'?'✓':'✕'}</span>
-          <span><strong>{job.label}</strong><small>{job.state==='running'?<>Started {when(job.started_at)}</>:<>{when(job.finished_at)} · {job.elapsed_seconds} s</>}</small>{job.state!=='running'&&summary(job)?<small className={job.state==='failed'?'backstage-error':''}>{summary(job)}</small>:null}</span></li>)}</ol>
+          <span><strong>{job.label}</strong><small>{job.state==='running'?<>Started {when(job.started_at)}{job.progress?<> · {job.progress}</>:null}</>:<>{when(job.finished_at)} · {job.elapsed_seconds} s</>}</small>{job.state!=='running'&&summary(job)?<small className={job.state==='failed'?'backstage-error':''}>{summary(job)}</small>:null}</span></li>)}</ol>
           :<p className="backstage-message">No runs yet.</p>}</CardContent></Card>
       {editions}
     </section>
     {/* The running service sits beside the indexes it serves. */}
     {server?<section className="backstage-section" id="backstage-server" aria-labelledby="server-title">
       <div className="backstage-section-head"><h2 id="server-title">Service</h2></div>{server}</section>:null}
+    {companions}
     {inboxFirst?null:mail}
     {localModel}
     {library?<section className="backstage-section backstage-library" id="backstage-library" aria-labelledby="library-title">

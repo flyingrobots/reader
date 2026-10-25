@@ -423,3 +423,16 @@ def test_logs_rotate_at_the_limit_and_the_cli_prints_json(world, tmp_path):
     env = os.environ.copy()
     result = subprocess.run([sys.executable, str(SCRIPT), 'status', '--json'], capture_output=True, text=True, env=env, timeout=30)
     assert result.returncode == 0 and json.loads(result.stdout) == {'installed': False}
+
+
+def test_install_and_update_work_without_git_locks(world, monkeypatch):
+    """git-locks is optional: Git changes then serialize on the service's own flock."""
+    monkeypatch.setenv('READER_SERVICE_GIT_LOCKS', 'none')
+    result = world.install()
+    assert result['installed'] and result['commit'] == GOOD
+    assert 'git_locks' not in world.service_state()['executables']
+    world.edit(branches={'preview/integration': NEWER})
+    assert world.run('update')['outcome'] == 'updated'
+    assert world.state['heads'][str(world.home / 'Library/Application Support/Reader/live')] == NEWER
+    assert world.calls('git-locks') == [] and any('checkout' in c for c in world.calls('git'))
+    assert (world.home / 'Library/Application Support/Reader/git.lock').is_file()

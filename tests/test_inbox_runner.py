@@ -46,8 +46,7 @@ def test_discovers_repository_store_from_installed_git_locks(tmp_path, monkeypat
     import reader_mcp.inbox_runner as runner
     store=tmp_path/'separate-store';store.mkdir()
     tool=tmp_path/'git-locks';tool.write_text('#!'+sys.executable+'\nimport json\nprint(json.dumps({"store":'+repr(str(store))+'}))\n');tool.chmod(0o755)
-    original=runner.shutil.which
-    monkeypatch.setattr(runner.shutil,'which',lambda name:str(tool) if name=='git-locks' else original(name))
+    monkeypatch.setenv('READER_GIT_LOCKS',str(tool))
     paths=sandbox_writable_paths(tmp_path)
     assert str(store) in paths
     assert str(tmp_path.parent) not in paths

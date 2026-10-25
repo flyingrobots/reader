@@ -14,6 +14,8 @@ import subprocess
 import tempfile
 from uuid import UUID, uuid4
 
+from .companions import repo_env
+
 MAX_CHATS = 5000
 MAX_MESSAGES = 2000
 MAX_FILE = 8 * 1024**2
@@ -33,10 +35,10 @@ def now():
     return datetime.now(timezone.utc).isoformat()
 
 
-def git_locks_tool():
-    candidates = [shutil.which('git-locks'), str(Path.home() / '.local/bin/git-locks'),
-                  '/opt/homebrew/bin/git-locks', '/usr/local/bin/git-locks']
-    return next((p for p in candidates if p and os.path.isfile(p) and os.access(p, os.X_OK)), None)
+def git_locks_tool(root=None):
+    """git-locks if installed (see companions.git_locks_candidates), else None: callers fall back to a flock."""
+    from .companions import find_git_locks
+    return find_git_locks(root=root)
 
 
 class Chats:
@@ -236,14 +238,15 @@ class Chats:
                       'if [ "$#" -gt 0 ]; then git add -A -f -- "$@" || exit 1; fi; '
                       'if git diff --cached --quiet -- "$chat" "$@"; then echo nothing-to-commit; else git commit -q -F "$note" -- "$chat" "$@"; fi')
             command = ['sh', '-c', script, 'reader-chat-commit', str(note), relative, *logs]
-            tool = git_locks if git_locks is not None else git_locks_tool()
+            tool = git_locks if git_locks is not None else git_locks_tool(self.root)
             if tool:
                 command = [tool, 'with', '--job', 'reader-chat-' + uuid4().hex, '--holder', holder, '--ttl', '300',
                            '--wait', '120', '--note', 'Reader chat commit', '.git/', '--'] + command
             # Cooperating Reader processes also serialize on one flock (the only lock without git-locks).
             with (self.runtime / 'chat-commit.lock').open('a') as lock:
                 fcntl.flock(lock, fcntl.LOCK_EX)
-                result = subprocess.run(command, cwd=self.root, capture_output=True, text=True, timeout=180)
+                # The .git/ key lives in the vault repository's default store, never GIT_LOCKS_STORE's host store.
+                result = subprocess.run(command, cwd=self.root, capture_output=True, text=True, timeout=180, env=repo_env())
         finally:
             note.unlink(missing_ok=True)
         if result.returncode:

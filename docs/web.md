@@ -159,8 +159,9 @@ before the table (`keys.intercept`).
 **VISUAL (`v`) and VISUAL LINE (`V`).** `v` places a reading cursor, an accent
 underline under one word, on the first sentence on screen, or where the cursor
 last was in this document if that is still on screen. `web_ui/cursor.mjs` keeps a
-text model of `#article` that skips margin pins, embeds, decorations, buttons,
-diagram drawings, MathML twins and closed folds; words and sentences come from
+text model of `#article` that skips margin pins, decorations (embed headers and
+notes included), buttons, diagram drawings, MathML twins and closed folds; the text
+of embedded documents is part of the model, so the cursor reads through embeds; words and sentences come from
 `Intl.Segmenter` within each block, so a heading is never part of the next
 sentence. The selection is the page selection, so it paints like a mouse
 selection and assistive technology reads it; the cursor is the `reader-cursor`
@@ -990,10 +991,12 @@ deletes the file. Changing the provider is refused while the queue runs.
 output for the same source hash, model and prompt version. Recent works come first.
 Queued items wait until you press **Run**. One worker thread in the web server runs
 one item at a time, in batches of up to ten items that share a model. It holds the
-workstation `host/gpu/` lock (git-locks store `/Users/Shared/git-locks/workstation.git`,
-lease 1,500 s, waiting up to 10 minutes) per batch against a loopback provider, so
-other GPU users interleave; a remote provider takes no lock. A store error fails
-closed. For LM Studio only, before a batch Reader loads the batch's model if nothing
+workstation `host/gpu/` git-locks key (lease 1,500 s, waiting up to 10 minutes) per
+batch against a loopback provider, so other GPU users interleave; a remote provider
+takes no lock. Without git-locks or a workstation store it holds `.reader/gpu.lock`
+instead, which coordinates only this Reader's processes; the card then says *GPU
+coordination: This Reader only* ([Companions](#behind-the-scenes-companions)). A
+configured store that is not a Git directory, or a store error, fails closed. For LM Studio only, before a batch Reader loads the batch's model if nothing
 equivalent is loaded, keeps at most one model it loaded itself, and unloads that one
 when the run ends. A model the user loaded stays loaded. If the server stops
 mid-item, the item fails, the queue pauses and the warning toast appears. When the
@@ -1067,6 +1070,115 @@ waiting notice while an inbox run or rebuild is active). **Restart** shows a toa
 until the server's start time changes. **Pause updates** / **Resume updates**
 toggle scheduled updates. Without an installed service the card says so and its
 buttons are disabled.
+
+### Behind the scenes: Companions
+
+Reader works without each of its companion projects. **Companions**, a section of
+Behind the scenes below Service, shows what each adds, whether it is present and how
+to set it up:
+
+| Companion | Adds | Setup from Reader |
+| --- | --- | --- |
+| [AI-TTS](https://github.com/flyingrobots/AI-TTS) | Read aloud (Space s) | Guided: its README commands with **Copy**; **Start…** when installed but its daemon is not answering |
+| [Colorful Language](https://github.com/flyingrobots/colorful-language) | Prose colors (Space c) | **Install** / **Update**: builds the pinned 0.4.0 release (`61d0aa8`) |
+| [wide-md](https://github.com/flyingrobots/wide-md) | Reading copies (`reader reading-copy`) | **Install** / **Reinstall**: runs `scripts/install_wide_md.py` |
+| [git-locks](https://github.com/git-stunts/locks) | Coordination with other tools on this Mac | Guided: its README commands with **Copy** |
+
+Each card shows a state (*Installed*, *Not found*, *Too old* or *Needs reinstall*,
+*Daemon not running*, *Error*), the version, path and how it was found, its repository,
+and the actions **Check again** and, for Colorful and git-locks, **Set path**. A card
+whose install needs something missing says so: without `cargo` the Colorful and wide-md
+cards explain how to get Rust (rustup.rs) instead of offering Install. An *Agents and
+models* card lists the `claude`, `codex` and `agy` command lines (found path or *Not
+found*, and the voices that use each; status only, since they need your own account)
+and the current **GPU coordination** (below).
+
+**The not-installed prompt.** A feature whose companion is missing never fails
+silently and never shows an error toast for it. Space s (and the footer and selection
+**Speak** buttons) without a running AI-TTS daemon, and Space c without a usable
+Colorful, show one calm toast that names the feature and the companion, says what it
+adds and links its repository, with **Install** where Reader can install it safely
+(Colorful), **Start…** for an installed but stopped AI-TTS, otherwise **How to install**
+(which opens its card with the commands showing), and **Don't show again**. Dismissal
+is per companion in the browser (`localStorage` `reader.companions.dismissed.v1`);
+afterwards the feature still says what is missing in one line.
+
+**Installs.** Install, Update and Start run as maintenance jobs (one at a time; another
+job or install is refused with 429), announced with a loading toast that follows each
+step and a finished or failed toast, listed in Recent runs, with the log under the card
+(**Install log**, the last 16 KiB of a log capped at 1 MiB in
+`.reader/tooling/logs/<name>.log`). In the card, Install and Start first list what
+will change; nothing uses sudo, and the sources are pinned constants: no request
+names a URL or revision.
+
+- *Colorful Language* clones `https://github.com/flyingrobots/colorful-language` into
+  `<vault>/.reader/tooling/colorful-language` (or fetches an existing clone, refusing
+  one with another origin or local edits), checks out the pinned commit and verifies
+  `HEAD`, then runs `cargo build --locked --release -p colorful-cli --jobs 2` with
+  `CARGO_TARGET_DIR=.reader/tooling/colorful-target` and `CARGO_INCREMENTAL=0`. The
+  binary is copied to `.reader/tooling/bin/colorful`, must report 0.3.0 or newer, and
+  its path is recorded in `.reader/companions.json`; `.reader/tooling/colorful.json`
+  keeps the revision and SHA-256. Clone and fetch time out after 10 minutes, the build
+  after 35. **Update** appears when the Reader-built copy is at another revision.
+- *wide-md* runs `python scripts/install_wide_md.py` with `READER_ROOT` set to the
+  vault (15-minute timeout); the script keeps its own pinned revision, lock, disk,
+  memory and time limits ([reading copies](reading-copies.md)).
+- *AI-TTS* is never installed by Reader: its installer builds a signed app and
+  registers launch agents. When its CLI or launch agent
+  (`~/Library/LaunchAgents/com.flyingrobots.ai-tts.plist`) is present but the socket
+  does not answer, **Start…** runs `launchctl bootstrap gui/<uid> <plist>` (or
+  `launchctl kickstart gui/<uid>/com.flyingrobots.ai-tts` when already loaded) and
+  waits up to 20 s for the daemon.
+- Rust builds take the workstation `host/heavy-work` key (`git-locks with`, lease
+  2,400 s, waiting up to 10 minutes) when git-locks and a workstation store are present.
+- An install needs 5 GiB of free disk and the tooling folder's `setup.lock`, shared
+  with `install_wide_md.py`; each step runs with explicit argv in its own process group,
+  killed at its timeout.
+
+**Set path** accepts an absolute path: for Colorful, an executable reporting 0.3.0 or
+newer; for git-locks, the `git-locks` executable or a store (a Git directory ending in
+`.git`). An empty path clears the setting. Paths are stored in `.reader/companions.json`
+and only a browser on this Mac (a local request) may set them, since the server runs
+the executable; allowed tailnet logins may check, install and start.
+
+**Finding companions.** Colorful: `READER_COLORFUL`, the path set here, Reader's own
+build, `PATH`, `~/.cargo/bin` and `~/.colorful-language/bin`. git-locks:
+`READER_GIT_LOCKS` (a path, or `none` to hide it), the path set here, `PATH`, then
+`~/.local/bin`, `/opt/homebrew/bin` and `/usr/local/bin`;
+`READER_GIT_LOCKS_CANDIDATES` (folders separated by `:`, may be empty) replaces those
+three folders. AI-TTS: its socket (`AI_TTS_SOCKET`, `AI_TTS_HOME` or
+`~/Library/Application Support/ai-tts/ai-tts.sock`), the `ai-tts` CLI on `PATH` or in
+`~/.local/bin`, and its launch agent. `cargo` and `git` come from `PATH`
+(`~/.cargo/bin/cargo` and `/usr/bin/git` as fallbacks).
+
+**Without git-locks.** Reader keeps working; it then coordinates only its own processes:
+
+| Caller | With git-locks | Without |
+| --- | --- | --- |
+| Chat and scratch pad commits | `git locks with … .git/` in the vault repository's default store | `.reader/chat-commit.lock` flock |
+| Local model batches (loopback provider) | `host/gpu/` in the workstation store | `.reader/gpu.lock` flock (*GPU coordination: This Reader only*) |
+| Companion Rust builds | `host/heavy-work` in the workstation store | No host lock |
+| Inbox runner sandbox paths | Adds the store `git-locks store` reports | Git metadata only |
+| `scripts/reader_service.py` Git changes | `.git/` key | `~/Library/Application Support/Reader/git.lock` flock |
+
+The workstation store for host keys is, in order, `READER_GIT_LOCKS_STORE`, the store set
+here and `GIT_LOCKS_STORE`; there is no built-in default.
+A store that is chosen explicitly but is not a Git directory, or a git-locks store
+error, fails closed (the batch or build stops with the reason); a missing git-locks or
+no store at all falls back. Repository `.git/` keys never use `GIT_LOCKS_STORE`: it is
+removed from their environment, because it names the host store.
+
+**Routes.** `GET /api/companions` (optional `?name=ai-tts|colorful|wide-md|git-locks`)
+returns `{companions: [{name, title, repo, feature, keys, enables, state, label,
+version, path, origin, message, actions, install, start, guide, facts, job,
+coordination}], cli, local_model, checked_at}`. `GET /api/companions/log?name=` returns
+the log tail. `POST /api/companions` takes exactly `{"action": "check" | "install" |
+"update" | "start" | "set-path", "name": ..., "path"?}`; install, update and start
+return the maintenance job, which `GET /api/maintenance` then reports with a
+`progress` line. `POST /api/maintenance` refuses the companion job kinds
+(`install-colorful`, `update-colorful`, `install-wide-md`, `update-wide-md`,
+`start-ai-tts`). All POSTs need the same-origin `X-Reader-Token`; a companion job does
+not re-run the index freshness check.
 
 ### Read next
 
@@ -1174,8 +1286,9 @@ speech stay in force.
   PDF, and the character at the reading line for plain text.
 - **Feedback.** A toast reports *Queued for AI-TTS.* with the utterance id, or
   *…it plays when the pause ends.* when AI-TTS reports a playback hold
-  (submission is accepted during a hold). *AI-TTS isn't running* explains a
-  missing, refusing or silent daemon; a daemon refusal shows its own message.
+  (submission is accepted during a hold). A missing or silent daemon shows the
+  [not-installed prompt](#behind-the-scenes-companions) (*Read aloud needs AI-TTS* or
+  *AI-TTS isn't running*, with setup); a daemon refusal shows its own message.
 - **Now playing.** The status line shows a speaker glyph and *Queued*, *Queued ·
   held*, *Preparing speech*, *Speaking · 3 of 41* or *Paused · …* with
   pause/resume, previous/next segment and skip. It polls the daemon every two
@@ -1211,7 +1324,9 @@ browser after a document renders; it needs no server route.
 
 - **Markdown entries:** `h1`–`h6` elements that carry `data-source-start`. Headings
   inside embedded documents (`.document-embed`) and the generated title placeholder
-  (used only when the source has no H1) are excluded. At most 500 headings are
+  (used only when the source has no H1) are excluded: the outline is the open
+  document's own structure, and each embed's header links to its source instead
+  (see [Embeds](#embeds)). At most 500 headings are
   listed. H4–H6 are shown when the outline has at most 150 entries; beyond that
   only H1–H3 are shown, behind **Show all levels**.
 - **Heading ids:** each heading without an id gets a GitHub-style slug (lowercase,
@@ -1808,8 +1923,9 @@ and, for a voice, `Reader-Voice: <voice>`, plus one `Reader-Log: chat/<turn-id>`
 `Reader-Log: listen/<turn-id>` per archived run. Listening-check logs ride along with
 the chat's next commit rather than adding commits of their own. The vault's configured Git user is the
 author. Commits run `git add` and `git commit -- chats/<id>.json` inside `git locks
-with … .git/` from the vault root when git-locks is installed, or under
-`.reader/chat-commit.lock` otherwise. Chat commits wait while a voice's turn runs and land
+with … .git/` from the vault root (in the vault repository's default store, never
+`GIT_LOCKS_STORE`) when git-locks is installed, or under `.reader/chat-commit.lock`
+otherwise. Chat commits wait while a voice's turn runs and land
 before the next turn starts, so they never interleave with a voice's own Git
 operations, and they are never counted as the voice's commits. A vault that is not
 a Git repository keeps its chats uncommitted. A failed commit raises a toast and a note in the panel. Voices'
@@ -1870,9 +1986,10 @@ function words, names, numbers and quotes.
 **What is colored.** Paragraphs, list items, blockquotes, headings, table cells,
 definition lists and captions of Markdown documents, and PDF text layers. Code
 blocks, inline code, keyboard and sample text, math (`.katex`, MathJax, `<math>`),
-diagrams (`svg`, `.mermaid`, the Diagram source disclosure), embedded documents and
-every `[data-reader-decoration]` element (kicker, byline, Read next) stay
-uncolored. Plain-text and image documents are not colored.
+diagrams (`svg`, `.mermaid`, the Diagram source disclosure) and every
+`[data-reader-decoration]` element (kicker, byline, Read next, embed headers and
+notes) stay uncolored. Embedded documents are colored like the text around them,
+including embeds that load after the document (`rescan()`). Plain-text and image documents are not colored.
 
 **How it paints.** The DOM is never changed. Each prose block is projected like
 find (whitespace runs become one space, excluded content is skipped) and sent to
@@ -1929,21 +2046,16 @@ for content words, 4.5:1 for every colored role), Vivid's closest pair of roles 
 themes.
 
 **Finding Colorful.** The server uses, in order: `READER_COLORFUL` (a path to the
-binary), `colorful` on `PATH`, `~/.cargo/bin/colorful`, and
-`~/.colorful-language/bin/colorful` (Colorful's `scripts/install-local.sh`). It
-runs `colorful --version` once per binary identity (path, inode, mtime, size) and
-requires 0.3.0 or newer. The path is not settable from the browser: a page would
-otherwise choose an executable for the server to run. To install, in your
-[Colorful Language](https://github.com/flyingrobots/colorful-language) clone:
+binary), the path set in Behind the scenes, Companions (`.reader/companions.json`),
+the copy Reader built (`.reader/tooling/bin/colorful`), `colorful` on `PATH`,
+`~/.cargo/bin/colorful`, and `~/.colorful-language/bin/colorful` (Colorful's
+`scripts/install-local.sh`). It runs `colorful --version` once per binary identity
+(path, inode, mtime, size) and requires 0.3.0 or newer. **Install** in
+[Companions](#behind-the-scenes-companions) builds the pinned release; by hand, in a
+clone: `cargo install --path crates/colorful-cli --locked`.
 
-```sh
-cd colorful-language && cargo build --release --locked -p colorful-cli
-READER_COLORFUL="$PWD/target/release/colorful" reader web
-# or install it for every tool: cargo install --path crates/colorful-cli --locked
-```
-
-Without a usable binary, Space c shows a toast that names the problem and that
-`cargo install` command. The page renders normally.
+Without a usable binary, Space c shows the [not-installed
+prompt](#behind-the-scenes-companions) with Install. The page renders normally.
 
 **Server route.** `GET /api/prose` reports discovery: `available`, `version`,
 `path`, `origin` and a `message` when unavailable. `POST /api/prose` takes exactly
@@ -1982,8 +2094,8 @@ the Colorful version and binary path (the vocabulary hash is pinned), up to abou
 
 **Limits.** Colorful's open-class seed lexicon is small, so nouns, verbs,
 adjectives and adverbs appear only for listed words and its contextual patterns.
-A token across a segment separator, a block over 128 KiB, embedded-document
-content and text after the 4 MiB edition budget stay uncolored. Colorful's lint
+A token across a segment separator, a block over 128 KiB and text after the
+4 MiB edition budget stay uncolored. Colorful's lint
 diagnostics are not shown.
 
 ### Reading queue and history
@@ -2313,6 +2425,109 @@ while it is closed, so its margin pins are hidden until it opens; opening or
 closing re-measures the layout and pins. Custom callout CSS types, callout
 metadata (`[!type|meta]`) and Obsidian's custom per-type colors are not supported.
 
+### Embeds
+
+Obsidian embeds render in place, live, as the embedded document's own text:
+
+```markdown
+![[Note]]                   the whole note (after its frontmatter)
+![[folder/Note.md#Heading]] a section: the heading to the next heading of the same or a higher level
+![[Note#Part#Detail]]       a heading inside another heading's section
+![[Note#^block-id]]         the block that ends with ` ^block-id`
+![[#Heading]]               a section of this document
+![[Note|Shown name]]        an alias, shown in the embed's header
+![[picture.png|300]]        an image, 300 px wide (`|300x200` sets both sides)
+![[paper.pdf#page=3]]       one PDF page (page 1 without `#page=`)
+```
+
+**Resolution** is the link resolver's (`links.Resolver`, the same one a click and
+the link graph use): a path relative to the embedding document, a `library/…` or
+`/…` path from the vault root, the path with `.md` appended, or a unique basename
+or path suffix. An ambiguous name (two `twin.md`) is not guessed; write a longer
+path. A name without a known file extension is a note, so `![[v1.2 notes]]` is
+`v1.2 notes.md`.
+
+**Fragments** follow Obsidian. Headings match by text (case and spacing ignored)
+or by slug, ATX and setext headings both; `#` lines inside code are not headings
+and never end a section. A block id names a paragraph, a list item with its child
+items, a quote or callout, or, on a line of its own, the block just above it (a
+table, a list). Block ids are hidden in rendered text, embedded or not. A fragment
+that matches nothing shows a note.
+
+**What an embed looks like.** A paragraph of nothing but embeds becomes the embeds
+themselves (`<div class="document-embed">`); an embed inside a sentence is a
+`<span class="document-embed">` shown as a block. Each has a small header, *from
+<title or alias> · <fragment> ↗*, that opens the embedded document at that
+section (or the PDF at that page). The header and every note are
+`data-reader-decoration`, so find, selection, annotation and prose colors skip
+them. Images are ordinary `<img class="embed-image">` elements with the requested
+size. A PDF page is drawn into a static canvas a viewport before it scrolls into
+view (at most 12 PDF embeds per document; the rest show their header only).
+
+**Notes in place of an embed** say why nothing is shown: no document matches;
+more than one document matches; the document embeds itself (a cycle, shown once);
+embedded more than 4 levels deep; too large to embed (over 512,000 characters);
+nothing matches the section; this kind of file can't be embedded (audio, video,
+CSV and other non-Markdown files); only the first 200 embeds in a document are
+shown.
+
+**Never an embed:** `![[…]]` inside fenced, indented or inline code, inside an
+HTML comment, or after a backslash (`\![[note]]` is a `!` and a wikilink).
+`[[…]]` wikilinks are markdown-it inline rules too, so code keeps them literally.
+
+**Annotations.** Each embedded fragment renders with the embedded file's own
+source offsets (`data-source-start`/`end` in its code points) inside
+`.embedded-content[data-source-path]`. A highlight, comment or warning made inside
+an embed is stored on the embedded file, at its own offsets, and appears when that
+file is opened directly. The open document's margins also show the embedded
+files' threads that fall inside the embedded fragments (each thread once; margins
+of at most 24 embedded files, four requests at a time), and the thread list marks
+them *in <title>*. A selection that crosses an embed's edge cannot be anchored and
+says so. Links and images inside an embed resolve from the embedded file, so
+relative links keep working wherever the note is embedded.
+
+**Find, the cursor, outline, two-page mode.** Find (`/`) searches embedded text
+that has loaded. The reading cursor and VISUAL read through embeds. Embedded
+headings are not in the outline. In two-page mode embeds flow through the columns,
+every deferred embed loads in the background (there is no scroll position to wait
+for), and the page-turn rasterizer paints them like any other text, images and
+canvases. Send to AI-TTS speaks the open document's own text, without its embeds.
+
+**Loading.** The document's first 16 embeds resolve in one `/api/embeds` request,
+which returns their nested embeds too (the server tree), before first paint. Later
+embeds show *Embedded document · loads as you read* and load 16 at a time as they
+come within 1,200 px of the viewport (an `IntersectionObserver`), so nothing is
+silently dropped. A nested embed the server did not resolve (over its budget, or
+a markdown-it/scanner disagreement) is requested the same way.
+
+**`GET /api/embeds`** `?from=<path>&target=<inner text>…&ancestor=<path#fragment>…&depth=<n>`
+returns `{documents, nodes, limits}`. `documents` maps each embedded Markdown path
+to `{text, sha256, title}` once per response; each node carries `raw`, `target`,
+`fragment`, `alias`, `kind` (`markdown`, `image`, `pdf`, `audio`, `video`,
+`other`), `width`, `height`, `page`, `status` (`ok`, `missing`, `ambiguous`,
+`cycle`, `depth`, `too-large`, `no-fragment`, `unsupported`, `deferred`, `error`),
+and when resolved `path`, `title`, the fragment's code point range `start`/`end`
+in `documents[path].text`, and `children` (its nested embeds, in order). Limits:
+64 targets per request, 4 levels below the open document, 256 nodes and 8,000,000
+characters of document text per response (later nodes are `deferred`), 512,000
+characters per embedded file. `ancestor` keys (at most 5) detect cycles across
+requests. Decoded files are cached by path and SHA-256 (64 entries). The route is
+read-only and uses the library's path validation; `from` may be an inbox preview,
+targets resolve in `library/`.
+
+**Conformance corpus.** `tests/fixtures/transclusion/corpus.json` holds synthetic
+files and the expected parse, scan, fragment and tree results; `tests/test_embeds.py`
+(Python, `src/reader_mcp/embeds.py`) and `tests/embeds.test.mjs` (markdown-it,
+`web_ui/embeds.mjs`) both run it, so the server scanner and the renderer agree on
+which `![[` are embeds. The browser behavior is `tests/web_transclusion.cjs`
+(fixture `tests/web_fixture.py --transclusion`), which also opens a 50-embed
+document and prints its timings.
+
+Not supported: audio and video players, `.canvas` files, Obsidian's
+`![[note#heading|alias]]` display variants beyond the header caption, embed
+search queries (```` ```query ````), and editing embedded text in place. The
+scratch pad preview has no file to resolve from, so its embeds show a note.
+
 ### Document controls
 
 The footer's shadcn **Switch** is labelled **Dark mode**. Checked means dark;
@@ -2528,17 +2743,15 @@ failure after first paint also keeps the article and toasts quietly. Only a fail
 to load the document itself (or its historical version) replaces the page with
 "Document unavailable".
 
-Markdown is sanitized before display. Local images and limited Obsidian embeds
-are supported; external images do not load automatically. Nested embeds are
-limited to one level, eight direct embeds and 128,000 text characters each.
-Embedded-source passages are not annotatable from the parent document. Mermaid
-blocks are drawn as diagrams and TeX is typeset (see below).
+Markdown is sanitized before display. Local images and Obsidian embeds (see
+[Embeds](#embeds)) are supported; external images do not load automatically.
+Mermaid blocks are drawn as diagrams and TeX is typeset (see below).
 
 Rendering scales linearly with document size. Block source coordinates come from
-one code-point index built per render (a binary search per block), local image and
-embed targets resolve through `/api/resolve-batch` (at most 64 targets and about
-12 KB of query per request, two requests at a time), and the first eight embeds load
-together and then render in source order. The source projection that annotation
+one code-point index built per render (a binary search per block), local image
+targets resolve through `/api/resolve-batch` (at most 64 targets and about
+12 KB of query per request, two requests at a time), and embeds resolve through
+`/api/embeds` (one request for the first 16 and their nested embeds). The source projection that annotation
 painting and passage selection use is built on first need, not before display.
 Image loads trigger at most one scroll/pin reflow per animation frame. Mermaid diagrams are drawn after first paint (see Diagrams below); TeX is still
 typeset before first paint. A document is
@@ -2842,7 +3055,9 @@ Defaults: the repo is the checkout's common Git repository (the main
 or `REPO/.reader/config.json`, the live worktree the existing install recorded
 (else `~/Library/Application Support/Reader/live`, outside any checkout), the
 source `preview/integration` and the port 8766. Executable paths (launchctl,
-tailscale, git, git-locks) are resolved at install and recorded;
+tailscale, git, git-locks) are resolved at install and recorded; tailscale and
+git-locks are optional, and without git-locks the script's Git changes serialize on
+`~/Library/Application Support/Reader/git.lock` (`READER_SERVICE_GIT_LOCKS=none` hides it);
 `READER_SERVICE_LAUNCHCTL`, `READER_SERVICE_TAILSCALE`, `READER_SERVICE_GIT` and
 `READER_SERVICE_GIT_LOCKS` override them (the tests use fakes).
 
@@ -3089,7 +3304,21 @@ READER_PLAYWRIGHT=/absolute/path/to/playwright-core \
 READER_CHROME=/path/to/chrome node tests/web_find_cap.cjs
 READER_PLAYWRIGHT=/absolute/path/to/playwright-core \
 READER_CHROME=/path/to/chrome node tests/web_spread_pins.cjs
+.venv/bin/python -m pytest -q tests/test_companions.py
+READER_PLAYWRIGHT=/absolute/path/to/playwright-core \
+READER_CHROME=/path/to/chrome node tests/web_companions.cjs
 ```
+
+`tests/test_companions.py` and `web_companions.cjs` use `tests/fake_toolchain.py`:
+fake `git`, `cargo`, `git-locks` and `launchctl` that record their argv. The fake
+`cargo build` writes a `colorful` that runs `fake_colorful.py`, so prose colors work
+after a fake install; nothing is cloned, built or started, and AI-TTS and launchd are
+never touched. Every case runs with git-locks hidden (`PATH=/usr/bin:/bin`,
+`READER_GIT_LOCKS_CANDIDATES=` and no store), covering chat, voice-turn and scratch pad
+commits, the inbox runner's sandbox paths, the GPU lock and a local-model batch. The
+browser fixture's `--no-git-locks` does the same for the server, and `--companions`
+supplies the fake tools, a missing Colorful and a stand-in `install_wide_md.py`;
+`web_companions.cjs` runs both with `--chat --writing --local-model`.
 
 `tests/test_prose.py` and `web_prose.cjs` use `tests/fake_colorful.py`, a small
 stand-in that emits `colorful.syntax/v1` artifacts from fixed word lists and has

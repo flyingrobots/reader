@@ -48,6 +48,10 @@ out. Continuous and facing-page
 layouts share automatic participant-specific, source-version-bound bookmarks.
 Obsidian callouts (types, aliases, titles, folding and nesting) render as
 annotatable asides.
+Obsidian embeds render live in place: whole notes, heading sections (`#A#B` nested),
+block references (`#^id`), aliases, sized images, PDF pages, nested embeds to four
+levels with cycle notes, and later embeds loading as you read. Annotations made in an
+embed belong to the embedded file. Embeds in code stay text. See [Embeds](web.md#embeds).
 Document URLs can carry a heading, so links to sections survive reload and sharing.
 The window splits into up to four panes (`Ctrl-w v` / `s`, `Space W`, or `:vsplit` / `:split [doc]`), side by side or stacked, each a full reader with its own place, receipts and highlights; panes are same-origin iframes of the app in embedded mode, the layout survives reload in `#split=`, linked panes (`:set scrollbind` or the divider button) scroll together (across version hunks for two versions), and the Versions panel can compare two versions side by side. Splitting is refused below 700px.
 A scratch pad (`Space w`, `#scratch=<id>`) edits Markdown with Vim keys (`Ctrl-r a` pastes a Reader register as a cited quote; `:enew` and `:e scratch` work from the page command line) beside a live preview from the document renderer; drafts stay in the browser (IndexedDB) until "Save to vault" writes one `library/notebook/YYYY-MM-DD-<slug>.md` (never overwriting; revisions as `.vN.md`) and commits only that file. It does not file pieces into collection indexes.
@@ -214,7 +218,7 @@ as vLLM, LocalAI or Jan, chosen by preset or base URL, with models discovered th
 logged. For LM Studio only, it starts and stops the
 loopback server and loads and unloads models through the `lms` CLI; other servers
 are started by the user, and the page says how. It runs a queue of
-standfirst and key-term tasks one item at a time under the workstation GPU lock (for loopback providers),
+standfirst and key-term tasks one item at a time under the workstation GPU lock (for loopback providers; without git-locks, a lock that coordinates only Reader's own processes),
 with a streaming preview, per-run toasts, a recent-items log with rejection reasons,
 and counts of current and stale outputs. Outputs are checked deterministically
 against the source, cached by source hash, model and prompt version in
@@ -228,7 +232,7 @@ local-model worker does not write to the LLM log archive.
 
 **Space c** highlights the grammar of Markdown prose and PDF text with the optional
 local [Colorful Language](https://github.com/flyingrobots/colorful-language) CLI
-(0.3.0 or newer, found through `READER_COLORFUL`, `PATH` or `~/.cargo/bin`). Three
+(0.3.0 or newer, found through `READER_COLORFUL`, a path set in Behind the scenes, Reader's own build, `PATH` or `~/.cargo/bin`). Three
 intensities: Subtle fades function words a little; Clear (the default) recedes function
 words and punctuation to about 3:1 while content words hold 7:1 and names, numbers and
 quotes take their own hues; Vivid gives every role a distinct saturated hue, underlines
@@ -237,6 +241,21 @@ text, derived per theme (colored roles at 4.5:1 on the page), and the page turn 
 stay uncolored. Every Colorful artifact passes a port of its reference admission
 checks before use. Open-class roles cover only Colorful's small seed lexicon, plain
 text is not colored, and its lint diagnostics are not shown.
+
+**Companions** in Behind the scenes reports the optional companion projects (AI-TTS,
+Colorful Language, wide-md, git-locks) with their state, version and path, what each
+adds and its repository, plus the `claude`, `codex` and `agy` command lines (status
+only) and how GPU use is coordinated. A feature whose companion is missing (Space s,
+Space c) shows a non-blocking prompt with setup and a per-feature Don't show again,
+instead of an error. Reader can build the pinned Colorful Language release and wide-md
+into the vault's `.reader/tooling` as background jobs with progress, toasts, bounded
+logs and timeouts (Rust builds take `host/heavy-work` when git-locks is present), and
+can start an installed AI-TTS daemon through its launch agent after confirmation.
+AI-TTS and git-locks are not installed by Reader: their cards show the documented
+commands with Copy. It never uses sudo or a user-supplied source; paths to an
+executable can be set only from a browser on the Mac itself. Without git-locks, chat
+and scratch pad commits, the local model's GPU lock, the inbox runner and the service
+script fall back to locks that coordinate only Reader's own processes.
 
 The reading queue (Space r) is a per-participant play queue in the side panel.
 **Up next** shows Now reading, the documents you queued (in your order, reorderable)

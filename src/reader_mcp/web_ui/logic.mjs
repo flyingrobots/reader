@@ -55,6 +55,9 @@ export function projectSource(raw) {
   rewrite(/^\s*```[^\n]*$/dgm);
   rewrite(/!\[[^\]]*\]\([^\n)]*\)/dg);
   rewrite(/!\[\[[^\]]+\]\]/dg);
+  // Obsidian block ids (` ^id` ending a block, or a line of its own) are hidden when rendered.
+  rewrite(/[ \t]+\^[A-Za-z0-9-]{1,64}(?=[ \t]*$)/dgm);
+  rewrite(/^\^[A-Za-z0-9-]{1,64}[ \t]*$/dgm);
   rewrite(/\[([^\]]+)\]\([^\n)]*\)/dg, 1);
   rewrite(/\[\[([^\]|]+)(?:\|([^\]]+))?\]\]/dg, null, m => m[2] || m[1]);
   rewrite(/<(https?:[^>]+)>/dg, 1);
@@ -187,11 +190,14 @@ export function formatDateTime(value,timeZone){
 }
 /** GitHub-style heading slugs of rendered heading text; links.py computes the same from source. */
 export const headingSlug = text => normalize(text).toLowerCase().replace(/[^\p{L}\p{N}_\- ]/gu, '').replace(/ /g, '-');
+/** The embedded document an element belongs to (its nearest `.embedded-content`), or null for the open document. */
+export const scopeOf = element => element?.closest?.('.embedded-content') || null;
 /** Give each heading of a rendered document a slug, numbering repeats in document order. */
 export function slugHeadings(root) {
   const seen = new Map();
+  const scope = scopeOf(root);
   for (const heading of root.querySelectorAll('h1,h2,h3,h4,h5,h6')) {
-    if (heading.closest('.document-embed')) continue;
+    if (scopeOf(heading) !== scope) continue;
     const base = headingSlug(heading.textContent), count = seen.get(base) || 0;
     seen.set(base, count + 1); heading.dataset.headingSlug = count ? base + '-' + count : base;
   }
@@ -200,7 +206,7 @@ export function slugHeadings(root) {
 export function findFragment(root, fragment) {
   if (!root || !fragment) return null;
   let raw = fragment; try { raw = decodeURIComponent(fragment); } catch {}
-  const own = element => !element.closest('.document-embed');
+  const scope = scopeOf(root), own = element => scopeOf(element) === scope;
   const wanted = headingSlug(raw);
   return [...root.querySelectorAll('[id]')].find(element => element.id === raw && own(element))
     || [...root.querySelectorAll('[data-heading-slug]')].find(element => own(element) && (element.dataset.headingSlug === raw || element.dataset.headingSlug === wanted)) || null;

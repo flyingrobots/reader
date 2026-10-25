@@ -105,7 +105,7 @@ def test_missing_binary_and_version_floor_messages(tmp_path):
     empty = tmp_path / 'empty'
     empty.mkdir()
     status = Prose(environ={'PATH': str(empty), 'HOME': str(tmp_path)}).status()
-    assert status['available'] is False and status['message'].startswith("Colorful Language isn't installed. Build it once: `cargo install --path ~/git/colorful-language/crates/colorful-cli --locked`")
+    assert status['available'] is False and status['message'].startswith("Colorful Language isn't installed. Install it from Behind the scenes, Companions")
     with pytest.raises(ProseUnavailable, match="isn't installed"):
         Prose(environ={'PATH': str(empty), 'HOME': str(tmp_path)}).colorize(DOC, [{'id': 'p', 'text': 'the library'}])
     assert 'does not exist' in Prose(environ={'READER_COLORFUL': str(tmp_path / 'nope')}).status()['message']

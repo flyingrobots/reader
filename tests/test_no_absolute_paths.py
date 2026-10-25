@@ -38,12 +38,6 @@ ALLOWED = {
         'synthetic home folder of a fictional fixture user in a recorded Codex transcript',
     ('tests/test_static_demo.py', '/home/someone/'):
         'synthetic absolute path the static export must refuse or strip (the test proves scrubbing)',
-    # TODO(#95): the companion-handling work replaces these with configurable or relative forms.
-    ('src/reader_mcp/local_model.py', '/Users/Shared/git-locks/workstation.git'): '#95: fixed workstation git-locks store path, pending configuration',
-    ('tests/test_inbox_view.py', '/Users/Shared/git-locks/workstation.git'): '#95: test passes the fixed workstation git-locks store path',
-    ('docs/web.md', '/Users/Shared/git-locks/workstation.git'): '#95: local-model paragraph documents the fixed workstation git-locks store',
-    ('src/reader_mcp/prose.py', '~/git/colorful-language/crates/colorful-cli'): '#95: Colorful Language install message names a clone location',
-    ('tests/test_prose.py', '~/git/colorful-language/crates/colorful-cli'): '#95: asserts the Colorful Language install message',
 }
 
 

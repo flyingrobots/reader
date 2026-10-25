@@ -31,7 +31,7 @@ MAX_SEGMENTS = 2000
 MAX_OUTPUT = 16 * 1024**2
 TIMEOUT = 10
 SEPARATOR = '\n\n'
-INSTALL = 'cargo install --path ~/git/colorful-language/crates/colorful-cli --locked'
+INSTALL = 'cargo install --path crates/colorful-cli --locked'  # in a colorful-language checkout
 ROLES = ('function', 'proper', 'quote', 'number', 'punct', 'noun', 'verb', 'adjective', 'adverb')
 TOKEN_KINDS = {'WORD', 'NUMBER', 'PUNCTUATION', 'QUOTE'}
 LEXICAL = {'FUNCTION', 'CONTENT', 'PROPER_NOUN_CANDIDATE'}
@@ -298,6 +298,13 @@ class Prose:
         self.cache_bytes = 0
         self.budgets = OrderedDict()
         self.probe = None
+        # Set by the web library: [(origin, path)] from Settings and Reader's tooling folder, tried first.
+        self.configured = lambda: []
+
+    def forget(self):
+        """Probe again on the next status (after an install or a path change)."""
+        with self.lock:
+            self.probe = None
 
     def candidates(self):
         configured = self.binary or self.environ.get('READER_COLORFUL')
@@ -305,7 +312,8 @@ class Prose:
             return [('READER_COLORFUL', Path(configured).expanduser())]
         found = shutil.which('colorful', path=self.environ.get('PATH'))
         home = Path(self.environ.get('HOME') or Path.home())
-        options = [('PATH', Path(found))] if found else []
+        options = [(origin, Path(path)) for origin, path in self.configured()]
+        options += [('PATH', Path(found))] if found else []
         return options + [('cargo', home / '.cargo/bin/colorful'), ('install-local', home / '.colorful-language/bin/colorful')]
 
     def status(self):
@@ -344,7 +352,8 @@ class Prose:
     @staticmethod
     def _missing(message):
         return {'available': False, 'version': None, 'path': None, 'origin': None,
-                'message': message + f' Build it once: `{INSTALL}`, or set READER_COLORFUL to the binary and restart Reader.', 'install': INSTALL}
+                'message': message + ' Install it from Behind the scenes, Companions, or build it with'
+                f' `{INSTALL}` in a colorful-language checkout and set its path there.', 'install': INSTALL}
 
     def colorize(self, document, segments):
         """``document`` is (path, sha256) of the open edition; segments are [{id, text}]."""

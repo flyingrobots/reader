@@ -20,15 +20,17 @@ from rapidfuzz import fuzz, process
 from .annotations import Annotations
 from .browse import Browse
 from .bookmarks import Bookmarks
+from .companions import Companions, load_settings as companion_settings
 from .changes import MAX_BLOB, SHA, TEXT_TYPES, Changes, Unavailable, bounded, diff, prose
 from .editions import Editions
+from . import embeds as embed_tree
 from .engagement import ONE_OFF_RECEIPTS, Engagement
 from .inbox_view import InboxView, RunConflict
 from .writing import Writing, WritingConflict
 from .local_model import LocalModel
 from .links import LinkError, LinkGraph, Resolver, excerpt, title_of
 from .magazine import Magazine
-from .maintenance import Maintenance
+from .maintenance import COMPANION_JOBS, Maintenance
 from .metadata import parse_metadata
 from .prose import Prose, ProseUnavailable
 from .reading_queue import ReadingQueue
@@ -170,7 +172,7 @@ class MissingDocument(ValueError, FileNotFoundError):
 
 
 class WebLibrary:
-    def __init__(self, root, font_fetcher=None, maintenance_runners=None, inbox_environ=None, chat_options=None, local_model=None, prose=None, service_runner=None, environ=None, writing_options=None):
+    def __init__(self, root, font_fetcher=None, maintenance_runners=None, inbox_environ=None, chat_options=None, local_model=None, prose=None, service_runner=None, environ=None, writing_options=None, companions=None):
         self.root = Path(root).expanduser().resolve(strict=True)
         self.access = WebAccess(self.root, environ)
         self.service = Service(service_runner)
@@ -193,10 +195,17 @@ class WebLibrary:
         self.engine = Search(self.root)
         self.search_lock = threading.Lock()
         self.hashes = {}
+        self.embed_texts = embed_tree.Texts()
         self.magazine = Magazine(self)
         self.shapes = Shapes(self)
         self.conversations = Conversations(self.root, self.chat_document, **(chat_options or {}))
         self.writing = Writing(self.root, self.path, self.digest, **(writing_options or {}))
+        self.companions = Companions(self.root, prose=self.prose, speech=self.speech, maintenance=self.maintenance,
+                                     local_model=self.local_model, **(companions or {}))
+        self.maintenance.runners.update(self.companions.runners())
+        # Colorful set in Behind the scenes, then the copy Reader built, before PATH and the usual folders.
+        tooled = self.root / '.reader/tooling/bin/colorful'
+        self.prose.configured = lambda: [(o, p) for o, p in (('settings', companion_settings(self.root).get('colorful')), ('reader-tooling', str(tooled))) if p]
 
     def path(self, value, preview=False):
         """A library file; with `preview`, also an inbox arrival file (read-only views only)."""
@@ -629,6 +638,10 @@ class WebLibrary:
             except (ValueError, OSError) as exc:
                 results.append({'error': str(exc)})
         return {'results': results}
+
+    def embeds(self, source, targets, ancestors=(), depth=0):
+        """The resolved embed tree of `targets` written in `source` (see embeds.tree): one request instead of a fetch per embed."""
+        return embed_tree.tree(self, source, targets, ancestors, depth, self.embed_texts)
 
     def reader(self, participant):
         """A predicate: has this participant read the current edition of a path?"""
@@ -1284,7 +1297,11 @@ class WebHandler(BaseHTTPRequestHandler):
                 elif parsed.path == '/api/maintenance':
                     if request.get('action') != 'start' or set(request) - {'action', 'kind'}:
                         raise ValueError('Expected {"action": "start", "kind": ...}')
+                    if request.get('kind') in COMPANION_JOBS:
+                        raise ValueError('Companion installs start from /api/companions')
                     self.json(library.maintenance.start(request.get('kind')))
+                elif parsed.path == '/api/companions':
+                    self.json(library.companions.dispatch(request, self.identity))
                 elif parsed.path == '/api/inbox':
                     action = request.get('action')
                     if action == 'start' and not set(request) - {'action', 'sandbox_mode'}:
@@ -1328,6 +1345,12 @@ class WebHandler(BaseHTTPRequestHandler):
             elif parsed.path == '/api/resolve-batch':
                 targets = parse_qs(parsed.query, keep_blank_values=True).get('target', [])
                 self.json(library.resolve_many(args.get('from', ''), targets))
+            elif parsed.path == '/api/embeds':
+                lists = parse_qs(parsed.query, keep_blank_values=True)
+                depth = args.get('depth', '0')
+                if not depth.isdigit() or len(depth) > 1:
+                    raise ValueError('Expected depth as a small whole number')
+                self.json(library.embeds(args.get('from', ''), lists.get('target', []), lists.get('ancestor', []), int(depth)))
             elif parsed.path == '/api/resolve':
                 self.json(library.resolve(args.get('from', ''), args.get('target', '')))
             elif parsed.path == '/api/themes':
@@ -1361,6 +1384,12 @@ class WebHandler(BaseHTTPRequestHandler):
                 self.json(library.conversations.raw(args.get('id', ''), args.get('turn', '')))
             elif parsed.path == '/api/prose':
                 self.json(library.prose.status())
+            elif parsed.path == '/api/companions':
+                self.json(library.companions.status(args.get('name')))
+            elif parsed.path == '/api/companions/log':
+                if args.get('name') not in ('colorful', 'wide-md', 'ai-tts'):
+                    raise ValueError('Expected a companion with an install log')
+                self.json(library.companions.log(args['name']))
             elif parsed.path == '/api/health':
                 self.json(health(library, self.server.started_at))
             elif parsed.path == '/api/service':

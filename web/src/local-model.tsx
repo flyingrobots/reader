@@ -25,7 +25,7 @@ type TaskSetting={enabled:boolean;model:string;trigger:string};
 type ProviderSetting={preset:string;base_url:string|null;model:string;allow_remote:boolean};
 export type Settings={tasks:Record<string,TaskSetting>;embedding_backend:string;provider:ProviderSetting};
 export type Run={id:string;state:'running'|'finished'|'paused'|'stopped'|'failed';started_at:string;finished_at:string|null;counts:Record<string,Record<string,number>>;warning:string|null;error:string|null};
-export type LocalModelStatus={server:Server;provider:Provider;now:Now|null;queue:Record<string,QueueRow>;recent:Item[];outputs:Outputs;settings:Settings;tasks:Record<string,{label:string;noun:string;prompt_version:string}>;limits:Record<string,number>;active:string[];running:boolean;runs:Run[];labels:Record<string,string>};
+export type LocalModelStatus={server:Server;provider:Provider;now:Now|null;queue:Record<string,QueueRow>;recent:Item[];outputs:Outputs;settings:Settings;tasks:Record<string,{label:string;noun:string;prompt_version:string}>;limits:Record<string,number>;active:string[];running:boolean;runs:Run[];labels:Record<string,string>;gpu?:{mode:string;label:string;message:string}|null};
 export type Act=(action:string,payload?:Record<string,unknown>)=>Promise<unknown>;
 
 const SERVER_BADGE:Record<string,'secondary'|'outline'|'destructive'|'default'>={ready:'secondary',busy:'default',starting:'default',off:'outline','not-installed':'outline',error:'destructive'};
@@ -115,7 +115,7 @@ function ProviderCard({status,act}:{status:LocalModelStatus;act:Act}){
 function NowCard({status,act}:{status:LocalModelStatus;act:Act}){
   const now=status.now,waiting=Object.values(status.queue).reduce((n,q)=>n+q.waiting,0),last=status.runs.find(r=>r.state!=='running');
   return <Card size="sm" className="backstage-card lm-now" data-now={now?'running':'idle'}>
-    <CardHeader><CardTitle>Now</CardTitle><CardDescription>{now?`${now.task_label} · ${waiting.toLocaleString()} more waiting`:status.provider.loopback?`One item at a time; the workstation GPU lock is held per batch of up to ${status.limits.batch}.`:'One item at a time, sent to the remote provider.'}</CardDescription>
+    <CardHeader><CardTitle>Now</CardTitle><CardDescription>{now?`${now.task_label} · ${waiting.toLocaleString()} more waiting`:status.provider.loopback?`One item at a time; the GPU lock (${status.gpu?.mode==='local'?'this Reader only':'workstation'}) is held per batch of up to ${status.limits.batch}.`:'One item at a time, sent to the remote provider.'}</CardDescription>
       {now?<CardAction><Badge variant="default" className="backstage-badge"><Loader2Icon data-icon="inline-start" className="animate-spin" aria-hidden/>Running</Badge></CardAction>:null}</CardHeader>
     <CardContent>{now?<>
       <p className="lm-now-title"><strong>{now.title}</strong><small>{now.path}</small></p>
@@ -193,6 +193,7 @@ export function LocalModelSection({status,act}:{status:LocalModelStatus|null;act
   return <section className="backstage-section" id="local-model" aria-labelledby="local-model-title">
     <div className="backstage-section-head"><h2 id="local-model-title">Local model</h2><span className="backstage-checked">{status?status.running?<><Loader2Icon className="size-3 animate-spin" aria-hidden/> Working through the queue</>:status.server.label:'Loading…'}</span></div>
     <p className="lm-lede">Bulk, private, judgment-light language work on a model you run: LM Studio, Ollama, llama.cpp or any OpenAI-compatible server. Outputs are suggestions labelled with their model; filing, catalog writes and anything signed by a voice stay with the voices.</p>
+    {status?.gpu&&status.provider?.loopback?<p className="backstage-note" id="lm-gpu" data-gpu={status.gpu.mode}>GPU coordination: {status.gpu.label}. {status.gpu.message}</p>:null}
     {status?.provider?.remote_notice?<p className="lm-remote-notice" id="lm-remote-notice" role="alert"><strong>Text leaves this machine.</strong> {status.provider.remote_notice}</p>:null}
     {status?<><div className="backstage-grid"><ProviderCard status={status} act={act}/><ServerCard server={status.server} act={act}/></div>
       <div className="backstage-grid"><NowCard status={status} act={act}/><QueueCard status={status} act={act}/></div>

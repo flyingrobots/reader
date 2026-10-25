@@ -179,14 +179,17 @@ server by hand. The Obsidian sidebar plugin is optional. Both are covered in
 
 For the full experience, install these sibling projects as well. Each is a
 separate repository, not a package dependency, so `uv sync` does not fetch them;
-Reader finds them on your PATH and works without them.
+Reader finds them on your PATH and works without them. **Behind the scenes,
+Companions** shows each one's status; when a feature needs a missing companion, Reader
+says so and offers setup, and it can build Colorful Language and wide-md for you
+([details](docs/web.md#behind-the-scenes-companions)).
 
 | Project | What it adds | Install |
 | --- | --- | --- |
 | [AI-TTS](https://github.com/flyingrobots/AI-TTS) | Read aloud (Space s): a local speech daemon that queues speech, keeps history and honours pauses | Follow its README; Reader talks to the running daemon |
-| [Colorful Language](https://github.com/flyingrobots/colorful-language) | Prose colors (Space c): syntax highlighting for English prose | `cargo install --path crates/colorful-cli --locked` in a clone, or set its path in Settings |
-| [wide-md](https://github.com/flyingrobots/wide-md) | Reading copies: removes artificial line wrapping from filed Markdown | `python3 scripts/install_wide_md.py` builds the pinned revision ([details](docs/reading-copies.md)) |
-| [git-locks](https://github.com/git-stunts/locks) | Safe commits when several agents or Reader processes write to the vault at once | Follow its README so `git-locks` is on your PATH; without it Reader falls back to a local file lock |
+| [Colorful Language](https://github.com/flyingrobots/colorful-language) | Prose colors (Space c): syntax highlighting for English prose | **Install** in Behind the scenes, Companions (builds the pinned release; needs Rust), or `cargo install --path crates/colorful-cli --locked` in a clone and **Set path** there |
+| [wide-md](https://github.com/flyingrobots/wide-md) | Reading copies: removes artificial line wrapping from filed Markdown | **Install** in Companions, or `python3 scripts/install_wide_md.py`; both build the pinned revision ([details](docs/reading-copies.md)) |
+| [git-locks](https://github.com/git-stunts/locks) | Safe commits when several agents or Reader processes write to the vault at once | Follow its README so `git-locks` is on your PATH (Companions shows the commands); without it Reader coordinates only its own processes with local file locks |
 
 ### Optional connections
 

@@ -132,7 +132,12 @@ def save_state(state):
 def executable(name, state=None):
     variable, defaults = EXECUTABLES[name]
     if os.environ.get(variable):
+        if os.environ[variable].lower() == 'none':
+            raise ServiceError(f'{name.replace("_", "-")} is not installed')
         return os.environ[variable]
+    if name == 'git_locks' and os.environ.get('READER_GIT_LOCKS_CANDIDATES') is not None:
+        # The same override Reader uses: os.pathsep-separated folders (may be empty) replace the defaults.
+        defaults = [str(Path(f).expanduser() / 'git-locks') for f in os.environ['READER_GIT_LOCKS_CANDIDATES'].split(os.pathsep) if f]
     recorded = (state or {}).get('executables', {}).get(name)
     if recorded and Path(recorded).is_file():
         return recorded
@@ -209,14 +214,29 @@ def repo_lock_env():
     return {k: v for k, v in os.environ.items() if k != 'GIT_LOCKS_STORE'}
 
 
+def repo_locked(state, note, command, timeout, cwd):
+    """Run `command` under the repo `.git/` git-locks key, or, without git-locks, under a flock that
+    serializes this service's own Git changes (other tools are then not coordinated)."""
+    try:
+        tool = executable('git_locks', state)
+    except ServiceError:
+        tool = None
+    if tool:
+        argv = [tool, 'with', '--job', f'reader-service-{uuid.uuid4()}', '--holder', 'reader-service',
+                '--ttl', str(timeout + 120), '--wait', '120', '--note', note, '.git/', '--', *command]
+        return run(argv, timeout=timeout + 150, cwd=cwd, env=repo_lock_env(), check=False)
+    support().mkdir(parents=True, exist_ok=True)
+    with (support() / 'git.lock').open('a') as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX)
+        return run(command, timeout=timeout + 30, cwd=cwd, env=repo_lock_env(), check=False)
+
+
 def locked_git(state, note, *args, timeout=300):
     """Worktree and checkout changes touch shared Git metadata: take the repo `.git/` lock."""
     repo = state['repo']
-    argv = [executable('git_locks', state), 'with', '--job', f'reader-service-{uuid.uuid4()}', '--holder', 'reader-service',
-            '--ttl', str(timeout + 120), '--wait', '120', '--note', note, '.git/', '--', executable('git', state), '-C', repo, *args]
-    result = run(argv, timeout=timeout + 150, cwd=repo, env=repo_lock_env(), check=False)
+    result = repo_locked(state, note, [executable('git', state), '-C', repo, *args], timeout, repo)
     if result.returncode:
-        raise ServiceError(f'git {" ".join(args[:2])} failed (git-locks exit {result.returncode}): {(result.stderr or result.stdout).strip()[-800:]}')
+        raise ServiceError(f'git {" ".join(args[:2])} failed (exit {result.returncode}): {(result.stderr or result.stdout).strip()[-800:]}')
     return result
 
 
@@ -248,10 +268,8 @@ def checkout_live(state, commit):
     if dirty:
         raise ServiceError('The live worktree has local changes; refusing to switch commits')
     live = Path(state['live'])
-    argv = [executable('git_locks', state), 'with', '--job', f'reader-service-{uuid.uuid4()}', '--holder', 'reader-service',
-            '--ttl', '300', '--wait', '120', '--note', 'reader service checkout', '.git/', '--',
-            executable('git', state), '-C', str(live), 'checkout', '--quiet', '--detach', commit]
-    result = run(argv, timeout=330, cwd=state['repo'], env=repo_lock_env(), check=False)
+    result = repo_locked(state, 'reader service checkout', [executable('git', state), '-C', str(live), 'checkout', '--quiet', '--detach', commit],
+                         180, state['repo'])
     if result.returncode:
         raise ServiceError(f'Checkout of {commit[:12]} failed: {(result.stderr or result.stdout).strip()[-800:]}')
 
@@ -517,7 +535,7 @@ def set_paused(paused):
 def install(args):
     previous = load_state() or {}
     for name in EXECUTABLES:
-        if name != 'tailscale':
+        if name not in ('tailscale', 'git_locks'):
             executable(name)
     repo = Path(args.repo or previous.get('repo') or default_repo()).expanduser().resolve()
     python = Path(args.python or previous.get('python') or repo / '.venv/bin/python').expanduser()
@@ -533,15 +551,16 @@ def install(args):
         'port': args.port or previous.get('port') or DEFAULT_PORT,
         'env_path': launch_path(),
         'env': {k: v for k, v in os.environ.items() if k in PASS_ENV or (k.startswith('READER_') and not k.startswith('READER_SERVICE_') and k != 'READER_ROOT')},
-        'executables': {name: executable(name, previous) for name in EXECUTABLES if name != 'tailscale'},
+        'executables': {name: executable(name, previous) for name in EXECUTABLES if name not in ('tailscale', 'git_locks')},
         'paused': previous.get('paused', False), 'installed_at': now(),
         'backups': previous.get('backups', {}), 'was_loaded': previous.get('was_loaded', {}),
         'tailscale': previous.get('tailscale'),
     }
-    try:
-        state['executables']['tailscale'] = executable('tailscale', previous)
-    except ServiceError:
-        pass
+    for optional in ('tailscale', 'git_locks'):  # Without git-locks, Git changes serialize on a flock.
+        try:
+            state['executables'][optional] = executable(optional, previous)
+        except ServiceError:
+            pass
     for key, value in getattr(args, 'env', None) or []:
         state['env'][key] = value
     web = agent_info(state, WEB_LABEL)

@@ -1,7 +1,7 @@
 /** Send to AI-TTS: build the request from the open edition, a selection or the reading position. */
 import {codePointOffset} from './logic.mjs';
 
-export function installSpeech({state, api, reading, notify, track, openDialog, closeDialog}) {
+export function installSpeech({state, api, reading, notify, track, openDialog, closeDialog, companion = null}) {
   const $ = selector => document.querySelector(selector);
   const spoken = () => state.doc && (state.doc.text !== null || state.doc.kind === '.pdf');
   const selection = () => state.selected && state.selected.path === state.doc?.path && getSelection()?.isCollapsed === false ? state.selected : null;
@@ -42,7 +42,8 @@ export function installSpeech({state, api, reading, notify, track, openDialog, c
       notify(queued.held ? 'Queued for AI-TTS; it plays when the pause ends.' : 'Queued for AI-TTS.', 'success', queued.id);
       track(queued);
     } catch (error) {
-      if (error.data?.unavailable) notify('AI-TTS isn’t running', 'error', error.message);
+      // A missing or stopped daemon is a setup question, not an error: name it and offer setup.
+      if (error.data?.unavailable) companion ? companion('ai-tts', error.message) : notify('AI-TTS isn’t running', 'error', error.message);
       else notify(error.message, 'error');
     }
   }

@@ -28,7 +28,14 @@ JOBS = {
     'catalog': 'Catalog SQL mirror',
     'links': 'Link graph',
     'remove-legacy-search': 'Remove legacy search index',
+    # Companion setup (companions.py); started through /api/companions only.
+    'install-colorful': 'Install Colorful Language',
+    'update-colorful': 'Update Colorful Language',
+    'install-wide-md': 'Install wide-md',
+    'update-wide-md': 'Reinstall wide-md',
+    'start-ai-tts': 'Start AI-TTS',
 }
+COMPANION_JOBS = frozenset({'install-colorful', 'update-colorful', 'install-wide-md', 'update-wide-md', 'start-ai-tts'})
 INDEX_OF = {'search': 'search', 'search-keyword': 'search', 'browse': 'browse', 'catalog': 'catalog', 'links': 'links',
             'remove-legacy-search': 'search'}
 LEGACY_FILES = ('search.sqlite3', 'search.sqlite3-wal', 'search.sqlite3-shm', 'search.sqlite3-journal')
@@ -85,10 +92,16 @@ class Maintenance:
                 raise BlockingIOError(f'{JOBS[self.running["kind"]]} is already running')
             job = {'id': uuid.uuid4().hex, 'kind': kind, 'label': JOBS[kind], 'state': 'running',
                    'started_at': stamp(), 'finished_at': None, 'elapsed_seconds': None, 'result': None, 'error': None,
-                   'quiet': bool(quiet)}
+                   'quiet': bool(quiet), 'progress': None}
             self.running = job
         threading.Thread(target=self._run, args=(job,), name='reader-maintenance', daemon=True).start()
         return dict(job)
+
+    def progress(self, text):
+        """A running job's latest step, shown beside it (companion installs report one per step)."""
+        with self.lock:
+            if self.running:
+                self.running['progress'] = text
 
     def _run(self, job):
         started = time.monotonic()
@@ -103,7 +116,7 @@ class Maintenance:
         with self.lock:
             self.jobs.appendleft(dict(job))
             self.running = None
-            self.checking = job['kind'] != 'check'
+            self.checking = job['kind'] != 'check' and job['kind'] not in COMPANION_JOBS
         # A rebuild changes what is fresh; measure again so the page never shows stale status.
         # A quiet link-graph build re-measures only its own card.
         if job['quiet']:
@@ -117,7 +130,7 @@ class Maintenance:
             finally:
                 with self.lock:
                     self.checking = False
-        elif job['kind'] != 'check' and self.runners.get('check'):
+        elif job['kind'] != 'check' and job['kind'] not in COMPANION_JOBS and self.runners.get('check'):
             try:
                 self.check()
             except Exception:

@@ -2,8 +2,9 @@
  *  boundaries from Intl.Segmenter. Positions are indices into that text (whitespace collapsed, one
  *  newline between blocks); range() turns them back into DOM ranges for highlights and annotations. */
 export const CURSOR_BLOCKS='p,li,h1,h2,h3,h4,h5,h6,pre,td,th,dt,dd,figcaption,blockquote,summary,caption';
-// Text the reader never reads as the document: margin pins, embeds, generated chrome, diagram drawings, MathML twins.
-export const CURSOR_SKIP='.annotation-pin,.document-embed,[data-reader-decoration],script,style,button,.katex-mathml,.reader-diagram-canvas';
+// Text the reader never reads as the document: margin pins, generated chrome (embed headers and notes included),
+// diagram drawings, MathML twins. Embedded documents are read in place, so the cursor moves through them.
+export const CURSOR_SKIP='.annotation-pin,[data-reader-decoration],script,style,button,.katex-mathml,.reader-diagram-canvas';
 const segmenters={};
 const segmenter=granularity=>segmenters[granularity]??=new Intl.Segmenter(document.documentElement.lang||undefined,{granularity});
 

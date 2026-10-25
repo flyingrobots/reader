@@ -426,6 +426,25 @@ def main():
                 page[NameObject('/Contents')] = writer._add_object(stream)
             return writer
         synthetic_pdf(6).write(root / 'library/pages.pdf')
+        if '--transclusion' in sys.argv:
+            # Obsidian embeds (tests/web_transclusion.cjs): the shared conformance corpus, a real image and PDF,
+            # a long host for lazy loading and a 50-embed document for the performance check.
+            import base64
+            corpus = json.loads((Path(__file__).parent / 'fixtures/transclusion/corpus.json').read_text())
+            for path, text in corpus['files'].items():
+                (root / path).parent.mkdir(parents=True, exist_ok=True)
+                (root / path).write_text(text)
+            (root / 'library/assets/dot.png').write_bytes(base64.b64decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII='))
+            (root / 'library/assets/my dot.png').write_bytes((root / 'library/assets/dot.png').read_bytes())
+            synthetic_pdf(4).write(root / 'library/assets/paper.pdf')
+            (root / 'library/many').mkdir()
+            for i in range(50):
+                (root / f'library/many/note-{i:02}.md').write_text(f'# Note {i:02}\n\n' + f'Paragraph {i} of a synthetic note keeps a careful thought. ' * 40 + f'\n\n## Detail {i:02}\n\nThe distinct embedded line {i:02} waits here.\n')
+            many = '# Fifty embeds\n\nAn opening paragraph of the host.\n\n' + '\n\n'.join(f'Host paragraph {i} before the next embed.\n\n![[note-{i:02}]]' for i in range(50)) + '\n\nThe host closing line.\n'
+            (root / 'library/many.md').write_text(many)
+            for path, title in [('library/main.md', 'Main'), ('library/many.md', 'Fifty embeds'), ('library/notes/deep/Target Note.md', 'Target Note')]:
+                works.append(dict(id=path, title=title, primary=path, authors=['Ada'], topics=['Ideas'], projects=['Synthetic'], date='2026-10-25', primary_format='.md', primary_bytes=(root / path).stat().st_size))
+            (root / 'indexes/coverage.json').write_text(json.dumps({'as_of':'2026-10-23', 'works':works}))
         if '--outline' in sys.argv:
             # An outline with a nested entry and a named destination.
             writer = synthetic_pdf(8)
@@ -583,7 +602,40 @@ def main():
             subprocess.run(['git', '-C', str(root), 'add', 'library/index.md'], env=env, check=True, capture_output=True)
             subprocess.run(['git', '-C', str(root), 'commit', '-q', '-m', 'Synthetic index'], env=env, check=True, capture_output=True)
             writing_options = {'git_locks': False}
-        library = WebLibrary(root, writing_options=writing_options, font_fetcher=fetcher, maintenance_runners=runners, inbox_environ=inbox_environ, chat_options=chat_options, local_model=local, prose=prose, service_runner=service)
+        companions = None
+        if '--no-git-locks' in sys.argv:
+            # git-locks hidden from PATH and the usual install folders, and no workstation store: every
+            # caller must fall back to Reader's own locks (chat and scratch pad commits, the GPU lock).
+            os.environ['PATH'] = '/usr/bin:/bin'
+            os.environ['READER_GIT_LOCKS_CANDIDATES'] = ''
+            for name in ('READER_GIT_LOCKS', 'READER_GIT_LOCKS_STORE', 'GIT_LOCKS_STORE'):
+                os.environ.pop(name, None)
+            if chat_options is not None:
+                chat_options['git_locks'] = None
+            if writing_options is not None:
+                writing_options['git_locks'] = None
+            local.pop('gpu_lock', None)
+        if '--companions' in sys.argv:
+            # Fake git, cargo and launchctl (tests/fake_toolchain.py): Install "builds" a colorful that runs
+            # fake_colorful.py. Colorful starts missing; AI-TTS has no daemon. Nothing is cloned or built.
+            sys.path.insert(0, str(Path(__file__).parent))
+            import fake_toolchain
+            fake_toolchain.install(root / '.fake-tools', ('git', 'cargo', 'launchctl'))
+            home = root / '.fake-home'
+            home.mkdir()
+            prose = Prose(environ={'PATH': str(root / '.fake-home'), 'HOME': str(home)})
+            # A stand-in for scripts/install_wide_md.py, so a wide-md Install never runs the real one.
+            (root / '.fake-code/scripts').mkdir(parents=True)
+            (root / '.fake-code/scripts/install_wide_md.py').write_text('import time\nprint("fake wide-md install", flush=True)\ntime.sleep(1)\nraise SystemExit(1)\n')
+            companions = {'environ': {'PATH': f'{root / ".fake-tools"}:/usr/bin:/bin', 'HOME': str(home), 'FAKE_CARGO_SLEEP': '4',
+                                      'READER_GIT_LOCKS_CANDIDATES': '', 'FAKE_TOOL_LOG': str(root / '.fake-tools/calls.jsonl')},
+                          'launchctl': str(root / '.fake-tools/launchctl'), 'code': root / '.fake-code'}
+        if companions is None:
+            # Never this Mac's companions: no ai-tts CLI or launch agent, no cargo, and launchctl is never reachable.
+            (root / '.no-home').mkdir(exist_ok=True)
+            companions = {'environ': {'PATH': '/usr/bin:/bin', 'HOME': str(root / '.no-home'), 'READER_GIT_LOCKS_CANDIDATES': ''},
+                          'launchctl': str(root / '.no-launchctl')}
+        library = WebLibrary(root, writing_options=writing_options, font_fetcher=fetcher, maintenance_runners=runners, inbox_environ=inbox_environ, chat_options=chat_options, local_model=local, prose=prose, service_runner=service, companions=companions)
         if '--search-page' in sys.argv:
             search_page_fixture(root, works, library)
         server = WebServer(('127.0.0.1', 0), library, 'Browser tester')

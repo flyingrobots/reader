@@ -13,12 +13,13 @@
     "package-lock.json": "75313fd21ec73e8d176ed64cf296b12fc176880cab986dc8240a07f47dd1ed5e",
     "src/activity/reducer.ts": "44af5ec36d572ae62673b1f8f94ce4b2f4f75999b5e2a0169e21daee9333cfe8",
     "src/activity/transcript.tsx": "2055824889b5f3fbdfb5bed8c7c21d6231323911242930bb88b631a3723bcee8",
-    "src/backstage.tsx": "4ce300b2f16f504a08a83089c4c676730789e672ec1fdd1d1217b218c68d67e4",
+    "src/backstage.tsx": "2cf3dc1fa113aef77fb14cce3ebf05ec731cb41ab97fef164deedd839bc982ad",
     "src/callouts.tsx": "fccf6b854b5c95a48ef40d206edfe927718f2ad9e8b59f3b5005548819172584",
     "src/changes-panel.tsx": "2a06b103e068f758afbfe34976ff9461ed43adbf421d5f13cb5a63b45ce5b268",
     "src/chat/chat-panel.tsx": "82f0b51119cf87a388d9152d416088055d686b6c894c3c652e447d8eac1d6b58",
     "src/chat/raw-output.tsx": "f4a13af8b6fcb68bfa9d1ab37f091fc170859f39efa68127008a22af99995a36",
     "src/chat/raw-steps.ts": "10faca4988fc72a912529eeb4201af7fd7193e669110db409606879f44579678",
+    "src/companions.tsx": "4208c740884f4665e8f8b96467f5f30b35b3ddd23a6c7d3b752680b3064a7ae7",
     "src/components/ui/badge.tsx": "d9fb280e266119c4b62a4c518e63152de27b094c68d3e5f8929d05bfb0c1bc6c",
     "src/components/ui/bubble.tsx": "cef49b9490c90d90451037247adedb8671eae234d388f8c30c7b2eac37356983",
     "src/components/ui/button-group.tsx": "8c091198a9a4fe7fa3359834087727addfd5ac4c1259689632220389215b33c1",
@@ -50,7 +51,7 @@
     "src/components/ui/trace.tsx": "f03ab1824e7312d00623f052a611497372a654cb33f5e6683b19ac53952f93e0",
     "src/diagrams.ts": "6afe727e3302c2d2ddd4a023105a5a6cf36b6ac969e3ceb2d51f0f0712b326ea",
     "src/document-tree.tsx": "9f54593440ed174d2e92e8da2ee951ea62bb5e0d021dbcd12431341b8233d55b",
-    "src/local-model.tsx": "cd212b404381fd280fa63e5c1bcb9276ae2e589ec1a00f421c040d24e6173f72",
+    "src/local-model.tsx": "e70c44a60f18d0a9e618e4e56c22aa0cbd5fa10c0031f36cf62c8b0f51022df5",
     "src/markdown-editor.ts": "88b1c43e194e5efe4c0a87824ad238df80640f48fafa180a6349ec11752eb1da",
     "src/math.ts": "75df1ce8e43e3a75e249a959ca89fcf20144888a3aaea933a761903d50c832dc",
     "src/outline.tsx": "24bec26b51b1b5e487d6604983cb4eb75bc30a9f68b097717165c51cdfcfd5ac",
@@ -59,12 +60,12 @@
     "src/page-turn/svg-images.ts": "7279f2b05c66b7a496d2b891b65030e6738f90b032fabbdf9057106f518d887e",
     "src/plural.ts": "4c0d0698a171b39d5683548f00e2e9a8a7c5ea1af28e4067aaa63612476b5fa2",
     "src/queue-panel.tsx": "aa39302175827b3d9659ab4085c5999a4c65a8d2c0b325716de4e2733a2519a6",
-    "src/reader-controls.tsx": "51bfaea23b25c4f4b140731d7eb845e9ba0106e6e671acde179961e5f4cfdb5f",
+    "src/reader-controls.tsx": "351bf615f1d16917da6d3d7c67b99739179cf92683fe34f1cfcaf98c68437c7f",
     "src/search-page.tsx": "2cd0ec009e41f4dc701efa2ed64edd91e54503d1e880d083df21fff52ef82a5d",
     "src/server-card.tsx": "677721ee033724bbe168e6f566703ddc8df4331d2b046437c1ba91ea4e6a88b0",
     "src/shape/shape.ts": "9fe4b2b1dd21a2869130afa25aed34e2ea482fc8fe05aa2609193aa24c04b50c",
     "src/speech-control.tsx": "45a7efd449606ea196c7adef281ddadb2bd89dab1b5c9a945f56897cadbb4e0c",
-    "src/styles.css": "d8bcbc202af526eac4e6d0d23df228f00179cdce5d3ca5ac637d7dc909633561",
+    "src/styles.css": "3873cde2f734619c113b2a79577978a95ec5f92c749d703bf400d4c6dc001034",
     "src/theme/color.ts": "825d911b525fe5fa570c0eb43d6f5859c9a3c8d77021670cdf364df4bde1c65a",
     "src/theme/famous-build.ts": "2cd184dabb7dae2e46f936e2c1aea0ff5a4696ca1e1a35eccc78439877af4b12",
     "src/theme/famous.ts": "de4969de8a1c4a4d2d3017a9d9f7a6745868f1828d677c4ab6f3f45096318101",
@@ -784,16 +785,16 @@
       "sha256": "9e2e0b101e586397d9f4d24893540d785108b4acb5ce9acb1234cc3c12408cdc"
     },
     "reader-controls.css": {
-      "bytes": 139686,
-      "sha256": "6232e034e58f24e689588b81cb59d5ef05d07381bcf6eaace38c5e98f44c3c66"
+      "bytes": 142677,
+      "sha256": "4d88de985caa0af3263104c09069c7d29d6febf55634ca27e58551257e55ceb8"
     },
     "reader-controls.js": {
-      "bytes": 883890,
-      "sha256": "8f402cdaba436a76abb1117a88fdd50a4ea17f5011fc3ad3bb2380e09ce1e9a1"
+      "bytes": 897896,
+      "sha256": "929296a51d862f33966f8dc5aa9392793f003a57922d8864ca8d23c900378172"
     },
     "reader-controls.js.LEGAL.txt": {
-      "bytes": 5244,
-      "sha256": "f2a99615e26ba0d0b7e20132b989eb1ae42a583f201f33d07cbb331f5220a6c1"
+      "bytes": 5290,
+      "sha256": "0c6759d55700f67e4857ac7e67746529b745c92e3e53dab1502ac16b8c42408a"
     },
     "shape.js": {
       "bytes": 8801,

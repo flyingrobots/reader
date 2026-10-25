@@ -58,9 +58,12 @@ const {chromium}=require(process.env.READER_PLAYWRIGHT||'playwright-core');
   const before=submits().length;await leader('s');await page.keyboard.press('f');await until(()=>submits().length>before);sent=submits().at(-1);assert.equal(submits().length,before+1);
   assert.ok(sent.text.startsWith('A quiet thought.\n\n## Chapter 30')&&!sent.text.includes('chapter 29 waits')&&sent.text.includes('chapter 44'),'from the reading position');
   await control.waitFor({state:'detached',timeout:15000});
-  // An unavailable daemon is explained, not hidden.
+  // An unavailable daemon is explained, not hidden: the companion prompt names it and offers setup, without an error toast.
   flag('down',true);await page.locator('#speak-article').click();
-  await toast('AI-TTS isn’t running').waitFor();assert.equal(await toast('AI-TTS isn’t running').getAttribute('data-type'),'error');
+  await page.locator('[data-companion-prompt=ai-tts]').waitFor();
+  assert.match(await page.locator('[data-companion-prompt=ai-tts] .companion-prompt-title').textContent(),/AI-TTS/);
+  assert.equal(await page.locator('[data-sonner-toast][data-type=error]').count(),0);
+  await page.locator('[data-companion-prompt=ai-tts] [data-prompt-action=dismiss]').click();await page.evaluate(()=>localStorage.removeItem('reader.companions.dismissed.v1'));
   flag('down',false);
   // Help lists the key; phone width keeps the glyph and pause/resume only.
   assert.ok((await page.locator('#help').textContent()).includes('Send to AI-TTS'));

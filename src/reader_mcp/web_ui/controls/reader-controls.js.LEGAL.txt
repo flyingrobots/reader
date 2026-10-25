@@ -105,6 +105,7 @@ lucide-react/dist/esm/icons/clipboard-paste.js:
 lucide-react/dist/esm/icons/copy.js:
 lucide-react/dist/esm/icons/corner-up-left.js:
 lucide-react/dist/esm/icons/ellipsis.js:
+lucide-react/dist/esm/icons/external-link.js:
 lucide-react/dist/esm/icons/file-minus.js:
 lucide-react/dist/esm/icons/file-pen.js:
 lucide-react/dist/esm/icons/file-plus.js:

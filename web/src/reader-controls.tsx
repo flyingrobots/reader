@@ -22,6 +22,7 @@ import {LocalModelSection, runSummary, type LocalModelStatus, type Run} from './
 import {emptyActivity, fromCodex, reduce, type Activity} from './activity/reducer';
 import type {RunInfo} from './activity/transcript';
 import {ServerCard} from './server-card';
+import {CompanionsSection, CompanionPrompt, focusCompanion, isDismissed, type Companion, type CompanionsStatus} from './companions';
 import {DocumentTree, revealDocumentNode, type DocumentRow} from './document-tree';
 import {ChangesPanel, type ChangesOptions} from './changes-panel';
 import {SearchPage, type SearchModel, type SearchActions} from './search-page';
@@ -42,7 +43,7 @@ export const famousThemeIds=FAMOUS.flatMap(t=>[famousId(t.id,'light'),famousId(t
 type Preferences={participant:string;theme:string;recent:number;pace:number;layout:string;pageTurn:string;proseColors:string;atlas:boolean;activity:boolean;smooth:boolean;nextReads:boolean;backlinks:boolean;outline:boolean;shapes?:boolean;inboxSandbox?:string;issueExclude:string};
 export type ProseStatus={available:boolean;version:string|null;path:string|null;origin:string|null;message:string|null;install:string};
 type Pip={id:string;owner:string;quote:string;kind:string;own:boolean;fraction:number};
-type Model={value:number;words:number;pdfPages:number|null;pace:number;spread:number;spreads:number;pages:number;columns:number;theme:string;pips:Pip[];prefs:Preferences;participants:string[];themeEditorOpen:boolean;customThemes:Theme[];fonts:InstalledFont[];maintenance:MaintenanceStatus|null;prose:ProseStatus|null;outline:OutlineModel;outlineActive:number;inbox:InboxStatus|null;inboxStarting:boolean;chat:{open:boolean;path:string|null;title:string;participant:string};localModel:LocalModelStatus|null;activity:ActivityModel};
+type Model={value:number;words:number;pdfPages:number|null;pace:number;spread:number;spreads:number;pages:number;columns:number;theme:string;pips:Pip[];prefs:Preferences;participants:string[];themeEditorOpen:boolean;customThemes:Theme[];fonts:InstalledFont[];maintenance:MaintenanceStatus|null;prose:ProseStatus|null;outline:OutlineModel;outlineActive:number;inbox:InboxStatus|null;inboxStarting:boolean;chat:{open:boolean;path:string|null;title:string;participant:string};localModel:LocalModelStatus|null;activity:ActivityModel;companions:CompanionsStatus|null};
 export type ActivityModel={runId:string|null;offset:number;activity:Activity;run:RunInfo|null;done:boolean};
 type Actions={seek:(fraction:number)=>void;spread:(index:number)=>void;thread:(id:string)=>void;theme:()=>void;save:(prefs:Preferences)=>Promise<void>;error:(error:unknown)=>void;themeEditor:(open:boolean)=>void;api:(path:string,payload?:unknown)=>Promise<any>;themesChanged:(themes:Theme[],fonts:InstalledFont[])=>void;useTheme:(dataTheme:string)=>void;previewFont:(href:string)=>void;open:(path:string)=>void;libraryChanged:()=>Promise<void>;markdown:(text:string)=>string;chatMarkdown:(text:string)=>string;openPath:(path:string)=>void;chatChanged:(open:boolean)=>void}&OutlineActions;
 const dark=(theme:string)=>theme==='ink'||theme.endsWith('-dark');
@@ -118,12 +119,17 @@ function jobSummary(job:Job){const r=job.result||{};
   if(job.kind==='catalog')return `${plural(r.documents,'catalog record')} ${r.status}.`;
   if(job.kind==='links')return `${r.parsed} documents read, ${r.links} links, ${r.unresolved} unresolved.`;
   if(job.kind==='remove-legacy-search')return `Removed the format 1 index; ${Math.round(Number(r.freed_bytes)/1e6).toLocaleString()} MB freed.`;
+  if(COMPANION_JOBS.has(job.kind)&&r.message)return String(r.message);
   return undefined;}
+const progressShown=new Map<string,string>();
 function announce(status:MaintenanceStatus){
   const run=status.running;
   if(run&&run.kind!=='check'&&!run.quiet&&!started.has(run.id)){started.add(run.id);toast.loading(`${run.label} running…`,{id:run.id,description:'You can keep reading. This updates when it finishes.',duration:Infinity});}
+  // Companion installs report each step; the loading toast follows them.
+  if(run?.progress&&started.has(run.id)&&progressShown.get(run.id)!==run.progress){progressShown.set(run.id,run.progress);toast.loading(`${run.label} running…`,{id:run.id,description:run.progress,duration:Infinity});}
   for(const job of status.jobs){
     if(finished.has(job.id))continue;finished.add(job.id);
+    if(COMPANION_JOBS.has(job.kind))refreshCompanions();
     if(!polled||job.kind==='check'||job.quiet)continue;
     if(job.state==='succeeded')toast.success(`${job.label} finished`,{id:job.id,description:jobSummary(job),duration:6000});
     else toast.error(`${job.label} failed`,{id:job.id,description:job.error||undefined,duration:12000});
@@ -157,6 +163,40 @@ export async function startJob(kind:string){
     if(job.kind!=='check'){started.add(job.id);toast.loading(`${job.label} running…`,{id:job.id,description:'You can keep reading. This updates when it finishes.',duration:Infinity});}
   }catch(error){if(!(error as {offline?:boolean})?.offline)toast.error('Couldn’t start that job',{description:error instanceof Error?error.message:String(error),duration:8000});}
   pollMaintenance();
+}
+
+// Companions: optional tools, their setup jobs and the "not installed" prompt.
+const COMPANION_JOBS=new Set(['install-colorful','update-colorful','install-wide-md','update-wide-md','start-ai-tts']);
+export async function refreshCompanions(){
+  try{update({companions:await controlActions.api('/api/companions')});}catch{/* The card keeps its last status. */}
+}
+function mergeCompanion(result:CompanionsStatus){
+  const current=model.companions,item=result.companions?.[0];if(!current||!item)return;
+  update({companions:{...current,checked_at:result.checked_at,companions:current.companions.map(c=>c.name===item.name?item:c)}});
+}
+/** check, set-path (returns status) or install, update, start (returns a maintenance job, announced like any other). */
+export async function companionAction(name:string,action:string,extra:Record<string,unknown>={}){
+  const result=await controlActions.api('/api/companions',{action,name,...extra});
+  if(result?.kind&&result?.id){
+    started.add(result.id);toast.loading(`${result.label} running…`,{id:result.id,description:'Progress and the log are in Behind the scenes, Companions.',duration:Infinity});
+    update({maintenance:model.maintenance?{...model.maintenance,running:result}:model.maintenance});pollMaintenance();refreshCompanions();
+  }else{mergeCompanion(result);if(action==='set-path')toast.success(extra.path?'Path saved.':'Path cleared.');}
+  return result;
+}
+/** A missing feature: a calm prompt naming what is missing, what it adds, its repo, Install when safe and Don't show again. */
+export async function promptCompanion(name:string,fallback?:string){
+  let item:Companion|undefined;
+  try{item=(await controlActions.api('/api/companions?name='+encodeURIComponent(name))).companions[0];}
+  catch{toast.error(fallback||'That feature is unavailable.',{duration:8000});return;}
+  if(!item)return;
+  if(item.state==='installed'&&!item.job){if(fallback)toast.error(fallback,{duration:8000});return;}
+  if(item.job){toast(`${item.label}: ${item.job.label} is running.`,{description:item.job.progress||undefined});return;}
+  const heading=item.state==='not-running'?`${item.title} isn’t running.`:`${item.feature} needs ${item.title}.`;
+  if(isDismissed(name)){toast(heading,{description:'Setup is in Behind the scenes, Companions.',id:'companion-'+name});return;}
+  const setup=(panel:string)=>{focusCompanion(name,panel);controlActions.open(':backstage');};
+  toast.custom(id=><CompanionPrompt item={item!} id={id} onSetup={setup}
+    onInstall={()=>companionAction(name,item!.actions.includes('install')?'install':'update').catch(error=>toast.error('Couldn’t start the install',{description:error instanceof Error?error.message:String(error),duration:8000}))}/>,
+    {id:'companion-'+name,duration:20000});
 }
 
 // Inbox runs: the same supervisor the Obsidian plugin starts. Poll every 2 s while one runs, 15 s otherwise
@@ -238,7 +278,7 @@ export async function stopInbox(){
 
 export function installControls(actions:Actions,prefs:Preferences){
   controlActions=actions;setSpeechApi(actions.api);
-  model={value:0,words:0,pdfPages:null,pace:220,spread:0,spreads:0,pages:0,columns:2,theme:prefs.theme,pips:[],prefs,participants:[],themeEditorOpen:false,customThemes:[],fonts:[],maintenance:null,prose:null,chat:{open:false,path:null,title:'',participant:''},outline:{mode:null,open:false,title:'',entries:[],folded:false,railOpen:false},outlineActive:-1,inbox:null,inboxStarting:false,activity:newActivity(),localModel:null};
+  model={value:0,words:0,pdfPages:null,pace:220,spread:0,spreads:0,pages:0,columns:2,theme:prefs.theme,pips:[],prefs,participants:[],themeEditorOpen:false,customThemes:[],fonts:[],maintenance:null,prose:null,chat:{open:false,path:null,title:'',participant:''},outline:{mode:null,open:false,title:'',entries:[],folded:false,railOpen:false},outlineActive:-1,inbox:null,inboxStarting:false,activity:newActivity(),localModel:null,companions:null};
   function View(){const current=useSyncExternalStore(subscribe,snapshot);return <>{createPortal(<ReadingProgress model={current} actions={actions}/>,document.getElementById('progress-controls-slot')!)}{createPortal(<Pages model={current} actions={actions}/>,document.getElementById('pagination-slot')!)}{createPortal(<OutlineControl outline={current.outline} active={current.outlineActive} actions={actions}/>,document.getElementById('outline-slot')!)}{createPortal(<SpeechControl/>,document.getElementById('speech-slot')!)}{createPortal(<label className="theme-toggle"><Switch id="theme-swap" size="sm" aria-label="Dark mode" checked={dark(current.theme)} onCheckedChange={checked=>{if(checked!==dark(current.theme))actions.theme();}}/><span>Dark</span></label>,document.getElementById('theme-switch-slot')!)}<ThemeEditor open={current.themeEditorOpen} onOpenChange={actions.themeEditor} themes={current.customThemes} fonts={current.fonts} current={current.theme} api={actions.api} onChanged={actions.themesChanged} onUse={actions.useTheme} onPreviewFont={actions.previewFont} error={actions.error}/><ChatPanel open={current.chat.open} path={current.chat.path} title={current.chat.title} participant={current.chat.participant} api={actions.api} markdown={actions.chatMarkdown} openPath={actions.openPath} onClose={()=>closeChat()} notify={notify}/><Toaster theme={dark(current.theme)?'dark':'light'} position="bottom-center" offset={{bottom:44}} mobileOffset={{bottom:56}}/></>;}
   ensureProseTokens();new MutationObserver(()=>ensureProseTokens()).observe(document.documentElement,{attributes:true,attributeFilter:['data-theme']});
   observeButtons();
@@ -280,12 +320,14 @@ function BackstageView({library}:{library?:(element:HTMLElement)=>void}){
   return <Backstage status={current.maintenance} onStart={startJob} settings={<SettingsForm model={current} actions={controlActions}/>} themeEditor={()=>controlActions.themeEditor(true)}
     library={library} inboxFirst={first} inbox={<Inbox status={inbox} starting={current.inboxStarting} onMail={startInbox} onStop={stopInbox} onOpen={controlActions.open} html={controlActions.markdown}
       activity={current.activity.runId&&current.activity.runId===inbox?.runner?.run_id?current.activity:null}/>} editions={<EditionLinks api={controlActions.api}/>}
-    localModel={<LocalModelSection status={current.localModel} act={localModelAction}/>} server={<ServerCard api={controlActions.api}/>}/>;
+    localModel={<LocalModelSection status={current.localModel} act={localModelAction}/>} server={<ServerCard api={controlActions.api}/>}
+    companions={<CompanionsSection api={controlActions.api} status={current.companions} busy={!!current.maintenance?.running} onRefresh={()=>{controlActions.api('/api/companions',{action:'check',name:'colorful'}).catch(()=>{}).finally(refreshCompanions);}}
+      act={(name,action,extra)=>companionAction(name,action,extra)}/>}/>;
 }
 /** Behind the scenes, as a route-owned island in #main. Checks freshness when the last check is old. */
 export function mountBackstage(container:HTMLElement,{library}:{library?:(element:HTMLElement)=>void}={}){
   mount(container,<BackstageView library={library}/>);
-  localHost=container;pollLocalModel();
+  localHost=container;pollLocalModel();refreshCompanions();
   (async()=>{
     pollInbox();
     if(!model.maintenance)await pollMaintenance();

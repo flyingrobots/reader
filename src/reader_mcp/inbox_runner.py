@@ -67,10 +67,10 @@ def sandbox_writable_paths(root, workstation_lock_store=None):
                 paths.append(Path(result.stdout.strip()))
             elif result.returncode != 128:
                 raise ValueError('Cannot resolve shared Git metadata: ' + result.stderr[-1000:])
-    candidates = [shutil.which('git-locks'), str(Path.home() / '.local/bin/git-locks'),
-                  '/opt/homebrew/bin/git-locks', '/usr/local/bin/git-locks']
-    tool = next((p for p in candidates if p and os.path.isfile(p) and os.access(p, os.X_OK)), None)
+    from .companions import find_git_locks
+    tool = find_git_locks(root=root)
     if tool:
+        # The store the librarian's git-locks calls will use, in this server's environment.
         result = subprocess.run([tool, 'store'], cwd=root, capture_output=True, text=True,
                                 timeout=10, check=True)
         if len(result.stdout) > 4096:

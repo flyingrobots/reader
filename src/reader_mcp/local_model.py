@@ -15,11 +15,12 @@ and is never returned, logged or written to settings.
 
 Only LM Studio gets server control, through its `lms` CLI with explicit argv and no
 shell. Each batch of up to ten items against a loopback provider holds the
-workstation `host/gpu/` git-locks key, so other GPU users interleave. Everything
-here is Python stdlib."""
+workstation `host/gpu/` git-locks key, so other GPU users interleave (without
+git-locks or a store, a Reader-local lock: see GPULock). Everything here is Python stdlib."""
 from collections import deque
 from contextlib import closing, contextmanager, nullcontext
 from datetime import datetime, timezone
+import fcntl
 import hashlib
 import http.client
 import ipaddress
@@ -41,7 +42,6 @@ import uuid
 from .metadata import FrontmatterError, decode_frontmatter
 
 DEFAULT_URL = 'http://127.0.0.1:1234/v1'
-WORKSTATION_STORE = '/Users/Shared/git-locks/workstation.git'
 GPU_KEY = 'host/gpu/'
 MAX_QUEUE = 5000                # waiting + running items
 RECENT = 20                    # "Queue recent": the newest eligible works, new, waiting or current
@@ -493,10 +493,9 @@ class CLI:
 class GitLocksGPU:
     """Hold `host/gpu/` in the workstation git-locks store for one batch."""
 
-    def __init__(self, store=WORKSTATION_STORE, executable=None, holder='reader-local-model', ttl=BATCH * ITEM_TIMEOUT + 300, wait=600):
+    def __init__(self, store, executable, holder='reader-local-model', ttl=BATCH * ITEM_TIMEOUT + 300, wait=600):
         self.store, self.holder, self.ttl, self.wait = store, holder, ttl, wait
-        self.executable = executable or shutil.which('git-locks') or '/opt/homebrew/bin/git-locks'
-
+        self.executable = executable
     def run(self, *args):
         env = os.environ.copy() | {'GIT_LOCKS_STORE': self.store}
         env.pop('GIT_LOCKS_NOW', None)
@@ -527,6 +526,53 @@ class GitLocksGPU:
         finally:
             args = ['release', '--job', job] + (['--acquisition', acquisition] if acquisition else [])
             self.run(*args)
+
+
+class LocalGPU:
+    """This Reader's own GPU lock (a flock in .reader/) when git-locks or its store is absent."""
+
+    def __init__(self, root, wait=600, poll=0.5):
+        self.file, self.wait, self.poll = Path(root) / '.reader/gpu.lock', wait, poll
+
+    @contextmanager
+    def __call__(self, note, cancelled=lambda: False):
+        self.file.parent.mkdir(exist_ok=True)
+        deadline = time.monotonic() + self.wait
+        with self.file.open('a') as handle:
+            while True:
+                try:
+                    fcntl.flock(handle, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                    break
+                except BlockingIOError:
+                    if cancelled() or time.monotonic() > deadline:
+                        raise BlockingIOError('Another Reader job holds this Reader’s GPU lock; try again later') from None
+                    time.sleep(self.poll)
+            try:
+                yield {'job': 'local', 'acquisition': None}
+            finally:
+                fcntl.flock(handle, fcntl.LOCK_UN)
+
+
+class GPULock:
+    """The workstation `host/gpu/` git-locks key when git-locks and its store exist, else LocalGPU.
+    Chosen per batch, so installing git-locks takes effect without a restart. A configured store
+    that is not a Git directory, or a git-locks store error, fails closed."""
+
+    def __init__(self, root, environ=None, wait=600):
+        self.root, self.environ, self.wait = Path(root), environ, wait
+
+    def mode(self):
+        from .companions import coordination
+        return coordination(self.environ, self.root)
+
+    @contextmanager
+    def __call__(self, note, cancelled=lambda: False):
+        mode = self.mode()
+        if mode['mode'] == 'error':
+            raise RuntimeError(mode['message'])
+        lock = GitLocksGPU(mode['store'], mode['executable'], wait=self.wait) if mode['mode'] == 'git-locks' else LocalGPU(self.root, wait=self.wait)
+        with lock(note, cancelled) as held:
+            yield held | {'mode': mode['mode']}
 
 
 # Tasks ---------------------------------------------------------------------
@@ -855,7 +901,7 @@ class LocalModel:
         self.connect = connect
         self.clients = {}
         self.cli = cli or CLI(os.environ.get('READER_LMS') or None)
-        self.gpu_lock = gpu_lock or GitLocksGPU()
+        self.gpu_lock = gpu_lock or GPULock(self.root)
         self.data_usage = data_usage
         self.lock = threading.RLock()
         self.enqueuing = threading.Lock()  # one enqueue at a time, so a double-click cannot queue a work twice
@@ -1556,6 +1602,15 @@ class LocalModel:
         self.outputs_cache = (time.monotonic(), result)
         return result
 
+    def gpu_mode(self):
+        mode = getattr(self.gpu_lock, 'mode', None)
+        if not callable(mode):
+            return None
+        try:
+            return {k: v for k, v in mode().items() if k in ('mode', 'label', 'message', 'store')}
+        except Exception as exc:
+            return {'mode': 'error', 'label': 'Unknown', 'message': str(exc)}
+
     def brief(self):
         """What the global toast watcher needs, without probing the model server."""
         with self.lock:
@@ -1585,7 +1640,7 @@ class LocalModel:
                 'settings': self.settings(), 'provider': server['provider'], 'tasks': {name: {'label': t.label, 'noun': t.noun, 'prompt_version': t.version} for name, t in TASKS.items()},
                 'limits': {'queue': MAX_QUEUE, 'source_tokens': SOURCE_TOKENS, 'output_tokens': OUTPUT_TOKENS,
                            'item_seconds': ITEM_TIMEOUT, 'batch': BATCH, 'cache_bytes': CACHE_LIMIT},
-                'active': sorted(self.active)} | brief
+                'active': sorted(self.active), 'gpu': self.gpu_mode()} | brief
 
     def dispatch(self, request):
         action = request.get('action')

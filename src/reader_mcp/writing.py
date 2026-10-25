@@ -20,6 +20,7 @@ import threading
 from uuid import UUID, uuid4
 
 from .chats import git_locks_tool
+from .companions import repo_env
 
 NOTEBOOK = 'library/notebook'
 MAX_BODY = 64 * 1024  # UTF-8 bytes; requests are capped at 128 KiB.
@@ -198,14 +199,14 @@ class Writing:
         try:
             script = 'git add -- "$2" && git commit -q -F "$1" -- "$2"'
             command = ['sh', '-c', script, 'reader-writing-commit', str(note), relative]
-            tool = self.git_locks if self.git_locks is not None else git_locks_tool()
+            tool = self.git_locks if self.git_locks is not None else git_locks_tool(self.root)
             if tool:
                 command = [tool, 'with', '--job', 'reader-writing-' + uuid4().hex, '--holder', 'reader-writing', '--ttl', '300',
                            '--wait', '120', '--note', 'Reader notebook commit', '.git/', '--'] + command
             # Chats, receipts and writing share the vault's .git/ lock; Reader processes also share this flock.
             with (self.runtime / 'chat-commit.lock').open('a') as lock:
                 fcntl.flock(lock, fcntl.LOCK_EX)
-                result = subprocess.run(command, cwd=self.root, capture_output=True, text=True, timeout=180)
+                result = subprocess.run(command, cwd=self.root, capture_output=True, text=True, timeout=180, env=repo_env())
         except subprocess.TimeoutExpired:
             return {'commit': None, 'status': 'failed', 'error': 'The commit timed out; the file is written but not committed.'}
         finally:

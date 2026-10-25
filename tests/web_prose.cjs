@@ -33,8 +33,12 @@ const covered=page=>page.evaluate(()=>Object.fromEntries([...CSS.highlights].fil
    // The Settings default (Clear) says nothing on open when Colorful is missing; Space c explains.
    await page.waitForTimeout(400);assert.equal(await page.locator('[data-sonner-toast]').count(),0,'no toast on open');
    await leader(page,'c');
-   await page.locator('[data-sonner-toast]').filter({hasText:"Colorful Language isn't installed"}).waitFor();
-   assert.match(await page.locator('[data-sonner-toast]').first().textContent(),/cargo install --path ~\/git\/colorful-language\/crates\/colorful-cli --locked/);
+   // The companion prompt: what is missing and what it adds, its repo, and (without cargo) How to install.
+   const prompt=page.locator('[data-companion-prompt=colorful]');await prompt.waitFor();
+   assert.equal(await prompt.locator('.companion-prompt-title').textContent(),'Prose colors needs Colorful Language');
+   assert.equal(await prompt.locator('a').getAttribute('href'),'https://github.com/flyingrobots/colorful-language');
+   assert.equal(await prompt.locator('[data-prompt-action=setup]').count(),1,'no cargo: guided setup, not Install');
+   await prompt.locator('[data-prompt-action=dismiss]').click();await prompt.waitFor({state:'detached'});
    assert.deepEqual(await covered(page),{},'no prose highlights');assert.equal(await page.locator('#prose-chip').isHidden(),true);
    assert.equal(await page.evaluate(()=>/prose-(subtle|clear|vivid)/.test(document.body.className)),false);
    await leader(page,'p');await page.locator('#prose-status').filter({hasText:"isn't installed"}).waitFor();

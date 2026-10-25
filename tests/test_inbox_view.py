@@ -122,12 +122,12 @@ def test_start_spawns_the_supervisor_with_explicit_argv_and_no_shell(vault):
         def wait(self):
             return 0
 
-    view = InboxView(vault, environ=env_for(fake) | {'READER_WORKSTATION_LOCK_STORE': '/Users/Shared/git-locks/workstation.git'}, spawn=Recorded)
+    view = InboxView(vault, environ=env_for(fake) | {'READER_WORKSTATION_LOCK_STORE': '/srv/git-locks/workstation.git'}, spawn=Recorded)
     result = view.start('danger-full-access', wait=.2)
     argv, options = calls[0]
     assert argv == [sys.executable, '-m', 'reader_mcp.inbox_runner', '--root', str(vault), '--codex', str(fake),
                     '--run-id', result['run_id'], '--sandbox-mode', 'danger-full-access',
-                    '--workstation-lock-store', '/Users/Shared/git-locks/workstation.git']
+                    '--workstation-lock-store', '/srv/git-locks/workstation.git']
     assert options['shell'] is False and options['start_new_session'] is True and options['cwd'] == str(vault)
     assert options['stdin'] == subprocess.DEVNULL and options['stdout'] == subprocess.DEVNULL
     with pytest.raises(ValueError):

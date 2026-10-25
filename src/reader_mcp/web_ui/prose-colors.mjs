@@ -21,8 +21,9 @@ export function quotedRuns(text,spans){
   return runs;
 }
 const BLOCKS='p,li,blockquote,h1,h2,h3,h4,h5,h6,td,th,dt,dd,figcaption';
-// Never colored: code, math, diagrams, embedded documents and every non-source decoration.
-const EXCLUDED='pre,code,kbd,samp,var,math,svg,.callout-title,.katex,.MathJax,mjx-container,.mermaid,.document-embed,.reader-code-block,[data-reader-decoration],.annotation-pin,.next-reads,script,style,textarea';
+// Never colored: code, math, diagrams and every non-source decoration (embed headers and notes included).
+// Embedded documents are prose on the page and are colored like the document around them.
+const EXCLUDED='pre,code,kbd,samp,var,math,svg,.callout-title,.katex,.MathJax,mjx-container,.mermaid,.reader-code-block,[data-reader-decoration],.annotation-pin,.next-reads,script,style,textarea';
 const BATCH_BYTES=96*1024,BATCH_SEGMENTS=400,SEGMENT_BYTES=128*1024;
 const encoder=new TextEncoder();
 
@@ -48,7 +49,7 @@ export function projectBlock(block,accept){
   function span(a,b){const range=document.createRange();range.setStart(nodes[a],offsets[a]);range.setEnd(nodes[b],offsets[b]+1);return range;}
 }
 
-export function installProseColors({state,api,notify,onChange=()=>{}}){
+export function installProseColors({state,api,notify,companion=null,onChange=()=>{}}){
   const highlights=Object.fromEntries(PAINTED.map(role=>[role,window.Highlight?new Highlight():null]));
   for(const h of Object.values(highlights))if(h)h.priority=-1; // find, annotations and selection paint over prose
   const cache=new Map();let cachedUnits=0;
@@ -79,7 +80,7 @@ export function installProseColors({state,api,notify,onChange=()=>{}}){
   function scan(){
     if(!article)return;
     if(doc.kind==='.pdf'){for(const layer of article.querySelectorAll('.textLayer'))textLayer(layer);return;}
-    for(const block of article.querySelectorAll(BLOCKS))if(!block.closest(EXCLUDED)&&!block.closest('.embedded-content'))register(block);
+    for(const block of article.querySelectorAll(BLOCKS))if(!block.closest(EXCLUDED))register(block);
   }
   function textLayer(layer){
     const page=layer.closest('[data-pdf-page]')?.dataset.pdfPage;if(!page)return;
@@ -129,7 +130,7 @@ export function installProseColors({state,api,notify,onChange=()=>{}}){
         catch(error){
           if(id!==generation)return;
           if(/busy/i.test(error.message)){await new Promise(resolve=>setTimeout(resolve,800));continue;}
-          stopped=true;notify(error.message,'error');return;
+          stopped=true;if(error.data?.unavailable&&companion){status=null;style='off';paint();companion('colorful',error.message);}else notify(error.message,'error');return;
         }
         if(id!==generation)return;
         for(const item of batch){const spans=result.segments[item.info.id]||[];remember(item.text,spans);apply(item,spans);}
@@ -141,7 +142,7 @@ export function installProseColors({state,api,notify,onChange=()=>{}}){
   // quiet: the Settings default turning colors on as a document opens says nothing when Colorful is missing.
   async function enable(next,quiet=false){
     const value=await probe(!quiet);
-    if(!value.available){style='off';paint();if(!quiet)notify(value.message||'Colorful Language is unavailable.','error');return false;}
+    if(!value.available){style='off';paint();if(!quiet){if(companion)companion('colorful',value.message);else notify(value.message||'Colorful Language is unavailable.','error');}return false;}
     style=next;paint();if(!blocks.size)scan();pump();return true;
   }
   return {
@@ -162,6 +163,8 @@ export function installProseColors({state,api,notify,onChange=()=>{}}){
       for(const h of Object.values(highlights))h?.clear();
       blocks=new Map();urgent=new Set();pending=[];done=new WeakSet();pageRanges=new Map();article=null;doc=null;paint();
     },
+    /** Embeds that loaded after the document joined the page: color their blocks too. */
+    rescan(){if(!article||!on()||doc?.kind==='.pdf')return;scan();pump();},
     /** Space c: step Off → Subtle → Clear → Vivid → Off for this document. */
     async press(){
       if(!supported(doc)){notify(state.doc?.historical?'Prose colors work on the current edition, not a past version.':'Prose colors work in Markdown documents and PDF text.');return;}

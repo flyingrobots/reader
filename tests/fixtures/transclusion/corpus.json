@@ -1,0 +1,469 @@
+{
+ "about": "Obsidian embed conformance corpus shared by tests/test_embeds.py and tests/embeds.test.mjs. Synthetic content only.",
+ "files": {
+  "library/notes/deep/Target Note.md": "---\ntitle: Target Note\ntags: [synthetic]\n---\n# Target Note\n\nIntro paragraph of the target.\n\n## Alpha\n\nAlpha body line.\n\n```sh\n# not a heading inside code\necho alpha\n```\n\n### Alpha Child\n\nChild body.\n\n## Beta\n\nBeta paragraph with a block id. ^beta-para\n\n- list item one\n- list item two ^list-two\n  - nested under two\n- list item three\n\n> [!note] A callout\n> Callout body. ^callout-id\n\n| a | b |\n| - | - |\n| 1 | 2 |\n\n^table-id\n\nSee [sibling](sibling.md) and ![dot](../../assets/dot.png).\n\nSetext Title\n------------\n\nSetext body with an emoji 🐈 before the end.\n",
+  "library/notes/deep/sibling.md": "# Sibling\n\nSibling body.\n\n![spaced](../../assets/my%20dot.png)\n",
+  "library/notes/v1.2 notes.md": "# Version notes\n\nA note whose name has a dot.\n",
+  "library/notes/loopA.md": "# Loop A\n\n![[loopB]]\n",
+  "library/notes/loopB.md": "# Loop B\n\n![[loopA]]\n",
+  "library/notes/self.md": "# Self\n\nBefore.\n\n![[self]]\n\n## Part\n\nA part.\n\n![[#Part]]\n",
+  "library/a/twin.md": "# Twin A\n",
+  "library/b/twin.md": "# Twin B\n",
+  "library/notes/data.csv": "a,b\n1,2\n",
+  "library/assets/dot.png": "synthetic image bytes",
+  "library/assets/paper.pdf": "%PDF-1.4 synthetic",
+  "library/notes/d1.md": "# Level 1\n\n![[d2]]\n",
+  "library/notes/d2.md": "# Level 2\n\n![[d3]]\n",
+  "library/notes/d3.md": "# Level 3\n\n![[d4]]\n",
+  "library/notes/d4.md": "# Level 4\n\n![[d5]]\n",
+  "library/notes/d5.md": "# Level 5\n\n![[d6]]\n",
+  "library/notes/d6.md": "# Level 6\n\n![[d7]]\n",
+  "library/notes/d7.md": "# Level 7\n\nBottom.\n",
+  "library/main.md": "# Main\n\n![[Target Note]]\n\n![[notes/deep/Target Note#Alpha|An alias]]\n\n![[Target Note#^list-two]]\n\n![[dot.png|300x200]]\n\n![[paper.pdf#page=3]]\n\n![[Nope]]\n\n![[notes/loopA]]\n\n![[notes/d1]]\n\n![[twin]]\n\n![[notes/data.csv]]\n\n![[v1.2 notes]]\n\n```md\n![[sibling]]\n```\n\n`![[sibling]]` and \\![[sibling]]\n",
+  "library/assets/my dot.png": "synthetic image bytes"
+ },
+ "parse": [
+  {
+   "raw": "note",
+   "expect": {
+    "target": "note",
+    "fragment": "",
+    "alias": "",
+    "kind": "markdown",
+    "width": null,
+    "height": null,
+    "page": null
+   }
+  },
+  {
+   "raw": "folder/note.md#Heading|Shown",
+   "expect": {
+    "target": "folder/note.md",
+    "fragment": "Heading",
+    "alias": "Shown",
+    "kind": "markdown",
+    "width": null,
+    "height": null,
+    "page": null
+   }
+  },
+  {
+   "raw": "note#A#B",
+   "expect": {
+    "target": "note",
+    "fragment": "A#B",
+    "alias": "",
+    "kind": "markdown",
+    "width": null,
+    "height": null,
+    "page": null
+   }
+  },
+  {
+   "raw": "note#^block-1",
+   "expect": {
+    "target": "note",
+    "fragment": "^block-1",
+    "alias": "",
+    "kind": "markdown",
+    "width": null,
+    "height": null,
+    "page": null
+   }
+  },
+  {
+   "raw": "pic.png|300",
+   "expect": {
+    "target": "pic.png",
+    "fragment": "",
+    "alias": "",
+    "kind": "image",
+    "width": 300,
+    "height": null,
+    "page": null
+   }
+  },
+  {
+   "raw": "pic.PNG|300x200",
+   "expect": {
+    "target": "pic.PNG",
+    "fragment": "",
+    "alias": "",
+    "kind": "image",
+    "width": 300,
+    "height": 200,
+    "page": null
+   }
+  },
+  {
+   "raw": "pic.jpg|A caption",
+   "expect": {
+    "target": "pic.jpg",
+    "fragment": "",
+    "alias": "A caption",
+    "kind": "image",
+    "width": null,
+    "height": null,
+    "page": null
+   }
+  },
+  {
+   "raw": "paper.pdf#page=3",
+   "expect": {
+    "target": "paper.pdf",
+    "fragment": "page=3",
+    "alias": "",
+    "kind": "pdf",
+    "width": null,
+    "height": null,
+    "page": 3
+   }
+  },
+  {
+   "raw": "paper.pdf",
+   "expect": {
+    "target": "paper.pdf",
+    "fragment": "",
+    "alias": "",
+    "kind": "pdf",
+    "width": null,
+    "height": null,
+    "page": null
+   }
+  },
+  {
+   "raw": "v1.2 notes",
+   "expect": {
+    "target": "v1.2 notes",
+    "fragment": "",
+    "alias": "",
+    "kind": "markdown",
+    "width": null,
+    "height": null,
+    "page": null
+   }
+  },
+  {
+   "raw": "clip.mp3",
+   "expect": {
+    "target": "clip.mp3",
+    "fragment": "",
+    "alias": "",
+    "kind": "audio",
+    "width": null,
+    "height": null,
+    "page": null
+   }
+  },
+  {
+   "raw": "data.csv",
+   "expect": {
+    "target": "data.csv",
+    "fragment": "",
+    "alias": "",
+    "kind": "other",
+    "width": null,
+    "height": null,
+    "page": null
+   }
+  },
+  {
+   "raw": "table note\\|alias",
+   "expect": {
+    "target": "table note",
+    "fragment": "",
+    "alias": "alias",
+    "kind": "markdown",
+    "width": null,
+    "height": null,
+    "page": null
+   }
+  },
+  {
+   "raw": "#Local heading",
+   "expect": {
+    "target": "",
+    "fragment": "Local heading",
+    "alias": "",
+    "kind": "markdown",
+    "width": null,
+    "height": null,
+    "page": null
+   }
+  }
+ ],
+ "scan": [
+  {
+   "text": "a ![[x]] b\n",
+   "expect": [
+    "x"
+   ]
+  },
+  {
+   "text": "![[a|b]] and ![[c#d]]\n",
+   "expect": [
+    "a|b",
+    "c#d"
+   ]
+  },
+  {
+   "text": "![[x]]![[y]]\n",
+   "expect": [
+    "x",
+    "y"
+   ]
+  },
+  {
+   "text": "```\n![[x]]\n```\n",
+   "expect": []
+  },
+  {
+   "text": "~~~md\n![[x]]\n~~~\n",
+   "expect": []
+  },
+  {
+   "text": "Para.\n\n    ![[x]]\n",
+   "expect": []
+  },
+  {
+   "text": "`![[x]]` stays code\n",
+   "expect": []
+  },
+  {
+   "text": "\\![[x]] is escaped\n",
+   "expect": []
+  },
+  {
+   "text": "<!-- ![[x]] -->\n",
+   "expect": []
+  },
+  {
+   "text": "- item ![[x]]\n> quote ![[y]]\n",
+   "expect": [
+    "x",
+    "y"
+   ]
+  },
+  {
+   "text": "![[]] and ![[a]b]]\n",
+   "expect": []
+  },
+  {
+   "text": "# Main\n\n![[Target Note]]\n\n![[notes/deep/Target Note#Alpha|An alias]]\n\n![[Target Note#^list-two]]\n\n![[dot.png|300x200]]\n\n![[paper.pdf#page=3]]\n\n![[Nope]]\n\n![[notes/loopA]]\n\n![[notes/d1]]\n\n![[twin]]\n\n![[notes/data.csv]]\n\n![[v1.2 notes]]\n\n```md\n![[sibling]]\n```\n\n`![[sibling]]` and \\![[sibling]]\n",
+   "expect": [
+    "Target Note",
+    "notes/deep/Target Note#Alpha|An alias",
+    "Target Note#^list-two",
+    "dot.png|300x200",
+    "paper.pdf#page=3",
+    "Nope",
+    "notes/loopA",
+    "notes/d1",
+    "twin",
+    "notes/data.csv",
+    "v1.2 notes"
+   ]
+  }
+ ],
+ "fragments": [
+  {
+   "file": "library/notes/deep/Target Note.md",
+   "fragment": "",
+   "expect": "# Target Note\n\nIntro paragraph of the target.\n\n## Alpha\n\nAlpha body line.\n\n```sh\n# not a heading inside code\necho alpha\n```\n\n### Alpha Child\n\nChild body.\n\n## Beta\n\nBeta paragraph with a block id. ^beta-para\n\n- list item one\n- list item two ^list-two\n  - nested under two\n- list item three\n\n> [!note] A callout\n> Callout body. ^callout-id\n\n| a | b |\n| - | - |\n| 1 | 2 |\n\n^table-id\n\nSee [sibling](sibling.md) and ![dot](../../assets/dot.png).\n\nSetext Title\n------------\n\nSetext body with an emoji 🐈 before the end."
+  },
+  {
+   "file": "library/notes/deep/Target Note.md",
+   "fragment": "Alpha",
+   "expect": "## Alpha\n\nAlpha body line.\n\n```sh\n# not a heading inside code\necho alpha\n```\n\n### Alpha Child\n\nChild body."
+  },
+  {
+   "file": "library/notes/deep/Target Note.md",
+   "fragment": "alpha",
+   "expect": "## Alpha\n\nAlpha body line.\n\n```sh\n# not a heading inside code\necho alpha\n```\n\n### Alpha Child\n\nChild body."
+  },
+  {
+   "file": "library/notes/deep/Target Note.md",
+   "fragment": "Alpha#Alpha Child",
+   "expect": "### Alpha Child\n\nChild body."
+  },
+  {
+   "file": "library/notes/deep/Target Note.md",
+   "fragment": "alpha-child",
+   "expect": "### Alpha Child\n\nChild body."
+  },
+  {
+   "file": "library/notes/deep/Target Note.md",
+   "fragment": "Beta",
+   "expect": "## Beta\n\nBeta paragraph with a block id. ^beta-para\n\n- list item one\n- list item two ^list-two\n  - nested under two\n- list item three\n\n> [!note] A callout\n> Callout body. ^callout-id\n\n| a | b |\n| - | - |\n| 1 | 2 |\n\n^table-id\n\nSee [sibling](sibling.md) and ![dot](../../assets/dot.png)."
+  },
+  {
+   "file": "library/notes/deep/Target Note.md",
+   "fragment": "Setext Title",
+   "expect": "Setext Title\n------------\n\nSetext body with an emoji 🐈 before the end."
+  },
+  {
+   "file": "library/notes/deep/Target Note.md",
+   "fragment": "not a heading inside code",
+   "expect": null
+  },
+  {
+   "file": "library/notes/deep/Target Note.md",
+   "fragment": "Alpha Child#Alpha",
+   "expect": null
+  },
+  {
+   "file": "library/notes/deep/Target Note.md",
+   "fragment": "Beta#Alpha Child",
+   "expect": null
+  },
+  {
+   "file": "library/notes/deep/Target Note.md",
+   "fragment": "Nope",
+   "expect": null
+  },
+  {
+   "file": "library/notes/deep/Target Note.md",
+   "fragment": "^beta-para",
+   "expect": "Beta paragraph with a block id. ^beta-para"
+  },
+  {
+   "file": "library/notes/deep/Target Note.md",
+   "fragment": "^list-two",
+   "expect": "- list item two ^list-two\n  - nested under two"
+  },
+  {
+   "file": "library/notes/deep/Target Note.md",
+   "fragment": "^callout-id",
+   "expect": "> [!note] A callout\n> Callout body. ^callout-id"
+  },
+  {
+   "file": "library/notes/deep/Target Note.md",
+   "fragment": "^table-id",
+   "expect": "| a | b |\n| - | - |\n| 1 | 2 |"
+  },
+  {
+   "file": "library/notes/deep/Target Note.md",
+   "fragment": "^missing",
+   "expect": null
+  }
+ ],
+ "tree": [
+  {
+   "from": "library/main.md",
+   "raw": "Target Note",
+   "expect": {
+    "status": "ok",
+    "path": "library/notes/deep/Target Note.md",
+    "title": "Target Note"
+   }
+  },
+  {
+   "from": "library/main.md",
+   "raw": "notes/deep/Target Note#Alpha|An alias",
+   "expect": {
+    "status": "ok",
+    "path": "library/notes/deep/Target Note.md",
+    "alias": "An alias"
+   }
+  },
+  {
+   "from": "library/main.md",
+   "raw": "dot.png|300x200",
+   "expect": {
+    "status": "ok",
+    "kind": "image",
+    "path": "library/assets/dot.png",
+    "width": 300,
+    "height": 200
+   }
+  },
+  {
+   "from": "library/main.md",
+   "raw": "paper.pdf#page=3",
+   "expect": {
+    "status": "ok",
+    "kind": "pdf",
+    "path": "library/assets/paper.pdf",
+    "page": 3
+   }
+  },
+  {
+   "from": "library/main.md",
+   "raw": "Nope",
+   "expect": {
+    "status": "missing"
+   }
+  },
+  {
+   "from": "library/main.md",
+   "raw": "twin",
+   "expect": {
+    "status": "ambiguous"
+   }
+  },
+  {
+   "from": "library/main.md",
+   "raw": "notes/data.csv",
+   "expect": {
+    "status": "unsupported",
+    "kind": "other"
+   }
+  },
+  {
+   "from": "library/main.md",
+   "raw": "v1.2 notes",
+   "expect": {
+    "status": "ok",
+    "path": "library/notes/v1.2 notes.md"
+   }
+  },
+  {
+   "from": "library/main.md",
+   "raw": "Target Note#Nope",
+   "expect": {
+    "status": "no-fragment"
+   }
+  },
+  {
+   "from": "library/main.md",
+   "raw": "notes/loopA",
+   "expect": {
+    "status": "ok",
+    "chain": [
+     "ok",
+     "ok",
+     "cycle"
+    ]
+   }
+  },
+  {
+   "from": "library/notes/self.md",
+   "raw": "self",
+   "expect": {
+    "status": "cycle"
+   }
+  },
+  {
+   "from": "library/notes/self.md",
+   "raw": "#Part",
+   "expect": {
+    "status": "ok",
+    "path": "library/notes/self.md"
+   }
+  },
+  {
+   "from": "library/main.md",
+   "raw": "notes/d1",
+   "expect": {
+    "status": "ok",
+    "chain": [
+     "ok",
+     "ok",
+     "ok",
+     "ok",
+     "depth"
+    ]
+   }
+  }
+ ]
+}

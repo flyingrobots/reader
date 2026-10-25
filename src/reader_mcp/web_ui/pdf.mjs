@@ -87,3 +87,23 @@ export async function openPDF(container, url) {
     destroy(){disposed=true;generation++;queue=[];observer.disconnect();for(const number of [...live.keys()])evict(number);return loading.destroy();}
   };
 }
+/** One PDF page drawn into `container` (an embed's `#page=N`, else page 1), when it nears the viewport.
+    A static canvas: no text layer, and the document is released once the page is drawn. */
+export async function pdfPage(container, url, number) {
+  // A viewport ahead in every direction: the next screen when scrolling, the next spread in two-page mode.
+  await new Promise(resolve=>{const observer=new IntersectionObserver(entries=>{if(entries.some(entry=>entry.isIntersecting)){observer.disconnect();resolve();}},{rootMargin:'100%'});observer.observe(container);});
+  if(!container.isConnected)return;
+  const pdfjs = await import('./vendor/pdf.min.mjs');
+  pdfjs.GlobalWorkerOptions.workerSrc = '/assets/vendor/pdf.worker.min.mjs';
+  const loading = pdfjs.getDocument({url, standardFontDataUrl:'/assets/vendor/standard_fonts/', cMapUrl:'/assets/vendor/cmaps/', cMapPacked:true, isEvalSupported:false, useWasm:false});
+  try {
+    const pdf = await loading.promise, shown = Math.min(Math.max(1, number), pdf.numPages), page = await pdf.getPage(shown);
+    const raw = page.getViewport({scale:1}), width = Math.min(container.clientWidth || 560, 720), viewport = page.getViewport({scale:width/raw.width});
+    const ratio = Math.min(devicePixelRatio || 1, 2, Math.sqrt(4000000/(viewport.width*viewport.height)));
+    const canvas = document.createElement('canvas');canvas.width = Math.max(1, Math.floor(viewport.width*ratio));canvas.height = Math.max(1, Math.floor(viewport.height*ratio));
+    canvas.style.width = viewport.width+'px';canvas.style.height = viewport.height+'px';canvas.setAttribute('role','img');canvas.setAttribute('aria-label',`PDF page ${shown} of ${pdf.numPages}`);
+    await page.render({canvasContext:canvas.getContext('2d'), viewport, transform:ratio!==1?[ratio,0,0,ratio,0,0]:null}).promise;
+    const label = document.createElement('span');label.className = 'pdf-page-label';label.textContent = `${shown} / ${pdf.numPages}`;
+    container.replaceChildren(canvas, label);container.dataset.pdfShown = shown;
+  } finally { await loading.destroy(); }
+}

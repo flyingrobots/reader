@@ -506,3 +506,16 @@ body.split-active #smooth-wrapper,body.split-active #summon,body.split-active .s
 .article-shape{max-height:320px;margin-bottom:44px}
 body.two-page .article-shape{break-inside:avoid;max-height:38vh}
 @media(max-width:640px){.cover-shape{aspect-ratio:16/10;margin-bottom:32px}.feature-shape{aspect-ratio:2.4/1}}
+
+/* Embeds (embeds.mjs): the embedded text is the document's own text; the header and notes are decoration. */
+.article span.document-embed{display:block}
+.article .document-embed .document-embed{padding-left:18px;margin:1.2em 0}
+.embed-header{font:11px/1.4 var(--sans);color:var(--muted);margin:0 0 .7em}
+.embed-source{color:var(--muted);text-decoration:none;overflow-wrap:anywhere}.embed-source:hover,.embed-source:focus-visible{color:var(--accent)}
+.embed-source cite{font-style:normal;color:var(--ink)}
+.article .document-embed[data-embed-state=cycle] .embed-note,.article .document-embed[data-embed-state=depth] .embed-note{color:var(--warning)}
+.article .document-embed[data-embed-state=loading] .embed-note,.article .document-embed[data-embed-state=deferred] .embed-note{color:var(--faint)}
+.article .embed-image{max-width:100%;display:block;margin:.6em 0}.article .embed-image:not([height]){height:auto}
+.embed-pdf{position:relative;max-width:720px;border:1px solid var(--line);break-inside:avoid}.embed-pdf canvas{display:block;max-width:100%;height:auto!important}.embed-pdf .pdf-page-label{position:absolute;right:8px;bottom:6px}
+body.two-page .article .document-embed .document-embed{padding-left:12px}
+body.two-page .embed-pdf canvas{max-height:65vh;width:auto!important}

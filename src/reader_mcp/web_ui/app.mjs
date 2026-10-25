@@ -1,8 +1,9 @@
-import {bodyOf, codePointIndex, escapeHTML as esc, findFragment, formatDate, localizeLibrary, normalize, slugHeadings, occurrences, plainQuote, plural, projectSource, rawCodePoints, sourceRangeForQuote, visibleQuote} from './logic.mjs';
+import {bodyOf, codePointIndex, escapeHTML as esc, findFragment, formatDate, localizeLibrary, normalize, scopeOf, slugHeadings, occurrences, plainQuote, plural, projectSource, rawCodePoints, sourceRangeForQuote, visibleQuote} from './logic.mjs';
 import {installReading} from './reading.mjs';
 import {installLinks} from './links.mjs';
 import {mathPlugin,mathOptions} from './math.mjs';
-import {openPDF} from './pdf.mjs';
+import {openPDF,pdfPage} from './pdf.mjs';
+import {embedPlugin,installEmbeds} from './embeds.mjs';
 import {installBreadcrumbs} from './breadcrumbs.mjs';
 import {readingLogHTML,withYou} from './reading-log.mjs';
 import {installSpeech} from './speech.mjs';
@@ -15,7 +16,7 @@ import {DEFAULT_EXCLUDED_TYPES,currentIssue,isoWeek,issueWindow,issueWeeks,selec
 import {THEMES,oppositeTheme} from './themes.mjs';
 import {calloutPlugin} from './callouts.mjs';
 import {drawable,fetchShape,paintShape,paintThumb} from './shapes.mjs';
-import {applyThemes,installControls,mountSkeleton,mountCodeBlocks,clearControlsWithin,mountDocumentTree,visibleDocumentNodes,revealDocumentRow,mountBackstage,mountChangesPanel,notify as shellNotify,openChat,closeChat,chatOpen,trackSpeech,renderQueuePanel,mountCallouts,startJob} from './controls/reader-controls.js';
+import {applyThemes,installControls,mountSkeleton,mountCodeBlocks,clearControlsWithin,mountDocumentTree,visibleDocumentNodes,revealDocumentRow,mountBackstage,mountChangesPanel,notify as shellNotify,openChat,closeChat,chatOpen,trackSpeech,renderQueuePanel,mountCallouts,startJob,promptCompanion} from './controls/reader-controls.js';
 import {installVersions,chipMarkup,historicalMarkup,splitRef,compareLabel} from './versions.mjs';
 import {installSplit,installPane,cleanRoute} from './split.mjs';
 import {installScratch} from './scratch.mjs';
@@ -73,7 +74,7 @@ const syncThemeColor=()=>{const meta=document.querySelector('meta[name=theme-col
 new MutationObserver(syncThemeColor).observe(document.documentElement,{attributes:true,attributeFilter:['data-theme']});addEventListener('load',syncThemeColor,{once:true});
 const reduced = matchMedia('(prefers-reduced-motion: reduce)');
 // Callouts register before the source-map wrapper below, so their asides receive the blockquote's map.
-const md = window.markdownit({html:true, linkify:true, breaks:false}).use(mathPlugin).use(calloutPlugin);
+const md = window.markdownit({html:true, linkify:true, breaks:false}).use(mathPlugin).use(calloutPlugin).use(embedPlugin);
 for (const type of ['paragraph_open','heading_open','blockquote_open','bullet_list_open','ordered_list_open','math_block']) {
   const original = md.renderer.rules[type];
   md.renderer.rules[type] = (tokens, index, options, env, self) => {
@@ -131,6 +132,14 @@ async function api(path, payload, extra={}) {
   return data;
 }
 const param = value => encodeURIComponent(value);
+const embeds=installEmbeds({api,param,render:renderMarkdown,wire:(root,path)=>wireArticleLinks(root,path),pdfPage,navigate,changed:embedsArrived});
+/** Embeds that loaded after the document: lay out again, draw their figures, color them and show their margins. */
+function embedsArrived(contents){
+  if(!contents.length)return;
+  refreshScroll();positionPins();prose?.rescan();
+  for(const content of contents){drawDiagrams(content).catch(error=>console.warn('Embedded diagrams',error));}
+  if(state.doc&&['.md','.markdown'].includes(state.doc.kind)&&!state.doc.historical)loadEmbedDiscussions().then(paintAnnotations).catch(error=>console.warn('Embedded margins',error));
+}
 function toast(message) { notify(message); }
 function report(error) { if (error?.offline) return; console.error(error); notify(error.message || String(error),'error'); }
 // A secondary request (margins, read marks, Read next, ...) must never take down a rendered document.
@@ -332,7 +341,7 @@ async function navigate(path,{thread=null,fragment='',record=true,commit=null,at
       !atCommit&&!preview&&TEXTUAL.test(path)?api('/api/changes?path='+param(path)+'&participant='+param(state.prefs.participant)).catch(()=>null):null]); if(id!==state.routeId)return;
     if(editions===LATE)pending.then(late=>{if(id!==state.routeId||!late)return;state.editions=state.versions=late;versions.update();});
     state.editions=state.versions=editions===LATE?null:editions;state.changes=changes;const historical=!!doc.historical;
-    state.doc=doc;state.threads=[];state.attention=[];
+    state.doc=doc;state.threads=[];state.attention=[];state.hostAttention=[];state.embedThreads=new Map();
     const author=Array.isArray(doc.metadata.author)?doc.metadata.author.join(' · '):doc.metadata.author;
     const known=doc.preview?null:state.data.works.find(w=>w.primary===path);
     const title=doc.metadata.title || known?.title || doc.title;
@@ -460,12 +469,14 @@ function mountEditions(){
   versions.wire($('#main'));versions.update();
 }
 function openEditions(){versions.open();}
-async function renderMarkdown(container,raw,path,depth,{defer=false}={}) {
-  const source=bodyOf(raw);
-    let markdown=source.text.replace(/!\[\[([^\]]+)\]\]/g,(_,target)=>`<div class="document-embed" data-embed-target="${esc(target.split('|')[0])}"></div>`).replace(/\[\[([^\]|]+)(?:\|([^\]]+))?\]\]/g,(_,target,label)=>`[${label || target}](${encodeURI(target)})`);
-  // Keep line maps based on unexpanded source for annotatable blocks. Embed rewrites
-  // never grant a source coordinate to their rendered children.
-  const rendered=md.render(markdown,{raw:source.text,full:raw,offset:source.offset,...mathOptions(raw)});
+/** Render Markdown into a container. An embedded fragment passes `range` (UTF-16 [start, end) of `raw`, the
+ *  embedded file), so its blocks carry that file's source offsets; `chain` and `children` come from embeds.mjs. */
+async function renderMarkdown(container,raw,path,depth,{defer=false,range=null,chain=[],children=null}={}) {
+  const source=range?{text:raw.slice(range[0],range[1]),offset:range[0]}:bodyOf(raw);
+  if(depth===0)embeds.reset();
+  // `![[…]]` and `[[…]]` are markdown-it inline rules (embeds.mjs): code keeps them literally, and an
+  // embed's placeholder never grants a source coordinate to the embedded document's blocks.
+  const rendered=md.render(source.text,{raw:source.text,full:raw,offset:source.offset,embeds:true,...mathOptions(raw)});
   const clean=DOMPurify.sanitize(rendered,{USE_PROFILES:{html:true},FORBID_TAGS:['style','form','input','button','textarea','select','iframe'],FORBID_ATTR:['style','srcset']});
   const template=document.createElement('template');template.innerHTML=clean;
   const images=[];
@@ -474,23 +485,13 @@ async function renderMarkdown(container,raw,path,depth,{defer=false}={}) {
     if(/^(?:https?:|data:|\/\/)/i.test(src)){image.removeAttribute('src');image.alt=(image.alt || 'External image')+' (not loaded)';continue;}
     images.push(image);
   }
-  const located=await resolveMany(path,images.map(image=>image.getAttribute('src') || ''));
+  // Markdown percent-encodes a destination (`my%20pic.png`); an embed's image target is written as is.
+  const located=await resolveMany(path,images.map(image=>image.hasAttribute('data-embed-image')?image.getAttribute('src'):decode(image.getAttribute('src') || '')));
   images.forEach((image,index)=>{const resolved=located[index];if(resolved?.path)image.src='/api/file?path='+param(resolved.path);else{image.removeAttribute('src');image.alt=(image.alt || 'Image')+' (unavailable)';}});
   clearControlsWithin(container);container.replaceChildren(template.content);slugHeadings(container);
   prepareDiagrams(container);
-  const embeds=[...container.querySelectorAll('[data-embed-target]')];
-  for(const embed of embeds){const target=embed.dataset.embedTarget;embed.innerHTML=`<span class="embed-note">Embedded document</span><a class="embed-link" href="${esc(target)}">${esc(target)} ↗</a>`;}
-  // The first eight embeds load together, then render in source order.
-  const wanted=depth>0?[]:embeds.slice(0,8),targets=await resolveMany(path,wanted.map(embed=>embed.dataset.embedTarget));
-  const nested=await Promise.all(targets.map(resolved=>resolved?.path&&resolved.path!==path?api('/api/document?path='+param(resolved.path)).catch(()=>null):null));
-  for(const [index,embed] of wanted.entries()){
-    const doc=nested[index],resolved=targets[index];
-    if(!doc || !['.md','.markdown'].includes(doc.kind) || doc.text.length>128000)continue;
-    try {
-      const content=document.createElement('div');content.className='embedded-content';content.dataset.sourcePath=resolved.path;embed.append(content);
-      await renderMarkdown(content,doc.text,resolved.path,depth+1,{defer});wireArticleLinks(content,resolved.path);
-    }catch{/* Keep the source link if an embedded edition is unavailable. */}
-  }
+  // Embeds: one /api/embeds request resolves the first few and their nested embeds; the rest load as you read.
+  await embeds.mount(container,path,{depth,chain,children});
   container.querySelectorAll('img').forEach(image=>image.addEventListener('load',imageLoaded));
   mountCodeBlocks(container);mountCallouts(container,()=>{refreshScroll();positionPins();});
   // A deferred render leaves diagrams to drawLate() after first paint; drawing many waits on the renderer.
@@ -580,7 +581,8 @@ function showHeading(root,id){
 }
 function wireArticleLinks(root,path){
   root.querySelectorAll('a').forEach(link=>link.addEventListener('click',async event=>{
-    if(link.closest('.embedded-content') && root.id==='article')return;
+    // Each document wires its own links (an embed's resolve from the embedded file); embed headers open their source.
+    if(scopeOf(link)!==scopeOf(root)||link.closest('[data-embed-open]'))return;
     const href=link.getAttribute('href');if(!href)return;
     if(href.startsWith('#')){event.preventDefault();const heading=decode(href.slice(1));if(showHeading(root,heading)&&root.id==='article')history.replaceState(history.state,'',routeHash(path,null,heading));return;}
     if(/^(https?:|mailto:)/i.test(href)){link.target='_blank';link.rel='noopener noreferrer';return;}
@@ -634,8 +636,11 @@ async function showNextReads(path,id){
   if(!reading?.placeAtEnd(aside))return;
   positionPins();
 }
-function domProjection(root) {
-  const walker=document.createTreeWalker(root,NodeFilter.SHOW_TEXT,{acceptNode(node){return node.parentElement?.closest('.annotation-pin,.document-embed,[data-reader-decoration],script,style')?NodeFilter.FILTER_REJECT:NodeFilter.FILTER_ACCEPT;}});
+/** Visible text of root, for anchoring (its own text: embedded documents excluded) or for find (`embeds`: included).
+ *  Exclusions count only inside root, so an embedded fragment projects its own text. */
+function domProjection(root,{embeds=false}={}) {
+  const skip=embeds?'.annotation-pin,[data-reader-decoration],script,style':'.annotation-pin,.document-embed,[data-reader-decoration],script,style';
+  const walker=document.createTreeWalker(root,NodeFilter.SHOW_TEXT,{acceptNode(node){const hit=node.parentElement?.closest(skip);return hit&&root.contains(hit)?NodeFilter.FILTER_REJECT:NodeFilter.FILTER_ACCEPT;}});
   let text='',nodes=[],offsets=[],node;
   while((node=walker.nextNode()))for(let i=0;i<node.data.length;i++){text+=node.data[i];nodes.push(node);offsets.push(i);}
   let normalized='',starts=[],ends=[];
@@ -648,32 +653,52 @@ function domProjection(root) {
     indexOf(range){const index=starts.findIndex(point=>range.comparePoint(point.node,point.offset)>=0);return index<0?normalized.length:index;}};
 }
 // The source projection costs O(n) per document; build it only when a thread or selection needs it.
-let projected={doc:null,value:null};
-function projection(){const doc=state.doc;if(!doc||doc.text===null)return null;if(projected.doc!==doc)projected={doc,value:projectSource(doc.text)};return projected.value;}
-function sourceBlock(start,end) {
-  const blocks=[...$('#article').querySelectorAll('[data-source-start]')].filter(el=>!el.closest('.document-embed') && +el.dataset.sourceStart<=start && +el.dataset.sourceEnd>=end);
-  return blocks.sort((a,b)=>(+a.dataset.sourceEnd-a.dataset.sourceStart)-(+b.dataset.sourceEnd-b.dataset.sourceStart))[0] || $('#article');
+// The open document's, or an embedded document's (embeds.doc(path)).
+let projected=new WeakMap();
+function projection(doc=state.doc){if(!doc||doc.text===null)return null;if(!projected.has(doc))projected.set(doc,projectSource(doc.text));return projected.get(doc);}
+/** The smallest source block of one document (the open one, or the embedded fragment `scope`) holding [start, end). */
+function sourceBlock(start,end,scope=null) {
+  const root=scope||$('#article');
+  const blocks=[...root.querySelectorAll('[data-source-start]')].filter(el=>scopeOf(el)===scope && +el.dataset.sourceStart<=start && +el.dataset.sourceEnd>=end);
+  return blocks.sort((a,b)=>(+a.dataset.sourceEnd-a.dataset.sourceStart)-(+b.dataset.sourceEnd-b.dataset.sourceStart))[0] || root;
+}
+/** Threads of the open document and of every document embedded in it (each thread once). */
+function allThreads(){const seen=new Set(),all=[];for(const thread of [...state.threads,...[...(state.embedThreads||new Map()).values()].flatMap(v=>v.threads)])if(!seen.has(thread.id)){seen.add(thread.id);all.push(thread);}return all;}
+/** Margins of the embedded documents shown on the page (at most 24 files, four requests at a time). */
+async function loadEmbedDiscussions(){
+  const doc=state.doc,article=$('#article');if(!doc||!article)return;
+  const paths=[...new Set(embeds.scopes(article).map(el=>el.dataset.sourcePath))].filter(path=>path!==doc.path).slice(0,24),found=new Map();
+  for(let i=0;i<paths.length;i+=4)await Promise.all(paths.slice(i,i+4).map(async path=>{try{const data=await api('/api/discussion?path='+param(path)+'&participant='+param(state.prefs.participant));found.set(path,{threads:data.threads,attention:data.attention.items});}catch{/* An embed's margins are optional. */}}));
+  if(state.doc!==doc)return;
+  state.embedThreads=found;state.attention=[...(state.hostAttention||[]),...[...found.values()].flatMap(v=>v.attention)];
 }
 async function loadDiscussion(){
   if(!state.doc || !['.md','.markdown'].includes(state.doc.kind))return;
   const path=state.doc.path;
-  const data=await api('/api/discussion?path='+param(path)+'&participant='+param(state.prefs.participant));
+  const [data]=await Promise.all([api('/api/discussion?path='+param(path)+'&participant='+param(state.prefs.participant)),loadEmbedDiscussions()]);
   if(state.doc?.path!==path)return;
-  state.threads=data.threads;state.attention=data.attention.items;paintAnnotations();
+  state.threads=data.threads;state.hostAttention=data.attention.items;state.attention=[...data.attention.items,...[...(state.embedThreads||new Map()).values()].flatMap(v=>v.attention)];paintAnnotations();
 }
 function paintAnnotations(){
   const article=$('#article');if(!article)return;
   article.querySelectorAll('.annotation-pin').forEach(el=>el.remove());state.ranges=[];
   const groups={'reader-own':[],'reader-other':[],'reader-warning':[]};
-  for(const thread of state.threads){
-    if(!['exact','relocated'].includes(thread.location?.status))continue;
-    const start=thread.location.start,end=thread.location.end,root=sourceBlock(start,end),dom=domProjection(root);
-    let quote=visibleQuote(projection(),start,end);let hits=occurrences(dom.text,quote);
+  // The open document's threads, then each embedded fragment's threads that fall inside it (a thread is pinned once).
+  const targets=state.threads.map(thread=>({thread,scope:null,doc:state.doc})),pinned=new Set();
+  for(const scope of embeds.scopes(article)){
+    const path=scope.dataset.sourcePath,doc=path===state.doc?.path?state.doc:embeds.doc(path),from=+scope.dataset.embedStart,to=+scope.dataset.embedEnd;
+    const threads=path===state.doc?.path?state.threads:state.embedThreads?.get(path)?.threads||[];
+    for(const thread of threads)if(doc&&thread.location&&thread.location.start>=from&&thread.location.end<=to)targets.push({thread,scope,doc});
+  }
+  for(const {thread,scope,doc} of targets){
+    if(!['exact','relocated'].includes(thread.location?.status)||pinned.has(thread.id))continue;
+    const start=thread.location.start,end=thread.location.end,root=sourceBlock(start,end,scope),dom=domProjection(root);
+    let quote=visibleQuote(projection(doc),start,end);let hits=occurrences(dom.text,quote);
     if(hits.length!==1){quote=normalize(thread.anchor.quote);hits=occurrences(dom.text,quote);}
     if(hits.length!==1)continue;
     const range=dom.range(hits[0].start,hits[0].end);if(!range)continue;
     const key=thread.kind==='warning'?'reader-warning':thread.owner===state.prefs.participant?'reader-own':'reader-other';
-    groups[key].push(range);state.ranges.push({thread,range});
+    groups[key].push(range);state.ranges.push({thread,range});pinned.add(thread.id);
     const pin=document.createElement('button');pin.className='annotation-pin'+(thread.kind==='warning'?' warning':'')+(threadUnread(thread.id)?' unread':'');
     pin.textContent=thread.kind==='warning'?'!':String(thread.comments.length || '·');pin.title=`${thread.owner} · ${plural(thread.comments.length,'comment')}`;pin.setAttribute('aria-label',`Open ${thread.owner}’s ${thread.kind==='warning'?'warning':'highlight'} thread`);pin.dataset.thread=thread.id;
     pin.onclick=()=>openThread(thread.id);article.append(pin);
@@ -738,9 +763,9 @@ function openThreadList(participant=null){
   if(!state.doc){toast('Open a document to read its margins.');return;}
   if(!['.md','.markdown'].includes(state.doc.kind)){toast('Passage threads currently support Markdown documents.');return;}
   if(typeof participant!=='string')participant=null;
-  const threads=participant?state.threads.filter(t=>t.owner===participant||t.comments.some(c=>c.author===participant)):state.threads;
+  const every=allThreads(),threads=participant?every.filter(t=>t.owner===participant||t.comments.some(c=>c.author===participant)):every;
   state.activeThread=null;$('#thread-panel').hidden=false;$('#thread-title').textContent=participant?'In the margins · '+participant:'In the margins';
-  $('#thread-body').innerHTML=threads.length?threads.map(t=>`<button class="thread-list-item" data-open-thread="${esc(t.id)}"><small>${esc(t.owner)}${t.kind==='warning'?' · warning':''}${threadUnread(t.id)?' · unread':''}</small><blockquote>“${esc(plainQuote(t.anchor.quote).slice(0,220))}”</blockquote><small>${plural(t.comments.length,'comment')}${t.resolved?' · resolved':''}</small></button>`).join(''):'<p class="empty-note">No notes in these margins yet.<br>Select a passage to begin.</p>';
+  $('#thread-body').innerHTML=threads.length?threads.map(t=>`<button class="thread-list-item" data-open-thread="${esc(t.id)}"><small>${esc(t.owner)}${t.kind==='warning'?' · warning':''}${threadUnread(t.id)?' · unread':''}${t.document_path&&t.document_path!==state.doc.path?' · in '+esc(embeds.doc(t.document_path)?.title||t.document_path.split('/').pop()):''}</small><blockquote>“${esc(plainQuote(t.anchor.quote).slice(0,220))}”</blockquote><small>${plural(t.comments.length,'comment')}${t.resolved?' · resolved':''}</small></button>`).join(''):'<p class="empty-note">No notes in these margins yet.<br>Select a passage to begin.</p>';
   $('#thread-body').querySelectorAll('[data-open-thread]').forEach(el=>el.onclick=()=>openThread(el.dataset.openThread));
   enterThreadPanel($('#thread-body .thread-list-item'));
 }
@@ -754,13 +779,13 @@ function renderThread(thread){
 }
 async function openThread(id){
   try {
-    await loadDiscussion();const thread=state.threads.find(t=>t.id===id);if(!thread)throw new Error('This thread is not in the open document.');
+    await loadDiscussion();const thread=allThreads().find(t=>t.id===id);if(!thread)throw new Error('This thread is not in the open document.');
     const first=state.activeThread!==id||$('#thread-panel').hidden;
     queue?.close(false);if(state.activeThread!==id){state.replyTo=null;$('#thread-body').replaceChildren();}state.activeThread=id;$('#thread-panel').hidden=false;renderThread(thread);
     if(first)enterThreadPanel();
     const items=state.attention.filter(i=>i.thread_id===id).map(({key,version})=>({key,version}));
     if(items.length)await api('/api/seen',{participant:state.prefs.participant,items});
-    await loadDiscussion();if(state.activeThread===id)renderThread(state.threads.find(t=>t.id===id));
+    await loadDiscussion();const fresh=allThreads().find(t=>t.id===id);if(state.activeThread===id&&fresh)renderThread(fresh);
   }catch(error){report(error);}
 }
 /** Which repeat of the quote the range starts at, counted within the block's visible text. */
@@ -775,14 +800,18 @@ function captureSelection(given=null){
   if(!given&&(!selection?.rangeCount||selection.isCollapsed))return;
   const range=given?.range||selection.getRangeAt(0);
   const parent=range.commonAncestorContainer.nodeType===1?range.commonAncestorContainer:range.commonAncestorContainer.parentElement;
-  if(!article.contains(parent)||parent.closest('.document-embed,.annotation-pin,[data-reader-decoration]'))return;
+  if(!article.contains(parent)||parent.closest('.annotation-pin,[data-reader-decoration]'))return;
+  // A selection inside an embedded fragment annotates the embedded file, at its own offsets; embed chrome never.
+  const scope=scopeOf(parent),embed=parent.closest('.document-embed');
+  if(embed&&(!scope||!embed.contains(scope)))return;
+  const doc=scope?embeds.doc(scope.dataset.sourcePath):state.doc;if(!doc?.text)return;
   const quote=given?.quote??selection.toString();if(!quote.trim())return;
-  const block=parent.closest('[data-source-start]');
+  const found=parent.closest('[data-source-start]'),block=found&&scopeOf(found)===scope?found:null;
   try {
-    const bounds=block?{start:+block.dataset.sourceStart,end:+block.dataset.sourceEnd,...quoteOccurrence(block,range,quote)}:null;
-    const coords=sourceRangeForQuote(state.doc.text,quote,bounds,projection());
-    state.selected={...coords,path:state.doc.path,sha256:state.doc.sha256,quote:rawCodePoints(state.doc.text,coords.start,coords.end),requests:{}};
-    state.lastQuote={quote:plainQuote(state.selected.quote),path:state.doc.path,title:String(state.doc.metadata?.title||state.doc.title||state.doc.path)};  // :cite in the scratch pad
+    const bounds=block?{start:+block.dataset.sourceStart,end:+block.dataset.sourceEnd,...quoteOccurrence(block,range,quote)}:scope?{start:+scope.dataset.embedStart,end:+scope.dataset.embedEnd}:null;
+    const coords=sourceRangeForQuote(doc.text,quote,bounds,projection(doc));
+    state.selected={...coords,path:doc.path,sha256:doc.sha256,quote:rawCodePoints(doc.text,coords.start,coords.end),requests:{}};
+    state.lastQuote={quote:plainQuote(state.selected.quote),path:doc.path,title:String(doc.metadata?.title||doc.title||doc.path)};  // :cite in the scratch pad
     const rect=[...range.getClientRects()].at(-1) || range.getBoundingClientRect(),tools=$('#selection-tools');
     tools.hidden=false;tools.style.left=Math.max(130,Math.min(innerWidth-130,rect.right))+'px';tools.style.top=Math.max(60,rect.top-10)+'px';
     // Touch browsers draw their own selection menu above the passage, so the toolbar goes below it there.
@@ -790,7 +819,7 @@ function captureSelection(given=null){
   }catch(error){state.selected=null;$('#selection-tools').hidden=true;if(!error.offline&&captureSelection.failed!==quote)toast(error.message);captureSelection.failed=quote;}
 }
 async function createAnnotation(kind,comment=''){
-  const selected=state.selected;if(!selected||selected.path!==state.doc?.path)throw new Error('Select the passage again.');
+  const selected=state.selected;if(!selected||selected.path!==state.doc?.path&&!embeds.doc(selected.path))throw new Error('Select the passage again.');
   const key=JSON.stringify([kind,comment]);selected.requests[key] ||= crypto.randomUUID();
   const thread=await api('/api/annotations',{operation:'create',path:selected.path,start:selected.start,end:selected.end,owner:state.prefs.participant,comment,expected_sha256:selected.sha256,request_id:selected.requests[key],kind});
   closeDialog('annotation-dialog');$('#selection-tools').hidden=true;getSelection()?.removeAllRanges();await loadDiscussion();if(comment || kind==='warning')await openThread(thread.id);else toast('Passage highlighted.');
@@ -902,7 +931,8 @@ function openFind(){if(!state.doc){openPicker();return;}$('#find-bar').hidden=fa
 async function updateFind(){
   const query=$('#find-query').value;
   if(state.pdf){const controller=state.pdf;$('#find-count').textContent='Searching PDF…';try{const result=await controller.find(query);if(!result||state.pdf!==controller||$('#find-query').value!==query)return;state.find=result.hits;state.findMore=!result.complete;state.findIndex=state.find.length?0:-1;showFind(false);if(!result.complete)toast(`PDF search stopped after ${result.examined} of ${plural(controller.count,'page')}; showing partial results.`);}catch(error){report(error);}return;}
-  const root=$('#article');if(!root)return;const dom=domProjection(root);
+  // Find covers embedded documents too (those loaded so far); anchoring uses each document's own text.
+  const root=$('#article');if(!root)return;const dom=domProjection(root,{embeds:true});
   const hits=occurrences(dom.text,query);state.findMore=!!hits.limited;
   state.find=hits.map(({start,end})=>dom.range(start,end)).filter(Boolean);state.findIndex=state.find.length?0:-1;
   if(window.Highlight&&CSS.highlights)CSS.highlights.set('reader-find',new Highlight(...state.find));
@@ -1411,8 +1441,8 @@ const breadcrumbs=installBreadcrumbs({container:$('#status-location'),home:()=>n
 controls=installControls({seek:fraction=>reading.seek(fraction),spread:index=>reading.seekSpread(index),thread:id=>{const hit=state.ranges.find(entry=>entry.thread.id===id);if(hit)moveToRange(hit.range);openThread(id);},theme:()=>{state.prefs.theme=oppositeTheme(state.prefs.theme);document.documentElement.dataset.theme=state.prefs.theme;savePrefs();reading.updateStatus();},save:applyPreferences,error:report,outlineToggle:()=>outline.toggle(),outlineOpen:open=>outline.setOpen(open),outlineGo:index=>outline.go(index),themeEditor:setThemeEditorOpen,api,themesChanged,useTheme,previewFont,chatMarkdown,openPath:path=>navigate(path),chatChanged:()=>reading?.updateStatus(),
   open:path=>navigate(path),libraryChanged:async()=>{await loadLibrary();if(!state.doc&&state.view!=='backstage')renderHome();},
   markdown:text=>DOMPurify.sanitize(window.markdownit({html:false,linkify:true}).render(text),{USE_PROFILES:{html:true}})},state.prefs);
-speech=installSpeech({state,api,reading:{capture:()=>reading.capture(),hasBook:()=>reading.hasBook()},notify,track:trackSpeech,openDialog,closeDialog});
-prose=installProseColors({state,api,notify});
+speech=installSpeech({state,api,reading:{capture:()=>reading.capture(),hasBook:()=>reading.hasBook()},notify,track:trackSpeech,openDialog,closeDialog,companion:promptCompanion});
+prose=installProseColors({state,api,notify,companion:promptCompanion});
 queue=installQueue({state,api,navigate,notify,renderPanel:renderQueuePanel,focusMain:()=>focusMain(),onChange:()=>reading?.updateStatus()});
 queue.setCloseOthers(()=>{$('#thread-panel').hidden=true;state.activeThread=null;});
 reading=installReading({statusOverride:()=>{const on=!!split?.active();if(!on)$('#split-indicator').hidden=true;return on&&paintSplitStatus();},onStatus:()=>pane&&paneStatus(),mayCurl:()=>!pane||pane.focused(),scratchStatus:()=>state.view==='scratch'?scratch?.status():null,controls,updateBreadcrumbs:path=>breadcrumbs.update(path),state,api,toast,openPreferences,openThread,revealRange:moveToRange,scrollToPosition,savePrefs,reloadDocument:()=>navigate(state.doc.path,{record:false}),positionPins,keyStatus:()=>keys.status()});
