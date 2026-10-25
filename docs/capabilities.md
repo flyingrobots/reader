@@ -18,11 +18,222 @@ Receipt lookup locates bundles in the inbox or library and checks payload integr
 
 ## Search and retrieval
 
-The CLI and local MCP server provide path/content keyword search, typo-tolerant fuzzy matching, local embedding similarity, and hybrid ranking through `reader_search`, plus bounded source reading through `reader_read`. The installed `$reader` agent skill guides search and reading through MCP or its CLI helper. Markdown, other supported UTF-8 text, and extractable PDF text are indexed; unsupported formats remain path-searchable. Explicit indexing maintains a disposable local SQLite index. See [search setup, contracts, and limits](search.md).
+The CLI and local MCP server provide path/content keyword search, typo-tolerant fuzzy matching, local embedding similarity, and hybrid ranking through `reader_search`, plus bounded source reading through `reader_read`. The installed `$reader` agent skill guides search and reading through MCP or its CLI helper. Reading material (Markdown, TXT, PDF, HTML, TeX, RST, Edict, BibTeX by default) is split into passages; machine files such as receipts, logs and source code, and unsupported formats, remain path-searchable, and `search.content_types` in `indexes/settings.json` widens the set. Explicit indexing maintains a disposable local SQLite index that stores identical passages once with float16 vectors. It publishes in batches, so a stopped rebuild keeps its work and resumes. Its budgets default to 400,000 passages, a 2 GiB database, a 1 GiB embedding cache and a 60-minute, four-thread worker, and are settings. See [search setup, contracts, and limits](search.md).
 
 ## Obsidian sidebar
 
 The optional desktop [Reader plugin](obsidian-plugin.md) shows existing librarian links and evidence for the open document, groups by ingestion date by default, filters titles/paths, and invokes local hybrid, semantic, fuzzy, or keyword search. When AI-TTS is available, it can queue selected text or a Markdown/TXT document with voice selection. It also launches explicit Codex inbox jobs, groups Library, Discussion, and Inbox into separate tabs and tracks shared participant-specific Read/Unread receipts, automatically acknowledging opened documents and threads in Obsidian, and supports shared Markdown highlights, explained warning annotations with red wavy underlines, and comment threads through Obsidian and CLI/MCP. PDF narration and annotations remain unsupported.
+
+## Local library website
+
+The loopback-only web reader opens on this week's issue: a magazine cover with a
+cover story, up to four features from different projects and an "In this issue"
+contents list, chosen from the week's additions with unread pieces first,
+newsletter picks and a spread across projects. On wide windows the issue fills the
+window with more columns and a sticky rail rather than longer lines. Standfirsts come from a `standfirst` field, else a
+current local-model standfirst marked with its model, else each source's opening prose. It also provides an interactive D3 dashboard, local GSAP
+scrolling, Vim keys, fuzzy/content/semantic search, shared Markdown passage
+discussion (selectable by mouse, touch or keyboard), a progress rail and a modal statusline. Continuous and facing-page
+layouts share automatic participant-specific, source-version-bound bookmarks.
+Obsidian callouts (types, aliases, titles, folding and nesting) render as
+annotatable asides.
+Document URLs can carry a heading, so links to sections survive reload and sharing.
+PDFs have selectable text, page-based resume and bounded find/rendering;
+PDF annotations are not implemented. Assets and fonts are served locally and are
+never refused by the request limits; margins load regardless of a document's
+catalog metadata, and secondary-request failures leave a rendered document open.
+Mermaid diagrams in Markdown are drawn locally by Pele, recolor with the theme,
+open full size, and appear on the two-page page turn. An invalid or over-limit
+diagram (more than 64 KiB of source, or after the 64th in a document) shows its
+source with the reason. TeX math (`$$…$$`, `\[…\]`, `\(…\)` and a conservative
+`$…$` that leaves currency alone) is typeset locally by KaTeX; rejected TeX stays
+visible with its reason, and copying a formula copies its TeX.
+Markdown rendering scales linearly with document size, and local images resolve in
+batched requests.
+See [web operation, privacy, limits and recovery](web.md).
+
+`scripts/reader_service.py` runs the web reader as a macOS LaunchAgent from a
+dedicated live worktree, restarted by launchd and advanced by a 10-minute updater
+only to commits that pass a smoke test, with rollback when the restarted server is
+unhealthy and a wait while inbox runs or rebuilds are active. `tailscale on`
+publishes it on the user's own tailnet with `tailscale serve` (never Funnel); Reader
+still binds to loopback and admits proxied requests only for allow-listed
+Tailscale logins. The app ships a web app manifest and icons for Add to Home
+Screen. Linux service units and public exposure are not supported.
+
+The dashboard presents catalog and participant statistics in an interactive chart
+grid. The Documents browser groups results in a Collapsible/Button file tree,
+dims exact-version read documents for the selected participant, and starts with
+its filter hidden and focus on the tree;
+`/` explicitly enables search. Ink/Paper, Orchid and Harvest provide paired
+light/dark themes, with the supplied Harvest OKLCH ramps preserved. Two-page reading
+turns single spreads with a Three.js 3D page curl, falling back to a slide without
+WebGL, with reduced motion, or by preference. A Theme Editor
+(Space , t, F10 or Behind the scenes) creates, edits, duplicates and deletes custom light/dark
+themes over a standard token contract. They are stored in the vault's `themes/`.
+It checks WCAG 2.x contrast and simulated color-vision separation, suggests fixes,
+generates themes from a seed, and previews a sample article. Fonts can be added from
+Google Fonts. They are downloaded once into the vault on request and then served
+locally. APCA contrast and non-latin font subsets are not included.
+
+Search (Space /) is a full page over the search index: Best (words and meaning blended), Exact words and Meaning modes; results grouped by catalog work with up to three highlighted passages each; Project, Author, Type, date, read-state, folder and machine-file filters with work counts over the top 500 passages; linkable `#search=` URLs; `j`/`k`/`J`/`K` keys; and opening at the passage, with the query's words highlighted and steppable with `n`, in both reading layouts. It reads the format 2 index once a build has completed, else the format 1 index read-only, and never rebuilds either; and says when results are partial, stale or exact-word only.
+
+Behind the scenes (Space p) shows the freshness of the search index, browse indexes,
+catalog SQL mirror and link graph. It rebuilds any of them on demand, one job at a time, through
+the existing guarded entry points, and announces each start, finish and failure with
+toasts. Each card shows usage against its budget (search passages, database and
+embedding cache; catalog files and source bytes), and an Other inventories card lists
+works, inbox files, reading participants and annotation threads against their limits.
+It also holds the library statistics dashboard and the reading settings. At the end of a document, **Read next**
+suggests up to three related works, unread first and then latest. Relatedness comes
+from the existing search-index embeddings and shared projects/topics. In two-page
+reading it appears only when it fits the last spread. Its **Inbox** card lists waiting arrivals with
+receipt titles, provenance and integrity, previews them without writing receipts or
+bookmarks, and **You got mail** starts the same supervised librarian inbox runner as
+the Obsidian plugin, with Stop, live status, the final report and its verified commit.
+While it runs, an activity transcript shows Codex's JSON events as shadcn AI Elements:
+messages with document citations, commands with terminal output and parsed
+pytest/node results, file trees, the plan, searches, errors, the commit checkpoint
+and token usage. Only the latest run's transcript is available, and the step
+timeline is inferred when the agent writes no plan.
+The supervisor's lock and Upkeep claims decide admission. An interrupted run must be
+recovered by hand, and a run processes the whole inventory; arrivals cannot be selected.
+
+Long Markdown documents and PDFs with an outline show a document outline: a rail beside the text in continuous
+reading, a popover with page labels in two-page reading and a bottom sheet on phones,
+with the active section and its progress, Space o to toggle and `]]`/`[[` to jump
+between headings. It lists at most 500 entries.
+
+The web app shows every date and time in the browser's local time zone and groups by
+local days (version chip and timeline, reading log, History, dashboard activity, issue
+weeks, search results and date range). Plain `YYYY-MM-DD` catalog dates are calendar
+dates and stay as written; timestamps are converted. The issue signals request still
+selects candidates by catalog (UTC) day.
+
+Under each document's title, a reading log shows which participants have a read
+receipt for this exact edition and which only for an earlier version of the same
+path, with relative times; the expanded log lists both groups, folds one-off task
+agents (fewer than 5 document receipts) into one entry, and links to each
+participant's threads. Receipts for earlier members of the document's edition family
+(an original, or a lower version) count as earlier editions.
+
+**Send to AI-TTS** (Space s, the document footer or the selection toolbar's Speak)
+queues the whole article, the text from the reading position, or a selected passage
+with the local AI-TTS daemon, which owns playback, holds and voice assignment.
+Markdown, plain text and PDF text layers are supported, up to 512 KiB of text per
+submission; PDF selections and scanned PDFs without a text layer are not. A
+status-line control shows segment progress and offers pause/resume, previous/next
+segment and skip, only for Reader's own utterances while they are current. The
+passage being spoken is not highlighted, because the daemon does not report
+segment source spans. Reader never plays audio directly.
+
+Hovering over (about 350 ms) or focusing a local link shows a plain-text preview of the
+target: title, authors, project, an unread mark and about 300 characters from the
+linked heading. External links show only their host. Each article ends with **Linked
+from**, the documents that link to it, with link counts and the heading each link
+sits under. Both rest on a link graph of the whole library in `.reader/links.sqlite3`:
+a rebuildable cache that builds itself on first use and refreshes incrementally from
+Behind the scenes. Links resolve exactly as a click resolves them. Wikilinks, embeds
+and Markdown links are recorded; links inside code, links that leave `library/`, and
+links in PDFs are not. The graph parses at most 10,000 Markdown files of 4 MiB each and
+holds at most 500,000 links and 256 MiB.
+
+Under a document's title, a version chip names the version being read (`v1 of 3`,
+a reading copy, an original, or `Current · 7 revisions` for a file with git
+history), says when a newer version exists and when you read it; a status-bar twin
+(`v1/3`) mirrors it. Space v opens a version explorer (a bottom sheet at phone
+width): a timeline of the edition family and, under each edition, the commits that
+changed it (at most 50 per file, 200 per family, 2 s), with markers for where you
+are, what you last read and the newest version. Any commit opens read-only and
+linkably (`#read=<path>@<commit>`) without receipts, bookmarks or annotations, and
+any two versions can be compared. Restoring an old version is not offered.
+Families come from `reading_source`, `previous_version`, `.vN.md` names,
+`original/` folders and catalog-note paths. They cover Markdown files, are
+rebuilt in memory when files change (checked at most once a minute) and are never
+written back. Unresolvable references are listed in Behind the scenes, not guessed.
+Catalog notes are named but not opened, since the reader serves only `library/`.
+
+When your receipt names an earlier edition of a Markdown or text document, a
+banner says it changed since you read it. A panel shows a paragraph and word diff
+against the bytes you read, recovered read-only from the vault's git history
+(newest 200 commits, 2 s, blobs up to 4 MiB). It also says where each highlight
+now sits. Such a document is marked read only by **Mark as caught up**. The same
+panel compares against another participant's edition or the newer `.vN` version.
+Editions that differ only in frontmatter or line wrapping are not offered as
+changes.
+Uncommitted older bytes, merges' own changes and PDFs are not covered.
+
+Space m opens a chat with the voices about the open document. You choose who
+answers with `@` mentions (one voice at random otherwise); the Reader librarian,
+Agy and Claude run through their own CLIs as configured in the vault's
+`voices.json`, with their normal authority, and Kai's replies are pasted by hand.
+Replies stream into the panel; turns run one at a time per vault with timeouts,
+cancel, resource guards and waiting for the inbox runner. Each chat is stored in
+`chats/` and committed after every message. Panels in several tabs share a
+document's first chat and stay in sync over the stream's heartbeat; a dead or
+stalled server shows *Lost connection to Reader* with Retry. Article identity, history and whatever
+a voice reads go to that voice's provider. Each reply's footer names why a turn
+failed (CLI error, unreadable output, timeout and so on), and a collapsed **Show raw
+output** disclosure shows the turn's CLI events as readable steps or JSON lines,
+with stderr and the prompt, live while it runs. Every turn's prompt, stdout, stderr
+and metadata are archived permanently in the vault under `logs/llm/chat/`
+(listening checks under `logs/llm/listen/`, shown compactly under the reply they
+followed),
+gzip-compressed on completion and committed with the chat; nothing prunes them, and
+no new turn starts below the 50 GiB free-disk reserve. Spoken replies are not
+implemented; the inbox runner and local-model worker do not use the LLM log archive
+yet.
+**Reply to @Voice** (or `r` on a focused voice message) addresses your next message
+to that voice and quotes the message you answer in its prompt. After an addressed
+exchange, the other voices get short listening checks, one at a time, and may raise
+a hand; per chat you turn this off, decide on each hand (the default), or let the
+first hand speak freely. One chime-in at most follows each message, chime-ins never
+start further checks, and a check that changes files is discarded with a warning.
+Each check is a cold CLI start for that voice; there is no spending cap beyond the
+90-second timeout. Threaded sub-conversations and voices starting chats are not
+implemented.
+
+Behind the scenes also supervises local LM Studio models. It starts and stops the
+loopback server, loads and unloads models through the `lms` CLI, and runs a queue of
+standfirst and key-term tasks one item at a time under the workstation GPU lock,
+with a streaming preview, per-run toasts, a recent-items log with rejection reasons,
+and counts of current and stale outputs. Outputs are checked deterministically
+against the source, cached by source hash, model and prompt version in
+`.reader/local-model/`, labelled with their model wherever they appear, and never
+written into vault files. Runs happen only on request; nightly or idle triggers,
+connection triage and quiz drafting are not included. Search can optionally embed
+through an LM Studio embedding model instead of the built-in bge-small, which forces
+a full re-embed. Only a loopback LM Studio is supported, never a remote provider.
+
+**Space c** highlights the grammar of Markdown prose and PDF text with the optional
+local [Colorful Language](https://github.com/flyingrobots/colorful-language) CLI
+(0.3.0 or newer, found through `READER_COLORFUL`, `PATH` or `~/.cargo/bin`). Three
+intensities: Subtle fades function words a little; Clear (the default) recedes function
+words and punctuation to about 3:1 while content words hold 7:1 and names, numbers and
+quotes take their own hues; Vivid gives every role a distinct saturated hue, underlines
+names and washes quoted passages. The colors are CSS custom highlights over unchanged
+text, derived per theme (colored roles at 4.5:1 on the page), and the page turn draws them. Code, math, diagrams and embedded documents
+stay uncolored. Every Colorful artifact passes a port of its reference admission
+checks before use. Open-class roles cover only Colorful's small seed lexicon, plain
+text is not colored, and its lint diagnostics are not shown.
+
+The reading queue (Space r) is a per-participant play queue in the side panel.
+**Up next** shows Now reading, the documents you queued (in your order, reorderable)
+and about ten suggestions with reasons: related to your five latest opens, newest
+unread works, and one from another project; voice suggestions added with
+`reader queue add --by … --reason …` are labelled and stay suggestions until you pin
+them. `q` or **+ Queue** adds a document; Space n opens the next one; Read next leads
+with **Next in your queue**. **History** lists your latest opens by day with
+progress, a changed-edition mark and resume; removing a row hides it without
+touching receipts or bookmarks. The queue (`queues/`) holds at most 500 items in
+64 KiB; the open log (`history/`) is compacted past 5,000 lines and holds no text.
+Inbox previews are never queued or logged.
+
+Reading controls use local shadcn Base UI components: Progress and Popover on the
+reading rail, Pagination in facing-page mode, Select and Switch in the Behind the scenes settings,
+Card and Badge for index status, Sonner toasts, a paired light/dark Switch, Code Block with exact-text copying, and Skeleton
+loading placeholders. The compiled assets ship with the Python package; rebuilding
+these controls requires the separate `web/` Node toolchain.
 
 ## Verification boundaries
 
@@ -41,6 +252,10 @@ Git provides history for committed content. Reader does not configure remote bac
 Document and catalog metadata share one bounded YAML codec and canonical `frontmatter_schema_version` and `document_revision` fields. Both SQLite projections retain these values and full custom metadata. Legacy records retain NULL canonical versions with explicit diagnostics; preserved source bytes do not change during synchronization. See [metadata](metadata.md).
 
 Reader librarian turns use [Upkeep](engagement.md) to delegate pending intake, inspect new discussion, record actual reading, and surface relevant connections. This is turn-boundary agent work, not a scheduled service.
+
+Ordinary project agents and delivery couriers use Upkeep's observer role. Only authorized Reader librarian/intake sessions use explicit librarian mode to claim or delegate filing. The helper rejects observer claim/release requests; role selection is a workflow guard, not authentication or a filesystem access boundary.
+
+The [curation queue](curation.md) groups filed deliveries, direct-drop works and standalone reading documents for a named curator. CLI/MCP discovery reports unscanned or changed versions even with an empty inbox; explicit scanned/studied coverage is recorded separately from document/discussion read receipts. Librarian Upkeep includes this queue, while observer mode does not. This does not add an Obsidian tab, automatic reading or a background scheduler.
 
 ## Code and vault locations
 

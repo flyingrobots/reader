@@ -10,6 +10,8 @@ For a new installation, start a fresh Codex session if the skill or tools do not
 
 Say “you got mail” in Reader when you want the librarian to file the delivered material. A successful submission reports `awaiting_filing` and `integrity: intact`; that is receipt of the material, not editorial review or cataloging.
 
+The producing/delivering agent remains the courier. It does not claim inbox work, file its delivery, launch Process inbox or start an intake subagent as part of delivery or ordinary turn-end Upkeep. Cross-project Upkeep is observer-only. A separate active Reader librarian or explicitly assigned intake session owns filing; see [role selection and coordination](engagement.md#upkeep-operation). Delivery, filing and independent curatorial reading remain separate outcomes.
+
 ## Setup and dependencies
 
 Supported execution environment: macOS or Linux, Python 3.11+, `uv`, and a local Codex installation for the provided installer. The reader-facing Markdown vault has no runtime dependency. Delivery uses Pydantic 2 and the official MCP Python SDK v1 maintenance line (`mcp>=1.28,<2`); `uv.lock` fixes the resolved environment.

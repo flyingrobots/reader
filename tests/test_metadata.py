@@ -8,6 +8,8 @@ import sys
 
 import pytest
 
+sys.path.insert(0, str(Path(__file__).parent))
+
 from reader_mcp.metadata import parse_metadata, schema, validate_paths
 from reader_mcp.search import Search
 
@@ -141,7 +143,7 @@ def test_no_frontmatter_and_cyclic_sources_remain_readable(vault):
     assert 'Recursion.' in cyclic['text']
 
 
-def test_version_one_index_upgrades_without_reembedding_unchanged_sources(vault):
+def test_version_one_index_migrates_with_metadata_and_never_reuses_unfingerprinted_vectors(vault):
     original = document('project: salesos\n')
     (vault / 'library/task.md').write_bytes(original)
     state = vault / '.reader'
@@ -161,10 +163,13 @@ def test_version_one_index_upgrades_without_reembedding_unchanged_sources(vault)
     with pytest.raises(ValueError, match='run reader index'):
         engine.search('Searchable','keyword')
     report = engine.index(False)
-    assert report['changed'] == 0, 'metadata upgrade must not rebuild unchanged content'
+    # The format 2 build re-chunks beside format 1; a vector without a model fingerprint is never reused.
+    assert report['changed'] == 1 and report['reused_vectors'] == 0 and report['seeded_from_legacy'] is False
+    with sqlite3.connect(state / 'search.sqlite3') as legacy:
+        assert legacy.execute('SELECT vector FROM chunks').fetchone()[0] == b'old-vector'
     with engine.connect() as con:
-        assert con.execute('SELECT vector FROM chunks').fetchone()[0] == b'old-vector'
-        assert con.execute("SELECT value FROM settings WHERE key='version'").fetchone()[0] == '1'
+        assert con.execute('SELECT vector FROM passages').fetchone()[0] is None
+        assert con.execute("SELECT value FROM settings WHERE key='version'").fetchone()[0] == '2'
         assert con.execute("SELECT value FROM settings WHERE key='metadata_index_version'").fetchone()[0] == '1'
     assert engine.search('Searchable','keyword')['results'][0]['metadata']['project'] == 'salesos'
     assert (vault / 'library/task.md').read_bytes() == original
@@ -223,17 +228,19 @@ def test_new_reader_requires_complete_metadata_marker_and_columns(vault):
     assert engine.search('Searchable', 'keyword')['results'][0]['metadata']['document_revision'] == 2
 
 
-def test_legacy_read_layout_remains_available_after_metadata_refresh(vault):
+def test_format_two_keeps_document_columns_in_its_own_file(vault):
     (vault / 'library/task.md').write_bytes(document())
     engine = Search(vault)
     engine.index(False)
-    with sqlite3.connect(engine.db) as legacy:
-        # The previous reader checks this version and reads the original columns.
-        assert dict(legacy.execute('SELECT key,value FROM settings'))['version'] == '1'
-        old = legacy.execute('SELECT path,sha256,metadata,status,size,mtime FROM docs').fetchone()
+    with sqlite3.connect(engine.db) as con:
+        # Format 1 readers check this version and refuse rather than misread passages.
+        assert dict(con.execute('SELECT key,value FROM settings'))['version'] == '2'
+        old = con.execute('SELECT path,sha256,metadata,status,size,mtime FROM docs').fetchone()
         assert old[0] == 'library/task.md'
         assert json.loads(old[2])['document_revision'] == 2
-        assert legacy.execute('SELECT text FROM chunks WHERE path=?', (old[0],)).fetchone()[0]
+        assert con.execute('SELECT p.text FROM chunks c JOIN passages p ON p.id=c.passage_id WHERE c.path=?', (old[0],)).fetchone()[0]
+    # Format 2 lives in its own file, so format 1 readers never see it.
+    assert engine.db.name == 'search.v2.sqlite3' and not (vault / '.reader/search.sqlite3').exists()
 
 
 def test_malformed_header_encoding_never_becomes_replacement_metadata():

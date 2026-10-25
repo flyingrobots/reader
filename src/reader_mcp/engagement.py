@@ -4,7 +4,15 @@ import json
 import os
 from pathlib import Path
 import tempfile
-from .annotations import Annotations, now, sha
+from .annotations import MAX_THREADS, Annotations, now, sha
+
+MAX_PARTICIPANTS = 100
+
+
+# Built-in voice list, used until a vault voice registry (`voices.json`, RW-14) names them.
+VOICES = ('Reader librarian', 'Reader librarian (curator)', 'Agy', 'Claude', 'Kai')
+# Participants (other than you) with fewer document receipts than this are one-off task agents.
+ONE_OFF_RECEIPTS = 5
 
 
 def version(value):
@@ -23,7 +31,7 @@ class Engagement:
     def receipts(self):
         if self.folder.is_symlink(): raise ValueError('Engagement folder must not be a symlink')
         files=sorted(self.folder.glob('*.json'))
-        if len(files)>100: raise ValueError('At most 100 participants are supported')
+        if len(files)>MAX_PARTICIPANTS: raise ValueError('At most 100 participants are supported')
         result=[]
         for file in files:
             if file.is_symlink() or file.stat().st_size>8*1024**2:raise ValueError('Unsafe or oversized read receipts')
@@ -31,6 +39,20 @@ class Engagement:
             if data.get('schema_version')!=1 or file.stem!=sha(self.participant(data['participant']).encode()):raise ValueError('Invalid read receipt identity/schema')
             result.append(data)
         return result
+
+    def voices(self):
+        """Voice names from `voices.json` when present (schema 1, at most 64 KiB), else the built-in list."""
+        file=self.root/'voices.json'
+        if file.is_symlink() or not file.is_file():return VOICES
+        if file.stat().st_size>64*1024:raise ValueError('voices.json exceeds 64 KiB')
+        data=json.loads(file.read_text())
+        if data.get('schema_version')!=1 or not isinstance(data.get('voices'),list):raise ValueError('Invalid voices.json schema')
+        return tuple(self.participant(v['name']) for v in data['voices'][:100] if isinstance(v,dict) and v.get('name'))
+
+    def group(self,participant,you,voices=VOICES):
+        """`you` (the requesting participant), `voice` (in the voice registry) or `agent`."""
+        if participant==you:return 'you'
+        return 'voice' if participant in voices else 'agent'
 
     def document(self,path):
         if not isinstance(path,str) or not path.startswith('library/') or '\\' in path or any(x in ('','.','..') for x in path.split('/')):raise ValueError('Expected library-relative document path')
@@ -49,7 +71,7 @@ class Engagement:
 
     def inventory(self,path=None):
         files=sorted(self.annotations.folder.glob('*.json'))
-        if len(files)>5000:raise ValueError('Annotation inventory exceeds 5,000 threads')
+        if len(files)>MAX_THREADS:raise ValueError('Annotation inventory exceeds 5,000 threads')
         for file in files:
             thread=self.annotations.read(file.stem)
             if path is None or thread['document_path']==path:yield thread
@@ -87,7 +109,7 @@ class Engagement:
         with self.annotations.locked():
             receipts=self.receipts()
             record=next((r for r in receipts if r['participant']==participant),dict(schema_version=1,participant=participant,items={}))
-            if not any(r['participant']==participant for r in receipts) and len(receipts)>=100:raise ValueError('At most 100 participants are supported')
+            if not any(r['participant']==participant for r in receipts) and len(receipts)>=MAX_PARTICIPANTS:raise ValueError('At most 100 participants are supported')
             for item in items:
                 if self.current(item['key'])['version']!=item['version']:raise ValueError('Content changed; read the current version before marking seen')
             stamp=now()

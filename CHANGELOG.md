@@ -2,6 +2,126 @@
 
 ## Unreleased
 
+- Keep the phone status line in order (#74): the section label, position and prose chip give way in a fixed order so the breadcrumb keeps its room and nothing leaves the screen. Align the magazine's + Queue text with its column (#58). Closing What changed returns focus to the page instead of the reading log (#59). A missing document no longer raises a Versions toast on top of its Link target not found message (#52). A listening check stopped before it ran leaves no cancelled reply (#61 with chime-ins).
+
+- Show every date and time in the browser's local time zone (fixes #36). Receipt, history, commit, thread and arrival timestamps are labelled and grouped by the reader's local day (version chip, version timeline, reading log, History *Today*/*Yesterday*, dashboard activity, issue weeks, search results and date range), while plain `YYYY-MM-DD` catalog dates stay as written. `/api/library` and `/api/search/page` now include each work's `arrival_time`; the library's server-side UTC `activity` list is removed in favour of client counting; the search page accepts `from_at`/`to_at` local-midnight bounds.
+
+- Show a reading log under each document's title: who read this exact edition (◉) or only an earlier one (◐), voices first, with relative times, folded one-off task agents and links to each reader's threads. `GET /api/readers` serves it read-only from existing receipts.
+
+- Add Send to AI-TTS: Space s (whole article, from here or the selection), a footer button and a Speak button in the selection toolbar queue the exact viewed edition with the local AI-TTS daemon as confidential speech from one stable `Reader` source. Toasts report queued, held, refused or unavailable, and a status-line control shows segment progress with pause/resume, segment steps and skip for Reader's own utterances. Markdown, plain text and PDF text layers are supported up to 512 KiB of text.
+
+- Align the homepage's second feature, beside the cover story, to the top of its row on wide windows, and lay it out as a plain block so actions added to it keep the text's left edge.
+
+- Make the homepage the cover of this week's issue: a cover story with a large serif headline and standfirst, up to four features from different projects, and an "In this issue" contents list, chosen from the week's additions with unread pieces first, the weekly newsletter's picks, and near-duplicates kept apart. Past issues live at `#issue=YYYY-Www`; j/k, g c and [ / ] navigate. The statistics dashboard moves unchanged into Behind the scenes as its Library section. On windows 1360px and wider the issue fills the window as a twelve-column spread: the cover with a second lead beside it, the other features in one row, contents columns that grow with the width, and a sticky rail with the counts, the newsletter and a sections index. Prose keeps a bounded measure.
+
+- Show inbox runs as a live activity transcript on Behind the scenes, built from shadcn AI Elements (Base UI): the librarian's messages with document citations, commands with collapsible terminal output and parsed test results, file trees, the plan, searches, errors, the commit checkpoint and token usage. It is fed by the new bounded `GET /api/inbox/events`. The inbox runner now copies Codex output as it arrives instead of in full 64 KiB blocks.
+
+- Inbox: starting a run while one is active now returns HTTP 409 Conflict instead of 429, and a second tab that clicks **You got mail** joins the running run's view instead of showing an error. Tabs refresh the inbox state when they become visible.
+
+- Add an Inbox card to Behind the scenes. It lists waiting arrivals with receipt titles, provenance and integrity, and previews them read-only. **You got mail** starts the existing librarian inbox runner (the Obsidian plugin's Process inbox), with Stop, live status, toasts, the librarian's report and the verified commit. The footer shows the waiting count, and Settings has the plugin's Inbox job permissions choice.
+
+- Fix the outline: the footer section and rail follow ScrollSmoother to where an eased scroll settles, `]]` in the last section no longer jumps backwards, the rail stays clear of Read next and the footer, and a failed document load clears the rail.
+
+- Add a document outline: a quiet rail of headings beside long documents in continuous reading, a popover with page labels in two-page reading and a bottom sheet on phones. It marks the current section and progress through it, shows the section in the footer, and jumps with Space o, `]]` and `[[`. PDFs use their own outline. Headings gain stable slug ids, so in-document `#fragment` links resolve.
+
+- Skip links inside indented code blocks in the link graph, and slug multi-line setext and HTML headings exactly as the reader renders them, so Linked from opens at the right heading.
+
+- Preview library links on hover or focus, and end each article with a Linked from list of the documents that link to it. Both read a rebuildable link graph (`.reader/links.sqlite3`) that resolves links exactly as a click does, refreshes incrementally as a Behind the scenes job, and serves `/api/links`, `/api/preview` and `/api/link-counts`. Headings now carry slugs, so links to `#heading` fragments open at that heading.
+
+- Typeset TeX math in the web reader with KaTeX, bundled with its woff2 fonts and loaded only for documents with math. Display (`$$`, `\[`) and inline (`\(`, conservative `$`) math render in every theme and on the page turn; currency and code stay as written, `math: false` frontmatter turns off `$` detection, invalid TeX shows its source and reason, and copying a formula copies its TeX.
+
+- Draw Mermaid diagrams in the web reader with Pele, bundled as lazy per-type chunks with no CDN. Diagrams follow the theme through CSS variables without re-rendering, keep a Diagram source disclosure for find, copy and annotations, open full size by click or Enter, fit two-page columns, and appear on the 3D page turn. Diagrams that fail to parse show their source and the reason.
+
+- Explore a document's versions. One version chip under the title (and `v1/3` in the status bar) says which version you are reading, replacing the edition line, its callout and the duplicate "Edition N". Space v opens a timeline of the edition family and each file's git history; Enter opens any commit read-only and linkably (`#read=<path>@<commit>`), and `c` on two items compares them in either direction. Adds `/api/versions`, `/api/version` and `/api/changes?a=&b=`, all read-only against git.
+
+- Offer "Compare with what X read" only when that reader's edition has different prose, and show a quiet note instead of an empty diff when only frontmatter or line wrapping changed since you read a document.
+
+- Say what changed since you last read a document. When your receipt names an earlier edition, a banner offers a paragraph and word diff against the bytes you read, recovered read-only from the vault's git history, with where your highlights went. Mark as caught up records the new edition; opening it no longer does so silently. The same panel compares against another reader's edition or the newer version (Space d).
+
+- Show which edition you are reading. Under the title, an edition line links the original, reading copies and numbered versions, a callout points to a newer version, and Space v opens an edition menu. Families come from `reading_source`, `previous_version`, `.vN.md` names, `original/` folders and catalog-note paths. They are read-only, and unresolved references are listed in Behind the scenes.
+
+- Chat replies and chime-ins. **Reply to @Voice** under each voice message (or `r` on a focused message) addresses the composer to that voice, shows a replying-to chip, and sends `reply_to`; the voice's prompt quotes the message being answered (up to 4 KB), and your message shows a quote bar that jumps to it. After an addressed exchange, voices that were not addressed get a short read-only listening check and may raise a hand (`HAND: reason`); per chat, chime-ins are off, raise hands (the default, with **Let them speak** / **Not now**) or speak freely. At most one chime-in per message, none on chime-ins; hands expire after 10 minutes or at your next message; a check that changes files is discarded with a warning. Hands, chime-ins and the setting are stored in the chat file (schema 1, additive fields).
+
+- Fix chat replies from Agy being reported as failed with an empty reply: Reader now reads agy's real `stream-json` (`init`, `step_update` text deltas and tool steps, `result.response`), streams its text live and stores `result.response` as the reply. Failed turns name their reason (CLI error with stderr, unreadable output, no output, timeout against `timeout_seconds`, low disk), and running turns show elapsed time against their timeout. Each voice turn gets a collapsed **Show raw output** disclosure with readable steps, JSON events, stderr and the prompt, live while it runs (`/api/chat/raw`, `raw` SSE frames). Every turn's raw artifacts are archived permanently in the vault at `logs/llm/chat/<date>/<turn-id>/` (gzip on completion, `meta.json`), committed with the chat under a `Reader-Log` trailer; turns refuse to start below the free-disk reserve rather than drop logs. Listening checks (RW-28) are archived the same way under `logs/llm/listen/` and committed with the chat; a reply lists them under a compact *Listening checks · raw output* disclosure.
+
+- Cancelling a queued or waiting chat turn now records a cancelled reply with Retry and a toast instead of leaving the message unanswered.
+- Chat panels in several tabs stay in sync: a document's first chat is shared instead of duplicated, other tabs' messages appear at once, and heartbeat pings with the chat revision reconcile stale turns. A dead or stalled server shows *Lost connection to Reader* with Retry and one toast instead of *Thinking…* forever, and a turn's clock stops at its timeout.
+
+- Fix chat replies from Agy being reported as failed with an empty reply: Reader now reads agy's real `stream-json` (`init`, `step_update` text deltas and tool steps, `result.response`), streams its text live and stores `result.response` as the reply. Failed turns name their reason (CLI error with stderr, unreadable output, no output, timeout against `timeout_seconds`, low disk), and running turns show elapsed time against their timeout. Each voice turn gets a collapsed **Show raw output** disclosure with readable steps, JSON events, stderr and the prompt, live while it runs (`/api/chat/raw`, `raw` SSE frames). Every turn's raw artifacts are archived permanently in the vault at `logs/llm/chat/<date>/<turn-id>/` (gzip on completion, `meta.json`), committed with the chat under a `Reader-Log` trailer; turns refuse to start below the free-disk reserve rather than drop logs.
+
+- Chat with the voices about the open document (Space m, or Chat in the margins panel). `@` mentions choose who answers, and an unmentioned message goes to one voice at random. The Reader librarian, Agy and Claude run through their CLIs, as configured in the vault's `voices.json`, with their normal authority; Kai's replies are pasted by hand. Replies stream over Server-Sent Events. Turns run one at a time per vault with timeouts, cancel, resource guards, and waiting for the inbox runner. Each turn records the files it changed and its commits. Chats are stored in `chats/` and committed with `Reader-Chat` trailers. The inbox runner now refuses to start while a chat turn runs.
+
+- Add a Local model section to Behind the scenes for LM Studio on this Mac: a server card that starts/stops the loopback server and loads/unloads models through `lms`, a Now card with a streaming preview, a queue grouped by task with Run, Pause and Clear, the last 50 items with rejection reasons, outputs in use with stale counts, and task settings. A single worker runs standfirst and key-term tasks under the workstation `host/gpu/` lock per batch of ten, validates answers against the source and caches them by source hash in `.reader/local-model/`, never in the vault. One toast per run. Search can optionally embed through an LM Studio model. The magazine cover uses a current local-model standfirst when no authored one exists, marked `local model · <model>`, and falls back to the opening paragraph when the source changes.
+
+- Scale the search index and catalog mirror past their first ceilings. Only reading material is split into passages by default. Receipts, logs, placeholders and source code stay findable by path, and `indexes/settings.json` → `search.content_types` widens the set. Identical passages, such as a reading copy and its original, are stored and embedded once, and semantic hits collapse to the preferred edition. Vectors are stored as float16. The budgets (400,000 passages, 2 GiB database, 1 GiB embedding cache, 60-minute four-thread worker) are settings, and a breach names its setting. Rebuilds publish in batches, so a run that stops at its time limit keeps its work and the next run continues. Format 2 is written to `.reader/search.v2.sqlite3` beside the format 1 index, which older Reader processes keep using unchanged. Search serves format 1 read-only until a format 2 build completes and validates. The first build reuses cached and format 1 vectors without model calls, and Behind the scenes can remove the format 1 index on request. The catalog hashes sources by streaming and now accepts 50,000 files and 2 GiB. Behind the scenes shows usage against each budget and an Other inventories card.
+- Wrap long unbroken tokens in search results so the search page no longer scrolls horizontally at phone width.
+
+- Run hand-typed `#search=<words>` links as a query, and make Esc on a Search page control (mode, facet, filter) return to the results instead of leaving Search.
+
+- Add a Search page (Space /). It shows passages, not just titles: up to three per work, with the query's words highlighted, grouped by catalog work and ranked by a blend of exact words and meaning (or either alone). Project, Author and Type facets with counts, date, read-state, folder and machine-file filters narrow it, and the URL carries the query and filters. `j`/`k` and `J`/`K` move between passages and works; Enter opens the document at the passage in either layout, with the matches highlighted and `n`/`N` stepping through them; `o` opens it in a new tab. New `GET /api/search/page` and `Search.passages`.
+
+
+- Count pypdf's per-glyph warnings from damaged PDFs instead of printing each one, and report a failed index run by its last meaningful error rather than the log tail.
+
+- Replace the prose color styles with an intensity scale, Off · Subtle · Clear · Vivid, stepped by Space c and chosen in Settings (Clear by default; saved Skim and Full map to Subtle and Vivid). Clear recedes function words and punctuation to about 3:1, holds content words at 7:1 and colors names in the accent's hue; Vivid gives every role a distinct saturated hue at 4.5:1, at least 0.08 ΔE_OK apart, underlines names and washes quoted passages. Role colors are derived per theme in OKLCH, and the Theme Editor checks each intensity's floors.
+- Add prose colors: Space c (or the Settings default) highlights function words, proper nouns, quotes, numbers and open-class roles of Markdown and PDF text with the optional local Colorful Language CLI. Skim quiets the skeleton; Full colors every role. Colors are CSS custom highlights over unchanged text, requested visible-first through `POST /api/prose`, admitted with Colorful's reference checks, derived per theme at 4.5:1 and drawn by the page turn.
+
+- Raise the web server's listen backlog from 5 to 64 so parallel asset loads are no longer reset on macOS, an intermittent cause of browser-test failures.
+
+- Add a reading queue (Space r) that works like a play queue. Up next shows the open document, your queued documents in your order and about ten suggestions with reasons, from your recent opens, new unread works and one other project. History lists your latest opens by day with progress and resume. Add with `q` or + Queue, open the next with Space n, and let voices suggest through `reader queue add`. The queue lives in the vault's `queues/`; an open log in `history/` joins receipts and bookmarks. The issue cover, its features and Search results offer **+ Queue** and `q` too.
+
+- Open very large Markdown documents promptly: a 2 MB document took about 14 s before display, almost all of it converting each block's source offset to code points from the start of the document. One code-point index per render makes that linear (about 0.4 s in total for a 2 MB document). Local images and embeds resolve through a new batched `/api/resolve-batch` route instead of one request per image; the annotation source projection is built on first need with typed arrays, and image loads reflow once per frame. The server's listen backlog is raised to 64 so many parallel image loads are not reset. A synthetic 2 MB browser benchmark (`tests/web_perf.cjs`) guards the result. Mermaid diagrams now draw after first paint instead of before it, keeping the block in view in place.
+
+- Load web margins for documents whose frontmatter is legacy, partial or malformed (for example versioned without `type`) instead of failing `/api/discussion` with 400. A failed secondary request after a document renders now shows a quiet toast rather than replacing the document with "Document unavailable" (#33).
+
+- Stop answering static assets and fonts with 429 under load. Only writes and expensive GETs share the eight-slot limit; other reads share 32 slots with a short wait, and the listen backlog is 64 (#34). The expensive class holds every POST and the search, search page, Read next, prose and chat GETs; the chat SSE stream keeps its own four-stream limit and takes no slot. Versions, the reading log, links, queue history and the other secondary requests degrade with quiet toasts.
+
+- Run Reader web as an always-on macOS LaunchAgent (`scripts/reader_service.py`) from a live worktree, advanced every 10 minutes only to source commits that pass a smoke test, rolled back when the restarted server fails its `/api/health` probe, and held while inbox runs or rebuilds are active. `tailscale on` publishes it on your tailnet with `tailscale serve`, preserving other serve entries and never using Funnel. Proxied requests are identified by Tailscale's identity headers and admitted only for allow-listed logins, on every route; local requests are unchanged. A Server card on Behind the scenes shows the commit, source, updates, Tailscale address and identity, with Update now, Restart and Pause. Adds a web app manifest and icons for Add to Home Screen.
+
+- Render Obsidian callouts (`> [!type] Title`, foldable `-`/`+`, nested, with Obsidian's types and aliases; unknown types as note) as asides with a Lucide icon and title instead of a literal `[!type]` marker. Body passages keep exact annotation anchors, find opens folded callouts, and the two-page turn draws their icons.
+
+- Skip operating-system metadata files (`.DS_Store`, `Thumbs.db`, `desktop.ini`, `._*`) in the catalog, search index, browse discovery, metadata validation, freshness checks and inbox inventory, so a folder opened in Finder no longer breaks the catalog SQL mirror.
+
+- Show thread quotes as plain prose instead of raw Markdown (`**bold**`, code spans, heading markers) in thread panels, the thread list and Unread discussion cards, and use singular nouns for counts of one ("1 comment") throughout the web app.
+- Local model: **Queue 20 recent** is idempotent. Works already waiting or current count toward the 20, and concurrent enqueue requests are serialized, so a second click or a double-click no longer queues the next 20.
+
+- Add a Local model section to Behind the scenes for LM Studio on this Mac: a server card that starts/stops the loopback server and loads/unloads models through `lms`, a Now card with a streaming preview, a queue grouped by task with Run, Pause and Clear, the last 50 items with rejection reasons, outputs in use with stale counts, and task settings. A single worker runs standfirst and key-term tasks under the workstation `host/gpu/` lock per batch of ten, validates answers against the source and caches them by source hash in `.reader/local-model/`, never in the vault. One toast per run. Search can optionally embed through an LM Studio model.
+- Let one-screen documents reach Finished in the reading queue: a saved position counts as 100% once the end has been in view for 3 seconds.
+
+- Add a reading queue (Space r) that works like a play queue. Up next shows the open document, your queued documents in your order and about ten suggestions with reasons, from your recent opens, new unread works and one other project. History lists your latest opens by day with progress and resume. Add with `q` or + Queue, open the next with Space n, and let voices suggest through `reader queue add`. The queue lives in the vault's `queues/`; an open log in `history/` joins receipts and bookmarks.
+
+- When the server can’t be reached, show one *Reader isn’t reachable — retrying…* toast, replaced in place and cleared by a backoff probe, instead of several bare *Failed to fetch* toasts.
+
+- Keep the two-page status line legible at phone width: the breadcrumb keeps room for Library › … › and only its current crumb ellipsizes, so the pagination no longer draws over it.
+
+- Show the web reader's selection toolbar for touch and keyboard selections (`a` / `Enter`), and anchor a phrase repeated within one paragraph at the selected repeat instead of refusing it.
+
+- Keep the two-page reading position across window resizes by the first visible text, not the spread number, and re-check whether Read next fits the last spread after each resize.
+
+- Carry heading fragments in `#read=` URLs (`&h=`), accept hand-made `#read=<path>#<heading>` links, keep `h` / `l` history in step with hash arrivals, reloads and browser Back/Forward, and show one *Link target not found* message (API 404) for a missing document.
+
+- Move keyboard focus into margin threads when they open (pips, pins, Space t, new comments), move through the thread list with j / k, and return focus to the opener on Escape or close.
+
+- Keep keyboard focus useful around Behind the scenes: Space p focuses the Settings heading instead of the participant field, saving preferences keeps focus on the form, and closing the Theme Editor returns focus to its opener.
+
+- Show a capped find count as a floor (`1 / 2000+`) in documents and partial PDF searches.
+
+- Place two-page annotation pins in the column gutter so they no longer cover the text after the passage.
+
+- Add a Behind the scenes page (Space p or the footer's Backstage button) that shows whether the search index, browse indexes and catalog SQL mirror need rebuilding. It rebuilds them on demand, one job at a time, through the existing guarded workers, and holds the settings that used to be in the Settings drawer. shadcn Sonner toasts announce each job's start, finish and failure, and now carry all app messages.
+
+- Show up to three Read next works at the end of a document: related by search-index embeddings and shared projects/topics, unread first, then latest. In two-page reading they appear only when they fit the last spread.
+
+- Keep inline code inside links at WCAG AA contrast in every theme: link code drops the raised code background (marked with a hairline instead), so the accent stays on the page background it was tuned against. The documents browser test now measures it in all themes.
+
+- Turn two-page spreads with a Three.js 3D page curl that flips the sheet to reveal the next or previous pages. It is lazy-loaded, matches the DOM at both ends, and falls back to sliding without WebGL, with reduced motion, or by preference.
+
+- Add eight famous open-source palettes as built-in light/dark themes: Solarized, Gruvbox, Catppuccin, Nord, Dracula, Rosé Pine, Tokyo Night and One. They are generated from verbatim upstream palettes, with recorded minimal contrast adjustments.
+
+- Add a web Theme Editor (Space , t, F10 or Settings). It creates, edits, duplicates and deletes custom light/dark themes over a standard token contract, stored in the vault's `themes/`, with WCAG contrast and color-vision checks, nearest-passing fixes, seed generation and a sample-article preview. Google Fonts families are downloaded once on request and served locally.
+
+- A content or semantic search that arrives while another runs now waits up to 8 seconds on the server, and the Documents picker retries a remaining 429 with backoff instead of showing an empty *Try another phrase* state.
+
 - Keep guarded reindexing running when SQLite removes a transient journal during disk accounting; other measurement errors still stop the worker.
 
 - Upgrade FastEmbed to the compatible 0.8 line and require Pillow 12.3 or newer to exclude the affected image-decoding releases.

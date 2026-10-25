@@ -4,7 +4,69 @@ import subprocess
 import sys
 import time
 
-from reader_mcp.inbox_runner import inventory, run
+from reader_mcp.inbox_runner import inventory, run, sandbox_writable_paths
+
+import pytest
+
+
+def test_external_lock_stores_are_granted_exactly_and_keep_the_sandbox(tmp_path, monkeypatch):
+    import reader_mcp.inbox_runner as runner
+    fake=fixture(tmp_path,'''import sys,pathlib,json
+pathlib.Path('arguments.json').write_text(json.dumps(sys.argv))
+''')
+    repository_store=tmp_path.parent/'external-repo-store';repository_store.mkdir()
+    workstation=tmp_path.parent/'host-locks.git';workstation.mkdir();(workstation/'HEAD').write_text('ref: refs/heads/main\n');(workstation/'objects').mkdir()
+    def resolve(root, selected):
+        assert selected==str(workstation)
+        return [str(root/'.git'),str(repository_store),str(workstation)]
+    monkeypatch.setattr(runner,'sandbox_writable_paths',resolve)
+    assert run(tmp_path,str(fake),workstation_lock_store=str(workstation))==0
+    args=json.loads((tmp_path/'arguments.json').read_text())
+    roots=[args[i+1] for i,a in enumerate(args) if a=='--add-dir']
+    assert roots==[str(tmp_path/'.git'),str(repository_store),str(workstation)]
+    assert str(tmp_path.parent) not in roots
+    assert args[args.index('--sandbox')+1]=='workspace-write'
+    prompt=(tmp_path/'.reader/inbox-runner/prompt.txt').read_text()
+    assert str(workstation) in prompt and 'GIT_LOCKS_STORE' in prompt
+    state=json.loads((tmp_path/'.reader/inbox-runner/state.json').read_text())
+    assert state['sandbox_writable_paths']==roots
+
+
+def test_workstation_store_must_exist_and_be_a_git_directory(tmp_path):
+    with pytest.raises((ValueError, FileNotFoundError)):
+        sandbox_writable_paths(tmp_path,'relative-store')
+    with pytest.raises((ValueError, FileNotFoundError)):
+        sandbox_writable_paths(tmp_path,str(tmp_path/'missing'))
+    store=tmp_path/'not-git';store.mkdir()
+    with pytest.raises(ValueError,match='existing Git directory'):
+        sandbox_writable_paths(tmp_path,str(store))
+
+
+def test_discovers_repository_store_from_installed_git_locks(tmp_path, monkeypatch):
+    import reader_mcp.inbox_runner as runner
+    store=tmp_path/'separate-store';store.mkdir()
+    tool=tmp_path/'git-locks';tool.write_text('#!'+sys.executable+'\nimport json\nprint(json.dumps({"store":'+repr(str(store))+'}))\n');tool.chmod(0o755)
+    original=runner.shutil.which
+    monkeypatch.setattr(runner.shutil,'which',lambda name:str(tool) if name=='git-locks' else original(name))
+    paths=sandbox_writable_paths(tmp_path)
+    assert str(store) in paths
+    assert str(tmp_path.parent) not in paths
+
+
+def test_host_access_is_explicit_and_retains_supervisor_limits(tmp_path):
+    fake=fixture(tmp_path,'''import sys,pathlib,json
+pathlib.Path('arguments.json').write_text(json.dumps(sys.argv))
+''')
+    assert run(tmp_path,str(fake),sandbox_mode='danger-full-access')==0
+    args=json.loads((tmp_path/'arguments.json').read_text())
+    assert args[args.index('--sandbox')+1]=='danger-full-access'
+    assert '--add-dir' not in args
+    assert '--dangerously-bypass-approvals-and-sandbox' not in args
+    state=json.loads((tmp_path/'.reader/inbox-runner/state.json').read_text())
+    assert state['sandbox_mode']=='danger-full-access'
+    assert state['limits']['output_bytes']==16*1024**2
+    assert state['limits']['data_bytes']==4*1024**3
+    assert run(tmp_path,str(fake),sandbox_mode='unknown')==1
 
 
 def fixture(tmp_path,script):

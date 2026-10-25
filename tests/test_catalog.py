@@ -182,3 +182,51 @@ def test_cli_from_external_directory(vault, tmp_path):
     (vault / 'library/new.txt').write_text('A new arrival after filing.')
     result = subprocess.run(command + ['check'], cwd=tmp_path.parent, capture_output=True, text=True)
     assert result.returncode == 1 and 'Missing versioned frontmatter' in result.stderr
+
+
+def test_streaming_inventory_hashes_match_and_never_hold_whole_files(vault, monkeypatch):
+    c = Catalog(vault)
+    files = c.inventory()
+    for path, entry in files.items():
+        data = (vault / path).read_bytes()
+        assert entry.sha256 == hashlib.sha256(data).hexdigest() and entry.size == len(data)
+    big = vault / 'library/archive/large.bin'
+    with big.open('wb') as stream:  # Sparse: no real disk for the 300 MiB.
+        stream.truncate(300 * 1024 ** 2)
+    original = Path.read_bytes
+    def guarded(path):
+        assert path != big, 'catalog read a whole non-Markdown source into memory'
+        return original(path)
+    monkeypatch.setattr(Path, 'read_bytes', guarded)
+    entry = c.inventory()['library/archive/large.bin']
+    assert entry.size == 300 * 1024 ** 2
+    assert entry.sha256 == hashlib.sha256(b'\0' * (300 * 1024 ** 2)).hexdigest()
+
+
+def test_inventory_above_the_old_10000_file_and_256_mib_caps_passes(vault):
+    folder = vault / 'library/many'
+    folder.mkdir()
+    for index in range(10_001):
+        (folder / f'{index:05}.txt').write_text(f'note {index}\n')
+    with (vault / 'library/archive/large.bin').open('wb') as stream:
+        stream.truncate(260 * 1024 ** 2)
+    report = Catalog(vault).run('plan')
+    assert report['documents'] == 10_008 and report['files'] == 10_008
+    assert report['source_bytes'] > 256 * 1024 ** 2 and report['limits']['files'] == 50_000
+
+
+def test_same_size_and_mtime_edit_between_plan_and_publish_is_detected(vault, monkeypatch):
+    import os
+    c = Catalog(vault); c.run('migrate')
+    target = vault / 'library/book.pdf'
+    before = target.stat()
+    real = Catalog.prepare
+    def edit_after_planning(self, migrate=False):
+        result = real(self, migrate)
+        # Same length, same mtime: only the SHA-256 tells them apart.
+        target.write_bytes(target.read_bytes().replace(b'fake', b'FAKE'))
+        os.utime(target, ns=(before.st_atime_ns, before.st_mtime_ns))
+        return result
+    monkeypatch.setattr(Catalog, 'prepare', edit_after_planning)
+    with pytest.raises(ValueError, match='changed'):
+        c.run('sync')

@@ -239,8 +239,11 @@ def test_interrupted_index_reuses_completed_embedding_batches(vault):
     engine._model = ResumableModel(True)
     with pytest.raises(RuntimeError, match='interrupted'):
         engine.index(True)
-    with pytest.raises(ValueError, match='incomplete'):
-        engine.search('transactions', 'keyword')
+    # The completed file was published; the failed one was rolled back and the run is marked incomplete.
+    partial = engine.search('transactions', 'keyword')
+    assert partial['results'][0]['path'] == 'library/architecture.md' and partial['complete'] is False
+    assert any('stopped before finishing' in w for w in partial['warnings'])
+    assert engine.search('roses', 'keyword')['results'] == []
     restarted = Search(vault)
     restarted._model = ResumableModel(False)
     assert restarted.index(True)['documents'] == 2
@@ -286,17 +289,30 @@ def test_query_connection_keeps_one_snapshot_across_refresh(vault):
         assert reader.execute('SELECT count(*) FROM docs').fetchone()[0] == 3
 
 
+def configure(vault, **search):
+    (vault / 'indexes').mkdir(exist_ok=True)
+    (vault / 'indexes/settings.json').write_text(json.dumps({'search': search}))
+
+
 @pytest.mark.parametrize('name', ['LICENSE', 'CITATION.cff', 'evidence.log', 'helper.mjs'])
-def test_archival_text_formats_are_content_searchable(vault, name):
+def test_archival_text_formats_are_path_only_unless_configured(vault, name):
     (vault / 'library' / name).write_text('distinctive archival testimony')
     engine = Search(vault)
     engine.index(False)
+    assert engine.search('testimony', 'keyword')['results'] == []
+    found = engine.search(name, 'keyword')['results'][0]
+    assert found['path'] == 'library/' + name and found['content_status'].startswith('path_only: machine')
+    from reader_mcp.search import CONTENT_TYPES
+    configure(vault, content_types=[*CONTENT_TYPES, Path(name).suffix])
+    assert Search(vault).index(False)['changed'] == 1
     result = engine.search('testimony', 'keyword')['results'][0]
     assert result['path'] == 'library/' + name
     assert result['content_status'] == 'text'
 
 
 def test_reading_material_ranks_above_administrative_receipts(vault):
+    from reader_mcp.search import CONTENT_TYPES
+    configure(vault, content_types=[*CONTENT_TYPES, '.json'])  # Receipts are path-only by default.
     (vault / 'library/receipt.json').write_text('{"title": "crash recovery"}')
     class RankedModel(FakeModel):
         def passage_embed(self, texts, **kwargs):

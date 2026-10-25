@@ -8,6 +8,8 @@ Place new documents in `inbox/`. Bundle supporting files with their document whe
 
 Agents in other projects can use the installed Reader skill, MCP tools, or command helper described in [Delivery integration](delivery.md). Delivery is automatic when invoked; classification remains manual. Machine receipts update with each delivery, while this documentation describes the maintained workflow rather than duplicating a live queue count.
 
+Delivery couriers stop at the verified inbox receipt. Their ordinary Upkeep checks use observer mode and do not claim or delegate ingestion. Active Reader librarian sessions and explicit user-assigned intake jobs use `python3 <installed-upkeep>/scripts/check.py --role librarian` before claiming/releasing batches. Moving to the vault or delivering a report does not create that assignment; see [Upkeep roles](engagement.md#upkeep-operation).
+
 “You got mail” is also an intake request: inspect and process the inbox using the procedure below.
 
 The librarian works during active conversation turns. The user need only deposit material and announce it; routine filing and related maintenance are delegated. When a concrete improvement deserves a separate work turn, the librarian will proactively explain its benefit and ask for that turn. The user need not identify or design the improvement. No background work is implied by this agreement.
@@ -103,6 +105,8 @@ For a metadata implementation upgrade, stop old catalog/index writers. Run `read
 ## Turn-boundary upkeep
 
 Apply [Upkeep](../skills/upkeep/SKILL.md) at the start and end of Reader librarian turns. Its check script is read-only; delegate ready intake batches, read discussion before acknowledging it as your own participant, and surface substantive connections when relevant. Follow the [shared receipt and coordination procedure](engagement.md).
+
+Use librarian mode's `curation` page to find already filed work awaiting this participant even when the inbox is empty. Follow `next_offset`; inspect exact member hashes through `curation list --key` before reading or recording a disposition. Record scanned/studied coverage through the [curation contract](curation.md), and commit your own `curation/` record. Discovery or scanning never substitutes for whole-document/thread reading receipts. If discovery is unavailable, reconcile the stated catalog/source problem instead of marking the backlog empty.
 
 ## Code and vault locations
 

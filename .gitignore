@@ -4,6 +4,8 @@
 /inbox/
 /annotations/
 /engagement/
+/bookmarks/
+/curation/
 /.obsidian/
 /.reader/
 .venv/
@@ -13,3 +15,7 @@ __pycache__/
 node_modules/
 dist/
 .DS_Store
+
+# Local web dependency/build caches; shipped controls stay in the Python package.
+/web/.npm-cache/
+/web/.cache/

@@ -13,7 +13,10 @@ import subprocess
 import sys
 import time
 import threading
+
+MAX_INBOX_FILES = 10000
 from uuid import uuid4
+from .junk import os_junk
 
 
 def inventory(root):
@@ -23,12 +26,12 @@ def inventory(root):
         folders[:] = [n for n in folders if not n.startswith('.') and not (Path(directory)/n).is_symlink()]
         for name in sorted(files):
             p = Path(directory) / name
-            if name.startswith('.') or p.is_symlink() or p == root / 'inbox/README.md':
+            if name.startswith('.') or os_junk(name) or p.is_symlink() or p == root / 'inbox/README.md':
                 continue
             if not p.is_file():
                 continue
             paths.append(p.relative_to(root).as_posix())
-            if len(paths)>10000:raise ValueError('Inbox inventory exceeds 10,000 files; process a smaller batch')
+            if len(paths)>MAX_INBOX_FILES:raise ValueError('Inbox inventory exceeds 10,000 files; process a smaller batch')
     return sorted(paths)
 
 
@@ -51,7 +54,60 @@ Finish with a concise report of filed paths, reading copies, reactions/connectio
 ''' + json.dumps(paths, ensure_ascii=False)
 
 
-def run(root, codex, run_id=None, timeout=1800):
+def sandbox_writable_paths(root, workstation_lock_store=None):
+    """Resolve exact Git metadata and lock stores; never grant their parent directories."""
+    metadata = root / '.git'
+    paths = [metadata] if not metadata.exists() or metadata.is_dir() else []
+    git = shutil.which('git')
+    if git:
+        for option in ['--git-common-dir', '--absolute-git-dir']:
+            result = subprocess.run([git, 'rev-parse', '--path-format=absolute', option],
+                                    cwd=root, capture_output=True, text=True, timeout=10)
+            if result.returncode == 0:
+                paths.append(Path(result.stdout.strip()))
+            elif result.returncode != 128:
+                raise ValueError('Cannot resolve shared Git metadata: ' + result.stderr[-1000:])
+    candidates = [shutil.which('git-locks'), str(Path.home() / '.local/bin/git-locks'),
+                  '/opt/homebrew/bin/git-locks', '/usr/local/bin/git-locks']
+    tool = next((p for p in candidates if p and os.path.isfile(p) and os.access(p, os.X_OK)), None)
+    if tool:
+        result = subprocess.run([tool, 'store'], cwd=root, capture_output=True, text=True,
+                                timeout=10, check=True)
+        if len(result.stdout) > 4096:
+            raise ValueError('Git-locks store response exceeds 4 KiB')
+        value = json.loads(result.stdout).get('store')
+        if not isinstance(value, str) or not Path(value).is_absolute():
+            raise ValueError('Git-locks did not return an absolute store path')
+        store = Path(value).resolve(strict=True)
+        if not store.is_dir():
+            raise ValueError('Git-locks store must be a directory')
+        paths.append(store)
+    if workstation_lock_store:
+        store = Path(workstation_lock_store).expanduser()
+        if not store.is_absolute():
+            raise ValueError('Workstation git-locks store must be an absolute path')
+        store = store.resolve(strict=True)
+        if not store.is_dir() or not (store / 'HEAD').is_file() or not (store / 'objects').is_dir():
+            raise ValueError('Workstation git-locks store must be an existing Git directory')
+        paths.append(store)
+    return list(dict.fromkeys(str(path.resolve()) for path in paths))
+
+
+def chat_turn_running(root):
+    """Web chat voices write in the vault too; their run lock is held for a whole turn."""
+    lock = root / '.reader/voice-runner/run.lock'
+    if not lock.is_file():
+        return False
+    with lock.open('a') as handle:
+        try:
+            fcntl.flock(handle, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError:
+            return True
+        fcntl.flock(handle, fcntl.LOCK_UN)
+    return False
+
+
+def run(root, codex, run_id=None, timeout=1800, workstation_lock_store=None, sandbox_mode='workspace-write'):
     root = root.resolve(strict=True)
     runtime = root / '.reader/inbox-runner'
     runtime.mkdir(parents=True, exist_ok=True)
@@ -72,9 +128,15 @@ def run(root, codex, run_id=None, timeout=1800):
                 state.update(status='failed',message='Upkeep intake workers hold arrivals; finish their batches before starting the inbox runner.')
                 write_state(runtime,state)
                 return 2
+            if chat_turn_running(root):
+                state.update(status='failed',message='A voice chat turn is running in this vault; start the inbox run when it finishes.')
+                write_state(runtime,state)
+                return 2
             write_state(runtime,state)
         worker = None
         try:
+            if sandbox_mode not in ('workspace-write', 'danger-full-access'):
+                raise ValueError('Unsupported inbox sandbox mode')
             paths = inventory(root)
             state['arrivals'] = sorted({p.split('/')[1] for p in paths})
             state['files'] = paths
@@ -100,9 +162,20 @@ def run(root, codex, run_id=None, timeout=1800):
                 if sum((runtime/n).stat().st_size for n in ('events.jsonl','stderr.log','last-message.md')) > 16*1024**2:
                     raise ValueError('Inbox run exceeded its 16 MiB output budget')
             check_limits()
-            args = [codex,'exec','--cd',str(root),'--sandbox','workspace-write','-c','approval_policy="never"',
-                    '--add-dir',str(root / '.git'),'--ephemeral','--json','--color','never','--output-last-message',str(runtime/'last-message.md'),'-']
+            writable_paths = sandbox_writable_paths(root, workstation_lock_store)
+            args = [codex,'exec','--cd',str(root),'--sandbox',sandbox_mode,'-c','approval_policy="never"']
+            if sandbox_mode == 'workspace-write':
+                for path in writable_paths:
+                    args.extend(['--add-dir', path])
+            args.extend(['--ephemeral','--json','--color','never','--output-last-message',str(runtime/'last-message.md'),'-'])
             state['command'] = args
+            state['sandbox_writable_paths'] = writable_paths
+            state['sandbox_mode'] = sandbox_mode
+            if workstation_lock_store:
+                state['workstation_lock_store'] = str(Path(workstation_lock_store).expanduser().resolve())
+                with (runtime/'prompt.txt').open('a') as prompt:
+                    prompt.write('\nConfigured workstation git-locks store (use GIT_LOCKS_STORE explicitly for host resources): '
+                                 + json.dumps(state['workstation_lock_store']) + '\n')
             state['limits'] = dict(timeout_seconds=timeout,data_bytes=4*1024**3,output_bytes=16*1024**2,
                                    minimum_free_bytes=minimum_free_bytes(root),cpu_seconds=3600)
             state['temporary_path'] = str(temp)
@@ -116,7 +189,7 @@ def run(root, codex, run_id=None, timeout=1800):
                 def copy_output(pipe, target):
                     written = 0
                     try:
-                        while chunk := pipe.read(65536):
+                        while chunk := pipe.read1(65536):  # Whatever is available, so events reach the transcript live.
                             if written + len(chunk) > 8*1024**2:
                                 os.killpg(worker.pid,signal.SIGKILL); break
                             target.write(chunk); target.flush(); written += len(chunk)
@@ -169,8 +242,10 @@ def main():
     parser.add_argument('--root',required=True,type=Path)
     parser.add_argument('--codex',default='codex')
     parser.add_argument('--run-id')
+    parser.add_argument('--workstation-lock-store', help='Existing Git lock store for shared host resources')
+    parser.add_argument('--sandbox-mode', choices=['workspace-write', 'danger-full-access'], default='workspace-write')
     args=parser.parse_args()
-    raise SystemExit(run(args.root,args.codex,args.run_id))
+    raise SystemExit(run(args.root,args.codex,args.run_id,workstation_lock_store=args.workstation_lock_store,sandbox_mode=args.sandbox_mode))
 
 
 if __name__=='__main__':

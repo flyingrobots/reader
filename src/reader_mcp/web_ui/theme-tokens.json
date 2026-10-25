@@ -1,0 +1,47 @@
+{
+  "schema_version": 1,
+  "colors": [
+    {"name": "bg", "label": "Page", "group": "Surfaces", "description": "Page background behind every surface."},
+    {"name": "surface", "label": "Surface", "group": "Surfaces", "description": "Dialogs, sheets, panels and the footer."},
+    {"name": "raised", "label": "Raised", "group": "Surfaces", "description": "Hover, selected rows, inline code and quiet fills."},
+    {"name": "line", "label": "Rule", "group": "Surfaces", "description": "Borders and dividers."},
+    {"name": "ink", "label": "Text", "group": "Text", "description": "Body text and headings."},
+    {"name": "muted", "label": "Muted text", "group": "Text", "description": "Bylines, labels and secondary text."},
+    {"name": "faint", "label": "Faint text", "group": "Text", "description": "Hints, counters and incidental text."},
+    {"name": "accent", "label": "Accent", "group": "Accent", "description": "Primary buttons, focus rings and links."},
+    {"name": "accent-ink", "label": "On accent", "group": "Accent", "description": "Text placed on the accent color."},
+    {"name": "rust", "label": "Secondary emphasis", "group": "Accent", "description": "Thread counts, pins and secondary emphasis."},
+    {"name": "warning", "label": "Warning", "group": "Signals", "description": "Warnings and destructive actions."},
+    {"name": "selection", "label": "Selection", "group": "Annotations", "alpha": true, "description": "Text selection and the current find match."},
+    {"name": "own", "label": "Your highlights", "group": "Annotations", "alpha": true, "description": "Passages you highlighted."},
+    {"name": "other", "label": "Others' highlights", "group": "Annotations", "alpha": true, "description": "Passages other participants highlighted."},
+    {"name": "chart-1", "label": "Chart 1", "group": "Charts", "description": "First categorical chart color."},
+    {"name": "chart-2", "label": "Chart 2", "group": "Charts", "description": "Second categorical chart color."},
+    {"name": "chart-3", "label": "Chart 3", "group": "Charts", "description": "Third categorical chart color."},
+    {"name": "chart-4", "label": "Chart 4", "group": "Charts", "description": "Fourth categorical chart color."},
+    {"name": "chart-5", "label": "Chart 5", "group": "Charts", "description": "Fifth categorical chart color."},
+    {"name": "chart-6", "label": "Chart 6", "group": "Charts", "description": "Sixth categorical chart color."},
+    {"name": "chart-7", "label": "Chart 7", "group": "Charts", "description": "Seventh categorical chart color."},
+    {"name": "chart-8", "label": "Chart 8", "group": "Charts", "description": "Eighth categorical chart color."},
+    {"name": "chart-stroke", "label": "Chart border", "group": "Charts", "description": "Outline around chart marks; each fill must contrast with it or with the page."}
+  ],
+  "fonts": [
+    {"name": "serif", "label": "Reading", "default": "Newsreader", "fallback": "Georgia, serif", "description": "Document text and display headings."},
+    {"name": "sans", "label": "Interface", "default": "Manrope", "fallback": "Helvetica, sans-serif", "description": "Controls, labels, footer and dashboard."},
+    {"name": "mono", "label": "Code", "default": null, "fallback": "ui-monospace, SFMono-Regular, monospace", "description": "Inline code and code blocks."}
+  ],
+  "prose_note": "Prose color roles (Colorful Language) are derived, not stored. Vivid gives each role a saturated hue: the proper-noun role takes the accent's hue, the others take the unused theme color nearest their target hue (secondary emphasis, charts) or a synthesized one; each moves in OKLCH lightness to 4.5:1 on the page and is kept at least 0.08 ΔE_OK from ink, muted and every other role. Clear reuses Vivid's proper, number and quote colors and recedes function words and punctuation to prose-recede at about 3:1. Subtle mixes muted or the role colors with ink at 4.5:1 or more. prose-content is ink raised to 7:1 when the theme's ink is below it.",
+  "prose": [
+    {"name": "prose-function", "label": "Function words", "hue": 300, "description": "Articles, prepositions, pronouns and other structural words (\"keywords\")."},
+    {"name": "prose-proper", "label": "Proper nouns", "hue": "accent", "description": "Names and acronyms (\"types\"), in the accent's hue."},
+    {"name": "prose-quote", "label": "Quotation marks", "hue": 145, "description": "Quote characters (\"strings\"); Vivid also washes the quoted passage."},
+    {"name": "prose-number", "label": "Numbers", "hue": 55, "description": "Numerals."},
+    {"name": "prose-noun", "label": "Nouns", "hue": 250, "description": "Seed-lexicon and contextual nouns."},
+    {"name": "prose-verb", "label": "Verbs", "hue": 20, "description": "Seed-lexicon and contextual verbs."},
+    {"name": "prose-adjective", "label": "Adjectives", "hue": 195, "description": "Seed-lexicon and contextual adjectives."},
+    {"name": "prose-adverb", "label": "Adverbs", "hue": 340, "description": "Seed-lexicon and contextual adverbs."}
+  ],
+  "prose_derived": ["prose-punct", "prose-recede", "prose-content", "prose-subtle-function", "prose-subtle-proper", "prose-subtle-number", "prose-subtle-quote", "prose-wash", "prose-underline"],
+  "derived": ["shadow", "mode-browse", "mode-search", "mode-insert", "mode-leader", "mode-settings", "mode-help", "mode-thread"],
+  "bundled_fonts": ["Newsreader", "Manrope"]
+}

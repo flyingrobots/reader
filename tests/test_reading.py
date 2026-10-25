@@ -98,3 +98,45 @@ def test_parent_width_configuration_does_not_rewrap(vault):
     result = reading_copy(vault,'library/wrapped.md')
     _,body = frontmatter((vault / result['reading_copy']).read_bytes())
     assert b'Several words on the first line and several more words on the second.\n' in body
+
+
+@pytest.mark.parametrize('header', [
+    'frontmatter_schema_version: 1\ndocument_revision: 1\ntitle: Foreign source\n',
+    'frontmatter_schema_version: 1\ndocument_revision: 1\ntitle: Foreign source\ntype: Feature\ndepends_on: [a, b]\n',
+    'title: [foreign, title]\nauthor: {role: unknown}\n',
+])
+def test_safe_foreign_header_is_preserved_without_reader_schema_adoption(vault, header):
+    source = vault / 'library/foreign.md'
+    original = ('---\n' + header + '---\n\nA wrapped source\nparagraph.\n').encode()
+    source.write_bytes(original)
+    result = reading_copy(vault, 'library/foreign.md')
+    metadata, body = frontmatter((vault / result['reading_copy']).read_bytes())
+    assert metadata['type'] == 'document'
+    assert metadata['reading_source_sha256'] == hashlib.sha256(original).hexdigest()
+    assert b'A wrapped source paragraph.' in body
+    assert source.read_bytes() == original
+    assert metadata['original_metadata']
+    if 'frontmatter_schema_version' in header:
+        assert metadata['original_metadata_status'] == 'invalid'
+        with pytest.raises(ValueError):
+            frontmatter(original)
+    else:
+        assert metadata['author'] is None
+        assert metadata['title'] == 'foreign — reading copy'
+    assert reading_copy(vault, 'library/foreign.md')['status'] == 'existing'
+
+
+@pytest.mark.parametrize('header', [
+    'title: first\ntitle: second\n',
+    'title: &title value\ncopy: *title\n',
+    'title: example\nvalue: .inf\n',
+    '? [a, b]\n: value\n',
+])
+def test_unsafe_source_header_is_still_refused(vault, header):
+    source = vault / 'library/unsafe-header.md'
+    original = ('---\n' + header + '---\n\nWrapped\ntext.\n').encode()
+    source.write_bytes(original)
+    with pytest.raises(ValueError):
+        reading_copy(vault, 'library/unsafe-header.md')
+    assert source.read_bytes() == original
+    assert not source.with_name('unsafe-header.reading.md').exists()

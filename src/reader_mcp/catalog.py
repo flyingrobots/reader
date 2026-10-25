@@ -11,17 +11,23 @@ import shutil
 from .resources import has_capacity, minimum_free_bytes
 import sqlite3
 import tempfile
+from typing import NamedTuple
 from uuid import uuid4
 
 import yaml
 
 VERSION = 1
-MAX_FILES = 10000
-MAX_SOURCE_BYTES = 256 * 1024 * 1024
+# Sources are hashed by streaming, so these bound work and time rather than memory.
+MAX_FILES = 50_000
+MAX_SOURCE_BYTES = 2 * 1024 ** 3
 MAX_METADATA_BYTES = 512 * 1024
-MAX_GENERATED_BYTES = 32 * 1024 * 1024
+MAX_MANIFEST_BYTES = 64 * 1024 * 1024
+MAX_GENERATED_BYTES = 256 * 1024 * 1024
+MAX_SQL_PAGES = 131072  # 512 MiB at the standard page size.
+BLOCK = 1024 * 1024
 from .metadata import (CatalogEnvelope as Metadata,
                        frontmatter, validate_record)
+from .junk import os_junk
 
 # Every schema field has its own SQL column. JSON columns preserve compound types;
 # frontmatter_json also preserves all custom top-level properties without flattening.
@@ -52,6 +58,13 @@ DDL = 'CREATE TABLE documents (' + ', '.join(f'"{k}" {v}' for k, v in COLUMNS.it
 
 def digest(data):
     return hashlib.sha256(data).hexdigest()
+
+
+class Entry(NamedTuple):
+    """What the catalog knows about a source without holding its bytes."""
+    size: int
+    mtime_ns: int
+    sha256: str
 
 
 def canonical(value):
@@ -96,19 +109,40 @@ class Catalog:
             yield
 
     def inventory(self):
+        """{path: Entry(size, mtime_ns, sha256)}, hashed by streaming one block at a time."""
         files, size = {}, 0
         for p in sorted((self.root / 'library').rglob('*')):
+            if os_junk(p.name):
+                continue
             if p.is_symlink():
                 raise ValueError(f'Library symlink requires explicit disposition: {p}')
             if p.is_dir():
                 continue
             if not p.is_file():
                 raise ValueError(f'Unsupported library entry: {p}')
-            size += p.stat().st_size
+            info = p.stat()
+            size += info.st_size
             if size > MAX_SOURCE_BYTES or len(files) >= MAX_FILES:
-                raise ValueError('Catalog inventory exceeds 10,000 files or 256 MiB; no publication')
-            files[p.relative_to(self.root).as_posix()] = p.read_bytes()
+                raise ValueError(f'Catalog inventory exceeds {MAX_FILES:,} files or {MAX_SOURCE_BYTES // 1024 ** 3} GiB; '
+                                 'no publication')
+            hasher = hashlib.sha256()
+            with p.open('rb') as stream:
+                for block in iter(lambda: stream.read(BLOCK), b''):
+                    hasher.update(block)
+            after = p.stat()
+            if (after.st_size, after.st_mtime_ns) != (info.st_size, info.st_mtime_ns):
+                raise ValueError(f'Library changed during inventory: {p}; retry after the writer finishes')
+            files[p.relative_to(self.root).as_posix()] = Entry(info.st_size, info.st_mtime_ns, hasher.hexdigest())
         return files
+
+    def source(self, path, entry, limit=None):
+        """The bytes of one inventoried source, refused if they no longer match its entry."""
+        if limit is not None and entry.size > limit:
+            raise ValueError(f'Source too large to parse ({entry.size:,} bytes): {path}')
+        data = (self.root / path).read_bytes()
+        if digest(data) != entry.sha256:
+            raise ValueError(f'Library changed during planning: {path}; retry after the writer finishes')
+        return data
 
     def sidecars(self):
         records = {}
@@ -126,7 +160,7 @@ class Catalog:
             data = p.read_bytes()
             total += len(data)
             if total > MAX_GENERATED_BYTES or len(records) >= MAX_FILES:
-                raise ValueError('Metadata inventory exceeds 32 MiB or 10,000 records')
+                raise ValueError(f'Metadata inventory exceeds {MAX_GENERATED_BYTES // 1024 ** 2} MiB or {MAX_FILES:,} records')
             if len(data) > MAX_METADATA_BYTES:
                 raise ValueError(f'Metadata file too large: {p}')
             meta = validated(frontmatter(data)[0])
@@ -141,10 +175,10 @@ class Catalog:
     def protected(self, files):
         """Conservatively protect every manifest-hashed byte sequence, irrespective of path."""
         hashes = set()
-        for path, data in files.items():
+        for path, entry in files.items():
             if Path(path).name in ('preservation.json', 'receipt.json', 'SHA256SUMS'):
-                hashes.update(re.findall(rb'\b[a-f0-9]{64}\b', data))
-        return {p for p, data in files.items() if digest(data).encode() in hashes
+                hashes.update(re.findall(rb'\b[a-f0-9]{64}\b', self.source(path, entry, MAX_MANIFEST_BYTES)))
+        return {p for p, entry in files.items() if entry.sha256.encode() in hashes
                 or 'originals' in PurePosixPath(p).parts or 'snapshot' in PurePosixPath(p).parts}
 
     def prepare(self, migrate=False):
@@ -155,10 +189,12 @@ class Catalog:
         stale = set(sidecars) - set(files)
         if stale:
             raise ValueError(f'Orphan metadata records: {sorted(stale)}; reconcile moves/deletions explicitly')
-        for path, source in files.items():
+        for path, entry in files.items():
             markdown = Path(path).suffix.lower() == '.md'
+            # Only Markdown carries direct frontmatter; other sources are known by their entry alone.
+            source = self.source(path, entry) if markdown else None
             try:
-                original, body = frontmatter(source) if markdown else ({}, source)
+                original, body = frontmatter(source) if markdown else ({}, None)
             except ValueError:
                 if path not in protected:
                     raise
@@ -235,12 +271,12 @@ class Catalog:
             if meta['document_id'] in ids:
                 raise ValueError(f'Duplicate document_id: {meta["document_id"]}')
             ids.add(meta['document_id'])
-            source_data = writes.get(path, source)
+            source_sha = digest(writes[path]) if path in writes else entry.sha256
             values = [canonical(meta.get(k, [] if k == 'tags' else None)) if k in ('author', 'tags') and meta.get(k, [] if k == 'tags' else None) is not None else meta.get(k)
                       for k in COLUMNS]
-            rows.append(tuple(values + [canonical(meta), owner, digest(source_data), digest(data)]))
+            rows.append(tuple(values + [canonical(meta), owner, source_sha, digest(data)]))
         if sum(len(v) for v in writes.values()) > MAX_GENERATED_BYTES:
-            raise ValueError('Planned catalog output exceeds 32 MiB')
+            raise ValueError(f'Planned catalog output exceeds {MAX_GENERATED_BYTES // 1024 ** 2} MiB')
         return files, writes, rows
 
     def atomic_write(self, relative, data, expected=None):
@@ -269,7 +305,7 @@ class Catalog:
         with sqlite3.connect(self.db) as db:
             if db.execute('PRAGMA page_size').fetchone()[0] != 4096:
                 raise ValueError('Unexpected catalog page size; rebuild the disposable database')
-            db.execute('PRAGMA max_page_count=32768')  # 128 MiB at the standard page size.
+            db.execute(f'PRAGMA max_page_count={MAX_SQL_PAGES}')
             version = db.execute('PRAGMA user_version').fetchone()[0]
             if version not in (0, 1, 2):
                 raise ValueError(f'Unsupported catalog SQL schema {version}')
@@ -302,7 +338,9 @@ class Catalog:
     def run(self, action):
         with self.locked():
             files, writes, rows = self.prepare(migrate=action in ('plan', 'migrate'))
-            report = {'schema_version': VERSION, 'documents': len(rows), 'direct': sum(r[-3] == r[2] for r in rows),
+            report = {'schema_version': VERSION, 'documents': len(rows), 'files': len(files),
+                      'source_bytes': sum(e.size for e in files.values()),
+                      'limits': {'files': MAX_FILES, 'source_bytes': MAX_SOURCE_BYTES}, 'direct': sum(r[-3] == r[2] for r in rows),
                       'placeholders': sum(r[-3] != r[2] for r in rows), 'planned_writes': len(writes),
                       'legacy_metadata': sum(json.loads(r[-4]).get('frontmatter_schema_version') is None for r in rows),
                       'catalog_sql_version': 2,
@@ -311,14 +349,14 @@ class Catalog:
                 return report
             if action in ('migrate', 'sync'):
                 used = sum(p.stat().st_size for p in self.state.rglob('*') if p.is_file())
-                growth = sum(len(v) for v in writes.values()) + sum(len(files[p]) for p in writes if p in files)
+                growth = sum(len(v) for v in writes.values()) + sum(files[p].size for p in writes if p in files)
                 if used + growth + 256 * 1024 * 1024 > 4 * 1024**3 or not has_capacity(self.root):
                     raise ValueError('Metadata migration resource budget exceeded')
             if action == 'migrate':
                 if self.inventory() != files:
                     raise ValueError('Library changed during planning; retry after the writer finishes')
                 for path, data in writes.items():
-                    old = files.get(path)
+                    old = self.source(path, files[path]) if path in files else None
                     if old is not None:
                         backup = '.reader/catalog-migration-backup/' + digest(old)
                         if not (self.root / backup).exists():
@@ -326,8 +364,8 @@ class Catalog:
                     self.atomic_write(path, data, old)
                 # Re-read and validate the resulting authoritative files before SQL publication.
                 current, _, rows = self.prepare()
-                expected = {p: writes.get(p, data) for p, data in files.items()}
-                if current != expected:
+                expected = {p: digest(writes[p]) if p in writes else entry.sha256 for p, entry in files.items()}
+                if {p: entry.sha256 for p, entry in current.items()} != expected:
                     raise ValueError('Library changed during migration; SQL not published; rerun after review')
             elif action not in ('sync', 'check'):
                 raise ValueError('Unknown catalog operation')

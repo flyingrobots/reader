@@ -1,0 +1,46 @@
+{
+  "schema_version": 1,
+  "timeout_seconds": 600,
+  "workstation_lock_store": null,
+  "voices": [
+    {
+      "name": "Reader librarian",
+      "mention": ["librarian", "Librarian"],
+      "enabled": true,
+      "cli": "codex",
+      "stream": "codex",
+      "argv": ["exec", "--cd", "{vault}", "--sandbox", "workspace-write", "-c", "approval_policy=\"never\"",
+               "{sandbox_add_dirs}", "--ephemeral", "--json", "--color", "never",
+               "--output-last-message", "{last_message}", "-"],
+      "persona": {"agents_md_section": ["The Reader librarian (Curator / Archivist)", "Invariants between voices"]},
+      "tts_source": "Reader librarian"
+    },
+    {
+      "name": "Agy",
+      "mention": ["agy", "Agy"],
+      "enabled": true,
+      "cli": "agy",
+      "stream": "agy",
+      "argv": ["-p", "{prompt}", "--output-format", "stream-json", "--dangerously-skip-permissions"],
+      "persona": {"agents_md_section": ["Agy (Systems Architect)", "Invariants between voices"]},
+      "tts_source": "Agy"
+    },
+    {
+      "name": "Claude",
+      "mention": ["claude", "Claude"],
+      "enabled": true,
+      "cli": "claude",
+      "stream": "claude",
+      "argv": ["-p", "--output-format", "stream-json", "--include-partial-messages", "--verbose",
+               "--dangerously-skip-permissions", "--append-system-prompt", "{persona}"],
+      "persona": {"agents_md_section": ["Claude (Plain reader)", "Invariants between voices"]},
+      "tts_source": "Claude"
+    },
+    {
+      "name": "Kai",
+      "mention": ["kai", "Kai"],
+      "cli": null,
+      "manual": true
+    }
+  ]
+}

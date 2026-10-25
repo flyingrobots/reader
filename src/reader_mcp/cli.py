@@ -24,6 +24,9 @@ def main():
     status = commands.add_parser("status", help="Inspect a receipt by UUID")
     status.add_argument("request_id")
     commands.add_parser("serve", help="Run the local MCP server over stdio")
+    web = commands.add_parser("web", help="Open the local zen reading web application")
+    web.add_argument("--port", type=int, default=8766)
+    web.add_argument("--participant", default="You")
     index = commands.add_parser("index", help="Refresh the rebuildable library search index")
     index.add_argument("--no-semantic", action="store_true", help="Skip model download and embedding")
     search = commands.add_parser("search", help="Search library paths and contents")
@@ -44,8 +47,30 @@ def main():
     validate.add_argument("--profile", choices=["auto", "document", "catalog"], default="auto")
     metadata_schema = commands.add_parser("metadata-schema", help="Print the versioned metadata JSON Schema")
     metadata_schema.add_argument("--profile", choices=["document", "catalog"], default="document")
+    browse = commands.add_parser("browse", help="Refresh Markdown work indexes and the README dashboard")
+    browse.add_argument("--check", action="store_true", help="Check freshness without writing navigation files")
     catalog = commands.add_parser("catalog", help="Version library metadata and mirror it to SQLite")
     catalog.add_argument("action", choices=["plan", "migrate", "sync", "check", "schema"])
+    curation = commands.add_parser("curation", help="Discover filed works or record explicit curator coverage")
+    curation_commands = curation.add_subparsers(dest="curation_action", required=True)
+    curation_list = curation_commands.add_parser("list", help="List pending works or inspect one exact work")
+    curation_list.add_argument("--participant", required=True)
+    curation_list.add_argument("--key")
+    curation_list.add_argument("--offset", type=int, default=0)
+    curation_list.add_argument("--limit", type=int, default=25)
+    curation_list.add_argument("--since", help="Optional aware ISO arrival/catalog-date filter; not a filing watermark")
+    curation_list.add_argument("--expected-snapshot", help="Reject a changed queue while paging")
+    curation_mark = curation_commands.add_parser("mark", help="Record a JSON disposition; - reads stdin")
+    curation_mark.add_argument("request")
+    queue = commands.add_parser("queue", help="Read or add to a participant's reading queue (voices: --by and --reason)")
+    queue_commands = queue.add_subparsers(dest="queue_action", required=True)
+    queue_add = queue_commands.add_parser("add", help="Suggest a library document; a voice's item stays under Suggested until pinned")
+    queue_add.add_argument("path", help="Library-relative document path")
+    queue_add.add_argument("--participant", required=True, help="Whose queue, e.g. You")
+    queue_add.add_argument("--by", help="Who is adding it; defaults to the participant")
+    queue_add.add_argument("--reason", help="Required when --by names someone else; shown beside the suggestion")
+    queue_list = queue_commands.add_parser("list", help="Print Now reading, Queued and Suggested")
+    queue_list.add_argument("--participant", required=True)
     args = parser.parse_args()
     if args.command == "metadata-schema":
         from .metadata import schema
@@ -63,6 +88,10 @@ def main():
                 sys.exit(1)
             return
         store = Store(Path(args.root))
+        if args.command == "web":
+            from .web import serve_web
+            serve_web(store.root, args.port, args.participant)
+            return
         if args.command == "serve":
             from .server import serve
             serve(store)
@@ -79,6 +108,28 @@ def main():
             result = reading_copy(store.root, args.path)
         elif args.command == "status":
             result = store.status(args.request_id)
+        elif args.command == "curation":
+            from .curation import Curation
+            curator = Curation(store.root)
+            if args.curation_action == 'list':
+                result = curator.pending(args.participant, args.key, args.offset, args.limit, args.since, args.expected_snapshot)
+            else:
+                request = sys.stdin.read() if args.request == '-' else Path(args.request).read_text()
+                result = curator.mark(**json.loads(request))
+        elif args.command == "queue":
+            from uuid import uuid4
+            from .web import WebLibrary
+            library = WebLibrary(store.root)
+            if args.queue_action == "add":
+                library.queue.change(args.participant, "add", args.path, request_id=str(uuid4()),
+                                     added_by=args.by, reason=args.reason)
+            result = library.queue_view(args.participant)
+        elif args.command == "browse":
+            from .browse import Browse
+            result = Browse(store.root).run(check=args.check)
+            if args.check and result["status"] == "stale":
+                print(json.dumps(result, ensure_ascii=False, indent=2))
+                sys.exit(1)
         elif args.command == "catalog":
             from .catalog import Catalog, Metadata
             result = Metadata.model_json_schema() if args.action == "schema" else Catalog(store.root).run(args.action)

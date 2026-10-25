@@ -1,0 +1,2730 @@
+# Library web reader
+
+Reader serves a local, keyboard-driven library website over the same documents,
+annotations and participant receipts used by the CLI, MCP tools and Obsidian.
+The server binds to IPv4 loopback only. It is a trusted local application, with
+participant labels for attribution rather than authenticated accounts. It can run
+as an always-on macOS service and be published to your own tailnet with
+`tailscale serve`; see [Always-on service and Tailscale](#always-on-service-and-tailscale).
+
+## Start
+
+Install the Python environment and configure the private vault as described in
+[separate-vault setup](separate-vault.md), then run from the code checkout:
+
+```sh
+.venv/bin/python scripts/start_web.py
+```
+
+Open `http://127.0.0.1:8766`. Stop with Ctrl-C. The launcher uses `READER_ROOT`
+or the existing ignored `.reader/config.json`; it never initializes a vault.
+An explicit equivalent is:
+
+```sh
+reader --root /path/to/private-vault web --port 8766 --participant You
+```
+
+All browser dependencies and fonts are served locally. Prebuilt browser assets
+ship with Reader; users do not need Node or a frontend build. There is no runtime
+CDN, external analytics or hosted account. Content and semantic
+search retain the existing [search](search.md) configuration and model lifecycle.
+The web server does not rebuild indexes or download models at startup.
+
+## Reading and navigation
+
+| Key or control | Behavior |
+| --- | --- |
+| Space, then e; comma, then e | Documents browser; recent opened works first |
+| Documents: j / k, arrows, Enter | Choose and open a document |
+| Documents: `/` or Filter | Reveal and focus fuzzy/content/semantic filtering |
+| Documents: Escape | Clear/hide an active filter, then close on a second Escape |
+| `/`, Enter | Find literal text in the open document and visit the match |
+| n / N | Next / previous occurrence |
+| j / k | Scroll, or next / previous spread in paged reading; on the homepage, next / previous piece of the issue |
+| g c | Homepage: focus the cover story |
+| [ / ] | Homepage: previous / next issue |
+| h / l | Reading history, or previous / next spread in paged reading |
+| gg / G | Beginning / end |
+| ]] / [[ | Next heading / start of this section, then the previous heading |
+| Space o; footer Outline | Show or hide the document outline (rail, popover or sheet) |
+| Ctrl-d / Ctrl-u; Ctrl-f / Ctrl-b | Half-screen / screen, or turn a spread |
+| Space h / t / p | Home (this week's issue) / passage discussions / Behind the scenes (indexes, library statistics and settings) |
+| Space v | Versions: every edition and its git history as a timeline (`j`/`k` or arrows move, Enter opens, `c` on two items compares, Escape closes) |
+| Space d | What changed: since your receipt, else against the newer version, else against another reader's edition |
+| Space , t; F10 | Theme Editor (F10 also closes it; focus returns to where it was opened from) |
+| Space s, then a / f / s | Send to AI-TTS: whole article, from here, or the selection |
+| Space m | Chat with the voices about the open document |
+| Space z | Hide or reveal reading chrome |
+| Tab to a diagram, Enter (or click) | Open the diagram full size; Escape closes it |
+| ? / Escape | Help / close the current interface |
+| Command-Enter or Ctrl-Enter in a comment | Submit the comment |
+
+**Routes.** A document's URL is `#read=<URL-encoded path>`; a link to a heading in
+another document adds `&h=<heading id>`, as does following an in-document `#heading`
+link, so reload, Back/Forward and copied URLs return to that heading. Hand-made
+`#read=<path>#<heading>` links (raw or with `%23`) are accepted and rewritten to the
+`&h=` form; an unknown heading or a malformed escape opens the document normally.
+`h` / `l` walk an in-app visit list that starts at the route Reader was opened on
+and follows Back, Forward, typed URLs and `#read=` links as well as Reader's own
+navigation. A path with no document shows *Link target not found* with the path and
+a **Find a document** button, without an error toast; the API answers it with 404.
+
+Commands yield to text fields, selects, composition and dialogs. Standard browser
+selection, copying and context menus remain available. The sticky footer reports
+the active interaction mode and its applicable shortcuts. It offers layout,
+light/dark theme controls, an **Outline** button when the document has an outline, the current section title, and a **Backstage** button that opens Behind the scenes. In zen mode the chrome reappears on keyboard
+focus or when the pointer reaches the lower-right corner.
+
+The mode corner has a distinct background for Normal, Browse, Search, Insert,
+Leader, Settings (the Theme Editor and Backstage share one color), Help and Thread. Semantic mode colors mix with the selected
+palette and use separate light/dark lightness levels. The printed mode remains
+the primary label; recognizing a color is not required to use it.
+
+Documents opens with the filter and search-method controls hidden. Keyboard focus
+starts on the document tree, so ordinary browsing never starts typing into a
+search field. Filtering is explicit and retains folder scope when used from a
+breadcrumb. The three search methods appear only while filtering.
+
+Documents follows the [shadcn File Tree pattern](https://ui.shadcn.com/docs/ai-elements/base/file-tree):
+Collapsible folders and Button file rows, grouped by their actual library paths.
+Recent files remain the default selection; grouping retains first appearance in
+the recent or search ranking. Folders initially expand to expose those files.
+Use j/k or Up/Down through visible folders/files, h/l or Left/Right to collapse,
+expand or move to the parent/child, and Enter to toggle a folder or open a file.
+Search-field arrows continue to select matching files and reveal their parents.
+
+Read files use muted title text and a check mark. Unread files keep normal text
+and an unread pip. This uses the selected participant's exact-version receipt,
+including fuzzy, content and semantic search results and nonprimary attachments.
+A changed source returns to unread styling. Browsing, collapsing folders and
+searching do not mark documents read; opening a document does.
+
+Settings offers three paired palettes: **Ink / Paper**, **Orchid · Light / Dark**,
+and **Harvest · Light / Dark**. The footer's light/dark control preserves the
+chosen palette family. Orchid uses the eight colors from the supplied reference,
+with lighter accents over plum surfaces at night. Harvest preserves all 66 supplied
+OKLCH ramp tokens in `web_ui/harvest.css` and maps them to semantic interface and
+chart colors. CSS performs display-gamut mapping. Preview a palette with
+`/?theme=orchid`, `/?theme=orchid-dark`, `/?theme=harvest` or
+`/?theme=harvest-dark`; an explicit theme selection clears a conflicting preview
+parameter and saves the preference. Theme previews do not change participant data.
+
+### Dates and time zones
+
+Every date and time the web app shows is in the browser's local time zone
+(`Intl.DateTimeFormat`), and every grouping by day (*Today*, *Yesterday*, *Oct 21*,
+issue weeks, activity days) uses local days. The helpers live in
+`web_ui/logic.mjs` (`formatDate`, `formatDateTime`, `localDay`, `todayLocal`,
+`workDay`, `readActivity`, `localizeLibrary`).
+
+- **Plain dates are calendar dates.** A `YYYY-MM-DD` value (a catalog, frontmatter or
+  newsletter date) is shown exactly as written in every zone; it is never read as a
+  UTC midnight and shifted.
+- **Timestamps are instants.** Receipt times, history opens, commit dates, thread and
+  comment times, job and inbox times, and a work's `arrival_time` are shown as the
+  reader's local day or time. Read times in titles carry the zone, for example
+  *Oct 24, 2026, 5:16 PM PDT*.
+- **Works.** `/api/library` and `/api/search/page` send each work's catalog `date` with
+  its `arrival_time` (UTC ISO, or null when the arrival was a plain date). The browser
+  replaces `date` with the local day of `arrival_time` (keeping `catalog_date`), so the
+  homepage issue week, dashboard arrivals, lists and search results agree with the
+  reader's calendar. `today` is the browser's local day; the server's UTC day is kept
+  as `utc_today`.
+- **Server grouping.** The server returns instants and the browser groups them: the
+  dashboard's 28-day reading activity is counted from each work's `read_at`, and
+  History regroups `/api/history` pages by the local day of each `opened_at`, so DST
+  changes inside the window are handled. The search page's date range adds the
+  browser's local midnights (`from_at`, `to_at`) so works with an arrival time match by
+  their local day.
+- **Limit.** The issue signals request (`/api/issue`) still selects candidate works by
+  their catalog (UTC) day; a piece within a few hours of a week boundary can miss its
+  newsletter-pick or near-pair signal, though it is listed in the local week.
+
+### Themes and the Theme Editor
+
+Besides Ink/Paper, Orchid and Harvest, Settings offers eight well-known open-source
+palettes as built-in pairs (light · dark): **Solarized** (Light · Dark), **Gruvbox**
+(Light · Dark), **Catppuccin** (Latte · Mocha), **Nord** (Snow Storm · Polar Night),
+**Dracula** (Alucard · Dracula), **Rosé Pine** (Dawn · Main), **Tokyo Night**
+(Day · Night) and **One** (Light · Dark). Their `data-theme` values are `<family>` and
+`<family>-dark`, for example `solarized-dark`. `web_ui/famous-themes.json` keeps each
+upstream palette verbatim, with its author, license and source, plus a Reader role
+mapping per variant. `npm run build` resolves the mappings with the editor's own color
+code and writes `controls/famous-themes.css`. Where an upstream color misses a
+contrast floor below, the build moves it in OKLCH lightness only, by the smallest
+amount that passes, and lists every such change at the top of the generated file.
+Nord has no official light theme; its light pair uses Nord's Snow Storm and Polar
+Night colors. To change a mapping, edit the JSON and rebuild; never edit the
+generated CSS.
+
+Every theme, built-in or custom, sets the same standard tokens. The contract lives
+in `web_ui/theme-tokens.json`, which both the server validator and the editor read:
+
+| Group | Tokens |
+| --- | --- |
+| Surfaces | `--bg`, `--surface`, `--raised`, `--line` |
+| Text | `--ink`, `--muted`, `--faint` |
+| Accent | `--accent`, `--accent-ink`, `--rust` (secondary emphasis) |
+| Signals | `--warning` |
+| Annotations (translucent) | `--selection`, `--own`, `--other` |
+| Charts | `--chart-1` … `--chart-8`, `--chart-stroke` |
+| Fonts | `--serif` (reading), `--sans` (interface), `--mono` (code) |
+
+`--shadow` and the footer's `--mode-*` colors are derived from these, not edited.
+Tailwind semantic colors (`--color-primary` and so on) map onto the same tokens.
+A dark variant is any `data-theme` that is `ink` or ends in `-dark`.
+
+Open the Theme Editor with Space , t (leader, comma, t), F10, or **Theme Editor…**
+in Settings. It edits one theme at a time, with Light and Dark variants:
+
+- **Create.** Choose *New theme from a seed color*, then **Generate both variants**.
+  Neutrals are tinted toward the seed hue. Each role keeps a fixed OKLCH lightness and
+  chroma band, and text is then nudged in lightness until it meets its contrast target.
+  Chart colors are chosen greedily from 24 hues × 3 lightness bands at one chroma,
+  maximizing the worst-case OKLab distance under typical vision, protanopia,
+  deuteranopia and tritanopia.
+- **Edit.** Each token has a color picker and a hex field; translucent tokens add
+  opacity. **Derive dark/light variant** maps the other variant to its polarity while
+  keeping each token's hue. *Vivid accents* lists the highest-chroma accents that keep
+  4.5:1 on the page, stay distinct from the warning color, and have readable on-accent text.
+- **Duplicate.** Built-in themes are read from the live cascade and saved as a copy;
+  their files never change. Duplicates are stored as sRGB hex, so wide-gamut Harvest
+  values are chroma-mapped (lightness and hue held).
+- **Delete.** Removes `themes/<id>.json`. If it was in use, Reader switches to Ink or
+  Paper with the same polarity. Downloaded fonts are kept.
+
+The preview renders a sample article, margin panel, buttons, chart swatches and the
+mode footer with the draft tokens and fonts. **Simulate** shows it under protanopia,
+deuteranopia, tritanopia or grayscale without changing the stored values.
+
+**Checks** run on each variant as you edit:
+
+| Group | Rule |
+| --- | --- |
+| Text contrast (WCAG 2.2) | Text on page and surfaces 4.5:1, aim 7:1; muted on page, surfaces and raised fills 4.5:1; faint on page and surfaces 4.5:1; links on page and surfaces 4.5:1; on-accent, secondary emphasis and warning 4.5:1; text over each translucent highlight 4.5:1 |
+| Mode labels | On-accent text over each derived mode color 4.5:1 (shown only when failing) |
+| Interface boundaries | Accent 3:1 as a non-text control; rules about 1.2:1; surface layers ΔE_OK ≥ 0.012; text hierarchy steps by lightness; page polarity matches the variant |
+| Charts | Each fill 3:1 against the page *or* the chart border (the border rule) |
+| Color vision | Closest chart pair ΔE_OK ≥ 0.06, own vs others' highlights ≥ 0.04, warning vs accent ≥ 0.08, under each simulation |
+
+A failing text check offers **Use #…**, the nearest color in OKLCH lightness (hue held)
+that meets the target; **Fix contrast failures** applies them all. Color-vision items
+are reported for review, not failure: legends and labels still name every series.
+Checks use WCAG 2.x ratios. APCA is not included. These checks are aids, not an
+accessibility certification.
+
+Custom themes are stored in the private vault as `themes/<id>.json`: schema version 1
+with `id`, `name`, `fonts` (`serif`/`sans`/`mono` family or null for the default),
+`light` and `dark` (every color token, lowercase `#rrggbb` or `#rrggbbaa`),
+`created_at` and `updated_at`. Ids are 1–40 lowercase letters, digits or hyphens. They
+cannot be a built-in name or end in `-dark`. The page uses
+`data-theme="user-<id>"` and `user-<id>-dark`. Writes are atomic under
+`.reader/themes.lock`. Limits are 64 themes and 64 KiB per theme. The generated CSS is
+cached in `reader.themes.v1` local storage so a saved theme paints before
+`/api/themes` answers; clearing it only delays custom themes until that response.
+
+#### Google Fonts
+
+The editor can search the Google Fonts catalog and **Add** a family. The local server
+then downloads it once: the catalog from `fonts.google.com/metadata/fonts` (cached for
+a week in `themes/fonts/.catalog.json`), the family stylesheet from
+`fonts.googleapis.com`, and its latin and latin-ext woff2 files from `fonts.gstatic.com`.
+Variable weight ranges are used where available. The license comes from the
+`google/fonts` repository on GitHub when found. Each family is stored in
+`themes/fonts/<slug>/` with `font.css`, the woff2 files, `LICENSE.txt` and a
+`manifest.json` recording source URLs, sizes and SHA-256 hashes. Fonts are served from
+`/fonts/<slug>/`, so the CSP stays `font-src 'self'`. Only these HTTPS hosts are
+contacted, and redirects elsewhere are refused. Limits are 32 families, 8 files and
+16 MiB per family, and 4 MiB per file. Reading pages never contact Google; only an
+explicit search or Add does. Without network access, the catalog and downloads fail
+with an error, and installed fonts keep working. Other scripts (Cyrillic, Greek,
+Vietnamese) are not downloaded; those characters fall back to the role's stack.
+
+Beside the mode indicator, a breadcrumb trail shows **Library**, the containing
+folders and the current filename. Library returns home; a folder opens the file
+picker scoped to that path. The scope applies before ranking in fuzzy search and
+is passed to content/semantic search as well. **All folders** removes the scope.
+Folder browsing uses the same catalog/search coverage as the picker, rather than
+promising a complete filesystem listing. Deep paths collapse older ancestors into
+an ellipsis menu; narrow screens put all containing folders in that menu. Arrow
+keys choose a parent, Enter opens its picker, and Escape closes the menu and
+returns focus. The current filename has `aria-current="page"` and exposes the full
+path on hover. The trail follows the composition in the
+[shadcn breadcrumb reference](https://ui.shadcn.com/docs/components/base/breadcrumb),
+adapted to Reader's existing plain-JavaScript interface.
+
+On narrow windows the status line gives way in a fixed order so the mode, the
+breadcrumb and the right-hand controls stay on screen: below 520 px the outline's
+section label is hidden (the outline button lists the sections), the version chip
+drops its icon and speech drops its label; below 400 px the position percentage is
+hidden (the progress rail shows it); below 340 px the prose-color chip is hidden.
+
+The rail directly above the sticky footer uses shadcn Base UI **Progress**. Its separate seek target supports
+click, Left/Right, Home and End. A shadcn **Popover** on hover or keyboard focus shows position
+and estimated minutes remaining above the rail, based on visible text and the selected reading
+pace. These values follow the current reading position, independently of the
+pointer location. PDF estimates use pages remaining. Highlight/warning pips identify an owner
+and open the corresponding thread. Seeking uses the document's scroll range or
+the discrete spread index; it is a layout position, not a measure of comprehension.
+
+### Two-page mode and automatic bookmarks
+
+Choose **2 pages** in the footer or **Two pages** in settings. Text flows through
+two facing columns at a fixed viewport height, continuing across successive
+spreads. The document title flows as a full-size heading at the start of the
+text, rather than repeating above each spread. Existing Markdown title headings
+retain their source coordinates; a display title is generated only when absent.
+Wheel input, horizontal touch scrolling and Vim page motions turn those
+spreads. Narrow screens below 900 CSS pixels show one page at a time. Large code
+blocks and tables retain their own overflow. Reduced-motion preferences disable
+animated turns and GSAP smoothing.
+
+A document with only one page of content keeps that page on the left with an empty
+facing page; it is not centered.
+
+Resizing the window reflows the columns. Reader remembers the first visible
+character of the first visible block whenever you settle on a spread, and after a resize it
+shows the spread holding that text rather than the same spread number. The
+remembered text changes only when you move to another spread, so several
+resizes in a row don't drift.
+
+Annotation pins in two-page mode sit in the gutter right of their passage's column
+(the outer margin for the last column), vertically centred on the passage's first
+visible line and stacked per column, so they never cover the following words.
+
+**Page turn.** Turning one spread (j/k, h/l, wheel, Ctrl-d/f/u/b or the Pagination
+previous/next pair) flips a real sheet in 3D. `controls/page-turn.js` bundles
+Three.js and loads only once two-page reading starts. Until it loads, without WebGL,
+in single-column narrow layouts, with reduced motion, or with **Page turn: Slide** in
+Settings, spreads slide as before. Jumps of more than one spread always slide.
+
+How it works: `web/src/page-turn/rasterize.ts` paints the outgoing page, the facing
+page and the incoming page into canvases from the live layout. Each word is drawn at
+the rectangle the browser already gave it, with its font, color, case, letter spacing
+and underline. Block backgrounds and borders, CSS custom highlights, images and PDF
+page canvases are painted too. Content inside a closed `<details>` is skipped. Inline
+SVG, such as a diagram, is drawn from an image prepared ahead of the turn by
+`web/src/page-turn/svg-images.ts`. Each outermost `svg` in the two-page article is
+cloned with its CSS variables, color and font family resolved and inlined. The
+page's same-origin `@font-face` files are embedded as data URLs (at most six,
+1 MiB each). The clone is serialized and decoded into an `<img>`. Images are
+refreshed after a diagram renders, after a theme change and after a resize. They
+are cached per element and keyed by size, color and resolved variables. If an
+image is not ready when a turn starts, a flat icon SVG (path, circle, ellipse, rect,
+line, polyline and polygon with their computed stroke and fill, such as callout icons)
+is drawn from its shapes instead; a diagram or formula is only ever drawn from its
+image, so its box stays empty until the image is ready and nothing is drawn twice.
+Gradients, shadows and transforms are not painted.
+A full-window WebGL overlay then draws three things. The sheet is curled around an arc
+of constant curvature, so its arc length never stretches; its free edge leads the
+spine edge and the bottom corner leads the top. The facing page is drawn flat until
+the sheet lands, and a soft shadow follows the free edge. The DOM moves to the new
+spread beneath the overlay on the first frame. At the first and last frames every
+shading term is exactly 1 and textures are sampled without color conversion, so the
+overlay matches the page and is removed after about 0.9 s. A new turn during an
+animation finishes the current one first. Annotation pins are hidden while a sheet
+is in the air. Rasterizing a page costs tens of milliseconds on a typical page.
+
+The footer uses shadcn **Pagination** to move between spreads. Facing pages are
+labelled in pairs, such as **1–2** and **3–4**; a final unpaired page has one number.
+Narrow screens label individual pages. The active page pair, wheel, Vim keys and
+saved position all use the same reading position.
+
+### The homepage issue
+
+The homepage is the cover of this week's issue, chosen from the most recent
+additions. `#issue=2026-W43` addresses a past issue; the bare homepage shows the
+current one.
+
+- **Masthead:** the issue number and its Monday-to-Sunday dates (ISO weeks, the
+  same weeks as the inventory's `week` field), previous/next buttons and a **Past
+  issues** list of the last twelve weeks that hold pieces.
+- **Cover story:** a large serif headline with a kicker (Cover story · project ·
+  type), a standfirst, and a byline with author, date, approximate reading time and
+  read state. The cover is typographic; no images are used.
+- **Features:** up to four more pieces, each from a different project.
+- **Summary:** counts of new and unread pieces and sections, and a link to the
+  week's newsletter when one exists.
+- **In this issue:** the rest of the window grouped by section, unread first; read
+  pieces are dimmed. Six pieces per group show, and the rest expand. When there are
+  more than six sections, one-piece sections share an **Elsewhere** group.
+- **Footer:** how the pieces were chosen, and a link to the library statistics on
+  Behind the scenes.
+
+Keys: **j** / **k** move between pieces (the cover, the features, then visible
+contents rows), **Enter** opens one, **g c** returns to the cover, and **[** / **]**
+step to the previous or next issue that holds pieces. Space e, the picker and search
+behave as elsewhere. The entrance animation is skipped under reduced motion. The
+layout uses only theme tokens and the theme's `--serif`/`--sans`.
+
+**Layout by window width.** The issue fills the window, with outer margins that scale
+from 40 to 120px (`clamp(…, 4vw, …)`); added width becomes columns, not longer lines.
+
+- **1360px and wider:** a twelve-column spread plus a rail (260–400px). The cover takes
+  eight columns and the first feature sits beside it as a second lead, bottom-aligned
+  with the cover's byline; the other features share the next row in equal spans. The
+  rail is sticky and scrolls on its own when taller than the window. It holds the
+  counts, the newsletter link and a **Sections** index of the contents groups; a
+  section button scrolls to that group and focuses it without changing the route.
+  Contents columns are at least 280px wide, so wider windows gain columns (four at
+  1920px, five at 2560px). Prose stays within its measure: the cover standfirst is
+  capped at 58ch and feature standfirsts at 64ch. Headline sizes follow the cover's
+  own width (container query units), capped at 132px.
+- **1001–1359px:** the cover with the summary beside it, features in one row and
+  contents in as many 260px columns as fit. The sections index is hidden.
+- **1000px and narrower:** one column; the summary follows the cover and features
+  pair up. At 640px and narrower, features stack and gutters are 16px, with no
+  horizontal scroll.
+
+**Selection** (`web_ui/magazine.mjs`, over the work inventory already loaded):
+
+1. **Window.** The issue's ISO week. If it holds fewer than four candidates, it
+   widens to the previous week too and says so ("A quiet week: covering Oct 12–25").
+   If the bare homepage finds nothing in those two weeks, it shows the latest issue
+   that has pieces and says so.
+2. **Candidates** are dated works in the window, except works under
+   `library/newsletters/` (the newsletter is a signal, and its working papers are
+   not pieces) and works of an excluded type. The excluded types are set in
+   Settings (**Leave out of the issue**, comma-separated, case-insensitive; default
+   Task, Receipt, Manifest, Handoff). A repeated title counts once.
+3. **Interest**, a sum of bounded terms: unread +1.0; recency in the window 0–0.5;
+   kind of writing 0–0.4 (essays, perspectives and design pieces 0.4; reports,
+   research, reflections and books 0.3; journals, reading notes, connections and
+   guides 0.25; notes and documents 0.1; references 0.05; other typed works 0.15);
+   engagement 0–0.4 (0.1 per other participant with any receipt for the work, 0.1
+   per open margin thread); inbound references 0–0.3 (0.05 each, used when the
+   inventory carries `inbound`); a link from the week's newsletter +0.5; and a
+   penalty of up to −0.3 for text sources under about 300 words.
+4. **Cover and features.** The cover is the highest score. Features are chosen in
+   score order, skipping a section already used and any piece whose embedding is at
+   least 0.97 similar to one already chosen (the Read next diversity threshold).
+   A section is the first named project, else the work's top library folder. If
+   fewer than three features remain, the section rule relaxes to fill three.
+5. **Ties** break by newer date, then title, then path, so the issue is stable for
+   the same works, reads and signals.
+
+Reading time is source bytes ÷ 6 as words, at the Settings reading pace, shown as
+"≈ N min" for Markdown and text sources only.
+
+**Standfirsts** come from `GET /api/standfirst?path=…`, requested for the cover and
+features only (at most 12 per view, three at a time). A `standfirst` frontmatter
+string wins. Next comes a local-model standfirst that is current for the source's
+exact SHA-256 (see [Local model](#behind-the-scenes-local-model-lm-studio)): the
+route returns `source: "local-model"` with its `model`, and the cover or feature
+shows a small `local model · <model>` mark under it (`data-reader-decoration`, text
+only). Otherwise the first prose paragraph of the source is used, after the
+frontmatter and the H1: headings, blockquotes, fenced code (including Mermaid),
+tables, lists, HTML and images are skipped, and so are datelines (paragraphs
+without a complete sentence, or with two or more ` · ` separators). A paragraph
+that ends by introducing a list keeps only its complete sentences. The result is
+plain text, capped at 60 words. The route reads at most 64 KiB of a Markdown or
+text source of at most 4 MiB, validates the path like every library route, and
+caches the source-derived result in memory by path and source digest (2,000
+entries). The local-model output is looked up on every request, because outputs
+arrive while the digest stays the same; an unreadable output cache falls back to
+the opening paragraph. No standfirst is shown when none qualifies.
+
+**Issue signals** come from `GET /api/issue?start=…&end=…` (a window of at most
+62 days). It reads the top-level `library/newsletters/*.md` files (at most 200, each
+at most 512 KiB) whose `newsletter_week_start`/`newsletter_week_end` overlap the
+window, and returns them with the inventory works they link to (`picks`). It also
+returns `near`: pairs of works dated in the window (at most 400) whose mean chunk
+embeddings in the search index are at least 0.97 similar. Works the index has not
+embedded yet are not compared. If the route fails, the issue is chosen without
+these signals. `/api/library` rows also carry `voices` (other participants with a
+receipt for the work, any version) and `threads` (open margin threads).
+
+Section slots for rediscovery, connections and open questions appear only when
+those features provide content; none is built in yet. Cover art from Mermaid
+diagrams is not implemented.
+
+### Behind the scenes: indexes, library statistics and settings
+
+**Space p** or the footer's **Backstage** button opens Behind the scenes at
+`#backstage`. Its Settings heading takes focus in NORMAL mode, so leader keys keep
+working and Tab moves into the fields; after **Save preferences** focus stays on
+the form. Browser history and **h** return
+to the previous route, and the breadcrumb reads *Library › Behind the scenes*.
+
+The **Indexes** section shows one shadcn **Card** per rebuildable index, with a
+state **Badge** (Current, Needs rebuild, Partial, Not built, Not configured, Error):
+
+| Index | Freshness check | Rebuild |
+| --- | --- | --- |
+| Search index | Compares every library file's size and mtime with `.reader/search.v2.sqlite3`, and counts text documents without embeddings (Partial). A run that stopped before finishing is Partial with "The last rebuild stopped before finishing; N passages saved. Run again to continue." With only a format 1 index, the card is Needs rebuild and search serves format 1 read-only. The rebuild writes `search.v2.sqlite3` beside it. While `.reader/search.sqlite3` exists, the card adds "Legacy index (format 1, used by older Reader processes): N MB · Remove". **Remove** runs the *Remove legacy search index* job. It is shown only once format 2 serves search, and the job refuses while an index run or another process holds the file (see [format 1 beside format 2](search.md#format-1-beside-format-2)). | **Rebuild with embeddings** or **Keywords only**, through the guarded `run_index` worker and its resource limits |
+| Browse indexes | `Browse.run(check=True)`: navigation files that would change. Not configured without `indexes/settings.json`. | **Refresh** writes `indexes/` and the README dashboard in the vault; commit them afterwards |
+| Catalog SQL mirror | `catalog check` against `.reader/catalog.sqlite3` | **Sync** (`catalog sync`) |
+| Link graph | Compares every library file's size and mtime with `.reader/links.sqlite3` | **Refresh** re-reads only new and changed files ([Link previews and Linked from](#link-previews-and-linked-from)) |
+| Other inventories | Counts works (`indexes/coverage.json`), inbox files, reading participants and annotation threads against their limits (10,000, 10,000, 100 and 5,000). Badge: Within limits, Near a limit (80 % or more), Over a limit | none |
+
+Cards show usage against budgets so a ceiling is visible before it is hit. The
+search card shows Passages (for example "61,204 of 400,000"), Database and
+Embedding cache ("0.2 of 2 GiB"; MiB below a 1 GiB budget), and "N indexed by path
+only" for machine files. The catalog card shows Library files ("9,052 of 50,000")
+and Sources. Budgets come from `indexes/settings.json` → `search` (see
+[search budgets](search.md#budgets-and-settings)). A search run that stopped at its
+time limit finishes with "Stopped at the time limit; N passages saved. Run again to
+continue." in its toast and in Recent runs. A failed run shows the worker's last
+meaningful error line, not its log tail.
+
+Opening the page runs a freshness check when the last one is older than two
+minutes. **Check again** reruns it, and every rebuild is followed by one. On a
+large vault the browse check takes about ten seconds. A catalog check can refuse
+outright: for example, an inventory over the 50,000-file / 2 GiB catalog limit, or
+a duplicate `document_id`, shows as Error with that message. Jobs run one at a time in a background thread of
+the web server. While one runs, every rebuild button is disabled. A second start
+is refused with HTTP 429. **Recent runs** lists this server process's last 20 jobs
+with their results or errors. Job history is not persisted; freshness is always
+measured again.
+
+Job toasts use shadcn **Sonner**. A start shows a loading toast, which the same
+toast replaces with success (with a summary) or failure (with the error, shown for
+12 seconds). The page polls `/api/maintenance` every 1.5 seconds while a job or
+check runs, and otherwise every 15 seconds while the tab is visible, so toasts also
+appear while you read elsewhere in the app. Every other app message, such as saved
+replies and errors, uses the same Toaster.
+
+The **Library** section holds the statistics dashboard that used to be the
+homepage, unchanged (see [Search, dashboard and shared discussion](#search-dashboard-and-shared-discussion)).
+The page owns the header, so the dashboard's own masthead is omitted there.
+
+When a request cannot reach the server at all (stopped, restarting, or the laptop
+slept), the app shows one toast, *Reader isn’t reachable — retrying…*, with a
+stable id so later failures replace it instead of stacking. It adds *Your last
+change wasn’t saved.* once a write has failed, and the actions that failed raise no
+toasts of their own. A probe (`GET /`) retries with backoff from 1 to 30 seconds;
+the first success, or any request that reaches the server, replaces the toast with
+*Reader is reachable again.*
+
+The Settings section holds the preferences form, with shadcn **Select** controls
+for palette, prose colors, recent-file count, layout, page turn and reading pace, the issue's
+excluded types, and switches
+for the atlas, activity, smooth scrolling, Read next, the outline rail and Linked from. Escape dismisses an open
+Select only. Reader's global Vim commands yield to these controls. Preferences
+take effect when saved; you stay on the page, and a toast confirms the save.
+**Theme Editor…** opens the editor over the page.
+
+### Inbox and You got mail
+
+Behind the scenes has an **Inbox** card. It is the first section while arrivals
+are waiting or a run is active; otherwise it follows the indexes. While mail waits,
+the footer button reads **Backstage · N**. The card lists one row per top-level
+arrival: a folder under `inbox/`, or a loose file. It uses the inbox runner's own
+inventory: at most 10,000 files, excluding `inbox/README.md`, hidden files, symlinks
+and empty folders. Each row shows:
+
+- the title from `receipt.json`, else the document's frontmatter title or first H1, else the file name;
+- author, project and report date from the receipt's provenance, and its source ("via …");
+- receipt integrity: **Receipt intact** when every recorded file matches its size and
+  SHA-256, **Changed since delivery** otherwise, or **No receipt** / **Unreadable receipt**
+  (over 256 KiB, not JSON, or not a Reader receipt);
+- the file count, total size and when it arrived (`received_at`, else the newest file time).
+
+Opening a row previews its document (the receipt's `document`, else the first
+`.md`, `.txt` or `.pdf`) at `#read=inbox/…`. A preview is plain reading: the kicker
+reads *Inbox preview · not yet filed* and the breadcrumb *Library › Inbox · name*.
+It writes no read receipt, bookmark, discussion or recent entry and shows no Read
+next. The server's writers keep their library-only path rules, and only document,
+file and link-resolution reads accept `inbox/` paths. A preview resolves links and
+images only within its own bundle or the library.
+
+**You got mail** starts the existing librarian inbox runner, the same supervisor
+the Obsidian plugin's **Process inbox** starts. The server spawns
+`python -m reader_mcp.inbox_runner --root VAULT --codex EXE --run-id ID --sandbox-mode MODE`
+with explicit argv and no shell, as a detached process group, using its own
+interpreter and package. It adds `--workstation-lock-store PATH` when
+`READER_WORKSTATION_LOCK_STORE` is set. The run id is generated by the server, and
+nothing from the browser reaches the librarian's fixed prompt. Codex is found as the
+plugin finds it: `READER_CODEX` if set, else `codex` on `PATH`, `~/.local/bin`,
+`~/.cargo/bin`, `/opt/homebrew/bin` and `/usr/local/bin`. The supervisor's lock and
+Upkeep claim check decide admission. The server waits up to 3 seconds for the
+supervisor to report and returns its refusal when it refuses.
+
+The button is disabled, with the reason beside it, when:
+
+- the inbox is empty;
+- a run is starting or running, from this tab, another tab or Obsidian;
+- Upkeep intake claims are held ("Filing already assigned");
+- a voice chat turn holds `.reader/voice-runner/run.lock` ("A voice chat turn is
+  running in this vault"), the same check the supervisor makes;
+- the last run is **interrupted**: its state says starting or running, but its
+  supervisor process is gone. The card shows the documented recovery: confirm the
+  recorded process group is gone, then remove only `.reader/inbox-runner/state.json`.
+  The server never clears it;
+- coordination files cannot be read, or Codex is not found.
+
+While a run is active, a loading toast reads "The librarian is reading the mail…".
+The card shows elapsed time, the **Activity** transcript (below), and **Stop**. Stop writes `.reader/inbox-runner/cancel` ("Stop
+requested by the Reader web user."), as the plugin does, and the supervisor stops
+the process group within a second. When the run ends, the same toast becomes
+"Mail filed: N arrivals" (with a **Report** action), "Inbox run stopped", or an
+error carrying the runner's message. The card then shows the runner's message,
+the commit, the librarian's report (`last-message.md`, its last 256 KiB) and the
+finished transcript,
+rendered as sanitized Markdown. The commit is a hash the report names that `git log`
+confirms exists in the vault. Report links to `library/` or `inbox/` open in the
+reader; absolute vault paths are shown vault-relative. After a run ends, the app
+reloads `/api/library` and reruns the index freshness check. The page polls
+`/api/inbox` every 2 seconds while a run is active and every 15 seconds otherwise,
+and again whenever the tab becomes visible. It also announces runs started
+elsewhere. If **You got mail** is refused because another tab or client already
+started a run, the page reloads the inbox state and shows that run (transcript and
+**Stop**) with an informational toast instead of an error.
+
+**Inbox job permissions** in Settings matches the plugin's setting: **Sandboxed
+workspace** (`workspace-write`, the default) or **Host access**
+(`danger-full-access`), with the plugin's warning. The choice is stored in this
+browser's preferences and sent with each start. Resource limits are the
+supervisor's own: a 30-minute deadline, 50 GiB minimum free space, a 4 GiB
+`.reader/` budget, 4 GiB RSS and 16 MiB of output. The supervisor copies whatever
+Codex output is available, up to 64 KiB per read, so events reach `events.jsonl`
+as Codex prints them. See `docs/inbox-runner.md` in the vault for the runner's
+contract and recovery.
+
+### Activity transcript
+
+The run panel shows the librarian's work as a transcript built from shadcn's AI
+Elements, Base UI variants. These are recipes, not packages: they compose the
+registry items `trace`, `message`, `marker`, `hover-card`, `code-block`,
+`collapsible`, `button` and `progress`, all added with `npx shadcn@4.22.1 add` and
+depending only on Base UI, `cn` and Lucide. The docs' demos import the Vercel AI SDK
+(`ai`, `@ai-sdk/react`) and suggest Streamdown for Markdown; Reader uses neither.
+Agent messages render through the app's markdown-it and DOMPurify path, and all
+other text renders as text.
+
+`web/src/activity/reducer.ts` maps each Codex `exec --json` event to a neutral
+`AgentEvent` and folds events into transcript items. Other producers can map their
+own streams to `AgentEvent` and reuse the reducer and `ActivityTranscript`.
+
+| Codex event (0.163.0) | Shown as |
+| --- | --- |
+| `item.*` `agent_message` | **Message** "Librarian", sanitized Markdown. Vault paths it mentions (`library/…`, `inbox/…` documents) become **Inline Citation** chips: a hover card with the path and an Open button. |
+| `reasoning` | **Reasoning**: "Thinking…", then "Thought" (with seconds when both ends were seen live), collapsed. |
+| `command_execution` | **Tool** line: "Ran `cmd`", "Running `cmd`" with a spinner, or "`cmd` exited with code N". The `/bin/zsh -lc '…'` wrapper is removed from the title. Its body is the full command and a **Terminal** (Code Block) with the last 200 lines and **Show all N lines**. Failed commands open by themselves. |
+| pytest or `node --test` output | **Test Results** inside the tool: passed, failed and skipped counts from pytest's final summary line or node's `ℹ pass`/`ℹ fail` lines, with failing test names. Other output stays a Terminal. |
+| `file_change` | **File Tree**: added, modified and deleted paths by folder, single-child folders joined. `library/` and `inbox/` files open in the reader. |
+| `todo_list` | **Plan** with checkmarks, updated in place. |
+| `mcp_tool_call` | **Tool** "Called `server.tool`" with arguments and result or error. |
+| `web_search` | **Sources**: queries and any page URLs Codex reports (links open in a new tab). |
+| `collab_tool_call` | **Subagent** line with its prompt. |
+| `error` (top level or item) | A muted warning line, "Codex: …" (Codex reports retries this way). |
+| `turn.failed`, or a failed or interrupted run | **Stack Trace**: the message and the last 8 KiB of `stderr.log`. |
+| `git commit` output `[branch abc1234] subject`, or the report's verified commit | **Checkpoint** marker "Committed abc1234 · subject" with a **Report** button. |
+| `turn.completed` usage | **Context** hover card: tokens in and out, cached share, elapsed time. It sits in the header while live and closes the transcript when the run ends. |
+
+Above the log, a **Chain of Thought** step line ("Step 2 of 3: File the documents")
+follows the agent's own plan when it wrote one. Otherwise it infers six intake
+stages from commands and changed paths: reading arrivals, filing, reading copies,
+catalog, validation and commit. Patterns require an argument after the word, so a
+grep pattern such as `'intake|reading-copy'` does not count as doing the work.
+The inference is a heuristic, not a record of what the librarian completed. The
+**Queue** lists the run's arrivals by receipt title. An arrival is marked filed when
+a changed `library/` path names it, and, once the run ends, when the runner no
+longer finds it in the inbox.
+
+The log is a `role="log"` region with polite live updates. It follows the newest
+item; scrolling up shows **Jump to latest**. With focus in the log, `j` and `k`
+move between items and Enter opens one. Spinners have text equivalents. At phone
+width each tool is one truncated line. The transcript is page decoration
+(`data-reader-decoration`).
+
+While a run is live the page polls `GET /api/inbox/events?after=OFFSET` every
+second. It fetches further pages immediately while a response ends before the
+stream's size, and stops when the response says `done`. A finished run is read
+once when Behind the scenes opens. Durations are measured from when the browser
+received events, so a transcript loaded after the run shows none. Only the latest
+run exists, because the supervisor keeps one runtime directory.
+
+### Behind the scenes: Local model (LM Studio)
+
+The **Local model** section, after Indexes (and the Inbox, when it is not first) and before Library,
+supervises a small work
+queue for LM Studio models on this Mac. It suits bulk, private, judgment-light
+language tasks. Outputs are suggestions labelled with their model; filing, catalog
+writes and anything under a voice's name stay with the voices. Machine-written text
+is a rebuildable cache and is never written into vault documents.
+
+| Card | Shows | Controls |
+| --- | --- | --- |
+| LM Studio server | State badge (Not installed, Server off, Starting…, Ready · *n* models loaded, Busy, Error with the CLI's message), CLI found or missing, port, loaded models and their memory, and every model on disk (`lms ls`) | **Start server** (`lms server start --port <port> --bind 127.0.0.1`), **Load** / **Unload** per model (`lms load <key> --yes --context-length 32768`, `lms unload <id>`), **Stop server…**, which asks for confirmation because other tools may share the server |
+| Now | The running item: task, title, path, model, elapsed time, tokens per second (LM Studio's reported rate when it sends one, otherwise measured from streamed tokens), token count and a streaming preview of the answer (or "Thinking…" with the reasoning tail). When idle, the last run's batch summary | **Pause queue** (finishes the current item first), **Cancel item** |
+| Queue | Waiting items grouped by task, with counts ("Standfirsts · 142 waiting") and the next titles | **Run**, **Pause** and **Clear** per task; **Queue 20 recent** (the 20 newest eligible works; those already waiting or current count toward the 20, so repeating it adds nothing) and **Queue all** |
+| Outputs in use | Per task: current, stale (source changed or gone) and cached counts, two marked samples, and cache size against its 256 MiB cap | **Remove *n* stale** |
+| Recent | The last 50 finished items with outcome (done, rejected by validation, failed, cancelled), duration and model. Opening one shows the prompt version, source, rate, the output and why it was rejected | — |
+| Tasks | Per task: enabled, model, trigger (on request; nightly and idle triggers are not available yet), and the search-embeddings backend | **Save task settings** |
+
+Every piece of machine-written text carries a small `local model · <model>` mark
+(`data-reader-decoration`, rendered as text, never HTML). The page polls
+`/api/local-model` every second while an item or a server action runs and every six
+seconds otherwise, only while Behind the scenes is on screen and the tab is visible.
+The global watcher (`/api/maintenance`, which carries a `local_model` summary without
+probing LM Studio) shows one toast per run: a loading toast at start, then success
+("Standfirsts: 20 done, 2 rejected"), failure, or a warning when the server stopped
+while the queue was running. Items never toast individually.
+
+**Queue and worker.** Enqueueing skips works already waiting and works with a cached
+output for the same source hash, model and prompt version. Recent works come first.
+Queued items wait until you press **Run**. One worker thread in the web server runs
+one item at a time, in batches of up to ten items that share a model. It holds the
+workstation `host/gpu/` lock (git-locks store `/Users/Shared/git-locks/workstation.git`,
+lease 1,500 s, waiting up to 10 minutes) per batch, so other GPU users interleave. A
+store error fails closed. Before a batch, Reader loads the batch's model if nothing
+equivalent is loaded, keeps at most one model it loaded itself, and unloads that one
+when the run ends. A model the user loaded stays loaded. If the server stops
+mid-item, the item fails, the queue pauses and the warning toast appears. When the
+web server shuts down, the in-flight request is cancelled and its item returns to
+the queue. The journal survives restarts.
+
+**Tasks.**
+
+| Task | Prompt version | Accepted output |
+| --- | --- | --- |
+| Standfirsts | `standfirst-v1` | At most 2 sentences and 60 words, no preamble or Markdown. Every number and quoted phrase must occur in the source, and so must every capitalized word that is not sentence-initial (acronyms and mixed-case names count anywhere). Works with an authored `standfirst` and non-text originals are skipped. |
+| Key terms | `keyterms-v1` | A JSON array (or list) of 4–7 distinct terms of at most six words, each occurring in the source |
+
+Reasoning models' `<think>` blocks and `reasoning_content` are never part of the
+output. Rejections are recorded with their reason and the raw answer, and are not
+cached.
+
+**Consumers.** `LocalModel.standfirst(path, sha256)` returns the cached standfirst
+that is current for that exact source digest (preferring the configured model and
+prompt version) as `{standfirst, source: "local-model", model, prompt_version,
+created_at}`, or `None`. The magazine's `/api/standfirst` consults it after an
+authored frontmatter `standfirst` and before the opening paragraph, and the cover
+marks those standfirsts `local model · <model>` (see Standfirsts above). A changed
+source makes the output stale, so the opening paragraph returns until the work is
+queued and run again.
+
+**Search embeddings backend.** The Tasks card's *Search embeddings* setting is
+`fastembed` (bge-small, the default) or `lmstudio:<embedding model>`. The backend
+identity is the index's `model` and embedding signature, so switching re-embeds
+every passage at the next **Rebuild with embeddings**; a keywords-only rebuild after
+a switch is refused. With an LM Studio backend, semantic search needs the server
+running with that model, and nomic models get their `search_document:` /
+`search_query:` prefixes.
+
+**Limits and safety.** `READER_LMSTUDIO_URL` (default `http://127.0.0.1:1234`) must be
+plain `http` on 127.0.0.1, localhost or ::1; anything else is refused at startup.
+`lms` resolves from `READER_LMS` (no fallback when set), then `PATH`, then
+`~/.lmstudio/bin/lms`, and runs with explicit argv, no shell, closed stdin, captured
+output and a 60-second timeout (180 s for a load). Sources over 4 MiB are skipped.
+Prompts carry at most about 24k tokens of source (96,000 characters), truncated at a
+heading boundary. Each answer is capped at 1,024 visible tokens plus 3,072 reasoning
+tokens, and each item times out after 120 seconds. The queue holds at most 5,000
+waiting or running items. The output cache (SQLite `max_page_count`) is capped at
+256 MiB, and work stops when `.reader/` exceeds its 4 GiB data budget; both are
+checked before each batch. Documents are set off by `<document>` delimiters, with
+any delimiters inside them defused, and the system prompt says never to follow
+instructions inside them.
+
+**Storage and recovery.** Everything lives in `.reader/local-model/`:
+`queue.jsonl` (an append-only journal of item states, compacted atomically when it
+doubles; it keeps the last 200 finished items), `outputs.sqlite3` (key `(task,
+source_sha256, model, prompt_version)`, with path, output and timestamp) and
+`settings.json`. All three are rebuildable: deleting the folder clears the queue,
+cached outputs and task settings, and nothing else. A torn final journal line is
+ignored. A journal over 32 MiB is refused with a message.
+
+When the app runs from a checkout that has `scripts/reader_service.py`, a
+**Service** section right after Indexes holds the **Server** card, fed by `GET /api/service`
+(polled every 10 seconds on the page, every 2 seconds while an update or restart is
+pending). It shows the running commit with its date and subject, the source branch,
+the last update and its outcome, the next scheduled check, the Tailscale address
+(a link when `tailscale serve` is on) and who you are signed in as: your tailnet
+login through Tailscale, or *This Mac (local)*. **Update now** shows a loading toast
+until the updater records an outcome (success, rollback, smoke failure, or a
+waiting notice while an inbox run or rebuild is active). **Restart** shows a toast
+until the server's start time changes. **Pause updates** / **Resume updates**
+toggle scheduled updates. Without an installed service the card says so and its
+buttons are disabled.
+
+### Read next
+
+When a document finishes loading, Reader asks `/api/next` for up to three works
+to read next and shows them in a **Read next** aside after the article:
+
+1. **Related pool.** The 12 most related works in the grouped work inventory.
+   Relatedness is the cosine similarity of the mean chunk embeddings of each
+   work's primary source, from the existing search index, plus 0.03 for each
+   shared project or topic. Works without embeddings match on shared projects and
+   topics alone.
+2. **Exclusions.** Another work with the same title before a trailing parenthetical
+   is left out, as is any work whose text is near-identical (cosine ≥ 0.985):
+   these are other editions, not new ideas.
+3. **Order.** Unread works (for the current participant and current edition) come
+   first, then the latest by date.
+4. **Diversity.** A pick within cosine 0.97 of an earlier pick is skipped.
+5. **Fill.** With fewer than three, the newest unread works fill the list as
+   *New in the library*.
+
+Each entry shows its title, an unread mark, author and date, and the reasons it
+was chosen: *Similar ideas* and up to two shared projects/topics.
+
+In continuous reading the aside sits between the article and its footer. In
+two-page reading it is added to the end of the columns only when the spread count
+does not grow, so it fills room left on the last spread (including an empty facing
+page) and never adds a page. A window resize re-checks it: it is removed when the
+new layout has no room and comes back when a later size does. It is
+excluded from passage selection, find, bookmarks and the word count. Turn it off
+with **Read next at the end of articles** in Settings. Suggestions are only as
+good as the search index: on a vault where most text lacks embeddings, they rest
+mostly on shared metadata until **Rebuild with embeddings** completes.
+
+### Reading log
+
+Under each document's title (Markdown, plain text, PDFs and images alike), one quiet
+line says who has a read receipt for the document and when, for example
+`◉ Agy today · ◐ Reader librarian (earlier edition) Oct 12 · ◉ You just now`.
+
+- **Marks.** ◉ means the participant's receipt is for this exact edition (the
+  SHA-256 of the current file). ◐ plus *(earlier edition)* means their receipt is
+  for a different version of the same path, so a revision is never shown as
+  already read.
+- **Order.** Voices first, then you, then other agents, newest first within each
+  group; at most four entries, then *+N more*. Times are relative within a week
+  (*just now*, *12 min ago*, *today*, *yesterday*, *3 days ago*, by local day), then
+  local dates; the title attribute holds the full local date and time with its zone.
+- **Groups.** *You* is the requesting participant. *Voices* are the names in the
+  vault's `voices.json` (`{"schema_version": 1, "voices": [{"name": …}, …]}`, at most
+  64 KiB, not a symlink) when that file exists; otherwise the built-in list Reader
+  librarian, Reader librarian (curator), Agy, Claude and Kai
+  (`engagement.VOICES`). The two librarian identities are separate participants
+  with separate receipts and are shown separately. Everyone else is an *agent*.
+- **Task agents.** An agent with fewer than 5 document receipts in the whole vault
+  (`engagement.ONE_OFF_RECEIPTS`) is folded into one entry, *N task agents*;
+  expanding it lists them by name. You and voices are never folded.
+- **Expanded log.** The line is a keyboard-operable disclosure. It lists **Read
+  this edition** and **Read an earlier edition**, each newest first. Participants
+  without a receipt are not listed. A participant who owns or has commented on
+  threads in the document gets an *N threads* link that opens the margins filtered
+  to those threads. Earlier-edition rows carry `data-against="<sha256>"` for a
+  later change view; no comparison is offered yet.
+- **Empty and live state.** With no receipts the line reads *Not yet read by
+  anyone. You'll be first.* Opening the document records your receipt as before
+  (`/api/seen`), and the line then shows *You just now* without a reload.
+- **Placement.** The line follows `.document-meta` and carries
+  `data-reader-decoration`, so passage selection, annotations and find skip it. Its
+  slot reserves one line before the response arrives, so the article does not move.
+  In two-page reading (where the meta row is hidden) it stays in the first column
+  under the title, on one line; at phone width it wraps.
+- **Requests.** `/api/readers` is requested once per path, edition and participant
+  per page session, in parallel with the discussion, and never delays the article.
+  If it fails, the line says *Reading log unavailable*, the error is logged to the
+  console and shown as a toast, and the document still opens.
+- **Editions across files.** A receipt for another file of the same edition family
+  (see Editions) that sorts before this one, such as `essay.md` for `essay.v2.md` or
+  an original for its reading copy, counts as *(earlier edition)* when the
+  participant has no receipt for this path (`WebLibrary.edition_paths`). A newer
+  version never counts as earlier.
+- **Privacy.** The log adds no data: receipts are local vault files committed with
+  the vault. It does gather in one place who read what and when, so anyone who can
+  open the vault can see each participant's reading times.
+
+### Send to AI-TTS
+
+Reader can hand the open document to the local AI-TTS
+daemon, which speaks it through its own serialized playback queue. Reader never
+plays audio itself, so AI-TTS holds, microphone interruption and other agents'
+speech stay in force.
+
+- **Entry points.** **Space s** opens a small menu: **Whole article** (`a`),
+  **From here** (`f`) and **Selection** (`s`, enabled while a passage is
+  selected). The document footer's **Send to AI-TTS** button sends the whole
+  article (the footer is hidden in two-page reading; use Space s there). The
+  selection toolbar's **Speak** sends only the selected passage.
+- **What is spoken.** Markdown sends its source after the frontmatter with
+  `content_format: "markdown"`; the daemon segments and strips the markup. Plain
+  text sends its text as `plain_text`. PDFs send the extracted text of their text
+  layers as `plain_text`; a PDF with no text layer is refused. The title is spoken
+  first as its own sentence unless the text already begins with it (as a source
+  H1 does). Selections are not supported for PDFs.
+- **From here** starts at the first source block at the reading position, using the
+  same capture as bookmarks: the block at the reading line in continuous reading,
+  the first block on the visible spread in two-page reading, the visible page for a
+  PDF, and the character at the reading line for plain text.
+- **Feedback.** A toast reports *Queued for AI-TTS.* with the utterance id, or
+  *…it plays when the pause ends.* when AI-TTS reports a playback hold
+  (submission is accepted during a hold). *AI-TTS isn't running* explains a
+  missing, refusing or silent daemon; a daemon refusal shows its own message.
+- **Now playing.** The status line shows a speaker glyph and *Queued*, *Queued ·
+  held*, *Preparing speech*, *Speaking · 3 of 41* or *Paused · …* with
+  pause/resume, previous/next segment and skip. It polls the daemon every two
+  seconds while the page is visible and disappears when the utterance is
+  `Played`, `Skipped`, `Cancelled` or `Failed`; a failure becomes an error toast.
+  At phone width it collapses to the glyph and pause/resume.
+
+Pause, resume, skip and segment steps act on AI-TTS's current playback, so Reader
+enables them, and the server forwards them, only while the utterance it submitted
+is the one AI-TTS reports as current (a narrow race remains between that check
+and the command). Skip on a queued utterance cancels it instead. Reader controls
+only the most recent 50 utterances it submitted during this server's lifetime;
+other agents' speech cannot be controlled from the page. Segment progress comes
+from the daemon's `status.current.active_segment` (`number`, `count`) while the
+utterance is current, otherwise from `get`'s `completed_segments` and
+`segment_count`. The daemon does not report a segment's source span, so the
+passage being spoken is not highlighted.
+
+Speech is always submitted with `origin` and `source` set to `Reader` (one stable
+voice assignment), `sensitivity: "confidential"` and `priority: "normal"`. The
+socket is `AI_TTS_SOCKET`, else `$AI_TTS_HOME/ai-tts.sock`, else
+`~/Library/Application Support/ai-tts/ai-tts.sock`; a symlinked or non-socket path
+is refused. Limits: 512 KiB of UTF-8 text per submission (the AI-TTS Zed client's
+limit; the message suggests From here or a selection), one request line of at most
+1 MiB, one response line of at most 4 MiB (`get` and `status` echo the utterance
+text JSON-escaped), a 5-second socket timeout, and PDFs of at most 64 MiB and 5,000
+pages. Document text is only spoken, never executed or followed as instructions.
+
+### Document outline
+
+Long documents show their headings beside the text. The outline is built in the
+browser after a document renders; it needs no server route.
+
+- **Markdown entries:** `h1`–`h6` elements that carry `data-source-start`. Headings
+  inside embedded documents (`.document-embed`) and the generated title placeholder
+  (used only when the source has no H1) are excluded. At most 500 headings are
+  listed. H4–H6 are shown when the outline has at most 150 entries; beyond that
+  only H1–H3 are shown, behind **Show all levels**.
+- **Heading ids:** each heading without an id gets a GitHub-style slug (lowercase,
+  punctuation removed, spaces to hyphens). A slug already used anywhere in the page,
+  including Reader's own element ids, gets a `-1`, `-2`… suffix. Existing ids are
+  kept, so `#fragment` links resolve to these ids.
+- **PDF entries:** `pdf.getOutline()`, flattened to three levels. Each destination,
+  explicit or named, is resolved to a page with `getDestination` and
+  `getPageIndex`; at most 500 entries. Entries whose destination does not resolve
+  are left out; their children are kept. A PDF without an outline offers none.
+
+**Where it appears.**
+
+| Situation | Outline |
+| --- | --- |
+| Continuous reading, room left of the article (at least 206 px) | A fixed rail, 150–240 px wide, left of the article |
+| Two-page reading, or a window too narrow for the rail | A popover from the footer's **Outline** button, with page labels (`p. 7–8`) in two-page mode |
+| Width 700 px or less | A bottom sheet from the **Outline** button |
+
+The rail shows by default only for documents with at least three headings or more
+than 1,500 words, and only while the **Outline beside long documents** setting is
+on. **Space o** (or the **Outline** button) toggles the rail and saves the setting
+on this device. Opening it on a shorter document pins it for that document. In the
+popover and sheet modes, Space o opens and closes the panel without changing the
+setting. The rail never takes column space, so two-page pagination, bookmarks and
+the page turn are unchanged. In zen mode the rail fades until hovered or focused.
+Blocks after the article (Read next, Linked from, the footer) are wider than the
+article column and start at the document's content edge, so the rail ends 16 px
+left of that edge as well as 48 px left of the article; a window too narrow for
+that uses the popover. When a document fails to load
+after its rail appeared, the rail and footer section title are cleared with the
+article.
+
+**Active section.** In continuous reading the active heading is the last one at or
+above the reading line at 22 % of the viewport height, the same line bookmarks use.
+Section progress is `(line − section top) / (next section top − section top)`. In
+two-page reading a heading's spread is `floor((x + 2) / stride)`; the active heading
+is the last on or before the current spread, and progress counts spreads. Both are
+recomputed in the reading animation frame and on reflow. With smooth scrolling,
+ScrollSmoother's own updates also drive that frame, so the label and rail settle
+on the section shown after the eased scroll finishes rather than where window
+scrolling stopped. After a jump, the target
+stays active while its spread is showing (several headings can share a spread) or,
+in continuous reading, when the target is too near the end to reach the line. The
+active entry carries `aria-current="location"`, stays scrolled into view in the
+rail, has a thin progress bar under it, and its title is shown in the footer next to
+the position percentage.
+
+**Moving.** Choosing an entry, `]]` (next heading) and `[[` (start of the current
+section, then the previous heading) move with `reading.reveal()`; `]]` in the last
+section stays put and says it is the last heading: two-page reading
+turns to the spread (curl for one spread, slide otherwise), and continuous reading
+scrolls the heading to the reading line with the smooth-scrolling setting. Both
+keys are two-key sequences with the same 650 ms window as `gg`. In the popover and
+sheet, `j`/`k`, arrows, Home and End move between entries, Enter chooses one, and
+Escape closes. The rail is a `<nav aria-label="Document outline">` of links; focus
+reaches it only with Tab or Space o, which focuses the active entry.
+
+### Link previews and Linked from
+
+**Previews.** Pausing about 350 ms over a local link in the article, or focusing it
+with Tab, opens a small popover (`#link-preview`). It shows the target's project, title,
+an unread mark for the current participant and edition, its authors, the heading a
+`#fragment` names, and about 300 characters of plain text from that heading (or from
+the top, after the title). Escape, moving away, scrolling or clicking closes it. An
+external link shows only its host, and a link that does not resolve says *Not in the
+library* with the reason. No preview opens while text is selected, during a page turn,
+or for links in Read next, Linked from, margin threads or the side panel. At phone
+width (640 px or less) the popover is a bottom sheet inside 16 px gutters. Previews are
+cached per page load for up to 200 links. The excerpt is escaped plain text: Markdown
+and HTML are stripped on the server and never rendered.
+
+**Linked from.** After the article and before Read next, a `data-reader-decoration`
+section lists the documents that link here, most links first: the title, the number of
+links, and the heading of the first one. It shows 12 rows and a **Show all N** button
+for the rest, up to 200. A row opens the citing document at that heading. Before the
+graph exists the section says *Building the link graph…* and asks again until the
+quiet first build finishes; with no links it says *No other library document links
+here yet.*; when files changed since the last refresh, a note links to Behind the
+scenes. In two-page reading the section is placed only when the spread count does
+not grow. Otherwise a one-line **Linked from N documents** button takes its place (if
+that fits) and opens the list in the side panel. Asides keep a stable order whichever
+answer arrives first: Linked from, then Read next. Turn it off with **Linked from at
+the end of articles** in Settings.
+
+**Headings and fragments.** Rendered headings carry `data-heading-slug`: a GitHub-style
+slug of their text (lowercased; characters other than letters, numbers, `_`, `-` and
+spaces removed; spaces become `-`), with repeats numbered `-1`, `-2` in document order.
+A link's `#fragment` opens at an element with that id, else the heading with that slug
+or whose text slugs to it, as wikilinks write it (`[[note#Some heading]]`). The graph
+computes the same slugs from source (`links.slug`) for ATX headings, setext headings
+(the whole paragraph above `===` or `---`) and `<h1>`–`<h6>` in HTML, numbering repeats
+across all of them, so the two agree. Links inside fenced, inline and indented code
+blocks are not counted; an indented line that continues a list item or a paragraph is
+not code. Headings inside other containers (block quotes, list items) are not slugged
+by the graph.
+
+**The link graph.** `reader_mcp.links.LinkGraph` keeps `.reader/links.sqlite3`, a
+rebuildable cache that is never committed:
+
+| Table | Holds |
+| --- | --- |
+| `files` | Every library file a reader could open: path, size, `mtime` (ns), SHA-256 and title of parsed Markdown, status (`parsed`, `path-only`, `file`, `unreadable`) |
+| `links` | Resolved links: source, target, kind (`link`, `wikilink`, `embed`), target fragment, source heading and its slug (`anchor`), line, label, raw target, method (`path` or `name`) |
+| `unresolved` | Links that do not resolve, with a reason: `missing`, `ambiguous` or `outside` (it leaves `library/`) |
+| `settings` | Version, `built_at`, inventory fingerprint, counts |
+
+- *Walk.* Same rules as the search indexer: no dot names, no symlinks, regular files
+  up to 256 MiB. Only `.md` and `.markdown` files are parsed; frontmatter, fenced code
+  and inline code are skipped. Recorded: `[text](target)` and reference definitions
+  (`link`), `[[target#heading|label]]` (`wikilink`), and `![[target]]` and
+  `![alt](image)` (`embed`). External, `mailto:` and same-page `#` targets, and
+  footnotes, are not links.
+- *Resolution.* `links.Resolver`, the same function `/api/resolve` uses for a click:
+  the path relative to the source's folder (`library/…` and `/…` from the vault root),
+  then with `.md` appended; then a unique work primary whose path ends with the
+  target; then a unique library file whose path ends with it (a bare basename, as
+  Obsidian resolves wikilinks). Percent-encoding and angle brackets are removed first,
+  as the browser does.
+- *Refresh.* A file is re-read only when its size or mtime changed; its rows are
+  replaced. Deleted files drop their rows. When files are added or removed, or the
+  work inventory changes, only unresolved rows, name-resolved rows and rows aimed at
+  removed files are resolved again. The whole refresh is one transaction: a failure
+  keeps the previous graph and is reported on Behind the scenes.
+- *Jobs.* The refresh is the `links` maintenance job. The first `/api/links` request
+  on a vault without a graph starts it as a *quiet* job: no toasts, and only the Link
+  graph card is re-checked afterwards. **Refresh** on the card is an ordinary job
+  with toasts. `/api/links` reports `stale` from a freshness check cached for 30 s.
+- *Bounds.* At most 100,000 library files listed, 10,000 Markdown files parsed (the
+  rest are path-only), 4 MiB per parsed file, 500,000 link rows and a 256 MiB store
+  (SQLite `max_page_count`), within the `.reader` budget.
+
+The open question of catalog notes is not settled: a work's catalog note links to its
+primary, so every catalogued work has inbound links. They count like any other link.
+
+### Editions
+
+A document's **edition family** is every file the vault links to it: the
+original, reading copies, numbered versions and preserved originals. The
+version chip and the version explorer (below) show the family; the original is
+never hidden or replaced. Opening a sibling is normal navigation, so `h`
+returns and bookmarks and receipts remain per path and edition.
+
+`/api/editions?path=…` (`src/reader_mcp/editions.py`) builds families from what
+the vault already records:
+
+1. **Reading copies.** A file with `reading_source: <vault path>` and
+   `kind: reading-copy` (or a `.reading.md` name). Its source may be any regular
+   library file, such as a `.log`.
+2. **Versions.** `previous_version:` is used as a vault path when it starts with
+   `library/`. Otherwise it is resolved relative to the declaring file's folder,
+   then the bundle root (the first two folders under `library/`). The
+   `<stem>.vN.md` ↔ `<stem>.md` names in one folder also link versions. A
+   version's number comes from `.vN.md`, then a `vN` folder name on a linked
+   file, then `document_revision`, and otherwise 1.
+3. **Preserved originals.** `…/original/<rel>` ↔ `…/<rel>` in the same bundle
+   (labels *Preserved original* and *Filed copy*).
+4. **Catalog notes.** `catalog/metadata/<library-relative path>.md`, or for a
+   Markdown target that is missing, the note's `document_path` or `source`
+   (including inside `original_frontmatter` / `original_metadata`). A catalog
+   note describes a file and is not an edition: it is listed as *Catalog note*
+   with its path but is not opened, since the reader serves only `library/`.
+
+Roles are `original`, `reading-copy` and `version`. Members are ordered by
+version number, then role, then path. When one edition is filed in two folders,
+both entries name their folder. `newer` names the highest version when the
+current file (or the version a reading copy was made from) is lower; a tie
+prefers the current folder. Families are capped at 32 members; the rest are
+counted in `more`. References that cannot be resolved, including those that
+would leave `library/` or cross a symlink, are listed in `unresolved`, never
+guessed. **Behind the scenes → Edition links** shows the family count, index
+build time and every unresolved reference (`/api/editions/diagnostics`).
+
+The index covers regular, non-hidden, non-symlinked Markdown under `library/` and
+`catalog/metadata/`: at most 20,000 files, at most 8 KiB of each header (read
+1 KiB at a time up to the closing delimiter) and 16 MiB of header bytes in all.
+YAML is parsed only for headers that declare `reading_source` or
+`previous_version`, and later for family members. If a limit is reached the
+index is marked `partial`. It is held in memory and keyed by the
+`(path, size, mtime_ns)` signature of those files. That signature is rechecked
+at most every 60 s, so a new edition can take up to a minute to appear. Nothing
+is written or repaired.
+
+### Versions: the chip, its twin and the explorer
+
+**The version chip.** Under the title meta, one bordered chip says which version
+you are reading: `v1 of 3`, `Reading copy of v2`, `Reading copy of the
+original`, `Original · 1 reading copy`, or, for a file without siblings whose
+path has at least two commits in the vault's git history, `Current · 7
+revisions`. Beside it, **Newer v3 available · Open v3 · Compare v1 → v3** when a
+higher version exists (the chip's dot turns `--accent`), and **You read this on
+Oct 16** (or **You read v2 on …**) when your receipt matches a family member's
+current bytes. The chip replaces the frontmatter's "Edition N" meta item, which
+still shows when there is no chip. A file with no siblings and at most one
+commit shows nothing. The line is `data-reader-decoration` (excluded from
+selection, find and word counts) and part of the first layout, so two-page
+spreads are measured once with it. If `/api/versions` takes longer than 600 ms
+(a long `--follow` history), the page renders without the chip; the status twin
+and the explorer fill in when the answer arrives.
+
+**The status twin.** The status bar shows a compact twin of the chip: `v1/3`,
+`copy`, `orig`, `7 rev`, or `@3f2a1c9` on a historical version. It is
+`--accent` when a newer version exists and `--warning` on a historical version.
+Clicking it opens the explorer.
+
+**The explorer.** **Space v**, the chip or the twin opens a right-side panel
+(the thread panel's frame; at ≤ 640 px a bottom sheet across the width). Its
+timeline lists the family in edition order, each with date, author, tags
+(*reading*, *you read Oct 16*, *newest*, *edited since last commit*) and small
+reader dots (`--own` for you, `--other` for other participants) when a
+participant's receipt matches that file's current bytes. Under each edition, a
+collapsible **History** lists the commits that changed the file, newest first:
+date, subject, short hash, *same as file* for the commit whose blob equals the
+working copy, and reader dots when a receipt's SHA-256 matches that commit's
+content. The rail marks ● where you are, ◐ what you last read and ★ the newest
+version. The history of the edition you are on starts open. A catalog note is
+listed as a note, not an edition.
+
+Keys inside the panel: `j`/`k`, arrows, Home and End move between items and
+History toggles; Enter opens; `c` marks the selected item as one side of a
+comparison and `c` on a second item opens the changes panel for *first → second*
+(either direction; `c` on the marked item, Escape or *cancel* clears the mark);
+Escape closes. Each row also has a compare button (⇄). **Compare with current**
+compares the selected item (or the historical version you are on) with the
+current file of the document you are reading. Opening an edition or commit keeps
+the explorer open on the new position. The status line shows `VERSIONS` mode.
+
+**Historical versions.** Opening a commit renders the file as it was at that
+commit, read-only, with the same Markdown renderer and sanitizer. A banner reads
+"Historical version · Oct 12 · commit 3f2a1c9 · <subject> · Return to current".
+No receipt (`/api/seen`), bookmark, annotation, discussion, selection tools or
+Read next or Linked from list is attached; the "what changed" banner is not shown.
+The reading log stays (it describes the current file's readers) but never adds
+*You just now*, since nothing is marked read. The outline rail works as usual.
+Chat refuses with "Chats are about the current file", and Send to AI-TTS (Space s,
+the footer button) refuses with "Send to AI-TTS reads the current file; open the
+current version to listen", because speech re-reads and hash-checks the current
+file. Inbox previews (`inbox/…`) have no versions, so they show no chip and never
+request `/api/versions`. The hash route
+`#read=<path>@<commit>` makes historical versions linkable and survives
+reloads; `navigate(path, {commit})` does the same in code. A commit equal to the
+working copy opens the current file instead. Only Markdown and plain text can be
+opened historically.
+
+**Comparisons.** The explorer's comparisons use the RW-06 changes panel. When the
+newer side of a comparison is the version on screen, clicking a change seeks to
+it; otherwise a toast says which version to open to see it in place.
+
+`/api/versions?path=…&participant=…[&hashes=1]` (`src/reader_mcp/versions.py`)
+returns the `/api/editions` family (each member with `author`, `revisions`,
+`history` status `ok`/`truncated`/`timeout`/`unavailable`, `uncommitted` and
+`readers`), `newer`, `catalog`, `history: {path: [{commit, short, date, author,
+subject, blob, status, at?, from?, matches_current?, sha256?, readers?}]}`,
+`read: {participant, path, label, version, at, where: current|commit|earlier,
+commit?}`, `git`, `hashes`, `hashes_partial`, `stats` and `limits`. Each member's
+history is `git log --follow --raw` (author date, author name, subject), at most
+50 commits per path and 200 per family (a 32-member family gets 6 each); members
+are read in parallel by up to four `git` processes, all within 2 s per request.
+Merge commits and deletions are skipped. Logs are cached in memory (256
+entries) per `HEAD` commit, so a new commit invalidates them. `hashes=1` adds the
+SHA-256 of each listed blob, which places receipts on historical commits: blobs
+over 4 MiB are skipped, at most 32 MiB is hashed per request, and hashes are
+cached by blob id (4,096 entries). The explorer requests hashes when it opens.
+
+`/api/version?path=…&commit=…` returns the file at that commit in the shape of
+`/api/document` plus `historical: true`, `commit`, `short`, `date`, `author` and
+`subject`; `item` and `bookmark` are null. `commit` must be 7–40 lowercase
+hexadecimal characters and must appear in that path's own history (as listed by
+`/api/versions`); an ambiguous prefix is refused. No caller-supplied revision
+expression reaches git: the blob id comes from the log and is read with
+`git cat-file blob`. Blobs over 4 MiB are refused.
+
+`/api/changes?a=<ref>&b=<ref>` compares any two versions, where a ref is a
+library path (the current file) or `<path>@<commit>` (that file at a commit in
+its history). It returns `a` and `b` (`path`, and `commit`, `short`, `date` for
+historical refs), `status`, `stats`, `hunks`, `truncated`, and `annotations` when
+`b` is a current file. The RW-06 forms (`path=…[&against=…|&successor=1]`) are
+unchanged.
+
+All git access is the RW-06 read-only runner: `rev-parse`, `log` and
+`cat-file` only, no shell, a fixed environment, `GIT_OPTIONAL_LOCKS=0` and
+`GIT_CEILING_DIRECTORIES` at the vault root; nothing is checked out and no
+index, ref or temporary file is written. At most two explorer lookups run at
+once; a third waits up to 3 s, then gets HTTP 429. Restoring an old version is a
+librarian action and is not offered. PDFs have history in the timeline but are
+neither opened historically nor compared.
+
+### What changed since you read it
+
+Every receipt in `engagement/` records the SHA-256 of the bytes a participant
+read. When you open a Markdown or plain-text document whose receipt names a
+different hash, a banner under the title says **Changed since you read it on
+Oct 12 · 3 sections changed** with **Show changes** and **Mark as caught up**.
+Opening such a document no longer records the new edition silently. **Mark as
+caught up** records it (the usual `/api/seen` receipt), so the banner goes away
+and the work shows as read. Documents you have not read, or whose receipt
+matches, are marked read on display as before. If the edition you read cannot
+be recovered, the banner says the earlier edition isn't in the vault history and
+offers only **Mark as caught up**. When another participant's receipt names a
+different edition whose prose differs, **Compare with what Agy read** appears (in
+the banner, or in a quieter line when your own receipt is current). Prose is
+compared as body blocks with whitespace collapsed, so editions that differ only
+in frontmatter or line wrapping count as the same text: another reader's such
+edition is not offered (an edition that cannot be recovered still is), and your
+own shows a quiet **Edited since you read it** note with only **Mark as caught
+up**. The diff matches blocks by the same normalized text. The version chip's newer-version
+note offers **Compare v2 → v3**. The banner is `data-reader-decoration` and
+part of the first layout.
+
+The changes panel is a Sheet: beside the article on wide screens (no backdrop,
+so the article stays usable) and from the bottom at phone width. It lists the
+diff in source order. Reworded paragraphs show inline word changes (removed text
+struck through with a `--warning` decoration, added text tinted with `--accent`),
+removed paragraphs are struck through and added ones carry an `--accent` rule.
+Unchanged runs collapse to "12 unchanged paragraphs". Clicking a change scrolls
+(or turns) to the corresponding block, found by its `data-source-start` range,
+and outlines it briefly. At the top, a summary of the current annotation
+locations reads, for example, "Your highlight: relocated. Agy's warning: its
+passage was removed." (`exact`, `relocated`, `orphaned` or `ambiguous`, from the
+existing annotation anchoring).
+
+`/api/changes?path=…&participant=…[&against=<participant>|&successor=1]`
+(`src/reader_mcp/changes.py`) returns `status` (`changed`, `unchanged`,
+`unavailable` or `unread`), `read_at`, `read_version`, `current_version`,
+`others` (up to five other participants whose receipt names another edition),
+`stats`, `hunks` and `annotations`. `against` names a participant present in
+`engagement/` with a receipt for this path; anything else is refused.
+`successor=1` compares the current file with the Editions `newer` version, both
+read from the working tree.
+
+**Recovery.** The edition read is looked up in the vault's git history,
+read-only. `git log --follow --raw` lists blob ids for the newest 200 commits
+that touched the path. `git cat-file --batch-check` drops blobs over 4 MiB, and
+one `git cat-file --batch` process streams the rest, newest first, until a blob
+hashes to the receipt. The search stops after 200 commits or 2 s. Git runs
+without a shell, with a fixed environment (`GIT_OPTIONAL_LOCKS=0`, no global or
+system config, no pager or prompts), and with `GIT_CEILING_DIRECTORIES` set so
+only a repository at the vault root is used. Nothing is checked out and no
+index, ref or temporary file is written. Merge commits contribute no diff of
+their own, and uncommitted older bytes cannot be recovered. Recovered text is
+kept in a 64-entry, 32 MiB in-memory LRU keyed by SHA-256. At most two searches
+run at once; a third waits up to 3 s, then gets HTTP 429.
+
+**Diff.** Both texts lose their frontmatter (the reader's `bodyOf` rule) and
+split into blocks at blank lines, with fenced code kept whole. `difflib`
+`SequenceMatcher` aligns blocks. Within a replaced run, pairs with similarity
+≥ 0.5 become reworded hunks with a word diff; others become a removal plus an
+addition. Hunk offsets are code points into the new text. Each side may hold at
+most 4 MiB and 5,000 blocks. The response keeps whole hunks up to 1 MiB and sets
+`truncated` ("Diff too large; showing the first N changes"). The panel shows
+text with structure, not rendered Markdown. PDF and catalog-metadata diffs are
+not included.
+
+### Chat with the voices
+
+**Space m**, or **Chat** in the margins panel, opens a chat panel for the open
+document: a right-side panel, and a bottom sheet at phone width. It is built from
+shadcn base-nova MessageScroller, Message, Bubble and Input Group, with the
+mention list on Base UI Autocomplete (the free-text member of the Combobox family,
+styled with the shadcn Combobox parts), bundled locally. The panel lists the document's chats newest first in a
+Select, reopens the newest, and **+** starts a new one. Esc or Space m closes it.
+A first message in a panel that has no chat joins the document's newest chat if
+another tab started one meanwhile (`create` with `reuse: true`, checked under the
+store lock); only **+** starts a second chat.
+
+- **Who answers.** Type `@` to choose from the enabled voices; Enter inserts the
+  highlighted one. Voices mentioned in a message answer in mention order. A message
+  with no mention is answered by one voice drawn uniformly at random from the
+  enabled voices with an installed CLI, and the reply records `chosen_by: random`.
+  A message mentioning only voices that cannot run (Kai, a disabled voice) gets no
+  turn.
+- **Kai.** Kai has no local CLI. **Paste Kai's reply** saves pasted text as a
+  message authored by Kai with `runtime: {manual: true}`. A pasted reply that
+  @mentions a voice routes to it; an unmentioned paste triggers nothing.
+- **Voices talking to voices.** A reply that @mentions another voice queues that
+  voice's turn. One message starts at most three turns in total, counting these
+  hops, so voices cannot loop.
+- **Replying to a voice.** Every voice message has **Reply to @Voice**; `r` on a
+  focused voice message does the same. It puts `@alias ` at the start of the
+  composer (replacing a leading mention), focuses it with the caret after the
+  mention, and shows a *Replying to* chip with the first 80 characters of that
+  message (× cancels). The sent message carries `reply_to` and shows a quote bar
+  that scrolls to and briefly highlights the original. A reply with no mention goes
+  to the voice it answers (`routing.chosen_by: reply`). Replying to Kai reminds you
+  to paste Kai's answer.
+- **Chime-ins.** The Select under the chat title sets, per chat,
+  `settings.chime_ins`: **Chime-ins off**, **Voices raise hands** (the default) or
+  **Voices speak freely**. After an addressed exchange (a message with mentions or a
+  reply, not a random pick or a pasted message) has no turns left, every other
+  enabled voice with a CLI, in registry order, gets a *listening check*: one at a
+  time, never while an ordinary turn is queued, with a 90-second timeout (or the
+  voice's shorter one). The check answers `PASS` or `HAND: <reason>` (one line, at
+  most 140 characters); anything else counts as `PASS`. A `HAND` is stored as a
+  message with `kind: hand` and shows as a card with **Let them speak** and **Not
+  now**; in Speak freely the first `HAND` speaks at once and the remaining checks
+  stop. Letting a voice speak queues a chime-in turn (`kind: chime_in`, shown
+  *chimed in*), told that it was not addressed and why it raised its hand. At most
+  one chime-in follows each message, chime-ins never start listening checks (their
+  own @mentions still route, within the three-turn cap), and accepting one expires
+  the other hands. `PASS` adds only a *listened: …* note to the reply's footer. A
+  raised hand expires after 10 minutes or when you send or paste the next message;
+  sending or pasting also drops pending checks, and typing in the composer stops
+  them. A toast batches new hands (*✋ 1 voice has something to add*).
+- **Listening checks are read-only in effect.** Their prompt forbids changes, and the
+  runner records changed paths and commits as for any turn. A check that changes or
+  commits anything has its answer discarded, adds a warning to the reply's footer
+  and a toast, and is logged in `.reader/voice-runner/listening.jsonl` (rotated at
+  1 MiB) with every other check's outcome. Its changes are left in place for you to
+  inspect.
+- **Turn states.** Each pending turn shows *Queued (n ahead)*, *Waiting for the inbox
+  run to finish*, or *Thinking…* with its streamed text, its elapsed time against
+  its timeout (for example *0:42 of 10 min*; the clock stops at the timeout), and a
+  **Cancel** button that kills its process group. A finished reply shows its author, runtime (CLI, version and model
+  when known), duration against the timeout, the files it changed (library paths are
+  links) and its commits. Failed, timed-out and cancelled replies keep their partial
+  text and offer **Retry** once. Their footer names the reason: *CLI error* (non-zero
+  exit or signal, with the stderr tail), *Unreadable output* (exit 0, but no line of
+  stdout was an event of the voice's `stream` kind), *No output*, *No reply*, *CLI
+  reported failure* (agy's `result.status` was not `SUCCESS`), *Timed out* (naming
+  the `timeout_seconds` limit), *Stopped by a resource limit*, *Not started: low disk
+  space*, or *Interrupted* (the server stopped mid-turn). A reply that finished
+  without agy's final `result` event is kept as the streamed text, with a note.
+- **Raw output.** Every voice reply, and every running turn, has a **Show raw
+  output** disclosure, collapsed by default. Open, it reads the turn's archived
+  stdout and stderr and, while the turn runs, appends `raw` frames from the chat's
+  event stream. **Steps** lists the session, tool calls (name, parameters, output or
+  error, duration), reply text collapsed to one row per response step (expandable),
+  and the result (status, duration, turns, tokens), for agy, Claude Code and Codex
+  output; other lines appear as they are. **Events** shows one JSON event per line.
+  The stderr, the prompt and the system prompt follow, then the archive path, status,
+  exit code and argv. The disclosure stays open when its turn finishes. Cancelling a turn that is
+  still queued or waiting also records a cancelled reply (*Cancelled before it
+  started.*), so its message is never left unanswered. Toasts announce each turn's
+  start, failures, changed files, and, while the panel is closed, finished replies.
+- **Several tabs and lost connections.** Every open panel on a chat follows the
+  same stream: messages sent from another tab arrive as `posted` events, and each
+  `hello` and `ping` carries the chat's revision and pending turn IDs, so a panel
+  that disagrees reloads the chat and keeps only the turns the server still has.
+  If the stream errors and does not reopen within 5 seconds, or stays silent for
+  2.5 heartbeats (at least 3 seconds), pending turns show *Lost connection to
+  Reader* with **Retry** (reconnect) instead of their clock, and one toast says
+  so. The browser keeps reconnecting; the first event after that clears the state,
+  toasts *Reconnected to Reader.* and reloads the chat. A running turn still shown
+  two heartbeats past its timeout also triggers a reload.
+- **Rendering.** Messages use the document's markdown-it and DOMPurify pipeline,
+  without images, media or form controls; external links open in a new tab. The
+  panel carries `data-reader-decoration`, so it is outside annotations and find.
+
+**Authority and privacy.** Voices run with the authority they have in a normal
+Reader session in this vault, as configured in `voices.json`: they may read, write
+and commit. Every turn records its changed paths (from `git status` before and
+after, excluding `chats/`, `logs/llm/` and `.reader/`) and the commits it made. Each turn sends
+the document's identity, the chat transcript and anything the voice chooses to read
+to that voice's provider (Anthropic, OpenAI or Google). Nothing is excluded.
+
+#### Voice registry
+
+`voices.json` at the vault root lists the voices. Reader ships no default: a vault
+without it has no runnable voices, and the panel says so. Copy
+[`templates/voices.json`](../templates/voices.json) to the vault to configure the
+Reader librarian (Codex), Agy (agy), Claude (Claude Code) and Kai (manual). Each
+entry has:
+
+| Field | Meaning |
+| --- | --- |
+| `name`, `mention` | Display name and single-word `@` aliases (case-insensitive, unique) |
+| `enabled` | `false` hides the voice from routing and random choice |
+| `cli` | Executable name or absolute path; `null` with `manual: true` for paste-only voices. Names resolve on `PATH`, then `~/.local/bin`, `/opt/homebrew/bin` and `/usr/local/bin` |
+| `argv` | Arguments. `{vault}`, `{prompt}`, `{persona}` and `{last_message}` are replaced; an element `{sandbox_add_dirs}` expands to `--add-dir PATH` for each Git metadata and git-locks directory the inbox runner grants |
+| `stream` | Output parser: `claude` (stream-json), `codex` (`exec --json`), `agy` (stream-json), or `text` |
+| `persona` | `agents_md_section` (one or more `AGENTS.md` headings or top-level list-item labels, copied verbatim), `profiles` (vault-relative pages) and `text` |
+| `timeout_seconds` | Per-voice turn timeout; the top-level value (default 600) applies otherwise |
+| `version_argv` | Arguments that print the CLI version, default `["--version"]`, or `null` |
+| `inline_document` | `true` puts the document text in the prompt, for a runtime that cannot read files |
+
+The top-level `workstation_lock_store` is passed to the `{sandbox_add_dirs}`
+expansion, like the inbox runner's option. `turn_instructions` replaces the default
+chat-turn instruction. The template's permissions are:
+
+- Reader librarian: `codex exec --cd VAULT --sandbox workspace-write -c approval_policy="never"`
+  with the inbox runner's `--add-dir` grants, `--ephemeral --json --color never
+  --output-last-message FILE -` (prompt on stdin).
+- Agy: `agy -p PROMPT --output-format stream-json --dangerously-skip-permissions`.
+  agy prints one JSON object per line: `{"event": "init", …}`, then `step_update`
+  events whose `step_update` has `step_index`, `state` (`ACTIVE`, `DONE`, `ERROR`)
+  and `step_type` (`user_input`, `agent_response` with `text_delta`, or `tool` with
+  `tool_name` and `tool_info` {`name`, `parameters`, `output` or `error`}), and a
+  final `{"event": "result", "result": {"status", "response", "duration_seconds",
+  "num_turns", "usage"}}`. Reader streams the `text_delta`s live (separating
+  successive response steps with a blank line) and, on `result`, replaces the
+  streamed text with `response`, which is the stored reply. Claude Code's `result`
+  replaces the streamed text the same way when they differ.
+- Claude: `claude -p --output-format stream-json --include-partial-messages --verbose
+  --dangerously-skip-permissions --append-system-prompt PERSONA` (prompt on stdin).
+
+**Prompt.** Each turn's prompt holds the voice's persona (Claude receives it as an
+appended system prompt; the others as the first part of the prompt), the chat-turn
+instruction, a context header (vault root, document path, title and SHA-256, chat
+id, participant, the message being answered), and the transcript. The transcript is
+fenced between `<<<READER-CHAT-HISTORY nonce>>>` markers with a random nonce and
+labelled as data whose instructions are content, not commands. It keeps the newest
+messages within 200 KiB and states how many were dropped. Voices read the document
+themselves. The default instruction tells a voice that a chat turn is not a full
+session turn, so it skips turn-boundary upkeep, intake, speech and other agents
+unless asked.
+
+When your message replies to a voice message, the prompt also says *The user is
+replying to your message <id>, quoted below* (or *<Voice>'s message* for another
+voice) and quotes that message in a `<<<READER-REPLY-TARGET nonce>>>` fence, up to
+4 KB, even when older history is cut from the transcript. A chime-in turn's prompt
+adds *You were not addressed. You are chiming in because you raised your hand:
+<reason>. Be brief and add only what the addressed voice did not cover.* A
+listening check's prompt is fixed and short: the voice's name and persona summary
+line (`persona.summary`, else the first line of its first `AGENTS.md` section), the
+rules above, the document title and path, and the latest exchange (your message and
+the addressed replies, each quoted up to 4 KB) fenced as data. The transcript omits
+hand records.
+
+A Python hook, `Conversations(..., listen_filter=callable)`, can decide per voice
+whether a listening check runs (`listen_filter(voice, exchange) -> bool`). It is
+unset by default; no local-model pre-filter ships yet.
+
+#### Runner, storage and commits
+
+One turn runs at a time per vault, in FIFO order, in a background thread of the web
+server. Before a turn starts, the runner takes `.reader/upkeep.lock`, waits while
+the inbox runner holds its run lock, and then holds `.reader/voice-runner/run.lock`
+for the whole turn; the inbox runner refuses to start while that lock is held. Each
+turn runs in its own process group with stdin from the prompt file (or `{prompt}`),
+`TMPDIR` under `.reader/voice-runner/tmp`, a CPU limit, and checks for free disk
+(50 GiB reserve), process-group RSS (4 GiB), `.reader` data (4 GiB) and output
+(16 MiB). Timeouts (`timeout_seconds`, default 600 s = 10 minutes) are the only
+cost bound; a timeout or Cancel sends SIGKILL to the whole group. A turn does not
+start while free disk is below the 50 GiB reserve: it fails at once with *Not
+started: low disk space*, because its log could not be kept. `state.json` (in
+`.reader/voice-runner/`) holds the active and queued turns, their partial text and
+their log paths.
+
+#### LLM logs
+
+Every voice turn's raw artifacts are archived in the vault, permanently, at
+`logs/llm/chat/<YYYY>/<MM>/<DD>/<turn-id>/` (UTC start date). By the user's explicit
+decision this archive is never pruned, expired or size-capped; it is an approved
+exception to the default 128 MiB log budget. Low disk space stops new runs instead.
+`src/reader_mcp/llm_logs.py` defines the layout for the kinds `chat`, `listen`,
+`inbox` and `local-model`; only chat turns use it so far.
+
+- While a run is in progress its artifacts are streamed uncompressed as
+  `prompt.txt.partial`, `system.txt.partial` (the persona), `stdout.jsonl.partial`
+  and `stderr.log.partial`, beside a `meta.json` with status `running`. A CLI may
+  write its own file there (Codex's `last-message.md`). A crash leaves these
+  readable; the next server start seals the run as `interrupted`.
+- On completion every artifact is gzip-compressed to `<name>.gz` and `meta.json`
+  (plain JSON) records schema 1: kind, run and turn ids, chat id, voice, document
+  path, CLI and version, model, session id, argv (the prompt and persona appear as
+  `<prompt.txt>` and `<system.txt>`; values of secret-looking flags and
+  `KEY=VALUE` arguments, and token-shaped strings, are `<redacted>`), cwd,
+  timeout, start and end times, exit code, status, failure and error, warning,
+  stdout lines read and understood, changed paths, commits, Reader's version, and
+  each file's size and SHA-256.
+- The finished run directory is committed with the turn's chat commit: `git add -A
+  -f` of the directory (so the compressed files replace any partials a voice may
+  have committed), with the trailer `Reader-Log: chat/<turn-id>`. Like chat
+  commits, it never lands while a voice's turn runs.
+- `/api/chats` and `/api/chat` report `llm_logs` (`bytes` and `runs` under
+  `logs/llm/`, cached for 30 seconds and refreshed when a turn ends); the chat
+  panel's footer shows it. Run one web server per vault for chat: if the
+server stops during a turn, the next start records that turn as failed (naming any
+process group that may still run) so it can be retried.
+
+Chats are stored as `chats/<uuid>.json` (schema 1: document path and SHA-256 at
+creation, title, starting participant, revision, optional `settings.chime_ins`, and
+messages with author, body, mentions, `reply_to` (validated against the chat),
+routing, runtime and turn record). Additive fields, still schema 1: `kind`
+(`message`, `chime_in` or `hand`), `root` (the message of yours that began the
+exchange), on hands `reason` and `state` (`raised`, `accepted`, `declined` or
+`expired`, with `decided_at`), on chime-ins `reason` and `hand_id`, and on replies
+`listening: {voices, warnings}`. Hand states and listening notes are updated in
+place under the same lock. Writes take
+`.reader/chats.lock`, replace the file atomically and accept idempotent request IDs.
+Limits: 2,000 messages and 8 MiB per chat, 64 KiB per message (longer replies are
+truncated with a note), 5,000 chats. Only finished messages are written; streamed
+text lives in memory and `state.json`.
+
+After every message you write or paste and every finished turn, the server commits
+only that chat file (and any LLM log directories of its turns and listening checks), with the subject `Chat: <title> — you wrote` (or `— <voice>
+replied`, `— <voice> turn failed`, `— <voice> raised a hand`, `— voices listened`,
+`— let <voice> speak`, `— chime-ins <setting>`, and so on) and the trailers `Reader-Chat: <id>`
+and, for a voice, `Reader-Voice: <voice>`, plus one `Reader-Log: chat/<turn-id>` or
+`Reader-Log: listen/<turn-id>` per archived run. Listening-check logs ride along with
+the chat's next commit rather than adding commits of their own. The vault's configured Git user is the
+author. Commits run `git add` and `git commit -- chats/<id>.json` inside `git locks
+with … .git/` from the vault root when git-locks is installed, or under
+`.reader/chat-commit.lock` otherwise. Chat commits wait while a voice's turn runs and land
+before the next turn starts, so they never interleave with a voice's own Git
+operations, and they are never counted as the voice's commits. A vault that is not
+a Git repository keeps its chats uncommitted. A failed commit raises a toast and a note in the panel. Voices'
+own commits keep their usual attribution.
+
+### Prose colors (Colorful Language)
+
+**Space c** paints the grammar of the open document's prose with
+[Colorful Language](https://github.com/flyingrobots/colorful-language), "IDE-grade
+syntax highlighting for English prose". Colorful is an optional, local,
+deterministic Rust CLI (a closed-class lexicon, a proper-noun heuristic and a small
+contextual disambiguator; no model, nothing leaves the machine). Reader neither
+vendors nor builds it.
+Colors apply to the current edition only: a historical version (`path@commit`) and an
+inbox preview are never colored, and Space c says so. Callout titles, like every
+`data-reader-decoration` element, are never colored.
+
+| Press | Effect |
+| --- | --- |
+| **Space c** | Steps the open document Off → Subtle → Clear → Vivid → Off |
+
+The choice holds for that document until you change the Settings default, which
+**Prose colors** (Off, Subtle, Clear, Vivid; Clear unless changed) in Behind the scenes
+sets for every document. Settings saved before the intensity scale map Skim to Subtle and
+Full to Vivid. The footer shows an `abc` chip while colors are on. Settings also reports
+which Colorful binary and version Reader found, or why it found none. When the Settings
+default turns colors on as a document opens and Colorful is missing, nothing is said; Space
+c explains.
+
+**Intensities.** Each is a CSS class on `<body>` (`prose-subtle`, `prose-clear`,
+`prose-vivid`), so switching sends no request. A custom highlight can set only `color`,
+`background-color`, `text-decoration` and `text-shadow`, so the scale uses hue, lightness,
+underlines and background washes rather than weight or size.
+
+- **Subtle:** function words and punctuation fade a little toward `--muted`; proper nouns,
+  numbers and quotation marks take a faint tint of their role color. Every role reads at
+  4.5:1 or more.
+- **Clear (default):** function words and punctuation recede strongly, to about 3:1 on the
+  page (`--prose-recede`, between 3.0:1 and 3.3:1). This is WCAG's large-text level, and a
+  deliberate choice: the receding words are de-emphasized structure whose meaning the
+  sentence carries anyway, while the content words, which carry the meaning, stay at 7:1 or
+  more (`--prose-content`, the theme's ink raised to 7:1 when it is below it). Proper nouns
+  and acronyms take the accent's hue, numbers and quotation marks their own hues, each at
+  4.5:1 or more.
+- **Vivid:** every role Colorful emits gets its own saturated hue, as in its CLI: function
+  words ("keywords"), proper nouns ("types", also underlined), quotation marks ("strings"),
+  numbers, punctuation (muted), and the nouns, verbs, adjectives and adverbs of Colorful's
+  seed lexicon and contextual rules. The passage between paired quotation marks gets a
+  soft background wash (`reader-prose-quoted`, computed in the browser: curly and
+  guillemet marks pair by shape, straight double quotes alternate, unpaired marks are
+  ignored). Every role reads at 4.5:1 or more, also over the wash, and is at least 0.08
+  ΔE_OK from every other role, ink and muted.
+
+Colorful's open-class lexicon is a 16-word seed list, so nouns, verbs, adjectives and
+adverbs are almost never colored in ordinary prose (well under 1% of words). Unlisted content words stay in the content ink, so Vivid mostly shows
+function words, names, numbers and quotes.
+
+**What is colored.** Paragraphs, list items, blockquotes, headings, table cells,
+definition lists and captions of Markdown documents, and PDF text layers. Code
+blocks, inline code, keyboard and sample text, math (`.katex`, MathJax, `<math>`),
+diagrams (`svg`, `.mermaid`, the Diagram source disclosure), embedded documents and
+every `[data-reader-decoration]` element (kicker, byline, Read next) stay
+uncolored. Plain-text and image documents are not colored.
+
+**How it paints.** The DOM is never changed. Each prose block is projected like
+find (whitespace runs become one space, excluded content is skipped) and sent to
+the server. Each returned token becomes a `Range` inside one text node, added to
+one CSS custom highlight per role (`reader-prose-function`, `-proper`, `-quote`,
+`-number`, `-punct`, `-noun`, `-verb`, `-adjective`, `-adverb`) with priority −1.
+Selection, find, annotations and warnings therefore paint over prose colors, and
+anchors, bookmarks and read receipts are unaffected. Highlights are invisible to
+assistive technology, and the document reads the same with them off.
+
+Blocks are requested visible-first through an IntersectionObserver (in two-page
+reading, rooted at the book viewport with one spread of margin), in batches of at
+most 96 KiB and 400 blocks. The rest of the document fills in when the browser is
+idle. Results are cached in the page by text, so turning colors off and on, or
+switching style, reuses the painted ranges.
+
+**PDFs.** A PDF page's text layer is transparent over its rendered image, which is
+always white. Reader colors the layer's words with a tint behind them at a fixed
+lightness instead of revealing the layer's glyphs: Vivid tints every role, Subtle
+and Clear only names, numbers and quotes. Function words cannot recede in a PDF. A page re-rendered after eviction is colored again
+from the cache.
+
+**Two-page reading.** The page-turn rasterizer reads each role's current ink,
+wash and underline (`--prose-ink-<role>`, `--prose-bg-<role>`, `--prose-line-<role>` on
+`<body>`) and draws words split at role boundaries, so the 3D sheet shows the same
+colors. Find and annotation inks win. PDF tints are not
+rasterized; the sheet shows the PDF page without them.
+
+**Theme colors.** Prose colors are derived per theme, never stored (the `prose`
+and `prose_derived` lists in `theme-tokens.json`), by `proseColors()` in
+`web/src/theme/color.ts`:
+
+- The eight role colors `--prose-function`, `--prose-proper`, `--prose-quote`,
+  `--prose-number`, `--prose-noun`, `--prose-verb`, `--prose-adjective` and
+  `--prose-adverb` are Vivid's. They are chosen greedily in OKLCH, proper nouns first. The
+  proper-noun role starts from the accent. Each other role tries the unused theme colors
+  (secondary emphasis, charts) within 40° of its target hue, then synthesized hues stepping
+  away from it. Each candidate's chroma is raised to at least 0.11 (0.12 for names) and its
+  lightness moved to 5:1 on the page, headroom for the quote wash. The first candidate at
+  least 0.11 ΔE_OK from ink, content ink, muted and the roles already chosen wins (names
+  also 0.14 from the ink, so they stand out in Clear), otherwise the most separated one.
+  Function words, a third of all words, also keep at least 60° of hue from the names.
+- `--prose-punct` (muted at 4.5:1), `--prose-recede` (muted's hue moved toward the page
+  until just above 3:1), `--prose-content` (ink at 7:1), `--prose-subtle-function`,
+  `--prose-subtle-proper`, `--prose-subtle-number` and `--prose-subtle-quote` (OKLab mixes
+  with ink at 4.5:1), `--prose-wash` (the quote color at the highest alpha, up to 0.2 dark
+  or 0.22 light, that keeps ink and every role at 4.5:1 over it) and `--prose-underline`.
+
+Famous and custom theme stylesheets carry the derived values; built-in themes get them at
+runtime from the cascade, at zero specificity. The Theme Editor's *Prose colors (derived)*
+group checks each intensity's paint against its floor (3:1 for Clear's receding words, 7:1
+for content words, 4.5:1 for every colored role), Vivid's closest pair of roles (0.08
+ΔE_OK) and text over the wash. The browser test checks the same floors in all 22 built-in
+themes.
+
+**Finding Colorful.** The server uses, in order: `READER_COLORFUL` (a path to the
+binary), `colorful` on `PATH`, `~/.cargo/bin/colorful`, and
+`~/.colorful-language/bin/colorful` (Colorful's `scripts/install-local.sh`). It
+runs `colorful --version` once per binary identity (path, inode, mtime, size) and
+requires 0.3.0 or newer. The path is not settable from the browser: a page would
+otherwise choose an executable for the server to run. To install from a clone:
+
+```sh
+cd ~/git/colorful-language && cargo build --release --locked -p colorful-cli
+READER_COLORFUL=~/git/colorful-language/target/release/colorful reader web
+# or install it for every tool: cargo install --path ~/git/colorful-language/crates/colorful-cli --locked
+```
+
+Without a usable binary, Space c shows a toast that names the problem and that
+`cargo install` command. The page renders normally.
+
+**Server route.** `GET /api/prose` reports discovery: `available`, `version`,
+`path`, `origin` and a `message` when unavailable. `POST /api/prose` takes exactly
+`{"path", "sha256", "segments": [{"id", "text"}]}`:
+
+1. The path must pass the usual library path checks, and `sha256` must be its
+   current digest.
+2. There are 1–2,000 segments with unique ids (`[A-Za-z0-9_-]{1,40}`). Each is at
+   most 128 KiB of UTF-8, and a request at most 512 KiB (the body limit for this
+   route is 1 MiB). An edition gets at most 4 MiB of uncached text per server
+   process. Line breaks inside a segment are replaced by spaces, in place.
+3. Segments not in the server cache are joined with blank lines and passed to
+   `colorful ir -` on stdin, with explicit argv and no shell. At most two run at
+   once. Each run has a 10-second timeout, a 16 MiB output cap and a 64 KiB stderr
+   cap.
+4. The `colorful.syntax/v1` artifact passes a port of Colorful's reference
+   admission gate (`consumers/graft-projection.mjs`) before anything is used: exact
+   shape, enums and 32-bit integers; contract version; byte length; UTF-8; token
+   ranges in order, in bounds, non-empty, on character boundaries and not
+   overlapping; unique occurrence ids; legal token axes; the outline graph; ranges
+   in diagnostics and derivation; non-empty, unique derivation; the pinned
+   `schemaHash` and `vocabularyHash` (identical in Colorful 0.3.0 and 0.4.0); and
+   `contentHash` against the bytes sent. One failure rejects the whole artifact
+   (HTTP 400, `Colorful output rejected: … (E_CODE)`). The page stops coloring
+   that document and shows the message; earlier batches stay painted.
+5. Tokens map to Reader roles by the same axes as Colorful's vocabulary:
+   FUNCTION → function, PROPER_NOUN_CANDIDATE → proper, CONTENT with an
+   open-class kind → noun/verb/adjective/adverb, NUMBER, PUNCTUATION and QUOTE.
+   Plain CONTENT is left unstyled. The response is
+   `{"segments": {id: [[start, end, role], …]}, "version", "roles"}`, with offsets
+   in UTF-16 code units of each segment.
+
+The server caches each segment's spans in memory, keyed by the text's SHA-256 and
+the Colorful version and binary path (the vocabulary hash is pinned), up to about
+64 MiB. An unavailable binary answers HTTP 409 with `"unavailable": true`.
+
+**Limits.** Colorful's open-class seed lexicon is small, so nouns, verbs,
+adjectives and adverbs appear only for listed words and its contextual patterns.
+A token across a segment separator, a block over 128 KiB, embedded-document
+content and text after the 4 MiB edition budget stay uncolored. Colorful's lint
+diagnostics are not shown.
+
+### Reading queue and history
+
+**Space r** opens the **Reading queue** in the right-hand panel (a bottom sheet
+below 700 px). It has two tabs, **Up next** and **History**, switched with `Tab`,
+`1` or `2`; Escape closes it. The panel always opens on Up next. Opening it closes a
+thread panel, and opening a thread closes it.
+
+**Up next** has three sections:
+
+- **Now reading** is the open document with its progress. With nothing open, it
+  shows the latest unfinished document from History as *Pick up where you left off*.
+- **Queued by you** lists the documents you added, in your order, with title,
+  unread mark, author and project, and an estimated reading time (primary-source
+  bytes ÷ 6 words, at your reading pace; none for PDFs and images).
+- **Suggested** lists voice suggestions first, labelled with the voice's name and
+  reason, then about ten generated suggestions, each with its reason.
+
+Keys in the panel: `j`/`k` (or arrows) move, Enter opens the item, `J`/`K` or
+Alt+↑/↓ reorder your queue, `x` removes an item (a generated suggestion is
+dismissed and stays away), `p` (or `q`) adds a suggestion to your queue, and `c`
+clears your queued items after an inline confirmation (`Enter`/`y` confirms,
+`Esc`/`n` keeps them). Rows under the pointer become the active row, as in the
+file picker. Other single-letter keys stay in the panel rather than moving the
+page behind it; the Space leader still works there.
+
+**Adding.** `q` on a focused document link (Read next items, the issue's cover,
+features and contents, which `j`/`k` focus) or on a file picker row adds it, as
+does the small **+ Queue** button on each Read next item, under the cover story and
+each feature, and on each work on the Search page. On Search, `q` adds the work of
+the active passage (its primary source) and keeps you on the page. **Space q** is
+unbound (reserved for open questions). A toast confirms the position: *Added to your queue · 4th*, or
+*Already in your queue · 2nd*. **Space n** opens the first queued document from
+anywhere, like skipping to the next track; with an empty queue it says so. When
+the queue is not empty, the Read next aside leads with **Next in your queue →**.
+Space n never fires by itself at the end of an article.
+
+**Opening a queued document takes it out of Up next**: it becomes Now reading and
+appears in History, the way a played track leaves a play queue. This answers the
+spec's open question differently from the proposal (remove on finish): a document
+opened by accident leaves the queue too, and can be resumed from History.
+
+**Suggestions** (`WebLibrary.suggest_queue`, cached per participant for 60 s or
+until the queue or the latest opens change):
+
+1. **Seeds** are the five latest documents in History.
+2. **Candidates** are each seed's Read next candidates (`Related.suggest`, six per
+   seed), scored by relatedness ÷ (1 + 0.5 × seed rank), plus 0.15 when unread.
+3. **One cross-project slot** is reserved first: the most similar work whose
+   projects are disjoint from every seed's, with cosine at or above the 90th
+   percentile of that seed's similarity row (*From another project · like X*).
+   Without embeddings it falls back to the newest unread work from another
+   project (*From another project · P*).
+4. **Related picks** are taken round-robin over the seeds, best first, at most two
+   per seed and seven in all (*Because you read X*), so the list reflects several
+   recent reads.
+5. **Newest unread works** fill the rest, at least two (*New in P*). With no
+   History, the whole list is newest unread works.
+6. **Exclusions:** queued, dismissed and finished documents, the seeds, any work
+   whose title matches a seed's or a pick's before a trailing parenthetical, any
+   work within cosine 0.985 of a seed (another edition), and any within 0.97 of a
+   pick. The open document is not suggested.
+
+The kinds interleave as related, related, new, related, other project, related,
+new, then the rest.
+
+**History** lists one row per document at its latest open, newest first, grouped
+by local day (*Today*, *Yesterday*, *Oct 21*). Each row shows the time it was last
+opened, its progress (*62% · 9 min left*, or *Finished* at 97% or more of the
+current edition), and **Changed** when the edition differs from the one last
+opened. A saved position counts as 100% once the document's last block (or its
+last spread) has been in view for 3 seconds after opening, so a document that
+fits on one screen can finish without scrolling. Enter resumes at the saved position (the bookmark). `f` or the buttons
+toggle between all opens and finished ones only. `x` removes a row after a
+confirmation that says the read receipt and reading position stay; it appends a
+`hidden` entry and deletes nothing, and opening the document again brings the row
+back. Pages hold 40 rows; moving past the last row, or **Show earlier**, loads more.
+
+History is derived, not stored separately. It joins:
+
+- an append-only open log, `history/<sha256(participant)>.jsonl`, of
+  `{path, sha256, at}` lines written by `POST /api/history` when a document opens;
+- read receipts (`engagement/`): a document receipt's time also counts as an open,
+  because the web app marks a document read when it opens, so History reaches back
+  before the log existed;
+- bookmarks (`bookmarks/`) for progress.
+
+The log never contains document text. Past 5,000 lines it is compacted, under the
+lock, to the latest open and latest hide per document (and at most 4,000 lines).
+A torn final line is skipped.
+
+The queue is `queues/<sha256(participant)>.json`:
+`{schema_version: 1, participant, items: [{path, added_at, added_by, reason?, pinned_at?}], dismissed, requests, updated_at}`.
+Items you added (or pinned) form *Queued by you* in list order; items another name
+added stay under Suggested until you pin them, and keep `added_by` afterwards.
+Writes hold the shared annotation lock used by receipts and bookmarks and replace
+the file atomically. Limits: 500 items, 64 KiB per file, reasons of 1–300
+characters, 200 remembered dismissals and the last 64 request ids (a repeated
+`request_id` returns the queue unchanged). Only current library documents can be
+queued or logged: inbox paths, symlinks, missing files and anything `WebLibrary.path`
+refuses are rejected.
+
+**Voices** add suggestions with the CLI, which requires a reason when `--by` names
+someone other than the participant:
+
+```sh
+reader --root "$VAULT" queue add library/path.md --participant You --by Agy --reason "Read this beside the T0 contract"
+reader --root "$VAULT" queue list --participant You
+```
+
+Inviting voices to do this routinely is not configured here.
+
+### Obsidian callouts
+
+Markdown blockquotes that begin with an Obsidian callout marker render as callouts
+instead of showing the marker literally:
+
+```markdown
+> [!tip] Optional title with *inline* Markdown
+> Body text.
+
+> [!info]- Folded, closed until opened
+> > [!warning]+ Nested and foldable, open by default
+> > Inner body.
+```
+
+- Types follow Obsidian's built-in set and aliases: note; abstract (summary, tldr);
+  info; todo; tip (hint, important); success (check, done); question (help, faq);
+  warning (caution, attention); failure (fail, missing); danger (error); bug;
+  example; quote (cite). Identifiers are case-insensitive, so GitHub-style
+  `> [!NOTE]` alerts render too. Unknown identifiers render as `note` and keep
+  their own name as the default title.
+- Without a title, the identifier in title case is the title (`[!faq]` shows
+  "Faq"). `-` folds the callout closed and `+` open, using `<details>`; a callout
+  without either has a static header. Nesting follows blockquote depth.
+- Each callout is an `<aside class="callout" role="note" data-callout="<type>">`
+  (`data-callout-alias` keeps an alias or unknown identifier). Its header holds the
+  type's Lucide icon (the icon set Obsidian uses) and the title. Colors use theme
+  tokens only: `--accent` for most types, `--rust` for question, `--warning` for
+  warning, failure, danger and bug, and `--muted` for quote, over a 7% tint of that
+  color on `--bg`. Title and body text meet 4.5:1 in every built-in theme.
+
+How it works: `web_ui/callouts.mjs` is a markdown-it plugin. After block parsing
+it recognizes a blockquote whose first paragraph's first line is the marker,
+records the callout on the blockquote tokens, and removes the marker line from
+that paragraph. The paragraph's source map then starts at its first body line, or
+the paragraph is dropped when the marker stood alone. Body blocks keep
+markdown-it's own `data-source-start`/`data-source-end`, so highlights, warnings,
+new selections and reading positions anchor exactly as in any blockquote. The
+header carries `data-reader-decoration`, so find, selection and annotation
+projection skip the marker and title; a selection inside the header does not
+offer annotation. The aside itself keeps the blockquote's full source range.
+After sanitizing, `mountCallouts()` from the controls bundle clones each icon
+from templates rendered once. Find and thread jumps open a folded callout that
+contains their target. A folded body's highlights have no on-screen rectangle
+while it is closed, so its margin pins are hidden until it opens; opening or
+closing re-measures the layout and pins. Custom callout CSS types, callout
+metadata (`[!type|meta]`) and Obsidian's custom per-type colors are not supported.
+
+### Document controls
+
+The footer's shadcn **Switch** is labelled **Dark mode**. Checked means dark;
+unchecked means light. It swaps within Ink/Paper, Orchid or Harvest and retains the
+chosen palette family. The Settings section's independent switches control atlas, activity
+and smooth scrolling.
+
+Every action button uses shadcn [**Button**](https://ui.shadcn.com/docs/components/base/button),
+and related actions sit in a [**Button Group**](https://ui.shadcn.com/docs/components/base/button-group).
+The groups are search methods, find previous/next/close, the selection toolbar's
+Highlight/Comment/Warn, and the Theme Editor's Light/Dark toggles. React controls
+render the components directly. Markup from the plain-JavaScript renderer declares
+`data-button="<variant> <size> [round]"` or `data-button-group`, and
+`web/src/vanilla-buttons.ts` applies the same `buttonVariants`/`buttonGroupVariants`
+classes and `data-slot` attributes. A MutationObserver covers templates rendered
+later. Toggle buttons with `aria-pressed` gain a pressed style. Row-shaped controls
+are not converted: document tree rows (already Button), thread list items, dashboard
+total cells and margin items, chart segments, breadcrumb links, folder menu items,
+annotation pins and progress pips. They follow their own list, breadcrumb or chart
+patterns.
+
+Markdown fenced code uses shadcn **Code Block**, with a language label and an
+exact-text copy button. Code remains plain text; syntax highlighting is not
+enabled. UI labels do not enter document find or passage anchoring. Up to 256
+blocks per document are enhanced; further blocks remain readable plain code.
+Existing source-format limitations on annotation anchoring still apply.
+
+Actual shadcn **Skeleton** placeholders appear during library, document and search
+requests. They are removed when content or an error arrives. They contain no
+invented statistics. Component roots are disposed when their route is replaced.
+
+PDFs use locally vendored PDF.js. Original PDF pages appear as facing pages, with
+selectable text and document find. The renderer keeps at most six live page
+surfaces; each canvas is capped at four million pixels and device scale 2. PDF
+reading is limited to 5,000 pages and the server's 256 MiB source limit. Password
+protected or unsupported files can be opened through the original-file link.
+PDF passage annotations are not implemented.
+
+The reader saves each participant's position after a short pause in scrolling,
+before navigation and when the browser page becomes hidden. It restores a matching
+source edition before revealing the document. Text positions include a source
+block offset and relative position, with a normalized progress fallback. PDF
+positions include an explicit page number. A saved spread index is reused when
+the current number of spreads matches. Layout changes use the source/page anchor
+where possible. A changed source SHA-256 starts at the beginning with a notice;
+the reader never guesses that an old coordinate identifies the new passage.
+
+Bookmark records live in the private vault's `bookmarks/<participant-sha256>.json`.
+Schema version 1 stores the participant and a path-keyed `items` mapping. Each
+item contains `source_sha256`, `progress`, `source_offset`, `pdf_page`,
+`block_fraction`, `layout`, `spread_count` and `updated_at`. Writes use the existing
+annotation lock and atomic replacement. Limits are 100 participants, 10,000
+positions per participant and 4 MiB per participant record. Positions are separate
+from read receipts. Last-moment saves on browser termination are best effort;
+waiting for the short scroll debounce or navigating normally allows a confirmed
+save. Back up this directory with the rest of the private vault.
+
+## Search page
+
+**Space /** opens Search from anywhere (the route is `#search=…`). The picker's `/`
+filter stays for quick navigation by name. The page remembers its query and filters
+for the browser session, and the URL carries them, so a search is linkable:
+`#search=` holds an encoded query string with `q`, `mode` (`words` or `meaning`;
+Best is the default and is omitted), repeated `project`, `author` and `type`,
+`from`/`to` (YYYY-MM-DD), `read` (`unread` or `read`), `folder` and `machine=1`.
+Requests also send `from_at`/`to_at`, the browser's local midnights at the start of
+`from` and after `to` (ISO timestamps with a zone); works with an `arrival_time` match
+by that instant, and others by their catalog date.
+A hand-typed `#search=receipts` or `#search=open%20questions` (a value with no `=`)
+is taken as the query itself; a malformed escape is read literally.
+
+- **Modes.** **Best** blends exact words and meaning by reciprocal-rank fusion.
+  **Exact words** ranks passages by FTS5 bm25 and file names. **Meaning** ranks
+  passages by cosine similarity to the query. Typing searches after 200 ms
+  (450 ms for Meaning). The count, passages shown and index date appear under the
+  field.
+- **Results.** Each result is a catalog work, ordered by its best passage. It shows
+  the title, authors, first project, date, an unread pip, and up to three passages
+  of at most 320 characters, cut around the densest cluster of query words. Excerpts
+  are plain text with frontmatter and common Markdown markup removed; matched words
+  are CSS custom highlights (`reader-search-term`, and `reader-search-active` for the
+  selected passage) over theme tokens, never markup. Each passage is labelled with
+  its line, or its page for PDFs. A passage without the query's literal words is
+  marked "Related, not exact".
+- **Grouping.** A file belongs to the inventory work whose primary or catalog path
+  it is, whose reading copy it is (`name.reading.md`), or whose bundle folder holds
+  it (the folder of a catalog `index.md` or receipt, deepest first). Other files
+  stand alone, titled from their frontmatter. Copies of one passage show once.
+- **Filters.** A left rail on wide screens, or a bottom sheet (Filters) below
+  860 px, offers Project, Author and Type as multi-select facets with work counts,
+  Date presets (week, month, year: rolling 7, 30 and 365 days) or a range, Read state
+  (All, Unread, Read for the current participant and exact current edition),
+  subfolders of the current scope, and Include machine files (off by default; on,
+  path-only receipts, logs and code can match by file name). A facet's own counts
+  ignore its own selection, so other values stay choosable; the other filters
+  apply. When the candidate pool was full, the rail says the counts cover the top
+  500 passages.
+- **Keys.** In the field, ↓ moves to the results, Enter opens the selected passage
+  and Esc moves to the results (or back, when there are none). On the results,
+  `j`/`k` move between passages, `J`/`K` between works, Enter opens the passage,
+  `o` opens it in a new browser tab and keeps you on Search, `/` returns to the
+  field, `h` goes back and Esc returns to where you were. Esc on any other page
+  control (a mode button, facet or filter) moves to the results, or the field when
+  there are none; a second Esc goes back.
+- **Opening a passage.** The document opens at the indexed line: Markdown scrolls to
+  (or, in two-page mode, turns to the spread of) the smallest block containing that
+  line; plain text uses the line itself; PDFs go to the page. Every whole-word
+  occurrence of the query's words gets the find highlight, the first at or after
+  the passage is current, and `n`/`N` step through them. The status line shows
+  "From search: ‹query› · n of m · Esc to clear"; Esc clears it. Passage links are
+  `#read=<path>&at=<json>` with `line`, `page`, `terms` and `query`.
+- **States.** An empty query shows recent searches (eight, in this browser's local
+  storage, `reader.search.recent.v1`) and the most common topics among your unread
+  works. No results offers Meaning or clearing filters. A run that stopped before
+  finishing, or sources that changed since indexing, show a note linking to Behind
+  the scenes; changed sources' passages are hidden. If the embedding model or vectors
+  are unavailable, Best and Meaning say so and show exact-word matches. Search never
+  rebuilds the index itself.
+
+`GET /api/search/page` takes `q` (1–1,000 characters), `mode` (`best`, `words` or
+`meaning`), the filters above as query parameters, `offset` (0–500) and `limit`
+(1–50 works, default 20). It returns `{works:[{id, title, primary, authors, projects,
+types, date, read, score, passages:[{path, page, start_line, end_line, line, excerpt,
+spans, matched_by, literal}]}], terms, facets:{project, author, type, folder}, total,
+facet_scope, pool, indexed_at, complete, semantic, warnings}`. `spans` are `[start,
+end)` Unicode code-point offsets into `excerpt`. Ranking runs once over the published
+index snapshot (`Search.passages`): `.reader/search.v2.sqlite3` once a format 2 build has
+completed, otherwise the format 1 `.reader/search.sqlite3` read-only (each chunk is its own
+passage, no file-name channel, and a warning says format 1 is serving). It takes at most 2,000 passages per channel and a
+pool of 500 chunks, after the folder and machine-file scope and the work filters.
+Words in a short stopword list are dropped unless the query has no others. Meaning keeps passages with cosine similarity of at least 0.62 and within 0.08 of the best match, at most 300 (100 in Best, so exact words lead); bge-small-en-v1.5 similarities on a real library cluster near 0.53, and even a nonsense query reaches about 0.67, so a passage marked related is a lead, not a claim. Meaning
+vectors are normalized once per published index version and reused while it is
+unchanged. Concurrent content searches share the server's search lock; a second one
+gets 429 and the page retries briefly.
+
+## Search, dashboard and shared discussion
+
+The Library section of Behind the scenes is a grid of up to twelve interactive D3 statistics panels, with
+summary totals above and an editions list below. Panels cover recorded arrivals
+over twelve weeks, reading marks over 28 local days, read/unread status, first
+topic, primary format, first document type, authors, first project, primary-source
+byte sizes, unread topics, discussion state and the optional topic atlas.
+The activity and atlas settings control their corresponding panels.
+
+Select a chart segment, bar or legend item to browse the works behind it; the
+summary totals continue to describe the entire current catalog. Clear selection
+restores the latest additions. Author bars credit each distinct coauthor, while
+topic/project/type charts use one label per work. The atlas groups by first topic,
+with one dot per work; hover inspects it and clicking opens the source. Discussion
+totals count actual threads, warning/highlight kinds, comments and resolved state.
+Discussion selections list matching catalog primaries; source attachments can
+have threads without appearing as an independent catalog work.
+
+Dates are recorded arrival/filing dates, never inferred publication dates. Undated
+works are excluded from time charts. Reading activity counts each current edition
+by its latest exact-version mark, rather than visits, duration or a first-read
+history. Primary-source size counts bytes and excludes attachments; it does not
+estimate page counts, words or reading time. The inventory's snapshot date remains
+visible so these charts do not imply automatic catalog refresh.
+
+The catalog comes from `indexes/coverage.json`, with bounded browse discovery as
+a fallback. Fuzzy search covers title, path and author in that inventory. Content
+and semantic search use the existing SQLite index and report its date, warnings
+and errors. A missing, stale or resource-blocked index is not silently rebuilt or
+substituted with fake semantic results. Search results are capped at 30.
+The server runs one content or semantic search at a time (the index engine is not
+shared between concurrent queries); another waits up to 8 seconds (`SEARCH_WAIT`)
+for it and is then refused with HTTP 429. The Documents picker retries a 429 after
+0.5, 1, 2, 4 and 8 seconds, showing *Another search is running; retrying…*, and,
+if the search never runs, says so instead of showing the no-results note.
+
+Opening a document automatically records the displayed source version as read for
+the selected participant. Opening a thread records its inspected current highlight,
+comments and aggregate version. Other voices' receipts remain independent.
+Changing the participant changes these receipts and bookmarks, not source content.
+The setting is a trusted local identity selection, not a login or impersonation
+defense. See [engagement](engagement.md).
+
+Select a Markdown passage for the floating Highlight / Comment / Warn toolbar.
+The toolbar appears after a mouse selection, after a touch selection settles
+(`touchend`, or 450 ms after the last `selectionchange`, so dragged selection
+handles also count), and from the keyboard: with a passage selected, `a` or
+`Enter` shows the toolbar and focuses Highlight. On coarse (touch) pointers the
+toolbar sits below the selection, clear of the browser's own selection menu.
+A phrase that repeats inside one block is anchored at the repeat you selected:
+the toolbar counts earlier repeats in the block's rendered text and uses the
+matching source occurrence, refusing only when the rendered and source counts
+disagree.
+Background colors distinguish your highlights and other participants' highlights;
+warnings have a red underline. Margin buttons and top-rail pips open discussion
+with owners, replies and seen-by labels. Opening a thread moves focus to its heading
+(the reply box is a few Tab stops away); Escape or × returns focus to the pip, pin
+or control that opened it. Space t focuses the first thread in the list, `j` / `k`
+or arrows move between threads and Enter opens one. A new comment or warning opens
+its thread with focus inside it. Source offsets use Unicode code points
+and a source SHA guard. Ambiguous or unsupported formatted selections are refused,
+and orphaned anchors retain their quotes without an invented inline position.
+Quotes in thread panels, the thread list, the annotation form and Unread discussion
+cards are displayed as plain prose: Markdown markers (emphasis, code spans, links,
+heading and list markers) are dropped for display; the stored anchor keeps the raw
+source span. Counts use singular or plural nouns ("1 comment", "2 comments").
+Original document bytes are never rewritten. See [annotations](annotations.md).
+Margins anchor on source text, so loading them never validates the document's
+catalog metadata: a legacy, partial or malformed header (for example a versioned
+header without `type`) simply contributes no stable `document_id`.
+
+A failing secondary request never replaces a document that has rendered (or is
+rendering): versions and editions, what changed, the reading log, images and embeds,
+margins, the read mark, the history/queue log, prose colors, diagrams, Linked from
+and Read next each degrade on their own, with a quiet (non-error) toast such as
+"Margins could not load: …" where a reader would otherwise miss something. Any other
+failure after first paint also keeps the article and toasts quietly. Only a failure
+to load the document itself (or its historical version) replaces the page with
+"Document unavailable".
+
+Markdown is sanitized before display. Local images and limited Obsidian embeds
+are supported; external images do not load automatically. Nested embeds are
+limited to one level, eight direct embeds and 128,000 text characters each.
+Embedded-source passages are not annotatable from the parent document. Mermaid
+blocks are drawn as diagrams and TeX is typeset (see below).
+
+Rendering scales linearly with document size. Block source coordinates come from
+one code-point index built per render (a binary search per block), local image and
+embed targets resolve through `/api/resolve-batch` (at most 64 targets and about
+12 KB of query per request, two requests at a time), and the first eight embeds load
+together and then render in source order. The source projection that annotation
+painting and passage selection use is built on first need, not before display.
+Image loads trigger at most one scroll/pin reflow per animation frame. Mermaid diagrams are drawn after first paint (see Diagrams below); TeX is still
+typeset before first paint. A document is
+still sanitized and laid out in full before it is shown, so sanitizing plus the
+browser's layout and paint of the whole DOM remain proportional to its size.
+
+Literal document find is capped at 2,000
+matches; when more exist the count reads `1 / 2000+`. PDF find stops at 15 seconds, 32 MiB of extracted text or 2,000 matches,
+reports partial coverage (its count also ends in `+`), and refuses pages above 200,000 text characters. It does
+not perform OCR.
+
+### Diagrams
+
+Mermaid fences (```` ```mermaid ````) in Markdown documents and in embedded documents
+are drawn by [Pele](https://pele.run) 1.10.0. Pele is a synchronous Mermaid renderer
+with no runtime dependencies that targets Mermaid 12.1.0 syntax. `renderMarkdown`
+wraps each fence in a `figure.reader-diagram`. The figure holds a canvas for the
+drawing and a collapsed **Diagram source** disclosure containing the original code
+block, with its copy button. The canvas and the summary are decoration
+(`data-reader-decoration`); the code block keeps the fence text. Find therefore
+matches diagram labels on their source lines, never in the drawing, and annotation
+offsets of surrounding passages are unchanged.
+
+- **Loading.** `controls/diagrams.js` (Pele's `pele/lazy` entry and shared core, about 39 KB) loads by
+  dynamic `import()` only when a document contains a Mermaid fence. Each diagram type
+  is a separate chunk under `controls/diagrams/`, so a document downloads only the
+  renderers it uses. Until the drawing is ready the canvas shows a skeleton of
+  estimated height. If the chunk fails to load, every diagram shows its source and a
+  toast reports it.
+- **Rendering.** Diagrams render one per idle slice (`requestIdleCallback` with a
+  60 ms timeout, or `setTimeout`). `mount()` adapts the layout to the column width and
+  re-renders when that width changes. The top-level document's diagrams (and its
+  embeds') render after the reading position is restored, so first paint never waits
+  for them; when they finish, the block that was first in view is kept in view (unless
+  you moved meanwhile) and spread counts are re-measured.
+- **Errors and limits.** A diagram that does not parse, an unsupported type, a source
+  over 64 KiB, or any diagram after the first 64 in a document shows its source
+  expanded, with a muted line: "Couldn't draw this diagram: <reason>". Other diagrams
+  and text are unaffected.
+- **Safety.** Pele escapes text, filters links and styles, and limits source and
+  output size. Reader renders with `links: false` and `images: false`, so links in
+  diagrams are inert and nothing is fetched. It also passes Pele's SVG through
+  DOMPurify's SVG profile, without `a`, `image`, `use`, `foreignObject` or `script`.
+- **Theming.** `web/src/styles.css` maps Pele's variables to Reader tokens on
+  `.reader-diagram`: `--pele-bg` to `--bg`, `--pele-fg` and `--pele-line` to `--ink`,
+  `--pele-muted` to `--muted`, `--pele-surface` to `--surface`, `--pele-surface-alt`
+  to `--raised`, `--pele-border` to `--line`, `--pele-accent` to `--accent`, and
+  `--pele-font`/`--pele-font-mono` to `--sans`/`--mono`. `--pele-series-1..8` map to
+  `--chart-1..8`. The radius is 6px. A theme change, including a live Theme Editor
+  edit, recolors diagrams without re-rendering them.
+- **Accessibility.** The canvas has `role="img"`. Its `aria-label` is built from the
+  diagram's first line and up to 24 text labels. It is described by the source
+  disclosure (`aria-describedby`).
+- **Full size.** Click a diagram, or focus it with Tab and press Enter, to open it in
+  a dialog at its natural size, enlarged up to 3× to fill the window. Escape closes it.
+- **Layout.** A figure never breaks across columns. In two-page reading its drawing
+  is limited to 58% of the viewport height and scaled to fit, so it stays within one
+  column. At phone width the drawing scales to the column, and anything wider
+  scrolls inside the figure rather than the page.
+- **Page turn.** Diagrams appear on the turning sheet through the SVG image path
+  described under **Page turn**.
+
+Not supported: Mermaid inside PDFs or images, editing diagrams, diagram icons or
+remote images, and Mermaid features that Pele does not implement. Those show their
+source with Pele's error.
+
+### Math
+
+Display math (`$$…$$`, `\[…\]`) and inline math (`$…$`, `\(…\)`) in Markdown and
+embedded documents are typeset by [KaTeX](https://katex.org) 0.19.1. Currency and
+code stay exactly as written.
+
+- **Syntax.** `web_ui/math.mjs` is a markdown-it plugin.
+  - *Display math:* a line that starts with `$$` or `\[`. It closes at `$$` or `\]`
+    ending the same line or a later one. An unclosed opener stays text. The block keeps
+    `data-source-start` and `data-source-end` like a paragraph.
+  - *`\(…\)`:* always math.
+  - *`$…$`:* math only when all of these hold:
+    - the opening `$` is not escaped, not preceded by a letter or digit, and not
+      followed by whitespace, a digit or another `$`;
+    - the closing `$` is the next unescaped `$` on the same line, is not preceded by
+      whitespace, and is not followed by a letter, digit or `$`;
+    - the content is TeX-ish: it contains `\`, `^`, `_`, `{` or `=`, a letter next to
+      an operator (`+ - * / < >`), a spaced operator between operands (`k + 3`), or a
+      Greek letter, arrow or mathematical symbol.
+    A well-formed pair that is not TeX-ish is prose, and its closing `$` cannot open
+    another span. Code spans and fences are never scanned.
+  - *Opting out:* frontmatter `math: false` (also `no` or `off`) disables `$…$`
+    detection for that document; `\(…\)` and display math still work.
+- **Rendering.** Math becomes `.reader-math` placeholders carrying `data-tex`, which
+  show the TeX until typeset. `controls/math.js` (KaTeX, about 264 KB) and
+  `controls/katex/katex.css` load only for documents with math. The CSS references
+  only the woff2 fonts copied into `controls/katex/fonts/`. KaTeX runs with
+  `output: 'htmlAndMathml'`, `trust: false` (no `\href`, `\url` or `\htmlClass`),
+  `strict: 'warn'`, `maxSize: 20` and `maxExpand: 1000`, in idle slices of about 12 ms.
+  At most 2,000 formulas per document are typeset; the rest keep their TeX, and a
+  toast says "Showing the first 2,000 formulas."
+- **Errors.** A formula KaTeX rejects, such as an undefined macro, shows its original
+  TeX in monospace with a dotted `--warning` underline. Its title gives KaTeX's
+  message. Custom macros defined elsewhere (for example in another tool's preamble)
+  are not available.
+- **Annotations, find and copying.** The typeset KaTeX markup is decoration. Find,
+  selection anchoring and highlight painting skip it, and a highlight beside inline
+  math anchors to the surrounding text. Copying a selection that touches a formula
+  copies the formula's TeX (`$…$` or `$$…$$`), with the rest of the selected text
+  unchanged. KaTeX's MathML carries the semantics for screen readers.
+- **Layout.** Formulas use the text color and size, so every theme works. Display
+  math is centered and scrolls horizontally inside itself when wider than the
+  column. In two-page reading it never breaks across columns, and a block taller
+  than 60% of the viewport scrolls inside itself.
+- **Page turn.** KaTeX HTML is drawn like other text, at the browser's glyph
+  rectangles; fraction rules are borders, and KaTeX's SVG radicals and arrows use
+  the SVG image path. The hidden MathML is skipped.
+
+Not supported: math in PDFs (the PDF layer renders its own), `mhchem`, equation
+numbering and cross-references, and author-defined macros.
+
+## Local API and protection boundary
+
+GET endpoints provide `/api/library`, `/api/document`, `/api/search`,
+`/api/search/page` (the search page),
+`/api/discussion`, `/api/resolve`, `/api/resolve-batch`, `/api/file`, `/api/maintenance` (job and
+freshness status, plus a `local_model` run summary), `/api/local-model` (server
+status, now, queue, recent, outputs, settings), `/api/next?path=…&participant=…` (Read next) and `/api/prose`
+(Colorful discovery),
+`/api/chats?path=…` (a document's chats and the public voice list), `/api/chat?id=…`
+(one chat with its pending turns),
+`/api/editions?path=…` (edition family), `/api/editions/diagnostics`,
+`/api/versions?path=…` (family with git history), `/api/version?path=…&commit=…`
+(a historical version), `/api/changes?a=…&b=…` (any two versions),
+`/api/changes?path=…&participant=…` (what changed since a receipt) and
+`/api/readers?path=…&participant=…` (the reading log),
+`/api/links?path=…` (Linked from: `state` of `building`, `failed` or `ready`, up to 200
+`inbound` rows of `{source, title, count, heading, fragment, line}`, `inbound_count`,
+`inbound_links`, `outbound_count`, `unresolved_count`, `built_at`, `stale`),
+`/api/preview?path=…&fragment=…&participant=…` (`{path, title, authors, project, read,
+kind, heading, excerpt}`, excerpt at most 600 characters; an `inbox/` arrival is previewed
+read-only with `read: true`, so it shows no unread mark), `/api/link-counts`
+(inbound links, inbound source documents and outbound links per work primary) and `/api/speak/<id>` (progress of a
+Reader-submitted AI-TTS utterance). `/api/readers` is read-only;
+it reads every receipt once through `Engagement.receipts()` (at most 100
+participants of 8 MiB each), compares each `document:<path>` receipt with the
+cached digest of the current file, and counts threads per participant from the
+document's annotation inventory. It returns `{path, version, participant,
+readers: [{participant, group: voice|you|agent, state: current|earlier, at,
+version, threads, folded}], folded, one_off_threshold}`; a malformed receipt file
+or `voices.json` returns 400. `/api/standfirst?path=…` and `/api/issue?start=…&end=…` (the homepage issue) are
+read-only as well, as is `/api/inbox` (arrivals, runner state, claims, Codex location
+and the reason a start is blocked), as is `/api/inbox/events?after=OFFSET` (the
+activity transcript's event stream). Document GET alone is read-only.
+`/api/resolve-batch?from=…&target=…&target=…` resolves up to 64 links from one
+library document (or inbox arrival, which may resolve its own bundle's attachments) in order, returning `{"results": [...]}` with either the
+`/api/resolve` result or `{"error": …}` per target; unresolved targets share one
+inventory read, and more than 64 targets are refused.
+`/api/chat/raw?id=…&turn=…` returns one turn's (or listening check's) archived output, decompressed:
+`stdout` (at most 4 MiB, with `stdout_truncated`; the archive keeps all of it),
+`stderr`, `prompt` (1 MiB each), `system` (256 KiB), `meta`, `log` (the archive
+path, or `null` for a turn that never started) and `running`. It needs no token;
+the Host and Origin checks apply, and the log path must match the archive layout
+with no symlinks.
+`/api/chat/stream?id=…` is a Server-Sent Events stream of `hello`, `state`,
+`started`, `delta` (with a text offset; offset 0 replaces the streamed text),
+`raw` (`{turn_id, stream: stdout|stderr, n, text, cut}`: each CLI line of a reply or
+chime-in as it arrives, numbered per stream, cut at 2 KiB; listening checks send none), `posted` (`{message, revision}`: a newly stored user or pasted
+message), `done`, `message` (a new hand, an updated
+hand state or listening note), `warning` (a discarded listening check) and `commit`
+events for one chat.
+`hello` and `ping` carry `{revision, pending, interval}`: the chat file's revision,
+the IDs of its queued and running turns, and the heartbeat in seconds. An idle
+stream sends `ping` every 15 seconds (`WebServer.chat_heartbeat`; the browser
+fixture's `--chat-heartbeat N` shortens it). At most four streams may be open, they use
+neither request pool, and each closes after an hour (the browser reconnects).
+POST `/api/chat` takes `{"action": "create"|"send"|"paste"|"cancel"|"retry"|"hand"|"settings"|"hush", …}`
+and an optional `participant`. `send` accepts `reply_to` (a message id in the same
+chat, otherwise 400); `hand` takes `message_id` and `decision` (`accept` or
+`decline`); `settings` takes `chime_ins` (`off`, `hands` or `free`); `hush` stops the
+chat's listening checks. Pending turns carry `kind` (`turn`, `chime_in` or
+`listen`); listening checks never stream text.
+`/api/queue?participant=…&current=…` (`{now, queued, suggested, updated_at}` and
+`/api/history?participant=…&cursor=…&tz=…&filter=finished` (paged day groups; `tz`
+is a UTC offset in minutes, ±840, for clients that want server grouping; the web app
+regroups by the local day of each `opened_at`) are read-only views as well.
+The browser explicitly POSTs `/api/seen` after display. POST `/api/annotations`
+uses the existing annotation dispatch contract; POST `/api/bookmark` verifies the
+current source digest before persisting a position. POST `/api/maintenance`
+accepts exactly `{"action": "start", "kind": …}` with a kind of `check`, `search`,
+`search-keyword`, `browse`, `catalog` or `links`. POST `/api/local-model` accepts
+`{"action": …}` with `server-start`, `server-stop`, `load {model}`, `unload {model}`,
+`enqueue {task, scope: recent|all|path, path?}`, `run {task?}`, `pause {task?}`,
+`cancel {id}`, `clear {task}`, `prune {task}` or `settings {settings}`; any other
+field is refused. Stopping the server is refused while the queue runs. POST `/api/speak` accepts
+`{path, source_sha256, scope: "article"|"from"|"selection", start?, end?, page?}`,
+re-reads and hash-checks the exact edition (as bookmarks do) and slices it by
+source code-point offsets (`page` for a PDF's From here). POST `/api/speak/<id>`
+accepts exactly `{"action": …}` with `pause`, `resume`, `skip`, `next_segment`,
+`previous_segment` or `cancel`. A foreign id is refused with 403; an unavailable
+daemon answers 503 with `unavailable: true`. POST `/api/inbox` accepts exactly
+`{"action": "start", "sandbox_mode": "workspace-write" | "danger-full-access"}` or
+`{"action": "stop"}`. A start returns the run id, the argv and the supervisor's first
+state; a start while a run is active is a state conflict, refused with HTTP 409
+(*The librarian is already reading the mail.*), and other refusals
+with HTTP 400. Receipts, state and claims are read at most 256 KiB (claims 1 MiB),
+reports their last 256 KiB, without following symlinks. `/api/inbox/events` reads at
+most 256 KiB of `events.jsonl` per call from a byte offset (0 to 8 MiB, the
+supervisor's stream cap) and returns only whole lines as parsed JSON, with
+`next_offset`, `size`, `done`, the run id, status, arrival names and, once done,
+the arrivals still remaining. A line still being written is held back until it
+ends, or until the run is over. A line longer than one read, or one that is not
+JSON, becomes a `reader.skipped` marker, and the next call resynchronizes at the
+following newline. Long `aggregated_output`, `text` and `message` strings keep
+their first 16 KiB and last 48 KiB (`reader_truncated` gives the original length).
+Any other field over 64 KiB is dropped and named in `reader_dropped`. Vault paths
+in file changes and agent messages are shown vault-relative. Nothing is read while
+the run is `starting`, because the supervisor has not yet cleared the previous
+run's stream. An offset past the end means a newer run cleared it (`reset`).
+Failed, interrupted and stopped runs add the runner message and the last 8 KiB of
+`stderr.log`. The route refuses symlinked `.reader/`, runtime directories and
+event files. POST `/api/prose` colors visible prose of
+the current edition (see Prose colors). POST `/api/queue` takes
+`{participant, action: add|remove|move|pin|clear, path, index?, request_id, added_by?, reason?, current?}`
+and returns the queue view. POST `/api/history` takes `{participant, action: "open", path, sha256}`
+(the digest must match the current source) or `{participant, action: "hide", path}`. Source-file GET supports a
+single bounded byte range for PDF loading. A well-formed library path with nothing
+at it returns 404 (`No document at this path…`); other refused paths return 400.
+`GET /api/health` returns
+`{status, version, commit, pid, started_at, now, busy}`, where `busy` lists active
+work a restart must not interrupt (a maintenance job, or an inbox run holding
+`.reader/inbox-runner/run.lock`). `GET /api/service` returns the service script's
+`status --json`, the requester's identity and the health record. POST
+`/api/service` accepts exactly `{"action": "update" | "restart" | "pause" | "resume"}`
+and runs the service script with explicit argv and a 20-second timeout.
+
+Every request, static assets included, is identified before routing
+(`src/reader_mcp/web_access.py`). A request with none of the proxy headers
+(`X-Forwarded-For`, `X-Forwarded-Host`, `X-Forwarded-Proto`, `Forwarded` or any
+`Tailscale-*` identity header) is *local*: its Host must be exactly
+`127.0.0.1:port` or `localhost:port`, and any Origin `http://127.0.0.1:port` or
+`http://localhost:port`. Any request carrying a proxy header is *proxied*, and is
+refused unless the web config sets `trusted_proxy` to `tailscale`, the Host and
+`X-Forwarded-Host` agree on a name in `allowed_hosts`, there is no
+`Tailscale-Funnel-Request`, `Tailscale-User-Login` (RFC 2047-decoded, compared
+case-insensitively) is in `allowed_logins`, and any Origin is in `allowed_origins`.
+Tailscale passes the client's Host header through unchanged, so a proxied request
+is recognized by its forwarding headers, never by its Host; a tailnet peer that
+names `127.0.0.1` is still proxied and refused. Identity headers on a loopback
+Host are therefore refused rather than trusted. A refused request gets 403: JSON
+for `/api/*`, a plain *Not allowed* page otherwise. Writes also require JSON plus a
+random session token, issued with `/api/library`; Reader sets no cookies. CSP limits scripts, workers and
+connections to this origin; raw files are sandboxed. Library paths must be
+normalized, nonhidden and free of symlinks. Text documents are limited to 4 MiB,
+other originals to 256 MiB, inventories to 10,000 works and POST bodies to 128 KiB
+(1 MiB for `/api/prose`).
+Every request is first identified by `web_access` (local Host/Origin rules, or a
+Tailscale-proxied allow-listed login); a refused requester gets 403 before taking or
+waiting for any slot. Admission then has three tiers: `/`, `/assets/`, `/fonts/` and
+`/api/health` are never gated; writes (every POST, including `/api/maintenance`,
+`/api/local-model`, `/api/inbox`, `/api/prose`, `/api/chat` and `/api/service`) and
+expensive GETs (`/api/search`, `/api/search/page`, `/api/next`, `/api/prose`,
+`/api/service`, `/api/chat`, `/api/chats` and `/api/chat/raw`) share eight slots and are refused immediately with HTTP 429 when all
+are busy; other GET reads share 32 slots and wait up to five seconds before a 429.
+`/api/chat/stream` (Server-Sent Events) takes no slot in either pool; it has its own
+limit of four open streams. The listen backlog is 64, so a page load's parallel asset
+connections are queued rather than reset. Connections time out after 30 seconds.
+This is not a public network service or a multiuser authorization system.
+
+If startup fails, check the configured vault, port availability and Python
+environment. A missing work inventory can be regenerated with `reader browse`;
+full-text recovery uses the existing search guide and its unchanged resource
+guards. Corrupt bookmark or receipt records produce an explicit error: preserve
+the record for inspection and restore it from backup rather than resetting other
+participants. Browser-local layout, theme and dashboard preferences use
+`reader.preferences.v1` in local storage; clearing it resets only those choices.
+
+## Always-on service and Tailscale
+
+`scripts/reader_service.py` (standard library only) runs Reader web as a macOS
+LaunchAgent from a dedicated *live* worktree, keeps it on a source branch through a
+smoke-gated updater, and optionally publishes it on your tailnet. Every subcommand
+prints one JSON object.
+
+| Command | Effect |
+| --- | --- |
+| `install [--repo R] [--live L] [--python P] [--vault V] [--source B] [--port N] [--env K=V]… [--skip-smoke]` | Creates the live worktree at the source commit if it is missing (after a smoke test), writes both plists atomically, backs up any existing plist it replaces, and loads them with `launchctl bootstrap gui/$UID`. Refuses a port already used by another process. |
+| `uninstall [--remove-worktree]` | Boots out both agents, restores replaced plists (reloading them if they were loaded before install) or removes ours, and archives the state file. Tailscale is left to `tailscale off`. |
+| `status [--json]` | Agents, paused flag, live and source commits, commit date and subject, last 10 updates, last and next check, Tailscale state. |
+| `update [--now]` | The update gate below. Scheduled runs respect *pause* and skip a commit that already failed; `--now` (and a requested update) does neither. |
+| `request-update` | Marks an update as requested and kickstarts the updater agent (without `-k`, so a running update is never killed). The Server card's **Update now**. |
+| `restart` | `launchctl kickstart -k` the web agent, then waits for health. The card uses `restart --detach`, which restarts from a separate session after the request returns. |
+| `pause`, `resume` | Stop or resume scheduled updates. |
+| `smoke COMMIT [--repo R]` | Runs the update gate's smoke test for one commit, installing nothing. |
+| `tailscale on \| off \| status` | Publishes Reader on the tailnet, reverts that, or reports it. |
+
+Defaults: the repo is the checkout's common Git repository (the main
+`reader-code`), the interpreter `REPO/.venv/bin/python`, the vault `READER_ROOT`
+or `REPO/.reader/config.json`, the live worktree `~/git/reader-code-live`, the
+source `preview/integration` and the port 8766. Executable paths (launchctl,
+tailscale, git, git-locks) are resolved at install and recorded;
+`READER_SERVICE_LAUNCHCTL`, `READER_SERVICE_TAILSCALE`, `READER_SERVICE_GIT` and
+`READER_SERVICE_GIT_LOCKS` override them (the tests use fakes).
+
+**Agents.** `~/Library/LaunchAgents/com.flyingrobots.reader.web.plist` runs
+`PYTHON LIVE/scripts/start_web.py --port 8766` in the live worktree with
+`RunAtLoad`, `KeepAlive`, `ProcessType` Interactive and `ThrottleInterval` 10.
+`com.flyingrobots.reader.updater.plist` runs `PYTHON LIVE/scripts/reader_service.py
+update` every 600 seconds (`StartInterval`, Background, low-priority I/O). Both set
+`PATH`, `READER_ROOT`, `PYTHONPATH=LIVE/src` (ahead of the editable install of the
+main checkout), and pass through `GIT_LOCKS_STORE` and every `READER_*` variable
+present at install except `READER_SERVICE_*`. The script's own worktree and checkout
+changes take the repo `.git/` key in the repository's default git-locks store, with
+`GIT_LOCKS_STORE` removed from their environment. Logs: `~/Library/Logs/Reader/web.log`,
+`updater.log` and `updates.jsonl`, each rotated by copy-and-truncate at 16 MiB with
+three generations, checked on every updater run. State and backups live in
+`~/Library/Application Support/Reader/` (`service.json`, `backups/`).
+
+**The update gate.** Runs hold `update.lock` so they never overlap.
+
+1. Resolve the source branch in the repo; stop if the live worktree is already there.
+2. Add a temporary detached worktree for that commit (under the repo `.git/`
+   git-locks key) and, with a 120-second total budget, run `python -m pytest -q
+   tests/test_web.py` there, then start `tests/web_fixture.py` (a synthetic vault)
+   and GET `/`, `/api/library` and the first listed document. The worktree is
+   always removed.
+3. While `/api/health` reports busy work, wait (polling every 15 s) up to 30
+   minutes; then record *deferred* and retry at the next interval.
+4. Refuse a live worktree with local changes; otherwise `git checkout --detach`
+   it under the `.git/` lock, `launchctl kickstart -k` the web agent, and wait up
+   to 60 seconds for `/api/health` to report the new commit.
+5. If it does not, check out the previous commit, restart, and record
+   *rolled-back* (or *rollback-failed*). The failed commit is not retried by
+   scheduled runs.
+
+Every attempted update, and every requested or `--now` run, appends its outcome to
+`updates.jsonl`; scheduled runs that find nothing to do (current, paused, or a
+commit that already failed) only refresh the last-check time.
+The updater runs from the live worktree, so it is itself code that passed the
+gate. New Python dependencies are not installed by the updater: the interpreter
+is the main checkout's environment, and the smoke test runs in it, so a commit
+that needs a missing dependency fails its gate.
+
+**Tailscale.** `tailscale on` reads `Self.DNSName` and the owner's login
+(`Self.UserID` → `User[…].LoginName`) from `tailscale status --json`, backs up
+`tailscale serve status --json` and any existing web config, runs
+`tailscale serve --bg --https=443 http://127.0.0.1:PORT`, verifies that every other
+serve entry (for example an existing TCP forward) is unchanged, and writes
+`<vault>/.reader/web-config.json`:
+
+```json
+{"allowed_hosts": ["HOST.TAILNET.ts.net"], "allowed_origins": ["https://HOST.TAILNET.ts.net"],
+ "trusted_proxy": "tailscale", "allowed_logins": ["owner@example.com"]}
+```
+
+An existing `allowed_logins` list is kept; edit it to allow other logins. It
+refuses when port 443 already serves something else, has a raw TCP forward, or has
+Funnel enabled, and the script never runs `tailscale funnel`. `tailscale off` runs
+`tailscale serve --https=443 off` (only for a handler it added), checks the other
+entries again and restores the backed-up web config (or removes the one it created).
+The config is re-read when it changes; `READER_WEB_ALLOWED_HOSTS`,
+`READER_WEB_ALLOWED_ORIGINS`, `READER_WEB_ALLOWED_LOGINS` (comma-separated) and
+`READER_WEB_TRUSTED_PROXY` override it. A malformed, oversized or symlinked config
+refuses proxied requests and leaves local ones working. HTTPS needs MagicDNS and
+HTTPS certificates enabled for the tailnet; Tailscale prompts for that on first use.
+Identity headers are absent for tagged devices, which are therefore refused.
+
+**Installable app.** `/assets/manifest.webmanifest` (standalone, `start_url` `/`),
+PNG icons in `web_ui/icons/` rendered from `mark.svg` by `scripts/render_icons.cjs`,
+an `apple-touch-icon`, and a `theme-color` meta tag that follows the theme's
+`--bg`. On iPhone use **Share › Add to Home Screen** on the tailnet address.
+
+**Recovery.** If the web agent crash-loops, read `web.log`, then `status`; `update
+--now` retries, and `git -C ~/git/reader-code-live checkout --detach <good commit>`
+followed by `restart` pins a known-good commit. `uninstall` and `tailscale off`
+revert what they changed.
+
+## Development and validation
+
+The small React/Base UI controls layer lives in `web/`; the document renderer,
+dashboard, source coordinates and persistence remain in the existing modules.
+`web/components.json` selects the official `base-nova` registry. Generated component
+sources are retained under `web/src/components/ui/` and composed in
+`web/src/reader-controls.tsx`; the Documents tree composition lives in
+`web/src/document-tree.tsx`. Existing theme tokens feed Tailwind semantic colors;
+Tailwind preflight is not enabled. Explicit cascade layers keep legacy styles
+from overriding the component utilities.
+
+From `web/`, use the locked dependencies and regenerate the checked-in assets:
+
+```sh
+npm ci
+npm run check
+npm run build
+```
+
+Run these within the workstation's shared build lock and project resource guard.
+The build emits local JS/CSS, bundled license notices and a SHA-256 source/output
+register under `src/reader_mcp/web_ui/controls/`. Commit those assets together with
+their editable sources and lockfile. To recover from missing or stale controls,
+rebuild from the lockfile; do not substitute a CDN script or loosen the CSP.
+
+`scripts/vendor_web.py` refreshes pinned npm tarballs without running install
+scripts. It verifies registry SHA-512 integrity and records SHA-256 asset hashes
+in `web_ui/vendor/manifest.json`. Review dependency changes and retained licenses;
+[third-party notices](../THIRD_PARTY_NOTICES.md) describe the exceptions to Reader's
+own Apache license. Browser assets ship inside the Python package.
+
+Synthetic checks, without opening the configured vault:
+
+```sh
+.venv/bin/python -m pytest -q tests/test_web.py
+node --test tests/web_logic.test.mjs tests/callouts.test.mjs
+READER_PLAYWRIGHT=/absolute/path/to/playwright-core \
+READER_CHROME=/path/to/chrome node tests/web_browser.cjs
+READER_PLAYWRIGHT=/absolute/path/to/playwright-core \
+READER_CHROME=/path/to/chrome node tests/web_breadcrumbs.cjs
+READER_PLAYWRIGHT=/absolute/path/to/playwright-core \
+READER_CHROME=/path/to/chrome node tests/web_search_retry.cjs
+node --test tests/dashboard.test.mjs tests/magazine.test.mjs
+READER_PLAYWRIGHT=/absolute/path/to/playwright-core \
+READER_CHROME=/path/to/chrome node tests/web_dashboard.cjs
+READER_PLAYWRIGHT=/absolute/path/to/playwright-core \
+READER_CHROME=/path/to/chrome node tests/web_magazine.cjs
+READER_PLAYWRIGHT=/absolute/path/to/playwright-core \
+READER_CHROME=/path/to/chrome node tests/web_controls.cjs
+READER_PLAYWRIGHT=/absolute/path/to/playwright-core \
+READER_CHROME=/path/to/chrome node tests/web_documents.cjs
+.venv/bin/python -m pytest -q tests/test_themes.py
+READER_PLAYWRIGHT=/absolute/path/to/playwright-core \
+READER_CHROME=/path/to/chrome node tests/web_themes.cjs
+READER_PLAYWRIGHT=/absolute/path/to/playwright-core \
+READER_CHROME=/path/to/chrome node tests/web_page_turn.cjs
+READER_PLAYWRIGHT=/absolute/path/to/playwright-core \
+READER_CHROME=/path/to/chrome node tests/web_diagrams.cjs
+node --test tests/math.test.mjs
+READER_PLAYWRIGHT=/absolute/path/to/playwright-core \
+READER_CHROME=/path/to/chrome node tests/web_math.cjs
+.venv/bin/python -m pytest -q tests/test_maintenance.py tests/test_related.py tests/test_index_scale.py
+READER_PLAYWRIGHT=/absolute/path/to/playwright-core \
+READER_CHROME=/path/to/chrome node tests/web_backstage.cjs
+node --test tests/reading_log.test.mjs
+READER_PLAYWRIGHT=/absolute/path/to/playwright-core \
+READER_CHROME=/path/to/chrome node tests/web_reading_log.cjs
+node --test tests/dates.test.mjs
+READER_PLAYWRIGHT=/absolute/path/to/playwright-core \
+READER_CHROME=/path/to/chrome node tests/web_dates.cjs   # America/Los_Angeles and Asia/Tokyo
+
+.venv/bin/python -m pytest -q tests/test_speech.py
+READER_PLAYWRIGHT=/absolute/path/to/playwright-core \
+READER_CHROME=/path/to/chrome node tests/web_speech.cjs
+
+.venv/bin/python -m pytest -q tests/test_inbox_view.py tests/test_inbox_runner.py
+node --test tests/activity.test.mjs
+READER_PLAYWRIGHT=/absolute/path/to/playwright-core \
+READER_CHROME=/path/to/chrome node tests/web_inbox.cjs
+
+READER_PLAYWRIGHT=/absolute/path/to/playwright-core \
+READER_CHROME=/path/to/chrome node tests/web_outline.cjs
+
+.venv/bin/python -m pytest -q tests/test_links.py
+READER_PLAYWRIGHT=/absolute/path/to/playwright-core \
+READER_CHROME=/path/to/chrome node tests/web_links.cjs
+
+.venv/bin/python -m pytest -q tests/test_editions.py
+READER_PLAYWRIGHT=/absolute/path/to/playwright-core \
+READER_CHROME=/path/to/chrome node tests/web_editions.cjs
+.venv/bin/python -m pytest -q tests/test_changes.py
+READER_PLAYWRIGHT=/absolute/path/to/playwright-core \
+READER_CHROME=/path/to/chrome node tests/web_changes.cjs
+.venv/bin/python -m pytest -q tests/test_chats.py tests/test_llm_logs.py
+READER_PLAYWRIGHT=/absolute/path/to/playwright-core \
+READER_CHROME=/path/to/chrome node tests/web_chat.cjs
+.venv/bin/python -m pytest -q tests/test_local_model.py
+READER_PLAYWRIGHT=/absolute/path/to/playwright-core \
+READER_CHROME=/path/to/chrome node tests/web_local_model.cjs
+READER_PLAYWRIGHT=/absolute/path/to/playwright-core \
+READER_CHROME=/path/to/chrome node tests/web_index_scale.cjs
+.venv/bin/python -m pytest -q tests/test_versions.py
+READER_PLAYWRIGHT=/absolute/path/to/playwright-core \
+READER_CHROME=/path/to/chrome node tests/web_versions.cjs
+.venv/bin/python -m pytest -q tests/test_search_page.py
+READER_PLAYWRIGHT=/absolute/path/to/playwright-core \
+READER_CHROME=/path/to/chrome node tests/web_search_page.cjs
+.venv/bin/python -m pytest -q tests/test_prose.py
+READER_PLAYWRIGHT=/absolute/path/to/playwright-core \
+READER_CHROME=/path/to/chrome node tests/web_prose.cjs
+.venv/bin/python -m pytest -q tests/test_queue.py
+READER_PLAYWRIGHT=/absolute/path/to/playwright-core \
+READER_CHROME=/path/to/chrome node tests/web_queue.cjs
+READER_PLAYWRIGHT=/absolute/path/to/playwright-core \
+READER_CHROME=/path/to/chrome node tests/web_perf.cjs
+READER_PLAYWRIGHT=/absolute/path/to/playwright-core \
+READER_CHROME=/path/to/chrome node tests/web_resilience.cjs
+.venv/bin/python -m pytest -q tests/test_service.py
+READER_PLAYWRIGHT=/absolute/path/to/playwright-core \
+READER_CHROME=/path/to/chrome node tests/web_service.cjs
+READER_PLAYWRIGHT=/absolute/path/to/playwright-core \
+READER_CHROME=/path/to/chrome node tests/web_callouts.cjs
+READER_PLAYWRIGHT=/absolute/path/to/playwright-core \
+READER_CHROME=/path/to/chrome node tests/web_offline.cjs
+READER_PLAYWRIGHT=/absolute/path/to/playwright-core \
+READER_CHROME=/path/to/chrome node tests/web_chat_sync.cjs
+READER_PLAYWRIGHT=/absolute/path/to/playwright-core \
+READER_CHROME=/path/to/chrome node tests/web_selection.cjs
+READER_PLAYWRIGHT=/absolute/path/to/playwright-core \
+READER_CHROME=/path/to/chrome node tests/web_spread_resize.cjs
+READER_PLAYWRIGHT=/absolute/path/to/playwright-core \
+READER_CHROME=/path/to/chrome node tests/web_outline_fixes.cjs
+READER_PLAYWRIGHT=/absolute/path/to/playwright-core \
+READER_CHROME=/path/to/chrome node tests/web_routes.cjs
+READER_PLAYWRIGHT=/absolute/path/to/playwright-core \
+READER_CHROME=/path/to/chrome node tests/web_threads.cjs
+READER_PLAYWRIGHT=/absolute/path/to/playwright-core \
+READER_CHROME=/path/to/chrome node tests/web_focus.cjs
+READER_PLAYWRIGHT=/absolute/path/to/playwright-core \
+READER_CHROME=/path/to/chrome node tests/web_search_fixes.cjs
+READER_PLAYWRIGHT=/absolute/path/to/playwright-core \
+READER_CHROME=/path/to/chrome node tests/web_find_cap.cjs
+READER_PLAYWRIGHT=/absolute/path/to/playwright-core \
+READER_CHROME=/path/to/chrome node tests/web_spread_pins.cjs
+```
+
+`tests/test_prose.py` and `web_prose.cjs` use `tests/fake_colorful.py`, a small
+stand-in that emits `colorful.syntax/v1` artifacts from fixed word lists and has
+modes that corrupt the artifact or the process (reversed, overlapping,
+out-of-bounds and mid-character ranges, wrong version or hashes, illegal axes, an
+outline cycle, a hang, an output flood, an old version, a failure exit). The
+browser fixture takes `--prose` (fake CLI), `--prose-missing` (no binary) or
+`--prose-real` (normal discovery, for example with `READER_COLORFUL`). One pytest
+case runs the real binary when discovery finds it and is skipped otherwise:
+
+```sh
+READER_COLORFUL=~/git/colorful-language/target/release/colorful \
+  .venv/bin/python -m pytest -q tests/test_prose.py
+```
+
+`web_reading_log.cjs` starts the fixture with `--reading-log`: Reader librarian
+reads `thought.md`, the file is revised, then Agy and two one-off task agents read
+the new edition, and Agy owns a thread. It checks marks and order, keyboard
+expansion, folding, the thread filter, find exclusion, 390 px width, contrast of
+the log's text in all 22 built-in themes, the PDF empty state before *You just
+now*, two-page placement and the unavailable state.
+
+`web_inbox.cjs` starts the fixture with `--inbox`: two receipted bundles, a loose
+file and a fake Codex executable set through `READER_CODEX`. The fake replays
+`tests/fixtures/codex-exec-scripted.jsonl`, a scripted `codex exec --json` sequence
+covering every transcript component, and files the arrivals at its file change. In
+the fixture vault, `.fake-pause` holds the replay after the failing test run so the
+live transcript can be inspected, `.fake-slow` waits a minute (for Stop), and
+`.fake-fail` exits 1 with a traceback on stderr. The browser test also checks
+WCAG contrast of the transcript's prose, lines, errors and terminal text in every
+theme. `tests/activity.test.mjs` runs the reducer on that sequence and on
+`tests/fixtures/codex-exec-real.jsonl`, a synthetic transcript in the event shape of a
+real Codex 0.163.0 inbox run, with placeholder paths and IDs and command output replaced by byte counts. The real supervisor runs against the
+disposable vault; neither test invokes the real Codex CLI. A model-driven run on a
+real inbox is a separate live acceptance.
+
+`web_outline.cjs` starts the fixture with `--outline`, which adds a document with
+an embedded document, a two-heading note, a 161-heading document for level folding and an eight-page PDF with a nested
+outline and a named destination, beside the 44-chapter document and the
+outline-free PDF. `web_outline_fixes.cjs` adds `--maintenance` so Read next
+appears at the end of the 44-chapter document.
+
+`tests/test_changes.py` builds a temporary git repository as the vault and
+checks that recovery leaves its index, refs and status untouched.
+`web_changes.cjs` starts the fixture with `--changes --editions`: the fixture
+commits a document, records receipts for the tester and Agy plus two
+annotations, then changes the working copy. Both need `git` on `PATH`.
+
+`web_editions.cjs` starts the fixture with `--editions`: a v1/v2/v3 essay chain
+(vault-path and sibling-relative `previous_version`), a reading copy of v2 and a
+catalog note for v2.
+
+Chat tests never run a model CLI. `tests/fake_voice.py` is a stand-in that prints
+deterministic Claude-, Codex-, agy- or text-style output, or unreadable JSON, and
+can sleep, hang, spawn a grandchild, write or commit a file, or exit non-zero. Its
+agy style copies the shapes of real agy stream-json (interim narration, tool steps
+that succeed and fail, a streamed draft, `result.response`, a missing result or a
+failed status). Setting `READER_AGY_SAMPLE` to a saved real agy stdout file also
+checks the parser against it; the test is skipped otherwise, and such files are
+private and never committed. It recognizes listening
+checks and answers them with `--listen` (default `PASS`, or `HAND: …`), optionally
+writing `--listen-write PATH`, and answers chime-in turns with `--chime-reply`. `tests/chat_vault.py`
+builds temporary Git vaults whose `voices.json` points at it, and a git-locks shim
+records lock invocations without touching a real lock store. `web_chat.cjs` starts
+the fixture with `--chat`, which adds the fake voices plus a hanging *Sloth* voice
+for the cancel check and a *Garbled* voice whose output Reader cannot read, makes
+the fake Agy raise a hand in listening checks, and seeds the random choice. `web_chat_sync.cjs` adds `--chat-heartbeat 0.5`, opens
+one document's chat in two tabs, then stops the fixture with `SIGSTOP`/`SIGCONT`
+and finally `SIGKILL` to check the lost-connection state. A live check needs the real
+`voices.json` and authenticated CLIs.
+
+Local-model checks never touch the real LM Studio. `tests/fake_lmstudio.py` is a
+fake OpenAI-compatible loopback server (streamed SSE with chunked encoding,
+`/v1/models`, `/api/v0/models`, `/v1/embeddings`) and a fake `lms` whose `server
+start` spawns that server on the requested port. Its answers are built from the
+document's own words, with planted markers for an invented name/number and a slow
+answer. The GPU lock is injected (`LocalModel(gpu_lock=…)`), so tests never use the
+workstation store. Every browser fixture gets a dead port and a missing CLI unless
+started with `--local-model`, which installs the fakes and three extra notes.
+
+`web_search_page.cjs` starts the fixture with `--search-page`. It adds works across
+projects, authors, types and dates, a reading copy, a catalog bundle with a machine
+receipt and one read work, and builds a real format 2 index whose vectors come from a
+deterministic concept-word model (plumbing evidence, not semantic quality). It writes
+`search-paper.png`, `search-ink.png`, `search-gruvbox-dark.png`, `search-phone.png`
+and `search-phone-filters.png`.
+
+`web_index_scale.cjs` starts the fixture with `--index-scale`. It builds a real
+keyword-only format 2 index with small budgets, including one machine file, beside a
+format 1 index built by the frozen `tests/legacy_search_v1.py`. It checks the budget,
+machine-file and inventory facts, then the legacy note and its explicit removal. Its embedding rebuild is a
+synthetic run that stops at its time limit, to check the toast and Recent runs.
+
+`tests/test_versions.py` builds a temporary git vault holding a v1/v2/v3 family
+(v1 committed twice) and checks combined family and history, the per-path and
+family caps, the time bound, a vault without git, content at a commit, refused
+revision expressions and foreign commits, any-to-any comparisons, the hash
+budget, the routes, and that index, refs, status and `.git` are unchanged.
+`web_versions.cjs` starts the fixture with `--editions --versions`, which commits
+that family in git (v1 on Oct 12, revised on Oct 15 with v2, v3 and the reading
+copy). It checks the chip and twin, the Space v timeline, a read-only historical
+version (no POST at all while it is open), comparisons in both directions,
+two-page stability and the phone sheet. Both need `git` on `PATH`.
+
+`web_queue.cjs` starts the fixture with `--queue` (the Read next works plus a
+longer document in another project). It checks the panel, keys, toasts, reorder
+across a reload, Space n, History progress and resume, hiding a row without
+touching the receipt, rendered text contrast of the panel in all 22 built-in
+themes, the phone bottom sheet, and that no request leaves the origin.
+
+`web_perf.cjs` starts the fixture with `--perf`, which adds a synthetic ~2 MB
+document (400 sections with emoji prose, 200 code blocks, 100 local images, two
+Mermaid fences and a late annotation). It fails if continuous or two-page first
+render exceeds 5 s (`READER_PERF_FIRST_RENDER_MS`) or a find exceeds 2.5 s
+(`READER_PERF_FIND_MS`), and checks exact code-point anchors, two batched resolve
+requests, the annotation highlight, resume after reopening and a page turn. The
+ceilings are deliberately generous; the run prints the measured times.
+
+`web_resilience.cjs` starts the fixture with `--resilience`, which adds a
+versioned document without `type`. It checks that its margins load, that failing
+discussion, read-mark and Read next requests keep the article visible with quiet
+toasts, and that 48 concurrent asset and read fetches all succeed.
+
+`tests/test_service.py` runs `reader_service.py` against fake `launchctl`,
+`tailscale`, `git` and `git-locks` executables with a temporary HOME, a stand-in
+health server and per-commit worktree templates whose smoke tests pass or fail.
+It never touches launchd, Tailscale, `~/Library` or a real repository.
+`web_service.cjs` starts the fixture with `--service`, a fake service whose
+requested update lands one second later.
+
+`web_routes.cjs` starts the fixture with `--fragments`, which adds a document with a
+heading far from its start and a document linking to it.
+
+`web_backstage.cjs` starts the fixture with `--maintenance`. It replaces the
+embedding rebuild with a 1.2-second synthetic job and makes catalog sync fail, so
+the success and error toasts are deterministic. The keyword-only rebuild and the
+freshness check run for real against the disposable fixture vault.
+`web_offline.cjs` aborts every request at the network level with Playwright routing
+to check the coalesced unreachable toast and its recovery.
+
+Speech checks never reach the real AI-TTS daemon or play audio. `tests/fake_aitts.py`
+is a synthetic AF_UNIX daemon with the AI-TTS response shapes; `test_speech.py`
+points `AI_TTS_SOCKET` at it in a short `/tmp` folder (macOS limits socket paths to
+104 bytes). The browser fixture always sets `AI_TTS_SOCKET` to its own folder; with
+`--speech` it starts the fake daemon there, advancing playback one segment every
+0.7 seconds, and prints the folder so `web_speech.cjs` can read `requests.jsonl`
+and create the `held` and `down` flag files. A manual smoke test against the real
+daemon submits a short document and confirms `ai-tts get <id>` reaches `Played`.
+
+
+`web_magazine.cjs` starts the fixture with `--magazine`: pieces dated this week and
+one and two weeks earlier (relative to the run date), a newsletter for this week
+that links two of them, one read piece and an excluded Task. It checks the cover,
+features, standfirst, keys, issue URLs, the dashboard on Behind the scenes, the
+contrast of the issue's text against the page in all 22 built-in themes, the
+sections index jump, and, at 1920 and 2560px, that there is no horizontal scroll, the
+content spans at least 85% of the window with 32px margins, the rail and second lead
+sit beside the cover, standfirsts stay within 75ch and contents gain columns (at
+least four, then five). It also checks 1280px and phone width. `web_dashboard.cjs` opens the dashboard at `#backstage`.
+
+`web_links.cjs` starts the fixture with `--links`: 13 citing notes and a link sampler
+pointing at `library/thought.md`, with a heading fragment, a wikilink, an external and a
+missing link. The link graph builds for real, quietly, on the first document opened.
+
+`web_page_turn.cjs` launches Chrome with SwiftShader WebGL (`--use-angle=swiftshader`),
+so it needs no GPU.
+
+Theme and font checks use a fake Google Fonts fetcher (`tests/test_themes.py`
+`FakeFonts`, also passed to the browser fixture with `--themes`) and never contact
+the network.
+
+The browser harness launches a disposable synthetic server on an ephemeral port,
+closes its browser and server at completion, and writes screenshots under ignored
+`.reader/web-dev/`. Respect the project's shared-resource locks and storage/runtime
+guards when running campaigns. The fixture never loads the configured private vault.

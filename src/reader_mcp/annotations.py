@@ -9,7 +9,9 @@ from pathlib import Path
 import tempfile
 from uuid import UUID, uuid4
 
-from .metadata import frontmatter
+from .metadata import FrontmatterError, source_frontmatter
+
+MAX_THREADS = 5000
 
 
 def now(): return datetime.now(timezone.utc).isoformat()
@@ -34,9 +36,18 @@ class Annotations:
         if not file.is_file() or file.stat().st_size>4*1024**2:
             raise ValueError('Annotation source must be a regular Markdown file of at most 4 MiB')
         data=file.read_bytes(); text=data.decode('utf-8')
-        metadata,_=frontmatter(data)
-        identity=metadata.get('document_id') if metadata.get('document_path')==path else None
+        identity=self.identity(data,path)
         return data,text,identity
+
+    @staticmethod
+    def identity(data,path):
+        """Margins anchor on source text; catalog metadata only supplies an optional stable ID.
+        Never validate the header as a precondition: legacy, partial or malformed frontmatter
+        (for example a versioned header without `type`) simply yields no identity."""
+        try:metadata,_=source_frontmatter(data)
+        except (FrontmatterError,ValueError,RecursionError):return None
+        identity=metadata.get('document_id')
+        return identity if isinstance(identity,str) and identity and metadata.get('document_path')==path else None
 
     @contextmanager
     def locked(self):
@@ -91,7 +102,7 @@ class Annotations:
         threads=[]
         if not self.folder.exists():return dict(path=path,source_sha256=sha(data),threads=[])
         files=sorted(self.folder.glob('*.json'))
-        if len(files)>5000:raise ValueError('Annotation inventory exceeds 5,000 threads')
+        if len(files)>MAX_THREADS:raise ValueError('Annotation inventory exceeds 5,000 threads')
         for file in files:
             thread=self.read(file.stem)
             if thread['document_path']==path or identity and thread.get('document_id')==identity:
@@ -113,7 +124,7 @@ class Annotations:
                 previous=self.read(thread_id)
                 if previous['document_path']==path and previous['anchor']==anchor and previous['owner']==owner and previous.get('initial_comment','')==comment and previous.get('kind','highlight')==kind:return previous
                 raise ValueError('Annotation request ID already exists with different input')
-            if sum(1 for _ in self.folder.glob('*.json'))>=5000:raise ValueError('Annotation inventory exceeds 5,000 threads')
+            if sum(1 for _ in self.folder.glob('*.json'))>=MAX_THREADS:raise ValueError('Annotation inventory exceeds 5,000 threads')
             thread=dict(schema_version=1,kind=kind,id=thread_id,document_path=path,document_id=identity,owner=owner,created_at=now(),revision=1,resolved=False,anchor=anchor,initial_comment=comment,comments=[])
             if comment:thread['comments'].append(dict(id=str(uuid4()),author=owner,body=comment,created_at=now(),reply_to=None))
             self.write(thread);return thread

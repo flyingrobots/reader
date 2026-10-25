@@ -143,7 +143,7 @@ def test_mcp_boundary_from_other_project(vault, tmp_path):
             async with ClientSession(read, write) as client:
                 await client.initialize()
                 tools = await client.list_tools()
-                assert {tool.name for tool in tools.tools} == {"reader_ingest", "reader_status", "reader_search", "reader_read", "reader_threads", "reader_highlight", "reader_reply", "reader_resolve_thread", "reader_attention", "reader_mark_seen", "reader_warning"}
+                assert {tool.name for tool in tools.tools} == {"reader_ingest", "reader_status", "reader_search", "reader_read", "reader_threads", "reader_highlight", "reader_reply", "reader_resolve_thread", "reader_attention", "reader_mark_seen", "reader_warning", "reader_curation", "reader_curate"}
                 submission = request()
                 result = await client.call_tool("reader_ingest", {"submission": submission.model_dump(mode="json")})
                 assert not result.isError, result
@@ -174,4 +174,20 @@ def test_mcp_boundary_from_other_project(vault, tmp_path):
                 assert not seen.isError,seen
                 attention=await client.call_tool("reader_attention",{"participant":"You","path":"library/annotation-test.md"})
                 assert all(not i["read"] and i["seen_by"][0]["participant"]=="Reader librarian" for i in json.loads(attention.content[0].text)["items"])
+                from reader_mcp.catalog import Catalog
+                Catalog(vault).run('migrate')
+                queue=await client.call_tool('reader_curation',{'participant':'Curator agent'})
+                assert not queue.isError,queue
+                pending=json.loads(queue.content[0].text)['pending']
+                assert len(pending)==1 and pending[0]['path']=='library/annotation-test.md'
+                detail=await client.call_tool('reader_curation',{'participant':'Curator agent','key':pending[0]['key']})
+                unit=json.loads(detail.content[0].text)['item']
+                receipt_bytes={p:p.read_bytes() for p in (vault/'engagement').glob('*.json')}
+                reviewed=await client.call_tool('reader_curate',{'participant':'Curator agent','key':unit['key'],
+                    'expected_version':unit['version'],'status':'scanned',
+                    'coverage':[{**unit['sources'][0],'scope':'Selected fixture passage','full':False}]})
+                assert not reviewed.isError,reviewed
+                queue=await client.call_tool('reader_curation',{'participant':'Curator agent'})
+                assert json.loads(queue.content[0].text)['total']==0
+                assert {p:p.read_bytes() for p in receipt_bytes}==receipt_bytes
     asyncio.run(exercise())

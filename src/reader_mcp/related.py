@@ -1,0 +1,134 @@
+"""Suggest what to read next from the existing search index and work inventory.
+
+Relatedness is computed when asked, from data Reader already keeps: each work's
+primary source has passage embeddings in the rebuildable search index, and the
+work inventory carries projects and topics. Nothing new is written. Works whose
+source has no embeddings yet still match on shared projects and topics."""
+from contextlib import closing
+import re
+import sqlite3
+import threading
+from pathlib import Path
+
+import numpy as np
+
+from .search import unpack
+
+POOL = 12             # most related works considered before read status and date
+SAME_EDITION = 0.985  # near-identical text: another edition or copy, not a new idea
+DIVERSE = 0.97        # two picks this similar would repeat one another
+SHARED_BONUS = 0.03   # per shared project or topic
+VAGUE = ('Unspecified', 'Unclassified')
+
+
+def labels(work):
+    return {x for x in [*(work.get('projects') or []), *(work.get('topics') or [])]
+            if isinstance(x, str) and not x.startswith(VAGUE)}
+
+
+def base_title(title):
+    return re.sub(r'\s*\([^)]*\)?\s*$', '', (title or '').casefold()).strip()
+
+
+class Related:
+    def __init__(self, root):
+        self.state = Path(root) / '.reader'
+        self.lock = threading.Lock()
+        self.cache = (None, {})
+
+    def vectors(self, paths):
+        """Unit mean passage vector per path, cached per published index build.
+
+        Reads the format 2 index once a build has completed, else the format 1 index that
+        older Reader processes keep, read-only."""
+        from .search import active
+        version = active(self.state)
+        db = self.state / ('search.v2.sqlite3' if version == 2 else 'search.sqlite3')
+        if not db.is_file():
+            return {}
+        with closing(sqlite3.connect(f'{db.as_uri()}?mode=ro', uri=True, timeout=5)) as con:
+            try:
+                found = dict(con.execute("SELECT key, value FROM settings WHERE key IN ('version', 'indexed_at', 'updated_at')"))
+            except sqlite3.Error:
+                return {}
+            if found.get('version') != str(version):
+                return {}
+            # Rebuilds publish per batch, so the last publication time keys the cache.
+            key = (version, found.get('updated_at') or found.get('indexed_at'), frozenset(paths))
+            with self.lock:
+                if self.cache[0] == key:
+                    return self.cache[1]
+            sums, counts = {}, {}
+            paths = sorted(paths)
+            query = ('SELECT c.path, p.vector FROM chunks c JOIN passages p ON p.id = c.passage_id '
+                     'WHERE p.vector IS NOT NULL AND c.path IN ({})' if version == 2 else
+                     'SELECT path, vector FROM chunks WHERE vector IS NOT NULL AND path IN ({})')
+            decode = unpack if version == 2 else (lambda blob: np.frombuffer(blob, dtype=np.float32).copy())
+            for offset in range(0, len(paths), 900):
+                batch = paths[offset:offset + 900]
+                for path, blob in con.execute(query.format(','.join('?' * len(batch))), batch):
+                    vector = decode(blob)
+                    sums[path] = sums[path] + vector if path in sums else vector
+                    counts[path] = counts.get(path, 0) + 1
+        result = {}
+        for path, total in sums.items():
+            norm = float(np.linalg.norm(total))
+            if norm > 0:
+                result[path] = total / norm
+        with self.lock:
+            self.cache = (key, result)
+        return result
+
+    def suggest(self, path, works, read, limit=3):
+        """Up to `limit` works: the most related, unread first, then latest; diverse.
+
+        `read(work)` reports whether the participant has read the work's current
+        edition. Each suggestion carries the reasons it was chosen."""
+        current = next((w for w in works if path in (w.get('primary'), w.get('path'))), None)
+        vectors = self.vectors({w['primary'] for w in works} | {path})
+        mine = vectors.get(path)
+        own_labels = labels(current) if current else set()
+        own_title = base_title(current.get('title')) if current else None
+        scored, excluded = [], {path}
+        for work in works:
+            if work is current or work['primary'] == path or (own_title and base_title(work.get('title')) == own_title):
+                excluded.add(work['primary'])
+                continue
+            shared = sorted(own_labels & labels(work), key=str.casefold)
+            other = vectors.get(work['primary'])
+            similarity = float(mine @ other) if mine is not None and other is not None else None
+            if similarity is not None and similarity >= SAME_EDITION:
+                excluded.add(work['primary'])
+                continue
+            if similarity is None and not shared:
+                continue
+            score = (similarity if similarity is not None else 0.0) + SHARED_BONUS * len(shared)
+            scored.append((score, similarity, shared, work))
+        scored.sort(key=lambda item: -item[0])
+        pool = [dict(work=work, similarity=similarity, shared=shared, read=read(work), score=score)
+                for score, similarity, shared, work in scored[:POOL]]
+        pool.sort(key=lambda item: item['work'].get('date') or '', reverse=True)
+        pool.sort(key=lambda item: item['read'])
+        picks = []
+        for item in pool:
+            if len(picks) == limit:
+                break
+            vector = vectors.get(item['work']['primary'])
+            if vector is not None and any(vectors.get(p['work']['primary']) is not None and
+                                          float(vector @ vectors[p['work']['primary']]) >= DIVERSE for p in picks):
+                continue
+            reasons = (['Similar ideas'] if item['similarity'] is not None else []) + item['shared'][:2]
+            picks.append(item | {'reasons': reasons})
+        if len(picks) < limit:
+            chosen = {p['work']['primary'] for p in picks} | excluded
+            newest = sorted((w for w in works if w['primary'] not in chosen), key=lambda w: w.get('date') or '', reverse=True)
+            for work in newest:
+                if len(picks) == limit:
+                    break
+                if not read(work):
+                    picks.append(dict(work=work, similarity=None, shared=[], read=False, score=None, reasons=['New in the library']))
+        return {'items': [dict({k: p['work'].get(k) for k in ('title', 'primary', 'authors', 'projects', 'date')},
+                               read=p['read'], reasons=p['reasons'],
+                               score=None if p['score'] is None else round(p['score'], 4)) for p in picks],
+                'embedded': mine is not None,
+                'scope': 'Related by search-index embeddings and shared projects/topics; unread first, then latest.'}

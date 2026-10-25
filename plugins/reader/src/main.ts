@@ -1,3 +1,4 @@
+import { readInboxCoordination, inboxDocument, currentInboxRunMessage, type InboxRun } from './inbox.ts';
 import { annotationExtension, annotationClass, annotationTitle, annotationsChanged, locateQuote, type Thread } from './annotations.ts';
 import type { EditorView } from '@codemirror/view';
 import { createHash } from 'node:crypto';
@@ -38,10 +39,12 @@ export default class ReaderPlugin extends Plugin {
   documentLeaf: WorkspaceLeaf | null = null;
   dateMode: DateMode = 'arrival';
   private searches = new Set<ChildProcess>();
-  private readerSettings: { backendRoot?: string; openedOnce?: boolean; dateMode?: DateMode; codexPath?: string; readDocuments?: Record<string, string>; participant?: string } = {};
+  private readerSettings: { backendRoot?: string; openedOnce?: boolean; dateMode?: DateMode; codexPath?: string; workstationLockStore?: string; inboxSandboxMode?: 'workspace-write'|'danger-full-access'; readDocuments?: Record<string, string>; participant?: string } = {};
   inbox: string[] = [];
-  inboxRun?: { run_id?: string; status: string; supervisor_pid?: number; message: string };
-  private inboxRefreshing = false;
+  inboxRun?: InboxRun;
+  inboxClaims: string[] = [];
+  private inboxStatusError = '';
+  private inboxRefreshing?: Promise<void>;
   private launchingInbox = false;
   private launchError = '';
   private inboxLaunchTimer?: number;
@@ -410,34 +413,49 @@ export default class ReaderPlugin extends Plugin {
   }
   inboxActive() { return this.launchingInbox || ['starting','running','interrupted'].includes(this.inboxRun?.status ?? ''); }
   async refreshInbox() {
-    if (this.disposed || this.inboxRefreshing) return; this.inboxRefreshing = true;
-    const before = JSON.stringify([this.inbox,this.inboxRun,this.launchingInbox,this.launchError]);
+    if (this.disposed) return;
+    if (this.inboxRefreshing) return this.inboxRefreshing;
+    this.inboxRefreshing = this.readInbox().finally(() => { this.inboxRefreshing = undefined; });
+    return this.inboxRefreshing;
+  }
+  private async readInbox() {
+    const before = JSON.stringify([this.inbox,this.inboxRun,this.inboxClaims,this.inboxStatusError,this.launchingInbox,this.launchError]);
     try {
       this.inbox = inboxItems(this.app.vault.getFiles().map(f=>f.path));
-      try {
-        const data = JSON.parse(await readFile(join(this.basePath(),'.reader/inbox-runner/state.json'),'utf8'));
-        if (['starting','running'].includes(data.status) && typeof data.supervisor_pid === 'number') {
-          try { process.kill(data.supervisor_pid,0); }
-          catch (error) { if ((error as NodeJS.ErrnoException).code === 'ESRCH') { data.status = 'interrupted'; data.message = 'The inbox runner stopped unexpectedly. Inspect its report and partial changes before retrying.'; } }
-        }
-        this.inboxRun = data;
-        if (data.run_id === this.pendingRun) { this.launchingInbox = false; this.launchError = ''; }
-      } catch (error) {
-        if ((error as NodeJS.ErrnoException).code !== 'ENOENT') this.launchError = `Cannot read inbox run status: ${String(error)}`;
+      const state = await readInboxCoordination(this.basePath());
+      this.inboxClaims = state.claims;
+      this.inboxStatusError = state.errors.join(' ');
+      const data = state.run;
+      if (data && ['starting','running'].includes(data.status) && typeof data.supervisor_pid === 'number') {
+        try { process.kill(data.supervisor_pid,0); }
+        catch (error) { if ((error as NodeJS.ErrnoException).code === 'ESRCH') { data.status = 'interrupted'; data.message = 'The inbox runner stopped unexpectedly. Inspect its report and partial changes before retrying.'; } }
       }
-    } finally {
-      this.inboxRefreshing = false;
-      if (before !== JSON.stringify([this.inbox,this.inboxRun,this.launchingInbox,this.launchError])) this.renderInbox();
+      this.inboxRun = data;
+      if (data?.run_id === this.pendingRun && this.pendingRun) { this.launchingInbox = false; this.launchError = ''; }
+    } catch (error) { this.inboxStatusError = `Cannot read inbox status: ${String(error)}`; }
+    finally {
+      if (before !== JSON.stringify([this.inbox,this.inboxRun,this.inboxClaims,this.inboxStatusError,this.launchingInbox,this.launchError])) this.renderInbox();
     }
   }
   private pendingRun?: string;
   private renderInbox() {
     if (!this.disposed) for (const leaf of this.app.workspace.getLeavesOfType(VIEW)) if (leaf.view instanceof ReaderView) leaf.view.renderInbox();
   }
-  inboxMessage() { return this.launchError || (this.launchingInbox ? 'Starting Codex…' : this.inboxRun?.message ?? ''); }
+  inboxBlocked() { return !!this.inboxStatusError || this.inboxClaims.length > 0; }
+  inboxMessage() {
+    return this.inboxStatusError || this.launchError || (this.inboxClaims.length
+      ? 'Filing is already assigned to an agent. You can open the arrivals below; another run can start after that assignment is released.'
+      : this.launchingInbox ? 'Starting Codex…' : currentInboxRunMessage(this.inboxRun));
+  }
+  async openInboxArrival(arrival: string) {
+    const path = inboxDocument(arrival, this.app.vault.getFiles().map(file=>file.path));
+    if (path) await this.navigate(path, false);
+    else { await this.refreshInbox(); new Notice('This arrival has moved. Look for it in the Reader library.'); }
+  }
   async processInbox() {
     if (this.inboxActive()) return;
-    await this.refreshInbox(); if (this.inboxActive() || !this.inbox.length) return;
+    await this.refreshInbox();
+    if (this.inboxActive() || this.inboxBlocked() || !this.inbox.length) { this.renderInbox(); return; }
     this.launchingInbox = true; this.launchError = ''; this.renderInbox();
     try {
       if (process.platform === 'win32') throw new Error('The inbox runner currently requires macOS or Linux.');
@@ -450,7 +468,10 @@ export default class ReaderPlugin extends Plugin {
       if (!executable) throw new Error('Codex was not found. Set its executable path in Settings → Reader, then run codex login in your terminal.');
       const python = join(this.readerSettings.backendRoot || base,'.venv/bin/python'); await access(python,constants.X_OK);
       this.pendingRun = randomUUID();
-      const child = spawn(python,['-m','reader_mcp.inbox_runner','--root',base,'--codex',executable,'--run-id',this.pendingRun],
+      const args = ['-m','reader_mcp.inbox_runner','--root',base,'--codex',executable,'--run-id',this.pendingRun];
+      args.push('--sandbox-mode',this.inboxSandboxMode());
+      if (this.readerSettings.workstationLockStore?.trim()) args.push('--workstation-lock-store',this.readerSettings.workstationLockStore.trim());
+      const child = spawn(python,args,
         { cwd:base, detached:true, stdio:'ignore' });
       child.once('error', error=> { this.launchingInbox = false; this.launchError = String(error); this.renderInbox(); });
       child.unref();
@@ -467,17 +488,29 @@ export default class ReaderPlugin extends Plugin {
   }
   async showInboxDetails() {
     const modal = new Modal(this.app); modal.titleEl.setText('Inbox processing');
-    modal.contentEl.createEl('p',{text:this.inboxMessage() || 'No run recorded.'});
-    for (const name of ['last-message.md','stderr.log']) {
-      try {
-        const text = await readFile(join(this.basePath(),'.reader/inbox-runner',name),'utf8');
-        if (text.trim()) { modal.contentEl.createEl('h3',{text:name==='last-message.md'?'Librarian report':'Runner diagnostics'}); modal.contentEl.createEl('pre',{text:text.slice(-16000),cls:'reader-run-report'}); }
-      } catch {}
-    }
+    const status = modal.contentEl.createEl('p',{text:'Loading inbox status…',attr:{role:'status'}});
     modal.open();
+    try {
+      await this.refreshInbox();
+      status.setText(this.inboxMessage() || (this.inboxRun ? 'No active inbox job.' : 'No Codex run has started.'));
+      if (this.inboxRun) modal.contentEl.createEl('p',{text:`Last run: ${this.inboxRun.status}`});
+      if (this.inboxRun && !this.inboxActive()) modal.contentEl.createEl('p',{text:`Previous run message: ${this.inboxRun.message}`});
+      let reports = 0;
+      for (const name of ['last-message.md','stderr.log']) {
+        try {
+          const text = await readFile(join(this.basePath(),'.reader/inbox-runner',name),'utf8');
+          if (text.trim()) { reports++; modal.contentEl.createEl('h3',{text:name==='last-message.md'?'Saved librarian report':'Saved runner diagnostics'}); modal.contentEl.createEl('pre',{text:text.slice(-16000),cls:'reader-run-report'}); }
+        } catch (error) { if ((error as NodeJS.ErrnoException).code !== 'ENOENT') modal.contentEl.createEl('p',{text:`Cannot read ${name}: ${String(error)}`}); }
+      }
+      if (!reports) modal.contentEl.createEl('p',{text:'No report has been written. A run refused before startup does not produce a librarian report.'});
+    } catch (error) { status.setText(`Cannot load run details: ${String(error)}`); }
   }
   codexPath() { return this.readerSettings.codexPath ?? ''; }
   async setCodexPath(value: string) { this.readerSettings.codexPath = value.trim(); await this.saveData(this.readerSettings); }
+  workstationLockStore() { return this.readerSettings.workstationLockStore ?? ''; }
+  async setWorkstationLockStore(value: string) { this.readerSettings.workstationLockStore = value.trim(); await this.saveData(this.readerSettings); }
+  inboxSandboxMode() { return this.readerSettings.inboxSandboxMode === 'danger-full-access' ? 'danger-full-access' : 'workspace-write'; }
+  async setInboxSandboxMode(value: string) { this.readerSettings.inboxSandboxMode = value === 'danger-full-access' ? value : 'workspace-write'; await this.saveData(this.readerSettings); }
   async refreshAttention(){
     if(this.disposed || this.attentionPolling)return;this.attentionPolling=true;
     const participant=this.participant();
@@ -664,17 +697,29 @@ class ReaderView extends ItemView {
     const tab=this.contentEl.querySelector<HTMLElement>('[data-reader-tab="inbox"]');
     tab?.setText(this.plugin.inbox.length?`Inbox · ${this.plugin.inbox.length}`:'Inbox');
     const root=this.inboxEl;if (!root) return;root.empty();
-    const count=this.plugin.inbox.length, active=this.plugin.inboxActive();
-    if (!count && !active && !this.plugin.inboxMessage()){root.createEl('p',{text:'Your inbox is empty.',cls:'reader-muted'});return;}
+    const count=this.plugin.inbox.length, active=this.plugin.inboxActive(), blocked=this.plugin.inboxBlocked();
+    if (!count && !active && !this.plugin.inboxMessage() && !this.plugin.inboxRun){root.createEl('p',{text:'Your inbox is empty.',cls:'reader-muted'});return;}
     const box=root.createDiv({cls:'reader-inbox-callout'});
     const title=box.createDiv({cls:'reader-inbox-title'});setIcon(title.createSpan(),'inbox');
-    title.createSpan({text:count ? `${count} pending ${count===1?'arrival':'arrivals'}` : active?'Processing inbox':'Inbox run'});
+    title.createSpan({text:count ? `${count} pending ${count===1?'arrival':'arrivals'}` : active?'Processing inbox':'Your inbox is empty'});
     if (count || active) {
-      const button=box.createEl('button',{text:active?'Processing inbox…':'Process inbox',cls:'mod-cta reader-process-inbox'});
-      button.disabled=active;button.onclick=()=>void this.plugin.processInbox();
+      const button=box.createEl('button',{text:active?'Processing inbox…':this.plugin.inboxClaims.length?'Filing already assigned':'Process inbox',cls:'mod-cta reader-process-inbox'});
+      button.disabled=active || blocked;button.onclick=()=>void this.plugin.processInbox().catch(error=>new Notice(String(error)));
     }
     if (this.plugin.inboxMessage()) box.createDiv({text:this.plugin.inboxMessage(),cls:'reader-caption',attr:{role:'status'}});
-    else box.createDiv({text:'Launches Codex to file documents, review them, and record useful connections.',cls:'reader-caption'});
+    else if (count) box.createDiv({text:'Launches Codex to file documents, review them, and record useful connections.',cls:'reader-caption'});
+    if (this.plugin.inboxRun && !active) box.createDiv({text:`Previous run: ${this.plugin.inboxRun.status}. See Run details for its report.`,cls:'reader-caption'});
+    if (count) {
+      const files=this.app.vault.getFiles().map(file=>file.path);
+      const list=box.createEl('ul');
+      for (const arrival of this.plugin.inbox) {
+        const path=inboxDocument(arrival,files);
+        const item=list.createEl('li');
+        const open=item.createEl('button',{text:path?.split('/').pop() ?? arrival.split('/').pop(),cls:'reader-inbox-arrival',attr:{'aria-label':`Open arrival ${path ?? arrival}`}});
+        open.onclick=()=>void this.plugin.openInboxArrival(arrival).catch(error=>new Notice(String(error)));
+        if (this.plugin.inboxClaims.includes('inbox/' + arrival)) item.createSpan({text:' · Assigned for filing'});
+      }
+    }
     if (active && this.plugin.inboxRun?.status !== 'interrupted') { const stop=box.createEl('button',{text:'Stop'});stop.onclick=()=>void this.plugin.stopInbox().catch(e=>new Notice(String(e))); }
     if (this.plugin.inboxRun || this.plugin.inboxMessage()) { const details=box.createEl('button',{text:'Run details'});details.onclick=()=>void this.plugin.showInboxDetails(); }
   }
@@ -927,6 +972,10 @@ class ReaderSettings extends PluginSettingTab {
     new Setting(this.containerEl).setName('Your annotation name').setDesc('Used for highlights and replies you write in Obsidian. Agents use their own names.').addText(text=>text.setValue(this.plugin.participant()).onChange(value=>this.plugin.setParticipant(value)));
     new Setting(this.containerEl).setName('Codex executable').setDesc('Optional absolute path. Leave blank to detect Codex automatically. Uses your existing Codex login.')
       .addText(text=>text.setValue(this.plugin.codexPath()).setPlaceholder('Auto-detect').onChange(value=>this.plugin.setCodexPath(value)));
+    new Setting(this.containerEl).setName('Workstation git-locks store').setDesc('Optional path to the existing Git store used for shared host resources. Inbox jobs also discover the vault’s own lock store automatically.')
+      .addText(text=>text.setValue(this.plugin.workstationLockStore()).setPlaceholder('Not configured').onChange(value=>this.plugin.setWorkstationLockStore(value)));
+    new Setting(this.containerEl).setName('Inbox job permissions').setDesc('Host access supports git-locks process control and guarded indexing. It allows writes beyond the vault; use only for trusted librarian jobs. Runtime resource limits still apply.')
+      .addDropdown(dropdown=>dropdown.addOption('workspace-write','Sandboxed workspace').addOption('danger-full-access','Host access').setValue(this.plugin.inboxSandboxMode()).onChange(value=>this.plugin.setInboxSandboxMode(value)));
     new Setting(this.containerEl).setName('Group and sort by date')
       .setDesc('Ingestion date uses receipt time, then filing date. Oldest first. Document dates fall back to filing dates. Undated documents appear last. Timestamp groups use UTC.')
       .addDropdown(dropdown => dropdown.addOptions({ document: 'Document date', arrival: 'Ingestion date', modified: 'Last modified' })

@@ -13,7 +13,7 @@ from uuid import uuid4
 
 import yaml
 
-from .metadata import frontmatter, CatalogEnvelope
+from .metadata import frontmatter, source_frontmatter, parse_metadata, CatalogEnvelope
 
 REVISION = 'c167101b32bbe37954429e9de5db33efcdc0a16c'
 MAX_INPUT = 4 * 1024 ** 2
@@ -80,11 +80,13 @@ def reading_copy(root: Path, source_path: str) -> dict:
     if len(original) > MAX_INPUT:
         raise ValueError('Reading-copy source exceeds 4 MiB')
     original.decode('utf-8')
-    source_metadata, _ = frontmatter(original)
+    source_metadata, _ = source_frontmatter(original)
     if source_metadata.get('reading_source') or '/reading/' in source_path:
         raise ValueError('Select the original rather than an existing reading derivative')
     formatted, tool_hash = format_markdown(root, original)
-    metadata, body = frontmatter(formatted)
+    metadata, body = source_frontmatter(formatted)
+    if metadata != source_metadata:
+        raise ValueError('Formatter changed source metadata; no reading copy was written')
     destination = source.with_name(source.stem + '.reading.md')
     path = destination.relative_to(root).as_posix()
     source_hash = digest(original)
@@ -108,14 +110,24 @@ def reading_copy(root: Path, source_path: str) -> dict:
     if formatted == original:
         return dict(result, status='unchanged', reading_copy=None)
     today = datetime.now(timezone.utc).date().isoformat()
+    title = metadata.get('title')
+    if not isinstance(title, str) or not title.strip() or len(title) > 980:
+        title = source.stem
+    author = metadata.get('author')
+    if not (isinstance(author, str) or isinstance(author, list) and all(isinstance(a, str) for a in author)):
+        author = None
     fields = dict(frontmatter_schema_version=1, document_revision=1, document_id=str(uuid4()),
-                  document_path=path, metadata_created=today, title=str(metadata.get('title') or source.stem) + ' — reading copy',
-                  type='document', added=today, author=metadata.get('author'), kind='reading-copy',
+                  document_path=path, metadata_created=today, title=title + ' — reading copy',
+                  type='document', added=today, author=author, kind='reading-copy',
                   source=source_path, tags=[], reading_source=source_path, reading_source_sha256=source_hash,
                   reading_formatter='wide-md', reading_formatter_revision=REVISION, reading_formatter_sha256=tool_hash,
                   original_metadata=metadata)
     if not metadata:
         fields.pop('original_metadata')
+    source_validation = parse_metadata(original)
+    if source_validation.status == 'invalid':
+        fields['original_metadata_status'] = source_validation.status
+        fields['original_metadata_diagnostics'] = source_validation.diagnostics
     CatalogEnvelope.model_validate(fields)
     output = b'---\n' + yaml.safe_dump(fields,allow_unicode=True,sort_keys=False).encode() + b'---\n' + body
     frontmatter(output)  # Verify the generated header is accepted by the shared catalog codec.

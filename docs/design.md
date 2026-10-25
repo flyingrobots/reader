@@ -25,6 +25,7 @@ Plain files are the canonical record. Obsidian supplies browsing and search; Git
 | `docs/` | System architecture, contracts, capabilities, and operating procedures |
 | `planning/roadmap.md` | Outstanding system work, acceptance conditions, and deferred options |
 | `engagement/` | Durable participant-specific exact-version read receipts |
+| `curation/` | Durable participant-specific work dispositions and explicit source coverage, separate from read receipts |
 | `skills/reflective-reading/` | Section-based reflective reading, exact-quote annotation helper, and editorial synthesis |
 | `skills/upkeep/` | Turn-boundary intake coordination, discussion checks, and relevant connections |
 | `annotations/` | Durable per-thread JSON for source-preserving Markdown highlights and attributed discussion |
@@ -49,7 +50,7 @@ MCP/CLI deliveries arrive as `inbox/<receipt-uuid>/` bundles. Their original pay
 
 ## Metadata
 
-Every regular file under `library/` has one versioned metadata record and one SQL catalog row. Editable librarian Markdown carries the frontmatter directly. Preserved originals, snapshots, receipts, attachments, and other formats use frontmatter-bearing placeholder notes under `catalog/metadata/`; each embeds its unchanged source using Obsidian syntax and supplies a standard relative link.
+Every regular file under `library/` has one versioned metadata record and one SQL catalog row. The catalog, search index, browse discovery, metadata validation, Behind the scenes freshness checks and the inbox inventory all skip operating-system metadata files (`.DS_Store`, `Thumbs.db`, `ehthumbs.db`, `desktop.ini` and AppleDouble `._*` files); they are never library content. Editable librarian Markdown carries the frontmatter directly. Preserved originals, snapshots, receipts, attachments, and other formats use frontmatter-bearing placeholder notes under `catalog/metadata/`; each embeds its unchanged source using Obsidian syntax and supplies a standard relative link.
 
 The shared document schema declares `frontmatter_schema_version`, `document_revision`, `title`, and `type`. A catalog envelope adds `document_id`, `document_path`, and `metadata_created`. Catalog and search use the same bounded codec. Legacy `schema_version` records remain supported without invented document revisions. Unknown historical filing dates use explicit null. Existing custom metadata is retained. Source edition/version fields are separate from the Reader schema version. The complete contract, SQL mapping, migration, validation, and recovery procedures are in [Versioned metadata](metadata.md).
 
@@ -96,6 +97,8 @@ Coordinated governance suites live under `library/governance/<title-and-version>
 The shared `Search` engine indexes file paths and overlapping source passages into SQLite FTS5 and stores local FastEmbed vectors. RapidFuzz supplies typo matching; hybrid retrieval fuses document ranks. An explicit guarded CLI refresh hashes sources and updates the index transactionally. A separate bounded embedding cache checkpoints completed batches for retries; a model-byte fingerprint prevents combining vectors from different model states. Source hashes and line/page coordinates connect results to bounded reading. See [search](search.md) for dependencies, resource controls, extraction limits, freshness, and recovery.
 
 Participant-specific exact-version read receipts and turn-boundary upkeep follow the [engagement contract](engagement.md). Receipt state is separate from source metadata, annotation authorship, and partial reading records.
+
+Upkeep defaults to observer-only discovery for ordinary project agents and couriers. Explicit librarian mode coordinates inbox claims and intake only for an authorized Reader librarian/intake session. The helper refuses observer claims/releases; the role is a workflow guard, not authentication or a filesystem sandbox. Delivery, mechanical filing and curatorial reading remain distinct. Librarian checks also enumerate the [filed-work curation queue](curation.md), independent of inbox state. Its canonical dispositions bind source/context versions and explicit coverage; they never replace document/discussion receipts.
 
 The sidebar separates Library, Discussion, and Inbox into keyboard-accessible tabs. Obsidian opening events acknowledge the displayed document or discussion for its configured participant; background rendering and CLI/MCP retrieval do not. Agent reading receipts retain their actual-reading requirement.
 

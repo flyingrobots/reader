@@ -81,3 +81,28 @@ def test_legacy_highlight_retries_remain_compatible(source):
     root,p,store=source;request=str(uuid4())
     thread=create(source,request_id=request);thread.pop('kind');store.write(thread)
     assert create(source,request_id=request)['id']==request
+
+
+@pytest.mark.parametrize('header',[
+    'frontmatter_schema_version: 1\ndocument_revision: 2\ntitle: X\n',  # versioned, no type
+    'document_revision: 3\ntags: [a, b]\n',  # versioned, flow list rejected by the strict style check
+    'title: [unclosed\n',  # malformed YAML
+])
+def test_partial_or_invalid_metadata_never_blocks_margins(tmp_path,header):
+    (tmp_path/'library').mkdir();p=tmp_path/'library/a.md'
+    p.write_text('---\n'+header+'---\n# X\n\nBody passage here.\n');before=p.read_bytes()
+    store=Annotations(tmp_path)
+    assert store.list('library/a.md')['threads']==[]
+    text=p.read_text();start=text.index('passage')
+    thread=store.create('library/a.md',start,start+7,'You')
+    assert thread['document_id'] is None
+    assert [t['id'] for t in store.list('library/a.md')['threads']]==[thread['id']]
+    assert p.read_bytes()==before
+
+
+def test_identity_comes_from_header_only_when_bound_to_this_path(tmp_path):
+    (tmp_path/'library').mkdir();p=tmp_path/'library/a.md'
+    p.write_text('---\ndocument_revision: 1\ndocument_id: doc-1\ndocument_path: library/a.md\n---\nBody passage.\n')
+    assert Annotations(tmp_path).document('library/a.md')[2]=='doc-1'
+    p.write_text('---\ndocument_id: doc-1\ndocument_path: library/elsewhere.md\n---\nBody passage.\n')
+    assert Annotations(tmp_path).document('library/a.md')[2] is None

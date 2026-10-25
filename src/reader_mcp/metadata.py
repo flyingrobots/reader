@@ -15,6 +15,7 @@ from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, JsonValue, ValidationError, field_validator
 import yaml
+from .junk import os_junk
 
 SCHEMA_VERSION = 1
 CATALOG_TYPES = {'report', 'note', 'reference', 'document', 'book'}
@@ -263,6 +264,12 @@ def decode_frontmatter(data):
     return raw, payload[opening.end() + closing.end():], header
 
 
+def source_frontmatter(data):
+    """Decode safe source YAML without imposing Reader's authored-document schema."""
+    raw, body, _ = decode_frontmatter(data)
+    return ({}, body) if raw is None else (_json_value(raw), body)
+
+
 def frontmatter(data):
     """Shared strict codec for callers that require a complete valid header."""
     raw, body, header = decode_frontmatter(data)
@@ -362,7 +369,7 @@ def validate_paths(root: Path, paths=(), *, allow_legacy=False, profile='auto') 
     from .search import source_bytes
     selected = list(paths) or sorted(str(p.relative_to(root)) for p in
                                    (root / 'library').rglob('*')
-                                   if p.is_file() and p.suffix.lower() == '.md' and not p.is_symlink())
+                                   if p.is_file() and p.suffix.lower() == '.md' and not p.is_symlink() and not os_junk(p.name))
     entries = []
     for relative in selected:
         try:

@@ -59,6 +59,33 @@ def serve(store: Store):
 
     from .engagement import Engagement
     engagement=Engagement(store.root)
+    from .curation import Curation
+    curation=Curation(store.root)
+
+    @server.tool(annotations=ToolAnnotations(readOnlyHint=True, openWorldHint=False))
+    def reader_curation(participant: str, key: str | None = None, offset: int = 0,
+                        limit: int = 25, since: str | None = None, expected_snapshot: str | None = None) -> dict:
+        """Discover filed works pending this curator, or inspect one work's exact source hashes.
+
+        Groups delivery payloads and direct-drop works; ignores navigation/reading-copy
+        duplicates. Never marks content read or reviewed. Changed source/context versions
+        return to the queue. since filters arrival/catalog dates, not exact filing times.
+        Pass snapshot_version as expected_snapshot on subsequent pages; a changed queue refuses.
+        """
+        return curation.pending(participant,key,offset,limit,since,expected_snapshot)
+
+    @server.tool(annotations=ToolAnnotations(readOnlyHint=False, destructiveHint=False,
+                                             idempotentHint=True, openWorldHint=False))
+    def reader_curate(participant: str, key: str, expected_version: str, status: str,
+                      coverage: list[dict], note: str = '') -> dict:
+        """Record this curator's explicit scanned/studied coverage of the exact work version.
+
+        Coverage entries name path, sha256, scope and full. Stale versions/hashes refuse.
+        Studied needs a fully read source/current reading copy, not only the catalog; it does not
+        claim every attachment was read or verified. No document/discussion receipts change.
+        unscanned reopens only this participant's work. Labels are not authentication.
+        """
+        return curation.mark(participant,key,expected_version,status,coverage,note)
 
     @server.tool(annotations=ToolAnnotations(readOnlyHint=True, openWorldHint=False))
     def reader_attention(participant: str, path: str | None = None, offset: int = 0, limit: int = 100) -> dict:
