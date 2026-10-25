@@ -50,7 +50,7 @@ export function historicalMarkup(doc,param){
   return `<aside class="historical-banner" data-reader-decoration role="note"><span><strong>Historical version</strong> · ${esc(day(doc.date))} · commit <code>${esc(doc.short)}</code>${doc.subject?` · ${esc(doc.subject)}`:''}</span><span class="historical-note">Read-only: no read marks, bookmarks or annotations.</span><a href="${esc('#read='+param(doc.path))}" data-path="${esc(doc.path)}">Return to current</a></aside>`;
 }
 
-export function installVersions({state,api,navigate,openCompare,notify,param,onChange}){
+export function installVersions({state,api,navigate,openCompare,openSideBySide,notify,param,onChange}){
   const $=s=>document.querySelector(s);
   const panel=$('#versions-panel'),body=$('#versions-body'),twin=$('#status-version');
   let marked=null,focusRef=null,hashedFor=null,lastItem=null;
@@ -105,7 +105,7 @@ export function installVersions({state,api,navigate,openCompare,notify,param,onC
     }).join('');
     const hint=marked?`Comparing from <strong>${esc(labelOf(marked))}</strong>. Choose another version and press <kbd>c</kbd>, or <button type="button" data-button="link sm" data-unmark>cancel</button>.`:`<kbd>j</kbd> <kbd>k</kbd> move · <kbd>Enter</kbd> open · <kbd>c</kbd> compare two`;
     body.innerHTML=`<p class="versions-sub">${esc(title)}<br>${v.family.length>1?plural(v.family.length,'edition')+' · ':''}${plural(commits,'revision')} in the vault history${v.git?'':' (no git history)'}</p>
-      <div class="versions-actions"><button type="button" data-button="outline xs" data-compare-current>Compare with current</button>${v.newer&&!state.doc?.historical&&at!==v.newer.path?`<button type="button" data-button="outline xs" data-open-ref="${esc(v.newer.path)}">Open v${esc(v.newer.revision)}</button>`:''}</div>
+      <div class="versions-actions"><button type="button" data-button="outline xs" data-compare-current>Compare with current</button>${openSideBySide?'<button type="button" data-button="outline xs" data-compare-split title="Open the selected version beside this one, scrolling together">Compare side by side</button>':''}${v.newer&&!state.doc?.historical&&at!==v.newer.path?`<button type="button" data-button="outline xs" data-open-ref="${esc(v.newer.path)}">Open v${esc(v.newer.revision)}</button>`:''}</div>
       <p class="versions-hint" aria-live="polite">${hint}</p>
       <ol class="versions-timeline" aria-label="Editions and their history">${rows}</ol>
       ${v.more?`<p class="vt-note">+${v.more} more editions not shown</p>`:''}
@@ -153,6 +153,11 @@ export function installVersions({state,api,navigate,openCompare,notify,param,onC
   panel.addEventListener('click',event=>{
     const compareButton=event.target.closest('[data-compare-ref]');if(compareButton){choose(compareButton.dataset.compareRef);return;}
     const openButton=event.target.closest('[data-open-ref]');if(openButton){go(openButton.dataset.openRef);return;}
+    if(event.target.closest('[data-compare-split]')){
+      const selected=marked||lastItem,base=here();const from=selected&&resolve(selected)!==base?selected:null;
+      if(!from){notify('Select another version on the timeline, then Compare side by side.');return;}
+      marked=null;close();openSideBySide(from,base);return;
+    }
     if(event.target.closest('[data-compare-current]')){
       const selected=marked||lastItem;
       const base=state.doc?.path;const from=selected&&resolve(selected)!==base?selected:state.doc?.historical?here():null;

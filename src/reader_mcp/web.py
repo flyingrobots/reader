@@ -24,6 +24,7 @@ from .changes import MAX_BLOB, SHA, TEXT_TYPES, Changes, Unavailable, bounded, d
 from .editions import Editions
 from .engagement import ONE_OFF_RECEIPTS, Engagement
 from .inbox_view import InboxView, RunConflict
+from .writing import Writing, WritingConflict
 from .local_model import LocalModel
 from .links import LinkError, LinkGraph, Resolver, excerpt, title_of
 from .magazine import Magazine
@@ -168,7 +169,7 @@ class MissingDocument(ValueError, FileNotFoundError):
 
 
 class WebLibrary:
-    def __init__(self, root, font_fetcher=None, maintenance_runners=None, inbox_environ=None, chat_options=None, local_model=None, prose=None, service_runner=None, environ=None):
+    def __init__(self, root, font_fetcher=None, maintenance_runners=None, inbox_environ=None, chat_options=None, local_model=None, prose=None, service_runner=None, environ=None, writing_options=None):
         self.root = Path(root).expanduser().resolve(strict=True)
         self.access = WebAccess(self.root, environ)
         self.service = Service(service_runner)
@@ -193,6 +194,7 @@ class WebLibrary:
         self.hashes = {}
         self.magazine = Magazine(self)
         self.conversations = Conversations(self.root, self.chat_document, **(chat_options or {}))
+        self.writing = Writing(self.root, self.path, self.digest, **(writing_options or {}))
 
     def path(self, value, preview=False):
         """A library file; with `preview`, also an inbox arrival file (read-only views only)."""
@@ -1291,6 +1293,9 @@ class WebHandler(BaseHTTPRequestHandler):
                         raise ValueError('Expected {"action": "start", "sandbox_mode": ...} or {"action": "stop"}')
                 elif parsed.path == '/api/local-model':
                     self.json(library.local_model.dispatch(request))
+                elif parsed.path == '/api/writing':
+                    participant = library.engagement.participant(request.pop('participant', self.server.participant))
+                    self.json(library.writing.dispatch(request, participant))
                 elif parsed.path == '/api/service':
                     if set(request) != {'action'}:
                         raise ValueError('Expected {"action": "update" | "restart" | "pause" | "resume"}')
@@ -1410,6 +1415,8 @@ class WebHandler(BaseHTTPRequestHandler):
             self.json({'error': str(exc), 'unavailable': True}, 409)
         except RunConflict as exc:
             self.json({'error': str(exc)}, 409)
+        except WritingConflict as exc:
+            self.json({'error': str(exc)} | exc.extra, 409)
         except BlockingIOError as exc:
             self.json({'error': str(exc)}, 429)
         except SpeechUnavailable as exc:

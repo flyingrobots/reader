@@ -38,6 +38,8 @@ layouts share automatic participant-specific, source-version-bound bookmarks.
 Obsidian callouts (types, aliases, titles, folding and nesting) render as
 annotatable asides.
 Document URLs can carry a heading, so links to sections survive reload and sharing.
+The window splits into up to four panes (`Ctrl-w v` / `s`, or `Space W`), side by side or stacked, each a full reader with its own place, receipts and highlights; panes are same-origin iframes of the app in embedded mode, the layout survives reload in `#split=`, linked panes scroll together (across version hunks for two versions), and the Versions panel can compare two versions side by side. Splitting is refused below 700px.
+A scratch pad (`Space w`, `#scratch=<id>`) edits Markdown with Vim keys beside a live preview from the document renderer; drafts stay in the browser (IndexedDB) until "Save to vault" writes one `library/notebook/YYYY-MM-DD-<slug>.md` (never overwriting; revisions as `.vN.md`) and commits only that file. It does not file pieces into collection indexes.
 PDFs have selectable text, page-based resume and bounded find/rendering;
 PDF annotations are not implemented. Assets and fonts are served locally and are
 never refused by the request limits; margins load regardless of a document's

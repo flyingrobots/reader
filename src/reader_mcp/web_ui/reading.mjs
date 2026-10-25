@@ -1,12 +1,12 @@
 /** Quiet reading chrome, real column pagination, and version-bound resume positions. */
 import {codePointOffset} from './logic.mjs';
-export function installReading({controls, state, api, toast, openPreferences, openThread, revealRange, scrollToPosition, savePrefs, reloadDocument, positionPins, updateBreadcrumbs}) {
+export function installReading({scratchStatus, statusOverride, onStatus, mayCurl, controls, state, api, toast, openPreferences, openThread, revealRange, scrollToPosition, savePrefs, reloadDocument, positionPins, updateBreadcrumbs}) {
   const $ = selector => document.querySelector(selector);
   const clamp = n => Math.max(0, Math.min(1, n));
   let turner=null,turnerLoad=null,turnerModule=null;
   // The 3D page turn loads only when two-page reading starts; until then, or without WebGL, spreads slide.
   const loadTurner=()=>turnerLoad??=import('./controls/page-turn.js').then(m=>{turnerModule=m;turner=m.createPageTurner();return turner;}).catch(()=>null);
-  const curl=()=>turner&&state.prefs.pageTurn!=='slide'&&book?.columns===2&&!matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const curl=()=>turner&&(!mayCurl||mayCurl())&&state.prefs.pageTurn!=='slide'&&book?.columns===2&&!matchMedia('(prefers-reduced-motion: reduce)').matches;
   let ready=false, book=null, saveTimer, saveQueue=Promise.resolve(), lastSaved='', words=0, frame=0;
   // Layout listeners (the outline) run in the same animation frame as the status line, and on reflow/prepare.
   const listeners=new Set(),notify=reason=>{for(const listener of listeners)listener(reason);};
@@ -22,10 +22,14 @@ export function installReading({controls, state, api, toast, openPreferences, op
   };
   const savedProgress=()=>endVisible()&&performance.now()-openedAt>=DWELL?1:clamp(progress());
   function updateStatus(){
+    if(statusOverride?.())return;
     const active=document.activeElement;
     let mode='NORMAL',keys='<kbd>Space e</kbd> files <kbd>/</kbd> find <kbd>?</kbd> keys';
-    if(state.leader===','){mode='LEADER';keys='<kbd>t</kbd> theme editor';}
-    else if(state.leader){mode='LEADER';keys='<kbd>/</kbd> search <kbd>e</kbd> files <kbd>h</kbd> home <kbd>r</kbd> queue <kbd>n</kbd> next <kbd>t</kbd> threads <kbd>c</kbd> colors <kbd>m</kbd> chat <kbd>o</kbd> outline <kbd>s</kbd> speak <kbd>p</kbd> backstage <kbd>v</kbd> versions <kbd>d</kbd> changes <kbd>,</kbd> more';}
+    const scratch=scratchStatus?.();
+    if(state.windowKey){mode='WINDOW';keys='<kbd>v</kbd> side by side <kbd>s</kbd> stacked <kbd>w</kbd> next <kbd>h j k l</kbd> move <kbd>x</kbd> swap <kbd>=</kbd> equal <kbd>o</kbd> only <kbd>q</kbd> close <kbd>f</kbd> link';}
+    else if(scratch&&!state.leader&&!document.querySelector('dialog[open]')){mode=scratch.mode;keys=scratch.keys;}
+    else if(state.leader===','){mode='LEADER';keys='<kbd>t</kbd> theme editor';}
+    else if(state.leader){mode='LEADER';keys='<kbd>/</kbd> search <kbd>e</kbd> files <kbd>h</kbd> home <kbd>r</kbd> queue <kbd>n</kbd> next <kbd>t</kbd> threads <kbd>c</kbd> colors <kbd>m</kbd> chat <kbd>o</kbd> outline <kbd>s</kbd> speak <kbd>p</kbd> backstage <kbd>v</kbd> versions <kbd>d</kbd> changes <kbd>w</kbd> scratch <kbd>,</kbd> more';}
     else if($('#picker').open){mode=$('#picker-filter').hidden?'BROWSE':'SEARCH';keys=$('#picker-filter').hidden?'<kbd>j k</kbd> choose <kbd>/</kbd> filter <kbd>Enter</kbd> open <kbd>Esc</kbd> close':'<kbd>↑ ↓</kbd> choose <kbd>Enter</kbd> open <kbd>Esc</kbd> clear filter';}
     else if($('#status-location details[open]')){mode='BROWSE';keys='<kbd>↑ ↓</kbd> folders <kbd>Enter</kbd> browse <kbd>Esc</kbd> close';}
     else if(!$('#find-bar').hidden){mode='SEARCH';keys='<kbd>Enter</kbd> find <kbd>n N</kbd> next / previous <kbd>Esc</kbd> close';}
@@ -44,10 +48,11 @@ export function installReading({controls, state, api, toast, openPreferences, op
     else if(book){keys='<kbd>j k</kbd> or wheel to turn <kbd>/</kbd> find <kbd>Space e</kbd> files';}
     $('#vim-mode').textContent=mode;$('#vim-mode').dataset.mode=mode;$('#status-keys').innerHTML=keys;
     updateBreadcrumbs(state.doc?.path || (state.view==='backstage'?':backstage':state.view==='search'?':search':null));
-    $('#status-position').textContent=state.doc?Math.round(progress()*100)+'%':'';
+    $('#status-position').textContent=state.doc?Math.round(progress()*100)+'%':scratch?scratch.position:'';
     controls.update({value:clamp(progress()),words,pdfPages:state.doc?.kind==='.pdf'?(state.pdf?.count||0):null,pace:state.prefs.pace||220,spread:book?Math.round(book.viewport.scrollLeft/book.stride):0,spreads:book?.spreads||0,pages:book?.pages||0,columns:book?.columns||2,theme:state.prefs.theme});
 
     $('#layout-swap').textContent=state.prefs.layout==='spread'?'Scroll':'2 pages';$('#layout-swap').setAttribute('aria-label',state.prefs.layout==='spread'?'Switch to continuous reading':'Switch to two-page reading');
+    onStatus?.();
   }
   function measureBook(){
     if(!book)return;
@@ -155,7 +160,7 @@ export function installReading({controls, state, api, toast, openPreferences, op
       book={article,viewport,tail,stride:1,spreads:1,animating:false,lastTurn:0,accumulated:0};
       viewport.addEventListener('wheel',event=>{if(event.ctrlKey)return;event.preventDefault();book.accumulated+=Math.abs(event.deltaX)>Math.abs(event.deltaY)?event.deltaX:event.deltaY;if(Math.abs(book.accumulated)<25||Date.now()-book.lastTurn<500)return;const delta=Math.sign(book.accumulated);book.accumulated=0;book.lastTurn=Date.now();turn(delta);},{passive:false});
       viewport.addEventListener('scroll',()=>{update();scheduleSave();if(!book.animating){clearTimeout(viewport.snapTimer);viewport.snapTimer=setTimeout(()=>{if(book?.viewport===viewport)seekSpread(Math.round(viewport.scrollLeft/book.stride));},150);}});
-      measureBook();loadTurner().then(()=>turnerModule?.scheduleWarm(0));
+      measureBook();if(!mayCurl||mayCurl())loadTurner().then(()=>turnerModule?.scheduleWarm(0));
     }
     notify('prepare');updateStatus();
   }
@@ -226,7 +231,12 @@ export function installReading({controls, state, api, toast, openPreferences, op
       if(!anchor||!reveal(anchor,false))seekSpread(index,false);book.anchorSpread=Math.round(book.viewport.scrollLeft/book.stride);pips();notify('reflow');
     },160);
   });
-  return {prepare,restore,leave,save,capture,update,pips,hasBook,isTurning:()=>!!book?.animating,placeAtEnd,turn,seek,seekSpread,reveal,revealLine,updateStatus,reflow(){measureBook();pips();notify('reflow');},subscribe(listener){listeners.add(listener);return ()=>listeners.delete(listener);},
+  /** Split view: only the focused pane holds a WebGL context; the others turn spreads by sliding. */
+  function paneFocus(focused){
+    if(focused){if(book)loadTurner().then(()=>turnerModule?.scheduleWarm(0));return;}
+    turner?.finish();turner?.dispose?.();turner=null;turnerLoad=null;
+  }
+  return {prepare,restore,leave,save,capture,update,pips,hasBook,paneFocus,progress:()=>clamp(progress()),isTurning:()=>!!book?.animating,placeAtEnd,turn,seek,seekSpread,reveal,revealLine,updateStatus,reflow(){measureBook();pips();notify('reflow');},subscribe(listener){listeners.add(listener);return ()=>listeners.delete(listener);},
     /** Two-page geometry for spread-based consumers; null in continuous reading. */
     geometry(){return book?{viewport:book.viewport,article:book.article,stride:book.stride,columns:book.columns,pages:book.pages,spreads:book.spreads,spread:Math.round(book.viewport.scrollLeft/book.stride)}:null;},toggleZen(){state.prefs.zen=!state.prefs.zen;document.body.classList.toggle('zen',state.prefs.zen);savePrefs();updateStatus();}};
 }

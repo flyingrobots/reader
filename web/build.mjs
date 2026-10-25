@@ -17,7 +17,9 @@ rmSync(out+'/katex',{recursive:true,force:true});mkdirSync(out+'/katex/fonts',{r
 const katexDist='node_modules/katex/dist';
 writeFileSync(out+'/katex/katex.css',readFileSync(katexDist+'/katex.min.css','utf8').replace(/,url\(fonts\/[^)]+\.woff\) format\("woff"\),url\(fonts\/[^)]+\.ttf\) format\("truetype"\)/g,''));
 for(const font of readdirSync(katexDist+'/fonts').filter(name=>name.endsWith('.woff2')))writeFileSync(out+'/katex/fonts/'+font,readFileSync(katexDist+'/fonts/'+font));
-const inputs=[...Object.keys(result.metafile.inputs),...Object.keys(diagrams.metafile.inputs),...Object.keys(math.metafile.inputs)];
+// Editor: the CodeMirror 6 Markdown editor with Vim keys, loaded only when a scratch buffer opens.
+const editor=await build({entryPoints:{editor:'src/markdown-editor.ts'},bundle:true,format:'esm',target:'es2022',minify:true,outdir:out,entryNames:'[name]',metafile:true,legalComments:'linked'});
+const inputs=[...Object.keys(result.metafile.inputs),...Object.keys(diagrams.metafile.inputs),...Object.keys(math.metafile.inputs),...Object.keys(editor.metafile.inputs)];
 // Famous themes: resolve palettes to tokens with the same code the editor uses.
 mkdirSync('node_modules/.cache',{recursive:true});
 await build({entryPoints:['src/theme/famous-build.ts'],bundle:true,format:'esm',platform:'node',target:'es2022',outfile:'node_modules/.cache/famous-build.mjs',logLevel:'error'});

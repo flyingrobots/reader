@@ -80,6 +80,15 @@ def test_diff_hunks_and_stats():
     assert hunks[2]['old'] == 'A paragraph that will be removed.' and hunks[2]['new_start'] == V2.index('```js')
 
 
+def test_diff_hunks_carry_old_offsets_for_split_scrollbind():
+    _, hunks = diff(V1, V2)
+    assert all({'old_start', 'old_end'} <= set(h) for h in hunks)
+    assert V1[hunks[1]['old_start']:hunks[1]['old_end']].startswith('The old second paragraph')
+    assert V1[hunks[2]['old_start']:hunks[2]['old_end']].rstrip() == 'A paragraph that will be removed.'
+    assert hunks[0]['old_start'] == V1.index('# Gates') and V1[hunks[3]['old_start']:].startswith('```js')
+    assert hunks[4]['old_start'] == hunks[4]['old_end'] == len(V1)  # An insert at the end lands at the old text's end.
+
+
 def test_changed_unchanged_unavailable_and_unread(vault):
     before = state(vault)
     library = receipt(vault, 'You', 'library/gates.md', sha(V1))

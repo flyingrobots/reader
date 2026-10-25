@@ -70,6 +70,8 @@ def test_host_origin_token_and_path_boundaries(web, tmp_path):
     status, body, headers = request('/', raw=True)
     assert status == 200 and b'file-query' in body
     assert "script-src 'self'" in headers['Content-Security-Policy']
+    # Split view (RW-32) runs panes as same-origin frames of the app: frames from Reader only, framed only by Reader.
+    assert "frame-src 'self'" in headers['Content-Security-Policy'] and "frame-ancestors 'self'" in headers['Content-Security-Policy']
     assert request('/assets/../../pyproject.toml')[0] == 404
 
 

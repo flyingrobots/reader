@@ -105,7 +105,8 @@ def similarity(old, new):
 
 
 def diff(old_text, new_text):
-    """Block hunks between two texts, with stats; `new_start`/`new_end` index the new text."""
+    """Block hunks between two texts, with stats; `new_start`/`new_end` index the new text and
+    `old_start`/`old_end` the old one (an insert's old span is the empty point where it lands)."""
     old, new = blocks(old_text), blocks(new_text)
     if len(old) > MAX_BLOCKS or len(new) > MAX_BLOCKS:
         raise ValueError(f'Each side is limited to {MAX_BLOCKS:,} blocks')
@@ -113,11 +114,13 @@ def diff(old_text, new_text):
     hunks = []
     end = len(new_text)
     anchor = lambda j: (new[j][1], new[j][1]) if j < len(new) else (end, end)
+    before = lambda i: old[i][1] if i < len(old) else len(old_text)
     keys = lambda side: [' '.join(b[0].split()) for b in side]
     for tag, i1, i2, j1, j2 in SequenceMatcher(None, keys(old), keys(new), autojunk=False).get_opcodes():
         if tag == 'equal':
             stats['unchanged'] += i2 - i1
-            hunks.append({'op': 'equal', 'count': i2 - i1, 'new_start': new[j1][1], 'new_end': new[j2 - 1][2]})
+            hunks.append({'op': 'equal', 'count': i2 - i1, 'new_start': new[j1][1], 'new_end': new[j2 - 1][2],
+                          'old_start': old[i1][1], 'old_end': old[i2 - 1][2]})
             continue
         olds, news = old[i1:i2], new[j1:j2]
         k = 0
@@ -126,15 +129,17 @@ def diff(old_text, new_text):
             n = news[k] if k < len(news) else None
             if o and n and similarity(o[0], n[0]) >= REWORDED:
                 stats['reworded'] += 1
-                hunks.append({'op': 'replace', 'old': o[0], 'new': n[0], 'words': words(o[0], n[0]), 'new_start': n[1], 'new_end': n[2]})
+                hunks.append({'op': 'replace', 'old': o[0], 'new': n[0], 'words': words(o[0], n[0]), 'new_start': n[1], 'new_end': n[2],
+                              'old_start': o[1], 'old_end': o[2]})
                 continue
             if o:
                 stats['removed'] += 1
                 start, stop = (n[1], n[1]) if n else anchor(j1 + min(k, len(news)))
-                hunks.append({'op': 'delete', 'old': o[0], 'new_start': start, 'new_end': stop})
+                hunks.append({'op': 'delete', 'old': o[0], 'new_start': start, 'new_end': stop, 'old_start': o[1], 'old_end': o[2]})
             if n:
                 stats['added'] += 1
-                hunks.append({'op': 'insert', 'new': n[0], 'new_start': n[1], 'new_end': n[2]})
+                point = before(i1 + min(k, len(olds)))
+                hunks.append({'op': 'insert', 'new': n[0], 'new_start': n[1], 'new_end': n[2], 'old_start': point, 'old_end': point})
     return stats, hunks
 
 

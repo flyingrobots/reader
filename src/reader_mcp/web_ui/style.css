@@ -440,3 +440,34 @@ body:is(.prose-subtle,.prose-clear,.prose-vivid) .textLayer ::highlight(reader-p
 @media(max-width:340px){.prose-chip{display:none}.statusline{gap:4px}}
 /* A ghost "+ Queue" keeps its text on the column's left edge (#58). */
 .issue-queue{margin-left:-.5rem}
+/* Split view (RW-32): the shell lays out same-origin pane iframes; each pane hides its own chrome. */
+html.embedded-pane #statusline,html.embedded-pane #summon,html.embedded-pane .skip-link{display:none!important}
+html.embedded-pane .thread-panel{bottom:0}html.embedded-pane .find-bar{bottom:12px}html.embedded-pane body.two-page #smooth-wrapper{bottom:0!important}
+body.split-active #smooth-wrapper,body.split-active #summon,body.split-active .skip-link,body.split-active #reading-progress,body.split-active #status-version,body.split-active #outline-slot,body.split-active #speech-slot,body.split-active #pagination-slot,body.split-active #status-section,body.split-active #prose-chip,body.split-active #search-chip{display:none!important}
+.split-root{position:fixed;inset:0;z-index:30;background:var(--bg)}
+.split-pane{position:absolute;overflow:hidden;background:var(--bg)}
+.split-frame{display:block;width:100%;height:100%;border:0;background:var(--bg)}
+.split-pane.focused::after{content:'';position:absolute;inset:0;border:2px solid var(--accent);pointer-events:none}
+.split-root.dragging .split-frame{pointer-events:none}
+.split-divider{position:absolute;background:var(--line);touch-action:none}.split-divider.row{cursor:col-resize}.split-divider.col{cursor:row-resize}.split-divider:hover{background:var(--faint)}
+.split-bind{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);z-index:1;opacity:0;transition:opacity .15s}.split-divider:hover .split-bind,.split-bind:focus-visible,.split-bind[aria-pressed=true]{opacity:1}.split-bind[aria-pressed=true]{color:var(--accent);border-color:var(--accent)}
+.split-indicator{font:600 10px/1 var(--sans);color:var(--accent);letter-spacing:.04em;white-space:nowrap}
+.split-root.split-narrow .split-pane:not(.focused),.split-root.split-narrow .split-divider{display:none}
+.split-root.split-narrow .split-pane.focused{left:0!important;top:0!important;width:100%!important;height:calc(100% - 38px)!important}.split-root.split-narrow .split-pane.focused::after{display:none}
+/* Scratch pad (RW-33): Markdown source and the document renderer's preview, side by side or alone. */
+.scratch{display:grid;grid-template-rows:auto minmax(0,1fr);height:calc(100vh - 32px);height:calc(100dvh - 32px);padding:14px 24px 12px;box-sizing:border-box;gap:10px;position:relative}
+.scratch-bar{display:flex;flex-wrap:wrap;align-items:center;gap:8px 14px;font:11px/1.3 var(--sans);color:var(--muted)}.scratch-bar .eyebrow{margin:0}
+.scratch-state{color:var(--ink)}.scratch-vault-path{font-family:var(--mono);color:var(--faint);overflow-wrap:anywhere}.scratch-actions{margin-left:auto;display:flex;flex-wrap:wrap;gap:6px}
+.scratch-panes{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:18px;min-height:0}
+.scratch[data-layout=source] .scratch-panes,.scratch[data-layout=preview] .scratch-panes{grid-template-columns:minmax(0,1fr)}
+.scratch[data-layout=source] .scratch-preview,.scratch[data-layout=preview] .scratch-editor{display:none}
+.scratch-editor{min-height:0;border:1px solid var(--line);border-radius:6px;overflow:hidden;background:var(--surface)}.scratch-editor .cm-editor{height:100%}
+.scratch-preview{min-height:0;overflow:auto;border:1px solid var(--line);border-radius:6px;padding:8px 26px 40px;background:var(--bg)}
+.scratch-preview-body{max-width:68ch;margin:0 auto}.scratch-preview .scratch-current{box-shadow:-10px 0 0 -7px var(--accent)}
+.scratch-drafts{position:absolute;top:44px;right:24px;bottom:12px;width:min(340px,calc(100% - 32px));overflow:auto;background:var(--raised);border:1px solid var(--line);border-radius:6px;padding:16px;box-shadow:var(--shadow);z-index:5}
+.scratch-draft-list{list-style:none;margin:0 0 12px;padding:0}.scratch-draft-list li{display:grid;gap:2px;padding:8px 10px;border-radius:4px;cursor:pointer}.scratch-draft-list li small{color:var(--muted)}
+.scratch-draft-list li:focus,.scratch-draft-list li[aria-selected=true]{background:color-mix(in srgb,var(--accent) 12%,transparent);outline:none}.scratch-draft-list li:focus-visible{outline:2px solid var(--accent)}
+.scratch-save-dialog{width:min(520px,calc(100vw - 32px));padding:24px;box-sizing:border-box}.scratch-save-form{display:grid;gap:12px}.scratch-save-form label{display:grid;gap:4px;font:12px var(--sans);color:var(--muted)}
+.scratch-save-form input,.scratch-save-form select{font:14px var(--sans);color:var(--ink);background:var(--surface);border:1px solid var(--line);border-radius:4px;padding:7px 9px}
+.scratch-save-path{font:12px var(--sans);color:var(--muted);overflow-wrap:anywhere}.scratch-save-error{color:var(--warning);font:12px var(--sans)}.scratch-save-actions{display:flex;justify-content:flex-end;gap:8px}
+@media(max-width:700px){.scratch{padding:10px 16px;height:calc(100dvh - 38px)}.scratch-panes{grid-template-columns:minmax(0,1fr)}.scratch[data-layout=split] .scratch-preview{display:none}.scratch-actions{margin-left:0}}

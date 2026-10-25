@@ -53,6 +53,20 @@ metadata (name table) states with its copyright. The stylesheet is unchanged exc
 that its `@font-face` rules list only the woff2 sources. They load only for documents
 with math. Reader's markdown-it math syntax plugin is its own.
 
+## Markdown editor (scratch pad)
+
+The scratch pad's Markdown editor is [CodeMirror 6](https://codemirror.net) —
+`@codemirror/state` 6.7.6, `@codemirror/view` 6.43.15, `@codemirror/commands` 6.11.1,
+`@codemirror/language` 6.13.1, `@codemirror/lang-markdown` 6.5.2 and their `@lezer/*`,
+`style-mod`, `w3c-keyname`, `crelt` and `@marijn/find-cluster-break` dependencies (MIT,
+copyright Marijn Haverbeke and others) — with Vim keys from
+[`@replit/codemirror-vim`](https://github.com/replit/codemirror-vim) 6.4.0 (MIT,
+copyright Replit and the CodeMirror contributors). They are bundled into
+`controls/editor.js`, which loads only when a scratch buffer opens; each package's
+license is retained under `controls/licenses/` (the build retains the license of
+every package esbuild reads, including the HTML, CSS and JavaScript language packages
+`lang-markdown` references but the bundle leaves out).
+
 ## Colorful Language (optional, not distributed)
 
 Prose colors call a separately installed [Colorful Language](https://github.com/flyingrobots/colorful-language)

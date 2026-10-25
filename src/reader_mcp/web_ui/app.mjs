@@ -14,19 +14,27 @@ import {mountDashboard} from './dashboard.mjs';
 import {DEFAULT_EXCLUDED_TYPES,currentIssue,isoWeek,issueWindow,issueWeeks,selectIssue,mountMagazine} from './magazine.mjs';
 import {THEMES,oppositeTheme} from './themes.mjs';
 import {calloutPlugin} from './callouts.mjs';
-import {applyThemes,installControls,mountSkeleton,mountCodeBlocks,clearControlsWithin,mountDocumentTree,visibleDocumentNodes,revealDocumentRow,mountBackstage,mountChangesPanel,notify,openChat,closeChat,chatOpen,trackSpeech,renderQueuePanel,mountCallouts} from './controls/reader-controls.js';
+import {applyThemes,installControls,mountSkeleton,mountCodeBlocks,clearControlsWithin,mountDocumentTree,visibleDocumentNodes,revealDocumentRow,mountBackstage,mountChangesPanel,notify as shellNotify,openChat,closeChat,chatOpen,trackSpeech,renderQueuePanel,mountCallouts} from './controls/reader-controls.js';
 import {installVersions,chipMarkup,historicalMarkup,splitRef,compareLabel} from './versions.mjs';
+import {installSplit,installPane,cleanRoute} from './split.mjs';
+import {installScratch} from './scratch.mjs';
 
 const $ = selector => document.querySelector(selector);
+// Split view: a pane is this app in an embedded same-origin iframe (/?pane=1#…); the top document is the shell.
+const EMBEDDED=new URLSearchParams(location.search).has('pane')&&window.parent!==window;
+if(EMBEDDED)document.documentElement.classList.add('embedded-pane');
+let split=null,pane=null;
+/** Toasts from a pane appear in the shell's toaster. */
+function notify(message,type,options){if(pane){pane.post({type:'toast',message:String(message),kind:type,options:options&&{id:options.id,duration:options.duration}});return;}return shellNotify(message,type,options);}
 const defaults = {theme:'ink', participant:null, recent:20, atlas:true, activity:true, smooth:true, layout:'scroll', pace:220, zen:false, pageTurn:'curl', nextReads:true, backlinks:true, outline:true, inboxSandbox:'workspace-write', issueExclude:DEFAULT_EXCLUDED_TYPES.join(', '), proseColors:'clear'};
 // Route sentinel for Behind the scenes; document routes are always library/ paths.
-const BACKSTAGE=':backstage',SEARCH=':search';
+const BACKSTAGE=':backstage',SEARCH=':search',SCRATCH=':scratch';  // A scratch buffer: ':scratch' (the latest draft) or ':scratch=<id>'.
 // Past issues use ':issue=<ISO week>'; the bare homepage (null) is the current issue.
 const ISSUE=':issue=';
 const isIssue=path=>!path||path.startsWith(ISSUE);
 // A passage link carries its line, page and terms: #read=<path>&at=<json>; a heading link #read=<path>&h=<heading id>.
-const routeHash=(path,at=null,heading='')=>path===BACKSTAGE?'#backstage':path===SEARCH?search.hash():path?.startsWith(ISSUE)?'#issue='+param(path.slice(ISSUE.length)):path?'#read='+param(path)+(at?'&at='+param(JSON.stringify(at)):'')+(heading?'&h='+param(heading):''):location.pathname;
-const routeFromHash=()=>location.hash==='#backstage'?BACKSTAGE:location.hash.startsWith('#search')?SEARCH:location.hash.startsWith('#issue=')?ISSUE+decodeURIComponent(location.hash.slice(7)):location.hash.startsWith('#read=')?readRoute().path:null;
+const routeHash=(path,at=null,heading='')=>path===BACKSTAGE?'#backstage':path?.startsWith(SCRATCH)?'#scratch'+path.slice(SCRATCH.length):path===SEARCH?search.hash():path?.startsWith(ISSUE)?'#issue='+param(path.slice(ISSUE.length)):path?'#read='+param(path)+(at?'&at='+param(JSON.stringify(at)):'')+(heading?'&h='+param(heading):''):location.pathname;
+const routeFromHash=()=>location.hash==='#backstage'?BACKSTAGE:/^#scratch(=[0-9a-f-]{36})?$/.test(location.hash)?SCRATCH+location.hash.slice(8):location.hash.startsWith('#search')?SEARCH:location.hash.startsWith('#issue=')?ISSUE+decodeURIComponent(location.hash.slice(7)):location.hash.startsWith('#read=')?readRoute().path:null;
 /** Path and heading of a #read= route. Hand-made `#read=<path>#<heading>` (raw or %23) also works; a malformed escape never throws. */
 const decode=text=>{try{return decodeURIComponent(text);}catch{return text;}};
 function readRoute(){
@@ -43,7 +51,7 @@ function passageFromHash(){
     return {line:Number.isInteger(at.line)&&at.line>0?at.line:1,page:Number.isInteger(at.page)&&at.page>0?at.page:null,terms:Array.isArray(at.terms)?at.terms.filter(t=>typeof t==='string'&&t.length<=200).slice(0,32):[],query:typeof at.query==='string'?at.query.slice(0,1000):''};}
   catch{return null;}
 }
-let reading,controls,links,outline,speech,versions,search,prose,queue;
+let reading,controls,links,outline,speech,versions,search,prose,queue,scratch;
 let saved = {};
 try { saved = JSON.parse(localStorage.getItem('reader.preferences.v1') || '{}'); } catch {}
 const state = {prefs:{...defaults,...saved}, data:null, doc:null, threads:[], attention:[], token:null, mode:'fuzzy', results:[], resultIndex:0, searchId:0, routeId:0, pdf:null, smoother:null, find:[], findIndex:-1, selected:null, activeThread:null, replyTo:null, visits:[null], cursor:0, ranges:[], leader:null,themeEditorOpen:false,view:null};
@@ -103,7 +111,9 @@ function reachable() {
 async function api(path, payload, extra={}) {
   const options = payload ? {method:'POST', headers:{'Content-Type':'application/json','X-Reader-Token':state.token}, body:JSON.stringify(payload)} : {};
   let response;
-  try { response = await fetch(path, {...options,...extra}); }
+  try { response = await fetch(path, {...options,...extra});
+    // Several panes load at once; a busy server's 429 on a read is retried once.
+    if (EMBEDDED && !payload && response.status === 429) { await new Promise(resolve => setTimeout(resolve, 400)); response = await fetch(path, {...options,...extra}); } }
   catch (cause) {
     if (cause?.name === 'AbortError') throw cause;
     unreachable(!!payload);
@@ -157,7 +167,7 @@ async function loadLibrary() {
   state.data = localizeLibrary(data); state.token = data.token; state.prefs.participant = data.participant;
   return data;
 }
-function savePrefs() { const url=new URL(location.href);if(url.searchParams.has('theme') && url.searchParams.get('theme')!==state.prefs.theme){url.searchParams.delete('theme');history.replaceState(history.state,'',url);}try { localStorage.setItem('reader.preferences.v1', JSON.stringify(state.prefs)); } catch {} }
+function savePrefs() { const url=new URL(location.href);if(url.searchParams.has('theme') && url.searchParams.get('theme')!==state.prefs.theme){url.searchParams.delete('theme');history.replaceState(history.state,'',url);}try { localStorage.setItem('reader.preferences.v1', JSON.stringify(state.prefs)); } catch {} if(split?.active())split.broadcast({type:'prefs-changed'}); }
 function latestWorks() { return [...state.data.works].sort((a,b) => (b.date || '').localeCompare(a.date || '') || a.title.localeCompare(b.title)); }
 function workRows(works) {
   return works.map((w,i) => `<li class="work-row" tabindex="0" role="link" data-path="${esc(w.primary)}"><span class="row-index">${String(i+1).padStart(2,'0')}</span><div><h3 class="work-title">${esc(w.title)}${!w.read?'<span class="unread-pip" title="Unread edition" aria-label="Unread edition"></span>':''}</h3><div class="work-byline">${esc(w.authors?.join(' · ') || 'Unspecified author')}${w.projects?.[0] && w.projects[0] !== 'Unspecified project'?' · '+esc(w.projects[0]):''}</div></div><span class="work-date">${formatDate(w.date)}</span></li>`).join('');
@@ -209,7 +219,7 @@ function hideChartTooltip(){ $('#chart-tooltip').classList.remove('visible'); }
 function wireDocumentLinks(root) {
   root.querySelectorAll('[data-path]').forEach(el=>{
     const open=()=>navigate(el.dataset.path,{thread:el.dataset.threadLink});
-    el.addEventListener('click',event=>{event.preventDefault();open();});
+    el.addEventListener('click',event=>{event.preventDefault();if(event.shiftKey&&el.dataset.path?.startsWith('library/')){openInSplit('#read='+param(el.dataset.path));return;}open();});
     if(el.tagName!=='BUTTON')el.addEventListener('keydown',event=>{if(event.key==='Enter'){event.preventDefault();open();}});
   });
   root.querySelectorAll('[data-home]').forEach(el=>el.addEventListener('click',e=>{e.preventDefault();navigate(null);}));
@@ -223,14 +233,21 @@ function closeContext() {
 }
 async function navigate(path,{thread=null,fragment='',record=true,commit=null,at=null}={}) {
   if(commit&&path)path=path+'@'+commit;
-  const id=++state.routeId;await reading?.leave();if(id!==state.routeId)return;closeContext();
+  // While the window is split, the shell's panels (queue, picker, chat links) open documents in the focused pane.
+  if(split?.active()){split.openInFocused(path===SEARCH?'#search':cleanRoute(routeHash(path,null,fragment))||'#home');return;}
+  const id=++state.routeId;await reading?.leave();if(state.view==='scratch'&&!path?.startsWith(SCRATCH))await scratch.leave();if(id!==state.routeId)return;closeContext();
+  // The scratch pad's "responds to" defaults to the current document you came from.
+  if(state.doc&&!state.doc.preview&&!state.doc.historical)state.lastDocPath=state.doc.path;
   if(state.view==='search'&&path!==SEARCH)search.leave();
-  if(record){state.visits=state.visits.slice(0,state.cursor+1);state.visits.push(path);state.cursor++;history.pushState({reader:true,path},'',routeHash(path,at,fragment));}
+  if(record){state.visits=state.visits.slice(0,state.cursor+1);state.visits.push(path);state.cursor++;
+    // A pane's pushed entry would join the window's session history, so browser Back would step a background pane.
+    if(EMBEDDED)history.replaceState({reader:true,path},'',routeHash(path,at,fragment));else history.pushState({reader:true,path},'',routeHash(path,at,fragment));}
   clearFind();prose?.detach();await state.pdf?.destroy();state.pdf=null;state.ranges=[];CSS.highlights?.delete('reader-own');CSS.highlights?.delete('reader-other');CSS.highlights?.delete('reader-warning');
   const quick=isIssue(path)&&state.view==='issue'&&!!state.data;
-  state.view=path===BACKSTAGE?'backstage':path===SEARCH?'search':isIssue(path)?'issue':null;
+  state.view=path===BACKSTAGE?'backstage':path===SEARCH?'search':path?.startsWith(SCRATCH)?'scratch':isIssue(path)?'issue':null;
   state.editions=null;state.versions=null;state.changes=null;versions?.reset();versions?.update();
   if(path===SEARCH){state.doc=null;reading?.prepare();clearControlsWithin($('#main'));search.render($('#main'),record?null:location.hash);resetScroll();reading?.updateStatus();return;}
+  if(path?.startsWith(SCRATCH)){state.doc=null;reading?.prepare();clearControlsWithin($('#main'));resetScroll();await scratch.open($('#main'),path.slice(SCRATCH.length+1)||null);reading?.updateStatus();return;}
   if(path===BACKSTAGE){state.doc=null;reading?.prepare();renderBackstage(state.focusSettings);state.focusSettings=false;return;}
   if(isIssue(path)){state.doc=null;reading?.prepare();if(!quick){mountSkeleton($('#main'),'library');await loadLibrary();}if(id===state.routeId)await renderHome(path,id);return;}
   state.doc=null;reading?.prepare();mountSkeleton($('#main'),'document');
@@ -256,9 +273,9 @@ async function navigate(path,{thread=null,fragment='',record=true,commit=null,at
     const title=doc.metadata.title || known?.title || doc.title;
     clearControlsWithin($('#main'));
     const chip=doc.preview?'':chipMarkup(state.versions,doc,param);
-    $('#main').innerHTML=`<div class="document-shell resume-pending${historical?' historical':''}"><div class="eyebrow document-kicker">${esc(doc.preview?'Inbox preview · not yet filed':known?.projects?.[0] || 'From the library')}</div><h1 class="document-title">${esc(title)}</h1><div class="document-meta">${author?`<span class="by">${esc(author)}</span>`:''}${doc.metadata.created||doc.metadata.added?`<span>${formatDate(doc.metadata.created||doc.metadata.added)}</span>`:''}${doc.metadata.document_revision&&!chip?`<span>Edition ${esc(doc.metadata.document_revision)}</span>`:''}</div>${historical?historicalMarkup(doc,param):chip}${changeMarkup(changes)}<div class="reading-log" data-reader-decoration aria-live="polite"></div><article id="article" class="article"></article><footer class="document-footer">${esc(path)}${historical?` @ ${esc(doc.short)}<br>Historical text from the vault’s git history · <a href="${esc('#read='+param(path))}" data-path="${esc(path)}">Open the current file</a>`:`<br>Original source preserved · <a href="${esc(doc.file_url)}" target="_blank" rel="noopener noreferrer">Open original</a>${doc.text!==null||doc.kind==='.pdf'?'<br><button type="button" id="speak-article" data-button="outline sm" class="speak-article" title="Send to AI-TTS · Space s">Send to AI-TTS</button>':''}`}</footer></div>`;
+    $('#main').innerHTML=`<div class="document-shell resume-pending${historical?' historical':''}"><div class="eyebrow document-kicker">${esc(doc.preview?'Inbox preview · not yet filed':known?.projects?.[0] || 'From the library')}</div><h1 class="document-title">${esc(title)}</h1><div class="document-meta">${author?`<span class="by">${esc(author)}</span>`:''}${doc.metadata.created||doc.metadata.added?`<span>${formatDate(doc.metadata.created||doc.metadata.added)}</span>`:''}${doc.metadata.document_revision&&!chip?`<span>Edition ${esc(doc.metadata.document_revision)}</span>`:''}</div>${historical?historicalMarkup(doc,param):chip}${changeMarkup(changes)}<div class="reading-log" data-reader-decoration aria-live="polite"></div><article id="article" class="article"></article><footer class="document-footer">${esc(path)}${historical?` @ ${esc(doc.short)}<br>Historical text from the vault’s git history · <a href="${esc('#read='+param(path))}" data-path="${esc(path)}">Open the current file</a>`:`<br>Original source preserved · <a href="${esc(doc.file_url)}" target="_blank" rel="noopener noreferrer">Open original</a>${doc.text!==null||doc.kind==='.pdf'?'<br><button type="button" id="speak-article" data-button="outline sm" class="speak-article" title="Send to AI-TTS · Space s">Send to AI-TTS</button>':''}${/^library\/notebook\/[^/]+\.md$/.test(path)&&doc.text!==null?' <button type="button" id="edit-scratch" data-button="outline sm" title="Open this piece in the scratch pad; saving writes a new version">Edit in scratch</button>':''}`}</footer></div>`;
     // A historical view keeps the reading log of the current file (it never adds you: nothing is marked read).
-    const article=$('#article');$('#speak-article')?.addEventListener('click',()=>speech.send('article'));if(doc.preview){$('.reading-log')?.remove();$('#speak-article')?.remove();}else loadReadingLog(doc,id);
+    const article=$('#article');$('#speak-article')?.addEventListener('click',()=>speech.send('article'));$('#edit-scratch')?.addEventListener('click',()=>scratch.editSaved(doc,bodyOf(doc.text).text.replace(/^\r?\n/,'')));if(doc.preview){$('.reading-log')?.remove();$('#speak-article')?.remove();}else loadReadingLog(doc,id);
     if(doc.kind==='.md' || doc.kind==='.markdown'){
       await renderMarkdown(article,doc.text,path,0,{defer:true});
     } else if(doc.kind==='.pdf') {
@@ -281,7 +298,7 @@ async function navigate(path,{thread=null,fragment='',record=true,commit=null,at
     rendered=true; // From here on, failures are secondary: keep the article and toast quietly instead.
     if(id!==state.routeId)return;drawLate(article,id).catch(error=>console.error(error));await outline?.refresh(article);
     // Inbox previews are plain reading: no discussion, read receipt, recents or Read next.
-    if(doc.preview){if(fragment)article.querySelector('#'+CSS.escape(fragment))?.scrollIntoView({block:'start'});$('#main').focus({preventScroll:true});return;}
+    if(doc.preview){if(fragment)article.querySelector('#'+CSS.escape(fragment))?.scrollIntoView({block:'start'});focusMain();return;}
     if(!historical&&(doc.kind==='.md' || doc.kind==='.markdown'))await secondary('Margins',loadDiscussion);
     if(id!==state.routeId)return;
     if(!historical)prose.attach(article,doc);  // Prose colors are for the current edition only.
@@ -291,7 +308,7 @@ async function navigate(path,{thread=null,fragment='',record=true,commit=null,at
     if(fragment)showHeading(article,fragment);
     if(at)await secondary('Passage',()=>revealPassage(at));
     if(thread)openThread(thread);
-    $('#main').focus({preventScroll:true});
+    focusMain();
     // Historical versions are read-only views of the past: no Read next or Linked from for them.
     if(!historical){showNextReads(path,id).catch(error=>console.warn('Read next',error));links?.backlinks(path,id)?.catch(error=>console.warn('Linked from',error));}
   } catch(error){if(id!==state.routeId)return;if(rendered&&state.doc?.path===path){console.warn(error);notify(error.message || String(error));return;}outline?.clear();clearControlsWithin($('#main'));
@@ -498,7 +515,9 @@ function wireArticleLinks(root,path){
     if(href.startsWith('#')){event.preventDefault();const heading=decode(href.slice(1));if(showHeading(root,heading)&&root.id==='article')history.replaceState(history.state,'',routeHash(path,null,heading));return;}
     if(/^(https?:|mailto:)/i.test(href)){link.target='_blank';link.rel='noopener noreferrer';return;}
     event.preventDefault();
-    try{const resolved=await api('/api/resolve?from='+param(path)+'&target='+param(decodeURI(href)));navigate(resolved.path,{fragment:resolved.fragment});}catch(error){report(error);}
+    try{const resolved=await api('/api/resolve?from='+param(path)+'&target='+param(decodeURI(href)));
+      // Shift-click opens the target in the other pane, splitting the window first if needed.
+      if(event.shiftKey)openInSplit('#read='+param(resolved.path)+(resolved.fragment?'&h='+param(resolved.fragment):''));else navigate(resolved.path,{fragment:resolved.fragment});}catch(error){report(error);}
   }));
 }
 
@@ -619,7 +638,10 @@ function chatMarkdown(text){
   return template.innerHTML;
 }
 function toggleChat(){
-  if(chatOpen()){closeChat();$('#main').focus({preventScroll:true});return;}
+  if(chatOpen()){closeChat();if(split?.active())split.refocus();else focusMain();return;}
+  if(split?.active()){const doc=split.focused()?.doc;
+    if(!doc?.path||!doc.path.startsWith('library/')||doc.historical||doc.preview){toast('Open a filed, current document in this pane to chat about it.');return;}
+    closeContext();openChat(doc.path,doc.title||doc.path,state.prefs.participant);return;}
   if(!state.doc){toast('Open a document to chat about it.');return;}
   if(state.doc.preview){toast('Inbox arrivals are previews; chat about a document once it is filed.');return;}
   if(state.doc.historical){toast('Chats are about the current file; open it to chat about this document.');return;}
@@ -681,6 +703,7 @@ function captureSelection(){
     const bounds=block?{start:+block.dataset.sourceStart,end:+block.dataset.sourceEnd,...quoteOccurrence(block,range,quote)}:null;
     const coords=sourceRangeForQuote(state.doc.text,quote,bounds,projection());
     state.selected={...coords,path:state.doc.path,sha256:state.doc.sha256,quote:rawCodePoints(state.doc.text,coords.start,coords.end),requests:{}};
+    state.lastQuote={quote:plainQuote(state.selected.quote),path:state.doc.path,title:String(state.doc.metadata?.title||state.doc.title||state.doc.path)};  // :cite in the scratch pad
     const rect=[...range.getClientRects()].at(-1) || range.getBoundingClientRect(),tools=$('#selection-tools');
     tools.hidden=false;tools.style.left=Math.max(130,Math.min(innerWidth-130,rect.right))+'px';tools.style.top=Math.max(60,rect.top-10)+'px';
     // Touch browsers draw their own selection menu above the passage, so the toolbar goes below it there.
@@ -814,8 +837,8 @@ async function showFind(scroll=true){
 }
 function nextFind(delta=1){if(!state.find.length){toast('Use / to find a passage first.');return;}state.findIndex=(state.findIndex+delta+state.find.length)%state.find.length;showFind();}
 $('#find-query').oninput=updateFind;
-$('#find-query').onkeydown=event=>{if(event.key==='Enter'){event.preventDefault();showFind();$('#find-bar').hidden=true;$('#main').focus({preventScroll:true});}};
-$('#find-next').onclick=()=>nextFind();$('#find-prev').onclick=()=>nextFind(-1);$('#find-close').onclick=()=>{$('#find-bar').hidden=true;$('#main').focus({preventScroll:true});};
+$('#find-query').onkeydown=event=>{if(event.key==='Enter'){event.preventDefault();showFind();$('#find-bar').hidden=true;focusMain();}};
+$('#find-next').onclick=()=>nextFind();$('#find-prev').onclick=()=>nextFind(-1);$('#find-close').onclick=()=>{$('#find-bar').hidden=true;focusMain();};
 
 function renderBackstage(focusSettings=false){
   controls.update({prefs:{...state.prefs},participants:state.data?.participants||[]});
@@ -823,7 +846,7 @@ function renderBackstage(focusSettings=false){
   prose.status(true).then(status=>controls.update({prose:status}));
   // The Settings heading takes focus (NORMAL mode), so leader keys keep working and Tab moves into the fields.
   if(focusSettings)requestAnimationFrame(()=>{$('#backstage-settings')?.scrollIntoView({block:'start'});const heading=$('#settings-title');heading?.setAttribute('tabindex','-1');heading?.focus({preventScroll:true});});
-  else $('#main').focus({preventScroll:true});
+  else focusMain();
 }
 async function openPreferences(){
   if(state.view==='backstage'){closeContext();renderBackstage(true);return;}
@@ -891,15 +914,20 @@ document.addEventListener('keydown',event=>{
   if(event.key==='F10'&&!event.metaKey&&!event.ctrlKey&&!event.altKey){event.preventDefault();state.leader=null;clearTimeout(leaderTimer);if(!state.themeEditorOpen)closeContext();setThemeEditorOpen(!state.themeEditorOpen);return;}
   if(event.key==='Escape'){
     state.leader=null;clearTimeout(leaderTimer);
+    if(event.target.closest?.('.cm-editor'))return;  // Vim's Escape stays in the scratch editor; Escape in normal mode leaves it.
     if(state.themeEditorOpen||event.target.closest('[data-slot=popover-content],[data-slot=select-content],[data-slot=sheet-content]')||document.querySelector('dialog[open]'))return;
     event.preventDefault();
     if(!$('#thread-panel').hidden&&$('#thread-panel').contains(document.activeElement)){leaveThreadPanel();return;}
     if(state.view==='search'&&!state.leader){if(!search.escape())goBack();return;}
     if(state.fromSearch&&$('#find-bar').hidden){clearFind();return;}
-    closeContext();$('#main').focus({preventScroll:true});return;
+    state.windowKey=false;closeContext();if(split?.active())split.refocus();else focusMain();return;
   }
   if(state.themeEditorOpen||event.target.closest('input,textarea,select,[contenteditable="true"],dialog,[role=dialog],[role=listbox]:not(.queue-list),[data-slot=popover-content],[role=switch],[data-slot=pagination]'))return;
   if(event.metaKey || event.altKey)return;
+  // Window keys: Ctrl-w (or Space W) then v s w h j k l x = o q f. A pane forwards them to the shell.
+  if(state.windowKey){event.preventDefault();state.windowKey=false;clearTimeout(leaderTimer);if(!['Shift','Control'].includes(event.key))windowCommand(event.key);else state.windowKey=true;reading?.updateStatus();return;}
+  if(event.ctrlKey&&!event.shiftKey&&event.key==='w'&&!state.leader){event.preventDefault();startWindowKey();return;}
+  if(split?.active()&&!state.leader&&!event.ctrlKey&&![' ',',','?'].includes(event.key)&&$('#queue-panel').hidden&&!chatOpen()&&!document.querySelector('dialog[open]')){event.preventDefault();split.refocus();return;}
   if(state.leader===true&&event.key===','){event.preventDefault();clearTimeout(leaderTimer);state.leader=',';leaderTimer=setTimeout(()=>{state.leader=null;reading?.updateStatus();},1200);reading?.updateStatus();return;}
   if(state.leader===','){event.preventDefault();state.leader=null;clearTimeout(leaderTimer);if(event.key==='t'){closeContext();setThemeEditorOpen(true);}else reading?.updateStatus();return;}
   if(!state.leader&&!event.ctrlKey&&(event.key==='Enter'||event.key==='a')&&!event.target.closest('a,button,summary')&&getSelection()?.isCollapsed===false&&$('#article')?.contains(getSelection().anchorNode)){
@@ -907,7 +935,8 @@ document.addEventListener('keydown',event=>{
   }
   if(state.leader){
     event.preventDefault();state.leader=null;clearTimeout(leaderTimer);
-    const commands={'/':openSearch,e:()=>openPicker(),h:()=>navigate(null),t:openThreadList,m:toggleChat,p:openPreferences,r:()=>queue.toggle(),n:()=>queue.next(),v:openEditions,d:changesShortcut,o:()=>outline.toggle(),s:()=>speech.openMenu(),z:()=>{closeContext();reading.toggleZen();},c:()=>prose.press(),'?':()=>openDialog('help')};commands[event.key]?.();return;
+    if(pane&&['?','m','r','n'].includes(event.key)){pane.post({type:'window-key',key:event.key,shell:true});return;}
+    const commands={W:startWindowKey,w:()=>navigate(SCRATCH+'='+crypto.randomUUID()),'/':openSearch,e:()=>openPicker(),h:()=>navigate(null),t:openThreadList,m:toggleChat,p:openPreferences,r:()=>queue.toggle(),n:()=>queue.next(),v:openEditions,d:changesShortcut,o:()=>outline.toggle(),s:()=>speech.openMenu(),z:()=>{closeContext();reading.toggleZen();},c:()=>prose.press(),'?':()=>openDialog('help')};commands[event.key]?.();return;
   }
   if(event.key===' '||event.key===','){event.preventDefault();state.leader=true;leaderTimer=setTimeout(()=>{state.leader=null;reading?.updateStatus();},1200);return;}
   if(event.ctrlKey&&['d','u','f','b'].includes(event.key)){event.preventDefault();if(reading.hasBook())reading.turn(['d','f'].includes(event.key)?1:-1);else scrollToPosition(scrollY+innerHeight*(['d','f'].includes(event.key)?1:-1)*(['d','u'].includes(event.key)?.5:.9));return;}
@@ -922,18 +951,90 @@ document.addEventListener('keydown',event=>{
   else if(event.key==='G'){event.preventDefault();reading.hasBook()?reading.seek(1):scrollToPosition(document.documentElement.scrollHeight);}
   else if(event.key==='/'){event.preventDefault();openFind();}
   else if(event.key==='n'||event.key==='N'){event.preventDefault();nextFind(event.key==='n'?1:-1);}
-  else if(event.key==='?'){event.preventDefault();openDialog('help');}
+  else if(event.key==='?'){event.preventDefault();if(pane)pane.post({type:'window-key',key:'?',shell:true});else openDialog('help');}
   else if(event.key==='q'){event.preventDefault();const offered=event.target.closest?.('[data-path]');if(offered?.dataset.path?.startsWith('library/'))queue.add(offered.dataset.path);else toast('Press q on a document in a list, or on a Read next item, to queue it.');}
   else if(event.key==='h'&&state.cursor>0){event.preventDefault();goBack();}
   else if(event.key==='l'&&state.cursor<state.visits.length-1){event.preventDefault();state.cursor++;navigate(state.visits[state.cursor],{record:false});history.replaceState({reader:true,path:state.visits[state.cursor]},'',routeHash(state.visits[state.cursor]));}
 });
 window.addEventListener('popstate',()=>{
+  // Back into a split layout restores it; Back out of one leaves the split for the earlier single view.
+  if(!EMBEDDED&&location.hash.startsWith('#split=')){if(!split.active()){suspendShell().then(()=>split.restore(location.hash));}return;}
+  if(split?.active())split.dismiss();
   // Back, Forward, a typed URL or a #read= link: keep the h / l visit list in step with where the browser went.
   const path=routeFromHash();
   if(state.visits[state.cursor-1]===path)state.cursor--;else if(state.visits[state.cursor+1]===path)state.cursor++;
   else if(state.visits[state.cursor]!==path){state.visits=state.visits.slice(0,state.cursor+1);state.visits.push(path);state.cursor++;}
   navigate(path,{record:false,at:passageFromHash(),fragment:routeHeading()});
 });
+function startWindowKey(){state.windowKey=true;clearTimeout(leaderTimer);leaderTimer=setTimeout(()=>{state.windowKey=false;reading?.updateStatus();},1500);reading?.updateStatus();}
+function windowCommand(key){
+  if(key==='f'){linkInSplit().catch(report);return;}
+  if(pane){pane.post({type:'window-key',key});return;}
+  if(split.active()){split.command(key);return;}
+  if(key==='v'||key==='s'){startSplit(key==='v'?'row':'col');return;}
+  if(['w','W','h','j','k','l','x','=','o','q'].includes(key))toast('There is one pane. Ctrl-w v or Ctrl-w s splits the window.');
+}
+function startSplit(dir){split.start(dir,cleanRoute(location.hash),{picker:true}).catch(report);}
+/** Open a route in the other pane (Shift-click, Ctrl-w f), splitting the window first when there is one pane. */
+function openInSplit(route){if(!route)return;if(pane){pane.post({type:'open-in-split',route});return;}split.openInSplit(route,cleanRoute(location.hash)).catch(report);}
+async function linkInSplit(){
+  const link=document.activeElement?.closest?.('a[href],[data-path]');
+  if(!link){toast('Focus a link (Tab), then Ctrl-w f opens it in the other pane.');return;}
+  if(link.dataset.path){openInSplit('#read='+param(link.dataset.path));return;}
+  const href=link.getAttribute('href')||'';
+  if(/^(https?:|mailto:)/i.test(href)){toast('Ctrl-w f opens library links; this one leaves Reader.');return;}
+  if(href.startsWith('#read=')){openInSplit(cleanRoute(href));return;}
+  const from=link.closest('.embedded-content')?.dataset.sourcePath||state.doc?.path;if(!from||href.startsWith('#'))return;
+  const resolved=await api('/api/resolve?from='+param(from)+'&target='+param(decodeURI(href)));
+  openInSplit('#read='+param(resolved.path)+(resolved.fragment?'&h='+param(resolved.fragment):''));
+}
+// Split view glue ----------------------------------------------------------------------------
+const SPLIT=Symbol('split');
+/** Empty the single-pane view before a split replaces it: save the place, close panels, drop the document. */
+async function suspendShell(){
+  ++state.routeId;await reading?.leave();closeContext();clearFind();prose?.detach();await state.pdf?.destroy();state.pdf=null;
+  state.smoother?.kill();state.smoother=null;state.doc=null;state.view='split';state.ranges=[];
+  for(const name of ['reader-own','reader-other','reader-warning'])CSS.highlights?.delete(name);
+  outline?.clear();versions?.reset();versions?.update();clearControlsWithin($('#main'));$('#main').replaceChildren();reading?.prepare();
+}
+/** The last split closed: the shell becomes that pane's document again. */
+async function resumeShell(route){
+  history.replaceState({reader:true},'',location.pathname+location.search+(route||''));
+  const path=route?routeFromHash():null;state.visits=[path];state.cursor=0;state.view=null;
+  await navigate(path,{record:false,fragment:routeHeading()});
+}
+/** A pane opens a route the shell sent (an open-in-split target, or a document from the shell's panels). */
+function openRoute(route){
+  history.replaceState(history.state,'',location.pathname+location.search+(route||''));
+  const path=route?routeFromHash():null;navigate(path,{fragment:routeHeading()});
+}
+/** A background pane never takes the keyboard by itself (focus() in a frame would move the window's focus into it). */
+function focusMain(){if(!pane||pane.focused())$('#main').focus({preventScroll:true});}
+function paneFocus(focused,move){
+  if(focused&&move&&!document.querySelector('dialog[open]')&&!$('#main').contains(document.activeElement))$('#main').focus({preventScroll:true});
+  reading?.paneFocus(focused);
+}
+let lastPaneDoc='',lastPaneStatus='';
+function paneStatus(){
+  const status={type:'status',mode:$('#vim-mode').textContent,position:$('#status-position').textContent,path:state.doc?.path||(state.view==='backstage'?BACKSTAGE:state.view==='search'?SEARCH:null)};
+  const now=JSON.stringify(status);if(now!==lastPaneStatus){lastPaneStatus=now;pane.post(status);}
+  const doc=state.doc,ref=doc?(doc.historical?doc.path+'@'+doc.commit:doc.path):null;
+  const message={type:'doc',hash:location.hash,ref,path:doc?.path||null,title:doc?String(doc.metadata?.title||doc.title||''):'',preview:!!doc?.preview,historical:!!doc?.historical};
+  const key=JSON.stringify(message);if(key!==lastPaneDoc){lastPaneDoc=key;pane.post(message);}
+}
+/** While split, the one status bar shows the focused pane: its mode, breadcrumb, place and number. */
+function paintSplitStatus(){
+  if(document.querySelector('dialog[open]')||!$('#queue-panel').hidden||chatOpen())return false;
+  const focused=split.focused();if(!focused)return false;
+  const mode=state.windowKey?'WINDOW':focused.status?.mode||'NORMAL';
+  $('#vim-mode').textContent=mode;$('#vim-mode').dataset.mode=mode;
+  $('#status-keys').innerHTML=state.windowKey?WINDOW_KEYS:'<kbd>Ctrl-w w</kbd> next pane <kbd>Ctrl-w v</kbd> <kbd>s</kbd> split <kbd>Ctrl-w q</kbd> close';
+  breadcrumbs.update(focused.status?.path??null);$('#status-position').textContent=focused.status?.position||'';
+  const indicator=$('#split-indicator');indicator.hidden=false;indicator.textContent=`${focused.number}/${focused.count}${focused.bound?' ⇅':''}`;
+  indicator.title=`Pane ${focused.number} of ${focused.count}${focused.bound?', scrolling with its neighbor':''}`;
+  return true;
+}
+const WINDOW_KEYS='<kbd>v</kbd> side by side <kbd>s</kbd> stacked <kbd>w</kbd> next <kbd>h j k l</kbd> move <kbd>x</kbd> swap <kbd>=</kbd> equal <kbd>o</kbd> only <kbd>q</kbd> close <kbd>f</kbd> link';
 function goBack(){
   if(state.cursor>0){state.cursor--;const path=state.visits[state.cursor];navigate(path,{record:false});history.replaceState({reader:true,path},'',routeHash(path));}
   else navigate(null);
@@ -949,13 +1050,40 @@ controls=installControls({seek:fraction=>reading.seek(fraction),spread:index=>re
   markdown:text=>DOMPurify.sanitize(window.markdownit({html:false,linkify:true}).render(text),{USE_PROFILES:{html:true}})},state.prefs);
 speech=installSpeech({state,api,reading:{capture:()=>reading.capture(),hasBook:()=>reading.hasBook()},notify,track:trackSpeech,openDialog,closeDialog});
 prose=installProseColors({state,api,notify});
-queue=installQueue({state,api,navigate,notify,renderPanel:renderQueuePanel,focusMain:()=>$('#main').focus({preventScroll:true}),onChange:()=>reading?.updateStatus()});
+queue=installQueue({state,api,navigate,notify,renderPanel:renderQueuePanel,focusMain:()=>focusMain(),onChange:()=>reading?.updateStatus()});
 queue.setCloseOthers(()=>{$('#thread-panel').hidden=true;state.activeThread=null;});
-reading=installReading({controls,updateBreadcrumbs:path=>breadcrumbs.update(path),state,api,toast,openPreferences,openThread,revealRange:moveToRange,scrollToPosition,savePrefs,reloadDocument:()=>navigate(state.doc.path,{record:false}),positionPins});
+reading=installReading({statusOverride:()=>{const on=!!split?.active();if(!on)$('#split-indicator').hidden=true;return on&&paintSplitStatus();},onStatus:()=>pane&&paneStatus(),mayCurl:()=>!pane||pane.focused(),scratchStatus:()=>state.view==='scratch'?scratch?.status():null,controls,updateBreadcrumbs:path=>breadcrumbs.update(path),state,api,toast,openPreferences,openThread,revealRange:moveToRange,scrollToPosition,savePrefs,reloadDocument:()=>navigate(state.doc.path,{record:false}),positionPins});
 outline=installOutline({state,reading,$,controls,scrollToPosition,savePrefs,notify});
 links=installLinks({state,api,reading,navigate,openBackstage:()=>navigate(BACKSTAGE)});
-versions=installVersions({state,api,navigate:ref=>navigate(ref),openCompare:openComparison,notify,param,onChange:()=>reading?.updateStatus()});
+scratch=installScratch({state,api,notify,navigate,focusMain:()=>$('#main').focus({preventScroll:true}),updateStatus:()=>reading?.updateStatus(),openChat,
+  renderMarkdown:(container,text)=>renderMarkdown(container,text,'library/notebook/scratch.md',0)});
+versions=installVersions({state,api,navigate:ref=>navigate(ref),openCompare:openComparison,openSideBySide:(older,newer)=>{if(pane)pane.post({type:'open-in-split',compare:{a:older,b:newer}});else split.compare(older,newer,cleanRoute(location.hash)).catch(report);},notify,param,onChange:()=>reading?.updateStatus()});
+if(EMBEDDED)pane=installPane({open:openRoute,save:()=>reading.save(),onFocus:paneFocus,
+  reveal:element=>{if(!reading.hasBook())return false;const range=document.createRange();range.selectNodeContents(element);return reading.reveal(range,false);},
+  scrollBy:delta=>{if(Math.abs(delta)>=1)scrollToPosition(scrollY+delta,false);},seek:fraction=>reading.seek(fraction,false),docFraction:()=>reading.progress()});
+else{
+  split=installSplit({notify,api,param,paint:()=>reading?.updateStatus(),suspend:suspendShell,resume:resumeShell});
+  split.setShellCommands({'?':()=>openDialog('help'),m:toggleChat,r:()=>queue.toggle(),n:()=>queue.next()});
+  document.querySelectorAll('dialog').forEach(dialog=>dialog.addEventListener('close',()=>{if(split.active()&&!document.querySelector('dialog[open]'))split.refocus();}));
+}
+// Theme and preference changes made in another pane (or the shell) arrive as a storage event.
+function prefsFromStorage(){
+  let fresh;try{fresh=JSON.parse(localStorage.getItem('reader.preferences.v1')||'{}');}catch{return;}
+  if(!fresh||typeof fresh!=='object')return;
+  const relayout=typeof fresh.layout==='string'&&fresh.layout!==state.prefs.layout;
+  state.prefs={...state.prefs,...fresh,participant:state.prefs.participant};
+  // A layout change (continuous or two-page) reopens the document in its new layout, at the same place.
+  if(relayout&&state.doc&&!state.doc.preview){const doc=state.doc;reading.save().then(()=>{if(state.doc===doc)navigate(doc.historical?doc.path+'@'+doc.commit:doc.path,{record:false});});}
+  if(knownTheme(state.prefs.theme)&&document.documentElement.dataset.theme!==state.prefs.theme){document.documentElement.dataset.theme=state.prefs.theme;controls.update({theme:state.prefs.theme,prefs:{...state.prefs}});}
+  reading?.updateStatus();
+}
+window.addEventListener('storage',event=>{if(event.key==='reader.preferences.v1')prefsFromStorage();else if(event.key==='reader.themes.v1')loadThemes();});
+window.addEventListener('reader:prefs',prefsFromStorage);
 mountSkeleton($('#main'),'library');
 loadThemes();
-try{await loadLibrary();const path=routeFromHash();if(path){state.visits=[path];const heading=routeHeading();if(location.hash.startsWith('#read='))history.replaceState(history.state,'',location.pathname+location.search+routeHash(path,passageFromHash(),heading));await navigate(path,{record:false,at:passageFromHash(),fragment:heading});}else {state.view='issue';reading.prepare();await renderHome();}}
-catch(error){clearControlsWithin($('#main'));$('#main').innerHTML='<div class="loading-state"><span class="brand-mark">r.</span><h2>The stacks couldn’t open.</h2><p id="load-error"></p></div>';$('#load-error').textContent=error.message;}
+try{await loadLibrary();
+  if(!EMBEDDED&&location.hash.startsWith('#split=')){state.view='split';reading.prepare();await suspendShell();if(split.restore(location.hash))throw SPLIT;history.replaceState(null,'',location.pathname+location.search);}
+  if(EMBEDDED&&new URLSearchParams(location.search).has('picker')){const url=new URL(location.href);url.searchParams.delete('picker');history.replaceState(null,'',url);state.pickerAfterBoot=true;}
+  const path=routeFromHash();if(path){state.visits=[path];const heading=routeHeading();if(location.hash.startsWith('#read='))history.replaceState(history.state,'',location.pathname+location.search+routeHash(path,passageFromHash(),heading));await navigate(path,{record:false,at:passageFromHash(),fragment:heading});}else {state.view='issue';reading.prepare();await renderHome();}
+  if(state.pickerAfterBoot){state.pickerAfterBoot=false;openPicker();}}
+catch(error){if(error!==SPLIT){clearControlsWithin($('#main'));$('#main').innerHTML='<div class="loading-state"><span class="brand-mark">r.</span><h2>The stacks couldn’t open.</h2><p id="load-error"></p></div>';$('#load-error').textContent=error.message;}}

@@ -1827,6 +1827,162 @@ reader --root "$VAULT" queue list --participant You
 
 Inviting voices to do this routinely is not configured here.
 
+### Split view
+
+The window splits into up to four panes, side by side or stacked, each a full
+Reader with its own place, bookmarks, read receipts, find highlights and margin
+threads. Keys go to the focused pane, which has a 2px accent edge.
+
+| Keys | Action |
+| --- | --- |
+| `Ctrl-w v` / `Ctrl-w s` | Split side by side / stacked. The new pane shows the same document and opens the file picker; `Esc` keeps the document. |
+| `Ctrl-w w` / `Ctrl-w h j k l` | Next pane / the pane in that direction, by geometry. |
+| `Ctrl-w x` / `Ctrl-w =` | Swap with the next pane / equal sizes. |
+| `Ctrl-w o` / `Ctrl-w q` | Keep only the focused pane / close it. |
+| `Ctrl-w f`, Shift-click | Open the focused (or clicked) library link in the other pane, splitting first if there is one pane; the target pane takes focus. |
+| `Space W` | The same prefix as `Ctrl-w`, for browsers that reserve Ctrl-W (Linux and Windows close the tab). |
+
+Dragging a divider resizes its neighbours; panes stay at least 320px wide and
+200px tall, and a split that would go below that is refused with a toast. A fifth
+pane is refused ("Up to 4 panes."). Below 700px splitting is refused, and an
+existing split shows only the focused pane until the window widens.
+
+**How it works.** While a split exists, the top document is a shell: it hides its
+own article and lays out same-origin `<iframe src="/?pane=1#read=…">` panes, each
+running the unchanged app in embedded mode (`web_ui/split.mjs`). Every pane has its
+own state, `#article`, `CSS.highlights` registry, reading controller and key
+handler, and `innerHeight` and every `@media` rule measure the pane, so two-page
+reading in a 637px pane uses one column. When one pane is left (`Ctrl-w o`, or
+`q` on a two-pane split) the shell asks each pane to save its place, removes the
+iframes and opens that pane's document itself, so single-pane Reader has no iframe.
+
+- **Embedded mode.** `?pane=1` hides the pane's status bar and summon button,
+  navigates with `history.replaceState` (a pane never adds to the window's session
+  history; `h` / `l` still walk its own visit list), forwards `Ctrl-w` sequences,
+  `?`, `Space m`, `Space r` and `Space n` to the shell, sends toasts to the shell's
+  toaster, and retries a read once after a 429. A background pane never takes the
+  keyboard by itself. Bookmarks, receipts and annotations post from the pane as the
+  same participant.
+- **The shell.** One status bar shows the focused pane's mode, breadcrumb and
+  position, with `2/3` for the pane number and `⇅` while it scrolls with a
+  neighbour. Help, chat, the queue and toasts open over the window and act on the
+  focused pane; a document chosen in the shell's picker, queue or breadcrumb opens
+  in the focused pane. Theme and preference changes reach every pane through the
+  `localStorage` `storage` event (and a `prefs-changed` message); a layout change
+  reopens each pane's document in the new layout.
+- **Layout and history.** The layout tree (rows and columns with fractional sizes)
+  is kept in `#split=<json>`: pane routes are paths only (`#read=<path>` with an
+  optional heading, `#search`, `#backstage`, `#issue=…`), never search text or
+  passage terms. Reload restores the tree and focus. Creating a split adds one
+  history entry; browser Back leaves the split for the single view before it, and
+  Forward restores it. Panes load 250 ms apart.
+- **Messages.** `postMessage` with `targetOrigin` set to the page origin; receivers
+  check `event.origin` and `event.source` against known frames and ignore messages
+  over 64 KiB. Pane → shell: `status`, `doc`, `toast`, `focus-request`,
+  `window-key`, `open-in-split`, `scroll`, `saved`. Shell → pane: `focus`, `blur`,
+  `open`, `scroll-to`, `prefs-changed`, `save`.
+- **Page turns.** Only the focused pane loads the Three.js page turner; a pane that
+  loses focus disposes its WebGL context and turns spreads by sliding until focused.
+
+**Synchronized scrolling.** The `⇅` button on a divider links the two panes beside
+it (and unlinks them). The focused pane reports the `data-source-start` of its
+topmost visible block, how far into it the view is and the block's position, once
+per frame; the linked pane lines the matching block up at the same height:
+
+- the same file at the same version: the same source offset;
+- two versions (the same path, or the pair from *Compare side by side*): the offset
+  is mapped across the block hunks of `/api/changes?a=&b=`, fetched once per pair
+  (hunks carry `old_start`/`old_end` as well as `new_start`/`new_end`);
+- different documents: the nearest preceding heading with the same normalized text,
+  level and repeat, else the same fraction of the document.
+
+In two-page mode the follower turns to the matching spread.
+
+**Compare side by side.** In the Versions panel (`Space v`), choose a version and
+press *Compare side by side*: it opens left of the current one in a vertical split,
+scrolling together.
+
+Limits and boundaries: at most four panes, each a full app instance with its own
+`/api/library` load; no per-pane themes; no splits on phones; `:vsplit` / `:split`
+and `:set scrollbind` wait for the `:` command line (RW-18), so the divider button
+is the scrollbind control.
+
+Checks: `node --test tests/split.test.mjs` (tree operations, layout, routes, hunk
+mapping, heading fallback) and `node tests/web_split.cjs` (synthetic fixture with
+`--links --editions --versions`).
+
+### Scratch pad
+
+`Space w` opens a new Markdown buffer at `#scratch=<id>`; `#scratch` opens the latest
+draft. Back and reload work. The buffer is a monospace Markdown source editor
+(CodeMirror 6 with Vim keys from `@replit/codemirror-vim`, Markdown syntax highlighting
+in theme tokens) beside a live preview drawn by the document renderer (the same
+markdown-it pipeline, DOMPurify, KaTeX and Mermaid diagrams as library documents), updated
+150 ms after typing stops. The preview marks and scrolls to the cursor's block through
+`data-source-start`, whose code-point offsets map directly to the buffer.
+
+- **Layouts.** *Side by side*, *Source* and *Preview*; the bar's layout button or
+  `:preview` cycles them. Below 900px a buffer opens in Source; at phone width the
+  layout is one column with 16px gutters.
+- **Keys.** Inside the editor Vim owns the keys: modes, `/`, registers, and the Ex
+  commands `:w` (save on this device), `:write vault` (the save dialog), `:preview`,
+  `:drafts`, `:cite` (insert your last selected passage as a quote linked from the
+  notebook), `:enew`, `:e scratch` and `:e scratch=<id>`. Escape in insert or visual
+  mode returns to normal mode; Escape in normal mode leaves the editor for Reader
+  NORMAL, where `Space` keys work again. The status line shows `SCRATCH · INSERT` (or
+  NORMAL, VISUAL), the word count and the save state: *Unsaved*, *Saved on this
+  device*, *Not saved on this device* or *In vault*.
+- **Drafts.** Drafts are kept in this browser's IndexedDB (`reader-scratch`, store
+  `drafts`, `{id, title, body, created, updated, responds_to?, base?, vault_path?}`),
+  800 ms after typing stops and when the page is hidden. No draft text reaches the
+  server before a vault save. *Drafts* (or `:drafts`) lists them; `j` `k` move,
+  `Enter` opens, `x` deletes after confirmation. A browser keeps at most 200 drafts and
+  asks before removing the oldest. Without IndexedDB the editor still works and says
+  *Not saved on this device*.
+- **Save to vault** (`:write vault` or the button) asks for the title, slug, status
+  (draft or published) and an optional *responds to* path, which defaults to the
+  document you opened the buffer from. It shows the path, then `POST /api/writing`
+  writes `library/notebook/YYYY-MM-DD-<slug>.md` and toasts once committed:
+
+  ```yaml
+  title: "On splits"
+  author: "Ada Example"        # git config user.name in the vault, else the participant
+  participant: "You"
+  date: 2026-10-24
+  kind: Notebook
+  status: draft
+  responds_to: "library/…md"   # optional, with responds_to_sha256
+  document_revision: 1
+  tags: [you/writing]
+  ```
+
+  An existing path is never overwritten: the server answers 409 with a free
+  `<slug>-2` suggestion, which the dialog fills in. The file is written to a temporary
+  file and hard-linked into place (which fails if the name appeared meanwhile), then
+  only that file is committed through `git locks with … .git/ --wait 120` when git-locks
+  is installed (and a flock shared with chat commits), with `Reader-Writing: <path>` and
+  `Reader-Participant: <participant>` trailers. A failed or timed-out commit leaves the
+  file written but uncommitted and says so. The server never edits `library/index.md`,
+  `writings/` or browse indexes: filing into collection navigation is librarian upkeep.
+- **New versions.** A draft saved once, or opened with *Edit in scratch* on a notebook
+  piece, saves as `<name>.v2.md` (then `.v3.md` …) beside the original, with
+  `document_revision` incremented, `previous_version` and an optional
+  `what_shifted` note. The original bytes never change, and the save is refused (409)
+  when the base file's sha256 changed since the draft opened.
+- **Ask a voice to respond** appears after a vault save: it opens a chat about the
+  saved piece with a request to respond in the composer.
+
+Limits: 64 KiB per body (UTF-8), 200-character one-line titles, slugs
+`[a-z0-9-]{1,60}`, one write per request, idempotent by `request_id` for the life
+of the server process, and writes only under `library/notebook/` (a symlinked
+`library/` or `library/notebook/` is refused). The editor is the lazy
+`controls/editor.js` chunk (`web/src/markdown-editor.ts`, a reusable
+`createMarkdownEditor(parent, options)`), requested only when a buffer opens.
+
+Checks: `pytest tests/test_writing.py`, `node --test tests/scratch.test.mjs` and
+`node tests/web_scratch.cjs` (synthetic fixture with `--writing`: a temporary Git
+vault with flock-only commits).
+
 ### Obsidian callouts
 
 Markdown blockquotes that begin with an Obsidian callout marker render as callouts
@@ -2324,7 +2480,9 @@ event files. POST `/api/prose` colors visible prose of
 the current edition (see Prose colors). POST `/api/queue` takes
 `{participant, action: add|remove|move|pin|clear, path, index?, request_id, added_by?, reason?, current?}`
 and returns the queue view. POST `/api/history` takes `{participant, action: "open", path, sha256}`
-(the digest must match the current source) or `{participant, action: "hide", path}`. Source-file GET supports a
+(the digest must match the current source) or `{participant, action: "hide", path}`. POST `/api/writing` takes
+`{action: "save", body, title, slug, status, responds_to?, base?, shifted?, participant?, request_id}` and
+writes one notebook file (see Scratch pad); 409 means the target exists (with `suggestion`) or the base changed. Source-file GET supports a
 single bounded byte range for PDF loading. A well-formed library path with nothing
 at it returns 404 (`No document at this path…`); other refused paths return 400.
 `GET /api/health` returns

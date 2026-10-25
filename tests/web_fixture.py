@@ -551,7 +551,20 @@ def main():
             prose = Prose(environ={'PATH': str(root / 'inbox'), 'HOME': str(root)})
         # Never the real service script: it would report (and act on) this Mac's installed service.
         service = FakeService() if '--service' in sys.argv else (lambda argv: {'installed': False})
-        library = WebLibrary(root, font_fetcher=fetcher, maintenance_runners=runners, inbox_environ=inbox_environ, chat_options=chat_options, local_model=local, prose=prose, service_runner=service)
+        writing_options = None
+        if '--writing' in sys.argv:
+            # A synthetic vault repository for scratch pad saves; commits use flock only (never the workstation lock store).
+            import subprocess
+            env = {'PATH': '/usr/bin:/bin:/usr/local/bin:/opt/homebrew/bin', 'GIT_CONFIG_GLOBAL': '/dev/null', 'GIT_CONFIG_NOSYSTEM': '1', 'HOME': '/dev/null'}
+            if not (root / '.git').exists():
+                subprocess.run(['git', '-C', str(root), 'init', '-q', '-b', 'main'], env=env, check=True, capture_output=True)
+            for key, value in (('user.name', 'Synthetic Writer'), ('user.email', 'writer@example.invalid')):
+                subprocess.run(['git', '-C', str(root), 'config', key, value], env=env, check=True, capture_output=True)
+            (root / 'library/index.md').write_text('# Library index\n')
+            subprocess.run(['git', '-C', str(root), 'add', 'library/index.md'], env=env, check=True, capture_output=True)
+            subprocess.run(['git', '-C', str(root), 'commit', '-q', '-m', 'Synthetic index'], env=env, check=True, capture_output=True)
+            writing_options = {'git_locks': False}
+        library = WebLibrary(root, writing_options=writing_options, font_fetcher=fetcher, maintenance_runners=runners, inbox_environ=inbox_environ, chat_options=chat_options, local_model=local, prose=prose, service_runner=service)
         if '--search-page' in sys.argv:
             search_page_fixture(root, works, library)
         server = WebServer(('127.0.0.1', 0), library, 'Browser tester')

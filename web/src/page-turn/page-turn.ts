@@ -68,6 +68,8 @@ export class PageTurner{
   }
   get busy(){return !!this.running;}
   finish(){this.running?.finish();}
+  /** Release the WebGL context (a split pane that loses focus gives its context up). */
+  dispose(){this.finish();this.renderer.dispose();this.renderer.forceContextLoss();}
   private texture(canvas:HTMLCanvasElement){const t=new CanvasTexture(canvas);t.colorSpace=NoColorSpace;t.minFilter=LinearFilter;t.generateMipmaps=false;t.anisotropy=this.renderer.capabilities.getMaxAnisotropy();return t;}
 
   /** Flip one sheet. Resolves after the overlay is removed and `commit` has run. */

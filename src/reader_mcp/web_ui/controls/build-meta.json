@@ -8,9 +8,9 @@
   "sources": {
     "../src/reader_mcp/web_ui/famous-themes.json": "0d0eddf04d8e3d4268111e29c53d73e03d202dfca4f1ad5e92aa90dc8941a3aa",
     "../src/reader_mcp/web_ui/theme-tokens.json": "dbae5604b6b6843489d353888d9360c1c1eb24bb07baa650ef1534b67ecc33d2",
-    "build.mjs": "188233d2174d214f1b2666beb89152cf78e18fb84bfd242f1fe681d3da708008",
+    "build.mjs": "d232673d3c7cc41cb8de5c8da1b8d82cb6fcdad403a8ac7cc7bedd387434b570",
     "components.json": "6bcabb7870c5c5634cf69e9138a782ca7242f00cfc94e2cc3de981dc84cb6f6b",
-    "package-lock.json": "d2cac43df284e912ddef5e7711cceab3363e4afc6d54e7c4e7c1d6924a43ae67",
+    "package-lock.json": "75313fd21ec73e8d176ed64cf296b12fc176880cab986dc8240a07f47dd1ed5e",
     "src/activity/reducer.ts": "44af5ec36d572ae62673b1f8f94ce4b2f4f75999b5e2a0169e21daee9333cfe8",
     "src/activity/transcript.tsx": "2055824889b5f3fbdfb5bed8c7c21d6231323911242930bb88b631a3723bcee8",
     "src/backstage.tsx": "4ce300b2f16f504a08a83089c4c676730789e672ec1fdd1d1217b218c68d67e4",
@@ -51,9 +51,10 @@
     "src/diagrams.ts": "6afe727e3302c2d2ddd4a023105a5a6cf36b6ac969e3ceb2d51f0f0712b326ea",
     "src/document-tree.tsx": "9f54593440ed174d2e92e8da2ee951ea62bb5e0d021dbcd12431341b8233d55b",
     "src/local-model.tsx": "cd212b404381fd280fa63e5c1bcb9276ae2e589ec1a00f421c040d24e6173f72",
+    "src/markdown-editor.ts": "bd1c80e04bb521d63102f5d32c288ebf10da24b412ed1751c2c8bde9505284bb",
     "src/math.ts": "75df1ce8e43e3a75e249a959ca89fcf20144888a3aaea933a761903d50c832dc",
     "src/outline.tsx": "24bec26b51b1b5e487d6604983cb4eb75bc30a9f68b097717165c51cdfcfd5ac",
-    "src/page-turn/page-turn.ts": "a7394653fe5fa10945be8d853dbfa958cd20aaad4845c7ccbf297183bdb507ce",
+    "src/page-turn/page-turn.ts": "fca2fca355de2ac96a2a88157162dfe023ea1751d4e4459aa77dec2613d08727",
     "src/page-turn/rasterize.ts": "a44b5b0f9169f8b1e454e305d36237895b9543985708e2d74a3fddfc0f4cfe24",
     "src/page-turn/svg-images.ts": "7279f2b05c66b7a496d2b891b65030e6738f90b032fabbdf9057106f518d887e",
     "src/plural.ts": "4c0d0698a171b39d5683548f00e2e9a8a7c5ea1af28e4067aaa63612476b5fa2",
@@ -79,6 +80,50 @@
       "version": "0.5.0",
       "license": "MIT"
     },
+    "@codemirror/autocomplete": {
+      "version": "6.20.4",
+      "license": "MIT"
+    },
+    "@codemirror/commands": {
+      "version": "6.11.1",
+      "license": "MIT"
+    },
+    "@codemirror/lang-css": {
+      "version": "6.3.1",
+      "license": "MIT"
+    },
+    "@codemirror/lang-html": {
+      "version": "6.4.12",
+      "license": "MIT"
+    },
+    "@codemirror/lang-javascript": {
+      "version": "6.2.5",
+      "license": "MIT"
+    },
+    "@codemirror/lang-markdown": {
+      "version": "6.5.2",
+      "license": "MIT"
+    },
+    "@codemirror/language": {
+      "version": "6.13.1",
+      "license": "MIT"
+    },
+    "@codemirror/search": {
+      "version": "6.7.2",
+      "license": "MIT"
+    },
+    "@codemirror/state": {
+      "version": "6.7.6",
+      "license": "MIT"
+    },
+    "@codemirror/streamparser": {
+      "version": "6.0.0",
+      "license": "MIT"
+    },
+    "@codemirror/view": {
+      "version": "6.43.15",
+      "license": "MIT"
+    },
     "@floating-ui/core": {
       "version": "1.8.0",
       "license": "MIT"
@@ -95,6 +140,46 @@
       "version": "0.2.12",
       "license": "MIT"
     },
+    "@lezer/common": {
+      "version": "1.5.4",
+      "license": "MIT"
+    },
+    "@lezer/css": {
+      "version": "1.3.9",
+      "license": "MIT"
+    },
+    "@lezer/highlight": {
+      "version": "1.2.5",
+      "license": "MIT"
+    },
+    "@lezer/html": {
+      "version": "1.3.13",
+      "license": "MIT"
+    },
+    "@lezer/javascript": {
+      "version": "1.5.6",
+      "license": "MIT"
+    },
+    "@lezer/lr": {
+      "version": "1.4.11",
+      "license": "MIT"
+    },
+    "@lezer/markdown": {
+      "version": "1.8.1",
+      "license": "MIT"
+    },
+    "@marijn/find-cluster-break": {
+      "version": "1.0.4",
+      "license": "MIT"
+    },
+    "@replit/codemirror-vim": {
+      "version": "6.4.0",
+      "license": "MIT"
+    },
+    "@replit/codemirror-vim-core": {
+      "version": "0.1.0",
+      "license": "MIT"
+    },
     "@shadcn/react": {
       "version": "0.3.1",
       "license": "MIT"
@@ -109,6 +194,10 @@
     },
     "cn": {
       "version": "0.5.0",
+      "license": "MIT"
+    },
+    "crelt": {
+      "version": "1.0.7",
       "license": "MIT"
     },
     "culori": {
@@ -147,6 +236,10 @@
       "version": "2.0.8",
       "license": "MIT"
     },
+    "style-mod": {
+      "version": "4.1.4",
+      "license": "MIT"
+    },
     "tailwindcss": {
       "version": "4.3.3",
       "license": "MIT"
@@ -161,6 +254,10 @@
     },
     "use-sync-external-store": {
       "version": "1.7.0",
+      "license": "MIT"
+    },
+    "w3c-keyname": {
+      "version": "2.2.8",
       "license": "MIT"
     }
   },
@@ -393,6 +490,10 @@
       "bytes": 24647,
       "sha256": "693fbc36390bc60b94a6044d2a5055c7248aa7968dfc7a42746f7e6e89b9d2f5"
     },
+    "editor.js": {
+      "bytes": 460049,
+      "sha256": "61e5246f37e7f4ee38cb06fa3e00361b40d905679723ddaf3a6c265da679cffd"
+    },
     "famous-themes.css": {
       "bytes": 23804,
       "sha256": "ee72d088e486a121b630f5b97267ff6721dac4a4d5316fd932f4c55fd5f4d813"
@@ -489,6 +590,50 @@
       "bytes": 1072,
       "sha256": "07fc1b39d69d14bc7d40482a628f47226258eb01265db68ae684944b916beb2a"
     },
+    "licenses/@codemirror-autocomplete-LICENSE": {
+      "bytes": 1118,
+      "sha256": "05c6130cda97e7600ca91427a41e8a065efcf82365fc0293e7de80faec494c07"
+    },
+    "licenses/@codemirror-commands-LICENSE": {
+      "bytes": 1118,
+      "sha256": "05c6130cda97e7600ca91427a41e8a065efcf82365fc0293e7de80faec494c07"
+    },
+    "licenses/@codemirror-lang-css-LICENSE": {
+      "bytes": 1118,
+      "sha256": "05c6130cda97e7600ca91427a41e8a065efcf82365fc0293e7de80faec494c07"
+    },
+    "licenses/@codemirror-lang-html-LICENSE": {
+      "bytes": 1118,
+      "sha256": "05c6130cda97e7600ca91427a41e8a065efcf82365fc0293e7de80faec494c07"
+    },
+    "licenses/@codemirror-lang-javascript-LICENSE": {
+      "bytes": 1118,
+      "sha256": "05c6130cda97e7600ca91427a41e8a065efcf82365fc0293e7de80faec494c07"
+    },
+    "licenses/@codemirror-lang-markdown-LICENSE": {
+      "bytes": 1118,
+      "sha256": "05c6130cda97e7600ca91427a41e8a065efcf82365fc0293e7de80faec494c07"
+    },
+    "licenses/@codemirror-language-LICENSE": {
+      "bytes": 1118,
+      "sha256": "05c6130cda97e7600ca91427a41e8a065efcf82365fc0293e7de80faec494c07"
+    },
+    "licenses/@codemirror-search-LICENSE": {
+      "bytes": 1118,
+      "sha256": "05c6130cda97e7600ca91427a41e8a065efcf82365fc0293e7de80faec494c07"
+    },
+    "licenses/@codemirror-state-LICENSE": {
+      "bytes": 1118,
+      "sha256": "05c6130cda97e7600ca91427a41e8a065efcf82365fc0293e7de80faec494c07"
+    },
+    "licenses/@codemirror-streamparser-LICENSE": {
+      "bytes": 1118,
+      "sha256": "05c6130cda97e7600ca91427a41e8a065efcf82365fc0293e7de80faec494c07"
+    },
+    "licenses/@codemirror-view-LICENSE": {
+      "bytes": 1118,
+      "sha256": "05c6130cda97e7600ca91427a41e8a065efcf82365fc0293e7de80faec494c07"
+    },
     "licenses/@floating-ui-core-LICENSE": {
       "bytes": 1089,
       "sha256": "0e4c9a9b6c71019cbbea3bdc20b01223110a9035700f9c960c8fcbf78c2325ce"
@@ -505,6 +650,46 @@
       "bytes": 1089,
       "sha256": "0e4c9a9b6c71019cbbea3bdc20b01223110a9035700f9c960c8fcbf78c2325ce"
     },
+    "licenses/@lezer-common-LICENSE": {
+      "bytes": 1113,
+      "sha256": "568902fb66eaf1f11750e966b33fd7b5d7c618e65af09f35ef843635bcf5f1ba"
+    },
+    "licenses/@lezer-css-LICENSE": {
+      "bytes": 1113,
+      "sha256": "568902fb66eaf1f11750e966b33fd7b5d7c618e65af09f35ef843635bcf5f1ba"
+    },
+    "licenses/@lezer-highlight-LICENSE": {
+      "bytes": 1113,
+      "sha256": "568902fb66eaf1f11750e966b33fd7b5d7c618e65af09f35ef843635bcf5f1ba"
+    },
+    "licenses/@lezer-html-LICENSE": {
+      "bytes": 1113,
+      "sha256": "568902fb66eaf1f11750e966b33fd7b5d7c618e65af09f35ef843635bcf5f1ba"
+    },
+    "licenses/@lezer-javascript-LICENSE": {
+      "bytes": 1113,
+      "sha256": "568902fb66eaf1f11750e966b33fd7b5d7c618e65af09f35ef843635bcf5f1ba"
+    },
+    "licenses/@lezer-lr-LICENSE": {
+      "bytes": 1113,
+      "sha256": "568902fb66eaf1f11750e966b33fd7b5d7c618e65af09f35ef843635bcf5f1ba"
+    },
+    "licenses/@lezer-markdown-LICENSE": {
+      "bytes": 1113,
+      "sha256": "54bd812a6d334e0c438b78a43cea74b67e882739fd3450115ddc7c52be5706c1"
+    },
+    "licenses/@marijn-find-cluster-break-LICENSE": {
+      "bytes": 1102,
+      "sha256": "9360b00fdd091f05c783b568bdd46c679c41b72415599252de98949462ea1acb"
+    },
+    "licenses/@replit-codemirror-vim-LICENSE": {
+      "bytes": 1112,
+      "sha256": "aa8f65819a471c1a25fb3c0816c5a75e45f009b7899d292ee3cc70d9dbdd8f7e"
+    },
+    "licenses/@replit-codemirror-vim-core-LICENSE": {
+      "bytes": 1112,
+      "sha256": "aa8f65819a471c1a25fb3c0816c5a75e45f009b7899d292ee3cc70d9dbdd8f7e"
+    },
     "licenses/@shadcn-react-LICENSE.md": {
       "bytes": 1063,
       "sha256": "1564074e13439397221ffd522e2e504d56561994a23d371aa5e3ad43e4f5423f"
@@ -520,6 +705,10 @@
     "licenses/cn-LICENSE": {
       "bytes": 1063,
       "sha256": "00ff8408e93e2ecc4d90c0edeabdf434100c3aff50acc5d330e17eccd4a3faa5"
+    },
+    "licenses/crelt-LICENSE": {
+      "bytes": 1089,
+      "sha256": "23852ebf6aef7fadffc92514b3c5df163a8651f2c3ed0dbb494cb49d93bd5de5"
     },
     "licenses/culori-LICENSE": {
       "bytes": 1066,
@@ -561,6 +750,10 @@
       "bytes": 1070,
       "sha256": "da9201378c36ffd81f51ad0b305f3f0981e90bc558789210ad65d1161eec3b7d"
     },
+    "licenses/style-mod-LICENSE": {
+      "bytes": 1100,
+      "sha256": "cb4474e26547397169061d3586c00022cda5330a1b64fa13e872319f3b63aff1"
+    },
     "licenses/tailwindcss-LICENSE": {
       "bytes": 1071,
       "sha256": "60e0b68c0f35c078eef3a5d29419d0b03ff84ec1df9c3f9d6e39a519a5ae7985"
@@ -577,21 +770,25 @@
       "bytes": 1088,
       "sha256": "da6d3703ed11cbe42bd212c725957c98da23cbff1998c05fa4b3d976d1a58e93"
     },
+    "licenses/w3c-keyname-LICENSE": {
+      "bytes": 1100,
+      "sha256": "869c30f368eb08735e779027b9f4bc9fea2f39624351856aebe42741f0bc0884"
+    },
     "math.js": {
       "bytes": 270050,
       "sha256": "f07bd652ea62886cfa10d528c2b122207ce7ec1540ec61df2c30a5c5d2dbc748"
     },
     "page-turn.js": {
-      "bytes": 545618,
-      "sha256": "fdcb6487331a68b5d1774e4b679781a5247e496a742ef35ce4c6a95ac92ee104"
+      "bytes": 545699,
+      "sha256": "8ca77d719dcc23c9557f7050558a7ff332efb8b58f48fe0342f4220f833c0e98"
     },
     "page-turn.js.LEGAL.txt": {
       "bytes": 188,
       "sha256": "cc7cc7e2f53d5db0235ab2226e85fc6e91655161573b39813b41bb00e5919674"
     },
     "reader-controls.css": {
-      "bytes": 139400,
-      "sha256": "b4e7506fe9cea64ebe704e66e72aae04ad0b25b22d2f9d01eda52fd41f904534"
+      "bytes": 139474,
+      "sha256": "d16ca3ac9a3d3ead62529e9aa62b53b2d1fe90ced9a690085ea5b4b306327a65"
     },
     "reader-controls.js": {
       "bytes": 882707,
