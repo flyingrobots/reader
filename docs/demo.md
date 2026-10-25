@@ -96,8 +96,8 @@ How it is made:
 2. It serves that vault with the real web server on a loopback port and requests every GET route the
    reader needs for it: the library, each document and edition, margins, readers, editions and
    history, every recorded version, What changed against you, each reader and the newer edition,
-   Read next, the link graph, standfirsts, article shapes, the queue, history, the inbox, chats and
-   every magazine issue window. Each distinct answer is stored once under `data/r/`, and
+   Read next, the link graph, standfirsts, article shapes, each document's art (and every version of
+   art that has more than one), the queue, history, the inbox, chats and every magazine issue window. Each distinct answer is stored once under `data/r/`, and
    `data/manifest.json` maps each request (route plus sorted query, without the UTC offset `tz`) to
    its answer and status.
 3. It writes `data/search.json` (the passages of the vault's keyword index), `data/resolve.json`
@@ -120,6 +120,8 @@ the normal server, which never loads it, is unaffected. With the flag it replace
 | `/api/file?path=…`, image `src` | The copy under `files/` |
 | `POST /api/annotations` (create, reply, resolve), `/api/bookmark`, `/api/seen`, `/api/history` | Kept in this browser's `localStorage` (`reader.static-demo.v1`) and merged into margins and bookmarks |
 | Chat posts, the queue, themes, maintenance, inbox runner, local model, service, speech, prose colors, comparing two arbitrary versions | A JSON error with `unavailable: true` that says to run Reader locally (status 501, or 503 for machine routes) |
+| `/api/art` | The exported scene, Artist's note and versions, drawn by Reader's own renderer in the browser; still images and running jobs are not exported (without WebGL the Artist's note shows instead) |
+| `/api/art/jobs`, `POST /api/art` | No jobs and one producer flagged `static_demo`, so **Generate art** reads **Generate art (run Reader locally)** and answers with a note that making art needs Reader on your computer; a still upload is accepted and dropped |
 | `/api/chat/stream` | A quiet stream (`hello`, then `ping` every 15 s) |
 
 A dismissible note says that changes stay in this browser and links to the local demo, with
@@ -129,7 +131,8 @@ A dismissible note says that changes stay in this browser and links to the local
 `.reader-static-demo` marker; a refresh replaces everything else). Exported answers drop
 `absolute_path`, `token` and `codex` fields, and the export refuses to finish if any text file
 contains the vault's absolute path or the home folder. The routes that describe the machine (local
-model, service, health, prose colors, speech) are never exported. The budget is 5,000 files and
+model, service, health, prose colors, speech, art jobs and the voices that can make art, art still
+images) are never exported. The budget is 5,000 files and
 64 MiB; the demo is about 12 MiB in under 1,000 files, of which the UI (`assets/`, mostly PDF.js
 fonts and maps, Three.js and KaTeX) is about 9 MiB. Issue windows, queue views and history are
 snapshots of the export day; history is grouped in UTC.

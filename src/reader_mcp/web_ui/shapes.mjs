@@ -123,7 +123,7 @@ export async function paintShape(figure,shape,{title,live=false,motion=true,onPa
   const surface=document.createElement('div');surface.className='shape-surface';surface.dataset.readerDecoration='';
   figure.replaceChildren(surface);figure.dataset.form=shape.form;figure.dataset.readerDecoration='';figure.tabIndex=0;
   if(shape.form==='terms')figure.title=shape.note||'Rebuild the search index for the full shape';
-  const caption=document.createElement('figcaption');caption.className='shape-caption';caption.textContent=shape.form==='terms'?'Article shape · terms only':'Article shape · experiment';figure.append(caption);
+  const caption=document.createElement('figcaption');caption.className='shape-caption';caption.textContent=shape.form==='terms'?'Article shape · terms only':'Article shape · data view';figure.append(caption);
   describe(figure,shape,title);
   let layout=()=>({beads:[],stars:[]}),highlight=null;
   const asImage=(url,frame)=>{const image=new Image();image.className='shape-still';image.alt='';image.src=url;image.width=width;image.height=height;surface.replaceChildren(image);layout=()=>frame;figure.dataset.state='still';};

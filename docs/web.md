@@ -498,8 +498,9 @@ current one.
   issues** list of the last twelve weeks that hold pieces.
 - **Cover story:** a large serif headline with a kicker (Cover story · project ·
   type), a standfirst, and a byline with author, date, approximate reading time and
-  read state. With [article shapes](#article-shapes-experiment) on, the cover's art
-  is the article's shape; otherwise the cover is typographic.
+  read state. When the cover story has [bespoke art](#article-art), it is drawn
+  above the kicker; otherwise the cover is typographic, with a small **Make cover
+  art** button when a producer is available and automatic art is off.
 - **Features:** up to four more pieces, each from a different project.
 - **Summary:** counts of new and unread pieces and sections, and a link to the
   week's newsletter when one exists.
@@ -596,11 +597,236 @@ Section slots for rediscovery, connections and open questions appear only when
 those features provide content; none is built in yet. Cover art from Mermaid
 diagrams is not implemented.
 
-### Article shapes (experiment)
+### Article art
 
-An experiment, on by default and switched off in Settings (**Article shapes ·
-Experiment**). Selected articles get a slowly moving Three.js figure computed from
-their own text: the path the argument takes through meaning-space, drawn as a ribbon
+Featured articles get bespoke art: an agent reads the article, writes an **art
+brief** (a short description of imagery, mood, palette relationships, motion and
+composition rooted in the article's ideas), then turns the brief into a **scene
+description** in Reader's declarative scene language. Reader validates the scene and
+draws it with its own Three.js interpreter. No model-written code ever runs in the
+page. The brief is shown beside the art as the **Artist's note**, with who made it.
+It is decoration (`data-reader-decoration`): find, selection and annotations ignore it.
+
+**Where it shows.**
+
+- **Cover story:** the art, above the kicker (in the document it follows the
+  headline). One live canvas per page.
+- **Features:** a small still thumbnail above each feature's kicker, for pieces
+  that have art.
+- **An open article:** **Space g** or `:art` shows the open article's art above
+  everything else on its first page, and keeps showing art for articles opened later in this tab;
+  Space g again hides it. A piece without art shows a calm placeholder that says
+  who would make it and roughly how long it takes, with **Generate art**. When no
+  voice or local model can make art, the placeholder says so and offers **Set up a
+  voice**, which opens Behind the scenes at Companions (its *Agents and models*
+  card lists the agent command lines Reader found); Generate art from the magazine
+  then shows an information toast instead of an error.
+  `:generate-art` commissions another version for the open article. In two-page
+  reading the art is a still image, so the page turn can rasterize it.
+
+Pieces without art show nothing special. The RW-20 shape (the passages projected
+through meaning-space) is no longer cover art; it remains as a data view, `:shape`
+([Article shapes](#article-shapes-data-view)).
+
+**The Artist's note.** **Artist's note** under the art opens the brief, its title, and
+a provenance line: *Made by <voice or local model> (<model>) · for this edition |
+for an earlier edition · date · time taken · tokens · cost*, as far as the producer
+reported them (Claude Code reports a price; Codex and agy report tokens; the local
+model is "local GPU"; "cost not reported" otherwise), and "repaired once" when the
+validator sent the scene back. With several versions it shows *version n of m*,
+**‹ Newer** / **Older ›**, **Keep this one** (the favorite) and **Make another
+version**. The art's surface is `role="img"`, labelled with the artwork's title and
+described (`aria-describedby`) by the note, so the brief is the text alternative.
+
+**Which version is shown:** the favorite, if one was kept; else the newest version
+for the current edition; else the newest for any earlier edition (labelled *for an
+earlier edition*). A new edition never removes old art.
+
+**Settings** (Behind the scenes):
+
+- **Article art** (on by default) shows art on the cover, features and with Space g.
+- **Art made by:** *Default* (the server's choice: the first runnable voice in
+  `voices.json`, else the local model), any runnable voice, or **Local model**
+  (the model configured for the local-model provider). Manual voices cannot make art.
+- **Make art automatically:** *Off* (the default: only when you ask), *For each
+  issue's cover story*, or *For the cover story and features*. The issue then
+  commissions art once per page session for featured pieces that have no art for
+  their current edition; the server also skips a piece with a commission queued and
+  one whose edition failed in the last 24 hours.
+
+**Jobs and toasts.** A commission is a background job; reading never waits for it.
+While one runs, the page polls `GET /api/art/jobs` every 2 s and toasts *Making art
+for ‘…’…* (with the stage), then *Art ready* (with who and how long), *failed* (with
+the reason) or *cancelled*; the cover or the open article repaints when its art is
+ready. The article's placeholder shows the running stage, elapsed time and **Cancel**.
+**Behind the scenes › Art studio** lists the last commissions (state, producer and
+model, automatic or explicit, time, tokens and cost, the archived run's path) with
+**Cancel** and **Open**.
+
+**Pipeline** (`src/reader_mcp/art.py`, one worker thread per server, one commission
+at a time per vault across Reader processes under `.reader/art/run.lock`, at most 20
+waiting):
+
+1. **Brief** (`art_prompts/brief.v1.md`): the article's text without frontmatter
+   (at most 60,000 characters; longer articles are cut with a note), fenced as quoted
+   data with a random nonce, plus the rules: no text, letters, numbers or faces in the
+   scene; colors only as theme roles; slow, calm motion; a wide composition. The
+   answer is `TITLE: …` and `BRIEF: …` (40–4,000 characters).
+2. **Scene** (`art_prompts/scene.v1.md` with the language reference
+   `art_prompts/dsl.v1.md`): one JSON object in a ```json fence.
+3. **Repair** (`art_prompts/repair.v1.md`), once: when the validator refuses the
+   scene, its errors (at most 20) go back with the scene. A second refusal fails the
+   job and stores nothing.
+4. **Save** a new version (below), then **commit** it with its run log.
+
+A **voice** runs its own CLI and subscription with the argv from `voices.json`, once per
+stage, in an empty workspace under `.reader/art/work/<job>/` (a fresh `git init`, for
+CLIs that only run inside a repository) rather than in the vault: `{vault}` expands
+to that workspace, `{sandbox_add_dirs}` is dropped, `{persona}` is the voice's persona
+plus the art rules (do not run tools, read or change files, or launch agents), and the
+article is inline. It is supervised like a chat turn (`voice_runner.supervise`): its own
+process group, a CPU limit, the 4 GiB memory and 16 MiB output budgets, the free-disk
+reserve, and a timeout of the voice's `timeout_seconds`, at most 600 s per stage. The
+**local model** answers each stage through the OpenAI-compatible client
+(`local_model.Client.chat`, at most 12,000 answer and 6,000 reasoning tokens, 600 s),
+holding the workstation `host/gpu/` lock for each loopback call. A job that reaches
+the low-disk reserve refuses to start, because LLM logs are never dropped.
+
+**Run logs.** Every commission is archived forever under
+`logs/llm/art/YYYY/MM/DD/<job id>/` (`llm_logs.RunLog`): `meta.json` (producer, model,
+CLI version, redacted argv per stage, prompts used, outcome, usage, the art folder),
+and per stage `<stage>-prompt.txt`, the CLI's `<stage>-stdout.jsonl` and
+`<stage>-stderr.log` or the local model's `<stage>-response.txt` (and
+`-reasoning.txt`), plus `scene-errors.txt` when a repair ran; all gzip-compressed when
+the run ends.
+
+**Storage.** Art is durable vault content beside its edition, committed, never
+overwritten:
+
+```
+art/<path under library/>/<source sha256>/<generation>/scene.json        the validated scene
+                                                      brief.md          the Artist's note (frontmatter: title, kind "Art brief", author, art_for, source_sha256, made_with, prompt, created)
+                                                      provenance.json   producer, model, CLI version, prompts, stages, seconds, usage, repaired, counts, log path, Reader version
+                                                      still.png|.webp   optional: the first still a browser drew
+art/<path under library/>/favorite.json                                 the version you kept
+```
+
+`<generation>` is `YYYYMMDDTHHMMSSZ-<4 hex>`. A version is written in
+`.reader/art/staging/` and renamed into place; an existing folder is never replaced.
+Each version is committed with its run directory (`git add -A -f`, so ignore rules
+cannot drop them): *Add art for <title>* with `Reader-Art: <path>@<sha12>/<generation>`
+and `Reader-Log: art/<job id>` trailers, serialized with chat commits (the same flock
+and the repository `.git/` git-locks key). A favorite and a still image are their own
+small commits. Without Git, art is saved but not committed, and the job says so. Job
+history (the last 60) is kept in `.reader/art/jobs.json`. On start, a server adopts
+waiting jobs and marks a job that was running when its process died *failed* (sealing
+its log as interrupted); jobs owned by another live Reader process are shown, never
+adopted or cancelled.
+
+**The still image.** The first browser with WebGL to draw a version renders its frame
+at `still.at` (960 × 480, WebP, else PNG) and posts it (`action: "still"`). The server
+verifies it with Pillow (PNG or WebP, at most 2 MiB and 2048 × 1536), keeps the first
+one only and commits it. Browsers without WebGL show that image; without one, they
+show "This browser cannot draw 3D art here" and open the Artist's note.
+
+#### The scene language
+
+Defined once, in `src/reader_mcp/web_ui/art-scene.v1.json`, and interpreted the same
+way by the server's validator (`art_scene.py`, before a version is stored) and the
+page's (`art-scene.mjs`, again before anything is built). Unknown fields are errors
+everywhere. Version 1 has:
+
+- **Top level:** `reader_scene: 1` (required), `title`, `seed`, `background`, `fog`
+  (linear or exponential), `camera` (position, target, fov 15–90 and motion: still, an
+  orbit, a sway or a dolly), `still.at` (the moment, 0–60 s, used for stills and
+  reduced motion), up to 8 `lights` (ambient, hemisphere, directional, point, spot),
+  up to 32 named `materials`, `objects` (required) and up to 64 `links` (tethers drawn
+  between two objects and redrawn as they move).
+- **Colors** are theme roles, never literal colors: `bg`, `surface`, `raised`, `line`,
+  `ink`, `muted`, `faint`, `accent`, `accent-ink`, `rust`, `warning`, `chart-1`…`chart-8`,
+  and the derived `bright` (the lighter of page and ink) and `deep` (the darker), or
+  `{token, mix, amount, lightness, saturation, hue}`, or `{light, dark}` to choose by
+  the page's brightness. The page resolves them from the current theme's CSS
+  variables, so the art fits every theme and repaints on a theme change. Additive
+  blending becomes normal blending on light themes.
+- **Materials:** basic, lambert, standard, physical or toon, with color, emissive,
+  roughness, metalness, clearcoat, transmission, opacity, wireframe, flat shading,
+  side and blending.
+- **Nodes:** `mesh`, `group` (nested at most 6 deep), `instances` (an instanced mesh of
+  up to 6,000 copies in a ring, spiral, helix, grid, sphere, scatter, line or path
+  layout, with jitter, a scale range, facing and per-instance colors and motion: bob,
+  spin, pulse or a traveling wave), `particles` (up to 24,000 points in a sphere,
+  shell, box, disc or ring; still, drifting, swirling, rising, falling or breathing)
+  and `line`. Every node has an optional `id`, `position`, `rotation`, `scale` and up
+  to 8 animations.
+- **Geometry:** box, sphere, the four Platonic solids with subdivision, torus, torus
+  knot, cylinder, cone, capsule, plane (optionally with a traveling wave), circle,
+  ring, lathe (a profile of up to 256 points), extrude (a shape of up to 256 points
+  with holes and bevel), tube (a curve through up to 256 points), eight named
+  parametric surfaces (klein, mobius, saddle, shell, helicoid, wave, dupin,
+  spherical-harmonic) and custom meshes (up to 4,096 vertices and 8,192 triangles).
+- **Animation** (every period 2–600 s, so nothing flashes): spin, oscillate (position,
+  rotation, scale, opacity or glow), orbit (a point, or another object), wander (smooth
+  noise), follow (a spring toward another object), look (face another object) and
+  react (a value set by the distance to another object).
+- **Budgets:** 256 KiB of JSON, 240 nodes, 400 animations, 6,000 instances, 24,000
+  particles and an estimated 400,000 triangles in all; ids unique; every reference
+  must exist; follow and orbit-around chains must be acyclic; face indices in range;
+  every number finite and within its range. Errors name the path, such as
+  `objects[2].geometry.radius: expected a number from 0.001 to 20` (at most 20).
+
+**Rendering** (`web/src/art/art.ts`, `controls/art.js`, sharing the Three.js chunk
+`controls/three/` with the page turn and the data view). Time is the only input: the
+frame at `still.at` is the same everywhere for a theme (follow springs integrate with
+a fixed step from t = 0). One WebGL renderer serves the page (neutral tone mapping, sRGB
+output): at most one live canvas (the cover, or an article's art in continuous
+reading) and still images for thumbnails, reduced motion and two-page reading, cached
+per version, theme and size for the session. The live view runs at most 30 fps,
+starts at `still.at` (so it continues the still seamlessly), pauses off-screen and in
+hidden tabs, and becomes the still image when a build takes over 2.5 s, the scene holds
+more than 600 GPU geometries and textures, the median update-and-submit time of frames
+4–11 exceeds 34 ms, 90 frames run slow, or, after 2 s, the median interval between
+frames stays above 125 ms (below 8 fps). A scene that builds more than 1.5 times the
+triangle budget is refused. Under `prefers-reduced-motion` the art is the still image
+and no animation frames run.
+
+**Routes.**
+
+- `GET /api/art?path=library/…[&edition=<sha256>&generation=<id>]`: `{path, sha256,
+  art, versions, count, favorite, job}`. `art` is the version shown (or asked for):
+  `{edition, generation, folder, scene, counts, brief, title, provenance, still,
+  current, favorite}`, or null; `versions` lists up to 50, newest first; `job` is an
+  active commission for the path. 404 for an unknown version.
+- `GET /api/art/jobs`: `{jobs, active, producers, default, error}`; each producer is
+  `{id, kind, label, available, cli, model, estimate_seconds}` (the median time of
+  finished commissions).
+- `GET /api/art/still?path=…&edition=…&generation=…`: the version's still image (404
+  without one).
+- `POST /api/art` (token, JSON; at most 3 MiB): `{action: "generate", path,
+  producer?}` (one active job per path: a repeat returns it), `{action: "commission",
+  paths, producer?}` (at most 6, skipping as above: `{queued, skipped}`), `{action:
+  "cancel", job}`, `{action: "favorite", path, edition, generation}` and `{action:
+  "still", path, edition, generation, image}` (a data URL).
+
+Paths go through `WebLibrary.path` (library files only, no symlinks); art folders
+refuse symlinks; only Markdown and plain-text pieces of at least 200 characters
+are commissioned.
+
+**The demo vault.** `reader demo` stores handcrafted art for four of the week's
+pieces (marked *Handcrafted for the Reader demo; no model was run*) and leaves
+Montaigne's *Of Books* without; its scripted voices answer art prompts from
+`bin/art.json` with handcrafted briefs and scenes, so Generate art works with no model.
+
+**Not implemented: a free-form mode.** A mode in which a model writes Three.js code,
+run only in a sandboxed iframe (`sandbox="allow-scripts"` without same-origin, a
+CSP with no network, a vendored Three.js, `postMessage` for size and theme, and a
+frame-time and memory kill switch), is designed in spec RW-43 but not built.
+
+### Article shapes: the data view
+
+A data view of an article, shown with `:shape`, separate from its [art](#article-art)
+(it was the magazine's cover art until bespoke art replaced it). An article gets a
+slowly moving Three.js figure computed from its own text: the path the argument takes through meaning-space, drawn as a ribbon
 through the article's passages in reading order, with its key terms as floating
 labels and its nearest works as faint stars in the direction their ideas lie. The
 same source always yields the same shape, and articles on similar subjects look
@@ -609,13 +835,10 @@ ignore it.
 
 **Where it shows.**
 
-- **Cover story:** the cover art of the issue, drawn above the kicker. In the
-  document it follows the headline, so **g c** then **Tab** focuses it.
-- **Features:** a small still thumbnail above each feature's kicker.
-- **An article's opening page:** **Space g** or `:shape` (Show shape) draws the open article's
-  shape above its kicker and keeps showing shapes for articles opened later in this
-  tab; Space g again hides it. In two-page reading the figure is a still image, so the
-  page turn can rasterize it.
+- **An article's opening page:** `:shape` draws the open article's shape above its
+  kicker (below its art, when that is shown) and keeps showing shapes for articles
+  opened later in this tab; `:shape` again hides it. In two-page reading the figure is
+  a still image, so the page turn can rasterize it. The magazine does not show shapes.
 
 Only Markdown and plain-text pieces with at least 6 search passages get a shape;
 shorter pieces would make a dot. Without a shape the layout is unchanged.
@@ -640,8 +863,8 @@ animation frames run. The live view is capped at 30 fps and pauses when it leave
 the viewport or the tab is hidden. If its first three frames after shader
 compilation each take longer than 40 ms, it becomes the still image.
 
-**Interaction.** Hovering a bead shows the passage's first line; clicking it opens
-the article at that passage (on an article's own page, it moves there). Hovering a
+**Interaction.** Hovering a bead shows the passage's first line; clicking it moves
+to that passage. Hovering a
 star shows the related work's title; clicking opens it. A focused figure (status
 line `SHAPE`) moves between passages with **←** / **→** (**Home** / **End**) and
 between related works with **↑** / **↓**, announcing each in a live region; **Enter**
@@ -650,8 +873,8 @@ terms, every drawn passage's first line and the related works.
 
 **Rendering.** `controls/shape.js` loads on demand and shares its Three.js chunk
 (`controls/three/`) with the page turn. One WebGL renderer serves the page: at most
-one live canvas (the cover, or Show shape in continuous reading), and still images
-(feature thumbnails, reduced motion, two-page reading) rendered by the same renderer
+one live canvas (in continuous reading), and still images
+(reduced motion, two-page reading) rendered by the same renderer
 to PNG data URLs and cached for the session by path, digest, theme and size. When
 nothing is live the renderer releases its WebGL context. Without WebGL (or if the
 chunk fails to load) the figure is a 2D SVG of the same projection, seen from the
@@ -3213,6 +3436,10 @@ READER_CHROME=/path/to/chrome node tests/web_spread_pin_pages.cjs
 READER_PLAYWRIGHT=/absolute/path/to/playwright-core \
 READER_CHROME=/path/to/chrome node tests/web_shape.cjs
 READER_PLAYWRIGHT=/absolute/path/to/playwright-core \
+READER_CHROME=/path/to/chrome node tests/web_art.cjs
+node --test tests/art_scene.test.mjs
+.venv/bin/python -m pytest -q tests/test_art.py
+READER_PLAYWRIGHT=/absolute/path/to/playwright-core \
 READER_CHROME=/path/to/chrome node tests/web_diagrams.cjs
 node --test tests/math.test.mjs
 READER_PLAYWRIGHT=/absolute/path/to/playwright-core \
@@ -3513,12 +3740,31 @@ so it needs no GPU.
 --shapes`: the cover becomes a long synthetic essay that wanders through invented
 topics and returns to its start, one feature a tight note on one topic, plus short
 related works, indexed with `tests/shape_fixture.py`'s deterministic topic model.
-It checks the still cover and thumbnails under reduced motion (one frame, identical
-pixels across reloads), the figure's order and description, g c / Tab / arrows /
-Enter, hover and click to a passage, Show shape on two articles (different pixels)
-and a short piece, the live canvas (one per page, at most 30 fps, paused off-screen),
-the SVG without WebGL, the setting off, 390px, and, in a second fixture run with
-`--shapes-terms` (an index without vectors), the term form. `tests/test_shape.py`
+It checks that the magazine draws no shapes, then the data view (`:shape`) on an
+article: a still under reduced motion (one frame, identical pixels across reloads),
+its order and description, arrows, hover and click to a passage, two articles
+(different pixels), a short piece, the live canvas (at most 30 fps), the SVG without
+WebGL, 390px, and, in a second fixture run with `--shapes-terms` (an index without
+vectors), the term form.
+
+`web_art.cjs` runs on SwiftShader with `--magazine --art`: a Git vault with one fake
+voice (`tests/fake_voice.py --art-scene`, answering art prompts slowly enough to
+watch) and handcrafted art stored for the cover and one feature. It checks the still
+cover and thumbnail under reduced motion, the order, label and description (the
+brief), the Artist's note and provenance, the still image captured for later, a
+theme repaint, the live canvas (at most 30 fps, paused off-screen, update-and-submit
+median under 34 ms and at least 8 fps, printed), a scene at the edge of every budget
+(kept moving or turned into a still by the kill switch, printed), the stored still
+without WebGL and the unavailable note without one, a scene refused by the page's
+validator, the placeholder → Generate art → job toasts → art flow, `:generate-art`,
+versions and a favorite, the Art studio card and settings, 390px, and, with
+`--art-none`, automatic commissions once and the setting off. `tests/test_art.py`
+covers the validator (shared fixtures, the recorded fuzz corpus and a fresh fuzz
+campaign), the pipeline with fake voices and a fake local model (storage, logs,
+commits, repair, failure, cancel, versions, favorites, stills, recovery, refusals,
+low disk) and the routes; `tests/art_scene.test.mjs` checks that the page's validator
+gives exactly the same errors on the same fixtures (`tests/art_fuzz.py` regenerates
+`tests/fixtures/art/fuzz.json`). `tests/test_shape.py`
 covers the route: determinism, sign-fixed projection, the 400-passage cap, the term
 form, neighbours in the same basis, thread weights, the 64 KiB bound and refusals.
 

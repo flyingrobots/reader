@@ -87,6 +87,13 @@ The voices in chat are **scripted**: `bin/demo-voice` picks canned replies from
 `bin/replies.json` and never calls a model. Wren is a manual voice: you paste Wren's replies by
 hand. To talk to a real model, edit `voices.json` and point a voice at an installed agent CLI
 (for example `claude` or `codex`); see "Voice registry" in Reader's docs/web.md.
+
+## Art
+
+Four of this week's pieces carry bespoke art under `art/`: scenes handcrafted for the demo,
+drawn by Reader's own renderer. Open Montaigne's *Of Books* and press **Space g**, then
+**Generate art**: a scripted voice answers from `bin/art.json` (no model), and the new version is
+stored beside the others.
 '''
 
 AGENTS = '''# Demo library instructions
@@ -330,6 +337,7 @@ metadata_created: '{self.day(added)}'
         shutil.copy(CONTENT / 'NOTICE.md', root / 'NOTICE.md')
         shutil.copy(CONTENT / 'voice/demo-voice.py', root / 'bin/demo-voice.py')
         shutil.copy(CONTENT / 'voice/replies.json', root / 'bin/replies.json')
+        (root / 'bin/art.json').write_text(json.dumps([json.loads(f.read_text()) for f in sorted((CONTENT / 'art').glob('*.json'))], ensure_ascii=False, indent=1) + '\n')
         wrapper = root / 'bin/demo-voice'
         # A shell wrapper keeps the runtime label "demo-voice" and survives interpreter paths with spaces.
         wrapper.write_text('#!/bin/sh\n# Scripted Reader demo voice: canned replies, no model.\n'
@@ -355,6 +363,8 @@ metadata_created: '{self.day(added)}'
         self.timeline()
         self.activity()
         self.commit('Record reading receipts, margins, a chat and the reading queue', self.when(5, 8))
+        self.art()
+        self.commit('Add art for four of this week’s pieces (scripted demo artist, no AI)', self.when(5, 9), paths=('art',))
         self.arrivals()
         from ..browse import Browse
         from ..catalog import Catalog
@@ -576,6 +586,29 @@ metadata_created: '{self.day(added)}'
         finally:
             library.close()
         self.chat()
+
+    def art(self):
+        """Bespoke art (RW-43) for four of this week's pieces, handcrafted; Montaigne's Of Books is left for you to commission."""
+        from ..art import PROMPT_VERSIONS, Studio
+        from ..art_scene import validate
+        from ..web import WebLibrary
+        library = WebLibrary(self.root)
+        try:
+            studio = Studio(self.root, library, commit=False)
+            for key, name in (('woolf-modern-fiction', 'halo'), ('thoreau-where-i-lived', 'pond'), ('darwin-struggle', 'bank'), ('lovelace-note-g', 'loom')):
+                entry = json.loads((CONTENT / 'art' / (name + '.json')).read_text())
+                path = 'library/' + PD[key][0]
+                scene, counts = validate(entry['scene'])
+                job = {'path': path, 'sha256': library.digest(path), 'auto': False, 'log': None}
+                made = self.when(5, 9)
+                producer = {'id': 'voice:Architect', 'kind': 'voice', 'label': 'Architect', 'model': VOICE_LABEL, 'cli': 'demo-voice',
+                            'cli_version': 'demo-voice 1.0 (scripted replies)'}
+                studio.save(job, entry['title'], entry['brief'], scene, counts, {
+                    'prompts': {k: (v if k != 'repair' else None) for k, v in PROMPT_VERSIONS.items()}, 'producer': producer, 'seconds': None,
+                    'stages': [], 'usage': None, 'repaired': False, 'note': 'Handcrafted for the Reader demo; no model was run.',
+                    'generation': made.strftime('%Y%m%dT%H%M%SZ') + '-' + rid('art', path)[:4], 'created_at': made.isoformat()})
+        finally:
+            library.close()
 
     def chat(self):
         """A short, finished chat about the sync design, so the chat panel has history before you type."""

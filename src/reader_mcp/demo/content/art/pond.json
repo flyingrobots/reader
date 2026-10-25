@@ -1,0 +1,389 @@
+{
+ "match": [
+  "where i lived",
+  "simplify",
+  "walden",
+  "pond",
+  "woods"
+ ],
+ "title": "The morning pond",
+ "brief": "A pond at first light, nearly still. The water is the page itself, cooled toward one of the theme's blue-green hues, and it breathes in long, low swells: the morning Thoreau calls the awakening hour. A low sun, the warmest chart hue, rises a little and sinks again behind a veil of mist that drifts up from the surface in faint ink. In the foreground a single reed stands in the water, the one upright thing in the scene, and around it five rings spread and fade in turn, as if something has just touched the surface.\n\nEverything else is left out. That is the point of the chapter: simplify, simplify. Few elements, wide empty water, and slow motion that never repeats exactly the same way twice in a minute. The camera sways a little, like someone standing on the shore deciding to stay.",
+ "scene": {
+  "reader_scene": 1,
+  "title": "The morning pond",
+  "seed": 1854,
+  "background": "bg",
+  "fog": {
+   "color": "bg",
+   "near": 3.5,
+   "far": 12
+  },
+  "camera": {
+   "position": [
+    0,
+    1.35,
+    6.4
+   ],
+   "target": [
+    0,
+    0.35,
+    0
+   ],
+   "fov": 34,
+   "motion": {
+    "kind": "sway",
+    "amplitude": 0.22,
+    "period": 90
+   }
+  },
+  "still": {
+   "at": 6
+  },
+  "lights": [
+   {
+    "type": "hemisphere",
+    "color": "bright",
+    "ground": "bg",
+    "intensity": 1.0
+   },
+   {
+    "type": "directional",
+    "color": {
+     "token": "chart-3",
+     "mix": "bright",
+     "amount": 0.5
+    },
+    "intensity": 0.9,
+    "position": [
+     3,
+     3.5,
+     -5
+    ]
+   }
+  ],
+  "materials": {
+   "water": {
+    "type": "physical",
+    "color": {
+     "token": "chart-2",
+     "mix": "bg",
+     "amount": 0.3
+    },
+    "roughness": 0.45,
+    "metalness": 0.0,
+    "clearcoat": 0.5
+   },
+   "reed": {
+    "type": "standard",
+    "color": {
+     "token": "ink",
+     "mix": "bg",
+     "amount": 0.25
+    },
+    "roughness": 0.8
+   },
+   "ripple": {
+    "type": "basic",
+    "color": {
+     "token": "ink",
+     "mix": "bg",
+     "amount": 0.35
+    },
+    "opacity": 0.55
+   }
+  },
+  "objects": [
+   {
+    "type": "mesh",
+    "id": "pond",
+    "geometry": {
+     "type": "plane",
+     "size": [
+      30,
+      14
+     ],
+     "segments": [
+      120,
+      56
+     ],
+     "wave": {
+      "amplitude": 0.035,
+      "wavelength": 1.7,
+      "period": 14
+     }
+    },
+    "material": "water",
+    "rotation": [
+     -1.5708,
+     0,
+     0
+    ]
+   },
+   {
+    "type": "mesh",
+    "id": "sun",
+    "geometry": {
+     "type": "sphere",
+     "radius": 0.34,
+     "widthSegments": 40,
+     "heightSegments": 24
+    },
+    "position": [
+     2.3,
+     0.95,
+     -4.2
+    ],
+    "material": {
+     "type": "basic",
+     "color": "chart-3"
+    },
+    "animate": [
+     {
+      "kind": "oscillate",
+      "property": "position.y",
+      "amplitude": 0.18,
+      "period": 60
+     }
+    ]
+   },
+   {
+    "type": "mesh",
+    "id": "reed",
+    "geometry": {
+     "type": "cylinder",
+     "radiusTop": 0.008,
+     "radiusBottom": 0.028,
+     "height": 1.7,
+     "radialSegments": 10
+    },
+    "position": [
+     -1.35,
+     0.85,
+     0.6
+    ],
+    "rotation": [
+     0,
+     0,
+     0.05
+    ],
+    "material": "reed",
+    "animate": [
+     {
+      "kind": "oscillate",
+      "property": "rotation.z",
+      "amplitude": 0.03,
+      "period": 11
+     }
+    ]
+   },
+   {
+    "type": "group",
+    "id": "rings",
+    "position": [
+     -1.35,
+     0.03,
+     0.6
+    ],
+    "rotation": [
+     1.5708,
+     0,
+     0
+    ],
+    "children": [
+     {
+      "type": "mesh",
+      "geometry": {
+       "type": "torus",
+       "radius": 0.35,
+       "tube": 0.006,
+       "radialSegments": 6,
+       "tubularSegments": 96
+      },
+      "material": "ripple",
+      "animate": [
+       {
+        "kind": "oscillate",
+        "property": "scale",
+        "amplitude": 0.35,
+        "period": 10,
+        "phase": 0
+       },
+       {
+        "kind": "oscillate",
+        "property": "opacity",
+        "amplitude": 0.25,
+        "period": 10,
+        "phase": 0.25
+       }
+      ]
+     },
+     {
+      "type": "mesh",
+      "geometry": {
+       "type": "torus",
+       "radius": 0.7,
+       "tube": 0.006,
+       "radialSegments": 6,
+       "tubularSegments": 128
+      },
+      "material": "ripple",
+      "animate": [
+       {
+        "kind": "oscillate",
+        "property": "scale",
+        "amplitude": 0.18,
+        "period": 10,
+        "phase": 0.2
+       },
+       {
+        "kind": "oscillate",
+        "property": "opacity",
+        "amplitude": 0.25,
+        "period": 10,
+        "phase": 0.45
+       }
+      ]
+     },
+     {
+      "type": "mesh",
+      "geometry": {
+       "type": "torus",
+       "radius": 1.05,
+       "tube": 0.005,
+       "radialSegments": 6,
+       "tubularSegments": 160
+      },
+      "material": "ripple",
+      "animate": [
+       {
+        "kind": "oscillate",
+        "property": "scale",
+        "amplitude": 0.12,
+        "period": 10,
+        "phase": 0.4
+       },
+       {
+        "kind": "oscillate",
+        "property": "opacity",
+        "amplitude": 0.25,
+        "period": 10,
+        "phase": 0.65
+       }
+      ]
+     },
+     {
+      "type": "mesh",
+      "geometry": {
+       "type": "torus",
+       "radius": 1.45,
+       "tube": 0.004,
+       "radialSegments": 6,
+       "tubularSegments": 192
+      },
+      "material": "ripple",
+      "animate": [
+       {
+        "kind": "oscillate",
+        "property": "scale",
+        "amplitude": 0.08,
+        "period": 10,
+        "phase": 0.6
+       },
+       {
+        "kind": "oscillate",
+        "property": "opacity",
+        "amplitude": 0.25,
+        "period": 10,
+        "phase": 0.85
+       }
+      ]
+     },
+     {
+      "type": "mesh",
+      "geometry": {
+       "type": "torus",
+       "radius": 1.9,
+       "tube": 0.004,
+       "radialSegments": 6,
+       "tubularSegments": 224
+      },
+      "material": "ripple",
+      "animate": [
+       {
+        "kind": "oscillate",
+        "property": "scale",
+        "amplitude": 0.06,
+        "period": 10,
+        "phase": 0.8
+       },
+       {
+        "kind": "oscillate",
+        "property": "opacity",
+        "amplitude": 0.25,
+        "period": 10,
+        "phase": 0.05
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "type": "particles",
+    "count": 2600,
+    "shape": "box",
+    "size": [
+     13,
+     0.9,
+     7
+    ],
+    "position": [
+     0,
+     0.45,
+     -1.2
+    ],
+    "pointSize": 0.055,
+    "color": {
+     "token": "ink",
+     "mix": "bg",
+     "amount": 0.72
+    },
+    "opacity": 0.32,
+    "seed": 41,
+    "motion": {
+     "kind": "rise",
+     "speed": 0.07
+    }
+   },
+   {
+    "type": "particles",
+    "count": 260,
+    "shape": "disc",
+    "radius": 1.1,
+    "position": [
+     2.3,
+     0.95,
+     -4.15
+    ],
+    "rotation": [
+     1.5708,
+     0,
+     0
+    ],
+    "pointSize": 0.09,
+    "color": {
+     "token": "chart-3",
+     "mix": "bg",
+     "amount": 0.2
+    },
+    "opacity": 0.45,
+    "blending": "additive",
+    "seed": 7,
+    "motion": {
+     "kind": "breathe",
+     "amplitude": 0.08,
+     "period": 12
+    }
+   }
+  ]
+ }
+}

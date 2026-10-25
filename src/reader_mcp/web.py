@@ -18,6 +18,7 @@ from urllib.parse import parse_qs, quote, urlsplit
 from rapidfuzz import fuzz, process
 
 from .annotations import Annotations
+from .art import ArtMissing, Studio
 from .browse import Browse
 from .bookmarks import Bookmarks
 from .companions import Companions, load_settings as companion_settings
@@ -172,7 +173,7 @@ class MissingDocument(ValueError, FileNotFoundError):
 
 
 class WebLibrary:
-    def __init__(self, root, font_fetcher=None, maintenance_runners=None, inbox_environ=None, chat_options=None, local_model=None, prose=None, service_runner=None, environ=None, writing_options=None, companions=None):
+    def __init__(self, root, font_fetcher=None, maintenance_runners=None, inbox_environ=None, chat_options=None, local_model=None, prose=None, service_runner=None, environ=None, writing_options=None, companions=None, art_options=None):
         self.root = Path(root).expanduser().resolve(strict=True)
         self.access = WebAccess(self.root, environ)
         self.service = Service(service_runner)
@@ -206,6 +207,7 @@ class WebLibrary:
         # Colorful set in Behind the scenes, then the copy Reader built, before PATH and the usual folders.
         tooled = self.root / '.reader/tooling/bin/colorful'
         self.prose.configured = lambda: [(o, p) for o, p in (('settings', companion_settings(self.root).get('colorful')), ('reader-tooling', str(tooled))) if p]
+        self.art = Studio(self.root, self, **(art_options or {}))
 
     def path(self, value, preview=False):
         """A library file; with `preview`, also an inbox arrival file (read-only views only)."""
@@ -248,6 +250,7 @@ class WebLibrary:
         return {'path': path, 'title': str(doc['title'])[:500], 'sha256': doc['sha256'], 'text': doc['text'] if inline else None}
 
     def close(self):
+        self.art.close()
         self.conversations.close()
         self.local_model.close()
 
@@ -1247,8 +1250,8 @@ class WebHandler(BaseHTTPRequestHandler):
                 if self.headers.get('X-Reader-Token') != self.server.token or self.headers.get_content_type() != 'application/json':
                     raise PermissionError('A same-origin Reader token and JSON request are required')
                 length = int(self.headers.get('Content-Length', '0'))
-                # Prose batches carry up to 512 KiB of text plus JSON quoting.
-                limit = 1024**2 if parsed.path == '/api/prose' else 128 * 1024
+                # Prose batches carry up to 512 KiB of text; an art still image is a data URL of at most 2 MiB.
+                limit = 1024**2 if parsed.path == '/api/prose' else 3 * 1024**2 if parsed.path == '/api/art' else 128 * 1024
                 if not 0 < length <= limit:
                     raise ValueError(f'Request body exceeds {limit // 1024} KiB or is empty')
                 request = json.loads(self.rfile.read(length))
@@ -1312,6 +1315,9 @@ class WebHandler(BaseHTTPRequestHandler):
                         raise ValueError('Expected {"action": "start", "sandbox_mode": ...} or {"action": "stop"}')
                 elif parsed.path == '/api/local-model':
                     self.json(library.local_model.dispatch(request))
+                elif parsed.path == '/api/art':
+                    participant = library.engagement.participant(request.pop('participant', self.server.participant))
+                    self.json(library.art.dispatch(request, participant))
                 elif parsed.path == '/api/writing':
                     participant = library.engagement.participant(request.pop('participant', self.server.participant))
                     self.json(library.writing.dispatch(request, participant))
@@ -1399,6 +1405,12 @@ class WebHandler(BaseHTTPRequestHandler):
                 self.json(library.next_reads(args.get('path', ''), args.get('participant', self.server.participant)))
             elif parsed.path == '/api/standfirst':
                 self.json(library.magazine.standfirst(args.get('path', '')))
+            elif parsed.path == '/api/art':
+                self.json(library.art.art(args.get('path', ''), args.get('edition'), args.get('generation')))
+            elif parsed.path == '/api/art/jobs':
+                self.json(library.art.status())
+            elif parsed.path == '/api/art/still':
+                self.send_file(library.art.still_file(args.get('path', ''), args.get('edition', ''), args.get('generation', '')), raw=True)
             elif parsed.path == '/api/shape':
                 self.json(library.shapes.shape(args.get('path', '')))
             elif parsed.path == '/api/issue':
@@ -1456,6 +1468,8 @@ class WebHandler(BaseHTTPRequestHandler):
             self.json({'error': str(exc), 'unavailable': True}, 503)
         except TimeoutError as exc:
             self.json({'error': str(exc)}, 504)
+        except ArtMissing as exc:
+            self.json({'error': str(exc)}, 404)
         except (ValueError, TypeError, KeyError, OSError, sqlite3.Error) as exc:
             self.json({'error': str(exc)}, 400)
         finally:

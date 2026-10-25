@@ -31,11 +31,27 @@ cover story, up to four features from different projects and an "In this issue"
 contents list, chosen from the week's additions with unread pieces first,
 newsletter picks and a spread across projects. On wide windows the issue fills the
 window with more columns and a sticky rail rather than longer lines. Standfirsts come from a `standfirst` field, else a
-current local-model standfirst marked with its model, else each source's opening prose. An experimental
-setting (on by default) draws the cover story's art, feature thumbnails and, with
-Space g, an article's opening figure from the article's own text: its search passages
-projected into 3D in reading order with Three.js, key terms by TF-IDF and related works
-as stars, still under reduced motion and in two-page reading, and an SVG without WebGL.
+current local-model standfirst marked with its model, else each source's opening prose.
+
+Featured articles can carry bespoke art: a voice from `voices.json` (its own CLI and
+subscription) or the local model reads the article, writes an art brief (shown as the
+Artist's note, the art's text alternative) and composes a scene in Reader's declarative,
+versioned scene language, which both the server and the page validate strictly (types,
+ranges, references, budgets) before Reader's own Three.js interpreter draws it; no
+model-written code runs in the page. Art shows on the cover story, as feature
+thumbnails and, with Space g, above an open article; pieces without art show nothing
+special, or a placeholder with Generate art. Commissions are background jobs (one at
+a time per vault, with toasts, cancel, a timeout per stage and the chat-turn resource
+guards), made on request or, by setting, automatically for each issue's cover story or
+features. Each version is stored and committed beside its edition under `art/`, never
+overwritten, with its brief, provenance (producer, model, prompts, time, tokens and
+reported cost) and an optional still image; every run is archived under
+`logs/llm/art/`. Colors are theme roles, so art fits every theme; it is still under
+reduced motion and in two-page reading, pauses off-screen, runs at most 30 fps, turns
+into a still when frames are slow, and without WebGL shows the stored still or the
+note. A free-form mode (model-written Three.js in a sandboxed iframe) is not
+implemented. The older passage-projection figure remains as a data view (`:shape`),
+no longer as cover art.
 It needs search-index embeddings for the full form and falls back to a term-only form. It also provides an interactive D3 dashboard, local GSAP
 scrolling, Vim keys, fuzzy/content/semantic search, shared Markdown passage
 discussion (selectable by mouse, touch or keyboard), a progress rail and a modal statusline. One keymap table drives
@@ -290,8 +306,9 @@ never call a model. See [demo vault](demo.md).
 `reader demo --export-static DIR` writes the demo vault as a static website for any static host
 (GitHub Pages included), under a configurable base path. It reads from pre-rendered answers, searches
 by keyword in the browser, and keeps highlights, comments and reading positions only in the
-visitor's browser. Chat voices, semantic search, the inbox runner, the local model, speech, prose
-colors, the queue, themes and index maintenance need Reader running locally and say so. See
+visitor's browser. The demo's article art draws in the browser from exported scenes. Chat voices,
+semantic search, the inbox runner, the local model, speech, prose colors, making new art, the queue,
+themes and index maintenance need Reader running locally and say so. See
 [static web demo](demo.md#static-web-demo).
 
 ## Verification boundaries

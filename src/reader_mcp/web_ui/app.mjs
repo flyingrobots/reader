@@ -15,7 +15,8 @@ import {mountDashboard} from './dashboard.mjs';
 import {DEFAULT_EXCLUDED_TYPES,currentIssue,isoWeek,issueWindow,issueWeeks,selectIssue,mountMagazine} from './magazine.mjs';
 import {THEMES,oppositeTheme} from './themes.mjs';
 import {calloutPlugin} from './callouts.mjs';
-import {drawable,fetchShape,paintShape,paintThumb} from './shapes.mjs';
+import {drawable,fetchShape,paintShape} from './shapes.mjs';
+import {artJobs,fetchArt,forgetArt,hasArt,paintArt,paintArtThumb,paintPlaceholder} from './art.mjs';
 import {applyThemes,installControls,mountSkeleton,mountCodeBlocks,clearControlsWithin,mountDocumentTree,visibleDocumentNodes,revealDocumentRow,mountBackstage,mountChangesPanel,notify as shellNotify,openChat,closeChat,chatOpen,trackSpeech,renderQueuePanel,mountCallouts,startJob,promptCompanion} from './controls/reader-controls.js';
 import {installVersions,chipMarkup,historicalMarkup,splitRef,compareLabel} from './versions.mjs';
 import {installSplit,installPane,cleanRoute} from './split.mjs';
@@ -31,7 +32,7 @@ if(EMBEDDED)document.documentElement.classList.add('embedded-pane');
 let split=null,pane=null;
 /** Toasts from a pane appear in the shell's toaster. */
 function notify(message,type,options){if(pane){pane.post({type:'toast',message:String(message),kind:type,options:options&&{id:options.id,duration:options.duration}});return;}return shellNotify(message,type,options);}
-const defaults = {theme:'ink', participant:null, recent:20, atlas:true, activity:true, smooth:true, layout:'scroll', pace:220, zen:false, pageTurn:'curl', nextReads:true, backlinks:true, outline:true, inboxSandbox:'workspace-write', issueExclude:DEFAULT_EXCLUDED_TYPES.join(', '), proseColors:'clear', shapes:true};
+const defaults = {theme:'ink', participant:null, recent:20, atlas:true, activity:true, smooth:true, layout:'scroll', pace:220, zen:false, pageTurn:'curl', nextReads:true, backlinks:true, outline:true, inboxSandbox:'workspace-write', issueExclude:DEFAULT_EXCLUDED_TYPES.join(', '), proseColors:'clear', shapes:true, art:true, artBy:'', artAuto:'off'};
 // Route sentinel for Behind the scenes; document routes are always library/ paths.
 const BACKSTAGE=':backstage',SEARCH=':search',SCRATCH=':scratch';  // A scratch buffer: ':scratch' (the latest draft) or ':scratch=<id>'.
 // Past issues use ':issue=<ISO week>'; the bare homepage (null) is the current issue.
@@ -197,34 +198,117 @@ async function renderHome(path=null,id=state.routeId) {
   if(id!==state.routeId)return;
   const issue=selectIssue(works,{window:span,today:state.data.today,exclude:options.exclude,picks:signals.picks,near:signals.near});
   state.issue=issue;
-  const shapes=await issueShapes(issue);if(id!==state.routeId)return;
+  const artwork=await issueArt(issue);if(id!==state.routeId)return;
   clearControlsWithin($('#main'));
-  state.magazine=mountMagazine({root:$('#main'),issue,weeks:issueWeeks(works,{exclude:options.exclude,through:isoWeek(state.data.today).end}),signals,prefs:state.prefs,api,wireDocumentLinks,openIssue,motion:()=>!reduced.matches,shapes});
+  state.magazine=mountMagazine({root:$('#main'),issue,weeks:issueWeeks(works,{exclude:options.exclude,through:isoWeek(state.data.today).end}),signals,prefs:state.prefs,api,wireDocumentLinks,openIssue,motion:()=>!reduced.matches,art:artwork,artMake:state.prefs.art!==false&&!!artProducer()});
+  const localArt=artProducer()?.static_demo;
+  $('#main').querySelectorAll('.issue [data-art-generate]').forEach(button=>{if(localArt)button.textContent+=' (run Reader locally)';
+    button.onclick=event=>{event.preventDefault();if(!localArt){button.disabled=true;button.textContent='Making art…';}commissionArt(button.dataset.artGenerate);};});
   $('#issue-backstage').onclick=()=>navigate(BACKSTAGE);
   $('#main').querySelectorAll('.issue [data-queue-add]').forEach(button=>button.onclick=event=>{event.preventDefault();queue.add(button.dataset.queueAdd);});
   resetScroll();reading?.updateStatus();
-  paintIssueShapes(shapes,id).catch(error=>console.warn('Article shapes',error));
+  paintIssueArt(artwork,id).catch(error=>console.warn('Article art',error));
+  autoCommission(issue,artwork);
 }
-// Article shapes (RW-20, experiment): fetched for the cover and features before the issue mounts, so
-// their figures are part of the first layout; each request waits at most SHAPE_WAIT ms.
-const SHAPE_WAIT=1500;
-const shapeTitle=path=>state.data?.works.find(w=>w.primary===path)?.title||path.split('/').pop();
-async function issueShapes(issue){
-  if(state.prefs.shapes===false)return {};
+// Bespoke article art (RW-43): fetched for the cover and features before the issue mounts, so their
+// figures are part of the first layout (each request waits at most ART_WAIT ms); painted after mount.
+const ART_WAIT=1500;
+const art=artJobs({api,notify});
+state.artCommissioned=new Set();
+/** The producer Settings chose (Art made by), else the server's default: the first available voice. */
+function artProducer(){const status=art.status();if(!status)return null;const rows=status.producers||[];return rows.find(r=>r.id===state.prefs.artBy&&r.available)||rows.find(r=>r.id===status.default)||null;}
+async function issueArt(issue){
+  if(state.prefs.art===false)return {};
+  if(!art.status())await art.poll().catch(()=>{});
   const works=[issue.cover,...issue.features].filter(Boolean).map(entry=>entry.work).filter(work=>TEXTUAL.test(work.primary)),found={};
-  await Promise.all(works.map(async work=>{try{const shape=await Promise.race([fetchShape(api,work.primary),new Promise(resolve=>setTimeout(()=>resolve(null),SHAPE_WAIT))]);if(drawable(shape))found[work.primary]=shape;}catch{/* No shape for this piece. */}}));
+  await Promise.all(works.map(async work=>{try{const data=await Promise.race([fetchArt(api,work.primary),new Promise(resolve=>setTimeout(()=>resolve(null),ART_WAIT))]);if(hasArt(data))found[work.primary]=data;}catch{/* No art for this piece. */}}));
   return found;
 }
-async function paintIssueShapes(shapes,id){
+const artActions={generate:path=>commissionArt(path),version:(path,v)=>showArtVersion(path,v),favorite:(path,a)=>favoriteArt(path,a)};
+async function paintIssueArt(found,id){
   // Thumbnails first (still images from the shared renderer), then the cover's live canvas.
-  for(const slot of $('#main').querySelectorAll('[data-shape-thumb]')){if(id!==state.routeId)return;await paintThumb(slot,shapes[slot.dataset.shapeThumb]);}
-  const figure=$('#main .cover-shape');if(!figure||id!==state.routeId)return;
-  const path=figure.dataset.shape,shape=shapes[path];
-  await paintShape(figure,shape,{title:shapeTitle(path),live:true,motion:!reduced.matches,onPassage:i=>navigate(path,{at:{line:shape.lines[i],page:null,terms:[],query:''}}),onNeighbour:target=>navigate(target)});
+  for(const slot of $('#main').querySelectorAll('[data-art-thumb]')){if(id!==state.routeId)return;await paintArtThumb(slot,found[slot.dataset.artThumb]);}
+  const figure=$('#main .cover-art');if(!figure||id!==state.routeId)return;
+  await paintArt(figure,found[figure.dataset.art],{live:true,motion:!reduced.matches,api,actions:artActions});
 }
-/** Show shape (Space g): the article's shape above its kicker, for this session's articles until toggled off. */
+/** Make art automatically (Settings): the cover, or the cover and features, once per issue and session. */
+function autoCommission(issue,found){
+  const mode=state.prefs.artAuto;if(state.prefs.art===false||!['cover','issue'].includes(mode))return;
+  const producer=artProducer();if(!producer)return;
+  const works=(mode==='cover'?[issue.cover]:[issue.cover,...issue.features]).filter(Boolean).map(entry=>entry.work.primary).filter(path=>TEXTUAL.test(path)&&!found[path]&&!state.artCommissioned.has(path));
+  if(!works.length)return;works.forEach(path=>state.artCommissioned.add(path));
+  art.commission(works.slice(0,6),producer.id).catch(error=>console.warn('Article art',error));
+}
+/** No producer for art: Behind the scenes, at Companions' Agents and models card (or the section). */
+async function openArtSetup(){
+  await navigate(BACKSTAGE);
+  for(let tries=0;tries<40;tries++){const target=$('#companion-cli')||$('#companions');if(target){target.scrollIntoView({block:'start'});return;}await new Promise(resolve=>setTimeout(resolve,75));}
+}
+async function commissionArt(path){
+  const producer=artProducer();
+  if(producer?.static_demo){notify('Making art needs Reader on your computer.','info',{description:'This web demo has no server. Run Reader locally: reader demo has a scripted voice that answers art commissions.'});return;}
+  if(!producer){notify('No voice or local model can make art yet.','info',{description:'Add a voice to voices.json or set up a local model; Behind the scenes, Companions, shows which agent command lines Reader found.'});return;}
+  try{const job=await art.generate(path,producer.id);forgetArt(path);showArtJob(path,job);}catch(error){report(error);}
+}
+function showArtJob(path,job){
+  const figure=$('#article .article-art');
+  if(figure&&state.doc?.path===path&&(job&&['queued','waiting','running'].includes(job.state)))paintPlaceholder(figure,{path,job,producer:artProducer(),generate:commissionArt,cancel:id=>art.cancel(id).catch(report),setup:openArtSetup});
+}
+async function showArtVersion(path,version){
+  try{const data=await fetchArt(api,path,{edition:version.edition,generation:version.generation});const figure=[...document.querySelectorAll('.cover-art,.article-art')].find(f=>f.dataset.art===path);
+    if(figure&&hasArt(data))await paintArt(figure,data,{live:figure.classList.contains('cover-art')||!reading?.hasBook(),motion:!reduced.matches,api,actions:artActions});}
+  catch(error){report(error);}
+}
+async function favoriteArt(path,chosen){
+  try{await api('/api/art',{action:'favorite',path,edition:chosen.edition,generation:chosen.generation});forgetArt(path);notify('This version is the one shown from now on.','success');repaintArt();}catch(error){report(error);}
+}
+/** Show art (Space g): the open article's art above its kicker (or a calm placeholder offering to make it), for this session's articles until toggled off. */
+async function toggleArt(){
+  if(state.prefs.art===false){toast('Article art is off. Turn it on in Settings (Space p).');return;}
+  const doc=state.doc;
+  if(!doc||doc.preview||doc.historical||!TEXTUAL.test(doc.path)){toast('Open a Markdown or text article to see its art.');return;}
+  const shown=$('#article .article-art');
+  if(shown){state.showArt=false;shown.artView?.destroy();shown.remove();refreshScroll();positionPins();return;}
+  state.showArt=true;
+  const data=await articleArt(doc,state.routeId,true);if(!data)return;
+  const figure=placeArticleArt(doc.path);refreshScroll();positionPins();
+  figure.scrollIntoView({block:'nearest'});await paintArticleArt(figure,data);
+}
+async function articleArt(doc,id,explicit){
+  let data;
+  if(!art.status())await art.poll().catch(()=>{});
+  try{data=await Promise.race([fetchArt(api,doc.path),new Promise(resolve=>setTimeout(()=>resolve(undefined),ART_WAIT))]);}catch(error){if(explicit)report(error);return null;}
+  if(id!==state.routeId||state.doc!==doc)return null;
+  if(data===undefined){if(explicit)toast('The art is taking a while to load; try again in a moment.');return null;}
+  return data;
+}
+function placeArticleArt(path){
+  const figure=document.createElement('figure');figure.className='article-art';figure.dataset.readerDecoration='';figure.dataset.art=path;
+  $('#article').prepend(figure);return figure;
+}
+function paintArticleArt(figure,data){
+  figure.classList.add('article-art');
+  if(hasArt(data))return paintArt(figure,data,{live:!reading?.hasBook(),motion:!reduced.matches,api,actions:artActions}).then(f=>{f.classList.add('article-art');return f;});
+  paintPlaceholder(figure,{path:data.path,job:data.job,producer:artProducer(),generate:commissionArt,cancel:id=>art.cancel(id).catch(report),setup:openArtSetup});figure.classList.add('article-art');return Promise.resolve(figure);
+}
+document.addEventListener('reader:art-ready',event=>{const job=event.detail;forgetArt(job.path);repaintArt(job.path);});
+document.addEventListener('reader:art-jobs',event=>{
+  const figure=$('#article .article-art[data-state=working],#article .article-art[data-state=placeholder]');if(!figure||!state.doc)return;
+  const job=event.detail.jobs.find(j=>j.path===figure.dataset.art&&['queued','waiting','running'].includes(j.state));if(job)showArtJob(figure.dataset.art,job);
+});
+/** Draw art again after a theme change, a new version or a favorite: the issue's art, and the open article's. */
+function repaintArt(path=null){
+  if(state.view==='issue'&&!state.doc&&state.issue&&(!path||$('#main [data-art="'+CSS.escape(path)+'"],#main [data-art-thumb="'+CSS.escape(path)+'"]')||[state.issue.cover,...state.issue.features].some(e=>e?.work.primary===path)))
+    issueArt(state.issue).then(found=>{if(path&&found[path]&&!$('#main .cover-art,#main [data-art-thumb]'))renderHome(state.issuePath,state.routeId);else paintIssueArt(found,state.routeId);}).catch(()=>{});
+  const figure=$('#article .article-art');
+  if(figure&&state.doc&&(!path||state.doc.path===path))fetchArt(api,state.doc.path,{fresh:true}).then(data=>{if(figure.isConnected)paintArticleArt(figure,data);}).catch(()=>{});
+}
+// The RW-20 data view waits at most SHAPE_WAIT ms for /api/shape.
+const SHAPE_WAIT=1500;
+const shapeTitle=path=>state.data?.works.find(w=>w.primary===path)?.title||path.split('/').pop();
+/** The data view (RW-20, `:shape`): the article's passages projected through meaning-space, above its kicker,
+    for this session's articles until toggled off. It is a view of the text, not the article's art. */
 async function toggleShape(){
-  if(state.prefs.shapes===false){toast('Article shapes are off. Turn them on in Settings (Space p).');return;}
   const doc=state.doc;
   if(!doc||doc.preview||doc.historical||!TEXTUAL.test(doc.path)){toast('Open a Markdown or text article to see its shape.');return;}
   const shown=$('#article .article-shape');
@@ -252,12 +336,8 @@ function paintArticleShape(figure,shape){
     onPassage:i=>{if(state.doc?.path===path)revealPassage({line:shape.lines[i],page:null,terms:[],query:''});},onNeighbour:target=>navigate(target)});
 }
 // A theme change repaints the art in the new tokens.
-new MutationObserver(()=>{clearTimeout(repaintShapes.timer);repaintShapes.timer=setTimeout(repaintShapes,60);}).observe(document.documentElement,{attributes:true,attributeFilter:['data-theme']});
+new MutationObserver(()=>{clearTimeout(repaintShapes.timer);repaintShapes.timer=setTimeout(()=>{repaintShapes();repaintArt();},60);}).observe(document.documentElement,{attributes:true,attributeFilter:['data-theme']});
 function repaintShapes(){
-  if(state.view==='issue'&&!state.doc&&$('#main [data-shape],#main [data-shape-thumb]')){
-    const shapes={};const paths=[...$('#main').querySelectorAll('[data-shape],[data-shape-thumb]')].map(el=>el.dataset.shape||el.dataset.shapeThumb);
-    Promise.all(paths.map(path=>fetchShape(api,path).then(shape=>{shapes[path]=shape;}).catch(()=>{}))).then(()=>paintIssueShapes(shapes,state.routeId));
-  }
   const figure=$('#article .article-shape');
   if(figure&&state.doc)fetchShape(api,state.doc.path).then(shape=>{if(figure.isConnected)paintArticleShape(figure,shape);}).catch(()=>{});
 }
@@ -368,13 +448,18 @@ async function navigate(path,{thread=null,fragment='',record=true,commit=null,at
     }
     if(id!==state.routeId)return;
     // Show shape is on for this session: reserve the figure before the reading position is restored.
-    const shape=state.showShape&&state.prefs.shapes!==false&&!historical&&!doc.preview&&TEXTUAL.test(path)?await articleShape(doc,id,false):null;
+    const shape=state.showShape&&!historical&&!doc.preview&&TEXTUAL.test(path)?await articleShape(doc,id,false):null;
     if(id!==state.routeId)return;
     const shapeFigure=shape?placeArticleShape(shape):null;
+    // Show art is on for this session: the art (or its placeholder) goes above everything, reserved before the position is restored.
+    const artData=state.showArt&&state.prefs.art!==false&&!historical&&!doc.preview&&TEXTUAL.test(path)?await articleArt(doc,id,false):null;
+    if(id!==state.routeId)return;
+    const artFigure=artData?placeArticleArt(path):null;
     mountEditions();wireChanges();
     reading?.prepare();resetScroll();wireArticleLinks(article,path);await reading?.restore(doc);
     rendered=true; // From here on, failures are secondary: keep the article and toast quietly instead.
     if(shapeFigure)paintArticleShape(shapeFigure,shape).catch(error=>console.warn('Article shape',error));
+    if(artFigure)paintArticleArt(artFigure,artData).catch(error=>console.warn('Article art',error));
     if(id!==state.routeId)return;drawLate(article,id).catch(error=>console.error(error));await outline?.refresh(article);
     // Inbox previews are plain reading: no discussion, read receipt, recents or Read next.
     if(doc.preview){if(fragment)article.querySelector('#'+CSS.escape(fragment))?.scrollIntoView({block:'start'});focusMain();return;}
@@ -1151,7 +1236,7 @@ keys.map(
   {keys:'<Space>p',run:()=>openPreferences(),hint:'backstage',group:L,help:'Behind the scenes: indexes, library statistics and settings'},
   {keys:'<Space>v',run:()=>openEditions(),hint:'versions',group:L,help:'Versions: every edition and its history. In the timeline, `j` `k` move, `Enter` opens, `c` on two versions compares them'},
   {keys:'<Space>d',run:()=>changesShortcut(),hint:'changes',group:L,help:'What changed since you read it, or against the newer version'},
-  {keys:'<Space>g',run:()=>toggleShape(),hint:'shape',group:L,help:'Article shapes (experiment): show or hide the open article’s shape'},
+  {keys:'<Space>g',run:()=>toggleArt(),hint:'art',group:L,help:'Article art: show or hide the open article’s art (or Generate art when it has none)'},
   {keys:'<Space>z',run:()=>{closeContext();reading.toggleZen();},group:L,help:'Hide or reveal the reading chrome'},
   {keys:'<Space>w',run:()=>navigate(SCRATCH+'='+crypto.randomUUID()),hint:'scratch',group:L,help:'Scratch pad: a new Markdown buffer with Vim keys and a live preview (see Scratch pad below)'},
   {keys:'<Space>W',run:()=>{keys.feed('<C-w>');},hint:'window',group:L,display:'Space W',help:'The window prefix, as `Ctrl w` (for browsers that keep Ctrl W)'},
@@ -1286,7 +1371,9 @@ async function completeDocument(typed){if(!typed.trim())return (state.data?.rece
 keys.command({name:'open',aliases:['e','edit'],args:'<document>',help:'Open a document by fuzzy title, author or path (`:e scratch` the scratch pad); without a name, the stacks',
   complete:completeDocument,
   run:openFuzzy});
-keys.command({name:'shape',help:'Show or hide the open article’s shape (experiment), as `Space g`',run:()=>toggleShape()});
+keys.command({name:'shape',help:'Data view: show or hide the open article’s shape (its passages through meaning-space)',run:()=>toggleShape()});
+keys.command({name:'art',help:'Show or hide the open article’s art, as `Space g`',run:()=>toggleArt()});
+keys.command({name:'generate-art',help:'Commission new art for the open article (a background job; the current art is kept)',run:()=>{if(state.doc&&TEXTUAL.test(state.doc.path)&&!state.doc.preview)commissionArt(state.doc.path);else toast('Open a Markdown or text article to make art for it.');}});
 keys.command({name:'enew',help:'A new scratch pad buffer',run:()=>navigate(SCRATCH+'='+crypto.randomUUID())});
 const SPLIT_DIRS={vsplit:['row','v'],split:['col','s']};
 for(const [name,[dir,key]] of Object.entries(SPLIT_DIRS))keys.command({name,aliases:name==='vsplit'?['vs','vsp']:['sp'],args:'[document]',

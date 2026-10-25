@@ -7,10 +7,10 @@ const out='../src/reader_mcp/web_ui/controls';
 const hash=path=>createHash('sha256').update(readFileSync(path)).digest('hex');
 mkdirSync(out,{recursive:true});
 const result=await build({entryPoints:{'reader-controls':'src/reader-controls.tsx'},bundle:true,format:'esm',target:'es2022',minify:true,jsx:'automatic',outdir:out,entryNames:'[name]',define:{'process.env.NODE_ENV':'"production"'},metafile:true,legalComments:'linked'});
-// Three.js entries: the page turn and article shapes load on demand and share one Three.js chunk
+// Three.js entries: the page turn, article art and the article-shape data view load on demand and share one Three.js chunk
 // under controls/three/. Stale chunks are removed.
-rmSync(out+'/three',{recursive:true,force:true});for(const name of ['page-turn','shape'])rmSync(out+'/'+name+'.js.LEGAL.txt',{force:true});
-const three=await build({entryPoints:{'page-turn':'src/page-turn/page-turn.ts',shape:'src/shape/shape.ts'},bundle:true,splitting:true,format:'esm',target:'es2022',minify:true,outdir:out,entryNames:'[name]',chunkNames:'three/[name]-[hash]',metafile:true,legalComments:'linked'});
+rmSync(out+'/three',{recursive:true,force:true});for(const name of ['page-turn','shape','art'])rmSync(out+'/'+name+'.js.LEGAL.txt',{force:true});
+const three=await build({entryPoints:{'page-turn':'src/page-turn/page-turn.ts',shape:'src/shape/shape.ts',art:'src/art/art.ts'},bundle:true,splitting:true,format:'esm',target:'es2022',minify:true,outdir:out,entryNames:'[name]',chunkNames:'three/[name]-[hash]',metafile:true,legalComments:'linked'});
 // Diagrams: an on-demand entry whose diagram types are split into their own chunks under
 // controls/diagrams/, so a document loads only the renderers it uses. Stale chunks are removed.
 rmSync(out+'/diagrams',{recursive:true,force:true});

@@ -12,6 +12,10 @@ Listening checks (a prompt containing "Reader listening check") answer --listen 
 agy only: --narrate TEXT (an interim agent_response before a tool step), --tools (one tool step
 that succeeds and one that fails), --streamed TEXT (streamed text that differs from the final
 `result.response`), --no-result (omit the result event), --status STATUS (result status).
+Art commissions (a prompt naming "Reader art brief", "Reader art scene" or "Reader art scene repair"):
+--art-brief TEXT answers the brief, --art-scene FILE the scene (a JSON file, sent in a ```json fence),
+--art-first FILE the first scene answer only (so a repair follows), --art-usage adds a Claude-style
+`total_cost_usd` and usage to the result event.
 The agy events copy the shapes of real `agy -p --output-format stream-json` output."""
 import argparse
 import json
@@ -47,10 +51,21 @@ parser.add_argument('--tools', action='store_true')
 parser.add_argument('--streamed')
 parser.add_argument('--no-result', action='store_true')
 parser.add_argument('--status', default='SUCCESS')
+parser.add_argument('--art-brief', default='TITLE: A synthetic artwork\nBRIEF:\nTwo slow forms circle a quiet center in the accent and one chart hue, '
+                    'while faint particles drift across the page color: an invented brief for tests, long enough to pass.')
+parser.add_argument('--art-scene')
+parser.add_argument('--art-first')
+parser.add_argument('--art-usage', action='store_true')
 args, rest = parser.parse_known_args()
 prompt = args.prompt if args.prompt is not None else sys.stdin.read()
 seen = prompt + '\n' + (args.persona or '')
 kind = 'listen' if 'Reader listening check' in seen else 'chime_in' if 'You are chiming in' in seen else 'turn'
+if 'Reader art brief' in prompt:
+    args.reply = args.art_brief
+elif 'Reader art scene repair' in prompt and args.art_scene:
+    args.reply = '```json\n' + Path(args.art_scene).read_text() + '\n```'
+elif 'Reader art scene' in prompt and (args.art_first or args.art_scene):
+    args.reply = '```json\n' + Path(args.art_first or args.art_scene).read_text() + '\n```'
 if args.log:
     log = Path(args.log); log.mkdir(parents=True, exist_ok=True)
     with (log / 'calls.jsonl').open('a') as out:
@@ -145,7 +160,8 @@ elif args.style == 'claude':
     if args.exit:
         print('fake failure on stderr', file=sys.stderr, flush=True)
         raise SystemExit(args.exit)
-    emit({'type': 'result', 'subtype': 'success', 'result': reply, 'session_id': 'fake-session'})
+    emit({'type': 'result', 'subtype': 'success', 'result': reply, 'session_id': 'fake-session'}
+         | ({'total_cost_usd': 0.0123, 'usage': {'input_tokens': 1200, 'output_tokens': 800}} if args.art_usage else {}))
 elif args.style == 'codex':
     emit({'type': 'thread.started', 'thread_id': 'fake-thread'})
     emit({'type': 'item.completed', 'item': {'type': 'reasoning', 'text': 'thinking'}})

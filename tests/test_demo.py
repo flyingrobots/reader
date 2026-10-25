@@ -132,6 +132,35 @@ def test_refresh_is_idempotent_and_keeps_only_models(tmp_path):
     assert log(later)[0].split('|')[0] > first_log[0].split('|')[0]
 
 
+def test_four_pieces_have_handcrafted_art_and_the_scripted_voice_makes_more(built, tmp_path):
+    from reader_mcp.art_scene import validate
+    from reader_mcp.web import WebLibrary
+    versions = sorted(p.parent for p in (built / 'art').rglob('scene.json'))
+    assert len(versions) == 4
+    for folder in versions:
+        validate(json.loads((folder / 'scene.json').read_text()))
+        provenance = json.loads((folder / 'provenance.json').read_text())
+        assert provenance['producer']['model'] == demo.VOICE_LABEL and provenance['note'].startswith('Handcrafted for the Reader demo')
+        assert (folder / 'brief.md').read_text().startswith('---\ntitle: ')
+    assert 'Add art for four of this week’s pieces (scripted demo artist, no AI)' in [line.split('|')[2] for line in log(built)]
+    # Of Books is left for you: the scripted demo voice (canned answers from bin/art.json, no model) makes its art.
+    root = demo.build(tmp_path / 'again', today=TODAY, now=NOW)
+    library = WebLibrary(root, art_options={'capacity': lambda _: True, 'git_locks': False})
+    try:
+        job = library.art.enqueue('library/essayists/montaigne/of-books.md', None)
+        assert job['producer'] == 'voice:Archivist'
+        deadline = datetime.now() + timedelta(seconds=60)
+        while library.art.jobs[job['id']]['state'] in ('queued', 'waiting', 'running') and datetime.now() < deadline:
+            import time
+            time.sleep(.1)
+        done = library.art.jobs[job['id']]
+        assert done['state'] == 'done', done.get('error')
+        art = library.art.art('library/essayists/montaigne/of-books.md')['art']
+        assert art['title'] == 'Notes at the back' and art['provenance']['producer']['label'] == 'Archivist'
+    finally:
+        library.close()
+
+
 def test_empty_directory_is_allowed(tmp_path):
     empty = tmp_path / 'empty'
     empty.mkdir()

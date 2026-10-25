@@ -1,0 +1,568 @@
+{
+ "match": [
+  "of books",
+  "montaigne",
+  "notes"
+ ],
+ "title": "Notes at the back",
+ "brief": "A short, uneven stack of books, each one turned a little against the one below, the way books pile up on a desk that is actually used. Their covers take the theme's categorical hues, softened toward the page, so the stack reads as a small library rather than a monument. Around it, a few pale slips of paper circle slowly at different heights and speeds, like the notes Montaigne writes at the back of each book so that he will remember what he thought of it. Each slip is tied to the stack by a faint thread that slackens and tightens as it moves: judgement kept close to the thing judged.\n\nOne slip lags behind another, following it on a spring, the way one reading follows an earlier one. Fine dust turns in a wide ring at the height of the stack: memory, which Montaigne says fails him, held together only by the notes. Warm light from above, slow motion, a lot of quiet room.",
+ "scene": {
+  "reader_scene": 1,
+  "title": "Notes at the back",
+  "seed": 1580,
+  "fog": {
+   "color": "bg",
+   "near": 6,
+   "far": 15
+  },
+  "camera": {
+   "position": [
+    0,
+    1.6,
+    5.2
+   ],
+   "target": [
+    0,
+    0.6,
+    0
+   ],
+   "fov": 33,
+   "motion": {
+    "kind": "orbit",
+    "period": 160,
+    "axis": "y"
+   }
+  },
+  "still": {
+   "at": 9
+  },
+  "lights": [
+   {
+    "type": "hemisphere",
+    "color": "bright",
+    "ground": "bg",
+    "intensity": 0.9
+   },
+   {
+    "type": "spot",
+    "color": {
+     "token": "chart-3",
+     "mix": "bright",
+     "amount": 0.6
+    },
+    "intensity": 34,
+    "position": [
+     0.6,
+     4.6,
+     1.8
+    ],
+    "target": [
+     0,
+     0.5,
+     0
+    ],
+    "angle": 0.55,
+    "penumbra": 0.8
+   },
+   {
+    "type": "directional",
+    "color": "bright",
+    "intensity": 0.6,
+    "position": [
+     -4,
+     2,
+     3
+    ]
+   }
+  ],
+  "materials": {
+   "slip": {
+    "type": "standard",
+    "color": {
+     "token": "bright",
+     "mix": "bg",
+     "amount": 0.15
+    },
+    "roughness": 0.9,
+    "side": "double",
+    "emissive": "bright",
+    "emissiveIntensity": 0.12
+   }
+  },
+  "objects": [
+   {
+    "type": "group",
+    "id": "stack",
+    "children": [
+     {
+      "type": "mesh",
+      "geometry": {
+       "type": "box",
+       "size": [
+        1.7,
+        0.16,
+        1.2
+       ]
+      },
+      "position": [
+       0,
+       0.08,
+       0
+      ],
+      "rotation": [
+       0,
+       0.1,
+       0
+      ],
+      "material": {
+       "type": "standard",
+       "color": {
+        "token": "chart-1",
+        "mix": "bg",
+        "amount": 0.2
+       },
+       "roughness": 0.7
+      }
+     },
+     {
+      "type": "mesh",
+      "geometry": {
+       "type": "box",
+       "size": [
+        1.5,
+        0.12,
+        1.05
+       ]
+      },
+      "position": [
+       0.04,
+       0.22,
+       0.02
+      ],
+      "rotation": [
+       0,
+       -0.16,
+       0
+      ],
+      "material": {
+       "type": "standard",
+       "color": {
+        "token": "chart-4",
+        "mix": "bg",
+        "amount": 0.2
+       },
+       "roughness": 0.7
+      }
+     },
+     {
+      "type": "mesh",
+      "geometry": {
+       "type": "box",
+       "size": [
+        1.62,
+        0.2,
+        1.1
+       ]
+      },
+      "position": [
+       -0.05,
+       0.38,
+       0
+      ],
+      "rotation": [
+       0,
+       0.28,
+       0
+      ],
+      "material": {
+       "type": "standard",
+       "color": {
+        "token": "chart-2",
+        "mix": "bg",
+        "amount": 0.2
+       },
+       "roughness": 0.7
+      }
+     },
+     {
+      "type": "mesh",
+      "geometry": {
+       "type": "box",
+       "size": [
+        1.3,
+        0.1,
+        0.95
+       ]
+      },
+      "position": [
+       0.06,
+       0.53,
+       -0.03
+      ],
+      "rotation": [
+       0,
+       0.04,
+       0
+      ],
+      "material": {
+       "type": "standard",
+       "color": {
+        "token": "chart-6",
+        "mix": "bg",
+        "amount": 0.2
+       },
+       "roughness": 0.7
+      }
+     },
+     {
+      "type": "mesh",
+      "geometry": {
+       "type": "box",
+       "size": [
+        1.44,
+        0.15,
+        1.0
+       ]
+      },
+      "position": [
+       -0.02,
+       0.655,
+       0.02
+      ],
+      "rotation": [
+       0,
+       -0.32,
+       0
+      ],
+      "material": {
+       "type": "standard",
+       "color": {
+        "token": "chart-5",
+        "mix": "bg",
+        "amount": 0.2
+       },
+       "roughness": 0.7
+      }
+     },
+     {
+      "type": "mesh",
+      "geometry": {
+       "type": "box",
+       "size": [
+        1.12,
+        0.09,
+        0.8
+       ]
+      },
+      "position": [
+       0.03,
+       0.775,
+       0
+      ],
+      "rotation": [
+       0,
+       0.18,
+       0
+      ],
+      "material": {
+       "type": "standard",
+       "color": {
+        "token": "chart-3",
+        "mix": "bg",
+        "amount": 0.2
+       },
+       "roughness": 0.7
+      }
+     },
+     {
+      "type": "mesh",
+      "geometry": {
+       "type": "box",
+       "size": [
+        1.25,
+        0.13,
+        0.88
+       ]
+      },
+      "position": [
+       -0.04,
+       0.885,
+       0.01
+      ],
+      "rotation": [
+       0,
+       -0.08,
+       0
+      ],
+      "material": {
+       "type": "standard",
+       "color": {
+        "token": "chart-8",
+        "mix": "bg",
+        "amount": 0.2
+       },
+       "roughness": 0.7
+      }
+     },
+     {
+      "type": "mesh",
+      "geometry": {
+       "type": "box",
+       "size": [
+        0.96,
+        0.08,
+        0.7
+       ]
+      },
+      "position": [
+       0.02,
+       0.99,
+       0
+      ],
+      "rotation": [
+       0,
+       0.36,
+       0
+      ],
+      "material": {
+       "type": "standard",
+       "color": {
+        "token": "accent",
+        "mix": "bg",
+        "amount": 0.15
+       },
+       "roughness": 0.6
+      }
+     }
+    ]
+   },
+   {
+    "type": "mesh",
+    "id": "core",
+    "geometry": {
+     "type": "sphere",
+     "radius": 0.02
+    },
+    "position": [
+     0,
+     0.6,
+     0
+    ],
+    "material": {
+     "type": "basic",
+     "color": "bg",
+     "opacity": 0
+    }
+   },
+   {
+    "type": "mesh",
+    "id": "slip-a",
+    "geometry": {
+     "type": "plane",
+     "size": [
+      0.34,
+      0.22
+     ]
+    },
+    "position": [
+     1.9,
+     1.1,
+     0
+    ],
+    "material": "slip",
+    "animate": [
+     {
+      "kind": "orbit",
+      "around": "core",
+      "radius": 1.9,
+      "period": 48
+     },
+     {
+      "kind": "oscillate",
+      "property": "position.y",
+      "amplitude": 0.25,
+      "period": 17
+     },
+     {
+      "kind": "look",
+      "target": "core"
+     }
+    ]
+   },
+   {
+    "type": "mesh",
+    "id": "slip-b",
+    "geometry": {
+     "type": "plane",
+     "size": [
+      0.3,
+      0.2
+     ]
+    },
+    "material": "slip",
+    "animate": [
+     {
+      "kind": "orbit",
+      "around": "core",
+      "radius": 2.4,
+      "period": 70,
+      "phase": 0.45,
+      "axis": [
+       0.12,
+       1,
+       0
+      ]
+     },
+     {
+      "kind": "look",
+      "target": "core"
+     }
+    ]
+   },
+   {
+    "type": "mesh",
+    "id": "slip-c",
+    "geometry": {
+     "type": "plane",
+     "size": [
+      0.26,
+      0.18
+     ]
+    },
+    "material": "slip",
+    "animate": [
+     {
+      "kind": "follow",
+      "target": "slip-a",
+      "offset": [
+       0,
+       0.35,
+       0.2
+      ],
+      "stiffness": 0.9,
+      "damping": 0.9
+     },
+     {
+      "kind": "look",
+      "target": "core"
+     }
+    ]
+   },
+   {
+    "type": "mesh",
+    "id": "slip-d",
+    "geometry": {
+     "type": "plane",
+     "size": [
+      0.3,
+      0.19
+     ]
+    },
+    "material": "slip",
+    "animate": [
+     {
+      "kind": "orbit",
+      "around": "core",
+      "radius": 1.6,
+      "period": 36,
+      "phase": 0.75,
+      "axis": [
+       -0.2,
+       1,
+       0.1
+      ]
+     },
+     {
+      "kind": "oscillate",
+      "property": "position.y",
+      "amplitude": 0.3,
+      "period": 23
+     },
+     {
+      "kind": "look",
+      "target": "core"
+     }
+    ]
+   },
+   {
+    "type": "particles",
+    "count": 1800,
+    "shape": "ring",
+    "radius": 3.1,
+    "position": [
+     0,
+     0.6,
+     0
+    ],
+    "pointSize": 0.03,
+    "color": {
+     "token": "muted",
+     "mix": "bg",
+     "amount": 0.3
+    },
+    "opacity": 0.55,
+    "seed": 3,
+    "motion": {
+     "kind": "swirl",
+     "speed": 0.12
+    }
+   },
+   {
+    "type": "mesh",
+    "geometry": {
+     "type": "circle",
+     "radius": 14,
+     "segments": 96
+    },
+    "rotation": [
+     -1.5708,
+     0,
+     0
+    ],
+    "position": [
+     0,
+     -0.001,
+     0
+    ],
+    "material": {
+     "type": "basic",
+     "color": {
+      "token": "bg",
+      "mix": "deep",
+      "amount": 0.04
+     }
+    }
+   }
+  ],
+  "links": [
+   {
+    "from": "core",
+    "to": "slip-a",
+    "color": "faint",
+    "opacity": 0.5,
+    "sag": 0.25
+   },
+   {
+    "from": "core",
+    "to": "slip-b",
+    "color": "faint",
+    "opacity": 0.5,
+    "sag": 0.3
+   },
+   {
+    "from": "slip-a",
+    "to": "slip-c",
+    "color": "faint",
+    "opacity": 0.45,
+    "sag": 0.08
+   },
+   {
+    "from": "core",
+    "to": "slip-d",
+    "color": "faint",
+    "opacity": 0.5,
+    "sag": 0.2
+   }
+  ]
+ }
+}

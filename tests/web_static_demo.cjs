@@ -1,6 +1,6 @@
 /* The static demo (RW-42): `reader demo --export-static` writes a site that a plain static file server
    serves under /reader/. The magazine, documents, outline, editions and What changed, Read next, the link
-   graph, keyword search, themes, a PDF, an image and a local-only highlight all work, no request reaches
+   graph, keyword search, themes, a PDF, an image, article art and a local-only highlight all work, no request reaches
    /api/* on the server or leaves the origin, and the shim is inert on a page without the flag. */
 const assert=require('node:assert/strict');
 const {spawnSync}=require('node:child_process');
@@ -41,6 +41,10 @@ const TYPES={'.html':'text/html; charset=utf-8','.js':'text/javascript','.mjs':'
   assert.match(await page.locator('#static-demo-note').textContent(),/stay only in this browser/);
   assert.ok(await page.locator('#static-demo-note').evaluate(el=>el.hasAttribute('data-reader-decoration')));
   await page.screenshot({path:'.reader/web-dev/static-demo-magazine.png'});
+  // Bespoke art (RW-43): the cover's exported scene and its Artist's note, with no still image or job route.
+  const cover=page.locator('.cover-art[data-art]');await cover.waitFor();
+  await page.waitForFunction(()=>['still','image','unavailable','live'].includes(document.querySelector('.cover-art')?.dataset.state));
+  assert.match(await cover.locator('.art-note').textContent(),/\S{3}/,'the Artist’s note travels with the export');
   // A document with margins, its outline rail, Read next and the link graph.
   await open('library/walden/thoreau/where-i-lived.md','Where I Lived');
   await page.waitForFunction(()=>document.querySelectorAll('#article [data-thread]').length>=3);
@@ -49,6 +53,13 @@ const TYPES={'.html':'text/html; charset=utf-8','.js':'text/javascript','.mjs':'
   await open('library/essayists/montaigne/of-books.md','Of Books');
   await page.locator('.linked-from[data-state=ready]').waitFor();
   assert.ok(Number(await page.locator('.linked-from-count').textContent())>=1,'the link graph lists who links here');
+  // A piece without art: Generate art says it needs Reader running locally, and nothing is sent anywhere.
+  await page.locator('#main').focus();await page.keyboard.press('Space');await page.keyboard.press('g');
+  const make=page.locator('.article-art .art-placeholder [data-art-generate]');await make.waitFor();
+  assert.equal(await make.textContent(),'Generate art (run Reader locally)');
+  await make.click();
+  await page.waitForFunction(()=>document.querySelector('[data-sonner-toaster]')?.textContent.includes('Making art needs Reader on your computer.'));
+  await page.keyboard.press('Space');await page.keyboard.press('g');await page.locator('.article-art').waitFor({state:'detached'});
   await open('library/lantern/research/spaced-rereading.md','Spaced re-reading');
   await page.locator('#outline-rail:not([hidden]) a').nth(2).waitFor();
   // Editions and What changed.

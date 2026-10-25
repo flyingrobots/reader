@@ -1,0 +1,368 @@
+{
+ "match": [
+  "modern fiction",
+  "woolf",
+  "ordinary mind"
+ ],
+ "title": "A luminous halo",
+ "brief": "Below, a row of small lamps stands in perfect symmetry, evenly spaced and evenly lit: the gig lamps Woolf says the novel arranges life into. Above them floats the thing she asks for instead, a semi-transparent envelope, a soft glowing shell in the accent that is not quite solid and never quite still. Through it falls an incessant shower of innumerable atoms, fine specks in two chart hues and faint ink, drifting down past the lamps at their own pace, some trivial, some lasting, none arranged.\n\nThe shell breathes slowly and turns; a few brighter motes orbit inside it at different speeds, impressions the mind keeps. The lamps do nothing at all, and that is the contrast: order that explains nothing, and a halo that holds everything. The light comes from within the envelope, warm on the falling specks and barely reaching the lamps.",
+ "scene": {
+  "reader_scene": 1,
+  "title": "A luminous halo",
+  "seed": 1925,
+  "fog": {
+   "color": "bg",
+   "near": 5,
+   "far": 14
+  },
+  "camera": {
+   "position": [
+    0,
+    0.4,
+    6.6
+   ],
+   "target": [
+    0,
+    0.2,
+    0
+   ],
+   "fov": 35,
+   "motion": {
+    "kind": "sway",
+    "amplitude": 0.2,
+    "period": 75
+   }
+  },
+  "still": {
+   "at": 8
+  },
+  "lights": [
+   {
+    "type": "hemisphere",
+    "color": "bright",
+    "ground": "bg",
+    "intensity": 0.7
+   },
+   {
+    "type": "point",
+    "id": "heart",
+    "color": {
+     "token": "accent",
+     "mix": "bright",
+     "amount": 0.4
+    },
+    "intensity": 18,
+    "position": [
+     0,
+     0.6,
+     0
+    ],
+    "distance": 8,
+    "decay": 1.4
+   },
+   {
+    "type": "directional",
+    "color": "bright",
+    "intensity": 0.5,
+    "position": [
+     -3,
+     3,
+     4
+    ]
+   }
+  ],
+  "materials": {
+   "envelope": {
+    "type": "physical",
+    "color": {
+     "token": "accent",
+     "mix": "bright",
+     "amount": 0.3
+    },
+    "emissive": "accent",
+    "emissiveIntensity": 0.55,
+    "roughness": 0.15,
+    "clearcoat": 1,
+    "opacity": 0.2,
+    "side": "double",
+    "blending": "additive"
+   },
+   "lamp": {
+    "type": "standard",
+    "color": {
+     "token": "muted",
+     "mix": "bg",
+     "amount": 0.2
+    },
+    "emissive": {
+     "token": "chart-3",
+     "mix": "bg",
+     "amount": 0.4
+    },
+    "emissiveIntensity": 0.5,
+    "roughness": 0.6
+   },
+   "post": {
+    "type": "standard",
+    "color": {
+     "token": "muted",
+     "mix": "bg",
+     "amount": 0.35
+    },
+    "roughness": 0.8
+   }
+  },
+  "objects": [
+   {
+    "type": "mesh",
+    "id": "halo",
+    "geometry": {
+     "type": "parametric",
+     "surface": "spherical-harmonic",
+     "slices": 96,
+     "stacks": 64,
+     "a": 0.12,
+     "b": 5,
+     "c": 4,
+     "size": 1.2
+    },
+    "position": [
+     0,
+     0.6,
+     0
+    ],
+    "material": "envelope",
+    "animate": [
+     {
+      "kind": "spin",
+      "axis": [
+       0.2,
+       1,
+       0
+      ],
+      "period": 90
+     },
+     {
+      "kind": "oscillate",
+      "property": "scale",
+      "amplitude": 0.04,
+      "period": 11
+     }
+    ]
+   },
+   {
+    "type": "particles",
+    "count": 2400,
+    "shape": "shell",
+    "radius": 1.32,
+    "position": [
+     0,
+     0.6,
+     0
+    ],
+    "pointSize": 0.03,
+    "color": {
+     "token": "accent",
+     "mix": "bright",
+     "amount": 0.45
+    },
+    "opacity": 0.55,
+    "blending": "additive",
+    "seed": 19,
+    "motion": {
+     "kind": "breathe",
+     "amplitude": 0.05,
+     "period": 11
+    }
+   },
+   {
+    "type": "mesh",
+    "id": "core",
+    "geometry": {
+     "type": "sphere",
+     "radius": 0.02
+    },
+    "position": [
+     0,
+     0.6,
+     0
+    ],
+    "material": {
+     "type": "basic",
+     "color": "bg",
+     "opacity": 0
+    }
+   },
+   {
+    "type": "mesh",
+    "geometry": {
+     "type": "sphere",
+     "radius": 0.06
+    },
+    "material": {
+     "type": "basic",
+     "color": {
+      "token": "chart-3",
+      "mix": "bright",
+      "amount": 0.3
+     }
+    },
+    "animate": [
+     {
+      "kind": "orbit",
+      "around": "core",
+      "radius": 0.7,
+      "period": 23,
+      "axis": [
+       0.3,
+       1,
+       0
+      ]
+     }
+    ]
+   },
+   {
+    "type": "mesh",
+    "geometry": {
+     "type": "sphere",
+     "radius": 0.045
+    },
+    "material": {
+     "type": "basic",
+     "color": {
+      "token": "chart-2",
+      "mix": "bright",
+      "amount": 0.3
+     }
+    },
+    "animate": [
+     {
+      "kind": "orbit",
+      "around": "core",
+      "radius": 0.95,
+      "period": 37,
+      "axis": [
+       -0.4,
+       1,
+       0.2
+      ],
+      "phase": 0.5
+     }
+    ]
+   },
+   {
+    "type": "mesh",
+    "geometry": {
+     "type": "sphere",
+     "radius": 0.04
+    },
+    "material": {
+     "type": "basic",
+     "color": {
+      "token": "accent",
+      "mix": "bright",
+      "amount": 0.3
+     }
+    },
+    "animate": [
+     {
+      "kind": "orbit",
+      "around": "core",
+      "radius": 0.5,
+      "period": 17,
+      "axis": [
+       0,
+       1,
+       0.5
+      ],
+      "phase": 0.2
+     }
+    ]
+   },
+   {
+    "type": "instances",
+    "geometry": {
+     "type": "sphere",
+     "radius": 0.07,
+     "widthSegments": 16,
+     "heightSegments": 10
+    },
+    "material": "lamp",
+    "count": 9,
+    "layout": {
+     "kind": "line",
+     "from": [
+      -3,
+      -1.35,
+      0.6
+     ],
+     "to": [
+      3,
+      -1.35,
+      0.6
+     ]
+    }
+   },
+   {
+    "type": "instances",
+    "geometry": {
+     "type": "cylinder",
+     "radiusTop": 0.008,
+     "radiusBottom": 0.012,
+     "height": 0.6,
+     "radialSegments": 6
+    },
+    "material": "post",
+    "count": 9,
+    "layout": {
+     "kind": "line",
+     "from": [
+      -3,
+      -1.7,
+      0.6
+     ],
+     "to": [
+      3,
+      -1.7,
+      0.6
+     ]
+    }
+   },
+   {
+    "type": "particles",
+    "count": 3200,
+    "shape": "box",
+    "size": [
+     8,
+     4.6,
+     3
+    ],
+    "position": [
+     0,
+     0.3,
+     0
+    ],
+    "pointSize": 0.024,
+    "colors": [
+     {
+      "token": "chart-2",
+      "mix": "bg",
+      "amount": 0.2
+     },
+     {
+      "token": "chart-5",
+      "mix": "bg",
+      "amount": 0.2
+     },
+     "faint"
+    ],
+    "opacity": 0.7,
+    "seed": 64,
+    "motion": {
+     "kind": "fall",
+     "speed": 0.09
+    }
+   }
+  ]
+ }
+}

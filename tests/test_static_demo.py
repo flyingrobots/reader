@@ -10,6 +10,7 @@ import pytest
 
 from reader_mcp.demo import build as demo
 from reader_mcp.demo import static
+from reader_mcp.art_scene import validate
 
 STATIC = Path(static.__file__).resolve().parent.parent / 'web_ui'
 
@@ -112,7 +113,7 @@ def test_export_records_every_route_the_reader_needs(exported):
     for route in ('/api/library', '/api/document', '/api/discussion', '/api/versions', '/api/changes', '/api/version', '/api/next', '/api/links',
                   '/api/issue', '/api/queue', '/api/history', '/api/readers', '/api/chats', '/api/chat', '/api/standfirst', '/api/editions', '/api/inbox'):
         assert route in routes, route
-    assert not routes & {'/api/local-model', '/api/service', '/api/health', '/api/prose'}, 'machine routes are never exported'
+    assert not routes & {'/api/local-model', '/api/service', '/api/health', '/api/prose', '/api/art/jobs', '/api/art/still'}, 'machine routes are never exported'
     for name, status in data['routes'].values():
         assert (out / 'data/r' / f'{name}.json').is_file() and status in (200, 400, 404)
     works = json.loads((out / 'data/r' / (data['routes'][static.key('/api/library', [])][0] + '.json')).read_text())['works']
@@ -123,6 +124,20 @@ def test_export_records_every_route_the_reader_needs(exported):
     assert index['paths'] and all(p.startswith('library/') for p in index['paths']) and len(index['chunks']) >= len(index['paths'])
     resolve = json.loads((out / 'data/resolve.json').read_text())
     assert any(result.get('path') for table in resolve.values() for result in table.values())
+
+
+def test_export_carries_the_demo_art_without_stills_or_jobs(exported):
+    root, out, _ = exported
+    data = json.loads((out / 'data/manifest.json').read_text())
+    answers = [json.loads((out / 'data/r' / f'{name}.json').read_text()) for k, (name, status) in data['routes'].items()
+               if json.loads(k)[0] == '/api/art' and status == 200]
+    drawn = [a for a in answers if a.get('art')]
+    assert len(drawn) >= 4, 'the four handcrafted demo scenes are exported'
+    for answer in answers:
+        assert answer['job'] is None and all(v['still'] is None for v in answer['versions'])
+    for answer in drawn:
+        assert answer['art']['scene'] and answer['art']['brief'] and answer['art']['still'] is None
+        validate(answer['art']['scene'])  # theme-role colors ({"token": …}) survive the export's scrub
 
 
 def test_export_contains_no_machine_paths_or_tokens(exported):

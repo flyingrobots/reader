@@ -19,7 +19,7 @@ import threading
 import time
 
 ROOT = 'logs/llm'
-KINDS = ('chat', 'listen', 'inbox', 'local-model')
+KINDS = ('chat', 'listen', 'inbox', 'local-model', 'art')
 META = 'meta.json'
 RUN_ID = re.compile(r'[A-Za-z0-9][A-Za-z0-9._-]{0,79}')
 RELATIVE = re.compile(r'logs/llm/(' + '|'.join(KINDS) + r')/\d{4}/\d{2}/\d{2}/([A-Za-z0-9][A-Za-z0-9._-]{0,79})')

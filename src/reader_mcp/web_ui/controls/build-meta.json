@@ -6,14 +6,17 @@
     "url": "https://ui.shadcn.com"
   },
   "sources": {
+    "../src/reader_mcp/web_ui/art-scene.v1.json": "704fc555d474df965a7c676d9dbe518f532149a1e65132e2c72c1859a3521eb1",
     "../src/reader_mcp/web_ui/famous-themes.json": "0d0eddf04d8e3d4268111e29c53d73e03d202dfca4f1ad5e92aa90dc8941a3aa",
     "../src/reader_mcp/web_ui/theme-tokens.json": "dbae5604b6b6843489d353888d9360c1c1eb24bb07baa650ef1534b67ecc33d2",
-    "build.mjs": "51c9580994fd8bb509f566f9c6e8edfe114af999c1cb992b187154968499c61c",
+    "build.mjs": "d8d3f0c3d1e04af556fc0bbccadbeeda94d009e79323789942e608f87d11ac84",
     "components.json": "6bcabb7870c5c5634cf69e9138a782ca7242f00cfc94e2cc3de981dc84cb6f6b",
     "package-lock.json": "75313fd21ec73e8d176ed64cf296b12fc176880cab986dc8240a07f47dd1ed5e",
     "src/activity/reducer.ts": "44af5ec36d572ae62673b1f8f94ce4b2f4f75999b5e2a0169e21daee9333cfe8",
     "src/activity/transcript.tsx": "2055824889b5f3fbdfb5bed8c7c21d6231323911242930bb88b631a3723bcee8",
-    "src/backstage.tsx": "2cf3dc1fa113aef77fb14cce3ebf05ec731cb41ab97fef164deedd839bc982ad",
+    "src/art-studio.tsx": "f868ad8cbdc4947a7e2f9fffb4d989c67a6e5f7e542cfc2ae1614221bec09dde",
+    "src/art/art.ts": "0f9941cdef72d6159e769d2960f5901efbfa070c1f4c2ce2632dba9aad0e5531",
+    "src/backstage.tsx": "e90cfc3fee8a961ddde2ee2a2d778750b8fd00f60ffbcf7837b7200cab38ec9f",
     "src/callouts.tsx": "fccf6b854b5c95a48ef40d206edfe927718f2ad9e8b59f3b5005548819172584",
     "src/changes-panel.tsx": "2a06b103e068f758afbfe34976ff9461ed43adbf421d5f13cb5a63b45ce5b268",
     "src/chat/chat-panel.tsx": "82f0b51119cf87a388d9152d416088055d686b6c894c3c652e447d8eac1d6b58",
@@ -60,7 +63,7 @@
     "src/page-turn/svg-images.ts": "7279f2b05c66b7a496d2b891b65030e6738f90b032fabbdf9057106f518d887e",
     "src/plural.ts": "4c0d0698a171b39d5683548f00e2e9a8a7c5ea1af28e4067aaa63612476b5fa2",
     "src/queue-panel.tsx": "aa39302175827b3d9659ab4085c5999a4c65a8d2c0b325716de4e2733a2519a6",
-    "src/reader-controls.tsx": "351bf615f1d16917da6d3d7c67b99739179cf92683fe34f1cfcaf98c68437c7f",
+    "src/reader-controls.tsx": "cba308f48e38e441ee55d681c82d306b188eb52ff15cc92fb289425d8841bd54",
     "src/search-page.tsx": "2cd0ec009e41f4dc701efa2ed64edd91e54503d1e880d083df21fff52ef82a5d",
     "src/server-card.tsx": "677721ee033724bbe168e6f566703ddc8df4331d2b046437c1ba91ea4e6a88b0",
     "src/shape/shape.ts": "9fe4b2b1dd21a2869130afa25aed34e2ea482fc8fe05aa2609193aa24c04b50c",
@@ -264,6 +267,10 @@
     }
   },
   "outputs": {
+    "art.js": {
+      "bytes": 36839,
+      "sha256": "39086a24471b34c031b8db16637cc7eb82531ae63cf23d67fbb92bb3fb32f245"
+    },
     "diagrams/23I4SOAX-F2KOMNEB.js": {
       "bytes": 7496,
       "sha256": "e75b93336ac01896766fa6eca858aef07a4cb046e8c0e2125c4d8d87087026ac"
@@ -781,30 +788,30 @@
       "sha256": "f07bd652ea62886cfa10d528c2b122207ce7ec1540ec61df2c30a5c5d2dbc748"
     },
     "page-turn.js": {
-      "bytes": 16800,
-      "sha256": "9e2e0b101e586397d9f4d24893540d785108b4acb5ce9acb1234cc3c12408cdc"
+      "bytes": 16802,
+      "sha256": "2d567f6a5ddab3328682432154766396f9c2f3682e0aa4b7498af7904148c56c"
     },
     "reader-controls.css": {
       "bytes": 142677,
       "sha256": "4d88de985caa0af3263104c09069c7d29d6febf55634ca27e58551257e55ceb8"
     },
     "reader-controls.js": {
-      "bytes": 897896,
-      "sha256": "929296a51d862f33966f8dc5aa9392793f003a57922d8864ca8d23c900378172"
+      "bytes": 904192,
+      "sha256": "4658b1cee297d6621e0c42b7035d8c385bc51d9e26cd77ad65f727f247706fb5"
     },
     "reader-controls.js.LEGAL.txt": {
       "bytes": 5290,
       "sha256": "0c6759d55700f67e4857ac7e67746529b745c92e3e53dab1502ac16b8c42408a"
     },
     "shape.js": {
-      "bytes": 8801,
-      "sha256": "832402b304edc5f700817623d7815213d43711440fcaad78fcfec755526db361"
+      "bytes": 8806,
+      "sha256": "5f9f6c8fd0f2d1380c16f0df88a0b8d4ea877e60bd798b3da08bbe0ba61a063e"
     },
-    "three/chunk-A3UU63QU.js": {
-      "bytes": 562050,
-      "sha256": "faf0ccbf0632a5dcfddd254c560547ec76f170e37587e35fd1d296e1819f9304"
+    "three/chunk-6HW7V4OJ.js": {
+      "bytes": 603331,
+      "sha256": "023249f0cb8fb11a64f8557d8139e22e222b43551b8bf4483926ca73f37aa5c7"
     },
-    "three/chunk-A3UU63QU.js.LEGAL.txt": {
+    "three/chunk-6HW7V4OJ.js.LEGAL.txt": {
       "bytes": 188,
       "sha256": "cc7cc7e2f53d5db0235ab2226e85fc6e91655161573b39813b41bb00e5919674"
     }

@@ -1,0 +1,254 @@
+{
+  "$comment": "Reader scene description, version 1 (RW-43). The one source of truth for the Python validator (src/reader_mcp/art_scene.py) and the browser validator (web_ui/art-scene.mjs): both interpret these types generically, then run the same semantic checks (ids, targets, follow cycles, face indices, budgets). Unknown fields are refused everywhere.",
+  "version": 1,
+  "limits": {
+    "bytes": 262144,
+    "nodes": 240,
+    "depth": 6,
+    "materials": 32,
+    "lights": 8,
+    "links": 64,
+    "animations": 400,
+    "instances": 6000,
+    "particles": 24000,
+    "triangles": 400000,
+    "errors": 20
+  },
+  "tokens": ["bg", "surface", "raised", "line", "ink", "muted", "faint", "accent", "accent-ink", "rust", "warning",
+             "chart-1", "chart-2", "chart-3", "chart-4", "chart-5", "chart-6", "chart-7", "chart-8", "bright", "deep"],
+  "derived_tokens": {"bright": "the lighter of bg and ink", "deep": "the darker of bg and ink"},
+  "root": "scene",
+  "geometry_defaults": {
+    "box": {"size": [1, 1, 1], "segments": 1},
+    "sphere": {"radius": 1, "widthSegments": 32, "heightSegments": 16},
+    "icosahedron": {"radius": 1, "detail": 0},
+    "octahedron": {"radius": 1, "detail": 0},
+    "dodecahedron": {"radius": 1, "detail": 0},
+    "tetrahedron": {"radius": 1, "detail": 0},
+    "torus": {"radius": 1, "tube": 0.3, "radialSegments": 12, "tubularSegments": 48, "arc": 6.2832},
+    "torusKnot": {"radius": 1, "tube": 0.3, "tubularSegments": 128, "radialSegments": 12, "p": 2, "q": 3},
+    "cylinder": {"radiusTop": 1, "radiusBottom": 1, "height": 1, "radialSegments": 32, "heightSegments": 1, "openEnded": false},
+    "cone": {"radius": 1, "height": 1, "radialSegments": 32, "openEnded": false},
+    "capsule": {"radius": 0.5, "length": 1, "capSegments": 4, "radialSegments": 8},
+    "plane": {"size": [1, 1], "segments": [1, 1]},
+    "circle": {"radius": 1, "segments": 32},
+    "ring": {"inner": 0.5, "outer": 1, "segments": 32},
+    "lathe": {"segments": 32},
+    "extrude": {"depth": 1, "bevel": 0, "curveSegments": 4, "holes": []},
+    "tube": {"radius": 0.1, "tubularSegments": 64, "radialSegments": 8, "closed": false},
+    "parametric": {"slices": 64, "stacks": 64, "a": 1, "b": 1, "c": 1, "size": 1}
+  },
+  "types": {
+    "coord": {"kind": "number", "min": -50, "max": 50},
+    "unit": {"kind": "number", "min": 0, "max": 1},
+    "signed": {"kind": "number", "min": -1, "max": 1},
+    "len": {"kind": "number", "min": 0.001, "max": 20},
+    "len0": {"kind": "number", "min": 0, "max": 20},
+    "angle": {"kind": "number", "min": -25.2, "max": 25.2},
+    "period": {"kind": "number", "min": 2, "max": 600},
+    "seed": {"kind": "integer", "min": 0, "max": 2147483647},
+    "id": {"kind": "string", "pattern": "^[a-z][a-z0-9-]{0,31}$"},
+    "vec3": {"kind": "tuple", "length": 3, "item": "coord"},
+    "vec2": {"kind": "tuple", "length": 2, "item": "coord"},
+    "dir3": {"kind": "tuple", "length": 3, "item": "signed"},
+    "euler": {"kind": "tuple", "length": 3, "item": "angle"},
+    "scale3": {"kind": "tuple", "length": 3, "item": {"kind": "number", "min": 0.001, "max": 50}},
+    "scale": {"kind": "alternatives", "number": {"kind": "number", "min": 0.001, "max": 50}, "array": "scale3"},
+    "axis": {"kind": "alternatives", "string": {"kind": "enum", "values": ["x", "y", "z"]}, "array": "dir3"},
+    "token": {"kind": "enum", "values": "@tokens"},
+    "color": {"kind": "alternatives", "string": "token", "object": "color-mix"},
+    "color-mix": {"kind": "object", "fields": {
+      "token": {"type": "token"},
+      "mix": {"type": "token"},
+      "amount": {"type": "unit"},
+      "lightness": {"type": {"kind": "number", "min": -0.6, "max": 0.6}},
+      "saturation": {"type": {"kind": "number", "min": -1, "max": 1}},
+      "hue": {"type": {"kind": "number", "min": -60, "max": 60}},
+      "light": {"type": "color"},
+      "dark": {"type": "color"}
+    }, "either": [["token"], ["light", "dark"]]},
+    "colors": {"kind": "list", "item": "color", "min": 1, "max": 12},
+
+    "scene": {"kind": "object", "fields": {
+      "reader_scene": {"type": {"kind": "enum", "values": [1]}, "required": true},
+      "title": {"type": {"kind": "string", "min": 1, "max": 80}},
+      "seed": {"type": "seed"},
+      "background": {"type": "color"},
+      "fog": {"type": "fog"},
+      "camera": {"type": "camera"},
+      "still": {"type": "still"},
+      "lights": {"type": {"kind": "list", "item": "light", "max": "@limits.lights"}},
+      "materials": {"type": {"kind": "map", "key": "id", "value": "material", "max": "@limits.materials"}},
+      "objects": {"type": {"kind": "list", "item": "node", "min": 1, "max": "@limits.nodes"}, "required": true},
+      "links": {"type": {"kind": "list", "item": "link", "max": "@limits.links"}}
+    }},
+    "fog": {"kind": "object", "fields": {
+      "color": {"type": "color"},
+      "near": {"type": {"kind": "number", "min": 0, "max": 200}},
+      "far": {"type": {"kind": "number", "min": 0.1, "max": 400}},
+      "density": {"type": {"kind": "number", "min": 0, "max": 0.5}}
+    }},
+    "still": {"kind": "object", "fields": {
+      "at": {"type": {"kind": "number", "min": 0, "max": 60}}
+    }},
+    "camera": {"kind": "object", "fields": {
+      "position": {"type": "vec3"},
+      "target": {"type": "vec3"},
+      "fov": {"type": {"kind": "number", "min": 15, "max": 90}},
+      "motion": {"type": "camera-motion"}
+    }},
+    "camera-motion": {"kind": "tagged", "tag": "kind", "variants": {
+      "still": {"fields": {}},
+      "orbit": {"fields": {"period": {"type": "period"}, "axis": {"type": "axis"}, "direction": {"type": {"kind": "enum", "values": [1, -1]}}}},
+      "sway": {"fields": {"amplitude": {"type": {"kind": "number", "min": 0, "max": 1.5}}, "period": {"type": "period"}}},
+      "dolly": {"fields": {"amplitude": {"type": {"kind": "number", "min": 0, "max": 0.5}}, "period": {"type": "period"}}}
+    }},
+    "light": {"kind": "tagged", "tag": "type", "variants": {
+      "ambient": {"fields": {"color": {"type": "color"}, "intensity": {"type": {"kind": "number", "min": 0, "max": 6}}}},
+      "hemisphere": {"fields": {"color": {"type": "color"}, "ground": {"type": "color"}, "intensity": {"type": {"kind": "number", "min": 0, "max": 6}}}},
+      "directional": {"fields": {"color": {"type": "color"}, "intensity": {"type": {"kind": "number", "min": 0, "max": 8}}, "position": {"type": "vec3"}, "target": {"type": "vec3"}}},
+      "point": {"fields": {"id": {"type": "id"}, "color": {"type": "color"}, "intensity": {"type": {"kind": "number", "min": 0, "max": 60}}, "position": {"type": "vec3"}, "distance": {"type": {"kind": "number", "min": 0, "max": 200}}, "decay": {"type": {"kind": "number", "min": 0, "max": 3}}, "animate": {"type": "animations"}}},
+      "spot": {"fields": {"color": {"type": "color"}, "intensity": {"type": {"kind": "number", "min": 0, "max": 60}}, "position": {"type": "vec3"}, "target": {"type": "vec3"}, "angle": {"type": {"kind": "number", "min": 0.05, "max": 1.5}}, "penumbra": {"type": "unit"}, "distance": {"type": {"kind": "number", "min": 0, "max": 200}}}}
+    }},
+    "material": {"kind": "object", "fields": {
+      "type": {"type": {"kind": "enum", "values": ["basic", "lambert", "standard", "physical", "toon"]}},
+      "color": {"type": "color"},
+      "emissive": {"type": "color"},
+      "emissiveIntensity": {"type": {"kind": "number", "min": 0, "max": 4}},
+      "roughness": {"type": "unit"},
+      "metalness": {"type": "unit"},
+      "clearcoat": {"type": "unit"},
+      "transmission": {"type": "unit"},
+      "opacity": {"type": "unit"},
+      "wireframe": {"type": {"kind": "boolean"}},
+      "flatShading": {"type": {"kind": "boolean"}},
+      "side": {"type": {"kind": "enum", "values": ["front", "back", "double"]}},
+      "blending": {"type": {"kind": "enum", "values": ["normal", "additive"]}}
+    }},
+    "material-ref": {"kind": "alternatives", "string": "id", "object": "material"},
+
+    "node": {"kind": "tagged", "tag": "type", "common": {
+      "id": {"type": "id"},
+      "position": {"type": "vec3"},
+      "rotation": {"type": "euler"},
+      "scale": {"type": "scale"},
+      "animate": {"type": "animations"}
+    }, "variants": {
+      "mesh": {"fields": {"geometry": {"type": "geometry", "required": true}, "material": {"type": "material-ref"}}},
+      "group": {"fields": {"children": {"type": {"kind": "list", "item": "node", "min": 1, "max": "@limits.nodes"}, "required": true}}},
+      "instances": {"fields": {
+        "geometry": {"type": "geometry", "required": true},
+        "material": {"type": "material-ref"},
+        "count": {"type": {"kind": "integer", "min": 1, "max": "@limits.instances"}, "required": true},
+        "layout": {"type": "layout", "required": true},
+        "colors": {"type": "colors"},
+        "each": {"type": "each"}
+      }},
+      "particles": {"fields": {
+        "count": {"type": {"kind": "integer", "min": 1, "max": "@limits.particles"}, "required": true},
+        "shape": {"type": {"kind": "enum", "values": ["sphere", "shell", "box", "disc", "ring"]}},
+        "radius": {"type": "len"},
+        "size": {"type": "scale3"},
+        "pointSize": {"type": {"kind": "number", "min": 0.002, "max": 0.5}},
+        "color": {"type": "color"},
+        "colors": {"type": "colors"},
+        "opacity": {"type": "unit"},
+        "blending": {"type": {"kind": "enum", "values": ["normal", "additive"]}},
+        "motion": {"type": "particle-motion"},
+        "seed": {"type": "seed"}
+      }},
+      "line": {"fields": {
+        "points": {"type": {"kind": "list", "item": "vec3", "min": 2, "max": 512}, "required": true},
+        "closed": {"type": {"kind": "boolean"}},
+        "smooth": {"type": {"kind": "boolean"}},
+        "color": {"type": "color"},
+        "opacity": {"type": "unit"}
+      }}
+    }},
+    "layout": {"kind": "tagged", "tag": "kind", "common": {
+      "jitter": {"type": "unit"},
+      "scaleRange": {"type": {"kind": "tuple", "length": 2, "item": {"kind": "number", "min": 0.01, "max": 10}}},
+      "seed": {"type": "seed"},
+      "facing": {"type": {"kind": "enum", "values": ["none", "outward", "center", "tangent", "random"]}}
+    }, "variants": {
+      "ring": {"fields": {"radius": {"type": "len"}, "arc": {"type": {"kind": "number", "min": 0.01, "max": 6.2832}}}},
+      "spiral": {"fields": {"radius": {"type": "len"}, "turns": {"type": {"kind": "number", "min": 0.1, "max": 40}}, "growth": {"type": {"kind": "number", "min": 0, "max": 5}}}},
+      "helix": {"fields": {"radius": {"type": "len"}, "height": {"type": "len0"}, "turns": {"type": {"kind": "number", "min": 0.1, "max": 40}}}},
+      "grid": {"fields": {"columns": {"type": {"kind": "integer", "min": 1, "max": 200}}, "spacing": {"type": "len"}, "layers": {"type": {"kind": "integer", "min": 1, "max": 50}}}},
+      "sphere": {"fields": {"radius": {"type": "len"}}},
+      "scatter": {"fields": {"size": {"type": "scale3"}}},
+      "line": {"fields": {"from": {"type": "vec3"}, "to": {"type": "vec3"}}},
+      "path": {"fields": {"points": {"type": {"kind": "list", "item": "vec3", "min": 2, "max": 256}, "required": true}}}
+    }},
+    "each": {"kind": "tagged", "tag": "kind", "variants": {
+      "bob": {"fields": {"amplitude": {"type": {"kind": "number", "min": 0, "max": 5}}, "period": {"type": "period"}, "stagger": {"type": "unit"}}},
+      "spin": {"fields": {"period": {"type": "period"}, "stagger": {"type": "unit"}}},
+      "pulse": {"fields": {"amplitude": {"type": {"kind": "number", "min": 0, "max": 0.8}}, "period": {"type": "period"}, "stagger": {"type": "unit"}}},
+      "wave": {"fields": {"amplitude": {"type": {"kind": "number", "min": 0, "max": 5}}, "period": {"type": "period"}, "wavelength": {"type": {"kind": "number", "min": 0.1, "max": 100}}}}
+    }},
+    "particle-motion": {"kind": "tagged", "tag": "kind", "variants": {
+      "still": {"fields": {}},
+      "drift": {"fields": {"speed": {"type": {"kind": "number", "min": 0, "max": 3}}}},
+      "swirl": {"fields": {"speed": {"type": {"kind": "number", "min": 0, "max": 3}}, "axis": {"type": "axis"}}},
+      "rise": {"fields": {"speed": {"type": {"kind": "number", "min": 0, "max": 3}}}},
+      "fall": {"fields": {"speed": {"type": {"kind": "number", "min": 0, "max": 3}}}},
+      "breathe": {"fields": {"amplitude": {"type": {"kind": "number", "min": 0, "max": 0.6}}, "period": {"type": "period"}}}
+    }},
+    "animations": {"kind": "list", "item": "animation", "max": 8},
+    "animation": {"kind": "tagged", "tag": "kind", "variants": {
+      "spin": {"fields": {"axis": {"type": "axis"}, "period": {"type": "period", "required": true}, "direction": {"type": {"kind": "enum", "values": [1, -1]}}}},
+      "oscillate": {"fields": {
+        "property": {"type": {"kind": "enum", "values": ["position.x", "position.y", "position.z", "rotation.x", "rotation.y", "rotation.z", "scale", "opacity", "emissiveIntensity"]}, "required": true},
+        "amplitude": {"type": {"kind": "number", "min": 0, "max": 10}, "required": true},
+        "period": {"type": "period", "required": true},
+        "phase": {"type": "unit"}
+      }},
+      "orbit": {"fields": {"center": {"type": "vec3"}, "around": {"type": "id"}, "radius": {"type": "len", "required": true}, "period": {"type": "period", "required": true}, "axis": {"type": "axis"}, "phase": {"type": "unit"}}},
+      "wander": {"fields": {"amplitude": {"type": {"kind": "number", "min": 0, "max": 5}, "required": true}, "speed": {"type": {"kind": "number", "min": 0.005, "max": 1}}, "seed": {"type": "seed"}}},
+      "follow": {"fields": {"target": {"type": "id", "required": true}, "offset": {"type": "vec3"}, "stiffness": {"type": {"kind": "number", "min": 0.1, "max": 20}}, "damping": {"type": {"kind": "number", "min": 0.05, "max": 10}}}},
+      "look": {"fields": {"target": {"type": "id", "required": true}}},
+      "react": {"fields": {
+        "source": {"type": "id", "required": true},
+        "property": {"type": {"kind": "enum", "values": ["scale", "opacity", "emissiveIntensity", "position.y"]}, "required": true},
+        "near": {"type": "len0", "required": true},
+        "far": {"type": "len", "required": true},
+        "from": {"type": {"kind": "number", "min": -10, "max": 10}, "required": true},
+        "to": {"type": {"kind": "number", "min": -10, "max": 10}, "required": true}
+      }}
+    }},
+    "link": {"kind": "object", "fields": {
+      "from": {"type": "id", "required": true},
+      "to": {"type": "id", "required": true},
+      "color": {"type": "color"},
+      "opacity": {"type": "unit"},
+      "sag": {"type": {"kind": "number", "min": 0, "max": 5}}
+    }},
+
+    "geometry": {"kind": "tagged", "tag": "type", "variants": {
+      "box": {"fields": {"size": {"type": "scale3"}, "segments": {"type": {"kind": "integer", "min": 1, "max": 16}}}},
+      "sphere": {"fields": {"radius": {"type": "len"}, "widthSegments": {"type": {"kind": "integer", "min": 3, "max": 64}}, "heightSegments": {"type": {"kind": "integer", "min": 2, "max": 48}}}},
+      "icosahedron": {"fields": {"radius": {"type": "len"}, "detail": {"type": {"kind": "integer", "min": 0, "max": 5}}}},
+      "octahedron": {"fields": {"radius": {"type": "len"}, "detail": {"type": {"kind": "integer", "min": 0, "max": 5}}}},
+      "dodecahedron": {"fields": {"radius": {"type": "len"}, "detail": {"type": {"kind": "integer", "min": 0, "max": 4}}}},
+      "tetrahedron": {"fields": {"radius": {"type": "len"}, "detail": {"type": {"kind": "integer", "min": 0, "max": 5}}}},
+      "torus": {"fields": {"radius": {"type": "len"}, "tube": {"type": "len"}, "radialSegments": {"type": {"kind": "integer", "min": 3, "max": 48}}, "tubularSegments": {"type": {"kind": "integer", "min": 3, "max": 256}}, "arc": {"type": {"kind": "number", "min": 0.01, "max": 6.2832}}}},
+      "torusKnot": {"fields": {"radius": {"type": "len"}, "tube": {"type": "len"}, "tubularSegments": {"type": {"kind": "integer", "min": 8, "max": 512}}, "radialSegments": {"type": {"kind": "integer", "min": 3, "max": 32}}, "p": {"type": {"kind": "integer", "min": 1, "max": 12}}, "q": {"type": {"kind": "integer", "min": 1, "max": 12}}}},
+      "cylinder": {"fields": {"radiusTop": {"type": "len0"}, "radiusBottom": {"type": "len0"}, "height": {"type": "len"}, "radialSegments": {"type": {"kind": "integer", "min": 3, "max": 64}}, "heightSegments": {"type": {"kind": "integer", "min": 1, "max": 32}}, "openEnded": {"type": {"kind": "boolean"}}}},
+      "cone": {"fields": {"radius": {"type": "len"}, "height": {"type": "len"}, "radialSegments": {"type": {"kind": "integer", "min": 3, "max": 64}}, "openEnded": {"type": {"kind": "boolean"}}}},
+      "capsule": {"fields": {"radius": {"type": "len"}, "length": {"type": "len0"}, "capSegments": {"type": {"kind": "integer", "min": 1, "max": 16}}, "radialSegments": {"type": {"kind": "integer", "min": 3, "max": 32}}}},
+      "plane": {"fields": {"size": {"type": {"kind": "tuple", "length": 2, "item": {"kind": "number", "min": 0.001, "max": 100}}}, "segments": {"type": {"kind": "tuple", "length": 2, "item": {"kind": "integer", "min": 1, "max": 128}}}, "wave": {"type": "surface-wave"}}},
+      "circle": {"fields": {"radius": {"type": "len"}, "segments": {"type": {"kind": "integer", "min": 3, "max": 128}}}},
+      "ring": {"fields": {"inner": {"type": "len0"}, "outer": {"type": "len"}, "segments": {"type": {"kind": "integer", "min": 3, "max": 128}}}},
+      "lathe": {"fields": {"points": {"type": {"kind": "list", "item": {"kind": "tuple", "length": 2, "item": "coord"}, "min": 2, "max": 256}, "required": true}, "segments": {"type": {"kind": "integer", "min": 3, "max": 128}}}},
+      "extrude": {"fields": {"shape": {"type": {"kind": "list", "item": "vec2", "min": 3, "max": 256}, "required": true}, "holes": {"type": {"kind": "list", "item": {"kind": "list", "item": "vec2", "min": 3, "max": 128}, "max": 8}}, "depth": {"type": "len0"}, "bevel": {"type": {"kind": "number", "min": 0, "max": 1}}, "curveSegments": {"type": {"kind": "integer", "min": 1, "max": 16}}}},
+      "tube": {"fields": {"points": {"type": {"kind": "list", "item": "vec3", "min": 2, "max": 256}, "required": true}, "radius": {"type": "len"}, "tubularSegments": {"type": {"kind": "integer", "min": 2, "max": 1024}}, "radialSegments": {"type": {"kind": "integer", "min": 3, "max": 32}}, "closed": {"type": {"kind": "boolean"}}}},
+      "parametric": {"fields": {"surface": {"type": {"kind": "enum", "values": ["klein", "mobius", "saddle", "shell", "helicoid", "wave", "dupin", "spherical-harmonic"]}, "required": true}, "slices": {"type": {"kind": "integer", "min": 2, "max": 128}}, "stacks": {"type": {"kind": "integer", "min": 2, "max": 128}}, "a": {"type": {"kind": "number", "min": -10, "max": 10}}, "b": {"type": {"kind": "number", "min": -10, "max": 10}}, "c": {"type": {"kind": "number", "min": -10, "max": 10}}, "size": {"type": "len"}}},
+      "custom": {"fields": {"vertices": {"type": {"kind": "list", "item": "vec3", "min": 3, "max": 4096}, "required": true}, "faces": {"type": {"kind": "list", "item": {"kind": "tuple", "length": 3, "item": {"kind": "integer", "min": 0, "max": 4095}}, "min": 1, "max": 8192}, "required": true}}}
+    }},
+    "surface-wave": {"kind": "object", "fields": {
+      "amplitude": {"type": {"kind": "number", "min": 0, "max": 5}, "required": true},
+      "wavelength": {"type": {"kind": "number", "min": 0.1, "max": 100}, "required": true},
+      "period": {"type": "period"}
+    }}
+  }
+}

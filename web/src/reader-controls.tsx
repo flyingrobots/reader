@@ -23,6 +23,7 @@ import {emptyActivity, fromCodex, reduce, type Activity} from './activity/reduce
 import type {RunInfo} from './activity/transcript';
 import {ServerCard} from './server-card';
 import {CompanionsSection, CompanionPrompt, focusCompanion, isDismissed, type Companion, type CompanionsStatus} from './companions';
+import {ArtStudio, useArtProducers} from './art-studio';
 import {DocumentTree, revealDocumentNode, type DocumentRow} from './document-tree';
 import {ChangesPanel, type ChangesOptions} from './changes-panel';
 import {SearchPage, type SearchModel, type SearchActions} from './search-page';
@@ -40,7 +41,7 @@ import {FAMOUS, famousId} from './theme/famous';
 import {plural} from './plural';
 export const famousThemeIds=FAMOUS.flatMap(t=>[famousId(t.id,'light'),famousId(t.id,'dark')]);
 
-type Preferences={participant:string;theme:string;recent:number;pace:number;layout:string;pageTurn:string;proseColors:string;atlas:boolean;activity:boolean;smooth:boolean;nextReads:boolean;backlinks:boolean;outline:boolean;shapes?:boolean;inboxSandbox?:string;issueExclude:string};
+type Preferences={participant:string;theme:string;recent:number;pace:number;layout:string;pageTurn:string;proseColors:string;atlas:boolean;activity:boolean;smooth:boolean;nextReads:boolean;backlinks:boolean;outline:boolean;shapes?:boolean;art?:boolean;artBy?:string;artAuto?:string;inboxSandbox?:string;issueExclude:string};
 export type ProseStatus={available:boolean;version:string|null;path:string|null;origin:string|null;message:string|null;install:string};
 type Pip={id:string;owner:string;quote:string;kind:string;own:boolean;fraction:number};
 type Model={value:number;words:number;pdfPages:number|null;pace:number;spread:number;spreads:number;pages:number;columns:number;theme:string;pips:Pip[];prefs:Preferences;participants:string[];themeEditorOpen:boolean;customThemes:Theme[];fonts:InstalledFont[];maintenance:MaintenanceStatus|null;prose:ProseStatus|null;outline:OutlineModel;outlineActive:number;inbox:InboxStatus|null;inboxStarting:boolean;chat:{open:boolean;path:string|null;title:string;participant:string};localModel:LocalModelStatus|null;activity:ActivityModel;companions:CompanionsStatus|null};
@@ -54,7 +55,7 @@ function Choice({id,label,value,items,onChange}:{id:string;label:string;value:st
   return <Field><FieldLabel htmlFor={id}>{label}</FieldLabel><Select items={items} value={value} onValueChange={v=>{if(v!==null)onChange(v);}}><SelectTrigger id={id} className="w-full"><SelectValue/></SelectTrigger><SelectContent alignItemWithTrigger={false}><SelectGroup>{items.map(item=><SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>)}</SelectGroup></SelectContent></Select></Field>;
 }
 function SettingsForm({model,actions}:{model:Model;actions:Actions}){
-  const [draft,setDraft]=useState({...model.prefs,participant:model.prefs.participant||''}),[busy,setBusy]=useState(false);
+  const [draft,setDraft]=useState({...model.prefs,participant:model.prefs.participant||''}),[busy,setBusy]=useState(false),producers=useArtProducers(actions.api);
   useEffect(()=>{setDraft({...model.prefs,participant:model.prefs.participant||''});},[model.prefs]);
   const set=(key:keyof Preferences,value:string|number|boolean)=>setDraft(old=>({...old,[key]:value}));
   return <form id="preferences-form" className="backstage-settings" onSubmit={async event=>{event.preventDefault();const form=event.currentTarget;setBusy(true);try{await actions.save({...draft,participant:draft.participant.trim()});}catch(error){actions.error(error);}finally{setBusy(false);
@@ -75,8 +76,11 @@ function SettingsForm({model,actions}:{model:Model;actions:Actions}){
       <Choice id="reading-speed" label="Reading pace" value={String(draft.pace)} items={[160,220,300].map(n=>({value:String(n),label:`${n} words / min`}))} onChange={value=>set('pace',+value)}/>
       <Field><FieldLabel htmlFor="issue-exclude">Leave out of the issue</FieldLabel><Input id="issue-exclude" name="issueExclude" value={draft.issueExclude??''} maxLength={500} onChange={event=>set('issueExclude',event.target.value)}/><FieldDescription>Kinds of writing the homepage issue never features, separated by commas, such as Task, Receipt, Manifest, Handoff.</FieldDescription></Field>
       {(['atlas','activity','smooth','nextReads','backlinks','outline'] as const).map((key,index)=><Field key={key} orientation="horizontal"><FieldLabel htmlFor={'setting-'+key}>{['Library atlas','Reading activity','Smooth scrolling','Read next at the end of articles','Linked from at the end of articles','Outline beside long documents'][index]}</FieldLabel><Switch id={'setting-'+key} checked={draft[key]!==false} onCheckedChange={value=>set(key,value)}/></Field>)}
-      <Field orientation="horizontal"><FieldLabel htmlFor="setting-shapes">Article shapes <Badge variant="outline">Experiment</Badge></FieldLabel><Switch id="setting-shapes" aria-describedby="setting-shapes-note" checked={draft.shapes!==false} onCheckedChange={value=>set('shapes',value)}/></Field>
-      <FieldDescription id="setting-shapes-note">Cover art drawn from each article’s own text: the path its passages take through meaning, its key terms, and related works as distant stars. <kbd>Space</kbd> <kbd>g</kbd> shows an open article’s shape.</FieldDescription>
+      <Field orientation="horizontal"><FieldLabel htmlFor="setting-art">Article art</FieldLabel><Switch id="setting-art" aria-describedby="setting-art-note" checked={draft.art!==false} onCheckedChange={value=>set('art',value)}/></Field>
+      <FieldDescription id="setting-art-note">Bespoke art for featured articles: an agent reads the piece, writes an art brief (the Artist’s note) and composes a scene that Reader draws itself. It shows on the cover, on features and, with <kbd>Space</kbd> <kbd>g</kbd>, above an open article. <code>:shape</code> shows the older data view.</FieldDescription>
+      <Choice id="art-by" label="Art made by" value={draft.artBy||'default'} items={[{value:'default',label:'Default'+(producers?.default?` (${producers.producers.find(p=>p.id===producers.default)?.label||producers.default})`:'')},...(producers?.producers||[]).map(p=>({value:p.id,label:p.label+(p.model?` · ${p.model}`:'')+(p.available?'':' (unavailable)')}))]} onChange={value=>set('artBy',value==='default'?'':value)}/>
+      <Choice id="art-auto" label="Make art automatically" value={draft.artAuto||'off'} items={[{value:'off',label:'Off: only when I ask (Generate art)'},{value:'cover',label:'For each issue’s cover story'},{value:'issue',label:'For the cover story and features'}]} onChange={value=>set('artAuto',value)}/>
+      <FieldDescription id="art-auto-note">Each piece of art is a background run of the chosen voice’s CLI (its subscription) or the local model: usually a few minutes, never more than one at a time. Every run is archived in the vault’s LLM logs, and each version is committed beside its edition under <code>art/</code>.</FieldDescription>
     </FieldGroup>
     <div className="backstage-settings-foot"><Button type="submit" disabled={busy||!draft.participant.trim()}>{busy?'Saving…':'Save preferences'}</Button></div>
   </form>;
@@ -320,7 +324,7 @@ function BackstageView({library}:{library?:(element:HTMLElement)=>void}){
   return <Backstage status={current.maintenance} onStart={startJob} settings={<SettingsForm model={current} actions={controlActions}/>} themeEditor={()=>controlActions.themeEditor(true)}
     library={library} inboxFirst={first} inbox={<Inbox status={inbox} starting={current.inboxStarting} onMail={startInbox} onStop={stopInbox} onOpen={controlActions.open} html={controlActions.markdown}
       activity={current.activity.runId&&current.activity.runId===inbox?.runner?.run_id?current.activity:null}/>} editions={<EditionLinks api={controlActions.api}/>}
-    localModel={<LocalModelSection status={current.localModel} act={localModelAction}/>} server={<ServerCard api={controlActions.api}/>}
+    localModel={<LocalModelSection status={current.localModel} act={localModelAction}/>} art={<ArtStudio api={controlActions.api} open={controlActions.open}/>} server={<ServerCard api={controlActions.api}/>}
     companions={<CompanionsSection api={controlActions.api} status={current.companions} busy={!!current.maintenance?.running} onRefresh={()=>{controlActions.api('/api/companions',{action:'check',name:'colorful'}).catch(()=>{}).finally(refreshCompanions);}}
       act={(name,action,extra)=>companionAction(name,action,extra)}/>}/>;
 }

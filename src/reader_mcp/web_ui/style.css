@@ -488,7 +488,34 @@ body.split-active #smooth-wrapper,body.split-active #summon,body.split-active .s
 .help-group{font:650 10px var(--sans);letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin:28px 0 -14px}.help-keys .keymap{margin:24px 0}.help-keys>.quiet{margin:20px 0 -8px}
 .keymap .help-target,.keymap .help-target+dd{background:color-mix(in srgb,var(--accent) 16%,transparent)}
 @media(max-width:700px){.command-menu{display:none}.status-pending{font-size:10px}}
-/* Article shapes (RW-20, experiment): cover art, feature thumbnails and Show shape. Theme tokens only. */
+/* Bespoke article art (RW-43): the cover, feature thumbnails and an article's art (Space g). Theme tokens only;
+   the scene's own colors come from the same tokens through the renderer. */
+.issue-cover:has(>.cover-art){display:flex;flex-direction:column;align-items:flex-start}
+/* The figure follows the title in the document but is drawn above the kicker. */
+.issue-cover>.cover-art{order:-1;align-self:stretch}
+.art-figure{position:relative;width:100%;margin:0 0 52px;border-radius:6px}
+.cover-art .art-surface,.article-art .art-surface{position:relative;width:100%;aspect-ratio:2/1;max-height:420px;overflow:hidden;border-radius:6px;background:var(--bg)}
+.article-art .art-surface{max-height:340px}
+body.two-page .article-art{break-inside:avoid}body.two-page .article-art .art-surface{max-height:36vh}
+.art-surface>canvas,.art-surface>img{display:block;width:100%;height:100%;object-fit:cover}
+.article .article-art img{margin:0;max-width:none}
+.art-caption{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-top:8px;font:600 9px/1.4 var(--sans);letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.art-caption .art-note-toggle{font:inherit;letter-spacing:inherit;text-transform:inherit;color:var(--muted);padding-inline:0}
+.art-caption .art-note-toggle:hover,.art-caption .art-note-toggle[aria-expanded=true]{color:var(--ink)}
+.art-credit{color:var(--faint);text-align:right}
+.art-note{margin:12px 0 0;padding:16px 18px;border-left:2px solid var(--line);background:var(--surface);border-radius:0 4px 4px 0;font:400 15px/1.55 var(--serif);color:var(--ink);max-width:68ch}
+.art-note p{margin:0 0 .7em}.art-note .art-note-title{font:600 11px/1.3 var(--sans);letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:0 0 10px}
+.art-note .art-provenance{font:400 11px/1.5 var(--sans);color:var(--muted);margin:12px 0 0}
+.art-actions{display:flex;flex-wrap:wrap;gap:6px;margin-top:12px}
+.art-message{position:absolute;inset:0;display:grid;place-items:center;padding:24px;margin:0;text-align:center;font:400 14px/1.5 var(--sans);color:var(--muted);background:var(--raised)}
+.art-empty{border:1px dashed var(--line);background:var(--surface)}
+.art-placeholder{padding:22px 24px;font:400 13px/1.55 var(--sans);color:var(--muted)}
+.art-placeholder p{margin:0 0 10px;max-width:60ch}.art-placeholder .art-placeholder-title{font:500 17px/1.3 var(--serif);color:var(--ink)}
+.feature-art{width:100%;aspect-ratio:320/150;margin:0 0 18px;overflow:hidden;border-radius:4px;background:var(--bg)}
+.feature-art img{display:block;width:100%;height:100%;object-fit:cover}
+.issue-art-make{margin-top:10px;color:var(--muted)}
+@media(max-width:640px){.cover-art .art-surface{aspect-ratio:16/10}.feature-art{aspect-ratio:2.4/1}.art-figure{margin-bottom:36px}.art-caption{flex-wrap:wrap}}
+/* Article shapes (RW-20): the data view (`:shape`), above an article's kicker. Theme tokens only. */
 .issue-cover:has(>.cover-shape){display:flex;flex-direction:column;align-items:flex-start}
 /* The figure follows the title in the document (g c, then Tab, reaches it) but is drawn above the kicker. */
 .issue-cover>.cover-shape{order:-1;align-self:stretch}

@@ -238,6 +238,10 @@
     if (path === '/api/prose') return json({available: false, message: 'Prose colors need Reader and Colorful Language on your computer.', static_demo: true});
     if (path === '/api/fonts') return json({families: []});
     if (path === '/api/local-model' || path === '/api/service' || path.startsWith('/api/speak/')) return unavailable(LOCALLY, 503);
+    // Art (RW-43): the exported scenes draw here; making new art needs a voice on a running Reader.
+    if (path === '/api/art/jobs') return json({jobs: [], active: 0, default: 'static-demo', error: null, static_demo: true,
+      producers: [{id: 'static-demo', kind: 'voice', label: 'A voice on your computer', available: true, static_demo: true, cli: null, model: null, estimate_seconds: null}]});
+    if (path === '/api/art/still') return json({error: 'Still images are not part of the web demo.', static_demo: true}, 404);
     if (path === '/api/search') return search(params);
     if (path === '/api/search/page') return searchPage(params);
     if (path === '/api/resolve') return json(await resolveOne(params.get('from') || '', params.get('target') || ''));
@@ -272,6 +276,8 @@
     if (path === '/api/history') return json({participant: request.participant, static_demo: true});
     if (path === '/api/chat') return unavailable('Chat voices run on your computer: try `reader demo`, whose scripted voices answer without any AI account.');
     if (path === '/api/queue') return unavailable('The reading queue saves into the library; run Reader on your computer to change it.');
+    if (path === '/api/art') return request.action === 'still' ? json({static_demo: true})
+      : unavailable('Making art needs Reader on your computer: `reader demo` has a scripted voice that answers art commissions.');
     return unavailable();
   }
 

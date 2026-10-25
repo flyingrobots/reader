@@ -111,7 +111,7 @@ function Legacy({legacy,busy,onRemove}:{legacy:LegacyIndex;busy:boolean;onRemove
   </p>;
 }
 
-export function Backstage({status,onStart,settings,themeEditor,library,inbox,inboxFirst,editions,localModel,server,companions}:{companions?:ReactNode;status:MaintenanceStatus|null;onStart:(kind:string)=>void;settings:ReactNode;themeEditor:()=>void;server?:ReactNode;library?:(element:HTMLElement)=>void;inbox:ReactNode;inboxFirst:boolean;editions?:ReactNode;localModel?:ReactNode}){
+export function Backstage({status,onStart,settings,themeEditor,library,inbox,inboxFirst,editions,localModel,art,server,companions}:{companions?:ReactNode;art?:ReactNode;status:MaintenanceStatus|null;onStart:(kind:string)=>void;settings:ReactNode;themeEditor:()=>void;server?:ReactNode;library?:(element:HTMLElement)=>void;inbox:ReactNode;inboxFirst:boolean;editions?:ReactNode;localModel?:ReactNode}){
   const running=status?.running,busy=!!running||!!status?.checking,checkedAt=Object.values(status?.checks||{})[0]?.checked_at;
   const mail=<section className="backstage-section" id="backstage-inbox" aria-label="Inbox">{inbox}</section>;
   return <div className="backstage" id="backstage">
@@ -148,6 +148,7 @@ export function Backstage({status,onStart,settings,themeEditor,library,inbox,inb
     {companions}
     {inboxFirst?null:mail}
     {localModel}
+    {art}
     {library?<section className="backstage-section backstage-library" id="backstage-library" aria-labelledby="library-title">
       <div className="backstage-section-head"><h2 id="library-title">Library</h2><span className="backstage-checked">Holdings, arrivals, reading and the margins</span></div>
       <Slot id="backstage-library-mount" mount={library}/>

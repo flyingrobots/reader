@@ -513,6 +513,33 @@ def main():
             (root / 'voices.json').write_text(json.dumps({'schema_version': 1, 'timeout_seconds': 60, 'voices': [
                 (v | {'cli': str(fake)}) if v.get('cli') == 'fake' else v for v in voices]}))
             chat_options = {'rng': random.Random(7), 'git_locks': False}  # 7 picks Claude among the five runnable voices
+        art_options = None
+        if '--art' in sys.argv:
+            # Bespoke art (RW-43): a git vault, one fake voice that answers art prompts slowly enough to watch,
+            # and handcrafted art already stored for the cover story and one feature. Never a real model.
+            import subprocess
+            sys.path.insert(0, str(Path(__file__).parent))
+            from chat_vault import AGENTS, executable
+            env = {'PATH': os.environ.get('PATH', os.defpath), 'GIT_CONFIG_GLOBAL': '/dev/null', 'GIT_CONFIG_NOSYSTEM': '1', 'HOME': '/dev/null'}
+            gitrun = lambda *a: subprocess.run(['git', '-C', str(root), *a], env=env, check=True, capture_output=True)
+            if not (root / '.git').exists():
+                gitrun('init', '-q', '-b', 'main')
+            for key, value in (('user.name', 'Synthetic Owner'), ('user.email', 'owner@example.invalid'), ('commit.gpgsign', 'false')):
+                gitrun('config', key, value)
+            (root / 'AGENTS.md').write_text(AGENTS)
+            (root / '.gitignore').write_text('.reader/\nbin/\n')
+            (root / 'bin').mkdir(exist_ok=True)
+            fake_cli = executable(root / 'bin', 'art-voice')
+            demo = Path(__file__).parent.parent / 'src/reader_mcp/demo/content/art'
+            (root / 'bin/scene.json').write_text(json.dumps(json.loads((demo / 'bank.json').read_text())['scene']))
+            delay = sys.argv[sys.argv.index('--art-delay') + 1] if '--art-delay' in sys.argv else '0.25'
+            (root / 'voices.json').write_text(json.dumps({'schema_version': 1, 'timeout_seconds': 60, 'voices': [
+                {'name': 'Painter', 'mention': ['painter'], 'cli': str(fake_cli), 'stream': 'claude', 'model': 'fake-model-1',
+                 'argv': ['--style', 'claude', '--name', 'Painter', '--chunks', '6', '--delay', delay, '--art-usage', '--art-scene', str(root / 'bin/scene.json'),
+                          '--persona', '{persona}'], 'persona': {'text': 'A synthetic painter for tests.'}},
+                {'name': 'Sketcher', 'mention': ['sketcher'], 'cli': None, 'manual': True}]}))
+            gitrun('add', '-A'); gitrun('commit', '-q', '-m', 'Synthetic vault')
+            art_options = {'git_locks': False, 'capacity': lambda _: True}
         inbox_environ = None
         if '--inbox' in sys.argv:
             inbox_environ = inbox_fixture(root)
@@ -635,7 +662,20 @@ def main():
             (root / '.no-home').mkdir(exist_ok=True)
             companions = {'environ': {'PATH': '/usr/bin:/bin', 'HOME': str(root / '.no-home'), 'READER_GIT_LOCKS_CANDIDATES': ''},
                           'launchctl': str(root / '.no-launchctl')}
-        library = WebLibrary(root, writing_options=writing_options, font_fetcher=fetcher, maintenance_runners=runners, inbox_environ=inbox_environ, chat_options=chat_options, local_model=local, prose=prose, service_runner=service, companions=companions)
+        library = WebLibrary(root, writing_options=writing_options, font_fetcher=fetcher, maintenance_runners=runners, inbox_environ=inbox_environ, chat_options=chat_options, local_model=local, prose=prose, service_runner=service, companions=companions, art_options=art_options)
+        if art_options and '--art-none' not in sys.argv:
+            from reader_mcp.art import PROMPT_VERSIONS
+            from reader_mcp.art_scene import validate
+            for target, name in (('library/issue/cover.md', 'books'), ('library/issue/keep.md', 'loom')):
+                if not (root / target).exists():
+                    continue
+                entry = json.loads((demo / (name + '.json')).read_text())
+                scene, counts = validate(entry['scene'])
+                library.art.save({'path': target, 'sha256': library.digest(target), 'auto': False, 'log': None}, entry['title'], entry['brief'], scene, counts, {
+                    'prompts': {k: (v if k != 'repair' else None) for k, v in PROMPT_VERSIONS.items()}, 'seconds': 131.0, 'stages': [], 'repaired': False,
+                    'usage': {'input_tokens': 21000, 'output_tokens': 5200, 'usd': 0.31},
+                    'producer': {'id': 'voice:Painter', 'kind': 'voice', 'label': 'Painter', 'model': 'fake-model-1', 'cli': 'art-voice', 'cli_version': None}})
+            gitrun('add', '-A'); gitrun('commit', '-q', '-m', 'Synthetic art')
         if '--search-page' in sys.argv:
             search_page_fixture(root, works, library)
         server = WebServer(('127.0.0.1', 0), library, 'Browser tester')

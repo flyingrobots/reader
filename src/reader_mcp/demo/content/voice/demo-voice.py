@@ -39,7 +39,21 @@ def asked_body():
     return found.group(1) if found else prompt
 
 
-if 'Reader listening check' in seen:
+def art_reply():
+    """Reader art commissions: a handcrafted brief or scene from art.json, chosen by the article's or artwork's title."""
+    entries = json.loads((Path(__file__).with_name('art.json')).read_text())
+    named = re.search(r'(?:Article title|Artwork title): (.*)', prompt)
+    title = (named.group(1) if named else '').lower()
+    entry = next((e for e in entries if any(word in title for word in e['match'])), None)
+    entry = entry or next((e for e in entries if e['title'].lower() == title), None) or entries[sum(map(ord, title)) % len(entries)]
+    if 'Reader art brief' in prompt:
+        return 'TITLE: ' + entry['title'] + '\nBRIEF:\n' + entry['brief']
+    return '```json\n' + json.dumps(entry['scene'], indent=1) + '\n```'
+
+
+if 'Reader art brief' in prompt or 'Reader art scene' in prompt:
+    reply = art_reply()
+elif 'Reader listening check' in seen:
     exchange = prompt.split('READER-EXCHANGE', 1)[-1]
     hand = next((h for h in table.get('hands', {}).get(args.name, []) if matches(h, exchange)), None)
     reply = 'HAND: ' + hand['reason'] if hand else 'PASS'

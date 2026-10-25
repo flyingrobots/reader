@@ -1,0 +1,1040 @@
+[
+ {
+  "name": "not an object",
+  "scene": [
+   1,
+   2
+  ],
+  "error": "scene: expected an object",
+  "errors": [
+   "scene: expected an object"
+  ]
+ },
+ {
+  "name": "wrong version",
+  "scene": {
+   "reader_scene": 2,
+   "objects": [
+    {
+     "type": "mesh",
+     "id": "a",
+     "geometry": {
+      "type": "sphere"
+     }
+    }
+   ]
+  },
+  "error": "reader_scene: expected one of: 1",
+  "errors": [
+   "reader_scene: expected one of: 1"
+  ]
+ },
+ {
+  "name": "missing version",
+  "scene": {
+   "objects": [
+    {
+     "type": "mesh",
+     "id": "a",
+     "geometry": {
+      "type": "sphere"
+     }
+    }
+   ]
+  },
+  "error": "reader_scene: required",
+  "errors": [
+   "reader_scene: required"
+  ]
+ },
+ {
+  "name": "missing objects",
+  "scene": {
+   "reader_scene": 1
+  },
+  "error": "objects: required",
+  "errors": [
+   "objects: required"
+  ]
+ },
+ {
+  "name": "empty objects",
+  "scene": {
+   "reader_scene": 1,
+   "objects": []
+  },
+  "error": "objects: expected a list of 1 to 240 items",
+  "errors": [
+   "objects: expected a list of 1 to 240 items"
+  ]
+ },
+ {
+  "name": "unknown top-level field",
+  "scene": {
+   "reader_scene": 1,
+   "objects": [
+    {
+     "type": "mesh",
+     "id": "a",
+     "geometry": {
+      "type": "sphere"
+     }
+    }
+   ],
+   "script": "alert(1)"
+  },
+  "error": "script: unknown field",
+  "errors": [
+   "script: unknown field"
+  ]
+ },
+ {
+  "name": "unknown node type",
+  "scene": {
+   "reader_scene": 1,
+   "objects": [
+    {
+     "type": "html",
+     "geometry": {
+      "type": "sphere"
+     }
+    }
+   ]
+  },
+  "error": "objects[0].type: expected one of",
+  "errors": [
+   "objects[0].type: expected one of: mesh, group, instances, particles, line"
+  ]
+ },
+ {
+  "name": "javascript in a field",
+  "scene": {
+   "reader_scene": 1,
+   "objects": [
+    {
+     "type": "mesh",
+     "geometry": {
+      "type": "sphere"
+     },
+     "onFrame": "x=>x"
+    }
+   ]
+  },
+  "error": "objects[0].onFrame: unknown field",
+  "errors": [
+   "objects[0].onFrame: unknown field"
+  ]
+ },
+ {
+  "name": "unknown geometry",
+  "scene": {
+   "reader_scene": 1,
+   "objects": [
+    {
+     "type": "mesh",
+     "geometry": {
+      "type": "teapot"
+     }
+    }
+   ]
+  },
+  "error": "objects[0].geometry.type: expected one of",
+  "errors": [
+   "objects[0].geometry.type: expected one of: box, sphere, icosahedron, octahedron, dodecahedron, tetrahedron, torus, torusKnot, cylinder, cone, capsule, plane, circle, ring, lathe, extrude, tube, parametric, custom"
+  ]
+ },
+ {
+  "name": "radius too large",
+  "scene": {
+   "reader_scene": 1,
+   "objects": [
+    {
+     "type": "mesh",
+     "geometry": {
+      "type": "sphere",
+      "radius": 99
+     }
+    }
+   ]
+  },
+  "error": "objects[0].geometry.radius: expected a number from 0.001 to 20",
+  "errors": [
+   "objects[0].geometry.radius: expected a number from 0.001 to 20"
+  ]
+ },
+ {
+  "name": "negative radius",
+  "scene": {
+   "reader_scene": 1,
+   "objects": [
+    {
+     "type": "mesh",
+     "geometry": {
+      "type": "sphere",
+      "radius": -1
+     }
+    }
+   ]
+  },
+  "error": "objects[0].geometry.radius",
+  "errors": [
+   "objects[0].geometry.radius: expected a number from 0.001 to 20"
+  ]
+ },
+ {
+  "name": "string number",
+  "scene": {
+   "reader_scene": 1,
+   "objects": [
+    {
+     "type": "mesh",
+     "geometry": {
+      "type": "sphere",
+      "radius": "1"
+     }
+    }
+   ]
+  },
+  "error": "objects[0].geometry.radius",
+  "errors": [
+   "objects[0].geometry.radius: expected a number from 0.001 to 20"
+  ]
+ },
+ {
+  "name": "boolean number",
+  "scene": {
+   "reader_scene": 1,
+   "objects": [
+    {
+     "type": "mesh",
+     "geometry": {
+      "type": "sphere",
+      "radius": true
+     }
+    }
+   ]
+  },
+  "error": "objects[0].geometry.radius",
+  "errors": [
+   "objects[0].geometry.radius: expected a number from 0.001 to 20"
+  ]
+ },
+ {
+  "name": "fractional segments",
+  "scene": {
+   "reader_scene": 1,
+   "objects": [
+    {
+     "type": "mesh",
+     "geometry": {
+      "type": "sphere",
+      "widthSegments": 8.5
+     }
+    }
+   ]
+  },
+  "error": "objects[0].geometry.widthSegments: expected a whole number",
+  "errors": [
+   "objects[0].geometry.widthSegments: expected a whole number from 3 to 64"
+  ]
+ },
+ {
+  "name": "too many segments",
+  "scene": {
+   "reader_scene": 1,
+   "objects": [
+    {
+     "type": "mesh",
+     "geometry": {
+      "type": "torusKnot",
+      "tubularSegments": 5000
+     }
+    }
+   ]
+  },
+  "error": "objects[0].geometry.tubularSegments",
+  "errors": [
+   "objects[0].geometry.tubularSegments: expected a whole number from 8 to 512"
+  ]
+ },
+ {
+  "name": "position out of range",
+  "scene": {
+   "reader_scene": 1,
+   "objects": [
+    {
+     "type": "mesh",
+     "geometry": {
+      "type": "sphere"
+     },
+     "position": [
+      0,
+      0,
+      1000
+     ]
+    }
+   ]
+  },
+  "error": "objects[0].position[2]",
+  "errors": [
+   "objects[0].position[2]: expected a number from -50 to 50"
+  ]
+ },
+ {
+  "name": "short vector",
+  "scene": {
+   "reader_scene": 1,
+   "objects": [
+    {
+     "type": "mesh",
+     "geometry": {
+      "type": "sphere"
+     },
+     "position": [
+      0,
+      0
+     ]
+    }
+   ]
+  },
+  "error": "objects[0].position: expected a list of 3 values",
+  "errors": [
+   "objects[0].position: expected a list of 3 values"
+  ]
+ },
+ {
+  "name": "literal color",
+  "scene": {
+   "reader_scene": 1,
+   "objects": [
+    {
+     "type": "mesh",
+     "geometry": {
+      "type": "sphere"
+     },
+     "material": {
+      "color": "#ff0000"
+     }
+    }
+   ]
+  },
+  "error": "objects[0].material.color: expected one of",
+  "errors": [
+   "objects[0].material.color: expected one of: bg, surface, raised, line, ink, muted, faint, accent, accent-ink, rust, warning, chart-1, chart-2, chart-3, chart-4, chart-5, chart-6, chart-7, chart-8, bright, deep"
+  ]
+ },
+ {
+  "name": "unknown token",
+  "scene": {
+   "reader_scene": 1,
+   "objects": [
+    {
+     "type": "mesh",
+     "geometry": {
+      "type": "sphere"
+     },
+     "material": {
+      "color": {
+       "token": "red"
+      }
+     }
+    }
+   ]
+  },
+  "error": "objects[0].material.color.token",
+  "errors": [
+   "objects[0].material.color.token: expected one of: bg, surface, raised, line, ink, muted, faint, accent, accent-ink, rust, warning, chart-1, chart-2, chart-3, chart-4, chart-5, chart-6, chart-7, chart-8, bright, deep"
+  ]
+ },
+ {
+  "name": "color without token",
+  "scene": {
+   "reader_scene": 1,
+   "objects": [
+    {
+     "type": "mesh",
+     "geometry": {
+      "type": "sphere"
+     },
+     "material": {
+      "color": {
+       "mix": "bg",
+       "amount": 0.3
+      }
+     }
+    }
+   ]
+  },
+  "error": "objects[0].material.color: expected token or light and dark",
+  "errors": [
+   "objects[0].material.color: expected token or light and dark"
+  ]
+ },
+ {
+  "name": "unknown material reference",
+  "scene": {
+   "reader_scene": 1,
+   "objects": [
+    {
+     "type": "mesh",
+     "geometry": {
+      "type": "sphere"
+     },
+     "material": "glass"
+    }
+   ]
+  },
+  "error": "objects[0].material: no material named \"glass\"",
+  "errors": [
+   "objects[0].material: no material named \"glass\""
+  ]
+ },
+ {
+  "name": "bad id",
+  "scene": {
+   "reader_scene": 1,
+   "objects": [
+    {
+     "type": "mesh",
+     "id": "Bad Id",
+     "geometry": {
+      "type": "sphere"
+     }
+    }
+   ]
+  },
+  "error": "objects[0].id: expected an id",
+  "errors": [
+   "objects[0].id: expected an id: a lowercase letter, then up to 31 lowercase letters, digits or dashes"
+  ]
+ },
+ {
+  "name": "duplicate id",
+  "scene": {
+   "reader_scene": 1,
+   "objects": [
+    {
+     "type": "mesh",
+     "id": "a",
+     "geometry": {
+      "type": "sphere"
+     }
+    },
+    {
+     "type": "mesh",
+     "id": "a",
+     "geometry": {
+      "type": "box"
+     }
+    }
+   ]
+  },
+  "error": "objects[1].id: duplicate id \"a\"",
+  "errors": [
+   "objects[1].id: duplicate id \"a\""
+  ]
+ },
+ {
+  "name": "missing target",
+  "scene": {
+   "reader_scene": 1,
+   "objects": [
+    {
+     "type": "mesh",
+     "geometry": {
+      "type": "sphere"
+     },
+     "animate": [
+      {
+       "kind": "follow",
+       "target": "ghost"
+      }
+     ]
+    }
+   ]
+  },
+  "error": "objects[0].animate[0].target: no object with id \"ghost\"",
+  "errors": [
+   "objects[0].animate[0].target: no object with id \"ghost\""
+  ]
+ },
+ {
+  "name": "self target",
+  "scene": {
+   "reader_scene": 1,
+   "objects": [
+    {
+     "type": "mesh",
+     "id": "a",
+     "geometry": {
+      "type": "sphere"
+     },
+     "animate": [
+      {
+       "kind": "look",
+       "target": "a"
+      }
+     ]
+    }
+   ]
+  },
+  "error": "objects[0].animate[0].target: an object cannot target itself",
+  "errors": [
+   "objects[0].animate[0].target: an object cannot target itself"
+  ]
+ },
+ {
+  "name": "follow cycle",
+  "scene": {
+   "reader_scene": 1,
+   "objects": [
+    {
+     "type": "mesh",
+     "id": "a",
+     "geometry": {
+      "type": "sphere"
+     },
+     "animate": [
+      {
+       "kind": "follow",
+       "target": "b"
+      }
+     ]
+    },
+    {
+     "type": "mesh",
+     "id": "b",
+     "geometry": {
+      "type": "sphere"
+     },
+     "animate": [
+      {
+       "kind": "orbit",
+       "around": "a",
+       "radius": 1,
+       "period": 10
+      }
+     ]
+    }
+   ]
+  },
+  "error": "objects: follow and orbit targets form a cycle through \"a\"",
+  "errors": [
+   "objects: follow and orbit targets form a cycle through \"a\""
+  ]
+ },
+ {
+  "name": "flashing period",
+  "scene": {
+   "reader_scene": 1,
+   "objects": [
+    {
+     "type": "mesh",
+     "geometry": {
+      "type": "sphere"
+     },
+     "animate": [
+      {
+       "kind": "oscillate",
+       "property": "opacity",
+       "amplitude": 0.5,
+       "period": 0.2
+      }
+     ]
+    }
+   ]
+  },
+  "error": "objects[0].animate[0].period: expected a number from 2 to 600",
+  "errors": [
+   "objects[0].animate[0].period: expected a number from 2 to 600"
+  ]
+ },
+ {
+  "name": "unknown animation",
+  "scene": {
+   "reader_scene": 1,
+   "objects": [
+    {
+     "type": "mesh",
+     "geometry": {
+      "type": "sphere"
+     },
+     "animate": [
+      {
+       "kind": "teleport"
+      }
+     ]
+    }
+   ]
+  },
+  "error": "objects[0].animate[0].kind",
+  "errors": [
+   "objects[0].animate[0].kind: expected one of: spin, oscillate, orbit, wander, follow, look, react"
+  ]
+ },
+ {
+  "name": "too many animations on a node",
+  "scene": {
+   "reader_scene": 1,
+   "objects": [
+    {
+     "type": "mesh",
+     "geometry": {
+      "type": "sphere"
+     },
+     "animate": [
+      {
+       "kind": "spin",
+       "period": 10
+      },
+      {
+       "kind": "spin",
+       "period": 10
+      },
+      {
+       "kind": "spin",
+       "period": 10
+      },
+      {
+       "kind": "spin",
+       "period": 10
+      },
+      {
+       "kind": "spin",
+       "period": 10
+      },
+      {
+       "kind": "spin",
+       "period": 10
+      },
+      {
+       "kind": "spin",
+       "period": 10
+      },
+      {
+       "kind": "spin",
+       "period": 10
+      },
+      {
+       "kind": "spin",
+       "period": 10
+      }
+     ]
+    }
+   ]
+  },
+  "error": "objects[0].animate: expected a list of 0 to 8 items",
+  "errors": [
+   "objects[0].animate: expected a list of 0 to 8 items"
+  ]
+ },
+ {
+  "name": "face index out of range",
+  "scene": {
+   "reader_scene": 1,
+   "objects": [
+    {
+     "type": "mesh",
+     "geometry": {
+      "type": "custom",
+      "vertices": [
+       [
+        0,
+        0,
+        0
+       ],
+       [
+        1,
+        0,
+        0
+       ],
+       [
+        0,
+        1,
+        0
+       ]
+      ],
+      "faces": [
+       [
+        0,
+        1,
+        3
+       ]
+      ]
+     }
+    }
+   ]
+  },
+  "error": "objects[0].geometry.faces[0]: vertex index out of range",
+  "errors": [
+   "objects[0].geometry.faces[0]: vertex index out of range"
+  ]
+ },
+ {
+  "name": "ring inside out",
+  "scene": {
+   "reader_scene": 1,
+   "objects": [
+    {
+     "type": "mesh",
+     "geometry": {
+      "type": "ring",
+      "inner": 2,
+      "outer": 1
+     }
+    }
+   ]
+  },
+  "error": "objects[0].geometry.inner: must be smaller than outer",
+  "errors": [
+   "objects[0].geometry.inner: must be smaller than outer"
+  ]
+ },
+ {
+  "name": "fog backwards",
+  "scene": {
+   "reader_scene": 1,
+   "objects": [
+    {
+     "type": "mesh",
+     "id": "a",
+     "geometry": {
+      "type": "sphere"
+     }
+    }
+   ],
+   "fog": {
+    "near": 10,
+    "far": 5
+   }
+  },
+  "error": "fog.far: must be greater than near",
+  "errors": [
+   "fog.far: must be greater than near"
+  ]
+ },
+ {
+  "name": "too many particles",
+  "scene": {
+   "reader_scene": 1,
+   "objects": [
+    {
+     "type": "particles",
+     "count": 30000
+    }
+   ]
+  },
+  "error": "objects[0].count",
+  "errors": [
+   "objects[0].count: expected a whole number from 1 to 24000"
+  ]
+ },
+ {
+  "name": "particle budget across nodes",
+  "scene": {
+   "reader_scene": 1,
+   "objects": [
+    {
+     "type": "particles",
+     "count": 20000
+    },
+    {
+     "type": "particles",
+     "count": 20000
+    }
+   ]
+  },
+  "error": "scene: 40000 particles exceed the budget of 24000",
+  "errors": [
+   "scene: 40000 particles exceed the budget of 24000"
+  ]
+ },
+ {
+  "name": "instance budget across nodes",
+  "scene": {
+   "reader_scene": 1,
+   "objects": [
+    {
+     "type": "instances",
+     "geometry": {
+      "type": "box"
+     },
+     "count": 5000,
+     "layout": {
+      "kind": "ring"
+     }
+    },
+    {
+     "type": "instances",
+     "geometry": {
+      "type": "box"
+     },
+     "count": 5000,
+     "layout": {
+      "kind": "ring"
+     }
+    }
+   ]
+  },
+  "error": "scene: 10000 instances exceed the budget of 6000",
+  "errors": [
+   "scene: 10000 instances exceed the budget of 6000"
+  ]
+ },
+ {
+  "name": "triangle budget",
+  "scene": {
+   "reader_scene": 1,
+   "objects": [
+    {
+     "type": "instances",
+     "geometry": {
+      "type": "sphere",
+      "widthSegments": 64,
+      "heightSegments": 48
+     },
+     "count": 200,
+     "layout": {
+      "kind": "sphere"
+     }
+    }
+   ]
+  },
+  "error": "triangles exceed the budget of 400000",
+  "errors": [
+   "scene: 1228800 triangles exceed the budget of 400000"
+  ]
+ },
+ {
+  "name": "nested too deep",
+  "scene": {
+   "reader_scene": 1,
+   "objects": [
+    {
+     "type": "group",
+     "children": [
+      {
+       "type": "group",
+       "children": [
+        {
+         "type": "group",
+         "children": [
+          {
+           "type": "group",
+           "children": [
+            {
+             "type": "group",
+             "children": [
+              {
+               "type": "group",
+               "children": [
+                {
+                 "type": "group",
+                 "children": [
+                  {
+                   "type": "mesh",
+                   "geometry": {
+                    "type": "box"
+                   }
+                  }
+                 ]
+                }
+               ]
+              }
+             ]
+            }
+           ]
+          }
+         ]
+        }
+       ]
+      }
+     ]
+    }
+   ]
+  },
+  "error": "groups nest deeper than 6",
+  "errors": [
+   "objects[0].children[0].children[0].children[0].children[0].children[0].children[0]: groups nest deeper than 6"
+  ]
+ },
+ {
+  "name": "link to nothing",
+  "scene": {
+   "reader_scene": 1,
+   "objects": [
+    {
+     "type": "mesh",
+     "id": "a",
+     "geometry": {
+      "type": "sphere"
+     }
+    }
+   ],
+   "links": [
+    {
+     "from": "a",
+     "to": "b"
+    }
+   ]
+  },
+  "error": "links[0].to: no object with id \"b\"",
+  "errors": [
+   "links[0].to: no object with id \"b\""
+  ]
+ },
+ {
+  "name": "too many lights",
+  "scene": {
+   "reader_scene": 1,
+   "objects": [
+    {
+     "type": "mesh",
+     "id": "a",
+     "geometry": {
+      "type": "sphere"
+     }
+    }
+   ],
+   "lights": [
+    {
+     "type": "ambient"
+    },
+    {
+     "type": "ambient"
+    },
+    {
+     "type": "ambient"
+    },
+    {
+     "type": "ambient"
+    },
+    {
+     "type": "ambient"
+    },
+    {
+     "type": "ambient"
+    },
+    {
+     "type": "ambient"
+    },
+    {
+     "type": "ambient"
+    },
+    {
+     "type": "ambient"
+    }
+   ]
+  },
+  "error": "lights: expected a list of 0 to 8 items",
+  "errors": [
+   "lights: expected a list of 0 to 8 items"
+  ]
+ },
+ {
+  "name": "unknown light",
+  "scene": {
+   "reader_scene": 1,
+   "objects": [
+    {
+     "type": "mesh",
+     "id": "a",
+     "geometry": {
+      "type": "sphere"
+     }
+    }
+   ],
+   "lights": [
+    {
+     "type": "laser"
+    }
+   ]
+  },
+  "error": "lights[0].type",
+  "errors": [
+   "lights[0].type: expected one of: ambient, hemisphere, directional, point, spot"
+  ]
+ },
+ {
+  "name": "instances without layout",
+  "scene": {
+   "reader_scene": 1,
+   "objects": [
+    {
+     "type": "instances",
+     "geometry": {
+      "type": "box"
+     },
+     "count": 3
+    }
+   ]
+  },
+  "error": "objects[0].layout: required",
+  "errors": [
+   "objects[0].layout: required"
+  ]
+ },
+ {
+  "name": "bad parametric surface",
+  "scene": {
+   "reader_scene": 1,
+   "objects": [
+    {
+     "type": "mesh",
+     "geometry": {
+      "type": "parametric",
+      "surface": "eval"
+     }
+    }
+   ]
+  },
+  "error": "objects[0].geometry.surface",
+  "errors": [
+   "objects[0].geometry.surface: expected one of: klein, mobius, saddle, shell, helicoid, wave, dupin, spherical-harmonic"
+  ]
+ },
+ {
+  "name": "material map key",
+  "scene": {
+   "reader_scene": 1,
+   "objects": [
+    {
+     "type": "mesh",
+     "id": "a",
+     "geometry": {
+      "type": "sphere"
+     }
+    }
+   ],
+   "materials": {
+    "Glass!": {
+     "color": "accent"
+    }
+   }
+  },
+  "error": "materials.Glass!: expected an id",
+  "errors": [
+   "materials.Glass!: expected an id: a lowercase letter, then up to 31 lowercase letters, digits or dashes"
+  ]
+ },
+ {
+  "name": "title too long",
+  "scene": {
+   "reader_scene": 1,
+   "objects": [
+    {
+     "type": "mesh",
+     "id": "a",
+     "geometry": {
+      "type": "sphere"
+     }
+    }
+   ],
+   "title": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+  },
+  "error": "title: expected text of 1 to 80 characters",
+  "errors": [
+   "title: expected text of 1 to 80 characters"
+  ]
+ }
+]

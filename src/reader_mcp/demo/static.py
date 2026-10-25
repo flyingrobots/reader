@@ -30,8 +30,8 @@ MARKER_KIND = 'reader-static-demo'
 FORMAT = 1
 STATIC = Path(__file__).resolve().parent.parent / 'web_ui'
 # Routes the shim answers itself: they describe this machine (local model, service, health, prose
-# colors, speech), so their real answers are never exported.
-SYNTHETIC = ('/api/local-model', '/api/service', '/api/health', '/api/prose', '/api/fonts', '/api/speak/')
+# colors, speech, the voices that can make art), so their real answers are never exported.
+SYNTHETIC = ('/api/local-model', '/api/service', '/api/health', '/api/prose', '/api/fonts', '/api/speak/', '/api/art/jobs', '/api/art/still')
 TEXT_SUFFIXES = {'.html', '.mjs', '.js', '.css', '.json', '.webmanifest', '.md', '.txt', '.svg'}
 LINK = re.compile(r'!?\[[^\]\n]*\]\(\s*<?([^)\s>]+)>?(?:\s+"[^"]*")?\s*\)|\b(?:href|src)\s*=\s*"([^"]+)"')
 MAX_FILES = 5000
@@ -91,19 +91,40 @@ class Crawler:
                 status, data = response.status, json.loads(response.read())
         except HTTPError as error:
             status, data = error.code, json.loads(error.read() or b'{}')
+        art = route == '/api/art' and status == 200
+        if art:
+            data = static_art(data)
         self.bodies[k] = data if status == 200 else None
-        self.routes[k] = [self.write(data), status]
+        self.routes[k] = [self.write(data, scrubbed=art), status]
         return self.bodies[k]
 
-    def write(self, data):
+    def write(self, data, scrubbed=False):
         """One file per distinct body (many routes answer identically), named by its content."""
-        body = json.dumps(scrub(data), ensure_ascii=False, separators=(',', ':')).encode()
+        body = json.dumps(data if scrubbed else scrub(data), ensure_ascii=False, separators=(',', ':')).encode()
         name = hashlib.sha256(body).hexdigest()[:20]
         folder = self.out / 'data' / 'r'
         folder.mkdir(parents=True, exist_ok=True)
         if not (folder / f'{name}.json').exists():
             (folder / f'{name}.json').write_bytes(body)
         return name
+
+
+def static_art(data):
+    """Art answers keep their scenes (the page draws them) but no still images, which are not exported:
+    without WebGL the page shows the Artist's note instead. Everything but the scene is scrubbed; a scene's
+    colors use `token` keys (theme roles), which the generic scrub would drop."""
+    art = data.get('art')
+    data = scrub({k: v for k, v in data.items() if k != 'art'})
+    if isinstance(art, dict):
+        scene = art.get('scene')
+        data['art'] = {**scrub({k: v for k, v in art.items() if k != 'scene'}), 'still': None}
+        if scene is not None:
+            data['art']['scene'] = scene
+    else:
+        data['art'] = art
+    data['versions'] = [{**v, 'still': None} for v in data.get('versions') or []]
+    data['job'] = None
+    return data
 
 
 def scrub(value):
@@ -266,6 +287,9 @@ def export(root, out, base='/', site_url=None, say=print):
             for route in ('/api/links', '/api/standfirst', '/api/shape', '/api/editions'):
                 crawl.get(route, path=path)
             crawl.get('/api/discussion', path=path, participant=me)
+            artwork = crawl.get('/api/art', path=path) or {}
+            for version in artwork.get('versions', []) if artwork.get('count', 0) > 1 else []:
+                crawl.get('/api/art', path=path, edition=version['edition'], generation=version['generation'])
             readers = crawl.get('/api/readers', path=path, participant=me) or {}
             crawl.get('/api/next', path=path, participant=me)
             crawl.get('/api/changes', path=path, participant=me)

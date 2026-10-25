@@ -1,0 +1,568 @@
+{
+ "match": [
+  "struggle",
+  "darwin",
+  "existence",
+  "species",
+  "selection"
+ ],
+ "title": "The entangled bank",
+ "brief": "A dense, rounded thicket of small seeds, far more than the space can hold, packed into a loose sphere and trembling as they crowd each other: every species produces more young than can survive. Through the thicket run a few long, slow tendrils in two of the theme's green and teal hues, the branching paths of descent that Darwin draws in his one figure.\n\nA warm light, the season, wanders slowly through the scene. Seven larger buds sit at the edge of the thicket, and each one swells when the light comes near and shrinks back when it moves away: fitness is not a property of the bud alone but of where conditions happen to fall. Seeds drift down past the thicket and out of the frame, most of them never to land. The motion is slow and continuous, without drama: pressure applied evenly, everywhere, all the time.",
+ "scene": {
+  "reader_scene": 1,
+  "title": "The entangled bank",
+  "seed": 1859,
+  "fog": {
+   "color": "bg",
+   "near": 5,
+   "far": 13
+  },
+  "camera": {
+   "position": [
+    0.4,
+    0.6,
+    6.4
+   ],
+   "target": [
+    0,
+    0,
+    0
+   ],
+   "fov": 36,
+   "motion": {
+    "kind": "orbit",
+    "period": 200,
+    "axis": "y"
+   }
+  },
+  "still": {
+   "at": 14
+  },
+  "lights": [
+   {
+    "type": "hemisphere",
+    "color": "bright",
+    "ground": "bg",
+    "intensity": 0.8
+   },
+   {
+    "type": "directional",
+    "color": "bright",
+    "intensity": 0.7,
+    "position": [
+     -3,
+     4,
+     4
+    ]
+   },
+   {
+    "type": "point",
+    "id": "season",
+    "color": {
+     "token": "chart-3",
+     "mix": "ink",
+     "amount": 0.2
+    },
+    "intensity": 16,
+    "distance": 7,
+    "decay": 1.5,
+    "position": [
+     1.5,
+     0.5,
+     1.2
+    ],
+    "animate": [
+     {
+      "kind": "orbit",
+      "center": [
+       0,
+       0,
+       0
+      ],
+      "radius": 2.3,
+      "period": 44,
+      "axis": [
+       0.3,
+       1,
+       0.1
+      ]
+     },
+     {
+      "kind": "wander",
+      "amplitude": 0.4,
+      "speed": 0.05,
+      "seed": 2
+     }
+    ]
+   }
+  ],
+  "materials": {
+   "seed": {
+    "type": "standard",
+    "roughness": 0.6
+   },
+   "bud": {
+    "type": "physical",
+    "color": {
+     "token": "chart-1",
+     "mix": "ink",
+     "amount": 0.1
+    },
+    "roughness": 0.4,
+    "clearcoat": 0.6,
+    "emissive": "chart-3",
+    "emissiveIntensity": 0.08
+   },
+   "tendril": {
+    "type": "standard",
+    "color": {
+     "token": "chart-6",
+     "mix": "bg",
+     "amount": 0.15
+    },
+    "roughness": 0.5
+   }
+  },
+  "objects": [
+   {
+    "type": "instances",
+    "id": "thicket",
+    "geometry": {
+     "type": "icosahedron",
+     "radius": 0.055,
+     "detail": 0
+    },
+    "material": "seed",
+    "count": 1400,
+    "colors": [
+     {
+      "token": "chart-1",
+      "mix": "bg",
+      "amount": 0.25
+     },
+     {
+      "token": "chart-6",
+      "mix": "bg",
+      "amount": 0.3
+     },
+     {
+      "token": "chart-7",
+      "mix": "bg",
+      "amount": 0.3
+     },
+     {
+      "token": "chart-1",
+      "lightness": 0.08
+     }
+    ],
+    "layout": {
+     "kind": "sphere",
+     "radius": 1.25,
+     "jitter": 1,
+     "scaleRange": [
+      0.5,
+      1.4
+     ],
+     "seed": 5,
+     "facing": "random"
+    },
+    "each": {
+     "kind": "pulse",
+     "amplitude": 0.12,
+     "period": 5,
+     "stagger": 1
+    },
+    "animate": [
+     {
+      "kind": "spin",
+      "axis": "y",
+      "period": 240
+     }
+    ]
+   },
+   {
+    "type": "instances",
+    "geometry": {
+     "type": "icosahedron",
+     "radius": 0.05,
+     "detail": 0
+    },
+    "material": "seed",
+    "count": 700,
+    "colors": [
+     {
+      "token": "chart-6",
+      "mix": "bg",
+      "amount": 0.35
+     },
+     {
+      "token": "chart-1",
+      "mix": "bg",
+      "amount": 0.3
+     },
+     {
+      "token": "chart-7",
+      "mix": "bg",
+      "amount": 0.4
+     }
+    ],
+    "layout": {
+     "kind": "sphere",
+     "radius": 0.75,
+     "jitter": 1,
+     "scaleRange": [
+      0.5,
+      1.2
+     ],
+     "seed": 8,
+     "facing": "random"
+    },
+    "each": {
+     "kind": "pulse",
+     "amplitude": 0.1,
+     "period": 6,
+     "stagger": 1
+    },
+    "animate": [
+     {
+      "kind": "spin",
+      "axis": "y",
+      "period": 300,
+      "direction": -1
+     }
+    ]
+   },
+   {
+    "type": "mesh",
+    "geometry": {
+     "type": "tube",
+     "points": [
+      [
+       -2.6,
+       -1.1,
+       0.4
+      ],
+      [
+       -1.4,
+       -0.4,
+       0.9
+      ],
+      [
+       -0.3,
+       -0.2,
+       0.2
+      ],
+      [
+       0.4,
+       0.4,
+       -0.5
+      ],
+      [
+       1.4,
+       0.9,
+       -0.2
+      ],
+      [
+       2.7,
+       1.3,
+       0.3
+      ]
+     ],
+     "radius": 0.022,
+     "tubularSegments": 160,
+     "radialSegments": 8
+    },
+    "material": "tendril"
+   },
+   {
+    "type": "mesh",
+    "geometry": {
+     "type": "tube",
+     "points": [
+      [
+       -0.3,
+       -0.2,
+       0.2
+      ],
+      [
+       0.2,
+       -0.9,
+       0.8
+      ],
+      [
+       1.2,
+       -1.2,
+       1.0
+      ],
+      [
+       2.4,
+       -1.0,
+       0.6
+      ]
+     ],
+     "radius": 0.016,
+     "tubularSegments": 120,
+     "radialSegments": 8
+    },
+    "material": "tendril"
+   },
+   {
+    "type": "mesh",
+    "geometry": {
+     "type": "tube",
+     "points": [
+      [
+       0.4,
+       0.4,
+       -0.5
+      ],
+      [
+       -0.3,
+       1.1,
+       -0.8
+      ],
+      [
+       -1.3,
+       1.5,
+       -0.4
+      ],
+      [
+       -2.5,
+       1.6,
+       0.2
+      ]
+     ],
+     "radius": 0.014,
+     "tubularSegments": 120,
+     "radialSegments": 8
+    },
+    "material": {
+     "type": "standard",
+     "color": {
+      "token": "chart-1",
+      "mix": "bg",
+      "amount": 0.1
+     },
+     "roughness": 0.5
+    }
+   },
+   {
+    "type": "group",
+    "id": "buds",
+    "children": [
+     {
+      "type": "mesh",
+      "id": "bud-1",
+      "geometry": {
+       "type": "sphere",
+       "radius": 0.16,
+       "widthSegments": 28,
+       "heightSegments": 18
+      },
+      "position": [
+       1.45,
+       0.3,
+       0.4
+      ],
+      "material": "bud",
+      "animate": [
+       {
+        "kind": "react",
+        "source": "season",
+        "property": "scale",
+        "near": 0.4,
+        "far": 2.6,
+        "from": 1.6,
+        "to": 0.55
+       }
+      ]
+     },
+     {
+      "type": "mesh",
+      "id": "bud-2",
+      "geometry": {
+       "type": "sphere",
+       "radius": 0.14,
+       "widthSegments": 28,
+       "heightSegments": 18
+      },
+      "position": [
+       -1.3,
+       0.6,
+       0.5
+      ],
+      "material": "bud",
+      "animate": [
+       {
+        "kind": "react",
+        "source": "season",
+        "property": "scale",
+        "near": 0.4,
+        "far": 2.6,
+        "from": 1.6,
+        "to": 0.55
+       }
+      ]
+     },
+     {
+      "type": "mesh",
+      "id": "bud-3",
+      "geometry": {
+       "type": "sphere",
+       "radius": 0.15,
+       "widthSegments": 28,
+       "heightSegments": 18
+      },
+      "position": [
+       0.2,
+       1.42,
+       0.3
+      ],
+      "material": "bud",
+      "animate": [
+       {
+        "kind": "react",
+        "source": "season",
+        "property": "scale",
+        "near": 0.4,
+        "far": 2.6,
+        "from": 1.6,
+        "to": 0.55
+       }
+      ]
+     },
+     {
+      "type": "mesh",
+      "id": "bud-4",
+      "geometry": {
+       "type": "sphere",
+       "radius": 0.13,
+       "widthSegments": 28,
+       "heightSegments": 18
+      },
+      "position": [
+       0.5,
+       -1.35,
+       0.4
+      ],
+      "material": "bud",
+      "animate": [
+       {
+        "kind": "react",
+        "source": "season",
+        "property": "scale",
+        "near": 0.4,
+        "far": 2.6,
+        "from": 1.6,
+        "to": 0.55
+       }
+      ]
+     },
+     {
+      "type": "mesh",
+      "id": "bud-5",
+      "geometry": {
+       "type": "sphere",
+       "radius": 0.15,
+       "widthSegments": 28,
+       "heightSegments": 18
+      },
+      "position": [
+       -0.9,
+       -1.0,
+       0.8
+      ],
+      "material": "bud",
+      "animate": [
+       {
+        "kind": "react",
+        "source": "season",
+        "property": "scale",
+        "near": 0.4,
+        "far": 2.6,
+        "from": 1.6,
+        "to": 0.55
+       }
+      ]
+     },
+     {
+      "type": "mesh",
+      "id": "bud-6",
+      "geometry": {
+       "type": "sphere",
+       "radius": 0.12,
+       "widthSegments": 28,
+       "heightSegments": 18
+      },
+      "position": [
+       1.1,
+       0.95,
+       -0.7
+      ],
+      "material": "bud",
+      "animate": [
+       {
+        "kind": "react",
+        "source": "season",
+        "property": "scale",
+        "near": 0.4,
+        "far": 2.6,
+        "from": 1.6,
+        "to": 0.55
+       }
+      ]
+     },
+     {
+      "type": "mesh",
+      "id": "bud-7",
+      "geometry": {
+       "type": "sphere",
+       "radius": 0.14,
+       "widthSegments": 28,
+       "heightSegments": 18
+      },
+      "position": [
+       -1.25,
+       -0.2,
+       -0.8
+      ],
+      "material": "bud",
+      "animate": [
+       {
+        "kind": "react",
+        "source": "season",
+        "property": "scale",
+        "near": 0.4,
+        "far": 2.6,
+        "from": 1.6,
+        "to": 0.55
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "type": "particles",
+    "count": 1600,
+    "shape": "box",
+    "size": [
+     8,
+     4.4,
+     3
+    ],
+    "pointSize": 0.028,
+    "color": {
+     "token": "chart-7",
+     "mix": "bg",
+     "amount": 0.35
+    },
+    "opacity": 0.55,
+    "seed": 11,
+    "motion": {
+     "kind": "fall",
+     "speed": 0.12
+    }
+   }
+  ]
+ }
+}
