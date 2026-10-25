@@ -245,7 +245,7 @@ The versioned metadata catalog provides a full-file inventory and `reader catalo
 
 There is no automatic classifier, file watcher, scheduled librarian, or unattended curation service. The local embedding model supports retrieval, not generation or unattended curation. Search requires explicit index refresh; it does not infer edition/correction relationships or move-stable document identities.
 
-The delivery server is local to its caller and has no hosted endpoint or remote authentication layer. Its publication protocol handles cooperating local writers and process interruption; it does not provide a power-loss durability guarantee or protection against hostile filesystem mutation.
+The delivery server is local to its caller and has no hosted endpoint. Other machines can deliver, and with a broader key scope search and read, only through a restricted SSH key whose forced command is the helper's gate; see [remote delivery](delivery.md#remote-delivery-over-ssh). Its publication protocol handles cooperating local writers and process interruption; it does not provide a power-loss durability guarantee or protection against hostile filesystem mutation.
 
 Git provides history for committed content. Reader does not configure remote backup or synchronization, and uncommitted or ignored files have no Git recovery guarantee. git-cas and Keep are not integrated.
 

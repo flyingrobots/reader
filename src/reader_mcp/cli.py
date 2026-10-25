@@ -23,7 +23,9 @@ def main():
     reading.add_argument("path", help="Library-relative original Markdown path")
     status = commands.add_parser("status", help="Inspect a receipt by UUID")
     status.add_argument("request_id")
-    commands.add_parser("serve", help="Run the local MCP server over stdio")
+    serve_parser = commands.add_parser("serve", help="Run the local MCP server over stdio")
+    serve_parser.add_argument("--inline-only", action="store_true",
+                              help="Refuse ingest requests that name local files (used for remote sessions)")
     web = commands.add_parser("web", help="Open the local zen reading web application")
     web.add_argument("--port", type=int, default=8766)
     web.add_argument("--participant", default="You")
@@ -94,7 +96,7 @@ def main():
             return
         if args.command == "serve":
             from .server import serve
-            serve(store)
+            serve(store, inline_only=args.inline_only)
             return
         if args.command == "ingest":
             request = sys.stdin.read() if args.request == "-" else Path(args.request).read_text()

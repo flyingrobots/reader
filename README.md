@@ -223,6 +223,17 @@ Tailscale logins. `status`, `pause`, `resume`, `restart` and `uninstall` do what
 they say. See [Always-on service and Tailscale](docs/web.md#always-on-service-and-tailscale).
 Linux service units are not provided.
 
+## Delivery from another machine
+
+Agents on another of your computers can deliver into the vault's inbox over SSH,
+without the Reader environment or a vault there. This is optional and off by
+default: nothing listens on the network until you run
+`python3 skills/reader/scripts/reader.py remote-setup user@vault-host` on the
+delivering machine. Setup creates a dedicated key and authorizes it on the vault
+machine with a restricted forced command, limited to delivery and receipt status
+unless you choose `--scope library` for search and reading too. See
+[remote delivery over SSH](docs/delivery.md#remote-delivery-over-ssh).
+
 ## Documentation
 
 - [Web reader](docs/web.md): every feature, key, limit and recovery step

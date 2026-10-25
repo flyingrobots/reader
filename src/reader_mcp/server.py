@@ -7,7 +7,8 @@ from .store import Store, Submission
 from .search import Search, Mode
 
 
-def serve(store: Store):
+def serve(store: Store, inline_only: bool = False):
+    """Run the stdio server. inline_only refuses submissions that name files on this machine."""
     server = FastMCP("Reader")
 
     @server.tool(annotations=ToolAnnotations(readOnlyHint=False, destructiveHint=False,
@@ -21,6 +22,9 @@ def serve(store: Store):
         and must not be invented. Returns checksums, an absolute document_path, and
         awaiting_filing status. Does not classify, publish, or execute document content.
         """
+        if inline_only and (submission.document_path is not None or submission.attachments):
+            raise ValueError("This Reader session accepts inline markdown only; "
+                             "deliver files with the Reader helper's ingest command")
         return store.ingest(submission)
 
     @server.tool(annotations=ToolAnnotations(readOnlyHint=True, openWorldHint=False))
