@@ -4,6 +4,7 @@ import json
 import os
 from pathlib import Path
 import tempfile
+from uuid import UUID
 from .annotations import MAX_THREADS, Annotations, now, sha
 
 MAX_PARTICIPANTS = 100
@@ -101,6 +102,46 @@ class Engagement:
             if item['key']==key:return item
         raise ValueError('Unknown discussion item')
 
+    def quiz_result(self, participant, quiz_id, result):
+        """Keep the latest attempt separately from document/discussion seen state.
+
+        Quizzes computes the score from stored questions before calling this method.
+        Participant labels remain local attribution, not authenticated identity.
+        """
+        participant = self.participant(participant)
+        quiz_id = str(UUID(str(quiz_id)))
+        with self.annotations.locked():
+            receipts = self.receipts()
+            record = next((r for r in receipts if r['participant'] == participant),
+                          dict(schema_version=1, participant=participant, items={}))
+            if not any(r['participant'] == participant for r in receipts) and len(receipts) >= MAX_PARTICIPANTS:
+                raise ValueError('At most 100 participants are supported')
+            record['items']['quiz:' + quiz_id] = dict(result, version=quiz_id, at=now())
+            self.write(record)
+
+    def quiz_results(self, path):
+        return [dict(item, participant=record['participant'], quiz_id=key[5:])
+                for record in self.receipts() for key, item in record['items'].items()
+                if key.startswith('quiz:') and item.get('document_path') == path]
+
+    def write(self, record):
+        """Caller holds the annotations lock shared by all participant receipt writes."""
+        data = (json.dumps(record, ensure_ascii=False, indent=2) + '\n').encode()
+        if len(data) > 8 * 1024**2:
+            raise ValueError('Participant receipts exceed 8 MiB')
+        self.folder.mkdir(exist_ok=True)
+        temporary = None
+        try:
+            with tempfile.NamedTemporaryFile(dir=self.folder, prefix='.receipt-', delete=False) as stream:
+                temporary = Path(stream.name)
+                stream.write(data)
+                stream.flush()
+                os.fsync(stream.fileno())
+            os.replace(temporary, self.folder / (sha(record['participant'].encode()) + '.json'))
+        finally:
+            if temporary:
+                temporary.unlink(missing_ok=True)
+
     def seen(self,participant,items,read=True):
         participant=self.participant(participant)
         if type(read)is not bool or not isinstance(items,list) or not 1<=len(items)<=2000:raise ValueError('Expected 1–2000 receipt items and boolean read')
@@ -114,14 +155,5 @@ class Engagement:
             for item in items:
                 if read:record['items'][item['key']]=dict(version=item['version'],at=stamp)
                 else:record['items'].pop(item['key'],None)
-            data=(json.dumps(record,ensure_ascii=False,indent=2)+'\n').encode()
-            if len(data)>8*1024**2:raise ValueError('Participant receipts exceed 8 MiB')
-            self.folder.mkdir(exist_ok=True)
-            temporary=None
-            try:
-                with tempfile.NamedTemporaryFile(dir=self.folder,prefix='.receipt-',delete=False) as stream:
-                    temporary=Path(stream.name);stream.write(data);stream.flush();os.fsync(stream.fileno())
-                os.replace(temporary,self.folder/(sha(participant.encode())+'.json'))
-            finally:
-                if temporary:temporary.unlink(missing_ok=True)
+            self.write(record)
         return dict(participant=participant,updated=len(items),read=read)

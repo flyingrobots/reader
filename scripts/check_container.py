@@ -38,7 +38,7 @@ def main():
         # Only selected software paths. No host mount and no vault files enter the worker.
         stream = io.BytesIO()
         with tarfile.open(fileobj=stream, mode='w') as archive:
-            for top in ['src','tests','scripts','skills','schemas','plugins','pyproject.toml','uv.lock','LICENSE','.reader/tooling/bin/wide-md','.reader/tooling/installed.json']:
+            for top in ['src','tests','templates','scripts','skills','schemas','plugins','web','docs','README.md','CHANGELOG.md','AGENTS.md','pyproject.toml','uv.lock','LICENSE','.reader/tooling/bin/wide-md','.reader/tooling/installed.json']:
                 for path in ([ROOT/top] if (ROOT/top).is_file() else sorted((ROOT/top).rglob('*'))):
                     rel = path.relative_to(ROOT)
                     if path.is_file() and not path.is_symlink() and not any(p in ('node_modules','dist','__pycache__') for p in rel.parts):
@@ -61,6 +61,11 @@ def main():
                 raise RuntimeError('Docker VM free space below 50 GiB')
             (RUNTIME/(kind+'-contract.json')).write_text(json.dumps(contract, indent=2))
             docker('exec','-i',name,'tar','xf','-','-C','/work',input=stream.getvalue())
+            if kind == 'python':
+                # Source-policy tests inspect tracked source names. Give the isolated
+                # copy its own index; no host repository metadata or history is copied.
+                docker('exec',name,'git','init','-q','-b','snapshot','/work')
+                docker('exec',name,'git','-C','/work','add','--','src','web/src')
             cmd = ('python -m pip install --disable-pip-version-check --no-cache-dir --target /work/tools uv && '
                    'PYTHONPATH=/work/tools UV_CACHE_DIR=/work/cache python -m uv sync --locked && '
                    '.venv/bin/python -m pytest -q') if kind == 'python' else (

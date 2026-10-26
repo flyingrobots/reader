@@ -54,6 +54,7 @@ The web server does not rebuild indexes or download models at startup.
 | Space , t; F10 | Theme Editor (F10 also closes it; focus returns to where it was opened from) |
 | Space s, then a / f / s | Send to AI-TTS: whole article, from here, or the selection |
 | Space m | Chat with the voices about the open document |
+| Space x | Take a source-anchored quiz on the open article |
 | Space z | Hide or reveal reading chrome |
 | Tab to a diagram, Enter (or click) | Open the diagram full size; Escape closes it |
 | ? / Escape | Help / close the current interface |
@@ -4109,3 +4110,7 @@ The browser harness launches a disposable synthetic server on an ephemeral port,
 closes its browser and server at completion, and writes screenshots under ignored
 `.reader/web-dev/`. Respect the project's shared-resource locks and storage/runtime
 guards when running campaigns. The fixture never loads the configured private vault.
+
+### Article quizzes
+
+**Test yourself**, the margins’ **Quiz** button, **Space x** and `:quiz` open a quiz for the current article. Generation uses configured voices; multiple choice is graded locally and optional short answers can be reviewed by a voice. Results appear in the reading log without changing read status. See [the complete quiz contract](quizzes.md) for source verification, edition behavior, storage, API, limits and recovery.

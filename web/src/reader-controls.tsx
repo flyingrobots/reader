@@ -36,6 +36,7 @@ export {flatPassages} from './search-page';
 import {QueuePanel, type QueueProps} from './queue-panel';
 export {visibleDocumentNodes} from './document-tree';
 export {mountCallouts} from './callouts';
+export {mountQuiz} from './quiz';
 import {ThemeEditor} from './theme/theme-editor';
 import {applyThemes, ensureProseTokens, themeId, type InstalledFont} from './theme/theme-css';
 import type {Theme} from './theme/color';

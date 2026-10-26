@@ -625,3 +625,14 @@ body.two-page .article-shape{break-inside:avoid;max-height:38vh}
 .embed-pdf{position:relative;max-width:720px;border:1px solid var(--line);break-inside:avoid}.embed-pdf canvas{display:block;max-width:100%;height:auto!important}.embed-pdf .pdf-page-label{position:absolute;right:8px;bottom:6px}
 body.two-page .article .document-embed .document-embed{padding-left:12px}
 body.two-page .embed-pdf canvas{max-height:65vh;width:auto!important}
+
+/* Article learning controls share Read next's last-spread fit rule. */
+.article-learning{display:flex;gap:12px;align-items:center;margin:28px 0;break-inside:avoid}
+::highlight(reader-quiz){background-color:var(--accent);color:var(--accent-ink)}
+.vim-mode[data-mode=QUIZ]{background:var(--mode-thread)}
+.reading-log-quizzes{list-style:none;padding:0;margin:.5em 0 0;color:var(--muted);font-size:13px;line-height:1.45}
+.reader-quiz-dialog{max-width:min(42rem,calc(100vw - 2rem));max-height:calc(100dvh - 2rem);overflow-y:auto}
+.reader-quiz-score{font-size:2rem;font-variant-numeric:tabular-nums}
+.reader-quiz-feedback{border-inline-start:2px solid var(--accent);padding-inline-start:1rem;line-height:1.45}
+.reader-quiz-task-details{max-height:16rem;overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere;font-size:12px}
+@media(max-width:600px){.reader-quiz-dialog{inset:0;width:100%;max-width:100%;max-height:100dvh;min-height:100dvh;transform:none;translate:none;border-radius:0;align-content:start;padding:1rem}}

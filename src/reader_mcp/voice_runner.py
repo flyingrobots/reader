@@ -472,8 +472,11 @@ class Supervisor:
 
 
 class VoiceRunner:
-    def __init__(self, root, documents, rng=None, git_locks=None, limits=True, listen_filter=None, capacity=None):
+    def __init__(self, root, documents, rng=None, git_locks=None, limits=True, listen_filter=None, capacity=None, tasks=None):
         self.root = Path(root).resolve(strict=True)
+        self.tasks = tasks
+        if tasks is not None:
+            tasks.runner = self
         # Optional pre-filter (RW-22 hook, off by default): listen_filter(voice, exchange) -> bool.
         self.listen_filter = listen_filter
         self.chain_voices = {}
@@ -606,6 +609,15 @@ class VoiceRunner:
         changed = False  # Rewrite state.json only when a turn was actually recovered (#72).
         for turn in (previous.get('turns') or {}).values():
             if not isinstance(turn, dict) or turn.get('state') in TERMINAL:
+                continue
+            if turn.get('task_id') and self.tasks:
+                try:
+                    if turn.get('log'):
+                        llm_logs.seal(self.root, turn['log'], 'interrupted', 'Reader stopped before this article task finished.')
+                    self.tasks.recover(turn)
+                except (ValueError, OSError, KeyError):
+                    pass
+                changed = True
                 continue
             if turn.get('kind') == 'listen':
                 changed = True
@@ -911,20 +923,26 @@ class VoiceRunner:
             return
         try:
             (self.runtime / 'cancel').unlink(missing_ok=True)
-            chat = self.chats.read(turn['chat_id'])
-            document = self.documents(chat['document_path'], voice.get('inline_document') and not listening)
-            if listening:
+            task = bool(turn.get('task_id'))
+            chat = None if task else self.chats.read(turn['chat_id'])
+            document = None if task else self.documents(chat['document_path'], voice.get('inline_document') and not listening)
+            if task:
+                system, prompt = self.tasks.prompt(turn, voice)
+            elif listening:
                 system, prompt = voice_tools.listen(self.root, voice, chat, document, turn['root'], turn.get('reply_ids') or [])
             else:
                 system, prompt = voice_tools.build(self.root, voice, chat, document, turn['reply_to'], registry,
                                                    document.get('text') if voice.get('inline_document') else None,
                                                    chime=turn.get('reason') if turn.get('kind') == 'chime_in' else None)
-            log = llm_logs.RunLog(self.root, 'listen' if listening else 'chat', turn['id'], {
+            task_path = self.tasks.read(turn['task_id'])['path'] if task else None
+            log = llm_logs.RunLog(self.root, turn['kind'] if task else 'listen' if listening else 'chat', turn['id'], {
                 'runner': 'voice-chat', 'turn_kind': turn.get('kind') or 'turn', 'root': turn.get('root'), 'voice': turn['voice'], 'chat_id': turn['chat_id'], 'turn_id': turn['id'],
-                'reply_to': turn['reply_to'], 'document_path': chat['document_path'], 'cli': os.path.basename(voice['cli']),
+                'reply_to': turn['reply_to'], 'document_path': task_path if task else chat['document_path'], 'cli': os.path.basename(voice['cli']),
                 'stream': voice['stream'], 'timeout_seconds': turn['timeout_seconds'], 'cwd': str(self.root)})
             llm_logs.forget_usage(self.root)
             turn['log'] = log.relative
+            if task:
+                self.tasks.started(turn)
             log.write('prompt.txt', prompt)
             log.write('system.txt', system)
             temp = self.runtime / 'tmp'
@@ -1020,6 +1038,14 @@ class VoiceRunner:
 
     def complete(self, turn, state, body='', error=None, tail=None, exit_code=None, changed=None, commits=(), runtime=None, session=None,
                  failure=None, warning=None):
+        if turn.get('task_id') and self.tasks:
+            job = self.tasks.finish(turn, state, body=body, error=error, runtime=runtime or turn.get('runtime'), changed=changed, commits=commits)
+            final = job['state'] if job['state'] != 'queued' else 'failed'
+            turn.update(state=final, message='Retrying generated JSON…' if job['state'] == 'queued' else final.title(),
+                        finished_at=stamp(), error=job.get('error'))
+            self.publish(turn)
+            self.emit(turn['chat_id'], 'done', {'turn_id': turn['id'], 'state': final, 'task': self.tasks.public(job)})
+            return
         if len(body) > MAX_BODY:
             body = body[:MAX_BODY - 40] + '\n\n…[reply truncated at 64 KiB]'
         seconds = round(time.monotonic() - turn['monotonic'], 1) if turn.get('monotonic') else None
@@ -1265,8 +1291,8 @@ class Conversations:
     """Chat routes over the store and the runner: create, send, paste, cancel and retry.
     Every action that writes first calls `runner.own()`: a server that does not own chat for the vault refuses it."""
 
-    def __init__(self, root, documents, rng=None, git_locks=None, limits=True, listen_filter=None, capacity=None):
-        self.runner = VoiceRunner(root, documents, rng, git_locks, limits, listen_filter, capacity)
+    def __init__(self, root, documents, rng=None, git_locks=None, limits=True, listen_filter=None, capacity=None, tasks=None):
+        self.runner = VoiceRunner(root, documents, rng, git_locks, limits, listen_filter, capacity, tasks)
         self.chats = self.runner.chats
         self.registry = self.runner.registry
         self.documents = documents
