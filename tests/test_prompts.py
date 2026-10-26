@@ -86,6 +86,17 @@ def test_prompt_inventory_ignores_preserved_hidden_metadata(app):
     assert all(file.read_bytes() == b'Preserve metadata' for file in entries)
 
 
+def test_public_prompt_runtime_redacts_paths_without_rewriting_archive(app):
+    job = dict(id=str(uuid4()), voice='Claude', path=PATH, source_sha256=app.digest(PATH))
+    prompt = app.prompts.task_result(job, QUESTION, {'version': 'Voice at ' + str(app.root / 'bin/voice')})
+    file = next(app.prompts.files())
+    before = file.read_bytes()
+    public = app.prompts.view(prompt)
+    assert str(app.root) not in public['runtime']['version']
+    assert '<vault>/bin/voice' in public['runtime']['version']
+    assert file.read_bytes() == before
+
+
 def test_invalid_quote_keeps_question_without_link(app):
     job = dict(id=str(uuid4()), voice='Claude', path=PATH, source_sha256=app.digest(PATH))
     result = app.prompts.task_result(job, dict(question='What do you think?', quote='Invented passage.'), {})

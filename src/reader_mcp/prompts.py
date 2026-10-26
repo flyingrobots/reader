@@ -10,6 +10,7 @@ import tempfile
 from uuid import UUID
 
 from .annotations import Annotations, now
+from .display import shown
 from .learning import evidence, source
 from .quizzes import SHA
 from .voices import fence
@@ -88,7 +89,8 @@ class Prompts:
             anchor = evidence(document['text'], prompt['evidence']) if prompt['evidence'] else None
         except ValueError:
             anchor = None
-        return dict(prompt, evidence=anchor, earlier=prompt['document_sha256'] != document['sha256'])
+        return dict(prompt, runtime=shown(prompt.get('runtime'), self.root), evidence=anchor,
+                    earlier=prompt['document_sha256'] != document['sha256'])
 
     def task_prompt(self, job, document):
         rows = self.annotations.list(job['path'])['threads'][-20:]
