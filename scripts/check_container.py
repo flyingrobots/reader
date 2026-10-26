@@ -7,6 +7,7 @@ import json
 from pathlib import Path
 import shutil
 import subprocess
+import sys
 import tarfile
 import time
 
@@ -101,7 +102,13 @@ def main():
                             if size>4*1024**2:raise RuntimeError('Validation log limit reached')
                             output.write(chunk);output.flush()
                         elif process.poll() is not None:break
-                    if process.wait(timeout=10):raise RuntimeError('Validation failed; inspect '+str(log))
+                    if process.wait(timeout=10):
+                        # CI otherwise loses the file with its disposable runner.
+                        # Export a bounded tail while retaining the failure signal.
+                        with log.open('rb') as evidence:
+                            evidence.seek(max(0, log.stat().st_size - 64 * 1024))
+                            print(evidence.read().decode('utf-8', errors='replace'), file=sys.stderr)
+                        raise RuntimeError('Validation failed; inspect '+str(log))
                 finally:
                     selector.close()
                     if process.poll() is None:process.kill();process.wait()
