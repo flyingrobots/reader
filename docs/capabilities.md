@@ -205,7 +205,10 @@ Replies stream into the panel; turns run one at a time per vault with timeouts,
 cancel, resource guards and waiting for the inbox runner. Each chat is stored in
 `chats/` and committed after every message. Panels in several tabs share a
 document's first chat and stay in sync over the stream's heartbeat; a dead or
-stalled server shows *Lost connection to Reader* with Retry. Article identity, history and whatever
+stalled server shows *Lost connection to Reader* with Retry. One web server per
+vault owns chat (a lock in `.reader/voice-runner/`); any other server on the vault
+shows chats read-only and refuses chat actions with *Another Reader server owns chat
+for this vault*, and never rewrites the owner's runner state. Article identity, history and whatever
 a voice reads go to that voice's provider. Each reply's footer names why a turn
 failed (CLI error, unreadable output, timeout and so on), and a collapsed **Show raw
 output** disclosure shows the turn's CLI events as readable steps or JSON lines,

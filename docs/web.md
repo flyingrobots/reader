@@ -2092,6 +2092,42 @@ started: low disk space*, because its log could not be kept. `state.json` (in
 `.reader/voice-runner/`) holds the active and queued turns, their partial text and
 their log paths.
 
+#### One chat owner per vault
+
+One Reader web server per vault owns chat; it holds
+`.reader/voice-runner/supervisor.lock` (an exclusive `flock`) for the rest of its
+life, and the kernel releases it when that server exits or crashes. Only the owner
+recovers interrupted turns, runs turns, writes `state.json` and changes chats. A
+server takes the lock at start when `state.json` exists (there may be turns to
+recover), and otherwise on its first chat action, so a server that only reads
+writes nothing to the vault.
+
+Any other server on the same vault (a second preview, a measurement or debugging
+server, a test harness) serves chat read-only: chat lists, chats and raw output load,
+but it never calls recovery or writes `state.json`, does not expire stale raised
+hands, and does not see the owner's live turns (they appear once finished and
+stored). Every chat action (`create`, `send`, `paste`, `cancel`, `retry`, `hand`,
+`settings`, `hush`) answers **409** with *Another Reader server owns chat for this
+vault; chat is read-only here. Use the server that owns it, or stop that server
+first.* `/api/chats` and `/api/chat` report `owner: {owner, writable, message}`;
+`writable` is true when this server owns chat or will on its first action. When it
+is false the chat panel shows the message above the composer, and a refused send
+keeps your draft. Once the owner stops, the next chat action on another server takes
+the lock, recovers the old turns and proceeds.
+
+Recovery rewrites `state.json` only when it actually marked a turn interrupted (or
+sealed an interrupted listening check's log); a start with nothing to recover leaves
+the file's bytes unchanged.
+
+**Host and container on one vault.** Do not serve one vault from both the Mac and a
+Docker container. `flock` is not shared reliably between the host and a Linux VM
+through a bind mount, so the owner also keeps a heartbeat record in the lock file
+(`pid`, `host`, `started_at`, `heartbeat`, rewritten every 10 s and zeroed on a clean
+stop). A record from another host name with a heartbeat younger than 30 s counts as
+held, so the second server is read-only. After the other side crashes, chat stays
+read-only for up to 30 s. A process group named in a recovered turn's error belongs
+to the owner's PID namespace, so inspect it on that side.
+
 #### LLM logs
 
 Every voice turn's raw artifacts are archived in the vault, permanently, at
@@ -2120,9 +2156,10 @@ exception to the default 128 MiB log budget. Low disk space stops new runs inste
   commits, it never lands while a voice's turn runs.
 - `/api/chats` and `/api/chat` report `llm_logs` (`bytes` and `runs` under
   `logs/llm/`, cached for 30 seconds and refreshed when a turn ends); the chat
-  panel's footer shows it. Run one web server per vault for chat: if the
-server stops during a turn, the next start records that turn as failed (naming any
-process group that may still run) so it can be retried.
+  panel's footer shows it. If the chat owner (see [one chat owner per
+vault](#one-chat-owner-per-vault)) stops during a turn, its next start, or the next
+server to take ownership, records that turn as failed (naming any process group that
+may still run) so it can be retried.
 
 Chats are stored as `chats/<uuid>.json` (schema 1: document path and SHA-256 at
 creation, title, starting participant, revision, optional `settings.chime_ins`, and

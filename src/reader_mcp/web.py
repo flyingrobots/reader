@@ -42,7 +42,7 @@ from .speech import MAX_TEXT, Speech, SpeechUnavailable
 from .service import Service, health
 from .web_access import WebAccess
 from .themes import Themes
-from .voice_runner import Conversations
+from .voice_runner import ChatOwned, Conversations
 from .versions import Versions, split_ref
 
 STATIC = Path(__file__).with_name('web_ui')
@@ -1458,7 +1458,7 @@ class WebHandler(BaseHTTPRequestHandler):
             self.json({'error': str(exc)}, 403)
         except ProseUnavailable as exc:
             self.json({'error': str(exc), 'unavailable': True}, 409)
-        except RunConflict as exc:
+        except (RunConflict, ChatOwned) as exc:
             self.json({'error': str(exc)}, 409)
         except WritingConflict as exc:
             self.json({'error': str(exc)} | exc.extra, 409)

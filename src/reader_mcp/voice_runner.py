@@ -15,6 +15,7 @@ import queue
 import random
 import shutil
 import signal
+import socket
 import subprocess
 import sys
 import threading
@@ -41,6 +42,9 @@ KNOWN_TYPES = {'system', 'stream_event', 'assistant', 'user', 'result', 'item.co
 RAW_LIMIT = 4 * 1024**2  # Most stdout served per turn by /api/chat/raw; the archive keeps it all.
 RAW_FRAME = 2048  # Longest raw line sent over SSE; the full line is in the archived log.
 # Sets the CPU limit, then becomes the voice CLI. A shim avoids preexec_fn in a threaded server.
+SUPERVISOR_BEAT = 10  # seconds between the chat owner's heartbeats in supervisor.lock
+SUPERVISOR_STALE = 30  # a record from another host older than this no longer counts as held
+OWNED = 'Another Reader server owns chat for this vault'
 SHIM = 'import os,resource,sys;c=int(sys.argv[1]);resource.setrlimit(resource.RLIMIT_CPU,(c,c));os.execv(sys.argv[2],sys.argv[2:])'
 
 
@@ -356,6 +360,113 @@ def classify(state, code, error, parser, body, name, voice, timeout):
     return 'failed', 'no-reply', parser.error or f'{who} exited 0, but its output held no reply.', None
 
 
+class ChatOwned(Exception):
+    """Another Reader server owns chat for this vault; the API answers 409."""
+
+
+class Supervisor:
+    """`.reader/voice-runner/supervisor.lock`: the one Reader server per vault that owns chat holds it for its life (#20, #72).
+
+    flock decides between processes on one kernel, and the kernel releases it when the holder exits or crashes.
+    A host and a container may not share flock through a bind mount, so the holder also keeps a small heartbeat
+    record in the file: a record from another host fresher than SUPERVISOR_STALE seconds counts as held."""
+    SIZE = 512
+
+    def __init__(self, runtime, clock=time.time, host=None):
+        self.file = Path(runtime) / 'supervisor.lock'
+        self.clock = clock
+        self.host = host or socket.gethostname()
+        self.fd = None
+        self.started = None
+        self.stop = threading.Event()
+        self.mutex = threading.Lock()  # The heartbeat never writes to a descriptor that release() closed.
+
+    def read(self):
+        try:
+            fd = os.open(self.file, os.O_RDONLY | os.O_NOFOLLOW)
+            try:
+                data = json.loads(os.read(fd, self.SIZE).decode().strip() or 'null')
+            finally:
+                os.close(fd)
+            return data if isinstance(data, dict) else None
+        except (OSError, ValueError):
+            return None
+
+    def write(self, heartbeat):
+        record = json.dumps({'pid': os.getpid(), 'host': self.host, 'started_at': self.started, 'heartbeat': heartbeat})
+        # One fixed-size write at offset 0, so a reader never sees a half-truncated record.
+        os.pwrite(self.fd, record.encode().ljust(self.SIZE), 0)
+
+    def acquire(self):
+        """True when this process owns chat for the vault (now or already)."""
+        if self.fd is not None:
+            return True
+        try:
+            self.file.parent.mkdir(parents=True, exist_ok=True)
+            fd = os.open(self.file, os.O_RDWR | os.O_CREAT | os.O_NOFOLLOW, 0o644)
+        except OSError:
+            return False  # Fail closed: an unusable lock file (a symlink, say) never grants ownership.
+        try:
+            fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except OSError:
+            os.close(fd)
+            return False
+        if self.foreign():
+            os.close(fd)  # Another kernel's live owner: its flock is invisible here, its heartbeat is not.
+            return False
+        self.fd, self.started = fd, stamp()
+        self.write(self.clock())
+        self.stop = threading.Event()  # A fresh event per hold, so an old heartbeat thread never resumes.
+        threading.Thread(target=self.beat, args=(self.stop,), name='reader-chat-supervisor', daemon=True).start()
+        return True
+
+    def beat(self, stop):
+        while not stop.wait(SUPERVISOR_BEAT):
+            with self.mutex:
+                if self.fd is None:
+                    return
+                try:
+                    self.write(self.clock())
+                except OSError:
+                    return
+
+    def held(self):
+        """Whether another server holds the lock, checked without taking it or writing anything."""
+        if self.fd is not None:
+            return False
+        try:
+            fd = os.open(self.file, os.O_RDONLY | os.O_NOFOLLOW)
+        except FileNotFoundError:
+            return False
+        except OSError:
+            return True  # Fail closed, as acquire() does.
+        try:
+            fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except OSError:
+            return True
+        finally:
+            os.close(fd)
+        return self.foreign()
+
+    def foreign(self):
+        """A live owner on another host: its record is fresher than SUPERVISOR_STALE seconds."""
+        other = self.read()
+        return bool(other and other.get('host') != self.host and isinstance(other.get('heartbeat'), (int, float))
+                    and self.clock() - other['heartbeat'] < SUPERVISOR_STALE)
+
+    def release(self):
+        self.stop.set()
+        with self.mutex:
+            if self.fd is None:
+                return
+            try:
+                self.write(0)  # Released: another host may take over at once.
+            except OSError:
+                pass
+            os.close(self.fd)
+            self.fd = None
+
+
 class VoiceRunner:
     def __init__(self, root, documents, rng=None, git_locks=None, limits=True, listen_filter=None, capacity=None):
         self.root = Path(root).resolve(strict=True)
@@ -387,7 +498,14 @@ class VoiceRunner:
         self.commits = queue.Queue()
         # Chat commits never run while a voice works, so they cannot collide with its Git operations.
         self.quiet = threading.Lock()
-        self.recover()
+        # Only the server that holds the supervisor lock recovers turns, runs them or writes state.json;
+        # any other server on the vault serves chat read-only and takes over once the owner stops.
+        # A server takes the lock at start only when there is state to recover, and otherwise on its first chat
+        # action, so a server that only reads writes nothing to the vault.
+        self.supervisor = Supervisor(self.runtime)
+        self.owner = (self.runtime / 'state.json').is_file() and self.supervisor.acquire()
+        if self.owner:
+            self.recover()
         threading.Thread(target=self.work, name='reader-voice-runner', daemon=True).start()
         threading.Thread(target=self.commit_worker, name='reader-chat-commits', daemon=True).start()
 
@@ -405,7 +523,24 @@ class VoiceRunner:
             result['elapsed'] = round(time.monotonic() - turn['monotonic'], 1)
         return result
 
+    def own(self):
+        """Refuse a chat change unless this server owns chat; take ownership when the previous owner has stopped."""
+        with self.lock:
+            if self.owner:
+                return
+            if self.closed or not self.supervisor.acquire():
+                raise ChatOwned(OWNED + '; chat is read-only here. Use the server that owns it, or stop that server first.')
+            self.owner = True
+            self.recover()
+
+    def ownership(self):
+        """`writable`: this server owns chat, or will on its first chat action because no other server holds it."""
+        writable = bool(self.owner) or not self.closed and not self.supervisor.held()
+        return {'owner': bool(self.owner), 'writable': writable, 'message': None if writable else OWNED + '; chat is read-only here.'}
+
     def save(self, force=False):
+        if not self.owner:
+            return
         if not force and time.monotonic() - self.saved_at < 1:
             return
         self.saved_at = time.monotonic()
@@ -464,10 +599,12 @@ class VoiceRunner:
             previous = json.loads(state_file.read_text())
         except ValueError:
             return
+        changed = False  # Rewrite state.json only when a turn was actually recovered (#72).
         for turn in (previous.get('turns') or {}).values():
             if not isinstance(turn, dict) or turn.get('state') in TERMINAL:
                 continue
             if turn.get('kind') == 'listen':
+                changed = True
                 # An interrupted listening check simply did not happen, but its log is sealed and kept.
                 try:
                     if turn.get('log'):
@@ -496,11 +633,14 @@ class VoiceRunner:
                                   [log] if log else ())
             except (ValueError, KeyError, OSError):
                 continue
-        self.save(True)
+            changed = True
+        if changed:
+            self.save(True)
 
     def close(self):
         with self.lock:
             self.closed = True
+            self.supervisor.release()
             for turn in self.turns.values():
                 if turn['state'] not in TERMINAL:
                     turn['cancel'] = True
@@ -1091,7 +1231,8 @@ def stale(hand, at=None):
 
 
 class Conversations:
-    """Chat routes over the store and the runner: create, send, paste, cancel and retry."""
+    """Chat routes over the store and the runner: create, send, paste, cancel and retry.
+    Every action that writes first calls `runner.own()`: a server that does not own chat for the vault refuses it."""
 
     def __init__(self, root, documents, rng=None, git_locks=None, limits=True, listen_filter=None, capacity=None):
         self.runner = VoiceRunner(root, documents, rng, git_locks, limits, listen_filter, capacity)
@@ -1102,7 +1243,7 @@ class Conversations:
     def voices(self):
         registry = self.registry.load()
         return {'configured': registry['configured'], 'voices': [voice_tools.public(v) for v in registry['voices']],
-                'timeout_seconds': registry['timeout_seconds'], 'llm_logs': llm_logs.usage(self.runner.root)}
+                'timeout_seconds': registry['timeout_seconds'], 'llm_logs': llm_logs.usage(self.runner.root), 'owner': self.runner.ownership()}
 
     def raw(self, chat_id, turn_id):
         """One turn's archived CLI output: stdout events, stderr, the prompt and meta, decompressed and bounded."""
@@ -1142,7 +1283,7 @@ class Conversations:
 
     def get(self, chat_id):
         chat = self.chats.read(chat_id)
-        if any(m.get('kind') == 'hand' and m.get('state') == 'raised' and stale(m) for m in chat['messages']):
+        if self.runner.owner and any(m.get('kind') == 'hand' and m.get('state') == 'raised' and stale(m) for m in chat['messages']):
             chat = self.expire(chat['id'], lambda m: stale(m))
         return {'chat': chat, 'pending': self.runner.pending(chat['id']), 'commit': self.runner.commit_results.get(chat['id']),
                 'last_event': self.runner.seq} | self.voices()
@@ -1156,6 +1297,7 @@ class Conversations:
         return handlers[action](participant=participant, **request)
 
     def create(self, path, participant, request_id=None, author=None, reuse=False):
+        self.runner.own()
         document = self.documents(path, False)
         chat = self.chats.create(path, document['sha256'], document['title'], author or participant, request_id, bool(reuse))
         return self.get(chat['id'])
@@ -1177,6 +1319,7 @@ class Conversations:
         return named, chosen, how
 
     def post(self, chat_id, author, body, request_id, runtime, random_fallback, participant, reply_to=None):
+        self.runner.own()
         Chats.text(body, 'Message', MAX_BODY)
         registry = self.registry.load()
         chat = self.chats.read(chat_id)
@@ -1221,9 +1364,11 @@ class Conversations:
         return self.post(id, voice, body, request_id, {'manual': True, 'pasted_by': participant}, False, participant)
 
     def cancel(self, turn_id, participant, id=None):
+        self.runner.own()
         return {'turn': self.runner.cancel(turn_id)}
 
     def retry(self, id, message_id, participant):
+        self.runner.own()
         chat = self.chats.read(id)
         message = next((m for m in chat['messages'] if m['id'] == message_id), None)
         if not message or (message.get('turn') or {}).get('state') in (None, 'done'):
@@ -1250,6 +1395,7 @@ class Conversations:
 
     def hand(self, id, message_id, decision, participant):
         """Let a raised hand speak (one chime-in per message) or decline it."""
+        self.runner.own()
         if decision not in ('accept', 'decline'):
             raise ValueError('decision must be accept or decline')
         chat = self.chats.read(id)
@@ -1290,6 +1436,7 @@ class Conversations:
         return self.get(chat['id']) | {'turns': turns}
 
     def settings(self, id, chime_ins, participant):
+        self.runner.own()
         chat, changed = self.chats.configure(id, chime_ins)
         if changed:
             if chime_ins == 'off':
@@ -1298,6 +1445,7 @@ class Conversations:
         return self.get(chat['id'])
 
     def hush(self, id, participant):
+        self.runner.own()
         """You started typing: stop this chat's listening checks (raised hands stay)."""
         chat = self.chats.read(id)
         self.runner.hush(chat)

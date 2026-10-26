@@ -460,6 +460,7 @@ body:has(#changes-panel[data-side=right]) [data-slot=sheet-overlay] { display: n
 .chat-error summary { cursor: pointer; }
 .chat-error pre { white-space: pre-wrap; font: 11px/1.45 var(--mono); max-height: 160px; overflow: auto; margin: 6px 0 0; color: var(--muted); }
 .chat-commit-error { font-size: 11px; color: var(--warning); margin: 0; }
+.chat-read-only { font-size: 11px; color: var(--warning); margin: 0; }
 .chat-error { margin: 0; font-size: 12px; line-height: 1.45; overflow-wrap: anywhere; }
 .chat-warning { margin: 0; font-size: 12px; line-height: 1.45; color: var(--muted); overflow-wrap: anywhere; }
 .chat-elapsed { font-variant-numeric: tabular-nums; color: var(--faint); }

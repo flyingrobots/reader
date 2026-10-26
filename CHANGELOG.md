@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Chat: one Reader web server per vault owns chat (#20, #72). The owner holds `.reader/voice-runner/supervisor.lock` (flock, released by the kernel when it exits, plus a heartbeat record so a host and a container on one vault also see each other). A second server serves chats read-only: it never recovers turns or rewrites `state.json`, its chat actions answer 409 *Another Reader server owns chat for this vault*, and the chat panel shows that above the composer. It takes over on its next chat action once the owner stops. Recovery now rewrites `state.json` only when it changed a turn, and a server that only reads writes nothing to the vault.
+
 - Chat listening checks no longer race the reply they follow (#73, #91). A reply queues its follow-up turns and listening checks before it is published as finished, and a listening check is published as finished only after its note, warning or hand is stored on the reply, so the chat never looks idle while that work is still arriving. Typing in the composer (`hush`) now also stops checks the current exchange has not queued yet. The chat tests wait until the runner has released every turn, and two barrier tests pin both orders.
 
 - Prose colors: Reader now requires Colorful Language 0.4.0 or newer. Colorful 0.3.0 reports a version but every artifact it emits fails Reader's schema-hash admission, so it now reads *Too old* in Companions (status, Set path and Install all use the same floor) instead of offering colors that every document refuses (#102). The Prose colors description in Settings now says that Vivid colors nouns, verbs, adjectives and adverbs only for the few words in Colorful's seed lexicon (#44).

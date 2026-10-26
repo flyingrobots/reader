@@ -116,6 +116,9 @@ export function ChatPanel(props:ChatProps){
   const [replyTo,setReplyTo]=useState<ChatMessage|null>(null),[flash,setFlash]=useState<string|null>(null);
   const hushed=useRef(false),raisedBatch=useRef(0),raisedTimer=useRef<number|undefined>(undefined);
   const [logs,setLogs]=useState<LogUsage|null>(null);
+  // Another Reader server owns chat for this vault (#20): chats stay readable here, and the composer says why it cannot send.
+  const [readOnly,setReadOnly]=useState<string|null>(null);
+  const owned=useCallback((data:any)=>{if(data?.owner)setReadOnly(data.owner.writable?null:data.owner.message);},[]);
   const bus=useMemo(()=>createRawBus(),[]);
   const [openRaw,setOpenRaw]=useState<Set<string>>(()=>new Set());
   const setRaw=useCallback((turnId:string,value:boolean)=>setOpenRaw(old=>{const next=new Set(old);if(value)next.add(turnId);else next.delete(turnId);return next;}),[]);
@@ -132,18 +135,19 @@ export function ChatPanel(props:ChatProps){
   const lostRef=useRef(false);
   // Pressing New chat starts a chat even if the document already has one; otherwise its newest is reused.
   const fresh=useRef(false);
-  const fail=useCallback((error:unknown)=>notify(error instanceof Error?error.message:String(error),'error'),[notify]);
+  const fail=useCallback((error:unknown)=>{const message=error instanceof Error?error.message:String(error);
+    if(message.startsWith('Another Reader server owns chat'))setReadOnly(message);notify(message,'error');},[notify]);
 
   // The server's pending turns replace ours: a turn that finished while we were not listening disappears.
-  const load=useCallback(async(id:string)=>{const data=await api('/api/chat?id='+encodeURIComponent(id));setChat(data.chat);setVoices(data.voices);setConfigured(data.configured);setCommit(data.commit);setLogs(data.llm_logs||null);
+  const load=useCallback(async(id:string)=>{const data=await api('/api/chat?id='+encodeURIComponent(id));setChat(data.chat);setVoices(data.voices);setConfigured(data.configured);setCommit(data.commit);setLogs(data.llm_logs||null);owned(data);
     const live=new Set((data.pending as Turn[]).map(t=>t.id));
-    setTurns(old=>merge(Object.fromEntries(Object.entries(old).filter(([tid,t])=>t.chat_id===id&&live.has(tid))),data.pending));},[api]);
+    setTurns(old=>merge(Object.fromEntries(Object.entries(old).filter(([tid,t])=>t.chat_id===id&&live.has(tid))),data.pending));},[api,owned]);
   // History for this document; the newest chat reopens.
   useEffect(()=>{
     if(!open||!path)return;
     if(chatRef.current&&chatRef.current.document_path===path)return;
     let live=true;setChat(null);setTurns({});setHistory([]);fresh.current=false;
-    (async()=>{try{const data=await api('/api/chats?path='+encodeURIComponent(path));if(!live)return;setHistory(data.chats);setVoices(data.voices);setConfigured(data.configured);setLogs(data.llm_logs||null);if(data.chats[0])await load(data.chats[0].id);}catch(error){fail(error);}})();
+    (async()=>{try{const data=await api('/api/chats?path='+encodeURIComponent(path));if(!live)return;setHistory(data.chats);setVoices(data.voices);setConfigured(data.configured);setLogs(data.llm_logs||null);owned(data);if(data.chats[0])await load(data.chats[0].id);}catch(error){fail(error);}})();
     return ()=>{live=false;};
   },[open,path,api,load,fail]);
   // Keep the history label of the open chat current.
@@ -218,14 +222,14 @@ export function ChatPanel(props:ChatProps){
   const ensureChat=async()=>{if(chatRef.current)return chatRef.current;const key='create:'+path;requests.current[key]||=uuid();
     // Another tab may have started this document's chat meanwhile: reuse it unless New chat was pressed.
     const data=await api('/api/chat',{action:'create',path,participant,request_id:requests.current[key],reuse:!fresh.current});delete requests.current[key];fresh.current=false;
-    setChat(data.chat);setVoices(data.voices);setTurns(old=>merge(old,data.pending||[]));
+    setChat(data.chat);setVoices(data.voices);owned(data);setTurns(old=>merge(old,data.pending||[]));
     setHistory(old=>[{id:data.chat.id,created_at:data.chat.created_at,updated_at:data.chat.created_at,messages:data.chat.messages.length,last:null},...old.filter(c=>c.id!==data.chat.id)]);chatRef.current=data.chat;return data.chat as Chat;};
   const post=async(action:'send'|'paste',body:string)=>{
     if(!body.trim()||busy)return false;setBusy(true);
     try{const current=await ensureChat(),key=action+':'+current.id+':'+body;requests.current[key]||=uuid();
       const reply=action==='send'&&replyTo&&replyTo.id&&current.messages.some(m=>m.id===replyTo.id)?replyTo.id:undefined;
       const data=await api('/api/chat',{action,id:current.id,body,participant,request_id:requests.current[key],...(reply?{reply_to:reply}:{}),...(action==='paste'&&pasteName?{voice:pasteName}:{})});delete requests.current[key];
-      setChat(data.chat);setTurns(old=>merge(old,data.pending));if(action==='send')setReplyTo(null);hushed.current=false;
+      setChat(data.chat);owned(data);setTurns(old=>merge(old,data.pending));if(action==='send')setReplyTo(null);hushed.current=false;
       const routing=data.message?.routing;
       if(action==='send'&&!data.turns.length){const named=(data.message?.mentions||[]) as string[];
         const pasted=manual.find(v=>named.includes(v.name))?.name;
@@ -327,6 +331,7 @@ export function ChatPanel(props:ChatProps){
     {replyTo?<div className="chat-replying" data-chat-replying={replyTo.id}>
       <span><CornerUpLeftIcon/>Replying to {replyTo.author} · “{excerpt(replyTo.body)}”{replyTo.runtime?.manual?<em> {replyTo.author} answers by paste: use “Paste {manual.length>1?'a':replyTo.author+'’s'} reply” for the answer.</em>:null}</span>
       <Button variant="ghost" size="icon-xs" aria-label="Cancel the reply" onClick={()=>setReplyTo(null)} data-chat-reply-cancel=""><XIcon/></Button></div>:null}
+    {readOnly?<p className="chat-read-only" role="status" data-chat-read-only="">{readOnly}</p>:null}
     <form className="chat-composer" onSubmit={event=>{event.preventDefault();send();}}>
       {/* Base UI Autocomplete is the free-text member of the Combobox family: the textarea keeps the whole message. */}
       <AutocompletePrimitive.Root<Voice> items={items} filteredItems={items} filter={null} mode="none" open={!!mention&&items.length>0} onOpenChange={value=>{if(!value)setMention(null);}}

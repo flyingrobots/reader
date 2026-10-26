@@ -678,6 +678,15 @@ def main():
             (root / '.no-home').mkdir(exist_ok=True)
             companions = {'environ': {'PATH': '/usr/bin:/bin', 'HOME': str(root / '.no-home'), 'READER_GIT_LOCKS_CANDIDATES': ''},
                           'launchctl': str(root / '.no-launchctl')}
+        if '--chat-owned' in sys.argv:
+            # Another Reader server owns chat for this vault (#20, #72): this fixture holds the supervisor lock and leaves
+            # owner state with a queued turn, which the server under test must neither recover nor rewrite.
+            from reader_mcp.voice_runner import Supervisor
+            runtime = root / '.reader/voice-runner'
+            other_owner = Supervisor(runtime, host='other-owner')
+            assert other_owner.acquire()
+            (runtime / 'state.json').write_text(json.dumps({'updated_at': '2026-01-01T00:00:00+00:00', 'supervisor_pid': 1, 'active': None, 'queue': ['t1'],
+                                                            'turns': {'t1': {'id': 't1', 'chat_id': 'c1', 'voice': 'Claude', 'state': 'queued'}}}, indent=2) + '\n')
         library = WebLibrary(root, writing_options=writing_options, font_fetcher=fetcher, maintenance_runners=runners, inbox_environ=inbox_environ, chat_options=chat_options, local_model=local, prose=prose, service_runner=service, companions=companions, art_options=art_options)
         if art_options and '--art-none' not in sys.argv:
             from reader_mcp.art import PROMPT_VERSIONS
