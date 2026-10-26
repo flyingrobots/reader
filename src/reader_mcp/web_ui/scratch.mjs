@@ -46,7 +46,7 @@ export const drafts={
   async remove(id){return tx('readwrite',s=>{s.delete(id);});},
 };
 
-export function installScratch({state,api,notify,renderMarkdown,navigate,focusMain,updateStatus,openChat,registers=()=>null,confirmAction=message=>confirm(message)}){
+export function installScratch({state,api,notify,renderMarkdown,navigate,focusMain,updateStatus,openChat,savedChanged=()=>{},registers=()=>null,confirmAction=message=>confirm(message)}){
   const $=s=>document.querySelector(s);
   let editor=null,editorModule=null,draft=null,root=null,mode='NORMAL',layout=null,saveState='Unsaved',local=true,dirty=false,autosave=0,previewTimer=0,cursor=0,list=null,lastSaved=null;
   const narrow=()=>innerWidth<900;
@@ -123,6 +123,9 @@ export function installScratch({state,api,notify,renderMarkdown,navigate,focusMa
       <div class="scratch-panes"><div class="scratch-editor"></div><div class="scratch-preview" tabindex="-1" aria-label="Preview"><div class="article scratch-preview-body"></div></div></div>
       <aside class="scratch-drafts" aria-label="Drafts" hidden></aside></section>`;
     root=main.querySelector('.scratch');
+    if(draft.prompt){const context=document.createElement('aside');context.className='scratch-prompt-context';context.dataset.readerDecoration='';
+      const by=document.createElement('p');by.className='eyebrow';by.textContent='A question from '+draft.prompt.author;
+      const question=document.createElement('p');question.textContent=draft.prompt.question;context.append(by,question);root.querySelector('.scratch-panes').before(context);}
     root.querySelector('[data-scratch-layout]').onclick=cycle;
     root.querySelector('[data-scratch-drafts]').onclick=()=>toggleDrafts();
     root.querySelector('[data-scratch-new]').onclick=()=>navigate(':scratch='+crypto.randomUUID());
@@ -195,7 +198,7 @@ export function installScratch({state,api,notify,renderMarkdown,navigate,focusMa
         <label>Responds to (optional)<input name="responds_to" value="${esc(responds)}" placeholder="library/…" spellcheck="false"></label>
         <p class="scratch-save-path">Saves <code data-save-path></code> as your own writing and commits only that file.</p>
         <p class="scratch-save-error" role="alert" hidden></p>
-        <div class="scratch-save-actions"><button type="button" data-button="ghost sm" data-save-close>Cancel</button><button type="submit" data-button="default sm">Save and commit</button></div>
+        <div class="scratch-save-actions"><button type="button" data-button="ghost sm" data-save-close>Cancel</button><button type="submit" data-button="default sm">Save and commit</button>${draft.prompt?'<button type="submit" data-button="outline sm" name="reply" value="yes">Save and ask for a reply</button>':''}</div>
       </form>`;
     const form=dialog.querySelector('form'),slug=form.elements.slug,error=dialog.querySelector('.scratch-save-error');
     let slugEdited=false;
@@ -206,9 +209,10 @@ export function installScratch({state,api,notify,renderMarkdown,navigate,focusMa
     dialog.onclose=()=>editor?.focus();
     const requestId=crypto.randomUUID();
     form.onsubmit=async event=>{
-      event.preventDefault();error.hidden=true;const button=form.querySelector('[type=submit]');button.disabled=true;
+      event.preventDefault();error.hidden=true;const buttons=[...form.querySelectorAll('[type=submit]')];buttons.forEach(button=>button.disabled=true);
       const fields=Object.fromEntries(new FormData(form));
       const payload={action:'save',request_id:requestId,body:editor.text(),title:fields.title.trim(),status:fields.status,participant:state.prefs.participant,...(fields.responds_to?.trim()?{responds_to:fields.responds_to.trim()}:{}),
+        ...(draft.prompt?{prompt_id:draft.prompt.id,ask_reply:event.submitter?.value==='yes'}:{}),
         ...(revising?{base:draft.base,...(fields.shifted?.trim()?{shifted:fields.shifted.trim()}:{})}:{slug:fields.slug})};
       try{
         const result=await api('/api/writing',payload);
@@ -218,8 +222,11 @@ export function installScratch({state,api,notify,renderMarkdown,navigate,focusMa
         if(result.status==='committed')notify(`Saved to ${result.path} and committed.`,'success');
         else notify(`Saved to ${result.path}, but not committed: ${result.error||result.status}.`,'error');
         if(openChat)root?.querySelector('[data-scratch-voice]')?.removeAttribute('hidden');
+        savedChanged();
+        if(result.reply_error)notify(result.reply_error,'error');
+        if(result.chat_id&&openChat){await navigate(draft.prompt.document_path);openChat(draft.prompt.document_path,fields.title.trim(),state.prefs.participant,result.chat_id);}
       }catch(failure){
-        button.disabled=false;error.hidden=false;
+        buttons.forEach(button=>button.disabled=false);error.hidden=false;
         if(failure.status===409&&failure.data?.suggestion&&slug){slug.value=failure.data.suggestion;slugEdited=true;showPath();error.textContent=failure.message+'. The slug now suggests a free name.';}
         else error.textContent=failure.message||String(failure);
       }
@@ -235,11 +242,19 @@ export function installScratch({state,api,notify,renderMarkdown,navigate,focusMa
   /** "Edit in scratch" on a saved notebook piece: a draft whose base is that file; saving writes the next .vN.md. */
   async function editSaved(doc,body){
     const id=crypto.randomUUID(),title=String(doc.metadata?.title||doc.title||'Untitled');
-    const record={...fresh(id),title,body,base:{path:doc.path,sha256:doc.sha256},vault_path:doc.path,responds_to:doc.metadata?.responds_to||null};
+    const meta=doc.metadata||{},prompt=meta.prompt_id&&meta.prompt?{id:meta.prompt_id,author:meta.prompt.by,question:meta.prompt.text,document_path:meta.responds_to,evidence:meta.prompt.evidence}:null;
+    const record={...fresh(id),title,body,base:{path:doc.path,sha256:doc.sha256},vault_path:doc.path,responds_to:meta.responds_to||null,prompt};
     try{await drafts.put(record);}catch{local=false;}
     navigate(':scratch='+id);
   }
-  return {open,leave,editSaved,isOpen:()=>!!root,
+  async function forPrompt(prompt){
+    await persist();const participant=state.prefs.participant;
+    const previous=(await drafts.all()).find(d=>d.prompt?.id===prompt.id&&d.promptParticipant===participant);
+    const record=previous||{...fresh(),title:'On '+(state.doc?.title||'this article'),responds_to:prompt.document_path,prompt,promptParticipant:participant};
+    if(!previous)await drafts.put(record);
+    navigate(':scratch='+record.id);
+  }
+  return {open,leave,editSaved,forPrompt,isOpen:()=>!!root,
     status(){
       const words=wordCount(editor?editor.text():draft?.body);
       return {mode:'SCRATCH · '+mode,keys:mode==='INSERT'?'<kbd>Esc</kbd> normal':'<kbd>i</kbd> insert <kbd>:w</kbd> save here <kbd>:write vault</kbd> save to vault <kbd>:preview</kbd> layout <kbd>:drafts</kbd> drafts <kbd>Esc Esc</kbd> leave',position:`${words} ${words===1?'word':'words'} · ${saveState}`};

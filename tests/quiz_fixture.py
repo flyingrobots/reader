@@ -23,6 +23,7 @@ with tempfile.TemporaryDirectory(prefix='reader-quiz-browser-') as temporary:
         if voice.get('cli'):
             voice['argv'] += ['--quiz-json', json.dumps({'questions': raw}), '--quiz-review-json',
                               json.dumps({'verdict': 'right', 'comment': 'The fifth sentence names purple.'})]
+            voice['argv'] += ['--writing-prompt-json', json.dumps({'question': 'Which color would you choose, and why?', 'quote': 'The **first** color is red.'})]
     (root / 'voices.json').write_text(json.dumps(registry))
     library = WebLibrary(root, chat_options={'git_locks': False})
     server = WebServer(('127.0.0.1', 0), library, participant='Browser tester')

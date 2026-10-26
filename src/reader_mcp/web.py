@@ -46,6 +46,7 @@ from .themes import Themes
 from .voice_runner import ChatOwned, Conversations
 from .voice_tasks import VoiceTasks
 from .quizzes import Quizzes
+from .prompts import Prompts
 from .versions import Versions, split_ref
 
 STATIC = Path(__file__).with_name('web_ui')
@@ -203,10 +204,12 @@ class WebLibrary:
         self.magazine = Magazine(self)
         self.shapes = Shapes(self)
         self.quizzes = Quizzes(self.root, self.chat_document, self.engagement)
-        self.voice_tasks = VoiceTasks(self.root, self.chat_document, {'quiz': self.quizzes, 'quiz-review': self.quizzes})
+        self.prompts = Prompts(self.root, self.chat_document, self.annotations)
+        self.voice_tasks = VoiceTasks(self.root, self.chat_document, {'quiz': self.quizzes, 'quiz-review': self.quizzes, 'prompt': self.prompts})
         self.quizzes.tasks = self.voice_tasks
+        self.prompts.tasks = self.voice_tasks
         self.conversations = Conversations(self.root, self.chat_document, tasks=self.voice_tasks, **(chat_options or {}))
-        self.writing = Writing(self.root, self.path, self.digest, **(writing_options or {}))
+        self.writing = Writing(self.root, self.path, self.digest, prompts=self.prompts, conversations=self.conversations, **(writing_options or {}))
         self.companions = Companions(self.root, prose=self.prose, speech=self.speech, maintenance=self.maintenance,
                                      local_model=self.local_model, **(companions or {}))
         self.maintenance.runners.update(self.companions.runners())
@@ -288,6 +291,30 @@ class WebLibrary:
         except ValueError:
             default_voice = None
         return {'quiz': quiz, 'task': task, 'default_voice': default_voice} | self.conversations.voices()
+
+    def prompt(self, path, participant, voice=None, task_id=None):
+        document = self.chat_document(path, True)
+        if task_id:
+            job = self.voice_tasks.read(task_id)
+            if (job['kind'], job['path'], job['participant']) != ('prompt', path, participant):
+                raise ValueError('Prompt task belongs to another document or participant')
+            task = self.voice_tasks.public(job)
+            voice = job['voice']
+        else:
+            task = self.voice_tasks.latest(path, participant, document['sha256'], 'prompt')
+            if voice and task and task['voice'] != voice:
+                task = None
+            if not voice and task:
+                voice = task['voice']
+        try:
+            chosen = self.voice_tasks.choose(path, voice)
+        except ValueError:
+            if voice is None:
+                chosen = None
+            else:
+                chosen = voice  # Saved questions remain readable when their CLI is disabled.
+        saved = self.prompts.get(path, chosen) if chosen else None
+        return {'prompt': self.prompts.view(saved), 'task': task, 'default_voice': chosen} | self.conversations.voices()
 
     def close(self):
         self.art.close()
@@ -748,6 +775,7 @@ class WebLibrary:
                              state='current' if result['document_sha256'] == current else 'earlier')
                         for result in self.engagement.quiz_results(path)]
         return {'path': path, 'version': current, 'participant': you, 'readers': readers, 'quiz_results': quiz_results,
+                'writing': self.writing.list(you, path),
                 'folded': sum(r['folded'] for r in readers), 'one_off_threshold': ONE_OFF_RECEIPTS}
 
     def family(self, path):
@@ -1374,6 +1402,9 @@ class WebHandler(BaseHTTPRequestHandler):
                 elif parsed.path == '/api/quiz':
                     participant = library.engagement.participant(request.pop('participant', self.server.participant))
                     self.json(library.quizzes.dispatch(request, participant))
+                elif parsed.path == '/api/prompt':
+                    participant = library.engagement.participant(request.pop('participant', self.server.participant))
+                    self.json(library.prompts.dispatch(request, participant))
                 elif parsed.path == '/api/service':
                     if set(request) != {'action'}:
                         raise ValueError('Expected {"action": "update" | "restart" | "pause" | "resume"}')
@@ -1435,6 +1466,12 @@ class WebHandler(BaseHTTPRequestHandler):
             elif parsed.path == '/api/quiz':
                 participant = library.engagement.participant(args.get('participant', self.server.participant))
                 self.json(library.quiz(args.get('path', ''), participant, args.get('task')))
+            elif parsed.path == '/api/prompt':
+                participant = library.engagement.participant(args.get('participant', self.server.participant))
+                self.json(library.prompt(args.get('path', ''), participant, args.get('voice'), args.get('task')))
+            elif parsed.path == '/api/writing':
+                participant = library.engagement.participant(args.get('participant', self.server.participant))
+                self.json({'participant': participant, 'pieces': library.writing.list(participant, args.get('responds_to'))})
             elif parsed.path == '/api/local-model':
                 self.json(library.local_model.status())
             elif parsed.path == '/api/inbox/events':

@@ -41,7 +41,7 @@ function quizLogHTML(data,now){
   return '<ul class="reading-log-quizzes">'+results.map(r=>`<li>${esc(r.group==='you'?'You':r.participant)} took the quiz · ${esc(r.score)}/${esc(r.total)} · ${esc(readWhen(r.at,now))}${r.state==='earlier'?' · earlier edition':''}</li>`).join('')+'</ul>';
 }
 export function readingLogHTML(data,now=new Date()){
-  const quizzes=quizLogHTML(data,now);
+  const quizzes=quizLogHTML(data,now)+(data.writing?.length?'<ul class="reading-log-writing">'+data.writing.map(piece=>`<li><a href="#read=${encodeURIComponent(piece.path)}" data-path="${esc(piece.path)}">You wrote about this · ${esc(formatDate(piece.date))}</a></li>`).join('')+'</ul>':'');
   if(!data.readers.length)return '<p class="reading-log-empty">Not yet read by anyone. You’ll be first.</p>'+quizzes;
   const entries=logEntries(data),visible=entries.slice(0,LOG_NAMES),rest=entries.slice(LOG_NAMES);
   const more=rest.reduce((n,e)=>n+(e.folded?e.folded.length:1),0);
