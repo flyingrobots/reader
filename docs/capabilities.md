@@ -316,7 +316,9 @@ never call a model. See [demo vault](demo.md).
 by keyword in the browser, and keeps highlights, comments and reading positions only in the
 visitor's browser. The demo's article art draws in the browser from exported scenes. Chat voices,
 semantic search, the inbox runner, the local model, speech, prose colors, making new art, the queue,
-themes and index maintenance need Reader running locally and say so. See
+themes and index maintenance need Reader running locally: their controls are disabled with a
+"Needs Reader on your computer" tooltip, Behind the scenes starts no job, and the service, companions
+and local-model sections are left out. See
 [static web demo](demo.md#static-web-demo).
 
 ## Verification boundaries

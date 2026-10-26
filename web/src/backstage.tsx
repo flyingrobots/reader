@@ -9,6 +9,7 @@ import {Button} from './components/ui/button';
 import {ButtonGroup} from './components/ui/button-group';
 import {Card, CardHeader, CardTitle, CardDescription, CardAction, CardContent, CardFooter} from './components/ui/card';
 import {plural} from './plural';
+import {localOnly, needsReader} from './static-demo';
 
 export type Job={id:string;kind:string;label:string;quiet?:boolean;state:'running'|'succeeded'|'failed';started_at:string;finished_at:string|null;elapsed_seconds:number|null;result:Record<string,unknown>|null;error:string|null;progress?:string|null};
 export type Check={state:string;message?:string;checked_at:string;built_at?:string|null;[key:string]:unknown};
@@ -106,24 +107,24 @@ function Legacy({legacy,busy,onRemove}:{legacy:LegacyIndex;busy:boolean;onRemove
   const mb=Math.max(1,Math.round(legacy.bytes/1e6)).toLocaleString();
   return <p className="backstage-note backstage-legacy" data-legacy={legacy.serving?'serving':'idle'}>
     Legacy index (format {legacy.format}, used by older Reader processes): {mb} MB
-    {legacy.serving?<> · serving search until a format 2 build completes</>:<> · <Button data-job="remove-legacy-search" variant="link" size="xs" className="backstage-legacy-remove" disabled={busy}
+    {legacy.serving?<> · serving search until a format 2 build completes</>:<> · <Button data-job="remove-legacy-search" variant="link" size="xs" className="backstage-legacy-remove" disabled={busy} {...localOnly()}
       title="Deletes .reader/search.sqlite3 only. Refused while an index run or another process is using it." onClick={onRemove}>Remove</Button></>}
   </p>;
 }
 
 export function Backstage({status,onStart,settings,themeEditor,library,inbox,inboxFirst,editions,localModel,art,server,companions}:{companions?:ReactNode;art?:ReactNode;status:MaintenanceStatus|null;onStart:(kind:string)=>void;settings:ReactNode;themeEditor:()=>void;server?:ReactNode;library?:(element:HTMLElement)=>void;inbox:ReactNode;inboxFirst:boolean;editions?:ReactNode;localModel?:ReactNode}){
-  const running=status?.running,busy=!!running||!!status?.checking,checkedAt=Object.values(status?.checks||{})[0]?.checked_at;
+  const running=status?.running,busy=!!running||!!status?.checking,checkedAt=Object.values(status?.checks||{})[0]?.checked_at,local=needsReader();
   const mail=<section className="backstage-section" id="backstage-inbox" aria-label="Inbox">{inbox}</section>;
   return <div className="backstage" id="backstage">
     <header className="backstage-header"><div className="eyebrow">Behind the scenes</div><h1 id="backstage-title">How the library is kept.</h1>
       <p>Indexes are rebuildable copies of what the vault already holds. Check whether they have drifted, rebuild one when it has, look over the library’s statistics, and keep your reading settings here.</p></header>
     {inboxFirst?mail:null}
     <section className="backstage-section" aria-labelledby="indexes-title">
-      <div className="backstage-section-head"><h2 id="indexes-title">Indexes</h2><span className="backstage-checked" aria-live="polite">{status?.checking||running?.kind==='check'?<><Loader2Icon className="size-3 animate-spin" aria-hidden/> Checking…</>:checkedAt?'Checked '+when(checkedAt):'Not checked yet'}</span>
-        <Button id="maintenance-check" variant="outline" size="sm" disabled={busy} onClick={()=>onStart('check')}>Check again</Button></div>
+      <div className="backstage-section-head"><h2 id="indexes-title">Indexes</h2><span className="backstage-checked" aria-live="polite">{status?.checking||running?.kind==='check'?<><Loader2Icon className="size-3 animate-spin" aria-hidden/> Checking…</>:checkedAt?'Checked '+when(checkedAt):local?'Checks need Reader on your computer':'Not checked yet'}</span>
+        <Button id="maintenance-check" variant="outline" size="sm" disabled={busy} {...localOnly()} onClick={()=>onStart('check')}>Check again</Button></div>
       <div className="backstage-grid">{INDEXES.map(index=>{
         const check=status?.checks?.[index.key],active=running&&INDEX_OF[running.kind]===index.key;
-        const state=active?{label:'Rebuilding…',variant:'default' as const}:check?STATES[check.state]||{label:check.state,variant:'outline' as const}:{label:status?'Checking…':'Loading…',variant:'outline' as const};
+        const state=active?{label:'Rebuilding…',variant:'default' as const}:check?STATES[check.state]||{label:check.state,variant:'outline' as const}:{label:local?'Not checked':status?'Checking…':'Loading…',variant:'outline' as const};
         return <Card key={index.key} size="sm" className="backstage-card" data-index={index.key} data-state={active?'running':check?.state||'unknown'}>
           <CardHeader><CardTitle>{index.title}</CardTitle><CardDescription>{index.description}</CardDescription>
             <CardAction><Badge variant={state.variant} className="backstage-badge">{active?<Loader2Icon data-icon="inline-start" className="animate-spin" aria-hidden/>:null}{state.label}</Badge></CardAction></CardHeader>
@@ -133,7 +134,7 @@ export function Backstage({status,onStart,settings,themeEditor,library,inbox,inb
             {index.note?<p className="backstage-note">{index.note}</p>:null}
             {index.key==='search'&&check?.legacy?<Legacy legacy={check.legacy as LegacyIndex} busy={busy} onRemove={()=>onStart('remove-legacy-search')}/>:null}
           </CardContent>
-          {index.actions.length?<CardFooter><ButtonGroup>{index.actions.map(action=><Button key={action.kind} data-job={action.kind} variant={action.primary?'default':'outline'} size="sm" disabled={busy} onClick={()=>onStart(action.kind)}>{action.label}</Button>)}</ButtonGroup></CardFooter>:null}
+          {index.actions.length?<CardFooter><ButtonGroup>{index.actions.map(action=><Button key={action.kind} data-job={action.kind} variant={action.primary?'default':'outline'} size="sm" disabled={busy} {...localOnly()} onClick={()=>onStart(action.kind)}>{action.label}</Button>)}</ButtonGroup></CardFooter>:null}
         </Card>;})}</div>
       <Card size="sm" className="backstage-card"><CardHeader><CardTitle>Recent runs</CardTitle><CardDescription>This server’s jobs since it started. Toasts announce each start, finish and failure.</CardDescription></CardHeader>
         <CardContent>{status?.jobs.length||running?<ol className="backstage-jobs">{[...(running?[running]:[]),...status!.jobs].slice(0,10).map(job=><li key={job.id+job.state} data-job-state={job.state}>
@@ -142,6 +143,8 @@ export function Backstage({status,onStart,settings,themeEditor,library,inbox,inb
           :<p className="backstage-message">No runs yet.</p>}</CardContent></Card>
       {editions}
     </section>
+    {/* The web demo leaves out the cards that describe this machine, and says where they live. */}
+    {local?<p className="backstage-note" id="backstage-local-only">On your computer, Behind the scenes also shows the Reader service and its updater, companion tools such as Colorful Language and AI-TTS, and a local model for bulk work. Rebuilds and checks run there too.</p>:null}
     {/* The running service sits beside the indexes it serves. */}
     {server?<section className="backstage-section" id="backstage-server" aria-labelledby="server-title">
       <div className="backstage-section-head"><h2 id="server-title">Service</h2></div>{server}</section>:null}
@@ -196,8 +199,8 @@ export function Inbox({status,starting,onMail,onStop,onOpen,html,activity}:{stat
       {state?<CardAction><Badge variant={state.variant} className="backstage-badge" data-inbox-badge="">{active?<Loader2Icon data-icon="inline-start" className="animate-spin" aria-hidden/>:null}{state.label}</Badge></CardAction>:null}</CardHeader>
     <CardContent>
       <div className="inbox-mail">
-        <Button id="inbox-mail" size="lg" disabled={disabled} onClick={onMail} aria-describedby="inbox-mail-note">{active?<Loader2Icon data-icon="inline-start" className="animate-spin" aria-hidden/>:<MailIcon data-icon="inline-start" aria-hidden/>}You got mail</Button>
-        <p id="inbox-mail-note" className="inbox-mail-note">{active?'The librarian is reading the mail.':blocked?<span id="inbox-blocked" data-reason={blocked.reason} className={['interrupted','error','codex'].includes(blocked.reason)?'backstage-error':''}>{blocked.message}</span>:`Ask the librarian to file ${plural(arrivals.length,'arrival')}.`}</p>
+        <Button id="inbox-mail" size="lg" disabled={disabled} {...localOnly()} onClick={onMail} aria-describedby="inbox-mail-note">{active?<Loader2Icon data-icon="inline-start" className="animate-spin" aria-hidden/>:<MailIcon data-icon="inline-start" aria-hidden/>}You got mail</Button>
+        <p id="inbox-mail-note" className="inbox-mail-note">{active?'The librarian is reading the mail.':blocked?<span id="inbox-blocked" data-reason={blocked.reason} className={['interrupted','error','codex'].includes(blocked.reason)?'backstage-error':''}>{blocked.message}</span>:needsReader()?`Filing ${plural(arrivals.length,'arrival')} needs Reader on your computer, where a librarian voice reads the mail.`:`Ask the librarian to file ${plural(arrivals.length,'arrival')}.`}</p>
       </div>
       {active?<div className="inbox-run" aria-live="polite">
         <p className="backstage-message">{starting&&!run?.started_at?'Starting the librarian…':<>Running for {run?.started_at?<Clock since={run.started_at}/>:'…'}{run?.arrivals?<> · {plural(run.arrivals,'arrival')}</>:null}{run?.sandbox_mode==='danger-full-access'?' · Host access':''}</>}</p>

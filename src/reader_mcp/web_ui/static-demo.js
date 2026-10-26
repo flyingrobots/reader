@@ -333,5 +333,8 @@
     document.body.append(box);
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', note, {once: true}); else note();
-  window.readerStaticDemo = {base: BASE, exportedAt: config.exported_at, reset() { try { localStorage.removeItem(STORE); } catch {} memory = null; }};
+  // The UI's one source of truth for "static" (#107): with this object present, every control that needs a running
+  // Reader is disabled with "Needs Reader on your computer", except the features listed true in `serves`, which
+  // this shim answers itself. Chat is the switch #108 turns on when the shim gains a scripted reply.
+  window.readerStaticDemo = {base: BASE, exportedAt: config.exported_at, serves: {chat: false}, reset() { try { localStorage.removeItem(STORE); } catch {} memory = null; }};
 })();

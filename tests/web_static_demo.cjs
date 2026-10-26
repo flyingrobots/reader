@@ -53,12 +53,12 @@ const TYPES={'.html':'text/html; charset=utf-8','.js':'text/javascript','.mjs':'
   await open('library/essayists/montaigne/of-books.md','Of Books');
   await page.locator('.linked-from[data-state=ready]').waitFor();
   assert.ok(Number(await page.locator('.linked-from-count').textContent())>=1,'the link graph lists who links here');
-  // A piece without art: Generate art says it needs Reader running locally, and nothing is sent anywhere.
+  // A piece without art: Generate art is disabled and says it needs Reader on your computer (#107); nothing is sent anywhere.
   await page.locator('#main').focus();await page.keyboard.press('Space');await page.keyboard.press('g');
   const make=page.locator('.article-art .art-placeholder [data-art-generate]');await make.waitFor();
-  assert.equal(await make.textContent(),'Generate art (run Reader locally)');
-  await make.click();
-  await page.waitForFunction(()=>document.querySelector('[data-sonner-toaster]')?.textContent.includes('Making art needs Reader on your computer.'));
+  assert.equal(await make.textContent(),'Generate art');assert.ok(await make.isDisabled());
+  assert.equal(await make.getAttribute('title'),'Needs Reader on your computer');
+  assert.match(await page.locator('.article-art .art-placeholder').textContent(),/Run Reader locally to make art/);
   await page.keyboard.press('Space');await page.keyboard.press('g');await page.locator('.article-art').waitFor({state:'detached'});
   await open('library/lantern/research/spaced-rereading.md','Spaced re-reading');
   await page.locator('#outline-rail:not([hidden]) a').nth(2).waitFor();

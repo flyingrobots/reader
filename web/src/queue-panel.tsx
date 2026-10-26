@@ -5,6 +5,7 @@ import {Badge} from './components/ui/badge';
 import {Button} from './components/ui/button';
 import {ButtonGroup} from './components/ui/button-group';
 import {Tabs, TabsList, TabsTrigger, TabsContent} from './components/ui/tabs';
+import {localOnly} from './static-demo';
 
 export type QueueRow={index:number;path:string;title:string;byline:string;read:boolean;time:string;progress:number|null;finished:boolean;reason?:string;voice?:string;changed?:boolean;when?:string;kind:'now'|'queued'|'suggested'|'history';position?:number;resume?:boolean};
 export type QueueSection={id:string;label:string;count?:number;action?:{label:string;onClick:()=>void};rows:QueueRow[];empty?:string};
@@ -33,8 +34,8 @@ function Row({row,props,tab}:{row:QueueRow;props:QueueProps;tab:string}){
       <span className="queue-side-row">
         <span className="queue-time">{row.finished?<><CheckIcon aria-hidden="true" className="size-3"/> Finished</>:row.time}</span>
         {row.changed?<Badge variant="outline" className="queue-changed" title="This document changed since you last opened it">Changed</Badge>:null}
-        {row.kind==='suggested'?<Button variant="ghost" size="xs" tabIndex={-1} className="queue-action" aria-label={`Add ${row.title} to your queue`} onClick={event=>{event.stopPropagation();props.onPin(row.index);}}><PlusIcon data-icon="inline-start"/>Queue</Button>:null}
-        {row.kind==='queued'||row.kind==='history'?<Button variant="ghost" size="icon-xs" tabIndex={-1} className="queue-action" aria-label={row.kind==='history'?`Remove ${row.title} from history`:`Remove ${row.title} from your queue`} onClick={event=>{event.stopPropagation();props.onRemove(row.index);}}><XIcon/></Button>:null}
+        {row.kind==='suggested'?<Button variant="ghost" size="xs" tabIndex={-1} className="queue-action" aria-label={`Add ${row.title} to your queue`} {...localOnly()} onClick={event=>{event.stopPropagation();props.onPin(row.index);}}><PlusIcon data-icon="inline-start"/>Queue</Button>:null}
+        {row.kind==='queued'||row.kind==='history'?<Button variant="ghost" size="icon-xs" tabIndex={-1} className="queue-action" aria-label={row.kind==='history'?`Remove ${row.title} from history`:`Remove ${row.title} from your queue`} {...(row.kind==='queued'?localOnly():{})} onClick={event=>{event.stopPropagation();props.onRemove(row.index);}}><XIcon/></Button>:null}
       </span>
     </span>
   </div>;
@@ -44,7 +45,7 @@ function Sections({sections,props,tab,empty}:{sections:QueueSection[];props:Queu
     {empty?<p className="queue-empty">{empty}</p>:null}
     {sections.map(section=><div key={section.id} role="group" aria-labelledby={'queue-section-'+section.id} className="queue-section" data-section={section.id}>
       <div className="queue-section-head"><span id={'queue-section-'+section.id} className="eyebrow">{section.label}{section.count!==undefined?<span className="queue-count"> · {section.count}</span>:null}</span>
-        {section.action?<Button variant="ghost" size="xs" tabIndex={-1} onClick={section.action.onClick}>{section.action.label}</Button>:null}</div>
+        {section.action?<Button variant="ghost" size="xs" tabIndex={-1} {...(section.id==='queued'?localOnly():{})} onClick={section.action.onClick}>{section.action.label}</Button>:null}</div>
       {section.rows.length?section.rows.map(row=><Row key={row.kind+row.path} row={row} props={props} tab={tab}/>):section.empty?<p className="queue-empty">{section.empty}</p>:null}
     </div>)}
   </div>;

@@ -17,7 +17,7 @@ import {THEMES,oppositeTheme} from './themes.mjs';
 import {calloutPlugin} from './callouts.mjs';
 import {drawable,fetchShape,paintShape} from './shapes.mjs';
 import {artJobs,fetchArt,forgetArt,hasArt,paintArt,paintArtThumb,paintPlaceholder} from './art.mjs';
-import {applyThemes,installControls,mountSkeleton,mountCodeBlocks,decorateCodeBlocks,clearControlsWithin,mountDocumentTree,visibleDocumentNodes,revealDocumentRow,mountBackstage,mountChangesPanel,notify as shellNotify,openChat,closeChat,chatOpen,trackSpeech,renderQueuePanel,mountCallouts,startJob,promptCompanion} from './controls/reader-controls.js';
+import {applyThemes,installControls,mountSkeleton,mountCodeBlocks,decorateCodeBlocks,clearControlsWithin,mountDocumentTree,visibleDocumentNodes,revealDocumentRow,mountBackstage,mountChangesPanel,notify as shellNotify,openChat,closeChat,chatOpen,trackSpeech,renderQueuePanel,mountCallouts,startJob,promptCompanion,needsReader,NEEDS_READER} from './controls/reader-controls.js';
 import {installVersions,chipMarkup,historicalMarkup,splitRef,compareLabel} from './versions.mjs';
 import {installSplit,installPane,cleanRoute} from './split.mjs';
 import {installScratch} from './scratch.mjs';
@@ -203,11 +203,10 @@ async function renderHome(path=null,id=state.routeId) {
   const artwork=await issueArt(issue);if(id!==state.routeId)return;
   clearControlsWithin($('#main'));
   state.magazine=mountMagazine({root:$('#main'),issue,weeks:issueWeeks(works,{exclude:options.exclude,through:isoWeek(state.data.today).end}),signals,prefs:state.prefs,api,wireDocumentLinks,openIssue,motion:()=>!reduced.matches,art:artwork,artMake:state.prefs.art!==false&&!!artProducer()});
-  const localArt=artProducer()?.static_demo;
-  $('#main').querySelectorAll('.issue [data-art-generate]').forEach(button=>{if(localArt)button.textContent+=' (run Reader locally)';
-    button.onclick=event=>{event.preventDefault();if(!localArt){button.disabled=true;button.textContent='Making art…';}commissionArt(button.dataset.artGenerate);};});
+  $('#main').querySelectorAll('.issue [data-art-generate]').forEach(button=>{if(needsReader('art')){localOnly(button);return;}
+    button.onclick=event=>{event.preventDefault();button.disabled=true;button.textContent='Making art…';commissionArt(button.dataset.artGenerate);};});
   $('#issue-backstage').onclick=()=>navigate(BACKSTAGE);
-  $('#main').querySelectorAll('.issue [data-queue-add]').forEach(button=>button.onclick=event=>{event.preventDefault();queue.add(button.dataset.queueAdd);});
+  $('#main').querySelectorAll('.issue [data-queue-add]').forEach(button=>{if(needsReader()){localOnly(button);return;}button.onclick=event=>{event.preventDefault();queue.add(button.dataset.queueAdd);};});
   resetScroll();reading?.updateStatus();
   paintIssueArt(artwork,id).catch(error=>console.warn('Article art',error));
   autoCommission(issue,artwork);
@@ -246,15 +245,17 @@ async function openArtSetup(){
   await navigate(BACKSTAGE);
   for(let tries=0;tries<40;tries++){const target=$('#companion-cli')||$('#companions');if(target){target.scrollIntoView({block:'start'});return;}await new Promise(resolve=>setTimeout(resolve,75));}
 }
+/** The static web demo (#107): a control that needs a running Reader, disabled with the reason as its tooltip. */
+function localOnly(button){button.disabled=true;button.title=NEEDS_READER;button.dataset.needsReader='';button.onclick=null;}
 async function commissionArt(path){
   const producer=artProducer();
-  if(producer?.static_demo){notify('Making art needs Reader on your computer.','info',{description:'This web demo has no server. Run Reader locally: reader demo has a scripted voice that answers art commissions.'});return;}
+  if(needsReader('art')){notify('Making art needs Reader on your computer.','info',{description:'This web demo has no server. Run Reader locally: reader demo has a scripted voice that answers art commissions.'});return;}
   if(!producer){notify('No voice or local model can make art yet.','info',{description:'Add a voice to voices.json or set up a local model; Behind the scenes, Companions, shows which agent command lines Reader found.'});return;}
   try{const job=await art.generate(path,producer.id);forgetArt(path);showArtJob(path,job);}catch(error){report(error);}
 }
 function showArtJob(path,job){
   const figure=$('#article .article-art');
-  if(figure&&state.doc?.path===path&&(job&&['queued','waiting','running'].includes(job.state)))paintPlaceholder(figure,{path,job,producer:artProducer(),generate:commissionArt,cancel:id=>art.cancel(id).catch(report),setup:openArtSetup});
+  if(figure&&state.doc?.path===path&&(job&&['queued','waiting','running'].includes(job.state)))paintPlaceholder(figure,{path,job,producer:artProducer(),local:needsReader('art')&&NEEDS_READER,generate:commissionArt,cancel:id=>art.cancel(id).catch(report),setup:openArtSetup});
 }
 async function showArtVersion(path,version){
   try{const data=await fetchArt(api,path,{edition:version.edition,generation:version.generation});const figure=[...document.querySelectorAll('.cover-art,.article-art')].find(f=>f.dataset.art===path);
@@ -291,7 +292,7 @@ function placeArticleArt(path){
 function paintArticleArt(figure,data){
   figure.classList.add('article-art');
   if(hasArt(data))return paintArt(figure,data,{live:!reading?.hasBook(),motion:!reduced.matches,api,actions:artActions}).then(f=>{f.classList.add('article-art');return f;});
-  paintPlaceholder(figure,{path:data.path,job:data.job,producer:artProducer(),generate:commissionArt,cancel:id=>art.cancel(id).catch(report),setup:openArtSetup});figure.classList.add('article-art');return Promise.resolve(figure);
+  paintPlaceholder(figure,{path:data.path,job:data.job,producer:artProducer(),local:needsReader('art')&&NEEDS_READER,generate:commissionArt,cancel:id=>art.cancel(id).catch(report),setup:openArtSetup});figure.classList.add('article-art');return Promise.resolve(figure);
 }
 document.addEventListener('reader:art-ready',event=>{const job=event.detail;forgetArt(job.path);repaintArt(job.path);});
 document.addEventListener('reader:art-jobs',event=>{
@@ -1565,7 +1566,7 @@ controls=installControls({seek:fraction=>reading.seek(fraction),spread:index=>re
   markdown:text=>{const template=document.createElement('template');template.innerHTML=DOMPurify.sanitize(window.markdownit({html:false,linkify:true}).render(text),{USE_PROFILES:{html:true}});decorateCodeBlocks(template.content,{wrap:true,lineNumbers:false});return template.innerHTML;}},state.prefs);
 speech=installSpeech({state,api,reading:{capture:()=>reading.capture(),hasBook:()=>reading.hasBook()},notify,track:trackSpeech,openDialog,closeDialog,companion:promptCompanion});
 prose=installProseColors({state,api,notify,companion:promptCompanion});
-queue=installQueue({state,api,navigate,notify,renderPanel:renderQueuePanel,focusMain:()=>focusMain(),onChange:()=>reading?.updateStatus()});
+queue=installQueue({state,api,navigate,notify,needsReader,renderPanel:renderQueuePanel,focusMain:()=>focusMain(),onChange:()=>reading?.updateStatus()});
 queue.setCloseOthers(()=>{$('#thread-panel').hidden=true;state.activeThread=null;});
 reading=installReading({statusOverride:()=>{const on=!!split?.active();if(!on)$('#split-indicator').hidden=true;return on&&paintSplitStatus();},onStatus:()=>pane&&paneStatus(),mayCurl:()=>!pane||pane.focused(),scratchStatus:()=>state.view==='scratch'?scratch?.status():null,controls,updateBreadcrumbs:path=>breadcrumbs.update(path),state,api,toast,openPreferences,openThread,revealRange:moveToRange,scrollToPosition,savePrefs,reloadDocument:()=>navigate(state.doc.path,{record:false}),positionPins,keyStatus:()=>keys.status()});
 outline=installOutline({state,reading,$,controls,scrollToPosition,savePrefs,notify});

@@ -181,6 +181,9 @@
 .backstage-card { min-width: 0; }
 .backstage-message { font-size: 13px; line-height: 1.5; margin: 0; overflow-wrap: anywhere; }
 .backstage-note { font-size: 11px; color: var(--muted); border-left: 2px solid var(--accent); padding-left: 9px; margin: 0; }
+/* The static web demo (#107): a control that needs a running Reader stays disabled but keeps its tooltip under the pointer. */
+[data-needs-reader]:disabled { pointer-events: auto; cursor: not-allowed; }
+#backstage-local-only { font-size: 13px; max-width: 70ch; }
 .backstage-legacy { margin-top: 10px; overflow-wrap: anywhere; }
 .backstage-legacy-remove { height: auto; padding: 0; font-size: inherit; vertical-align: baseline; }
 .backstage-facts { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 10px 16px; margin: 0; }

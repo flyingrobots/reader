@@ -20,7 +20,7 @@ export function historyDays(pages, timeZone) {
   return days;
 }
 
-export function installQueue({state, api, navigate, notify, renderPanel, focusMain, onChange}) {
+export function installQueue({state, api, navigate, notify, renderPanel, focusMain, onChange, needsReader=() => false}) {
   const $ = selector => document.querySelector(selector);
   const panel = $('#queue-panel');
   const q = {tab:'next', active:0, filter:'all', data:null, history:null, loading:false, confirm:null, pending:null, generation:0};
@@ -79,7 +79,7 @@ export function installQueue({state, api, navigate, notify, renderPanel, focusMa
       const data = await api('/api/queue?participant=' + param(participant()) + (state.doc ? '&current=' + param(state.doc.path) : ''));
       if (generation !== q.generation) return;
       q.data = data; onChange?.(data);
-    } catch (error) { notify(error.message, 'error'); }
+    } catch (error) { failed(error); }
     finally { if (generation === q.generation) { q.loading = false; render(); } }
   }
   async function loadHistory(more=false) {
@@ -95,9 +95,12 @@ export function installQueue({state, api, navigate, notify, renderPanel, focusMa
         q.history = {...data, days};
       } else q.history = data;
       render();
-    } catch (error) { notify(error.message, 'error'); }
+    } catch (error) { failed(error); }
   }
+  /** A failed request; in the static web demo (#107) a queue write explains instead of failing. */
+  function failed(error) { notify(error.message, error.local ? 'info' : 'error'); }
   async function change(action, path, extra={}) {
+    if (needsReader()) throw Object.assign(new Error('Your reading queue needs Reader on your computer: it saves into the library.'), {local:true});
     const data = await api('/api/queue', {participant:participant(), action, path, request_id:crypto.randomUUID(), current:state.doc?.path || null, ...extra});
     q.data = data; onChange?.(data); render();
     return data;
@@ -132,20 +135,20 @@ export function installQueue({state, api, navigate, notify, renderPanel, focusMa
     const row = current(); if (!row) return;
     if (row.kind === 'now') { notify('This one is open now. Close it by opening something else.'); return; }
     if (row.kind === 'history') { q.confirm = {message:`Remove “${row.title}” from your history? Your read receipt and reading position stay.`, action:'Remove', run:() => hide(row)}; render(); focusConfirm(); return; }
-    try { await change('remove', row.path); notify(row.kind === 'queued' ? 'Removed from your queue.' : 'Suggestion dismissed.'); } catch (error) { notify(error.message, 'error'); }
+    try { await change('remove', row.path); notify(row.kind === 'queued' ? 'Removed from your queue.' : 'Suggestion dismissed.'); } catch (error) { failed(error); }
   }
   async function hide(row) {
     try { await api('/api/history', {participant:participant(), action:'hide', path:row.path}); await loadHistory(); refresh(); notify('Removed from history. Your read receipt stays.'); }
-    catch (error) { notify(error.message, 'error'); }
+    catch (error) { failed(error); }
   }
   async function pin() {
     const row = current(); if (!row) return;
     if (row.kind !== 'suggested') { if (row.kind === 'history') add(row.path); return; }
-    try { const data = await change('pin', row.path, row.reason && !row.voice ? {reason:row.reason} : {}); announce(data, row.path, 'Added to your queue'); } catch (error) { notify(error.message, 'error'); }
+    try { const data = await change('pin', row.path, row.reason && !row.voice ? {reason:row.reason} : {}); announce(data, row.path, 'Added to your queue'); } catch (error) { failed(error); }
   }
   function askClear() {
     const count = q.data?.queued.length || 0; if (!count) return;
-    q.confirm = {message:`Clear ${count} queued ${count === 1 ? 'document' : 'documents'}? Suggestions and your history stay.`, action:'Clear queue', run:async () => { try { await change('clear'); notify('Your queue is clear.'); } catch (error) { notify(error.message, 'error'); } }};
+    q.confirm = {message:`Clear ${count} queued ${count === 1 ? 'document' : 'documents'}? Suggestions and your history stay.`, action:'Clear queue', run:async () => { try { await change('clear'); notify('Your queue is clear.'); } catch (error) { failed(error); } }};
     render(); focusConfirm();
   }
   function focusConfirm() { requestAnimationFrame(() => panel.querySelector('#queue-confirm-yes')?.focus()); }
@@ -157,7 +160,7 @@ export function installQueue({state, api, navigate, notify, renderPanel, focusMa
   async function move(delta) {
     const row = current(); if (row?.kind !== 'queued') return;
     const target = row.position - 1 + delta; if (target < 0 || target >= q.data.queued.length) return;
-    try { await change('move', row.path, {index:target}); q.active += delta; render(); } catch (error) { notify(error.message, 'error'); }
+    try { await change('move', row.path, {index:target}); q.active += delta; render(); } catch (error) { failed(error); }
   }
   function announce(data, path, verb) {
     const position = data.queued.findIndex(item => item.path === path) + 1;
@@ -169,7 +172,7 @@ export function installQueue({state, api, navigate, notify, renderPanel, focusMa
     if (!path?.startsWith('library/')) { notify('Only library documents can be queued.'); return; }
     const before = q.data?.queued.some(item => item.path === path);
     try { const data = await change('add', path); announce(data, path, before ? 'Already in your queue' : 'Added to your queue'); }
-    catch (error) { notify(error.message, 'error'); }
+    catch (error) { failed(error); }
   }
   /** Space n: open the next queued document, like skipping to the next track. */
   async function next() {
@@ -179,7 +182,7 @@ export function installQueue({state, api, navigate, notify, renderPanel, focusMa
       const item = data.queued.find(row => row.path !== state.doc?.path);
       if (!item) { notify('Your queue is empty. Press q on anything to add it.'); return; }
       close(false); navigate(item.path);
-    } catch (error) { notify(error.message, 'error'); }
+    } catch (error) { failed(error); }
   }
   /** History log entry for an open; the server also takes it out of Up next. */
   async function opened(doc) {

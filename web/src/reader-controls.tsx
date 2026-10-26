@@ -16,6 +16,8 @@ export {decorateCodeBlocks};
 import {Toaster} from './components/ui/sonner';
 import {toast} from 'sonner';
 import {notify} from './notify';
+import {needsReader, NEEDS_READER} from './static-demo';
+export {needsReader, NEEDS_READER};
 import {Backstage, EditionLinks, Inbox, type MaintenanceStatus, type Job, type InboxStatus} from './backstage';
 import {SpeechControl, setSpeechApi} from './speech-control';
 export {trackSpeech} from './speech-control';
@@ -159,6 +161,7 @@ async function pollMaintenance(){
   pollTimer=setTimeout(()=>{if(document.visibilityState==='visible'||fast)pollMaintenance();else document.addEventListener('visibilitychange',pollMaintenance,{once:true});},fast?1500:15000);
 }
 export async function startJob(kind:string){
+  if(needsReader())return;   // The web demo has no server to run a job; its controls say so.
   try{const job:Job=await controlActions.api('/api/maintenance',{action:'start',kind});
     update({maintenance:model.maintenance?{...model.maintenance,running:job}:model.maintenance});
     if(job.kind!=='check'){started.add(job.id);toast.loading(`${job.label} running…`,{id:job.id,description:'You can keep reading. This updates when it finishes.',duration:Infinity});}
@@ -186,6 +189,7 @@ export async function companionAction(name:string,action:string,extra:Record<str
 }
 /** A missing feature: a calm prompt naming what is missing, what it adds, its repo, Install when safe and Don't show again. */
 export async function promptCompanion(name:string,fallback?:string){
+  if(needsReader()){toast(fallback||'That feature needs Reader on your computer.',{description:NEEDS_READER+': companion tools install there.',id:'companion-'+name});return;}
   let item:Companion|undefined;
   try{item=(await controlActions.api('/api/companions?name='+encodeURIComponent(name))).companions[0];}
   catch{toast.error(fallback||'That feature is unavailable.',{duration:8000});return;}
@@ -259,7 +263,7 @@ async function pollInbox(){
   inboxTimer=setTimeout(()=>{if(document.visibilityState==='visible'||fast)pollInbox();else document.addEventListener('visibilitychange',pollInbox,{once:true});},fast?2000:15000);
 }
 export async function startInbox(){
-  if(model.inboxStarting)return;update({inboxStarting:true});
+  if(model.inboxStarting||needsReader())return;update({inboxStarting:true});
   try{const result=await controlActions.api('/api/inbox',{action:'start',sandbox_mode:model.prefs.inboxSandbox==='danger-full-access'?'danger-full-access':'workspace-write'});
     ownRuns.add(result.run_id);
     if(!result.state||ACTIVE.includes(result.state.status))toast.loading('The librarian is reading the mail…',{id:'inbox-'+result.run_id,description:'You can keep reading. This updates when the librarian finishes.',duration:Infinity});
@@ -317,20 +321,22 @@ export async function localModelAction(action:string,payload:Record<string,unkno
 }
 function BackstageView({library}:{library?:(element:HTMLElement)=>void}){
   const current=useSyncExternalStore(subscribe,snapshot);
-  const inbox=current.inbox,first=!!inbox&&(inbox.arrivals.length>0||['starting','running'].includes(inbox.runner?.status||''))||current.inboxStarting;
+  const inbox=current.inbox,local=needsReader(),first=!!inbox&&(inbox.arrivals.length>0||['starting','running'].includes(inbox.runner?.status||''))||current.inboxStarting;
   return <Backstage status={current.maintenance} onStart={startJob} settings={<SettingsForm model={current} actions={controlActions}/>} themeEditor={()=>controlActions.themeEditor(true)}
     library={library} inboxFirst={first} inbox={<Inbox status={inbox} starting={current.inboxStarting} onMail={startInbox} onStop={stopInbox} onOpen={controlActions.open} html={controlActions.markdown}
       activity={current.activity.runId&&current.activity.runId===inbox?.runner?.run_id?current.activity:null}/>} editions={<EditionLinks api={controlActions.api}/>}
-    localModel={<LocalModelSection status={current.localModel} act={localModelAction}/>} art={<ArtStudio api={controlActions.api} open={controlActions.open}/>} server={<ServerCard api={controlActions.api}/>}
-    companions={<CompanionsSection api={controlActions.api} status={current.companions} busy={!!current.maintenance?.running} onRefresh={()=>{controlActions.api('/api/companions',{action:'check',name:'colorful'}).catch(()=>{}).finally(refreshCompanions);}}
+    localModel={local?undefined:<LocalModelSection status={current.localModel} act={localModelAction}/>} art={<ArtStudio api={controlActions.api} open={controlActions.open}/>} server={local?undefined:<ServerCard api={controlActions.api}/>}
+    companions={local?undefined:<CompanionsSection api={controlActions.api} status={current.companions} busy={!!current.maintenance?.running} onRefresh={()=>{controlActions.api('/api/companions',{action:'check',name:'colorful'}).catch(()=>{}).finally(refreshCompanions);}}
       act={(name,action,extra)=>companionAction(name,action,extra)}/>}/>;
 }
 /** Behind the scenes, as a route-owned island in #main. Checks freshness when the last check is old. */
 export function mountBackstage(container:HTMLElement,{library}:{library?:(element:HTMLElement)=>void}={}){
   mount(container,<BackstageView library={library}/>);
+  pollInbox();
+  // The web demo shows its recorded status and starts nothing: no local model, companions or freshness check.
+  if(needsReader()){if(!model.maintenance)pollMaintenance();return;}
   localHost=container;pollLocalModel();refreshCompanions();
   (async()=>{
-    pollInbox();
     if(!model.maintenance)await pollMaintenance();
     const status=model.maintenance,checked=Object.values(status?.checks||{})[0]?.checked_at;
     if(status&&!status.running&&!status.checking&&(!checked||Date.now()-+new Date(checked)>120000))startJob('check');

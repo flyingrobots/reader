@@ -1,3 +1,4 @@
+import {localOnly, needsReader} from '../static-demo';
 import {CodeBlock, CodeBlockContent, CodeBlockHeader, CodeBlockTitle} from '../components/ui/code-block';
 import {useEffect, useMemo, useRef, useState, type CSSProperties} from 'react';
 import {Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription} from '../components/ui/sheet';
@@ -131,7 +132,7 @@ export function ThemeEditor(props:EditorProps){
     <SheetContent onKeyDown={e=>{if(e.key==='F10'){e.preventDefault();requestOpen(false);}}} id="theme-editor" className="theme-editor data-[side=right]:w-full data-[side=right]:sm:max-w-[min(1320px,100vw)]" initialFocus={()=>document.querySelector<HTMLElement>('#theme-source')} finalFocus={()=>document.querySelector<HTMLElement>('#main')}>
       <SheetHeader className="theme-editor-head"><SheetTitle>Theme Editor</SheetTitle><SheetDescription>Every theme has a light and a dark variant. Checks use WCAG 2.2 contrast and simulated color vision; they are guides, not proof of accessibility.</SheetDescription></SheetHeader>
       <div className="theme-editor-body">
-        <form className="theme-editor-form" onSubmit={e=>{e.preventDefault();save(false);}}>
+        <form className="theme-editor-form" onSubmit={e=>{e.preventDefault();if(!needsReader())save(false);}}>
           <Choice id="theme-source" label="Theme" value={source} groups={sourceItems} onChange={choose}/>
           {builtIn&&<p className="theme-note">Built-in themes ship with Reader and stay unchanged. Saving creates your own copy.</p>}
           <Field><FieldLabel htmlFor="theme-name">Name</FieldLabel><Input id="theme-name" value={draft.name} maxLength={60} required onChange={e=>update({name:e.target.value})}/></Field>
@@ -156,10 +157,10 @@ export function ThemeEditor(props:EditorProps){
         </div>
       </div>
       <div className="theme-editor-foot">
-        {!builtIn&&draft.id&&<Button type="button" variant="destructive" className="theme-delete" disabled={busy} onClick={remove}>Delete theme</Button>}
+        {!builtIn&&draft.id&&<Button type="button" variant="destructive" className="theme-delete" disabled={busy} {...localOnly()} onClick={remove}>Delete theme</Button>}
         <span className="theme-editor-state" role="status">{dirty?'Unsaved changes':draft.id?'Saved in the vault':''}</span>
-        <Button type="button" variant="secondary" disabled={busy} onClick={()=>save(false)}>{builtIn||!draft.id?'Save as new theme':'Save'}</Button>
-        <Button type="button" disabled={busy} onClick={()=>save(true)}>{busy?'Saving…':'Save and use'}</Button>
+        <Button type="button" variant="secondary" disabled={busy} {...localOnly()} onClick={()=>save(false)}>{builtIn||!draft.id?'Save as new theme':'Save'}</Button>
+        <Button type="button" disabled={busy} {...localOnly()} onClick={()=>save(true)}>{busy?'Saving…':'Save and use'}</Button>
       </div>
     </SheetContent>
   </Sheet>;

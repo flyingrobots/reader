@@ -114,7 +114,7 @@ export async function paintArtThumb(slot,data){
 }
 
 /** The calm placeholder for a piece without art: what would make it, and a button to ask (or the running job). */
-export function paintPlaceholder(figure,{path,job,producer,generate,cancel,setup}){
+export function paintPlaceholder(figure,{path,job,producer,local=false,generate,cancel,setup}){
   figure.artView?.destroy();figure.artView=null;
   figure.classList.remove('art-unavailable','art-error','art-compact');figure.classList.add('art-figure','art-empty');figure.dataset.readerDecoration='';delete figure.dataset.generation;delete figure.dataset.frames;figure.dataset.art=path;figure.dataset.state=job?'working':'placeholder';
   const estimate=producer?.estimate_seconds?`usually about ${duration(producer.estimate_seconds)}`:'usually a few minutes';
@@ -122,11 +122,12 @@ export function paintPlaceholder(figure,{path,job,producer,generate,cancel,setup
     figure.innerHTML=`<div class="art-placeholder" role="status" aria-live="polite"><p class="art-placeholder-title">${esc(job.state==='queued'?'Waiting to make art…':job.message||'Making art…')}</p><p>${esc(job.producer_label)} is ${job.stage==='scene'||job.stage==='repair'?'composing the scene':'reading the article'}${job.elapsed?` · ${duration(job.elapsed)}`:''}${job.ahead?` · ${job.ahead} ahead`:''}. You can keep reading.</p><div data-button-group><button type="button" data-button="outline xs" data-art-cancel="${esc(job.id)}">Cancel</button></div></div>`;
     figure.querySelector('[data-art-cancel]').onclick=event=>{event.preventDefault();cancel?.(job.id);};
   }else{
-    // The static web demo has no server to run a voice; a producer flagged static_demo says so.
-    const body=producer?.static_demo?'A voice or local model on your computer reads a piece, writes an art brief, then composes a scene for Reader to draw. Run Reader locally to make art: reader demo has a scripted voice that answers art commissions.'
+    // The static web demo (local: the reason, from the controls bundle) has no server to run a voice: Generate art is disabled and says so.
+    const body=local?'A voice or local model on your computer reads a piece, writes an art brief, then composes a scene for Reader to draw. Run Reader locally to make art: reader demo has a scripted voice that answers art commissions.'
       :producer?`${esc(producer.label)} would read it, write an art brief, then compose a scene for Reader to draw: ${esc(estimate)}.`
       :'No voice or local model can make art here yet. Add a voice to voices.json or set up a local model; Behind the scenes, Companions, shows which agent command lines Reader found.';
-    const button=producer?`<button type="button" data-button="outline sm" data-art-generate>${producer.static_demo?'Generate art (run Reader locally)':'Generate art'}</button>`
+    const button=local?`<button type="button" data-button="outline sm" data-art-generate disabled data-needs-reader title="${esc(local)}">Generate art</button>`
+      :producer?'<button type="button" data-button="outline sm" data-art-generate>Generate art</button>'
       :setup?'<button type="button" data-button="outline sm" data-art-setup>Set up a voice</button>':'';
     figure.innerHTML=`<div class="art-placeholder"><p class="art-placeholder-title">No art for this piece yet.</p><p>${body}</p>${button?`<div data-button-group>${button}</div>`:''}</div>`;
     figure.querySelector('[data-art-generate]')?.addEventListener('click',event=>{event.preventDefault();generate?.(path);});

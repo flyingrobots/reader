@@ -14,6 +14,7 @@ import {InputGroup, InputGroupAddon, InputGroupButton, InputGroupTextarea} from 
 import {ComboboxContent, ComboboxEmpty, ComboboxList} from '../components/ui/combobox';
 import {Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue} from '../components/ui/select';
 import {createRawBus, RawOutput, type RawBus} from './raw-output';
+import {localOnly, needsReader, NEEDS_READER} from '../static-demo';
 
 const TERMINAL=new Set(['done','failed','timeout','cancelled']);
 export type Voice={name:string;mention:string[];enabled:boolean;manual:boolean;available:boolean;runnable:boolean;cli:string|null};
@@ -238,7 +239,9 @@ export function ChatPanel(props:ChatProps){
       return true;
     }catch(error){fail(error);return false;}finally{setBusy(false);}
   };
-  const send=async()=>{if(await post('send',draft)){setDraft('');setMention(null);}};
+  // The web demo's one chat switch (#108): the shim's serves.chat turns the composer on.
+  const offline=needsReader('chat');
+  const send=async()=>{if(offline)return;if(await post('send',draft)){setDraft('');setMention(null);}};
   const paste=async()=>{if(await post('paste',pasteText)){setPasteText('');setPasting(false);}};
   const cancel=async(turn:Turn)=>{try{await api('/api/chat',{action:'cancel',turn_id:turn.id,id:turn.chat_id});}catch(error){fail(error);}};
   const retry=async(message:ChatMessage)=>{if(!chat)return;try{const data=await api('/api/chat',{action:'retry',id:chat.id,message_id:message.id});setChat(data.chat);setTurns(old=>merge(old,data.pending));}catch(error){fail(error);}};
@@ -273,8 +276,8 @@ export function ChatPanel(props:ChatProps){
         <Button variant="ghost" size="icon-sm" aria-label="Close chat" onClick={onClose} id="chat-close"><XIcon/></Button>
       </ButtonGroup>
     </div>
-    <div className="chat-settings"><Select items={CHIME_INS} value={chimeIns} onValueChange={value=>{if(value&&value!==chimeIns)configure(value as ChimeIns);}}>
-      <SelectTrigger id="chat-chime-ins" size="sm" aria-label="When voices who were not addressed may chime in" title="After an addressed reply, the other voices are asked whether they have something to add"><SelectValue/></SelectTrigger>
+    <div className="chat-settings"><Select items={CHIME_INS} value={chimeIns} disabled={offline} onValueChange={value=>{if(value&&value!==chimeIns)configure(value as ChimeIns);}}>
+      <SelectTrigger id="chat-chime-ins" size="sm" aria-label="When voices who were not addressed may chime in" title={offline?NEEDS_READER:'After an addressed reply, the other voices are asked whether they have something to add'}><SelectValue/></SelectTrigger>
       <SelectContent alignItemWithTrigger={false}><SelectGroup>{CHIME_INS.map(o=><SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}</SelectGroup></SelectContent></Select></div>
     {history.length>0?<div className="chat-history"><Select items={history.map(c=>({value:c.id,label:`${when(c.created_at)} · ${c.messages} messages`}))} value={chat?.id??null} onValueChange={value=>{if(value)load(value).catch(fail);}}>
       <SelectTrigger id="chat-history" size="sm" className="w-full" aria-label="Earlier chats about this document"><SelectValue placeholder="New chat"/></SelectTrigger>
@@ -338,15 +341,15 @@ export function ChatPanel(props:ChatProps){
         value={draft} onValueChange={(value,details)=>{if(details.reason==='item-press'){choose(items.find(v=>v.name===value)||null);return;}if(details.reason==='input-change'){const element=textarea.current;track(value,element?.selectionStart??value.length);}}}
         itemToStringValue={voice=>voice.name} autoHighlight>
         <InputGroup className="chat-input">
-          <ComboboxPrimitive.Input render={<InputGroupTextarea ref={textarea} id="chat-input" rows={2} maxLength={65536} placeholder={'Message the voices… @ to mention'} aria-label="Message the voices"/>}
+          <ComboboxPrimitive.Input render={<InputGroupTextarea ref={textarea} id="chat-input" rows={2} maxLength={65536} placeholder={offline?'Chat needs Reader on your computer, where the voices run.':'Message the voices… @ to mention'} aria-label="Message the voices" disabled={offline} title={offline?NEEDS_READER:undefined}/>}
             onKeyDown={event=>{
               if(event.key==='Escape'&&mention){event.preventDefault();setMention(null);return;}
               if(event.key==='Enter'&&!event.shiftKey&&!(mention&&items.length)&&!event.nativeEvent.isComposing){event.preventDefault();send();}
             }}
             onSelect={event=>{const element=event.currentTarget as unknown as HTMLTextAreaElement;setMention(mentionAt(element.value,element.selectionStart??element.value.length));}}/>
           <InputGroupAddon align="block-end">
-            {pasteName?<InputGroupButton variant="ghost" size="xs" onClick={()=>setPasting(value=>!value)} aria-pressed={pasting} id="chat-paste-toggle"><ClipboardPasteIcon/>{manual.length>1?'Paste a reply':`Paste ${pasteName}’s reply`}</InputGroupButton>:null}
-            <InputGroupButton type="submit" variant="default" size="icon-xs" className="ml-auto" aria-label="Send" disabled={!draft.trim()||busy} id="chat-send"><ArrowUpIcon/></InputGroupButton>
+            {pasteName&&!offline?<InputGroupButton variant="ghost" size="xs" onClick={()=>setPasting(value=>!value)} aria-pressed={pasting} id="chat-paste-toggle"><ClipboardPasteIcon/>{manual.length>1?'Paste a reply':`Paste ${pasteName}’s reply`}</InputGroupButton>:null}
+            <InputGroupButton type="submit" variant="default" size="icon-xs" className="ml-auto" aria-label="Send" disabled={!draft.trim()||busy} {...localOnly('chat')} id="chat-send"><ArrowUpIcon/></InputGroupButton>
           </InputGroupAddon>
         </InputGroup>
         <ComboboxContent className="chat-mentions" side="top" align="start" anchor={textarea}>

@@ -3642,6 +3642,7 @@ node tests/web_magazine.cjs
 node tests/web_demo.cjs
 .venv/bin/python -m pytest -q tests/test_static_demo.py
 node tests/web_static_demo.cjs
+node tests/web_static_demo_ui.cjs
 node tests/web_controls.cjs
 node tests/web_documents.cjs
 .venv/bin/python -m pytest -q tests/test_themes.py

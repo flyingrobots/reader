@@ -121,11 +121,34 @@ the normal server, which never loads it, is unaffected. With the flag it replace
 | `POST /api/annotations` (create, reply, resolve), `/api/bookmark`, `/api/seen`, `/api/history` | Kept in this browser's `localStorage` (`reader.static-demo.v1`) and merged into margins and bookmarks |
 | Chat posts, the queue, themes, maintenance, inbox runner, local model, service, speech, prose colors, comparing two arbitrary versions | A JSON error with `unavailable: true` that says to run Reader locally (status 501, or 503 for machine routes) |
 | `/api/art` | The exported scene, Artist's note and versions, drawn by Reader's own renderer in the browser; still images and running jobs are not exported (without WebGL the Artist's note shows instead) |
-| `/api/art/jobs`, `POST /api/art` | No jobs and one producer flagged `static_demo`, so **Generate art** reads **Generate art (run Reader locally)** and answers with a note that making art needs Reader on your computer; a still upload is accepted and dropped |
+| `/api/art/jobs`, `POST /api/art` | No jobs and one producer, so the placeholder explains how art is made; **Generate art** is disabled (see below) and a commission answers with a note that making art needs Reader on your computer; a still upload is accepted and dropped |
 | `/api/chat/stream` | A quiet stream (`hello`, then `ping` every 15 s) |
 
 A dismissible note says that changes stay in this browser and links to the local demo, with
 **Reset this demo** to clear them.
+
+**The UI knows it is static** (#107). The shim publishes `window.readerStaticDemo`
+(`{base, exportedAt, serves, reset}`); the controls bundle reads it through `needsReader(feature)` in
+`web/src/static-demo.ts`, which the vanilla modules import as `needsReader` and `NEEDS_READER` from
+the bundle. That object is the only signal: a normal server never loads the shim, so nothing changes
+there. With it:
+
+- Behind the scenes starts nothing: no automatic freshness check, and no polling of the local model
+  or companions. The index cards read **Not checked** and the header says checks need Reader on your
+  computer.
+- Controls that would write to a server are disabled and carry the tooltip **Needs Reader on your
+  computer** (they keep pointer events, so the tooltip shows): **Check again**, each rebuild and
+  **Remove** for the legacy index, **You got mail**, the Theme Editor's save and delete, **Generate
+  art** (placeholder and issue), the issue's queue buttons, the queue panel's add, remove and clear,
+  and the chat composer, **Send** and chime-in setting (pasted replies are hidden).
+- The **Service**, **Companions** and **Local model** sections are left out, with one note saying
+  they live on your computer; a companion prompt becomes a plain note.
+- Keyboard paths to the same writes (`q`, `Space g` then Generate) show an info toast instead of an
+  error.
+- Reading preferences still save in this browser.
+
+`serves` lists server features the shim answers itself; `serves.chat` is `false` today, and is the
+one switch that turns the chat composer back on once the shim can reply (#108).
 
 **Safety and limits.** The output folder must be new, empty, or an earlier export (it carries a
 `.reader-static-demo` marker; a refresh replaces everything else). Exported answers drop
@@ -165,6 +188,7 @@ PYTHONPATH=src .venv/bin/python -m pytest -q tests/test_demo.py
 READER_PYTHON=.venv/bin/python PYTHONPATH=src node tests/web_demo.cjs
 PYTHONPATH=src .venv/bin/python -m pytest -q tests/test_static_demo.py
 READER_PYTHON=.venv/bin/python PYTHONPATH=src node tests/web_static_demo.cjs
+READER_PYTHON=.venv/bin/python PYTHONPATH=src node tests/web_static_demo_ui.cjs
 ```
 
 `tests/test_demo.py` covers marker safety, a byte-identical refresh for a fixed clock, preserved
@@ -177,3 +201,7 @@ file server, and checks the magazine, margins, outline, Read next, the link grap
 changed, an image, a PDF, keyword and fuzzy search, a theme, a local-only highlight across a reload,
 the labelled server-only features and an inert shim on a page without the flag, while asserting
 that no request reaches `/api/*`, leaves the base path or leaves the origin.
+`tests/web_static_demo_ui.cjs` exports the same way and checks that visiting Behind the scenes asks
+for no job and shows no toast, that each server-only control is disabled with the **Needs Reader on
+your computer** tooltip under the pointer, that the machine-only sections are left out, that `q`
+explains instead of failing, and that nothing logs an error.
