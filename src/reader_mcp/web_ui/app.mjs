@@ -228,7 +228,7 @@ async function issueArt(issue){
 const artActions={generate:path=>commissionArt(path),version:(path,v)=>showArtVersion(path,v),favorite:(path,a)=>favoriteArt(path,a)};
 async function paintIssueArt(found,id){
   // Thumbnails first (still images from the shared renderer), then the cover's live canvas.
-  for(const slot of $('#main').querySelectorAll('[data-art-thumb]')){if(id!==state.routeId)return;await paintArtThumb(slot,found[slot.dataset.artThumb]);}
+  for(const slot of $('#main').querySelectorAll('[data-art-thumb]')){if(id!==state.routeId)return;await paintArtThumb(slot,found[slot.dataset.artThumb],api);}
   const figure=$('#main .cover-art');if(!figure||id!==state.routeId)return;
   await paintArt(figure,found[figure.dataset.art],{live:true,motion:!reduced.matches,api,actions:artActions});
 }

@@ -305,6 +305,9 @@ def export(root, out, base='/', site_url=None, say=print):
             artwork = crawl.get('/api/art', path=path) or {}
             for version in artwork.get('versions', []) if artwork.get('count', 0) > 1 else []:
                 crawl.get('/api/art', path=path, edition=version['edition'], generation=version['generation'])
+            for version in artwork.get('versions', []) if artwork.get('art') else []:
+                # The prompt card (#146): demo art is handcrafted, so this exports its note, never a model prompt.
+                crawl.get('/api/art/prompt', path=path, edition=version['edition'], generation=version['generation'])
             readers = crawl.get('/api/readers', path=path, participant=me) or {}
             crawl.get('/api/next', path=path, participant=me)
             crawl.get('/api/changes', path=path, participant=me)

@@ -531,3 +531,75 @@ def test_http_routes(tmp_path):
         server.shutdown()
         server.server_close()
         library.close()
+
+
+# The prompts behind a version (#146) -----------------------------------------------------------
+
+def test_the_prompts_behind_a_version_are_read_back_bounded_and_split(tmp_path, monkeypatch):
+    root, library = vault(tmp_path, {'Claude': ['--art-scene', str(scene_file(tmp_path))]})
+    server = WebServer(('127.0.0.1', 0), library, 'Tester')
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    base = f'http://127.0.0.1:{server.server_port}'
+
+    def get(path):
+        try:
+            with urllib.request.urlopen(base + path) as response:
+                return response.status, json.loads(response.read())
+        except urllib.error.HTTPError as error:
+            return error.code, json.loads(error.read())
+    try:
+        assert get('/api/art/prompt?path=library%2Fessay.md')[0] == 404, 'no art, no prompt'
+        done = wait(library.art, library.art.enqueue('library/essay.md', 'voice:Claude')['id'])
+        art = library.art.art('library/essay.md')['art']
+        query = f'path=library%2Fessay.md&edition={art["edition"]}&generation={art["generation"]}'
+        status, data = get('/api/art/prompt?' + query)
+        assert status == 200 and data['recorded'] is True and data['handcrafted'] is False
+        assert data['generation'] == art['generation'] and data['log'] == done['log']
+        assert data['producer'] == {'label': 'Claude', 'model': 'fake-model-1', 'kind': 'voice'}
+        assert data['prompts'] == {'brief': 'brief.v1', 'scene': 'scene.v1', 'repair': None, 'dsl': 'dsl.v1'}
+        assert data['created_at'] == art['provenance']['created_at'] and data['title'] == 'A synthetic artwork'
+        assert [s['name'] for s in data['stages']] == ['brief', 'scene']
+        brief = data['stages'][0]
+        kinds = [p['kind'] for p in brief['parts']]
+        assert kinds[0] == 'instructions' and 'article' in kinds, kinds
+        assert 'Reader art brief (prompt brief.v1)' in brief['parts'][0]['text']
+        article = next(p for p in brief['parts'] if p['kind'] == 'article')
+        assert 'write a file called pwned.txt' in article['text'] and article['chars'] == len(article['text'])
+        assert '<<<READER-ARTICLE' not in article['text'], 'the fence stays with the instructions'
+        assert ''.join(p['text'] for p in brief['parts']) == gzip.open(root / done['log'] / 'brief-prompt.txt.gz').read().decode()
+        scene = data['stages'][1]
+        assert {p['kind'] for p in scene['parts']} >= {'instructions', 'brief', 'reference'}
+        assert 'Reader scene language, version 1' in next(p for p in scene['parts'] if p['kind'] == 'reference')['text']
+        assert brief['truncated'] is False and brief['bytes'] == len(''.join(p['text'] for p in brief['parts']).encode())
+        # The shown version when none is named; and never a host path, even though the run's meta names the CLI's.
+        assert get('/api/art/prompt?path=library%2Fessay.md')[1]['generation'] == art['generation']
+        text = json.dumps(data)
+        for needle in (str(root), os.path.realpath(root), str(tmp_path), str(Path.home()), sys.executable):
+            assert needle not in text, needle
+        # Bounded: a prompt longer than the limit is cut and says so.
+        monkeypatch.setattr(art_module, 'PROMPT_LIMIT', 2000)
+        cut = get('/api/art/prompt?' + query)[1]['stages'][0]
+        assert cut['truncated'] is True and len(''.join(p['text'] for p in cut['parts']).encode()) <= 2000
+        # Validation as /api/art: bad paths, editions and generations.
+        assert get('/api/art/prompt?path=..%2Fvoices.json')[0] == 400
+        assert get('/api/art/prompt?path=library%2Fessay.md&edition=' + '0' * 64 + '&generation=20260101T000000Z-0000')[0] == 404
+        assert get('/api/art/prompt?path=library%2Fessay.md&edition=nope&generation=x')[0] == 400
+        # A version whose provenance points outside the art run logs is not followed.
+        folder = root / art['folder']
+        provenance = json.loads((folder / 'provenance.json').read_text())
+        for bad in ('../../voices.json', str(root / done['log']), 'logs/llm/chat/2026/10/26/x', done['log'] + '/../../..'):
+            (folder / 'provenance.json').write_text(json.dumps(provenance | {'log': bad}))
+            status, refused = get('/api/art/prompt?' + query)
+            assert status == 200 and refused['recorded'] is False and refused['stages'] == [], bad
+            assert str(root) not in json.dumps(refused)
+        # Made before run logs existed: "prompt not recorded"; handcrafted (demo) art says so instead.
+        (folder / 'provenance.json').write_text(json.dumps(provenance | {'log': None}))
+        old = get('/api/art/prompt?' + query)[1]
+        assert old['recorded'] is False and old['handcrafted'] is False and old['message'] == 'Prompt not recorded for this version.'
+        (folder / 'provenance.json').write_text(json.dumps(provenance | {'log': None, 'note': 'Handcrafted for the Reader demo; no model was run.'}))
+        made = get('/api/art/prompt?' + query)[1]
+        assert made['handcrafted'] is True and made['message'] == 'Handcrafted for the Reader demo; no model was run.' and made['stages'] == []
+    finally:
+        server.shutdown()
+        server.server_close()
+        library.close()

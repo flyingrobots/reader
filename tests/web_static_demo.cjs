@@ -45,6 +45,11 @@ const TYPES={'.html':'text/html; charset=utf-8','.js':'text/javascript','.mjs':'
   const cover=page.locator('.cover-art[data-art]');await cover.waitFor();
   await page.waitForFunction(()=>['still','image','unavailable','live'].includes(document.querySelector('.cover-art')?.dataset.state));
   assert.match(await cover.locator('.art-note').textContent(),/\S{3}/,'the Artist’s note travels with the export');
+  // Its prompt card (#146): the demo's art is handcrafted, so the card says so; no model prompt is exported.
+  await cover.locator('.art-prompt-toggle').click();
+  await page.waitForFunction(()=>document.querySelector('#art-prompt-card:not([hidden])')?.dataset.state==='handcrafted');
+  assert.match(await page.locator('#art-prompt-card').textContent(),/Handcrafted for the Reader demo; no model was run\./);
+  await page.keyboard.press('Escape');
   // A document with margins, its outline rail, Read next and the link graph.
   await open('library/walden/thoreau/where-i-lived.md','Where I Lived');
   await page.waitForFunction(()=>document.querySelectorAll('#article [data-thread]').length>=3);

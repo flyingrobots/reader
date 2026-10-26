@@ -125,6 +125,7 @@ the normal server, which never loads it, is unaffected. With the flag it replace
 | `POST /api/chat` (create, send, paste, cancel, retry, settings), `/api/chats`, `/api/chat`, `/api/chat/raw` | Answered in the browser by the scripted voices (see **Scripted chat** below) and kept in `localStorage`; raised hands are refused with a note |
 | The queue, themes, maintenance, inbox runner, local model, service, speech, prose colors, comparing two arbitrary versions | A JSON error with `unavailable: true` that says to run Reader locally (status 501, or 503 for machine routes) |
 | `/api/art` | The exported scene, Artist's note and versions, drawn by Reader's own renderer in the browser; still images and running jobs are not exported (without WebGL the Artist's note shows instead) |
+| `/api/art/prompt` | Exported for each version of the demo's art: the pieces are handcrafted, so the prompt card says so and no model prompt is exported |
 | `/api/art/jobs`, `POST /api/art` | No jobs and one producer, so the placeholder explains how art is made; **Generate art** is disabled (see below) and a commission answers with a note that making art needs Reader on your computer; a still upload is accepted and dropped |
 | `/api/chat/stream` | The shim's own chat events: `hello` (revision and pending turns) and a `state` snapshot, then `posted`, `state`, `started`, `delta` and `done` as the scripted turns run, and `ping` every 15 s |
 

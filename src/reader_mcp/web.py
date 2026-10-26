@@ -1433,6 +1433,8 @@ class WebHandler(BaseHTTPRequestHandler):
                 self.json(library.magazine.standfirst(args.get('path', '')))
             elif parsed.path == '/api/art':
                 self.json(library.art.art(args.get('path', ''), args.get('edition'), args.get('generation')))
+            elif parsed.path == '/api/art/prompt':
+                self.json(library.art.prompts(args.get('path', ''), args.get('edition') or None, args.get('generation') or None))
             elif parsed.path == '/api/art/jobs':
                 self.json(library.art.status())
             elif parsed.path == '/api/art/still':

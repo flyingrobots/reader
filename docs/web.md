@@ -688,6 +688,22 @@ validator sent the scene back. With several versions it shows *version n of m*,
 version**. The art's surface is `role="img"`, labelled with the artwork's title and
 described (`aria-describedby`) by the note, so the brief is the text alternative.
 
+**How it was made (the prompt card, #146).** Hovering a piece of art (the article
+hero, the cover, a feature thumbnail, the Space g view) for a moment, pressing the
+caption's **Prompt** button (keyboard: it opens the card and moves focus into it;
+Esc closes it and returns focus), or long-pressing it on a touch screen shows a card:
+*How this art was made*, the artwork's title, *Made by <producer> (<model>) · date ·
+prompts brief.v1 · scene.v1 · dsl.v1*, the first paragraph of the Artist's note, then
+each stage's prompt exactly as it was sent (brief, scene and, when the scene was
+repaired, repair), read from the version's archived run log. The instructions show
+first; the quoted article, the quoted brief and the scene-language reference are
+collapsed (`<details>`, with their length); **Copy** copies a stage's whole prompt.
+Handcrafted art (the demo's) says *Handcrafted for the Reader demo; no model was
+run.*; a version without a run log says *Prompt not recorded for this version.* The
+card is one fixed element outside the article (`data-reader-decoration`, never
+searched, selected or rasterized); it stays open while the pointer is over the art or
+the card and closes on Esc, a click elsewhere, or leaving both.
+
 **Which version is shown:** the favorite, if one was kept; else the newest version
 for the current edition; else the newest for any earlier edition (labelled *for an
 earlier edition*). A new edition never removes old art.
@@ -867,6 +883,19 @@ and no animation frames run.
   finished commissions).
 - `GET /api/art/still?path=…&edition=…&generation=…`: the version's still image (404
   without one).
+- `GET /api/art/prompt?path=…[&edition=…&generation=…]` (#146): the prompts that made
+  a version (the shown one without `edition`/`generation`), read only: `{path, edition,
+  generation, title, created_at, producer: {label, model, kind}, prompts, log,
+  recorded, handcrafted, message, stages}`. Each stage is `{name, bytes, truncated,
+  parts}`, its archived `<stage>-prompt.txt` (decompressed, at most 512 KiB, cut with
+  `truncated: true`), split into `parts` `{kind, text, chars}` that join back to the
+  prompt: `instructions`, `article` and `brief` (the nonce-fenced quotes) and
+  `reference` (the prompt version's scene-language file). Only a run log under
+  `logs/llm/art/` named by the version's provenance is read; anything else answers
+  `recorded: false` with a message, as does a version without a log (`handcrafted:
+  true` with its note when it has one). The same path, edition and generation checks
+  as `/api/art` (400 for a malformed one, 404 for an unknown version or a piece
+  without art); vault-relative paths only.
 - `POST /api/art` (token, JSON; at most 3 MiB): `{action: "generate", path,
   producer?}` (one active job per path: a repeat returns it), `{action: "commission",
   paths, producer?}` (at most 6, skipping as above: `{queued, skipped}`), `{action:

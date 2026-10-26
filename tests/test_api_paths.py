@@ -53,6 +53,7 @@ PARAMS = {
     '/api/link-counts': {},
     '/api/editions/diagnostics': {},
     '/api/file': {'path': DOC},
+    '/api/art/prompt': [{'path': DOC}, {'path': 'library/other.md'}],
 }
 PREFIXES = {'/api/speak/': ['/api/speak/status', '/api/speak/unknown']}
 SKIP = {'/api/art/still': 'answers a stored image, not JSON'}
@@ -172,8 +173,32 @@ def finished_inbox_run(base):
     raise AssertionError('The fake inbox run did not finish')
 
 
+def seed_art(root):
+    """One art version for DOC whose provenance points at an archived run log, so /api/art/prompt (#146) answers
+    real prompts in the walk. Written directly: a second Reader library on this vault would run its own art worker."""
+    import hashlib
+    sys.path.insert(0, str(CODE / 'src'))
+    from reader_mcp import art, art_scene, llm_logs
+    root = Path(root)
+    scene, counts = art_scene.validate(json.loads((CODE / 'src/reader_mcp/demo/content/art/halo.json').read_text())['scene'])
+    generation = '20261026T080000Z-0a0b'
+    folder = root / 'art/thought.md' / hashlib.sha256((root / DOC).read_bytes()).hexdigest() / generation
+    folder.mkdir(parents=True)
+    log = llm_logs.RunLog(root, 'art', 'api-paths-seeded', {'document_path': DOC})
+    log.write('brief-prompt.txt', art.render('brief', title='A thought', path=DOC, nonce='0123456789abcdef', text=(root / DOC).read_text()))
+    log.write('scene-prompt.txt', art.render('scene', art_title='Seeded', brief='A seeded brief.', nonce='0123456789abcdef', dsl=art.template('dsl')))
+    relative = log.finish('done')
+    (folder / 'scene.json').write_text(json.dumps(scene))
+    (folder / 'brief.md').write_text('---\ntitle: "Seeded"\n---\n\nA seeded brief.\n')
+    (folder / 'provenance.json').write_text(json.dumps({'schema_version': 1, 'title': 'Seeded', 'created_at': '2026-10-26T08:00:00+00:00', 'prompts': art.PROMPT_VERSIONS,
+                                                        'producer': {'label': 'Painter', 'model': 'fake-model-1', 'kind': 'voice'}, 'log': relative, 'counts': counts}))
+
+
 def test_no_api_answer_names_a_host_path(server):
     base = server['url']
+    seed_art(server['root'])
+    prompt = json.loads(fetch(base + '/api/art/prompt?' + urlencode({'path': DOC}))[1])
+    assert prompt['recorded'] is True and [s['name'] for s in prompt['stages']] == ['brief', 'scene'], prompt
     chat, turn = chat_with_reply(base)
     assert finished_inbox_run(base)['report_md']
     # The walk below covers the chat owner record (#20, #72) that /api/chats carries.

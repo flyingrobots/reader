@@ -48,6 +48,10 @@ from .resources import has_capacity, minimum_free_bytes
 
 PROMPTS = Path(__file__).with_name('art_prompts')
 PROMPT_VERSIONS = {'brief': 'brief.v1', 'scene': 'scene.v1', 'repair': 'repair.v1', 'dsl': 'dsl.v1'}
+PROMPT_LIMIT = 512 * 1024      # bytes of one stage's archived prompt that /api/art/prompt returns (#146)
+PROMPT_STAGES = ('brief', 'scene', 'repair')
+# The quoted blocks a prompt fences with its nonce: the article (brief stage) and the brief (scene stage).
+FENCE = re.compile(r'<<<READER-(ARTICLE|BRIEF) ([0-9a-f]{8,64})>>>\n(.*?)\n<<<END READER-\1 \2>>>', re.S)
 ART_ROOT = 'art'
 # `Reader-Art: library/<path>@<edition>/<generation>[ (favorite|still)]`; group 1 is the path under library/.
 ART_TRAILER = re.compile(r'^Reader-Art: library/([^@\n]+)@[0-9a-f]{12}/', re.M)
@@ -333,6 +337,72 @@ class Studio:
         still = next((n for n in ('still.png', 'still.webp') if (folder / n).is_file() and not (folder / n).is_symlink()), None)
         return {'edition': edition, 'generation': generation, 'folder': relative, 'scene': scene, 'counts': counts, 'brief': brief,
                 'title': provenance.get('title') or scene.get('title'), 'provenance': provenance, 'still': still}
+
+    def prompts(self, path, edition=None, generation=None):
+        """The prompts that made one version (#146), read back from its archived run log: each stage's prompt as sent,
+        split into the instructions and the quoted article, brief or language reference, so a reader can see the
+        instructions first. At most PROMPT_LIMIT bytes per stage; only a run log under logs/llm/art/ is followed."""
+        if edition or generation:
+            folder, _ = self.generation_dir(path, edition, generation)
+        else:
+            shown = self.art(path)['art']
+            if not shown:
+                raise ArtMissing('This piece has no art')
+            folder, _ = self.generation_dir(path, shown['edition'], shown['generation'])
+            edition, generation = shown['edition'], shown['generation']
+        try:
+            provenance = json.loads((folder / 'provenance.json').read_text())
+        except (OSError, ValueError):
+            provenance = {}
+        provenance = provenance if isinstance(provenance, dict) else {}
+        producer = provenance.get('producer') if isinstance(provenance.get('producer'), dict) else {}
+        result = {'path': path, 'edition': edition, 'generation': generation, 'title': provenance.get('title'),
+                  'created_at': provenance.get('created_at'), 'producer': {k: producer.get(k) for k in ('label', 'model', 'kind')},
+                  'prompts': provenance.get('prompts'), 'log': None, 'recorded': False, 'handcrafted': False, 'message': None, 'stages': []}
+        log, note = provenance.get('log'), provenance.get('note')
+        if not log:
+            if isinstance(note, str) and note.strip():
+                return result | {'handcrafted': True, 'message': note.strip()[:300]}
+            return result | {'message': 'Prompt not recorded for this version.'}
+        if not isinstance(log, str) or not llm_logs.RELATIVE.fullmatch(log) or not log.startswith(llm_logs.ROOT + '/art/'):
+            return result | {'message': 'The run log for this version could not be read.'}
+        stages = []
+        try:
+            for name in PROMPT_STAGES:
+                text, total, truncated = llm_logs.read(self.root, log, f'{name}-prompt.txt', PROMPT_LIMIT)
+                if text is None:
+                    continue
+                if truncated:
+                    text = text.rstrip('\ufffd')  # a cut through a character
+                stages.append({'name': name, 'bytes': total, 'truncated': truncated, 'parts': self.prompt_parts(text, result['prompts'])})
+        except (OSError, ValueError):
+            return result | {'message': 'The run log for this version could not be read.'}
+        if not stages:
+            return result | {'message': 'Prompt not recorded for this version.'}
+        return result | {'log': log, 'recorded': True, 'stages': stages}
+
+    @staticmethod
+    def prompt_parts(text, versions):
+        """[{kind, text, chars}] covering `text` exactly: instructions, and the quoted article or brief and the
+        scene-language reference (the prompt version's own file) that a reader would collapse."""
+        spans = [(m.start(3), m.end(3), 'article' if m.group(1) == 'ARTICLE' else 'brief') for m in FENCE.finditer(text)]
+        dsl = (versions or {}).get('dsl') if isinstance(versions, dict) else None
+        if isinstance(dsl, str) and re.fullmatch(r'dsl\.v\d{1,3}', dsl) and (PROMPTS / (dsl + '.md')).is_file():
+            reference = (PROMPTS / (dsl + '.md')).read_text()
+            at = text.find(reference) if reference else -1
+            if at >= 0 and not any(a <= at < b for a, b, _ in spans):
+                spans.append((at, at + len(reference), 'reference'))
+        parts, cursor = [], 0
+        for start, end, kind in sorted(spans):
+            if start < cursor:
+                continue
+            if start > cursor:
+                parts.append({'kind': 'instructions', 'text': text[cursor:start]})
+            parts.append({'kind': kind, 'text': text[start:end]})
+            cursor = end
+        if cursor < len(text) or not parts:
+            parts.append({'kind': 'instructions', 'text': text[cursor:]})
+        return [p | {'chars': len(p['text'])} for p in parts if p['text'] or len(parts) == 1]
 
     def still_file(self, path, edition, generation):
         folder, _ = self.generation_dir(path, edition, generation)

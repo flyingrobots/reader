@@ -8,6 +8,7 @@
     Every element here is decoration (data-reader-decoration). Commissions are background jobs:
     `artJobs` polls /api/art/jobs while one runs and announces each start, finish and failure. */
 import {SCHEMA,TOKENS,validate} from './art-scene.mjs';
+import {wireArtPrompt} from './art-prompt.mjs';
 const DERIVED=SCHEMA.derived_tokens;
 
 const THUMB={width:320,height:150},STILL={width:960,height:480};
@@ -70,7 +71,7 @@ export async function paintArt(figure,data,{live=false,motion=true,api,actions={
   if(data.count>1&&!art.favorite&&actions.favorite)button('Keep this one',()=>actions.favorite(path,art),'Show this version from now on');
   if(!buttons.children.length)buttons.remove();
   const caption=document.createElement('figcaption');caption.className='art-caption';
-  caption.innerHTML=`<button type="button" class="art-note-toggle" data-button="ghost xs" aria-expanded="false" aria-controls="${id}">Artist’s note</button><span class="art-credit">${esc(art.provenance?.producer?.label||'')}${art.current?'':' · earlier edition'}</span>`;
+  caption.innerHTML=`<button type="button" class="art-note-toggle" data-button="ghost xs" aria-expanded="false" aria-controls="${id}">Artist’s note</button><button type="button" class="art-prompt-toggle" data-button="ghost xs" title="The prompts that made this art (or hover over it)">Prompt</button><span class="art-credit">${esc(art.provenance?.producer?.label||'')}${art.current?'':' · earlier edition'}</span>`;
   const toggle=caption.querySelector('button');toggle.onclick=event=>{event.preventDefault();note.hidden=!note.hidden;toggle.setAttribute('aria-expanded',String(!note.hidden));};
   const extra=[];
   if(hero){
@@ -81,6 +82,7 @@ export async function paintArt(figure,data,{live=false,motion=true,api,actions={
     go.innerHTML=hero.book?'Turn the page <span aria-hidden="true">→</span>':'Begin reading <span aria-hidden="true">↓</span>';go.onclick=event=>{event.preventDefault();hero.go?.();};extra.push(go);
   }
   figure.replaceChildren(surface,...extra,caption,note);figure.classList.toggle('art-compact',compact);
+  wireArtPrompt(surface,{api,path,art,button:caption.querySelector('.art-prompt-toggle')});
   const image=(src,state)=>{const img=new Image();img.className='art-still';img.alt='';img.src=src;surface.replaceChildren(img);figure.dataset.state=state;};
   const unavailable=message=>{figure.classList.add('art-unavailable');figure.dataset.state='unavailable';surface.innerHTML=`<p class="art-message">${esc(message)}</p>`;note.hidden=false;toggle.setAttribute('aria-expanded','true');};
   let scene;
@@ -115,7 +117,7 @@ function keepStill(api,data,stage,scene,palette){
 }
 
 /** A small still image for a feature, rendered once per version, theme and size this session. */
-export async function paintArtThumb(slot,data){
+export async function paintArtThumb(slot,data,api=null){
   const art=data.art,key=[data.path,art.generation,theme()].join('|');let url=thumbs.get(key);
   if(!url){let scene=null;try{scene=validate(art.scene).scene;}catch{/* drawn below from the stored still, if any */}
     const stage=scene&&await loadStage();if(!slot.isConnected)return;
@@ -123,7 +125,7 @@ export async function paintArtThumb(slot,data){
     url??=stillUrl(data.path,art);}
   if(!url){slot.remove();return;}
   const img=new Image();img.className='art-thumb-image';img.alt='';img.src=url;img.width=THUMB.width;img.height=THUMB.height;slot.replaceChildren(img);slot.dataset.state='still';
-  slot.title=`${art.title} · art by ${art.provenance?.producer?.label||'an unknown producer'}`;
+  wireArtPrompt(slot,{api,path:data.path,art});
 }
 
 /** The calm placeholder for a piece without art: what would make it, and a button to ask (or the running job). */
