@@ -24,6 +24,8 @@ Questions contain at most 400 characters, with quotes at most 600. Reader recomp
 
 Immutable questions live at `prompts/<article SHA-256>/<voice-name SHA-256>-<prompt UUID>.json`. The latest matching edition and voice is the cache. **Ask something else** creates a new file and preserves earlier questions. Two tabs can share pending generation. A source change during generation refuses publication under the wrong digest. Raw logs use `logs/llm/prompt/`.
 
+Lookups filter edition, voice and question ID from the stored paths before decoding candidate payloads. Unrelated payload corruption outside those filters does not disable the requested lookup; matching records still require valid identity and schema.
+
 Reading-log links show the current participant's responses. Margin pins appear where response evidence can be located in the current article. The homepage's **Your writing** lists up to ten recent notebook pieces directly, including those not yet indexed. Collection and browse indexes remain librarian maintenance. Participant labels are local attribution, not authenticated identity.
 
 ## API, limits and recovery

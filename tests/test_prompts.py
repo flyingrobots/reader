@@ -84,6 +84,18 @@ def test_plain_text_article_generates_without_markdown_annotation_context(app):
     assert app.prompts.get(path, 'Claude')['question'] == QUESTION['question']
 
 
+@pytest.mark.parametrize('filter_kind', ['edition', 'voice', 'id'])
+def test_unrelated_corrupt_prompt_is_not_parsed_for_lookup(app, filter_kind):
+    prompt = generate(app)
+    folder = app.prompts.folder / ('0' * 64 if filter_kind == 'edition' else prompt['document_sha256'])
+    folder.mkdir(exist_ok=True)
+    corrupt = folder / app.prompts.name('Agy' if filter_kind == 'voice' else 'Claude', str(uuid4()))
+    corrupt.write_text('{broken JSON')
+    kwargs = {'prompt_id': prompt['id']} if filter_kind == 'id' else {'voice': 'Claude'}
+    assert app.prompts.get(PATH, **kwargs)['id'] == prompt['id']
+    assert corrupt.read_text() == '{broken JSON'
+
+
 def test_prompt_inventory_ignores_preserved_hidden_metadata(app):
     prompt = generate(app)
     entries = [app.prompts.folder / '.DS_Store',

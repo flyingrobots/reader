@@ -69,7 +69,14 @@ class Prompts:
         selected = None
         if prompt_id:
             prompt_id = str(UUID(str(prompt_id)))
+        prefix = hashlib.sha256(voice.encode()).hexdigest() + '-' if voice is not None else None
         for file in self.files():
+            if prefix and not file.name.startswith(prefix):
+                continue
+            if prompt_id and not file.name.endswith('-' + prompt_id + '.json'):
+                continue
+            if not prompt_id and file.parent.name != document['sha256']:
+                continue
             prompt = self.read(file)
             if prompt['document_path'] != path or voice is not None and prompt['author'] != voice:
                 continue

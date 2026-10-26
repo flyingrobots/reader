@@ -41,3 +41,5 @@ CodeRabbit found that plain-text generation entered Markdown-only annotation dis
 Five notebook-discovery cases cover oversized files, malformed YAML, invalid UTF-8, symlinks and directories. Four failed before the fix; the invalid UTF-8 case already remained undiscoverable. Individual unreadable entries are now skipped without modification, while root-folder and total-inventory refusal remain outside the per-file handler. All 27 prompt/notebook tests passed (`prompt-notebook-red` / `prompt-notebook-green`).
 
 The reading-log route now uses expensive-request admission too, because it also scans notebook entries. Its classification assertion was RED; both refusal and ordinary-read availability checks passed after classification (`prompt-readers-admission-red` / `prompt-readers-admission-green`).
+
+Three lookup regressions reproduced unrelated corrupt prompt payloads aborting a lookup. Filename and edition filters now run before JSON decoding; matching records retain schema validation. The fixtures separately cover edition, voice and UUID filtering. All 30 prompt/notebook tests passed (`prompt-lookup-red` / `prompt-lookup-green`). No timing speedup is claimed.
