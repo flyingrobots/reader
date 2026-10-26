@@ -1,10 +1,13 @@
-"""Live reserved-inbox acceptance using one owned synthetic arrival; run from the vault."""
-import json,os,subprocess,time,uuid
+"""Live reserved-inbox acceptance using one owned synthetic arrival; run from the vault.
+
+Uses this checkout's skills/upkeep helper; pass --installed-skill to test the copy installed under CODEX_HOME instead."""
+import json,os,subprocess,sys,time,uuid
 from pathlib import Path
+from skill_paths import upkeep_helper
 
 ROOT=Path.cwd()
 CLI=os.environ.get('OBSIDIAN_CLI','obsidian')
-HELPER=Path.home()/'.codex/skills/upkeep/scripts/check.py'
+HELPER=upkeep_helper(sys.argv[1:],os.environ)
 owner=str(uuid.uuid4());path='inbox/reader-ui-check-'+owner+'.md'
 def ev(code):
  r=subprocess.run([CLI,'vault='+ROOT.name,'eval','code='+code],capture_output=True,text=True,timeout=25,check=True)
