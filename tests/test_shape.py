@@ -10,7 +10,7 @@ import pytest
 
 from reader_mcp.annotations import Annotations
 from reader_mcp.search import Search
-from reader_mcp.shape import MAX_POINTS, MAX_RESPONSE, NEAR_RIBBON, Shapes, project, sample, smooth
+from reader_mcp.shape import MAX_POINTS, MAX_RESPONSE, MIN_DIRECTION, Shapes, project, sample, smooth
 from reader_mcp.web import WebLibrary, WebServer
 
 sys.path.insert(0, str(Path(__file__).parent))
@@ -151,9 +151,8 @@ def test_neighbours_project_through_the_same_basis(library):
     mine = library.related.vectors({target['path']})[target['path']]
     expected = (np.asarray(mine, dtype=np.float64) - mean) @ basis.T / scale
     assert np.allclose(target['xyz'], expected, atol=1e-3)
-    points = np.asarray(result['points'])
     for neighbour in result['neighbours']:
-        assert np.min(np.linalg.norm(points - np.asarray(neighbour['xyz']), axis=1)) >= NEAR_RIBBON - 1e-3
+        assert np.linalg.norm(neighbour['xyz']) >= MIN_DIRECTION, 'every star has a direction to be drawn along'
 
 
 def test_margin_threads_weight_their_passages(library, tmp_path):
@@ -199,3 +198,32 @@ def test_route_is_read_only_and_refuses_outside_library(library, tmp_path):
         server.server_close()
         thread.join(timeout=5)
     assert sorted((p.relative_to(tmp_path), p.stat().st_mtime_ns) for p in (tmp_path / 'library').rglob('*')) == before
+
+
+
+def test_a_dense_ribbon_keeps_its_stars(tmp_path):
+    """#81: a long document's 400 passages wind over the whole sphere, so every neighbour lies within the old 0.15
+    drop distance of some point, yet stars are drawn at a fixed radius along each neighbour's direction. Only a neighbour
+    with no direction is dropped."""
+    k = np.arange(400) + 0.5
+    z, turn = 1 - 2 * k / 400, np.pi * (1 + 5 ** 0.5) * k  # a spiral path in reading order over the sphere
+    ribbon = 0.8 * np.stack([np.sqrt(1 - z * z) * np.cos(turn), np.sqrt(1 - z * z) * np.sin(turn), z], axis=1)
+    directions = np.random.default_rng(81).normal(size=(11, 3))
+    vectors = [[0.0, 0.0, MIN_DIRECTION / 2]] + [list(d / np.linalg.norm(d) * 0.8) for d in directions]
+    works = [{'primary': f'library/w{n}.md', 'title': f'Work {n}'} for n in range(len(vectors))]
+
+    class Related:
+        def nearest(self, path, listed, limit):
+            return [(0.9 - n / 100, work, vector) for n, (work, vector) in enumerate(zip(listed, vectors))][:limit]
+
+    class Library:
+        root = tmp_path
+        related = Related()
+
+        def works(self):
+            return works, None
+
+    shapes = Shapes(Library())
+    assert all(np.min(np.linalg.norm(ribbon - np.asarray(v), axis=1)) < 0.15 for v in vectors[1:]), 'every star is within the old 0.15 rule of some passage'
+    found = shapes.neighbours('library/dense.md', np.eye(3), np.zeros(3), 1.0)
+    assert [n['path'] for n in found] == [w['primary'] for w in works[1:]], 'all eleven directed neighbours stay; the directionless one goes'

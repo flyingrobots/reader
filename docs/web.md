@@ -937,8 +937,10 @@ Markdown or text source of at most 4 MiB:
    uses are capitalised mid-sentence.
 4. **Neighbours.** The twelve works most related by Read next's scores (mean passage
    similarity plus 0.03 per shared project or topic, other editions above 0.985
-   left out), projected through the same centre, basis and scale. Any that land within
-   0.15 of a ribbon point are dropped.
+   left out), projected through the same centre, basis and scale. Only a neighbour that
+   lands within 0.05 of the centre (no meaningful direction) is dropped: the browser draws
+   each star at a fixed radius along its direction, so it never meets the ribbon on screen,
+   and a long document's passages fill the sphere.
 5. **Threads:** placed (exact or relocated) margin threads per passage, by the source
    line where each anchor starts.
 6. Response: `{path, sha256, seed, form, points, lines, weights, threads, headings,

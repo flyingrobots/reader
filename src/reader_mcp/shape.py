@@ -25,7 +25,7 @@ MAX_POINTS = 400          # passages drawn; longer documents are evenly subsampl
 MAX_TERMS, MIN_TERMS = 7, 4
 MAX_NEIGHBOURS = 12
 MAX_RINGS = 40            # heading rings drawn at most
-NEAR_RIBBON = 0.15        # neighbours projected closer than this to the ribbon are dropped
+MIN_DIRECTION = 0.05      # neighbours projected closer than this to the centre have no meaningful direction
 SMOOTHING = 80            # long ribbons average over ±(passages ÷ 80) neighbours (none below 40)
 MIN_CHUNKS = 6            # shorter pieces make a dot, not a shape (the browser does not draw them)
 MAX_SOURCE = 4 * 1024**2
@@ -359,7 +359,7 @@ class Shapes:
         lengths = np.asarray([len(c) for c in clean], dtype=np.float64)
         longest = float(lengths.max()) if len(lengths) and lengths.max() > 0 else 1.0
         weights = [round(float(.6 * length / longest + .4 * min(1.0, count / 3)), 3) for length, count in zip(lengths, threads)]
-        neighbours = self.neighbours(path, points, basis, mean, scale) if full else []
+        neighbours = self.neighbours(path, basis, mean, scale) if full else []
         result = {
             'path': path, 'sha256': digest, 'seed': seed, 'form': 'full' if full else 'terms',
             'points': [[round(float(v), 4) for v in point] for point in points],
@@ -395,7 +395,7 @@ class Shapes:
                 counts[chunk_at(starts, line)] += 1
         return counts
 
-    def neighbours(self, path, points, basis, mean, scale):
+    def neighbours(self, path, basis, mean, scale):
         """The nearest works by Read next relatedness, projected through this article's basis."""
         try:
             works, _ = self.library.works()
@@ -407,9 +407,9 @@ class Shapes:
             if len(vector) != basis.shape[1]:
                 continue
             xyz = (np.asarray(vector, dtype=np.float64) - mean) @ basis.T / scale
-            if float(np.linalg.norm(xyz)) < 1e-6:
-                continue
-            if float(np.min(np.linalg.norm(points - xyz, axis=1))) < NEAR_RIBBON:
+            # The browser draws a star at a fixed radius along this direction, never at xyz, so a star cannot
+            # meet the ribbon on screen. Distance to passages says nothing (a long ribbon fills the sphere, #81).
+            if float(np.linalg.norm(xyz)) < MIN_DIRECTION:
                 continue
             found.append({'path': work['primary'], 'title': str(work.get('title') or work['primary'])[:200],
                           'xyz': [round(float(v), 4) for v in xyz], 'score': round(float(score), 4)})
