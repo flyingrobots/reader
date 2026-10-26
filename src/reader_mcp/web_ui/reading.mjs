@@ -1,5 +1,6 @@
 /** Quiet reading chrome, real column pagination, and version-bound resume positions. */
 import {codePointOffset} from './logic.mjs';
+import {shownTop} from './place.mjs';
 export function installReading({scratchStatus, statusOverride, onStatus, mayCurl, controls, state, api, toast, openPreferences, openThread, revealRange, scrollToPosition, savePrefs, reloadDocument, positionPins, updateBreadcrumbs, keyStatus = () => null}) {
   const $ = selector => document.querySelector(selector);
   const clamp = n => Math.max(0, Math.min(1, n));
@@ -125,7 +126,7 @@ export function installReading({scratchStatus, statusOverride, onStatus, mayCurl
   function revealLine(line,page=null){
     const target=lineTarget(line,page);if(!target)return null;
     let range=target;if(!(target instanceof Range)){range=document.createRange();range.selectNodeContents(target);}
-    if(!reveal(range,false)){const rect=(target instanceof Range?range:target).getBoundingClientRect();scrollToPosition(scrollY+rect.top-innerHeight*.3,false,target);}
+    if(!reveal(range,false)){const rect=(target instanceof Range?range:target).getBoundingClientRect();scrollToPosition(shownTop(state.smoother)+rect.top-innerHeight*.3,false,target);}
     update();return range;
   }
   function capture(){
@@ -178,7 +179,7 @@ export function installReading({scratchStatus, statusOverride, onStatus, mayCurl
       if(book && mark.layout==='spread' && mark.spread_count===book.spreads)seek(mark.progress,false);
       else if(target){
         const range=document.createRange();range.selectNode(target);
-        if(!reveal(range,false)){const r=target.getBoundingClientRect();scrollToPosition(scrollY+r.top+r.height*(mark.block_fraction || 0)-innerHeight*.22,false,target,mark.block_fraction || 0);}
+        if(!reveal(range,false)){const r=target.getBoundingClientRect();scrollToPosition(shownTop(state.smoother)+r.top+r.height*(mark.block_fraction || 0)-innerHeight*.22,false,target,mark.block_fraction || 0);}
       }else seek(mark.progress,false);
     }else if(mark)toast('This edition has changed. Starting at the beginning.');
     words=($('#article')?.textContent || '').split(/\s+/u).filter(Boolean).length;
@@ -197,7 +198,7 @@ export function installReading({scratchStatus, statusOverride, onStatus, mayCurl
       const rect=[...range.getClientRects()][0];if(!rect)continue;
       let fraction;
       if(book){const x=rect.left-book.viewport.getBoundingClientRect().left+book.viewport.scrollLeft;fraction=book.spreads>1?Math.floor((x+2)/book.stride)/(book.spreads-1):0;}
-      else fraction=scrollSpan()?clamp((rect.top+scrollY-innerHeight*.36)/scrollSpan()):0;
+      else fraction=scrollSpan()?clamp((rect.top+shownTop(state.smoother)-innerHeight*.36)/scrollSpan()):0;
       pips.push({id:thread.id,owner:thread.owner,quote:thread.anchor.quote.slice(0,180),kind:thread.kind,own:thread.owner===state.prefs.participant,fraction:clamp(fraction)});
     }
     controls.update({pips});update();

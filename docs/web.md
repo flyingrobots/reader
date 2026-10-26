@@ -3321,6 +3321,16 @@ see steady while estimates turn into real heights:
   ends at the top while the blocks it glides over settle (smooth scrolling has no scroll anchoring
   to keep its destination), and `G` follows the end as Read next and other end blocks arrive after
   it and lengthen the page.
+- **Jumps measure what is shown.** With smooth scrolling the article glides behind the scroll
+  position, so a jump computed from a block's on-screen position adds the shown offset
+  (`shownTop()` in `place.mjs`, the content wrapper's offset), not `scrollY`. A find hit or
+  heading taken mid-glide then lands at its line instead of off by the distance left to glide.
+- **The smoother measures before a jump past its end.** ScrollSmoother maps the scroll position
+  onto the page height it measured at its last refresh, and refreshes only once the article stops
+  changing height. A jump whose target lies past that measure (blocks laid out taller than their
+  estimates) refreshes the smoother's ScrollTrigger first (`smoothTo()` in `app.mjs`); otherwise
+  the page glides to the old end and, if the refresh lands after the glide, waits there until the
+  next scroll.
 - **Smooth scrolling keeps the first block in view.** ScrollSmoother moves the article inside a
   fixed wrapper, which the browser's scroll anchoring cannot see. There, when blocks above the
   window change height, the view moves by the same amount, so scrolling up past blocks never laid

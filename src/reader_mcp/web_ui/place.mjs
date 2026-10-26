@@ -4,6 +4,9 @@
  *  target at the line it was sent to while blocks around it settle, until the reader scrolls or types. With
  *  smooth scrolling the article sits in a fixed wrapper that the browser's scroll anchoring cannot see, so the
  *  first block in view is also held when blocks above it change height. Pins follow every change. */
+/** The scroll offset of the page the reader sees. With smooth scrolling the shown page glides behind the scroll
+ *  position, so a jump measured from what is on screen (a rect) adds this, not scrollY, to land where it means (#156). */
+export const shownTop=smoother=>{const content=smoother&&document.querySelector('#smooth-content');return content?-content.getBoundingClientRect().top:scrollY;};
 export function installPlace({content, scroll, smoother, onChange}){
   let article=null,observer=null,mutations=null,hold=null,heights=new WeakMap();
   // Layout offset of a block or range in the scrolled content: the same before and after a scroll.
