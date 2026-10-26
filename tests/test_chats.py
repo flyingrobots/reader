@@ -757,8 +757,9 @@ def test_listening_checks_run_after_the_exchange_in_order_one_at_a_time(tmp_path
     chat = settle(conversations, chat['id'], 2)
     checks = listened(root)
     assert [c['argv'][c['argv'].index('--name') + 1] for c in checks] == ['Reader librarian', 'Agy'], 'other enabled voices, registry order'
-    reply = calls(root)[0]
-    assert reply['time'] < checks[0]['time'] < checks[1]['time']
+    # Start order is the call log's append order (each fake call appends as it begins), not wall-clock stamps from separate
+    # processes, which a clock step or equal readings could reorder (#140).
+    assert [c['kind'] for c in calls(root, ('turn', 'listen'))] == ['turn', 'listen', 'listen'], 'the reply, then each check in turn'
     assert 'Reader listening check' in checks[0]['stdin'] and 'Claude says hello.' in checks[0]['stdin'] and 'what is this?' in checks[0]['stdin']
     assert 'Document title: thought' in checks[0]['stdin'] and 'Document path: library/thought.md' in checks[0]['stdin']
     assert [m['author'] for m in chat['messages']] == ['You', 'Claude'] and hands(chat) == [], 'PASS stores nothing visible'

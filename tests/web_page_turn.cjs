@@ -18,7 +18,12 @@ const {waitFor,watch,sanitizerReport}=require('./web_wait.cjs');
     await waitFor(page,'two-page layout, resumed',()=>({twoPage:document.body.classList.contains('two-page'),resumed:!document.querySelector('.resume-pending'),article:!!document.querySelector('#article p')}));
     return {page,errors,external,context};};
   const current=page=>page.locator('#pagination-slot [aria-current=page]').textContent();
-  const overlay=page=>page.evaluate(()=>!!document.querySelector('.page-turn-canvas'));
+  // A turn lasts 900 ms of animation, which a loaded machine can spend in a frame or two, so a poll can miss the sheet.
+  // Record it instead: the page notes the sheet and the turning class the moment they appear, and the check reads that.
+  const record=page=>page.evaluate(()=>{const seen=window.__turn={sheet:false,turning:false};window.__turnObserver?.disconnect();
+    (window.__turnObserver=new MutationObserver(()=>{seen.sheet||=!!document.querySelector('.page-turn-canvas');seen.turning||=document.body.classList.contains('page-turning');}))
+      .observe(document.body,{subtree:true,childList:true,attributes:true,attributeFilter:['class']});});
+  const turned=(page,label,expected)=>waitFor(page,label,expected=>({done:!document.querySelector('.page-turn-canvas')&&!document.body.classList.contains('page-turning'),page:document.querySelector('#pagination-slot [aria-current=page]')?.textContent===expected,_page:document.querySelector('#pagination-slot [aria-current=page]')?.textContent}),{arg:expected,timeout:3000});
   // A one-page document keeps its facing page empty.
   {const {page,errors,context}=await open('no-preference',{},'library/other.md');
    const layout=await page.evaluate(()=>{const v=document.querySelector('.book-viewport').getBoundingClientRect();const text=[...document.querySelectorAll('#article > *')].flatMap(el=>[...el.getClientRects()]).filter(r=>r.width>0);return {half:v.left+v.width/2,right:Math.max(...text.map(r=>r.right)),left:Math.min(...text.map(r=>r.left)),vleft:v.left};});
@@ -28,23 +33,26 @@ const {waitFor,watch,sanitizerReport}=require('./web_wait.cjs');
   {const {page,errors,external,context}=await open('no-preference',{},'library/thought.md');
    await page.waitForFunction(()=>import('/assets/controls/page-turn.js').then(()=>true));await page.waitForTimeout(200);
    assert.equal(await current(page),'1–2');
-   await page.locator('#main').focus();await page.keyboard.press('j');
-   await waitFor(page,'WebGL sheet is drawn mid-turn',()=>({sheet:!!document.querySelector('.page-turn-canvas'),turning:document.body.classList.contains('page-turning'),_page:document.querySelector('#pagination-slot [aria-current=page]')?.textContent,_scroll:Math.round(document.querySelector('.book-viewport')?.scrollLeft??-1)}),{timeout:3000});
+   await page.locator('#main').focus();await record(page);await page.keyboard.press('j');
    await page.screenshot({path:'.reader/web-dev/page-turn-mid.png'});
-   await page.waitForFunction(()=>!document.querySelector('.page-turn-canvas'),null,{timeout:3000});assert.equal(await current(page),'3–4');
-   await page.keyboard.press('k');await waitFor(page,'backward turn uses the sheet too',()=>({sheet:!!document.querySelector('.page-turn-canvas')}),{timeout:3000});
-   await page.waitForFunction(()=>!document.querySelector('.page-turn-canvas'),null,{timeout:3000});assert.equal(await current(page),'1–2');
+   await turned(page,'forward turn to 3–4','3–4');assert.deepEqual(await page.evaluate(()=>window.__turn),{sheet:true,turning:true},'WebGL sheet is drawn mid-turn');
+   await record(page);await page.keyboard.press('k');
+   await turned(page,'backward turn to 1–2','1–2');assert.deepEqual(await page.evaluate(()=>window.__turn),{sheet:true,turning:true},'backward turn uses the sheet too');
    await page.keyboard.press('j');await page.waitForTimeout(120);await page.keyboard.press('j');
-   await page.waitForFunction(()=>!document.querySelector('.page-turn-canvas'),null,{timeout:3000});assert.equal(await current(page),'5–6','a second press finishes the first turn and starts the next');
-   await page.locator('#pagination-slot [aria-label="Pages 1–2"]').click();await page.waitForTimeout(150);assert.equal(await overlay(page),false,'multi-spread jumps slide');
-   await page.waitForFunction(async()=>document.querySelector('#pagination-slot [aria-current=page]')?.textContent==='1–2');
+   await turned(page,'a second press finishes the first turn and starts the next','5–6');
+   await record(page);await page.locator('#pagination-slot [aria-label="Pages 1–2"]').click();await turned(page,'the jump back to 1–2','1–2');
+   assert.equal((await page.evaluate(()=>window.__turn)).sheet,false,'multi-spread jumps slide');
    assert.deepEqual(errors,[]);assert.deepEqual(external,[]);await context.close();}
   // Slide preference and reduced motion never create the overlay.
   for(const [motion,prefs] of [['no-preference',{pageTurn:'slide'}],['reduce',{}]]){
-   const {page,errors,context}=await open(motion,prefs,'library/thought.md');await page.waitForTimeout(300);
+   const {page,errors,context}=await open(motion,prefs,'library/thought.md');
+   // The book opens at the last saved place, which an earlier context's late save can move: wait for the spread to hold
+   // still before reading it, then turn from there.
+   await page.evaluate(()=>{const v=document.querySelector('.book-viewport'),s=window.__still={x:-1,n:0};const tick=()=>{s.n=v.scrollLeft===s.x?s.n+1:0;s.x=v.scrollLeft;if(s.n<3)requestAnimationFrame(tick);};requestAnimationFrame(tick);});
+   await waitFor(page,'the spread holds still',()=>({still:(window.__still?.n||0)>=3}),{timeout:10000});
    const before=await current(page),next=before.split('–').map(n=>String(+n+2)).join('–');
-   await page.locator('#main').focus();await page.keyboard.press('j');await page.waitForTimeout(200);assert.equal(await overlay(page),false,JSON.stringify(prefs)+motion);
-   await waitFor(page,'j turns to '+next,expected=>({turned:document.querySelector('#pagination-slot [aria-current=page]')?.textContent===expected,_page:document.querySelector('#pagination-slot [aria-current=page]')?.textContent,_scroll:Math.round(document.querySelector('.book-viewport')?.scrollLeft??-1),_mode:document.querySelector('#vim-mode')?.textContent}),{arg:next,timeout:5000});assert.deepEqual(errors,[]);await context.close();}
+   await page.locator('#main').focus();await record(page);await page.keyboard.press('j');
+   await turned(page,'j turns to '+next,next);assert.equal((await page.evaluate(()=>window.__turn)).sheet,false,JSON.stringify(prefs)+motion);assert.deepEqual(errors,[]);await context.close();}
   console.log('Page turn passed: blank facing page, WebGL sheet forward/backward, rapid presses, multi-spread slide, Slide and reduced-motion fallbacks, local-only assets.');
  }finally{await browser?.close();if(fixture.exitCode===null&&fixture.signalCode===null){fixture.kill('SIGTERM');await new Promise(resolve=>fixture.once('exit',resolve));}}
 })().catch(error=>{console.error(error);process.exitCode=1;});

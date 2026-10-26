@@ -21,6 +21,9 @@ const {waitFor,watch,settled}=require('./web_wait.cjs');
   // #47: with ScrollSmoother on, G and gg settle on the section actually at the reading line.
   {const page=await open({smooth:true,reducedMotion:'no-preference'});
    const labelIs=(text,why)=>waitFor(page,why,text=>({status:document.querySelector('#status-section').textContent===text,rail:document.querySelector('#outline-rail [aria-current=location]')?.textContent===text,_label:document.querySelector('#status-section').textContent,_y:Math.round(scrollY),_max:document.documentElement.scrollHeight-innerHeight,_ends:document.querySelectorAll('.next-reads,.document-footer').length}),{arg:text,timeout:10000});
+   // G goes to the end that exists. Read next and the reading log arrive by their own requests and lengthen the page,
+   // so a G before them stops short of Chapter 44: wait for them and a still layout first (as #123 does below).
+   await page.locator('.next-reads').waitFor({state:'attached'});await settled(page,'end blocks loaded');
    await page.keyboard.press('G');await labelIs('Chapter 44','after G');
    await page.keyboard.press('g');await page.keyboard.press('g');await labelIs('A quiet thought','after gg');
    await page.mouse.move(700,450);await page.mouse.wheel(0,6000);await page.waitForTimeout(2500);
