@@ -1807,10 +1807,14 @@ Oct 16** (or **You read v2 on …**) when your receipt matches a family member's
 current bytes. The chip replaces the frontmatter's "Edition N" meta item, which
 still shows when there is no chip. A file with no siblings and at most one
 commit shows nothing. The line is `data-reader-decoration` (excluded from
-selection, find and word counts) and part of the first layout, so two-page
-spreads are measured once with it. If `/api/versions` takes longer than 600 ms
-(a long `--follow` history), the page renders without the chip; the status twin
-and the explorer fill in when the answer arrives.
+selection, find and word counts). The text never waits for `/api/versions` (a
+cold `--follow` history lookup can take longer than rendering the document):
+if the timeline is already here when the document is, the chip is part of the
+first layout; otherwise the page renders without it, and once the reading
+position is restored the chip line is inserted where it would have been (and
+replaces "Edition N"), the status twin and the explorer fill in, and the reader
+is kept on the same block (scroll offset, or the spread holding it in two-page
+reading). Historical versions and inbox previews never get a chip.
 
 **The status twin.** The status bar shows a compact twin of the chip: `v1/3`,
 `copy`, `orig`, `7 rev`, or `@3f2a1c9` on a historical version. It is
@@ -3699,6 +3703,7 @@ node tests/web_local_provider.cjs
 node tests/web_index_scale.cjs
 .venv/bin/python -m pytest -q tests/test_versions.py
 node tests/web_versions.cjs
+node tests/web_versions_late.cjs
 .venv/bin/python -m pytest -q tests/test_search_page.py
 node tests/web_search_page.cjs
 .venv/bin/python -m pytest -q tests/test_prose.py
@@ -3851,7 +3856,12 @@ budget, the routes, and that index, refs, status and `.git` are unchanged.
 that family in git (v1 on Oct 12, revised on Oct 15 with v2, v3 and the reading
 copy). It checks the chip and twin, the Space v timeline, a read-only historical
 version (no POST at all while it is open), comparisons in both directions,
-two-page stability and the phone sheet. Both need `git` on `PATH`.
+two-page stability and the phone sheet. `web_versions_late.cjs` uses the same
+fixture and delays every `/api/versions` answer by 2 s (a Playwright route): the
+article must be visible before the timeline arrives and within 600 ms of asking
+for it, the chip and twin follow, a saved place stays on the same paragraph in
+scroll and two-page reading, and edition and `@commit` deep links open what they
+name. All three need `git` on `PATH`.
 
 `web_queue.cjs` starts the fixture with `--queue` (the Read next works plus a
 longer document in another project). It checks the panel, keys, toasts, reorder

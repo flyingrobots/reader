@@ -410,27 +410,26 @@ async function navigate(path,{thread=null,fragment='',record=true,commit=null,at
   state.doc=null;reading?.prepare();mountSkeleton($('#main'),'document');
   let rendered=false;
   try {
-    // Versions (family, history, read markers) and what changed since your receipt arrive with the
-    // document, so the version chip and banners are part of the first layout. `path@commit` opens a
-    // historical version read-only: no receipt, bookmark, annotations or Read next.
+    // What changed since your receipt arrives with the document, so its banner is part of the first layout.
+    // `path@commit` opens a historical version read-only: no receipt, bookmark, annotations or Read next.
     const ref=path;const {path:file,commit:atCommit}=splitRef(ref);path=file;
-    // A long history (git log --follow on a busy index page) may take most of a second; after 600 ms
-    // the page renders without the chip and the status twin fills in when the timeline arrives.
+    // Versions (family, history, read markers) never hold back the text: a cold git history lookup can
+    // take longer than rendering the whole document. A timeline that is already here joins the first
+    // layout; otherwise the chip and status twin fill in after the reading position is restored (placeLateChip).
     // Inbox arrivals are unfiled previews: they have no versions or read receipt to compare.
     const preview=path.startsWith('inbox/');
-    const pending=preview?Promise.resolve(null):secondary('Versions',()=>api('/api/versions?path='+param(path)+'&participant='+param(state.prefs.participant))).then(found=>found??null);
-    const [doc,editions,changes]=await Promise.all([atCommit?api('/api/version?path='+param(path)+'&commit='+param(atCommit)):api('/api/document?path='+param(path)+'&participant='+param(state.prefs.participant)),
-      Promise.race([pending,new Promise(resolve=>setTimeout(()=>resolve(LATE),600))]),
+    let editions=LATE;
+    const pending=preview?Promise.resolve(null):secondary('Versions',()=>api('/api/versions?path='+param(path)+'&participant='+param(state.prefs.participant))).then(found=>editions=found??null);
+    const [doc,changes]=await Promise.all([atCommit?api('/api/version?path='+param(path)+'&commit='+param(atCommit)):api('/api/document?path='+param(path)+'&participant='+param(state.prefs.participant)),
       !atCommit&&!preview&&TEXTUAL.test(path)?api('/api/changes?path='+param(path)+'&participant='+param(state.prefs.participant)).catch(()=>null):null]); if(id!==state.routeId)return;
-    if(editions===LATE)pending.then(late=>{if(id!==state.routeId||!late)return;state.editions=state.versions=late;versions.update();});
-    state.editions=state.versions=editions===LATE?null:editions;state.changes=changes;const historical=!!doc.historical;
+    const inLayout=editions!==LATE;state.editions=state.versions=inLayout?editions:null;state.changes=changes;const historical=!!doc.historical;
     state.doc=doc;state.threads=[];state.attention=[];state.hostAttention=[];state.embedThreads=new Map();
     const author=Array.isArray(doc.metadata.author)?doc.metadata.author.join(' · '):doc.metadata.author;
     const known=doc.preview?null:state.data.works.find(w=>w.primary===path);
     const title=doc.metadata.title || known?.title || doc.title;
     clearControlsWithin($('#main'));
     const chip=doc.preview?'':chipMarkup(state.versions,doc,param);
-    $('#main').innerHTML=`<div class="document-shell resume-pending${historical?' historical':''}"><div class="eyebrow document-kicker">${esc(doc.preview?'Inbox preview · not yet filed':known?.projects?.[0] || 'From the library')}</div><h1 class="document-title">${esc(title)}</h1><div class="document-meta">${author?`<span class="by">${esc(author)}</span>`:''}${doc.metadata.created||doc.metadata.added?`<span>${formatDate(doc.metadata.created||doc.metadata.added)}</span>`:''}${doc.metadata.document_revision&&!chip?`<span>Edition ${esc(doc.metadata.document_revision)}</span>`:''}</div>${historical?historicalMarkup(doc,param):chip}${changeMarkup(changes)}<div class="reading-log" data-reader-decoration aria-live="polite"></div><article id="article" class="article"></article><footer class="document-footer">${esc(path)}${historical?` @ ${esc(doc.short)}<br>Historical text from the vault’s git history · <a href="${esc('#read='+param(path))}" data-path="${esc(path)}">Open the current file</a>`:`<br>Original source preserved · <a href="${esc(doc.file_url)}" target="_blank" rel="noopener noreferrer">Open original</a>${doc.text!==null||doc.kind==='.pdf'?'<br><button type="button" id="speak-article" data-button="outline sm" class="speak-article" title="Send to AI-TTS · Space s">Send to AI-TTS</button>':''}${/^library\/notebook\/[^/]+\.md$/.test(path)&&doc.text!==null?' <button type="button" id="edit-scratch" data-button="outline sm" title="Open this piece in the scratch pad; saving writes a new version">Edit in scratch</button>':''}`}</footer></div>`;
+    $('#main').innerHTML=`<div class="document-shell resume-pending${historical?' historical':''}"><div class="eyebrow document-kicker">${esc(doc.preview?'Inbox preview · not yet filed':known?.projects?.[0] || 'From the library')}</div><h1 class="document-title">${esc(title)}</h1><div class="document-meta">${author?`<span class="by">${esc(author)}</span>`:''}${doc.metadata.created||doc.metadata.added?`<span>${formatDate(doc.metadata.created||doc.metadata.added)}</span>`:''}${doc.metadata.document_revision&&!chip?`<span class="document-edition">Edition ${esc(doc.metadata.document_revision)}</span>`:''}</div>${historical?historicalMarkup(doc,param):chip}${changeMarkup(changes)}<div class="reading-log" data-reader-decoration aria-live="polite"></div><article id="article" class="article"></article><footer class="document-footer">${esc(path)}${historical?` @ ${esc(doc.short)}<br>Historical text from the vault’s git history · <a href="${esc('#read='+param(path))}" data-path="${esc(path)}">Open the current file</a>`:`<br>Original source preserved · <a href="${esc(doc.file_url)}" target="_blank" rel="noopener noreferrer">Open original</a>${doc.text!==null||doc.kind==='.pdf'?'<br><button type="button" id="speak-article" data-button="outline sm" class="speak-article" title="Send to AI-TTS · Space s">Send to AI-TTS</button>':''}${/^library\/notebook\/[^/]+\.md$/.test(path)&&doc.text!==null?' <button type="button" id="edit-scratch" data-button="outline sm" title="Open this piece in the scratch pad; saving writes a new version">Edit in scratch</button>':''}`}</footer></div>`;
     // A historical view keeps the reading log of the current file (it never adds you: nothing is marked read).
     const article=$('#article');$('#speak-article')?.addEventListener('click',()=>speech.send('article'));$('#edit-scratch')?.addEventListener('click',()=>scratch.editSaved(doc,bodyOf(doc.text).text.replace(/^\r?\n/,'')));if(doc.preview){$('.reading-log')?.remove();$('#speak-article')?.remove();}else loadReadingLog(doc,id);
     if(doc.kind==='.md' || doc.kind==='.markdown'){
@@ -461,6 +460,7 @@ async function navigate(path,{thread=null,fragment='',record=true,commit=null,at
     mountEditions();wireChanges();
     reading?.prepare();resetScroll();wireArticleLinks(article,path);await reading?.restore(doc);
     rendered=true; // From here on, failures are secondary: keep the article and toast quietly instead.
+    if(!inLayout)pending.then(late=>placeLateChip(late,doc,id));
     if(shapeFigure)paintArticleShape(shapeFigure,shape).catch(error=>console.warn('Article shape',error));
     if(artFigure)paintArticleArt(artFigure,artData).catch(error=>console.warn('Article art',error));
     if(id!==state.routeId)return;drawLate(article,id).catch(error=>console.error(error));await outline?.refresh(article);
@@ -490,6 +490,22 @@ async function markRead(doc,path,title,author){
     state.data.recent=[{...(work||{}),title,primary:path,authors:author?[author]:[],read:true,read_at:new Date().toISOString()},...state.data.recent.filter(w=>w.primary!==path)].slice(0,50);
 }
 const LATE=Symbol('late');
+/** A version timeline that arrived after first render: fill the status twin, then put the chip line where the
+ *  first layout would have (after the reading log), keeping the reader on the same block as drawLate() does. */
+function placeLateChip(late,doc,id){
+  if(id!==state.routeId||state.doc!==doc||!late)return;
+  state.editions=state.versions=late;versions.update();
+  const markup=doc.preview||doc.historical?'':chipMarkup(late,doc,param);if(!markup)return;
+  const template=document.createElement('template');template.innerHTML=markup;const line=template.content.firstElementChild;
+  versions.wire(template.content);wireDocumentLinks(line);
+  for(const button of line.querySelectorAll('[data-compare]'))button.addEventListener('click',()=>openChanges(button.dataset.compare,button.dataset.against));
+  const anchor=$('#article > .reading-log')||$('#main .document-meta');if(!anchor)return;
+  const place=readingPlace();
+  anchor.after(line);$('#main .document-meta .document-edition')?.remove();refreshScroll();
+  if(!place?.block.isConnected)return;
+  if(reading?.geometry()){const range=document.createRange();range.selectNodeContents(place.block);reading.reveal(range,false);}
+  else{const shift=place.block.getBoundingClientRect().top-place.top;if(Math.abs(shift)>1)scrollTo(0,scrollY+shift);}
+}
 const TEXTUAL=/\.(md|markdown|txt)$/i;
 /** "Changed since you read it" banner; a quieter line when only another reader saw an earlier edition. */
 function changeMarkup(data){

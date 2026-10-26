@@ -121,9 +121,10 @@ const shots=process.env.READER_SHOTS||'.reader/web-dev';
    assert.equal(await page.locator('.version-line').count(),0);assert.equal(await twin.isVisible(),false);
    await leader(page,'v');await page.locator('[data-sonner-toast]').filter({hasText:'one version'}).waitFor();assert.equal(await panel.isVisible(),false);
    await context.close();}
-  // Two pages: the chip is part of the first layout.
+  // Two pages: once the chip is placed (first layout, or late when the timeline is slow; see web_versions_late), nothing shifts.
   {const {page,context}=await open({layout:'spread'});
    await page.goto(url+'#read='+encodeURIComponent(essay+'tidal.md'));await page.waitForFunction(()=>document.body.classList.contains('two-page')&&!document.querySelector('.resume-pending'));
+   await page.locator('#article > .version-line').waitFor();
    const measure=()=>page.evaluate(()=>{const l=document.querySelector('.version-line').getBoundingClientRect();return {top:Math.round(l.top),pages:document.querySelectorAll('#pagination-slot a').length};});
    const first=await measure();await page.waitForTimeout(900);assert.deepEqual(await measure(),first,'no layout shift after the first measurement');
    await page.screenshot({path:shots+'/versions-spread.png'});
