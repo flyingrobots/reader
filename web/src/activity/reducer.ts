@@ -1,6 +1,8 @@
-/* Agent activity: a neutral event type, the Codex `exec --json` mapping, and a pure reducer from events to
- * transcript items. No imports, so Node's type stripping can run it directly in tests/activity.test.mjs.
- * Other producers (voice chat, local-model jobs) map their own streams to AgentEvent and reuse the reducer. */
+/* Agent activity: a neutral event type, the Codex `exec --json` and Claude Code stream-json mappings, and a pure
+ * reducer from events to transcript items. No imports, so Node's type stripping can run it directly in
+ * tests/activity.test.mjs and tests/job_trace.test.mjs. Producers map their own streams to AgentEvent and reuse the
+ * reducer: the inbox runner (Codex events), and coding jobs (RW-44), whose server events add deterministic phases,
+ * job steps (Reader's own Git and verification commands) and GitHub results to the agent's own events. */
 
 export type Phase='started'|'updated'|'completed';
 export type ChangeKind='add'|'update'|'delete';
@@ -17,7 +19,10 @@ export type AgentEvent=
   |{kind:'subagent';id:string;phase:Phase;tool:string;prompt:string;agents:string[];status:'running'|'completed'|'failed'}
   |{kind:'error';id:string;message:string;detail?:string;fatal?:boolean}
   |{kind:'usage';input:number;cached:number;output:number;reasoning:number}
-  |{kind:'skipped';bytes:number;reason:string};
+  |{kind:'skipped';bytes:number;reason:string}
+  |{kind:'phase';id:string;label:string;state:'running'|'done'|'failed'}
+  |{kind:'link';id:string;label:string;url:string;detail:string}
+  |{kind:'checkpoint';hash:string;subject:string;branch:string};
 
 const str=(value:unknown)=>typeof value==='string'?value:'';
 const num=(value:unknown)=>typeof value==='number'&&Number.isFinite(value)?value:0;
@@ -130,11 +135,13 @@ export type Item=
   |{kind:'subagent';id:string;tool:string;prompt:string;agents:string[];status:'running'|'completed'|'failed'}
   |{kind:'error';id:string;message:string;detail?:string;fatal:boolean}
   |{kind:'checkpoint';id:string;commit:Commit}
-  |{kind:'skipped';id:string;bytes:number;reason:string};
+  |{kind:'skipped';id:string;bytes:number;reason:string}
+  |{kind:'link';id:string;label:string;url:string;detail:string};
 
 export type Usage={input:number;cached:number;output:number;reasoning:number;turns:number};
-export type Activity={items:Item[];usage:Usage|null;session:string|null;turnFailed:string|null;events:number;ignored:number};
-export const emptyActivity=():Activity=>({items:[],usage:null,session:null,turnFailed:null,events:0,ignored:0});
+export type JobPhase={id:string;label:string;state:'running'|'done'|'failed'};
+export type Activity={items:Item[];usage:Usage|null;session:string|null;turnFailed:string|null;events:number;ignored:number;phases:JobPhase[]};
+export const emptyActivity=():Activity=>({items:[],usage:null,session:null,turnFailed:null,events:0,ignored:0,phases:[]});
 
 function upsert(state:Activity,item:Item,merge?:(old:Item)=>Item){
   const index=state.items.findIndex(old=>old.id===item.id&&old.kind===item.kind);
@@ -179,6 +186,16 @@ export function reduce(state:Activity,event:AgentEvent|null,at?:number):Activity
     // Codex reports retries and notices as `error` events; only a failed turn (or run) is fatal.
     case 'error':return upsert(state,{kind:'error',id:event.id+'-'+state.events,message:event.message,detail:event.detail,fatal:!!event.fatal});
     case 'skipped':return upsert(state,{kind:'skipped',id:'skipped-'+state.events,bytes:event.bytes,reason:event.reason});
+    case 'link':return upsert(state,{kind:'link',id:event.id,label:event.label,url:event.url,detail:event.detail});
+    case 'checkpoint':return state.items.some(i=>i.kind==='checkpoint'&&i.commit.hash===event.hash)?state
+      :upsert(state,{kind:'checkpoint',id:'commit-'+event.hash,commit:{hash:event.hash,subject:event.subject,branch:event.branch}});
+    case 'phase':{
+      // A phase starting finishes the one before it; the list keeps first-seen order.
+      const phases=(state.phases||[]).map(p=>event.state==='running'&&p.state==='running'&&p.id!==event.id?{...p,state:'done' as const}:p);
+      const index=phases.findIndex(p=>p.id===event.id);
+      if(index<0)phases.push({id:event.id,label:event.label,state:event.state});else phases[index]={...phases[index],state:event.state};
+      return {...state,phases};
+    }
   }
 }
 
@@ -186,7 +203,7 @@ export const reduceAll=(events:unknown[],state=emptyActivity(),at?:number)=>even
 
 // Derived views -----------------------------------------------------------------------------------
 
-export type Step={label:string;state:'done'|'running'|'pending'};
+export type Step={label:string;state:'done'|'running'|'pending'|'failed'};
 // [label, a command that reaches the stage, a changed path that reaches it]. Words must be followed by an
 // argument, so a grep pattern such as 'intake|reading-copy' does not count as doing the work.
 const STAGES:[string,RegExp,RegExp|null][]=[
@@ -198,6 +215,7 @@ const STAGES:[string,RegExp,RegExp|null][]=[
   ['Commit',/\bgit\b[^\n]*\bcommit\b/,null]];
 /** The header timeline: the agent's own plan when it wrote one, otherwise intake stages inferred from tools. */
 export function steps(activity:Activity,finished:boolean):Step[]{
+  if(activity.phases?.length)return activity.phases.map(p=>({label:p.label,state:p.state==='running'&&finished?'failed':p.state}));
   const plan=[...activity.items].reverse().find(i=>i.kind==='plan') as Extract<Item,{kind:'plan'}>|undefined;
   if(plan){const first=plan.steps.findIndex(s=>!s.done);return plan.steps.map((s,i)=>({label:s.text,state:s.done?'done':i===first&&!finished?'running':'pending'}));}
   let reached=-1;
@@ -212,4 +230,93 @@ export function steps(activity:Activity,finished:boolean):Step[]{
 export function queue(activity:Activity,arrivals:string[],remaining:string[]|null){
   const touched=activity.items.flatMap(i=>i.kind==='files'?i.changes.map(c=>c.path):[]);
   return arrivals.map(name=>({name,filed:remaining?!remaining.includes(name):touched.some(p=>p.includes(name)&&!p.startsWith('inbox/'))}));
+}
+
+// Claude Code stream-json ----------------------------------------------------------------------------
+
+/** A Claude Code `--output-format stream-json` mapper. Tool results arrive in a later `user` event, so the mapper
+ *  remembers each tool call's title to complete its row. Text blocks are assistant messages; `result` carries usage. */
+export function claudeMapper(){
+  const calls=new Map<string,string>();
+  return (raw:unknown):AgentEvent[]=>{
+    if(!raw||typeof raw!=='object')return [];
+    const event=raw as Record<string,any>,type=str(event.type),content=Array.isArray(event.message?.content)?event.message.content:[];
+    if(type==='system'&&event.subtype==='init')return [{kind:'session',id:str(event.session_id)}];
+    if(type==='result'){const u=event.usage||{};return [{kind:'usage',input:num(u.input_tokens),cached:num(u.cache_read_input_tokens),output:num(u.output_tokens),reasoning:0},
+      ...(event.is_error?[{kind:'turn',phase:'failed',error:str(event.result)||'The run failed.'} as AgentEvent]:[])];}
+    const out:AgentEvent[]=[];
+    content.forEach((block:any,index:number)=>{
+      if(type==='assistant'&&block?.type==='text'&&str(block.text).trim())out.push({kind:'message',id:'claude-text-'+str(event.message?.id||'')+'-'+index+'-'+str(block.text).length,text:str(block.text),role:'assistant'});
+      else if(type==='assistant'&&block?.type==='thinking'&&str(block.thinking))out.push({kind:'reasoning',id:'claude-thinking-'+index+'-'+str(block.thinking).length,phase:'completed',text:str(block.thinking)});
+      else if(type==='assistant'&&block?.type==='tool_use'){
+        const input=block.input||{},title=str(input.command)||(str(block.name)+(input.file_path?' '+str(input.file_path):''));
+        calls.set(str(block.id),title);
+        out.push({kind:'command',id:str(block.id),phase:'started',command:title,output:'',exitCode:null,status:'running'});
+      }else if(type==='user'&&block?.type==='tool_result'){
+        const id=str(block.tool_use_id),text=typeof block.content==='string'?block.content:Array.isArray(block.content)?block.content.map((c:any)=>str(c?.text)).join('\n'):'';
+        out.push({kind:'command',id,phase:'completed',command:calls.get(id)||'Tool',output:text,exitCode:block.is_error?1:0,status:block.is_error?'failed':'completed'});
+      }
+    });
+    return out;
+  };
+}
+
+// Coding jobs (RW-44) --------------------------------------------------------------------------------
+
+export const JOB_PHASES:Record<string,string>={queued:'Admitted',preflight:'Check repository and access',worktree:'Create worktree',agent:'Investigate and implement',
+  issue:'Link or create issue',verify:'Verify',push:'Push branch',pull_request:'Open pull request'};
+const GITHUB_LABELS:Record<string,string>={issue_linked:'Issue',issue_created:'Created issue',branch_pushed:'Pushed branch',pull_request_opened:'Opened pull request',
+  existing_pull_request:'Existing pull request'};
+
+/** A mapper from coding-job server events (/api/jobs/events, /api/jobs/stream) to AgentEvents. Agent events go through
+ *  the producer's own mapper; unknown types map to nothing, so the transcript never invents meaning. */
+export function jobMapper(){
+  const claude=claudeMapper();
+  return (raw:unknown):AgentEvent[]=>{
+    if(!raw||typeof raw!=='object')return [];
+    const event=raw as Record<string,any>;
+    switch(str(event.type)){
+      case 'phase':{const id=str(event.phase);return [{kind:'phase',id,label:JOB_PHASES[id]||id,state:event.state==='completed'?'done':event.state==='failed'?'failed':'running'}];}
+      case 'step':{
+        const status=event.status==='running'?'running':event.status==='failed'?'failed':'completed';
+        return [{kind:'command',id:'job-'+str(event.id),phase:status==='running'?'updated':'completed',command:str(event.title),output:str(event.output),
+          exitCode:typeof event.exit_code==='number'?event.exit_code:null,status}];
+      }
+      case 'files':return [{kind:'files',id:'job-files',phase:'completed',status:'completed',changes:(Array.isArray(event.changes)?event.changes:[]).slice(0,2000)
+        .filter((c:any)=>c&&typeof c.path==='string').map((c:any)=>({path:c.path,kind:c.kind==='add'||c.kind==='delete'?c.kind:'update'}))}];
+      case 'commit':return [{kind:'checkpoint',hash:str(event.sha),subject:str(event.subject),branch:str(event.branch)}];
+      case 'github':{
+        const action=str(event.action),url=/^https:\/\/github\.com\//.test(str(event.url))?str(event.url):'';
+        const label=(GITHUB_LABELS[action]||action)+(event.number?` #${event.number}`:'')+(action==='branch_pushed'?` ${str(event.branch)}`:'');
+        return [{kind:'link',id:'github-'+action+'-'+str(event.number||event.sha||''),label,url,detail:action==='branch_pushed'?str(event.sha).slice(0,12):str(event.state)}];
+      }
+      case 'agent':{
+        const stream=str(event.stream);
+        if(stream==='codex'){const mapped=fromCodex(event.event);return mapped?[mapped]:[];}
+        if(stream==='claude')return claude(event.event);
+        return [];
+      }
+      case 'outcome':return event.outcome==='pr_opened'||event.outcome==='already_fixed'?[]:[{kind:'error',id:'outcome',message:str(event.message)||str(event.outcome),fatal:true}];
+      default:return [];
+    }
+  };
+}
+
+/** Fold coding-job server events into an activity. Pass the same mapper for every page of one run. */
+export function reduceJob(state:Activity,events:unknown[],mapper:(raw:unknown)=>AgentEvent[],at?:number){
+  return events.reduce<Activity>((s,raw)=>{const mapped=mapper(raw);return mapped.length?mapped.reduce((t,e)=>reduce(t,e,at),s):reduce(s,null,at);},state);
+}
+
+/** The event cursor of one coding-job run. Frames at or below the cursor are duplicates (a reconnect, a page that
+ *  overlaps the stream) and are ignored; a frame beyond cursor+1 is a gap: folding stops there, `complete` is false,
+ *  and the caller resynchronizes from the archive-backed events endpoint. */
+export type JobCursor={activity:Activity;seq:number};
+export function applyFrames(cursor:JobCursor,events:{seq:number}[],mapper:(raw:unknown)=>AgentEvent[],at=Date.now()):[JobCursor,boolean]{
+  let {activity,seq}=cursor;
+  for(const event of events){
+    if(typeof event?.seq!=='number'||event.seq<=seq)continue;
+    if(event.seq!==seq+1)return [{activity,seq},false];
+    activity=reduceJob(activity,[event],mapper,at);seq=event.seq;
+  }
+  return [{activity,seq},true];
 }

@@ -26,6 +26,10 @@ import {LocalModelSection, runSummary, type LocalModelStatus, type Run} from './
 import {emptyActivity, fromCodex, reduce, type Activity} from './activity/reducer';
 import type {RunInfo} from './activity/transcript';
 import {ServerCard} from './server-card';
+import {PromptCard, type PromptBlock, type PromptContext} from './jobs/prompt-card';
+import {setJobsApi} from './jobs/store';
+import type {JobViewOptions} from './jobs/job-detail';
+export {JobsPanel, JobPanel, LogsPanel, LogPanel, RepositoriesPanel, type AdminPanelProps} from './jobs/admin';
 import {CompanionsSection, CompanionPrompt, focusCompanion, isDismissed, type Companion, type CompanionsStatus} from './companions';
 import {ArtStudio, useArtProducers} from './art-studio';
 import {ArtRegenerate, type ArtRegenerateOptions} from './art-regenerate';
@@ -285,7 +289,7 @@ export async function stopInbox(){
 }
 
 export function installControls(actions:Actions,prefs:Preferences){
-  controlActions=actions;setSpeechApi(actions.api);
+  controlActions=actions;setSpeechApi(actions.api);setJobsApi(actions.api);
   model={value:0,words:0,pdfPages:null,pace:220,spread:0,spreads:0,pages:0,columns:2,theme:prefs.theme,pips:[],prefs,participants:[],themeEditorOpen:false,customThemes:[],fonts:[],maintenance:null,prose:null,chat:{open:false,path:null,title:'',participant:''},outline:{mode:null,open:false,title:'',entries:[],folded:false,railOpen:false},outlineActive:-1,inbox:null,inboxStarting:false,activity:newActivity(),localModel:null,companions:null};
   function View(){const current=useSyncExternalStore(subscribe,snapshot);return <>{createPortal(<ReadingProgress model={current} actions={actions}/>,document.getElementById('progress-controls-slot')!)}{createPortal(<Pages model={current} actions={actions}/>,document.getElementById('pagination-slot')!)}{createPortal(<OutlineControl outline={current.outline} active={current.outlineActive} actions={actions}/>,document.getElementById('outline-slot')!)}{createPortal(<SpeechControl/>,document.getElementById('speech-slot')!)}{createPortal(<label className="theme-toggle"><Switch id="theme-swap" size="sm" aria-label="Dark mode" checked={dark(current.theme)} onCheckedChange={checked=>{if(checked!==dark(current.theme))actions.theme();}}/><span>Dark</span></label>,document.getElementById('theme-switch-slot')!)}<ThemeEditor open={current.themeEditorOpen} onOpenChange={actions.themeEditor} themes={current.customThemes} fonts={current.fonts} current={current.theme} api={actions.api} onChanged={actions.themesChanged} onUse={actions.useTheme} onPreviewFont={actions.previewFont} error={actions.error}/><ChatPanel open={current.chat.open} path={current.chat.path} title={current.chat.title} participant={current.chat.participant} api={actions.api} markdown={actions.chatMarkdown} openPath={actions.openPath} onClose={()=>closeChat()} notify={notify}/><Toaster theme={dark(current.theme)?'dark':'light'} position="bottom-center" offset={{bottom:44}} mobileOffset={{bottom:56}}/></>;}
   ensureProseTokens();new MutationObserver(()=>ensureProseTokens()).observe(document.documentElement,{attributes:true,attributeFilter:['data-theme']});
@@ -356,6 +360,15 @@ export function mountSearchPage(container:HTMLElement,initial:SearchModel,action
   function View(){const value=useSyncExternalStore(watch,()=>current);return <SearchPage model={value} actions={actions}/>;}
   mount(container,<View/>);
   return {update(patch:Partial<SearchModel>){current={...current,...patch};watchers.forEach(listener=>listener());}};
+}
+/** The options job views share: the app's API, sanitized Markdown, document opening and toasts. */
+export function jobViewOptions():JobViewOptions{
+  return {api:controlActions.api,html:controlActions.chatMarkdown,onOpen:controlActions.openPath,notify:(message,kind)=>kind==='error'?toast.error(message):toast(message)};
+}
+/** Article prompt cards (RW-44): one island per wrapper app.mjs found with its render's nonce (prompt-blocks.mjs). */
+export function mountPromptCards(mounts:{element:HTMLElement;block:PromptBlock}[],context:Omit<PromptContext,'options'>){
+  const options=jobViewOptions();
+  for(const {element,block} of mounts)mount(element,<PromptCard block={block} context={{...context,options}}/>);
 }
 /** Regenerate this (#147): the Prompt Input island inside the art focus view; `close` unmounts it. */
 export function mountArtRegenerate(container:HTMLElement,options:ArtRegenerateOptions){

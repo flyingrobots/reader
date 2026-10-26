@@ -1245,6 +1245,130 @@ once when Behind the scenes opens. Durations are measured from when the browser
 received events, so a transcript loaded after the run shows none. Only the latest
 run exists, because the supervisor keeps one runtime directory.
 
+### Article prompts and coding jobs
+
+An article can carry a self-contained repair prompt that a reader may run as a coding job (RW-44). In
+plain Markdown, Obsidian and any other reader it stays an ordinary, copyable code block; Reader shows it as a
+prompt card. The format is two HTML comments around one `text` fence:
+
+````markdown
+<!-- reader:prompt {"v":1,"id":"bound-parser-depth","title":"Bound parser nesting","repo":"owner/name","issue":277} -->
+
+```text
+Check the current state of issue #277 before changing anything. …
+```
+
+<!-- /reader:prompt -->
+````
+
+| Field | Contract |
+| --- | --- |
+| `v` | The integer `1`. Another version stays ordinary code. |
+| `id` | 1–64 lowercase ASCII letters, digits and hyphens, unique in the document. |
+| `title` | Plain text, at most 160 code points. |
+| `repo` | A GitHub `owner/name`, resolved only through the local repository registry. |
+| `issue` | A positive issue number in that repository, or `null`: Reader creates one if the finding is confirmed. |
+
+The metadata is a flat JSON object of at most 2 KiB (strings, integers and `null`; no duplicate keys, no
+other fields); the prompt is at most 32 KiB. The structure is read from markdown-it's block tokens before
+sanitizing, never from rendered HTML: a top-level opener at column 0, then exactly one top-level `text` fence
+at column 0, then the close marker, with only blank lines between. Markers inside fences, display math, lists,
+quotes, other HTML or a wrapper that is already open, duplicate IDs, malformed or oversized metadata and unknown
+fields leave the block as ordinary code. The server parses the same tokens with markdown-it-py and Reader's math
+rule (`src/reader_mcp/prompt_blocks.py`; the browser's copy is `web_ui/prompt-blocks.mjs`), and
+`tests/fixtures/prompt-blocks/agreement.json` records 700 generated documents on which both must agree. A valid
+block renders inside a wrapper carrying a nonce made fresh for every render; cards mount only on wrappers with
+that nonce, so raw HTML in an article cannot make one. Embedded documents, chat and the scratch pad show prompt
+blocks as code.
+
+**The card** shows the title, the repository, the issue (or *Create issue*), the prompt in an editor, **Copy**,
+the coding agent and **Run → PR**, and states what a run will do before it starts: a new branch from the
+registered base, the issue it links or creates, and a pull request opened only after verification. Editing
+makes a run-local revision; the article is never rewritten (**Reset** restores the author's text). Typing stays
+in the editor and Escape leaves it. Opening, hovering, expanding, searching or restoring the article never starts
+anything: the card only reads `GET /api/jobs/actions`. An unregistered repository, a missing agent, another
+server owning jobs, a past edition, an inbox preview and the static demo each keep the card readable and copyable
+and say why it cannot run. After **Run → PR** the card shows the run's status, phase, **Stop**, its GitHub links
+and an on-demand trace that opens by itself when a check fails; earlier runs of the block are listed below it.
+
+**The workflow** is server-owned (`coding_jobs.py`, `coding_workflow.py`, `coding_publish.py`), one job at a time
+per vault, by the one Reader server that holds `.reader/coding-jobs/supervisor.lock`:
+
+1. *Admit.* `POST /api/jobs {"action":"submit","request_id","path","sha256","block_id","prompt","agent","predecessor"?}`.
+   Reader re-reads the article, checks its SHA-256 (a changed article is refused as `stale`), parses it, finds the
+   block and its registered repository, and archives the exact original and submitted prompts before any work.
+   The same request UUID with the same input returns the same run (`duplicate: true`); with different input it is
+   a 409 conflict, never an edit or a rerun. A rerun names its `predecessor` and reuses its verified issue.
+2. *Preflight.* Registry identity (the checkout's remote and any push URL must be `github.com/owner/name`), the
+   agent executable, the verification guard, free space for the archive and the worktree folder, GitHub login
+   and push access through `gh`, the supplied issue (it must be an issue, not a pull request, in that repository),
+   the base branch on the remote, and that the job's branch exists nowhere. Any refusal ends the run `blocked`.
+3. *Isolate.* Fetch the base, pin its SHA and `git worktree add -b reader/<id>-<run> <root>/reader-<run-id> <sha>`
+   (under the repository's `.git/` git-locks key when git-locks is installed). The user's checkout, its dirty files
+   and its index are untouched; an existing branch or folder is never reused or reset.
+4. *Agent.* The coding CLI runs in the worktree with Reader's fixed argv (Codex: `exec --cd <worktree> --sandbox
+   <mode> --add-dir <git common dir>`; Claude Code: `-p --output-format stream-json --permission-mode <mode>`), the
+   job brief and the prompt on stdin, in its own process group with time, memory, free-space and output limits.
+   It investigates, edits and commits, and ends with a `reader-result` block: `implemented`, `already_fixed`
+   or `blocked`, with a summary, evidence and issue/PR drafts. Reader checks the claim: the branch, a clean
+   tree, ancestry from the pinned base, the commits and changed paths.
+5. *Issue.* The verified supplied issue, or one Reader creates from the confirmed task with a
+   `reader-run:<run-id>` marker and reads back. No article text, vault path or archive goes to GitHub.
+6. *Verify.* The registry's command runs in the worktree, without a shell, under its git-locks keys when configured.
+   A nonzero exit, a moved head or a dirty tree publishes nothing.
+7. *Publish.* A normal `git push <remote> refs/heads/<branch>:refs/heads/<branch>` (never forced), the remote
+   SHA read back, then a pull request with `Closes #N` and the marker, read back for repository, base, branch, head
+   SHA and issue. Only then is the outcome **PR opened**. Nothing is merged.
+
+Outcomes are `pr_opened`, `already_fixed`, `blocked`, `failed`, `cancelled`, `interrupted` and
+`needs_reconciliation`; phases (`queued`, `preflight`, `worktree`, `agent`, `issue`, `verify`, `push`,
+`pull_request`) are separate. A create request without a readable answer is reconciled by the marker (issues) or
+the branch (pull requests), never repeated; when GitHub cannot settle it the run ends `needs_reconciliation`. A
+remote branch that already exists at another commit (an agent that pushed by itself) is reconciled the same way.
+**Stop** kills the owned process group; completed pushes and created issues stay recorded. Worktrees and branches
+are kept after every outcome. A restart never relaunches an agent: unfinished runs are reconciled (a process group
+the previous server left running is stopped when its recorded start time matches), pending creations are looked up,
+and the run ends `interrupted`, `pr_opened` or `needs_reconciliation`; until an owner reconciles it, every view
+already shows an unowned run as interrupted.
+
+**Executor boundary.** A worktree isolates Git changes, not the filesystem, build caches or credentials. The
+agent runs with the user's environment and the registry's permission mode; a CLI that keeps GitHub credentials
+could publish by itself, so "do not push or open issues" in the brief is a cooperative rule, and the workflow
+reconciles the remote before publishing instead of assuming it is untouched. The repository's own guarded
+workflow and the configured verification command remain the resource and quality policy.
+
+**Repository registry.** `<vault>/.reader/repositories.json` (schema 1) maps `owner/name` to `checkout`,
+`remote`, `base`, `worktree_root` (outside the checkout and the vault), `agents` (`codex`, `claude`), optional
+`executables` and `agent_modes` (Codex `workspace-write` or `danger-full-access`; Claude Code `acceptEdits` or
+`bypassPermissions`), `agent_timeout_seconds` and `verify` (`argv`, `timeout_seconds`, optional `lock` with a
+git-locks `store` and `keys`). A configured lock without git-locks installed blocks the job rather than running
+the check unguarded. `GET /api/repositories?check=1` shows the registry with Git identity problems and host folders
+as `~/…`; `POST /api/repositories` registers (after the identity check), removes or checks, from this Mac only.
+No credential is stored: GitHub access is the `gh` login.
+
+**Trace and archive.** Every run is archived under `logs/llm/coding-job/YYYY/MM/DD/<run-id>/` and kept forever:
+`meta.json`, `request.json`, `prompt.txt`, `system.txt`, `stdout.jsonl`, `stderr.log`, `events.jsonl`,
+`verify.log`, `git.log`, `last-message.md` and `result.json`, streamed as `.partial` and gzipped with sizes and
+SHA-256 by `RunLog.finish()`, including failed, cancelled and interrupted runs. `meta.json` pins the source SHA,
+block ID, prompt SHAs, repository, base and head SHAs, branch and worktree, issue and pull request, tool versions
+and the outcome. All output a run produces counts against a 64 MiB budget; a full budget or a failed archive write
+stops the process group and fails the run before any publication. `events.jsonl` holds the normalized events,
+each with the run ID, a sequence number and a timestamp: phases, Reader's own steps (Git, checks, publication),
+the agent's recognized CLI events, changed files, commits, GitHub results and the outcome. Unrecognized CLI output
+stays in the raw logs only. The trace reuses the activity reducer and `ActivityTranscript` with job labels: phases
+head the steps, Reader's steps and the agent's commands are Tool rows (failed ones open by themselves), GitHub
+results are link rows.
+
+`GET /api/jobs/stream?id=…&after=SEQ` is a Server-Sent Events stream: `hello` (the run), `event` frames with
+`id: <seq>`, `ping` and `end`. The browser ignores frames at or below its cursor and fills a gap from
+`GET /api/jobs/events?id=…&after=SEQ&limit=N` (memory while live, the archive otherwise, at most 512 KiB a page),
+so a reload, the article and Reader Admin all show the same run. Other routes: `GET /api/jobs?repo=…&state=…&path=…&block=…&cursor=…`
+(newest first, 50 a page), `GET /api/jobs/run?id=…`, `GET /api/jobs/artifact?id=…&name=…&limit=…` (bounded,
+1 KiB–1 MiB, decompressed), `POST /api/jobs {"action":"stop","id"}`, and the LLM log inventory
+`GET /api/logs?kind=…&cursor=…`, `/api/logs/run?path=…` and `/api/logs/artifact?path=…&name=…`, which page the
+dated archive folders and read `meta.json` without decompressing anything. A second server answers job writes with
+409 and shows runs read-only. None of these routes is exported to a static site.
+
 ### Behind the scenes: Local model (any OpenAI-compatible server)
 
 The **Local model** section, after Indexes (and the Inbox, when it is not first) and before Library,

@@ -18,7 +18,8 @@ import {calloutPlugin} from './callouts.mjs';
 import {drawable,fetchShape,paintShape} from './shapes.mjs';
 import {artJobs,fetchArt,focusArt,forgetArt,hasArt,paintArt,paintArtThumb,paintPlaceholder} from './art.mjs';
 import {closeArtFocus,focusOpen} from './art-focus.mjs';
-import {applyThemes,installControls,mountSkeleton,mountCodeBlocks,decorateCodeBlocks,clearControlsWithin,mountDocumentTree,visibleDocumentNodes,revealDocumentRow,mountBackstage,mountChangesPanel,mountArtRegenerate,notify as shellNotify,openChat,closeChat,chatOpen,trackSpeech,renderQueuePanel,mountCallouts,startJob,promptCompanion,needsReader,NEEDS_READER} from './controls/reader-controls.js';
+import {applyThemes,installControls,mountSkeleton,mountCodeBlocks,decorateCodeBlocks,clearControlsWithin,mountDocumentTree,visibleDocumentNodes,revealDocumentRow,mountBackstage,mountChangesPanel,mountArtRegenerate,notify as shellNotify,openChat,closeChat,chatOpen,trackSpeech,renderQueuePanel,mountCallouts,startJob,promptCompanion,needsReader,NEEDS_READER,mountPromptCards} from './controls/reader-controls.js';
+import {promptPlugin,promptMounts} from './prompt-blocks.mjs';
 import {installVersions,chipMarkup,historicalMarkup,splitRef,compareLabel} from './versions.mjs';
 import {installSplit,installPane,cleanRoute} from './split.mjs';
 import {installScratch} from './scratch.mjs';
@@ -78,7 +79,8 @@ const syncThemeColor=()=>{const meta=document.querySelector('meta[name=theme-col
 new MutationObserver(syncThemeColor).observe(document.documentElement,{attributes:true,attributeFilter:['data-theme']});addEventListener('load',syncThemeColor,{once:true});
 const reduced = matchMedia('(prefers-reduced-motion: reduce)');
 // Callouts register before the source-map wrapper below, so their asides receive the blockquote's map.
-const md = window.markdownit({html:true, linkify:true, breaks:false}).use(mathPlugin).use(calloutPlugin).use(embedPlugin);
+// reader:prompt blocks (RW-44) are found from these tokens before sanitizing; see prompt-blocks.mjs.
+const md = window.markdownit({html:true, linkify:true, breaks:false}).use(mathPlugin).use(calloutPlugin).use(embedPlugin).use(promptPlugin);
 for (const type of ['paragraph_open','heading_open','blockquote_open','bullet_list_open','ordered_list_open','math_block','fence']) {
   const original = md.renderer.rules[type];
   md.renderer.rules[type] = (tokens, index, options, env, self) => {
@@ -494,7 +496,7 @@ async function navigate(path,{thread=null,fragment='',record=true,commit=null,at
     // A historical view keeps the reading log of the current file (it never adds you: nothing is marked read).
     const article=$('#article');$('#speak-article')?.addEventListener('click',()=>speech.send('article'));$('#edit-scratch')?.addEventListener('click',()=>scratch.editSaved(doc,bodyOf(doc.text).text.replace(/^\r?\n/,'')));if(doc.preview){$('.reading-log')?.remove();$('#speak-article')?.remove();}else loadReadingLog(doc,id);
     if(doc.kind==='.md' || doc.kind==='.markdown'){
-      await renderMarkdown(article,doc.text,path,0,{defer:true});
+      await renderMarkdown(article,doc.text,path,0,{defer:true,prompts:promptContext(doc)});
     } else if(doc.kind==='.pdf') {
       const controller=await openPDF(article,doc.file_url);if(id!==state.routeId){await controller.destroy();return;}state.pdf=controller;
     } else if(doc.text===null){article.innerHTML=`<img class="document-image" src="${esc(doc.file_url)}" alt="${esc(title)}">`;}
@@ -638,14 +640,22 @@ function mountEditions(){
   versions.wire($('#main'));versions.update();
 }
 function openEditions(){versions.open();}
+/** Where an article's prompt cards (RW-44) may run: never in the static demo, a past edition or an inbox preview. */
+function promptContext(doc){
+  const blocked=needsReader('jobs')?NEEDS_READER:doc.historical?'This is a past edition. Open the current article to run its prompt.'
+    :doc.preview?'Inbox arrivals can’t run prompts until they are filed.':null;
+  return {path:doc.path,sha256:doc.sha256,blocked,onAdmin:null};
+}
 /** Render Markdown into a container. An embedded fragment passes `range` (UTF-16 [start, end) of `raw`, the
  *  embedded file), so its blocks carry that file's source offsets; `chain` and `children` come from embeds.mjs. */
-async function renderMarkdown(container,raw,path,depth,{defer=false,range=null,chain=[],children=null}={}) {
+async function renderMarkdown(container,raw,path,depth,{defer=false,range=null,chain=[],children=null,prompts=null}={}) {
   const source=range?{text:raw.slice(range[0],range[1]),offset:range[0]}:bodyOf(raw);
   if(depth===0)embeds.reset();
   // `![[…]]` and `[[…]]` are markdown-it inline rules (embeds.mjs): code keeps them literally, and an
   // embed's placeholder never grants a source coordinate to the embedded document's blocks.
-  const rendered=md.render(source.text,{raw:source.text,full:raw,offset:source.offset,embeds:true,...mathOptions(raw)});
+  // Only the article itself (`prompts` given) turns prompt blocks into cards; embeds, chat and scratch keep plain code.
+  const env={raw:source.text,full:raw,offset:source.offset,embeds:true,...mathOptions(raw),...(prompts?{prompts:{}}:{})};
+  const rendered=md.render(source.text,env);
   const clean=DOMPurify.sanitize(rendered,{USE_PROFILES:{html:true},FORBID_TAGS:['style','form','input','button','textarea','select','iframe'],FORBID_ATTR:['style','srcset']});
   const template=document.createElement('template');template.innerHTML=clean;
   const images=[];
@@ -658,6 +668,7 @@ async function renderMarkdown(container,raw,path,depth,{defer=false,range=null,c
   const located=await resolveMany(path,images.map(image=>image.hasAttribute('data-embed-image')?image.getAttribute('src'):decode(image.getAttribute('src') || '')));
   images.forEach((image,index)=>{const resolved=located[index];if(resolved?.path)image.src='/api/file?path='+param(resolved.path);else{image.removeAttribute('src');image.alt=(image.alt || 'Image')+' (unavailable)';}});
   clearControlsWithin(container);container.replaceChildren(template.content);slugHeadings(container);
+  if(prompts&&env.prompts.blocks?.length)mountPromptCards(promptMounts(container,env.prompts),prompts);
   prepareDiagrams(container);
   // Embeds: one /api/embeds request resolves the first few and their nested embeds; the rest load as you read.
   await embeds.mount(container,path,{depth,chain,children});

@@ -114,6 +114,16 @@ through to the verified commit.
 
 ![A finished inbox run: the librarian's report, the filed arrivals and the commit](docs/images/inbox-activity.png)
 
+### Article prompts that become pull requests
+
+An article can end a finding with a self-contained repair prompt for a GitHub
+repository. Reader shows it as a prompt card: copy it, edit it for this run, pick
+Codex or Claude Code and press **Run → PR**. A server-owned job works on a fresh
+worktree branch, links or creates the issue, runs the repository's own guarded
+check and opens a pull request only after verifying the pushed branch; its live
+trace stays beside the article and its full log is archived forever. Repositories
+are registered locally; article metadata never supplies a path or command.
+
 Other parts, each documented in [docs/web.md](docs/web.md): **Send to AI-TTS**
 (Space s) hands the article or a selection to a local AI-TTS speech daemon; a
 reading log under each title shows who has read this edition; the app works at

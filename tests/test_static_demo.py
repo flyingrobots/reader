@@ -114,6 +114,8 @@ def test_export_records_every_route_the_reader_needs(exported):
                   '/api/issue', '/api/queue', '/api/history', '/api/readers', '/api/chats', '/api/chat', '/api/standfirst', '/api/editions', '/api/inbox'):
         assert route in routes, route
     assert not routes & {'/api/local-model', '/api/service', '/api/health', '/api/prose', '/api/art/jobs', '/api/art/still'}, 'machine routes are never exported'
+    # Coding jobs (RW-44) are local Reader capabilities: no run, event, registry or log route is exported.
+    assert not {r for r in routes if r.startswith(('/api/jobs', '/api/repositories', '/api/logs'))}
     for name, status in data['routes'].values():
         assert (out / 'data/r' / f'{name}.json').is_file() and status in (200, 400, 404)
     works = json.loads((out / 'data/r' / (data['routes'][static.key('/api/library', [])][0] + '.json')).read_text())['works']
