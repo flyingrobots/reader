@@ -97,6 +97,18 @@ def test_public_prompt_runtime_redacts_paths_without_rewriting_archive(app):
     assert file.read_bytes() == before
 
 
+def test_save_reply_failure_redacts_public_paths_and_preserves_diagnostics(app, monkeypatch):
+    prompt = generate(app)
+    def unavailable(*args):
+        raise OSError('Synthetic reply failure at ' + str(app.root / 'chats'))
+    monkeypatch.setattr(app.writing, 'reply', unavailable)
+    saved = save(app, prompt, ask_reply=True)
+    assert str(app.root) not in saved['reply_error']
+    assert '<vault>/chats' in saved['reply_error']
+    assert (app.root / saved['path']).is_file()
+    assert any(str(app.root) in file.read_text() for file in (app.root / '.reader/writing-requests').glob('*.json'))
+
+
 def test_invalid_quote_keeps_question_without_link(app):
     job = dict(id=str(uuid4()), voice='Claude', path=PATH, source_sha256=app.digest(PATH))
     result = app.prompts.task_result(job, dict(question='What do you think?', quote='Invented passage.'), {})

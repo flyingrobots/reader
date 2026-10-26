@@ -21,6 +21,7 @@ from uuid import UUID, uuid4, uuid5
 
 from .chats import git_locks_tool
 from .companions import repo_env
+from .display import shown
 
 NOTEBOOK = 'library/notebook'
 MAX_BODY = 64 * 1024  # UTF-8 bytes; requests are capped at 128 KiB.
@@ -86,17 +87,17 @@ class Writing:
                     if old['fingerprint'] != fingerprint:
                         raise ValueError('Writing request ID already exists with different input')
                     if old.get('result'):
-                        return old['result']
+                        return shown(old['result'], self.root)
                     result = self.finish_save(old['plan'], recover=True)
                     self.record(file, {'fingerprint': fingerprint, 'result': result})
-                    return result
+                    return shown(result, self.root)
                 if sum(1 for _ in journal.iterdir()) >= 5000:
                     raise ValueError('Writing request journal exceeds 5,000 records')
                 def planned(plan):
                     self.record(file, {'fingerprint': fingerprint, 'plan': plan})
                 result = self.save(request, participant, planned)
                 self.record(file, {'fingerprint': fingerprint, 'result': result})
-            return result
+            return shown(result, self.root)
 
     @staticmethod
     def record(file, value):

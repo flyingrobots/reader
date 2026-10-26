@@ -21,3 +21,5 @@ The quiz branch's published review fixes were merged normally into this separate
 A public prompt-runtime regression reproduced a host path in the voice version. The existing display redaction now applies to the public runtime copy, while the immutable archive remains byte-identical. All 13 prompt tests passed (`prompt-runtime-red` / `prompt-runtime-green`).
 
 The prompt and notebook GET routes now share expensive-request admission because each scans its bounded inventory. The route regression was RED before classification; the refusal and ordinary-read availability checks both passed afterward (`prompt-admission-red` / `prompt-admission-green`).
+
+A failed reply handoff also exposed a host path in its successful-save response. Fresh, recovered and replayed public save results now use display redaction; the notebook and internal diagnostic journal remain unchanged. The new failure-path regression and the prompt/notebook suites passed all 21 tests (`prompt-save-privacy-red` / `prompt-save-privacy-green`).
