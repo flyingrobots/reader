@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Browser suites run from a fresh clone (#14): `playwright-core` 1.64.1 is now an exact, development-only dependency in a root `package.json`/`package-lock.json`, so `npm ci` at the repository root is the only setup and `tests/web_*.cjs` resolve it without `READER_PLAYWRIGHT` (still honored as an override). It downloads no browser; the suites keep using the installed Google Chrome (`READER_CHROME` overrides). Python tests now pin this checkout's `src` (#15): `tests/conftest.py` puts its absolute path first in `sys.path` and `PYTHONPATH` and stops if `reader_mcp` resolves elsewhere, so a worktree no longer tests another checkout's code through an editable virtual environment.
+
 - Search page under contention (#57): its passage search now waits up to 8 seconds for a running search, as content and semantic search do, instead of answering 429 at once, and the page retries any 429 on `/api/search/page` (including the server's busy gate) after 0.5, 1, 2, 4 and 8 seconds, like the Documents picker. A search that never runs shows *Search couldn't finish*, never the no-match note.
 
 - Math typesets after first paint (fixes #117): a document with formulas is shown as soon as its place is restored, with TeX placeholders, instead of waiting for KaTeX (a synthetic 1,500-formula document became visible in about 0.27 s instead of 1.8 s, and finished typesetting sooner). Formulas near the reader go first; the first block in view stays put while heights change, in scroll and two-page mode; highlights and an open find are redrawn from the typeset text; prose colors skip formulas. `web_math.cjs` covers a math-heavy fixture with a late bookmark, a note beside math, find during typesetting and TeX copy.

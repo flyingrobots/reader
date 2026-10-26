@@ -3567,143 +3567,109 @@ that gives a reason for each entry and is itself checked for stale entries. Read
 own locations outside the vault are the app data, log and LaunchAgents folders under
 `~/Library`, the AI-TTS socket and tool caches.
 
+Browser suites (`tests/web_*.cjs`) load Playwright from the repository's own
+development dependency: run `npm ci` once at the repository root, which installs the
+exact `playwright-core` pinned in the root `package.json` and `package-lock.json`.
+It is a development-only dependency and is not shipped with Reader, so it is not
+listed in the third-party notices. `playwright-core` downloads no browser; the suites
+drive the installed Google Chrome (`/Applications/Google Chrome.app` on macOS). Three
+environment variables override the defaults: `READER_CHROME` names another Chrome or
+Chromium executable (required off macOS), `READER_PLAYWRIGHT` loads a different
+`playwright-core` checkout by absolute path, and `READER_PYTHON` names the Python
+that runs the fixture server (default `.venv/bin/python`).
+
+Python tests import this checkout's `src` first: `tests/conftest.py` puts its absolute
+path at the front of `sys.path` and `PYTHONPATH` (so subprocesses started from another
+directory see it too) and stops the run if `reader_mcp` still resolves elsewhere, for
+example from a shared virtual environment that is an editable install of another
+worktree.
+
 Synthetic checks, without opening the configured vault:
 
 ```sh
 .venv/bin/python -m pytest -q tests/test_no_absolute_paths.py
 .venv/bin/python -m pytest -q tests/test_web.py
 node --test tests/web_logic.test.mjs tests/callouts.test.mjs
-READER_PLAYWRIGHT=/absolute/path/to/playwright-core \
-READER_CHROME=/path/to/chrome node tests/web_browser.cjs
-READER_PLAYWRIGHT=/absolute/path/to/playwright-core \
-READER_CHROME=/path/to/chrome node tests/web_breadcrumbs.cjs
-READER_PLAYWRIGHT=/absolute/path/to/playwright-core \
-READER_CHROME=/path/to/chrome node tests/web_search_retry.cjs
+node tests/web_browser.cjs
+node tests/web_breadcrumbs.cjs
+node tests/web_search_retry.cjs
 node --test tests/dashboard.test.mjs tests/magazine.test.mjs
-READER_PLAYWRIGHT=/absolute/path/to/playwright-core \
-READER_CHROME=/path/to/chrome node tests/web_dashboard.cjs
-READER_PLAYWRIGHT=/absolute/path/to/playwright-core \
-READER_CHROME=/path/to/chrome node tests/web_magazine.cjs
+node tests/web_dashboard.cjs
+node tests/web_magazine.cjs
 .venv/bin/python -m pytest -q tests/test_demo.py
-READER_PLAYWRIGHT=/absolute/path/to/playwright-core \
-READER_CHROME=/path/to/chrome node tests/web_demo.cjs
+node tests/web_demo.cjs
 .venv/bin/python -m pytest -q tests/test_static_demo.py
-READER_PLAYWRIGHT=/absolute/path/to/playwright-core \
-READER_CHROME=/path/to/chrome node tests/web_static_demo.cjs
-READER_PLAYWRIGHT=/absolute/path/to/playwright-core \
-READER_CHROME=/path/to/chrome node tests/web_controls.cjs
-READER_PLAYWRIGHT=/absolute/path/to/playwright-core \
-READER_CHROME=/path/to/chrome node tests/web_documents.cjs
+node tests/web_static_demo.cjs
+node tests/web_controls.cjs
+node tests/web_documents.cjs
 .venv/bin/python -m pytest -q tests/test_themes.py
-READER_PLAYWRIGHT=/absolute/path/to/playwright-core \
-READER_CHROME=/path/to/chrome node tests/web_themes.cjs
-READER_PLAYWRIGHT=/absolute/path/to/playwright-core \
-READER_CHROME=/path/to/chrome node tests/web_page_turn.cjs
-READER_PLAYWRIGHT=/absolute/path/to/playwright-core \
-READER_CHROME=/path/to/chrome node tests/web_spread_pin_pages.cjs
-READER_PLAYWRIGHT=/absolute/path/to/playwright-core \
-READER_CHROME=/path/to/chrome node tests/web_shape.cjs
-READER_PLAYWRIGHT=/absolute/path/to/playwright-core \
-READER_CHROME=/path/to/chrome node tests/web_art.cjs
+node tests/web_themes.cjs
+node tests/web_page_turn.cjs
+node tests/web_spread_pin_pages.cjs
+node tests/web_shape.cjs
+node tests/web_art.cjs
 node --test tests/art_scene.test.mjs
 .venv/bin/python -m pytest -q tests/test_art.py
-READER_PLAYWRIGHT=/absolute/path/to/playwright-core \
-READER_CHROME=/path/to/chrome node tests/web_diagrams.cjs
-READER_PLAYWRIGHT=/absolute/path/to/playwright-core \
-READER_CHROME=/path/to/chrome node tests/web_code_block.cjs
+node tests/web_diagrams.cjs
+node tests/web_code_block.cjs
 node --test tests/math.test.mjs
-READER_PLAYWRIGHT=/absolute/path/to/playwright-core \
-READER_CHROME=/path/to/chrome node tests/web_math.cjs
+node tests/web_math.cjs
 .venv/bin/python -m pytest -q tests/test_maintenance.py tests/test_related.py tests/test_index_scale.py tests/test_shape.py
-READER_PLAYWRIGHT=/absolute/path/to/playwright-core \
-READER_CHROME=/path/to/chrome node tests/web_backstage.cjs
+node tests/web_backstage.cjs
 node --test tests/reading_log.test.mjs
-READER_PLAYWRIGHT=/absolute/path/to/playwright-core \
-READER_CHROME=/path/to/chrome node tests/web_reading_log.cjs
+node tests/web_reading_log.cjs
 node --test tests/dates.test.mjs
-READER_PLAYWRIGHT=/absolute/path/to/playwright-core \
-READER_CHROME=/path/to/chrome node tests/web_dates.cjs   # America/Los_Angeles and Asia/Tokyo
+node tests/web_dates.cjs   # America/Los_Angeles and Asia/Tokyo
 
 .venv/bin/python -m pytest -q tests/test_speech.py
-READER_PLAYWRIGHT=/absolute/path/to/playwright-core \
-READER_CHROME=/path/to/chrome node tests/web_speech.cjs
+node tests/web_speech.cjs
 
 .venv/bin/python -m pytest -q tests/test_inbox_view.py tests/test_inbox_runner.py
 node --test tests/activity.test.mjs
-READER_PLAYWRIGHT=/absolute/path/to/playwright-core \
-READER_CHROME=/path/to/chrome node tests/web_inbox.cjs
+node tests/web_inbox.cjs
 
-READER_PLAYWRIGHT=/absolute/path/to/playwright-core \
-READER_CHROME=/path/to/chrome node tests/web_outline.cjs
+node tests/web_outline.cjs
 
 .venv/bin/python -m pytest -q tests/test_links.py
-READER_PLAYWRIGHT=/absolute/path/to/playwright-core \
-READER_CHROME=/path/to/chrome node tests/web_links.cjs
+node tests/web_links.cjs
 
 .venv/bin/python -m pytest -q tests/test_editions.py
-READER_PLAYWRIGHT=/absolute/path/to/playwright-core \
-READER_CHROME=/path/to/chrome node tests/web_editions.cjs
+node tests/web_editions.cjs
 .venv/bin/python -m pytest -q tests/test_changes.py
-READER_PLAYWRIGHT=/absolute/path/to/playwright-core \
-READER_CHROME=/path/to/chrome node tests/web_changes.cjs
+node tests/web_changes.cjs
 .venv/bin/python -m pytest -q tests/test_chats.py tests/test_llm_logs.py
-READER_PLAYWRIGHT=/absolute/path/to/playwright-core \
-READER_CHROME=/path/to/chrome node tests/web_chat.cjs
+node tests/web_chat.cjs
 .venv/bin/python -m pytest -q tests/test_local_model.py tests/test_local_provider.py
-READER_PLAYWRIGHT=/absolute/path/to/playwright-core \
-READER_CHROME=/path/to/chrome node tests/web_local_model.cjs
-READER_PLAYWRIGHT=/absolute/path/to/playwright-core \
-READER_CHROME=/path/to/chrome node tests/web_local_provider.cjs
-READER_PLAYWRIGHT=/absolute/path/to/playwright-core \
-READER_CHROME=/path/to/chrome node tests/web_index_scale.cjs
+node tests/web_local_model.cjs
+node tests/web_local_provider.cjs
+node tests/web_index_scale.cjs
 .venv/bin/python -m pytest -q tests/test_versions.py
-READER_PLAYWRIGHT=/absolute/path/to/playwright-core \
-READER_CHROME=/path/to/chrome node tests/web_versions.cjs
+node tests/web_versions.cjs
 .venv/bin/python -m pytest -q tests/test_search_page.py
-READER_PLAYWRIGHT=/absolute/path/to/playwright-core \
-READER_CHROME=/path/to/chrome node tests/web_search_page.cjs
+node tests/web_search_page.cjs
 .venv/bin/python -m pytest -q tests/test_prose.py
-READER_PLAYWRIGHT=/absolute/path/to/playwright-core \
-READER_CHROME=/path/to/chrome node tests/web_prose.cjs
+node tests/web_prose.cjs
 .venv/bin/python -m pytest -q tests/test_queue.py
-READER_PLAYWRIGHT=/absolute/path/to/playwright-core \
-READER_CHROME=/path/to/chrome node tests/web_queue.cjs
-READER_PLAYWRIGHT=/absolute/path/to/playwright-core \
-READER_CHROME=/path/to/chrome node tests/web_perf.cjs
-READER_PLAYWRIGHT=/absolute/path/to/playwright-core \
-READER_CHROME=/path/to/chrome node tests/web_resilience.cjs
+node tests/web_queue.cjs
+node tests/web_perf.cjs
+node tests/web_resilience.cjs
 .venv/bin/python -m pytest -q tests/test_service.py
-READER_PLAYWRIGHT=/absolute/path/to/playwright-core \
-READER_CHROME=/path/to/chrome node tests/web_service.cjs
-READER_PLAYWRIGHT=/absolute/path/to/playwright-core \
-READER_CHROME=/path/to/chrome node tests/web_callouts.cjs
-READER_PLAYWRIGHT=/absolute/path/to/playwright-core \
-READER_CHROME=/path/to/chrome node tests/web_offline.cjs
-READER_PLAYWRIGHT=/absolute/path/to/playwright-core \
-READER_CHROME=/path/to/chrome node tests/web_chat_sync.cjs
-READER_PLAYWRIGHT=/absolute/path/to/playwright-core \
-READER_CHROME=/path/to/chrome node tests/web_selection.cjs
-READER_PLAYWRIGHT=/absolute/path/to/playwright-core \
-READER_CHROME=/path/to/chrome node tests/web_modal.cjs
-READER_PLAYWRIGHT=/absolute/path/to/playwright-core \
-READER_CHROME=/path/to/chrome node tests/web_spread_resize.cjs
-READER_PLAYWRIGHT=/absolute/path/to/playwright-core \
-READER_CHROME=/path/to/chrome node tests/web_outline_fixes.cjs
-READER_PLAYWRIGHT=/absolute/path/to/playwright-core \
-READER_CHROME=/path/to/chrome node tests/web_routes.cjs
-READER_PLAYWRIGHT=/absolute/path/to/playwright-core \
-READER_CHROME=/path/to/chrome node tests/web_threads.cjs
-READER_PLAYWRIGHT=/absolute/path/to/playwright-core \
-READER_CHROME=/path/to/chrome node tests/web_focus.cjs
-READER_PLAYWRIGHT=/absolute/path/to/playwright-core \
-READER_CHROME=/path/to/chrome node tests/web_search_fixes.cjs
-READER_PLAYWRIGHT=/absolute/path/to/playwright-core \
-READER_CHROME=/path/to/chrome node tests/web_find_cap.cjs
-READER_PLAYWRIGHT=/absolute/path/to/playwright-core \
-READER_CHROME=/path/to/chrome node tests/web_spread_pins.cjs
+node tests/web_service.cjs
+node tests/web_callouts.cjs
+node tests/web_offline.cjs
+node tests/web_chat_sync.cjs
+node tests/web_selection.cjs
+node tests/web_modal.cjs
+node tests/web_spread_resize.cjs
+node tests/web_outline_fixes.cjs
+node tests/web_routes.cjs
+node tests/web_threads.cjs
+node tests/web_focus.cjs
+node tests/web_search_fixes.cjs
+node tests/web_find_cap.cjs
+node tests/web_spread_pins.cjs
 .venv/bin/python -m pytest -q tests/test_companions.py
-READER_PLAYWRIGHT=/absolute/path/to/playwright-core \
-READER_CHROME=/path/to/chrome node tests/web_companions.cjs
+node tests/web_companions.cjs
 ```
 
 `tests/test_companions.py` and `web_companions.cjs` use `tests/fake_toolchain.py`:

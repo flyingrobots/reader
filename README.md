@@ -299,12 +299,16 @@ node --test tests/*.test.mjs
 ```
 
 The browser suites (`tests/web_*.cjs`) drive a disposable fixture server with
-Playwright and Chrome:
+Playwright and your installed Google Chrome. `npm ci` at the repository root
+installs the pinned, development-only `playwright-core` (no browser download):
 
 ```sh
-READER_PLAYWRIGHT=/absolute/path/to/playwright-core \
-READER_CHROME=/path/to/chrome node tests/web_browser.cjs
+npm ci
+node tests/web_browser.cjs
 ```
+
+Set `READER_CHROME` to another Chrome or Chromium executable (needed off macOS) or
+`READER_PLAYWRIGHT` to a different `playwright-core` path to override the defaults.
 
 The full list is in [Development and validation](docs/web.md#development-and-validation).
 CI runs the Python and plugin checks in bounded Docker workers through
