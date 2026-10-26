@@ -283,6 +283,44 @@ def test_reader_log_commits_are_never_attributed_to_a_voice(vault):
     assert paths == ['notes/voice.md'] and commits == [voice_commit], 'only the commit touching other files is the voice\'s'
 
 
+def test_reader_art_commits_are_never_attributed_to_a_voice(vault):
+    """An art commission's commit (Reader-Art and Reader-Log trailers, art/ and logs/llm/art/) made during a
+    voice turn is Reader's, not the voice's, and its art/ paths are not the voice's changed paths (#133)."""
+    from reader_mcp import llm_logs
+    conversations = service(vault)
+    runner = conversations.runner
+    git = lambda *a: subprocess.run(['git', *a], cwd=vault, capture_output=True, text=True, check=True).stdout
+    before = runner.snapshot()
+    log = llm_logs.RunLog(vault, 'art', 'synthetic-art-run', {'runner': 'art'})
+    log.write('brief-request.json', '{}')
+    relative = log.finish('done')
+    folder = 'art/thought.md/' + 'a' * 64 + '/g1'
+    (vault / folder).mkdir(parents=True)
+    (vault / folder / 'scene.json').write_text('{}\n')
+    assert llm_logs.commit(vault, [folder, relative], 'Add art for a synthetic article',
+                           [('Reader-Art', 'library/thought.md@' + 'a' * 12 + '/g1'), ('Reader-Log', llm_logs.trailer(relative))],
+                           git_locks=False)['status'] == 'committed'
+    (vault / 'art/thought.md/favorite.json').write_text('{}\n')
+    assert llm_logs.commit(vault, ['art/thought.md/favorite.json'], 'Choose the art for a synthetic article',
+                           [('Reader-Art', 'library/thought.md@' + 'a' * 12 + '/g1 (favorite)')], git_locks=False)['status'] == 'committed'
+    (vault / 'notes').mkdir(exist_ok=True)
+    (vault / 'notes/voice.md').write_text('a voice wrote this\n')
+    (vault / 'art/other.md').mkdir(parents=True)
+    (vault / 'art/other.md/forged.json').write_text('{}\n')
+    git('add', 'notes/voice.md', 'art/other.md/forged.json')
+    git('commit', '-q', '-m', 'A voice commit\n\nReader-Art: library/other.md@' + 'b' * 12 + '/g1')
+    voice_commit = git('rev-parse', 'HEAD').strip()
+    paths, commits = runner.changes(before)
+    assert commits == [voice_commit], 'only the commit touching other files is the voice\'s'
+    assert paths == ['art/other.md/forged.json', 'notes/voice.md'], 'Reader\'s art paths are not the voice\'s changes'
+    # A trailer naming one article never covers another article's art folder.
+    before = runner.snapshot()
+    (vault / 'art/other.md/elsewhere.json').write_text('{}\n')
+    git('add', 'art/other.md/elsewhere.json')
+    git('commit', '-q', '-m', 'Mislabelled\n\nReader-Art: library/thought.md@' + 'a' * 12 + '/g2')
+    assert runner.changes(before) == (['art/other.md/elsewhere.json'], [git('rev-parse', 'HEAD').strip()])
+
+
 def test_sends_are_idempotent(vault):
     conversations = service(vault)
     chat = new_chat(conversations)

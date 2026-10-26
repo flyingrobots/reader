@@ -23,6 +23,7 @@ import time
 import traceback
 from uuid import uuid4
 
+from .art import ART_ROOT, ART_TRAILER
 from .display import shown
 from .chats import Chats, MAX_BODY, chime_ins
 from .resources import has_capacity, minimum_free_bytes
@@ -805,27 +806,49 @@ class VoiceRunner:
         commits = []
         if after['head'] and after['head'] != before['head']:
             span = f'{before["head"]}..{after["head"]}' if before['head'] else after['head']
-            listed = self.git('rev-list', '--reverse', '--max-count=50', span)
-            commits = [c for c in (listed.decode().split() if listed else []) if not self.chat_commit(c)]
+            listed = self.git('rev-list', '--reverse', '--max-count=51', span)
+            listed = listed.decode().split() if listed else []
+            ours, theirs = set(), set()
+            for commit in listed[:50]:
+                files = self.commit_files(commit)
+                own = files is not None and self.reader_commit(*files)
+                (ours if own else theirs).update(files[1] if files else ())
+                if not own:
+                    commits.append(commit)
+            # Paths only Reader's own commits touched (art it committed, say) are not the voice's changes (#133);
+            # past 50 commits the span is not fully known, so every changed path is kept.
+            hidden = ours - theirs if len(listed) <= 50 else set()
             names = self.git('diff', '--name-only', '-z', before['head'], after['head']) if before['head'] else None
             if names:
-                paths |= {p for p in names.decode('utf-8', 'replace').split('\0') if p}
+                paths |= {p for p in names.decode('utf-8', 'replace').split('\0') if p and p not in hidden}
         visible = sorted(p for p in paths if not p.startswith(('chats/', '.reader/', llm_logs.ROOT + '/')))
         return visible[:200], commits
 
-    def chat_commit(self, commit):
-        """Reader's own chat and LLM-log commits are not the voice's: a `Reader-Chat` commit of chats and
-        logs, or a `Reader-Log` commit of LLM logs only (the local-model worker's)."""
+    def commit_files(self, commit):
+        """(message, files) of one commit, or None."""
         shown = self.git('show', '--name-only', '--format=%B%x00', commit)
         if not shown:
-            return False
+            return None
         body, _, names = shown.decode('utf-8', 'replace').partition('\0')
-        files = [n for n in names.split('\n') if n.strip()]
+        return body, [n for n in names.split('\n') if n.strip()]
+
+    def chat_commit(self, commit):
+        files = self.commit_files(commit)
+        return files is not None and self.reader_commit(*files)
+
+    @staticmethod
+    def reader_commit(body, files):
+        """Reader's own chat, LLM-log and art commits are not the voice's: a `Reader-Chat` commit of chats and
+        logs, a `Reader-Log` commit of LLM logs only (the local-model worker's), or a `Reader-Art` commit of
+        LLM logs and the art folders its trailers name (an art commission, favorite or still, #133)."""
         if not files:
             return False
         if '\nReader-Chat: ' in body and all(n.startswith(('chats/', llm_logs.ROOT + '/')) for n in files):
             return True
-        return '\nReader-Log: ' in body and all(n.startswith(llm_logs.ROOT + '/') for n in files)
+        if '\nReader-Log: ' in body and all(n.startswith(llm_logs.ROOT + '/') for n in files):
+            return True
+        folders = tuple(ART_ROOT + '/' + m.group(1) + '/' for m in ART_TRAILER.finditer(body))
+        return bool(folders) and all(n.startswith(folders + (llm_logs.ROOT + '/',)) for n in files)
 
     def version(self, voice):
         if not voice.get('version_argv') or not voice.get('executable'):

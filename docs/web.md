@@ -2078,8 +2078,11 @@ store lock); only **+** starts a second chat.
 Reader session in this vault, as configured in `voices.json`: they may read, write
 and commit. Every turn records its changed paths (from `git status` before and
 after, excluding `chats/`, `logs/llm/` and `.reader/`) and the commits it made, leaving out
-Reader's own commits (a `Reader-Chat` commit of chats and logs, or a `Reader-Log` commit
-that touches only `logs/llm/`, such as the local-model worker's). Each turn sends
+Reader's own commits (a `Reader-Chat` commit of chats and logs, a `Reader-Log` commit
+that touches only `logs/llm/`, such as the local-model worker's, or a `Reader-Art` commit
+that touches only `logs/llm/` and the `art/` folders its trailers name: a commission, a
+favorite or a still). Paths that only Reader's own commits touched are not listed as
+the turn's changed paths. Each turn sends
 the document's identity, the chat transcript and anything the voice chooses to read
 to that voice's provider (Anthropic, OpenAI or Google). Nothing is excluded.
 

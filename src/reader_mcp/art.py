@@ -49,6 +49,8 @@ from .resources import has_capacity, minimum_free_bytes
 PROMPTS = Path(__file__).with_name('art_prompts')
 PROMPT_VERSIONS = {'brief': 'brief.v1', 'scene': 'scene.v1', 'repair': 'repair.v1', 'dsl': 'dsl.v1'}
 ART_ROOT = 'art'
+# `Reader-Art: library/<path>@<edition>/<generation>[ (favorite|still)]`; group 1 is the path under library/.
+ART_TRAILER = re.compile(r'^Reader-Art: library/([^@\n]+)@[0-9a-f]{12}/', re.M)
 TEXT_KINDS = ('.md', '.markdown', '.txt')
 MAX_SOURCE = 4 * 1024**2
 MAX_ARTICLE = 60_000           # characters of the article sent to the producer
