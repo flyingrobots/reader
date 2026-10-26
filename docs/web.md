@@ -3916,6 +3916,27 @@ the page's context received (`watch(page)` records them). `settled(page)` waits 
 the page height and scroll position hold still for two frames. The condition is sent
 as a function, never as a string, because Reader's CSP has no `unsafe-eval`.
 
+Suites never depend on when they run. `reader_mcp/clock.py` is the clock behind
+Reader's calendar answers (the library's and history's `today`, the inventory date,
+read and comment timestamps); `READER_TEST_CLOCK` (an ISO instant with an offset,
+set only by tests) starts it at that instant and lets it advance in real time.
+Timeouts and durations keep the real clocks. The `--magazine` fixture pins it to
+Wednesday 2026-10-21 12:00 UTC, dates the issue's pieces from it and reports it as
+`now` on its first line; the suites that show the issue (`web_magazine`, `web_art`,
+`web_art_owner`, `web_art_prompt`, `web_shape`) pass that to `pinDate(context, now)`
+from `tests/web_clock.cjs`, which starts the page's `Date` at the same instant. It
+changes only `Date`: Playwright's clock also replaces timers, `requestAnimationFrame`
+and `performance.now` with timer-driven fakes, which changes what frame-rate,
+transition and hover-delay checks measure. Suites that need to step timers use
+`page.clock` directly (`web_dates`).
+
+Chrome 156 and later report a CSP violation when any parser in the page, inert
+ones included, meets an inline event handler, so DOMPurify parsing a fixture's
+untrusted `<img onerror>` logs one although nothing runs. `sanitizerReport(message)`
+in `tests/web_wait.cjs` is true for that report only (raised from
+`/assets/vendor/purify.min.js`); suites whose documents contain such markup skip it
+in their console-error checks and still fail on every other console error.
+
 `scripts/browser-stress.mjs` repeats named suites, optionally under CPU load, to
 measure flakes:
 

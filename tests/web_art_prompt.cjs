@@ -8,15 +8,16 @@ const {spawn}=require('node:child_process');
 const {createInterface}=require('node:readline');
 const {mkdirSync}=require('node:fs');
 const {chromium}=require(process.env.READER_PLAYWRIGHT||'playwright-core');
+const {pinDate}=require('./web_clock.cjs');  // the fixture's pinned clock (#131)
 (async()=>{
  let browser,fixture;
  try{
   fixture=spawn(process.env.READER_PYTHON||'.venv/bin/python',['tests/web_fixture.py','--magazine','--art','--art-delay','0.02'],{stdio:['ignore','pipe','inherit']});
-  const {url}=await new Promise((resolve,reject)=>{createInterface({input:fixture.stdout}).once('line',line=>resolve(JSON.parse(line)));fixture.once('exit',code=>reject(new Error('Fixture exited '+code)));});
+  const {url,now}=await new Promise((resolve,reject)=>{createInterface({input:fixture.stdout}).once('line',line=>resolve(JSON.parse(line)));fixture.once('exit',code=>reject(new Error('Fixture exited '+code)));});
   browser=await chromium.launch({headless:true,executablePath:process.env.READER_CHROME||'/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',args:['--use-angle=swiftshader','--enable-unsafe-swiftshader','--disable-background-networking','--disable-breakpad','--disable-crash-reporter','--disk-cache-size=10485760']});
   mkdirSync('.reader/web-dev',{recursive:true});
   const open=async({prefs={},viewport={width:1300,height:900},touch=false}={})=>{
-    const context=await browser.newContext({viewport,reducedMotion:'reduce',hasTouch:touch});
+    const context=await browser.newContext({viewport,reducedMotion:'reduce',hasTouch:touch});await pinDate(context,now);
     await context.grantPermissions(['clipboard-read','clipboard-write'],{origin:url});
     await context.addInitScript(value=>{try{localStorage.setItem('reader.preferences.v1',value);}catch{}},JSON.stringify({smooth:false,theme:'paper',...prefs}));
     const page=await context.newPage(),errors=[],external=[];

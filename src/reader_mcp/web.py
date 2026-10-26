@@ -17,6 +17,7 @@ from urllib.parse import parse_qs, quote, urlsplit
 
 from rapidfuzz import fuzz, process
 
+from . import clock
 from .annotations import Annotations
 from .art import ArtMissing, ArtOwned, Studio
 from .browse import Browse
@@ -284,7 +285,7 @@ class WebLibrary:
         else:
             browse = Browse(self.root)
             works = browse.inventory(browse.settings())
-            as_of = datetime.now(timezone.utc).date().isoformat()
+            as_of = clock.now().date().isoformat()
         if not isinstance(works, list) or len(works) > 10000:
             raise ValueError('Work inventory exceeds 10,000 works')
         return works, as_of
@@ -329,7 +330,7 @@ class WebLibrary:
                                 'at': thread['comments'][-1]['created_at'] if thread['comments'] else thread['created_at']})
         for row in rows:
             row['threads'] = open_threads[row['primary']]
-        today = datetime.now(timezone.utc).date()
+        today = clock.now().date()
         read = sum(w['read'] for w in rows)
         return {'participant': participant, 'participants': [r['participant'] for r in receipts], 'works': rows,
                 'as_of': as_of, 'today': today.isoformat(),
@@ -951,7 +952,7 @@ class WebLibrary:
             days[-1]['items'].append(row)
         return {'participant': participant, 'days': days, 'total': len(items), 'filter': 'finished' if finished else 'all',
                 'next_cursor': cursor + HISTORY_PAGE if cursor + HISTORY_PAGE < len(items) else None,
-                'today': (datetime.now(timezone.utc) + offset).date().isoformat()}
+                'today': (clock.now() + offset).date().isoformat()}
 
     def queue_view(self, participant, current=None):
         participant = self.engagement.participant(participant)
