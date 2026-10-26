@@ -7,7 +7,7 @@ import {Field, FieldLabel, FieldDescription} from '../components/ui/field';
 import {Input} from '../components/ui/input';
 import {Button} from '../components/ui/button';
 import {ButtonGroup} from '../components/ui/button-group';
-import {bestContrastWith, COLOR_TOKENS, FONT_ROLES, BUNDLED_FONTS, CHARTS, alphaOf, autoFix, checkVariant, deriveVariant, generateVariant, modeColors, simulateTokens, suggestAccents, withAlpha, type Check, type Simulation, type Theme, type Tokens, type Variant} from './color';
+import {bestContrastWith, COLOR_TOKENS, FONT_ROLES, HEADINGS, HEADING_SIZES, BUNDLED_FONTS, CHARTS, alphaOf, autoFix, checkVariant, deriveVariant, generateVariant, modeColors, simulateTokens, suggestAccents, withAlpha, type Check, type HeadingStyle, type Simulation, type Theme, type Tokens, type Variant} from './color';
 import {FAMOUS, famousId} from './famous';
 import {readBuiltIn, themeId, variantProperties, type InstalledFont} from './theme-css';
 
@@ -22,9 +22,9 @@ const slugify=(name:string)=>name.toLowerCase().normalize('NFKD').replace(/[^a-z
 
 function fromBuiltIn(key:string):Theme{
   const b=BUILT_INS.find(x=>x.key===key)!,light=readBuiltIn(b.light),dark=readBuiltIn(b.dark);
-  return {id:'',name:b.name+' copy',fonts:light.fonts,light:light.tokens,dark:dark.tokens};
+  return {id:'',name:b.name+' copy',fonts:light.fonts,headings:{},light:light.tokens,dark:dark.tokens};
 }
-function blank(seed='#5b6ee1'):Theme{return {id:'',name:'New theme',fonts:{serif:null,sans:null,mono:null},light:generateVariant(seed,'light'),dark:generateVariant(seed,'dark')};}
+function blank(seed='#5b6ee1'):Theme{return {id:'',name:'New theme',fonts:{serif:null,sans:null,mono:null},headings:{},light:generateVariant(seed,'light'),dark:generateVariant(seed,'dark')};}
 function initial(current:string,themes:Theme[]):{theme:Theme;source:string}{
   const custom=themes.find(t=>current===themeId(t,'light')||current===themeId(t,'dark'));
   if(custom)return {theme:structuredClone(custom),source:custom.id};
@@ -47,9 +47,19 @@ function TokenRow({name,label,description,alpha,value,flag,onChange}:{name:strin
   </div>;
 }
 
-function Preview({tokens,fonts,variant,sim}:{tokens:Tokens;fonts:Theme['fonts'];variant:Variant;sim:Simulation}){
+function HeadingRow({level,label,size,description,value,fontGroups,onChange}:{level:string;label:string;size:number;description:string;value:HeadingStyle;fontGroups:{label?:string;items:{value:string;label:string}[]}[];onChange:(value:HeadingStyle)=>void}){
+  const [low,high]=HEADING_SIZES;const [text,setText]=useState(value.size===null?'':String(value.size));useEffect(()=>setText(value.size===null?'':String(value.size)),[value.size]);
+  const commit=(raw:string)=>{const v=raw.trim();if(v===''){onChange({...value,size:null});return;}const n=Math.round(Number(v)*10)/10;if(Number.isFinite(n)&&n>=low&&n<=high)onChange({...value,size:n});else setText(value.size===null?'':String(value.size));};
+  return <div className="theme-heading" data-heading={level}>
+    <Choice id={'heading-font-'+level} label={label+' font'} value={value.font||''} groups={fontGroups} onChange={v=>onChange({...value,font:v||null})}/>
+    <Field><FieldLabel htmlFor={'heading-size-'+level}>{label} size</FieldLabel><div className="theme-heading-size"><Input id={'heading-size-'+level} type="number" inputMode="decimal" min={low} max={high} step={1} placeholder={String(size)} value={text} onChange={e=>setText(e.target.value)} onBlur={e=>commit(e.target.value)} onKeyDown={e=>{if(e.key==='Enter'){e.preventDefault();commit((e.target as HTMLInputElement).value);}}}/><span>px</span></div></Field>
+    <p className="theme-heading-note">{description} Blank size keeps {size} px.</p>
+  </div>;
+}
+
+function Preview({tokens,fonts,headings,variant,sim}:{tokens:Tokens;fonts:Theme['fonts'];headings:Theme['headings'];variant:Variant;sim:Simulation}){
   const shown=simulateTokens(tokens,sim);
-  const style={...variantProperties(shown,fonts,variant),...Object.fromEntries(modeColors(shown,variant).map(m=>['--mode-'+m.name,m.value]))} as CSSProperties;
+  const style={...variantProperties(shown,fonts,variant,headings),...Object.fromEntries(modeColors(shown,variant).map(m=>['--mode-'+m.name,m.value]))} as CSSProperties;
   return <div className="theme-preview" style={style} data-variant={variant} aria-label="Sample article preview">
     <div className="theme-preview-page">
       <article className="article">
@@ -61,6 +71,7 @@ function Preview({tokens,fonts,variant,sim}:{tokens:Tokens;fonts:Theme['fonts'];
         <blockquote>The catalog is the library’s memory of itself; the margins are its conversation.</blockquote>
         <h2>What the keeper owes</h2>
         <ul><li>Preserve what arrived, exactly as it came.</li><li>Say where certainty ends, with <code>provenance</code> attached.</li></ul>
+        <h3>Heading three</h3><h4>Heading four</h4><h5>Heading five</h5><h6>Heading six</h6>
         <CodeBlock className="theme-preview-code"><CodeBlockHeader><CodeBlockTitle>Shell</CodeBlockTitle></CodeBlockHeader><CodeBlockContent tabIndex={-1}>{'reader browse --check\n# 2 works, 0 changed'}</CodeBlockContent></CodeBlock>
       </article>
       <aside className="theme-preview-panel">
@@ -113,6 +124,7 @@ export function ThemeEditor(props:EditorProps){
   const choose=(value:string)=>{if(value===source||!confirmDiscard())return;setDirty(false);setSource(value);
     if(value==='new')setDraft(blank(seed));else if(value.startsWith('builtin:'))setDraft(fromBuiltIn(value.slice(8)));else setDraft(structuredClone(themes.find(t=>t.id===value)!));};
   const fontGroups=(role:typeof FONT_ROLES[number])=>[{items:[{value:'',label:`Default${role.default?` (${role.default})`:' (system)'}`}]},{label:'Bundled',items:BUNDLED_FONTS.map(f=>({value:f,label:f}))},{label:'Downloaded',items:fonts.filter(f=>!BUNDLED_FONTS.includes(f.family)).map(f=>({value:f.family,label:`${f.family} · ${f.category}`}))}].filter(g=>g.items.length);
+  const headingFontGroups=[{items:[{value:'',label:'Default (Reading font)'}]},{label:'Bundled',items:BUNDLED_FONTS.map(f=>({value:f,label:f}))},{label:'Downloaded',items:fonts.filter(f=>!BUNDLED_FONTS.includes(f.family)).map(f=>({value:f.family,label:`${f.family} · ${f.category}`}))}].filter(g=>g.items.length);
   async function save(use:boolean){
     const name=draft.name.trim();if(!name){error(new Error('Give the theme a name.'));return;}
     const taken=new Set([...themes.map(t=>t.id),...BUILT_INS.flatMap(b=>[b.key,b.light])]);let id=draft.id;
@@ -147,11 +159,16 @@ export function ThemeEditor(props:EditorProps){
             {FONT_ROLES.map(role=><Choice key={role.name} id={'font-'+role.name} label={role.label} value={draft.fonts[role.name]||''} groups={fontGroups(role)} onChange={v=>update({fonts:{...draft.fonts,[role.name]:v||null}})}/>)}
             <FontSearch api={api} installed={fonts} error={error} onInstalled={(list,font)=>{props.onPreviewFont(font.stylesheet);props.onChanged(themes,list);}}/>
           </fieldset>
+          <fieldset className="theme-group theme-headings"><legend>Headings</legend>
+            <p className="theme-note">Each level can take its own font and size. Default uses the Reading font at the size shown. Fonts added above appear in every list.</p>
+            {HEADINGS.map(h=><HeadingRow key={h.level} {...h} value={draft.headings?.[h.level]||{font:null,size:null}} fontGroups={headingFontGroups}
+              onChange={v=>update({headings:{...draft.headings,[h.level]:v}})}/>)}
+          </fieldset>
         </form>
         <div className="theme-editor-side">
           <div className="theme-preview-bar"><ButtonGroup className="theme-variant" aria-label="Preview variant">{(['light','dark'] as Variant[]).map(v=><Button key={v} type="button" size="sm" variant={variant===v?'default':'outline'} aria-pressed={variant===v} onClick={()=>setVariant(v)}>{v==='light'?'Light':'Dark'}</Button>)}</ButtonGroup>
             <Choice id="theme-simulation" label="Simulate" value={sim} groups={[{items:SIMS}]} onChange={v=>setSim(v as Simulation)}/></div>
-          <Preview tokens={tokens} fonts={draft.fonts} variant={variant} sim={sim}/>
+          <Preview tokens={tokens} fonts={draft.fonts} headings={draft.headings} variant={variant} sim={sim}/>
           {failingOther>0&&<p className="theme-note">The {other} variant has {failingOther} failing check{failingOther>1?'s':''}.</p>}
           <Checks checks={checks} onFix={c=>c.fix&&setToken(c.fix.token,c.fix.value)} onFixAll={()=>update({[variant]:autoFix(tokens,variant)} as Partial<Theme>)}/>
         </div>

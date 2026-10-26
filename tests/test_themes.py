@@ -59,12 +59,31 @@ def test_save_list_update_and_delete_preserve_created_at(tmp_path):
     theme(dark={token: 'red;}body{display:none' for token in COLOR_TOKENS}),
     theme(dark={token: '#FFFFFF' for token in COLOR_TOKENS}),
     theme(fonts={'serif': "Lora'; }"}), theme(fonts={'display': 'Lora'}),
+    theme(headings={'h7': {'size': 20}}), theme(headings={'h1': {'size': 9}}), theme(headings={'h1': {'size': 121}}),
+    theme(headings={'h2': {'size': '30px'}}), theme(headings={'h2': {'size': True}}),
+    theme(headings={'h3': {'font': "Lora'; }"}}), theme(headings={'h3': {'weight': 700}}), theme(headings=['h1']),
 ])
 def test_invalid_themes_are_refused_without_writing(tmp_path, bad):
     themes = Themes(tmp_path, FakeFonts())
     with pytest.raises(ValueError):
         themes.save(bad)
     assert not list((tmp_path / 'themes').glob('*.json')) if (tmp_path / 'themes').exists() else True
+
+
+def test_headings_default_to_null_and_round_trip_per_level(tmp_path):
+    themes = Themes(tmp_path, FakeFonts())
+    plain = themes.save(theme())
+    assert plain['headings'] == {level: {'font': None, 'size': None} for level in ('h1', 'h2', 'h3', 'h4', 'h5', 'h6')}
+    saved = themes.save(theme(headings={'h1': {'font': 'Lora', 'size': 44}, 'h4': {'size': 18.25}, 'h6': None}))
+    assert saved['headings']['h1'] == {'font': 'Lora', 'size': 44}
+    assert saved['headings']['h4'] == {'font': None, 'size': 18.2}
+    assert saved['headings']['h6'] == {'font': None, 'size': None}
+    assert themes.list()['themes'][0]['headings'] == saved['headings']
+    # A theme file written before headings existed still reads, with every level at its default.
+    stored = json.loads((tmp_path / 'themes/dusk.json').read_text())
+    del stored['headings']
+    (tmp_path / 'themes/dusk.json').write_text(json.dumps(stored))
+    assert themes.list()['themes'][0]['headings']['h2'] == {'font': None, 'size': None}
 
 
 def test_font_search_filters_catalog_and_install_keeps_latin_subsets_locally(tmp_path):

@@ -107,7 +107,8 @@ WebGL, with reduced motion, or by preference. A Theme Editor
 (Space , t, F10 or Behind the scenes) creates, edits, duplicates and deletes custom light/dark
 themes over a standard token contract. They are stored in the vault's `themes/`.
 It checks WCAG 2.x contrast and simulated color-vision separation, suggests fixes,
-generates themes from a seed, and previews a sample article. Fonts can be added from
+generates themes from a seed, and previews a sample article. Each heading level (H1–H6)
+can take its own font and size in a theme. Fonts can be added from
 Google Fonts. They are downloaded once into the vault on request and then served
 locally. APCA contrast and non-latin font subsets are not included.
 

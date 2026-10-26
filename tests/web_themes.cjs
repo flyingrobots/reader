@@ -37,13 +37,24 @@ const {chromium}=require(process.env.READER_PLAYWRIGHT||'playwright-core');
   await page.locator('.theme-font-results li').filter({hasText:'Lora'}).getByRole('button',{name:'Added'}).waitFor();
   await page.locator('#font-serif').click();await page.getByRole('option',{name:'Lora · Serif'}).click();
   assert.match(await page.locator('.theme-preview').evaluate(el=>getComputedStyle(el).getPropertyValue('--serif')),/^'Lora'/);
+  // Headings: each level takes its own font and size; blank keeps the default.
+  // The Reading font goes back to its default, so Lora below can come only from the H1 setting.
+  await page.locator('#font-serif').click();await page.getByRole('option',{name:'Default (Newsreader)'}).click();
+  await page.locator('#heading-font-h1').click();await page.getByRole('option',{name:'Lora · Serif'}).click();
+  await page.locator('#heading-size-h2').fill('40');await page.locator('#heading-size-h2').press('Enter');
+  await page.locator('#heading-size-h5').fill('500');await page.locator('#heading-size-h5').press('Enter');
+  assert.equal(await page.locator('#heading-size-h5').inputValue(),'','an out-of-range size is refused');
+  const previewHeading=sel=>page.locator('.theme-preview .article '+sel).evaluate(el=>({family:getComputedStyle(el).fontFamily,size:getComputedStyle(el).fontSize}));
+  assert.match((await previewHeading('h1')).family,/^Lora/);assert.equal((await previewHeading('h2')).size,'40px');
+  assert.match((await previewHeading('h2')).family,/^Newsreader/);assert.equal((await previewHeading('h4')).size,'17px','unset levels keep the preview default');
   // Light variant: derive from dark, then save and use.
   await page.locator('.theme-editor-form .theme-variant button').filter({hasText:'Light'}).click();
   await page.getByRole('button',{name:'Derive dark variant from light'}).click();
   await page.getByRole('button',{name:'Save and use'}).click();
   await page.waitForFunction(()=>document.documentElement.dataset.theme==='user-dusk-test');
-  const listed=await (await page.request.get(url+'/api/themes')).json();assert.deepEqual(listed.themes.map(t=>t.id),['dusk-test']);assert.equal(listed.themes[0].fonts.serif,'Lora');
+  const listed=await (await page.request.get(url+'/api/themes')).json();assert.deepEqual(listed.themes.map(t=>t.id),['dusk-test']);assert.equal(listed.themes[0].fonts.serif,null);
   assert.equal(await page.evaluate(()=>getComputedStyle(document.documentElement).getPropertyValue('--bg').trim()),listed.themes[0].light.bg);
+  assert.deepEqual(listed.themes[0].headings.h1,{font:'Lora',size:null});assert.deepEqual(listed.themes[0].headings.h2,{font:null,size:40});assert.deepEqual(listed.themes[0].headings.h5,{font:null,size:null});
   await page.locator('#theme-editor-foot, .theme-editor-foot').getByText('Saved in the vault').waitFor();
   mkdirSync('.reader/web-dev',{recursive:true});await page.screenshot({path:'.reader/web-dev/theme-editor.png'});
   await page.keyboard.press('Escape');await editor.waitFor({state:'hidden'});
@@ -54,12 +65,17 @@ const {chromium}=require(process.env.READER_PLAYWRIGHT||'playwright-core');
   await page.reload();assert.equal(await page.locator('html').getAttribute('data-theme'),'user-dusk-test-dark');assert.ok((await page.locator('#reader-user-themes').textContent()).includes('user-dusk-test-dark'));
   await page.locator('#home-title').waitFor();await page.unroute('**/api/themes');await page.reload();await page.locator('#home-title').waitFor();assert.equal(await page.locator('html').getAttribute('data-theme'),'user-dusk-test-dark');
   assert.ok(await page.evaluate(()=>[...document.querySelectorAll('link[data-theme-font]')].some(l=>l.getAttribute('href')==='/fonts/lora/font.css')));
+  // A document's headings follow the theme: H1's font also sets the title; H2 takes its size; H3 keeps the default.
+  await page.goto(url+'#read=library/thought.md');await page.locator('.article h2').first().waitFor();
+  const docHeading=sel=>page.locator(sel).first().evaluate(el=>({family:getComputedStyle(el).fontFamily,size:getComputedStyle(el).fontSize}));
+  assert.match((await docHeading('.article .document-title')).family,/^Lora/);assert.equal((await docHeading('.article h2')).size,'40px');assert.match((await docHeading('.article h2')).family,/^Newsreader/);
+  await page.goto(url);await page.locator('#home-title').waitFor();
   // Delete returns to a built-in of the same polarity.
   await page.keyboard.press('F10');await editor.waitFor();assert.equal(await page.locator('#theme-name').inputValue(),'Dusk test');
   await page.getByRole('button',{name:'Delete theme'}).click();await page.waitForFunction(()=>document.documentElement.dataset.theme==='ink');
   assert.deepEqual((await (await page.request.get(url+'/api/themes')).json()).themes,[]);
   await page.screenshot({path:'.reader/web-dev/theme-editor-new.png'});
   await page.setViewportSize({width:390,height:844});await page.waitForTimeout(200);assert.ok(await page.evaluate(()=>document.querySelector('#theme-editor').scrollWidth<=innerWidth+1),'editor fits phone width');
-  assert.deepEqual(external,[]);assert.deepEqual(errors,[]);console.log('Theme Editor passed: F10/leader/settings entry, built-in copy, contrast fix, CVD preview, local font install, save/use/pair/reload cache, delete fallback, phone width, local-only requests.');
+  assert.deepEqual(external,[]);assert.deepEqual(errors,[]);console.log('Theme Editor passed: F10/leader/settings entry, built-in copy, contrast fix, CVD preview, local font install, per-level heading font and size (preview, saved, document), save/use/pair/reload cache, delete fallback, phone width, local-only requests.');
  }finally{await browser?.close();if(fixture.exitCode===null&&fixture.signalCode===null){fixture.kill('SIGTERM');await new Promise(resolve=>fixture.once('exit',resolve));}}
 })().catch(error=>{console.error(error);process.exitCode=1;});

@@ -30,6 +30,15 @@
     {"name": "sans", "label": "Interface", "default": "Manrope", "fallback": "Helvetica, sans-serif", "description": "Controls, labels, footer and dashboard."},
     {"name": "mono", "label": "Code", "default": null, "fallback": "ui-monospace, SFMono-Regular, monospace", "description": "Inline code and code blocks."}
   ],
+  "headings": [
+    {"level": "h1", "label": "Heading 1", "size": 38, "description": "Top-level headings in the text. Its font also sets the document title."},
+    {"level": "h2", "label": "Heading 2", "size": 29, "description": "Section headings."},
+    {"level": "h3", "label": "Heading 3", "size": 23, "description": "Subsection headings."},
+    {"level": "h4", "label": "Heading 4", "size": 20, "description": "Fourth-level headings."},
+    {"level": "h5", "label": "Heading 5", "size": 20, "description": "Fifth-level headings."},
+    {"level": "h6", "label": "Heading 6", "size": 20, "description": "Sixth-level headings."}
+  ],
+  "heading_size_range": [10, 120],
   "prose_note": "Prose color roles (Colorful Language) are derived, not stored. Vivid gives each role a saturated hue: the proper-noun role takes the accent's hue, the others take the unused theme color nearest their target hue (secondary emphasis, charts) or a synthesized one; each moves in OKLCH lightness to 4.5:1 on the page and is kept at least 0.08 ΔE_OK from ink, muted and every other role. Clear reuses Vivid's proper, number and quote colors and recedes function words and punctuation to prose-recede at about 3:1. Subtle mixes muted or the role colors with ink at 4.5:1 or more. prose-content is ink raised to 7:1 when the theme's ink is below it.",
   "prose": [
     {"name": "prose-function", "label": "Function words", "hue": 300, "description": "Articles, prepositions, pronouns and other structural words (\"keywords\")."},

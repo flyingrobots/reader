@@ -8,7 +8,7 @@
   "sources": {
     "../src/reader_mcp/web_ui/art-scene.v1.json": "704fc555d474df965a7c676d9dbe518f532149a1e65132e2c72c1859a3521eb1",
     "../src/reader_mcp/web_ui/famous-themes.json": "0d0eddf04d8e3d4268111e29c53d73e03d202dfca4f1ad5e92aa90dc8941a3aa",
-    "../src/reader_mcp/web_ui/theme-tokens.json": "dbae5604b6b6843489d353888d9360c1c1eb24bb07baa650ef1534b67ecc33d2",
+    "../src/reader_mcp/web_ui/theme-tokens.json": "9100bd322a5e007c6f60923c297b4a456fce0e57899a3b06627b89280d6c5f9e",
     "build.mjs": "a4394a2eb66d9391f2ec6b9da75935b063e2a4c36baab56cbf2e1a831c669bd9",
     "components.json": "6bcabb7870c5c5634cf69e9138a782ca7242f00cfc94e2cc3de981dc84cb6f6b",
     "licenses.mjs": "6d68777363b8fa9c496a32b60fab061ea62145c1a0f033014607a9ace9aa45da",
@@ -75,12 +75,12 @@
     "src/shape/shape.ts": "9fe4b2b1dd21a2869130afa25aed34e2ea482fc8fe05aa2609193aa24c04b50c",
     "src/speech-control.tsx": "45a7efd449606ea196c7adef281ddadb2bd89dab1b5c9a945f56897cadbb4e0c",
     "src/static-demo.ts": "036a0b4413452d2ec8f7a51248157340082f3c030fc51d3237275021340e8810",
-    "src/styles.css": "4107061e4630bbdc1a8894f1f6248e0cf694a54b4b5e9fca94bad3f788699f83",
-    "src/theme/color.ts": "825d911b525fe5fa570c0eb43d6f5859c9a3c8d77021670cdf364df4bde1c65a",
+    "src/styles.css": "ec54285ef05b0c63917cc4a6d4f12e6e85180aa3ad6efc16ce641c4be5770db9",
+    "src/theme/color.ts": "6537487f39aba3a1381baf01ec22fe458ae3e547b2ae0ffbbc5852c82b671746",
     "src/theme/famous-build.ts": "2cd184dabb7dae2e46f936e2c1aea0ff5a4696ca1e1a35eccc78439877af4b12",
     "src/theme/famous.ts": "de4969de8a1c4a4d2d3017a9d9f7a6745868f1828d677c4ab6f3f45096318101",
-    "src/theme/theme-css.ts": "09327dcf8d97ea5cbaa0be5869fdadd9958b4025605993e404ed42fd5ef9fcc8",
-    "src/theme/theme-editor.tsx": "42781054e40054c24b081d44fbd162f78a3ae4053097ae65e09bedc3bbf7aa4d",
+    "src/theme/theme-css.ts": "311a0e08004e521b191c9c670625dddf4857e3bf1eac6e8b8e6561e8073f8202",
+    "src/theme/theme-editor.tsx": "42f39a516197a0e304975a9de2b7827cc8eea3f4a3f357341e8fc6e7c30d08c0",
     "src/vanilla-buttons.ts": "f54cd8c9ffec8fb89fb410301462a3b4da10fd1d449063a7ac5de71c0166c24b"
   },
   "dependencies": {
@@ -891,12 +891,12 @@
       "sha256": "7955d94f346e460083a3dd9abbd7f171ff8cb7756efe9d8958691e075df9f72a"
     },
     "reader-controls.css": {
-      "bytes": 143858,
-      "sha256": "ce74ebf94e59865e47aea7461569ea9ea9df7d4844c9ef37846910feaa23ceee"
+      "bytes": 144751,
+      "sha256": "139be7222bba91e9941a137681f1fc8615a9fc4607b62850537b9966ca95e66b"
     },
     "reader-controls.js": {
-      "bytes": 913506,
-      "sha256": "c74033a802c44cbcfb00e7fca58eab6728e4e2ff7e98b069a1d420a7a193d367"
+      "bytes": 916483,
+      "sha256": "de0ee3670f63a821478658498e5d675c637af96ac913ba2db45518f9013c9a5c"
     },
     "reader-controls.js.LEGAL.txt": {
       "bytes": 5290,

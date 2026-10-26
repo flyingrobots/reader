@@ -22,6 +22,8 @@ from urllib.request import Request, urlopen
 TOKENS = json.loads((Path(__file__).with_name('web_ui') / 'theme-tokens.json').read_text())
 COLOR_TOKENS = [token['name'] for token in TOKENS['colors']]
 FONT_ROLES = [font['name'] for font in TOKENS['fonts']]
+HEADING_LEVELS = [heading['level'] for heading in TOKENS['headings']]
+HEADING_SIZES = tuple(TOKENS['heading_size_range'])
 FAMOUS = json.loads((Path(__file__).with_name('web_ui') / 'famous-themes.json').read_text())
 BUILT_IN = {'ink', 'paper', 'orchid', 'harvest'} | {theme['id'] for theme in FAMOUS['themes']}
 THEME_ID = re.compile(r'[a-z0-9](?:[a-z0-9-]{0,38}[a-z0-9])?')
@@ -117,7 +119,8 @@ class Themes:
             if family is not None and (not isinstance(family, str) or not FAMILY.fullmatch(family)):
                 raise ValueError('Font family names use letters, digits and spaces only')
         result = {'schema_version': 1, 'id': identifier, 'name': name.strip(),
-                  'fonts': {role: fonts.get(role) for role in FONT_ROLES}}
+                  'fonts': {role: fonts.get(role) for role in FONT_ROLES},
+                  'headings': self.validate_headings(theme.get('headings', {}))}
         for variant in ('light', 'dark'):
             tokens = theme.get(variant)
             if not isinstance(tokens, dict) or set(tokens) != set(COLOR_TOKENS):
@@ -126,6 +129,30 @@ class Themes:
                 if not isinstance(value, str) or not HEX.fullmatch(value):
                     raise ValueError(f'{variant} {token} must be a lowercase #rrggbb or #rrggbbaa color')
             result[variant] = {token: tokens[token] for token in COLOR_TOKENS}
+        return result
+
+    @staticmethod
+    def validate_headings(headings):
+        """Per-level heading font and size; null (or an omitted level) keeps the stylesheet default."""
+        if headings is None:
+            headings = {}
+        if not isinstance(headings, dict) or set(headings) - set(HEADING_LEVELS):
+            raise ValueError('Headings are keyed h1 to h6')
+        low, high = HEADING_SIZES
+        result = {}
+        for level in HEADING_LEVELS:
+            entry = headings.get(level) or {}
+            if not isinstance(entry, dict) or set(entry) - {'font', 'size'}:
+                raise ValueError(f'{level} takes only a font and a size')
+            family, size = entry.get('font'), entry.get('size')
+            if family is not None and (not isinstance(family, str) or not FAMILY.fullmatch(family)):
+                raise ValueError('Font family names use letters, digits and spaces only')
+            if size is not None:
+                if isinstance(size, bool) or not isinstance(size, (int, float)) or not low <= size <= high:
+                    raise ValueError(f'{level} size must be a number of pixels from {low} to {high}')
+                size = round(float(size), 1)
+                size = int(size) if size.is_integer() else size
+            result[level] = {'font': family, 'size': size}
         return result
 
     def path(self, identifier):

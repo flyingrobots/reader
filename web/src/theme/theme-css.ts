@@ -1,4 +1,4 @@
-import {COLOR_TOKENS, FONT_ROLES, BUNDLED_FONTS, hex, lightness, proseColors, withAlpha, type Theme, type Tokens, type Variant} from './color';
+import {COLOR_TOKENS, FONT_ROLES, HEADINGS, BUNDLED_FONTS, hex, lightness, proseColors, withAlpha, type Theme, type Tokens, type Variant} from './color';
 
 export type InstalledFont={family:string;slug:string;category:string;license:string|null;stylesheet:string};
 export const themeId=(theme:Theme,variant:Variant)=>'user-'+theme.id+(variant==='dark'?'-dark':'');
@@ -8,25 +8,34 @@ export function fontStack(role:string,family:string|null|undefined){
   return chosen?`'${chosen}', ${info.fallback}`:info.fallback;
 }
 /** Custom properties for one variant; used by both the generated stylesheet and the editor preview. */
-export function variantProperties(tokens:Tokens,fonts:Theme['fonts'],variant:Variant):Record<string,string>{
+/** --hN-font and --hN-size for each level the theme sets; unset levels fall back to style.css. */
+export function headingProperties(headings:Theme['headings']):Record<string,string>{
+  const out:Record<string,string>={};
+  for(const h of HEADINGS){const set=headings?.[h.level];if(!set)continue;
+    if(set.font)out[`--${h.level}-font`]=fontStack('serif',set.font);
+    if(typeof set.size==='number'&&Number.isFinite(set.size))out[`--${h.level}-size`]=`${set.size}px`;}
+  return out;
+}
+export function variantProperties(tokens:Tokens,fonts:Theme['fonts'],variant:Variant,headings?:Theme['headings']):Record<string,string>{
   const shadow=variant==='dark'?'#00000080':withAlpha(tokens.ink.slice(0,7),.14);
   return {...Object.fromEntries(COLOR_TOKENS.map(t=>['--'+t.name,tokens[t.name]])),
     ...Object.fromEntries(Object.entries(proseColors(tokens)).map(([name,value])=>['--'+name,value])),
     ...Object.fromEntries(FONT_ROLES.map(f=>['--'+f.name,fontStack(f.name,fonts[f.name])])),
+    ...headingProperties(headings),
     '--shadow':`0 32px 120px ${shadow}`,'color-scheme':variant};
 }
 
 /** Stylesheet for every custom theme. Values are validated hex and family names, so nothing here can escape a declaration. */
 export function themeStylesheet(themes:Theme[],idOf:(theme:Theme,variant:Variant)=>string=themeId){
   return themes.flatMap(theme=>(['light','dark'] as Variant[]).map(variant=>{
-    const id=idOf(theme,variant),props=variantProperties(theme[variant],theme.fonts,variant);
+    const id=idOf(theme,variant),props=variantProperties(theme[variant],theme.fonts,variant,theme.headings);
     return `:root[data-theme="${id}"]{${Object.entries(props).map(([k,v])=>`${k}:${v}`).join(';')}}\n`+
       `:root[data-theme="${id}"] .chart-mount path[role=button],:root[data-theme="${id}"] .chart-bar-row rect:not([fill=transparent]),:root[data-theme="${id}"] .chart-mount>svg>rect{stroke:var(--chart-stroke);stroke-width:1}\n`+
       `:root[data-theme="${id}"] .chart-legend i{outline:1px solid var(--chart-stroke)}\n`;
   })).join('');
 }
 export function fontLinks(themes:Theme[],installed:InstalledFont[]){
-  const used=new Set(themes.flatMap(t=>Object.values(t.fonts).filter(Boolean) as string[]));
+  const used=new Set(themes.flatMap(t=>[...Object.values(t.fonts),...Object.values(t.headings||{}).map(h=>h?.font)].filter(Boolean) as string[]));
   return installed.filter(f=>used.has(f.family)&&!BUNDLED_FONTS.includes(f.family)).map(f=>f.stylesheet);
 }
 

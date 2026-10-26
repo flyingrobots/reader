@@ -367,9 +367,13 @@ accessibility certification.
 
 Custom themes are stored in the private vault as `themes/<id>.json`: schema version 1
 with `id`, `name`, `fonts` (`serif`/`sans`/`mono` family or null for the default),
-`light` and `dark` (every color token, lowercase `#rrggbb` or `#rrggbbaa`),
+`headings` (`h1`–`h6`, each `{font, size}`: a family or null for the Reading font, and
+a size in pixels from 10 to 120 or null for the stylesheet default), `light` and `dark` (every color token, lowercase `#rrggbb` or `#rrggbbaa`),
 `created_at` and `updated_at`. Ids are 1–40 lowercase letters, digits or hyphens. They
-cannot be a built-in name or end in `-dark`. The page uses
+cannot be a built-in name or end in `-dark`. A theme saved before `headings` existed
+reads with every level at its default. Heading settings become `--h1-font`/`--h1-size`
+through `--h6-*` custom properties, which only the document's headings read; the H1 font
+also sets the document title, whose size stays responsive. The page uses
 `data-theme="user-<id>"` and `user-<id>-dark`. Writes are atomic under
 `.reader/themes.lock`. Limits are 64 themes and 64 KiB per theme. The generated CSS is
 cached in `reader.themes.v1` local storage so a saved theme paints before

@@ -9,11 +9,15 @@ useMode(modeRgb);useMode(modeLrgb);const oklab=useMode(modeOklab),oklch=useMode(
 
 export type Tokens=Record<string,string>;
 export type Variant='light'|'dark';
-export type Theme={id:string;name:string;fonts:Record<string,string|null>;light:Tokens;dark:Tokens;created_at?:string;updated_at?:string};
+export type HeadingStyle={font:string|null;size:number|null};
+export type Theme={id:string;name:string;fonts:Record<string,string|null>;headings?:Record<string,HeadingStyle>;light:Tokens;dark:Tokens;created_at?:string;updated_at?:string};
 export type TokenInfo={name:string;label:string;group:string;description:string;alpha?:boolean};
 export const COLOR_TOKENS:TokenInfo[]=contract.colors;
 export const FONT_ROLES=contract.fonts;
 export const BUNDLED_FONTS:string[]=contract.bundled_fonts;
+export type HeadingInfo={level:string;label:string;size:number;description:string};
+export const HEADINGS:HeadingInfo[]=contract.headings;
+export const HEADING_SIZES=contract.heading_size_range as [number,number];
 export const CHARTS=COLOR_TOKENS.filter(t=>t.group==='Charts'&&t.name!=='chart-stroke').map(t=>t.name);
 export type ProseInfo={name:string;label:string;hue:number|'accent';description:string};
 export const PROSE_TOKENS:ProseInfo[]=contract.prose as ProseInfo[];
