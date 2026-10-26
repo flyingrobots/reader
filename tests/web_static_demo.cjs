@@ -97,8 +97,11 @@ const TYPES={'.html':'text/html; charset=utf-8','.js':'text/javascript','.mjs':'
   assert.equal(Object.values(stored.threads).length,1);assert.equal(Object.values(stored.threads)[0].comments[0].body,'A note kept in this browser.');
   await page.reload();await ready();await page.waitForFunction(n=>document.querySelectorAll('#article [data-thread]').length>n,before);
   // Server-only features say so instead of failing.
+  const queue=await page.evaluate(async()=>{const r=await fetch('/api/queue',{method:'POST',headers:{'Content-Type':'application/json'},body:'{"action":"add"}'});return [r.status,(await r.json()).error];});
+  assert.equal(queue[0],501);assert.match(queue[1],/your computer/);
+  // Chat is answered here by the scripted voices (#108; tests/web_static_chat.cjs), so it asks for a demo document.
   const chat=await page.evaluate(async()=>{const r=await fetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:'{"action":"create"}'});return [r.status,(await r.json()).error];});
-  assert.equal(chat[0],501);assert.match(chat[1],/your computer/);
+  assert.equal(chat[0],400);assert.match(chat[1],/document in the demo library/);
   await page.goto(url+'#backstage');await page.locator('#main').getByText(/Behind the scenes/i).first().waitFor();
   await page.waitForTimeout(500);
   await page.screenshot({path:'.reader/web-dev/static-demo-backstage.png'});

@@ -14,7 +14,7 @@ import {InputGroup, InputGroupAddon, InputGroupButton, InputGroupTextarea} from 
 import {ComboboxContent, ComboboxEmpty, ComboboxList} from '../components/ui/combobox';
 import {Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue} from '../components/ui/select';
 import {createRawBus, RawOutput, type RawBus} from './raw-output';
-import {localOnly, needsReader, NEEDS_READER} from '../static-demo';
+import {localOnly, needsReader, NEEDS_READER, staticDemo} from '../static-demo';
 
 const TERMINAL=new Set(['done','failed','timeout','cancelled']);
 export type Voice={name:string;mention:string[];enabled:boolean;manual:boolean;available:boolean;runnable:boolean;cli:string|null};
@@ -34,6 +34,8 @@ type ChatMessage={id:string;author:string;body:string;mentions?:string[];reply_t
   listening?:{voices:string[];warnings:{voice:string;message:string;changed_paths:string[]}[];
     runs?:{turn_id:string;voice:string;state:string;outcome?:string|null;failure?:string|null;log?:string|null}[]};
   runtime?:{cli?:string;version?:string|null;model?:string|null;manual?:boolean;pasted_by?:string}|null;
+  /** Written by the web demo's shim (#108): kept in this browser's storage, never sent anywhere. */
+  local?:boolean;
   turn?:{id:string;state:string;seconds:number|null;changed_paths:string[];commits:string[];commit:string|null;error?:string;stderr_tail?:string;exit_code?:number|null;
     failure?:string;warning?:string;timeout_seconds?:number|null;log?:string|null}};
 type LogUsage={path:string;bytes:number;runs:number;retention:string};
@@ -84,11 +86,12 @@ function Markdown({text,markdown}:{text:string;markdown:(text:string)=>string}){
 function Footer({message,retried,onRetry,onReply,openPath,raw}:{message:ChatMessage;retried:boolean;onRetry:()=>void;onReply:(()=>void)|null;openPath:(path:string)=>void;raw:RawProps}){
   const turn=message.turn;
   const reply=onReply?<Button variant="ghost" size="xs" onClick={onReply} data-chat-reply="" title="Reply to this message · r"><CornerUpLeftIcon/>Reply to @{message.author}</Button>:null;
-  if(!turn)return reply?<MessageFooter className="chat-footer"><span className="chat-facts">{reply}</span></MessageFooter>:null;
+  const here=message.local?<span data-chat-local="" title="The web demo keeps this chat in your browser’s storage; nothing is sent anywhere">only in this browser</span>:null;
+  if(!turn)return reply||here?<MessageFooter className="chat-footer"><span className="chat-facts">{reply}{here}</span></MessageFooter>:null;
   const failed=turn.state!=='done',listening=message.listening;
   return <MessageFooter className="chat-footer">
     <span className="chat-facts">
-      {reply}
+      {reply}{here}
       {listening?.voices.length?<span data-chat-listened="" title="These voices were asked whether they had something to add">listened: {listening.voices.join(', ')}</span>:null}
       {failed?<span className="chat-failed" data-chat-state={turn.state} data-chat-failure={turn.failure||''}>{(turn.failure&&failureLabel[turn.failure])||failedLabel[turn.state]||turn.state}</span>:null}
       {turn.seconds!=null?<span title={turn.timeout_seconds?`Timeout: ${turn.timeout_seconds} s (timeout_seconds in voices.json)`:undefined}>{turn.seconds.toFixed(1)} s{turn.timeout_seconds?` of ${limit(turn.timeout_seconds)}`:''}</span>:null}
@@ -241,6 +244,8 @@ export function ChatPanel(props:ChatProps){
   };
   // The web demo's one chat switch (#108): the shim's serves.chat turns the composer on.
   const offline=needsReader('chat');
+  // Listening checks and chime-ins run only on a Reader; the web demo's scripted voices answer when addressed.
+  const quiet=needsReader('chime-ins');
   const send=async()=>{if(offline)return;if(await post('send',draft)){setDraft('');setMention(null);}};
   const paste=async()=>{if(await post('paste',pasteText)){setPasteText('');setPasting(false);}};
   const cancel=async(turn:Turn)=>{try{await api('/api/chat',{action:'cancel',turn_id:turn.id,id:turn.chat_id});}catch(error){fail(error);}};
@@ -276,8 +281,8 @@ export function ChatPanel(props:ChatProps){
         <Button variant="ghost" size="icon-sm" aria-label="Close chat" onClick={onClose} id="chat-close"><XIcon/></Button>
       </ButtonGroup>
     </div>
-    <div className="chat-settings"><Select items={CHIME_INS} value={chimeIns} disabled={offline} onValueChange={value=>{if(value&&value!==chimeIns)configure(value as ChimeIns);}}>
-      <SelectTrigger id="chat-chime-ins" size="sm" aria-label="When voices who were not addressed may chime in" title={offline?NEEDS_READER:'After an addressed reply, the other voices are asked whether they have something to add'}><SelectValue/></SelectTrigger>
+    <div className="chat-settings"><Select items={CHIME_INS} value={chimeIns} disabled={quiet} onValueChange={value=>{if(value&&value!==chimeIns)configure(value as ChimeIns);}}>
+      <SelectTrigger id="chat-chime-ins" size="sm" aria-label="When voices who were not addressed may chime in" title={quiet?NEEDS_READER:'After an addressed reply, the other voices are asked whether they have something to add'}><SelectValue/></SelectTrigger>
       <SelectContent alignItemWithTrigger={false}><SelectGroup>{CHIME_INS.map(o=><SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}</SelectGroup></SelectContent></Select></div>
     {history.length>0?<div className="chat-history"><Select items={history.map(c=>({value:c.id,label:`${when(c.created_at)} · ${c.messages} messages`}))} value={chat?.id??null} onValueChange={value=>{if(value)load(value).catch(fail);}}>
       <SelectTrigger id="chat-history" size="sm" className="w-full" aria-label="Earlier chats about this document"><SelectValue placeholder="New chat"/></SelectTrigger>
@@ -341,7 +346,7 @@ export function ChatPanel(props:ChatProps){
         value={draft} onValueChange={(value,details)=>{if(details.reason==='item-press'){choose(items.find(v=>v.name===value)||null);return;}if(details.reason==='input-change'){const element=textarea.current;track(value,element?.selectionStart??value.length);}}}
         itemToStringValue={voice=>voice.name} autoHighlight>
         <InputGroup className="chat-input">
-          <ComboboxPrimitive.Input render={<InputGroupTextarea ref={textarea} id="chat-input" rows={2} maxLength={65536} placeholder={offline?'Chat needs Reader on your computer, where the voices run.':'Message the voices… @ to mention'} aria-label="Message the voices" disabled={offline} title={offline?NEEDS_READER:undefined}/>}
+          <ComboboxPrimitive.Input render={<InputGroupTextarea ref={textarea} id="chat-input" rows={2} maxLength={65536} placeholder={offline?'Chat needs Reader on your computer, where the voices run.':staticDemo()?'Message the scripted voices… @ to mention':'Message the voices… @ to mention'} aria-label="Message the voices" disabled={offline} title={offline?NEEDS_READER:undefined}/>}
             onKeyDown={event=>{
               if(event.key==='Escape'&&mention){event.preventDefault();setMention(null);return;}
               if(event.key==='Enter'&&!event.shiftKey&&!(mention&&items.length)&&!event.nativeEvent.isComposing){event.preventDefault();send();}
@@ -358,7 +363,8 @@ export function ChatPanel(props:ChatProps){
         </ComboboxContent>
       </AutocompletePrimitive.Root>
     </form>
-    <p className="chat-privacy">Each turn sends this document, the chat and anything the voice reads to that voice’s provider. Voices act with their normal authority in the vault; chats are committed.
-      {logs?<> Every run’s raw output is kept in <code>{logs.path}</code> (<span data-chat-log-usage="">{bytes(logs.bytes)}, {logs.runs} run{logs.runs===1?'':'s'}</span>) and never expires.</>:null}</p>
+    {staticDemo()&&!offline?<p className="chat-privacy" data-chat-local-note="">The web demo’s voices are scripted: replies are picked by keywords in your browser, nothing is sent anywhere, and this chat is kept only in this browser.</p>
+    :<p className="chat-privacy">Each turn sends this document, the chat and anything the voice reads to that voice’s provider. Voices act with their normal authority in the vault; chats are committed.
+      {logs?<> Every run’s raw output is kept in <code>{logs.path}</code> (<span data-chat-log-usage="">{bytes(logs.bytes)}, {logs.runs} run{logs.runs===1?'':'s'}</span>) and never expires.</>:null}</p>}
   </aside>;
 }

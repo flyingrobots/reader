@@ -73,7 +73,7 @@ const NEEDS=/^Needs Reader on your computer/;
   await page.locator('#maintenance-check').click({force:true});await page.locator('#inbox-mail').click({force:true});await page.waitForTimeout(300);
   assert.deepEqual(await writes(),[]);assert.deepEqual(await toasts(),[]);
 
-  // A document: Generate art, the reading queue and the chat composer.
+  // A document: Generate art, the reading queue and the chat panel.
   await page.evaluate(()=>{location.hash='#read='+encodeURIComponent('library/essayists/montaigne/of-books.md');});
   await page.locator('#article h1').filter({hasText:'Of Books'}).first().waitFor();await page.waitForFunction(()=>!document.querySelector('.resume-pending'));
   await page.locator('#main').focus();await page.keyboard.press('Space');await page.keyboard.press('g');
@@ -88,19 +88,20 @@ const NEEDS=/^Needs Reader on your computer/;
   assert.ok(await actions.count()>=1,'the demo queue offers suggestions');
   await needsReader(actions.first(),'Queue row action');
   await page.keyboard.press('Escape');await page.locator('#queue-panel').waitFor({state:'hidden'});
-  // Chat: the composer is the one switch #108 turns on; until then it is disabled and says why.
+  // Chat: the shim answers it with the demo's scripted voices (#108; tests/web_static_chat.cjs), so the composer is on.
   await page.locator('#main').focus();await page.keyboard.press('Space');await page.keyboard.press('m');await page.locator('#chat-input').waitFor();
-  assert.equal(await page.locator('#chat-input').isDisabled(),true,'the composer is disabled');
-  assert.match(await page.locator('#chat-input').getAttribute('placeholder'),/Reader on your computer/);
-  await needsReader(page.locator('#chat-send'),'Send');
-  assert.equal(await page.locator('#chat-chime-ins').isDisabled(),true,'chime-in settings save into the chat, so they wait too');
-  assert.equal(await page.locator('#chat-paste-toggle').count(),0,'no pasted replies without a chat to keep them');
+  assert.equal(await page.locator('#chat-input').isDisabled(),false,'the composer is enabled');
+  assert.match(await page.locator('#chat-input').getAttribute('placeholder'),/scripted voices/);
+  assert.equal(await page.locator('#chat-send[data-needs-reader]').count(),0,'Send does not need Reader');
+  assert.equal(await page.locator('#chat-chime-ins').isDisabled(),true,'chime-ins run only on a Reader: the scripted voices answer when addressed');
+  assert.match(await page.locator('#chat-chime-ins').getAttribute('title'),NEEDS);
+  assert.equal(await page.locator('#chat-paste-toggle').count(),1,'a manual voice’s reply can be pasted');
   await page.screenshot({path:'.reader/web-dev/static-demo-ui-chat.png'});
 
   assert.deepEqual(await writes(),[],'no server-only write was attempted');
   assert.deepEqual((await toasts()).filter(([type])=>type==='error'),[],'no error toast anywhere');
   assert.deepEqual(errors,[],'nothing logged an error');
-  console.log('Static demo UI passed: Behind the scenes starts no job and raises no toast; Check again, rebuilds, You got mail, theme saves, Generate art, queue writes and the chat composer are disabled with “Needs Reader on your computer”; service, companions and local model are left out with one note; q explains; no console errors.');
+  console.log('Static demo UI passed: Behind the scenes starts no job and raises no toast; Check again, rebuilds, You got mail, theme saves, Generate art, queue writes and chat chime-ins are disabled with “Needs Reader on your computer” (the composer is on: scripted voices answer); service, companions and local model are left out with one note; q explains; no console errors.');
  }finally{
   if(browser)await browser.close();
   if(server)server.close();

@@ -140,6 +140,26 @@ def test_export_carries_the_demo_art_without_stills_or_jobs(exported):
         validate(answer['art']['scene'])  # theme-role colors ({"token": …}) survive the export's scrub
 
 
+def test_export_carries_the_scripted_chat_voices(exported):
+    """#108: the shim answers chat from the vault's own replies.json, and the page flag turns its composer on."""
+    root, out, _ = exported
+    script = json.loads((out / 'data/chat.json').read_text())
+    assert script['replies'] == json.loads((root / 'bin/replies.json').read_text())['replies']
+    assert script['runtime'] == {'cli': 'demo-voice', 'version': demo.VOICE_VERSION, 'model': demo.VOICE_LABEL}
+    html = (out / 'index.html').read_text()
+    flag = json.loads(html.split('<meta name="reader-static-demo" content=\'', 1)[1].split("'>", 1)[0])
+    assert flag['chat'] is True
+
+
+def test_chat_stays_off_without_scripted_replies(tmp_path):
+    (tmp_path / 'data').mkdir()
+    assert static.chat_script(tmp_path, tmp_path / 'data') is False and not (tmp_path / 'data/chat.json').exists()
+    (tmp_path / 'bin').mkdir()
+    (tmp_path / 'bin/replies.json').write_text('{"replies": {"Voice": [{"reply": "Hello."}]}}')
+    assert static.chat_script(tmp_path, tmp_path / 'data') is True
+    assert json.loads((tmp_path / 'data/chat.json').read_text())['replies'] == {'Voice': [{'reply': 'Hello.'}]}
+
+
 def test_export_contains_no_machine_paths_or_tokens(exported):
     root, out, _ = exported
     for file in out.rglob('*'):

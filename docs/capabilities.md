@@ -315,8 +315,9 @@ never call a model. See [demo vault](demo.md).
 `reader demo --export-static DIR` writes the demo vault as a static website for any static host
 (GitHub Pages included), under a configurable base path. It reads from pre-rendered answers, searches
 by keyword in the browser, and keeps highlights, comments and reading positions only in the
-visitor's browser. The demo's article art draws in the browser from exported scenes. Chat voices,
-semantic search, the inbox runner, the local model, speech, prose colors, making new art, the queue,
+visitor's browser. The demo's article art draws in the browser from exported scenes. Chat works with
+the demo's scripted voices: a message gets a keyword-picked reply, streamed in the browser and kept
+only in that browser; chime-ins and raised hands need Reader. Semantic search, the inbox runner, the local model, speech, prose colors, making new art, the queue,
 themes and index maintenance need Reader running locally: their controls are disabled with a
 "Needs Reader on your computer" tooltip, Behind the scenes starts no job, and the service, companions
 and local-model sections are left out. See

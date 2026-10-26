@@ -5,7 +5,8 @@ GET route the web reader needs for that vault, and writes each JSON answer to a 
 ordinary web UI plus `assets/static-demo.js`, a shim that the exported `index.html` turns on with a
 `<meta name="reader-static-demo">` flag. With the flag, the shim answers `/api/*` from those files,
 searches a client-side keyword index, keeps highlights, comments and reading positions in the
-visitor's browser storage, and labels everything that needs a running Reader as "try it locally".
+visitor's browser storage, answers chat from the demo's scripted voices (`data/chat.json`) in the same
+browser, and labels everything that needs a running Reader as "try it locally".
 Without the flag (the normal server), the shim does nothing.
 
 The output folder must be new, empty, or an earlier export (it carries `.reader-static-demo`). Every
@@ -188,6 +189,19 @@ def search_index(root):
     return {'paths': paths, 'passages': passages, 'chunks': chunks}
 
 
+def chat_script(root, api):
+    """The demo's scripted chat voices for the shim (#108): `bin/replies.json`, the table `bin/demo-voice` picks
+    keyword replies from, and the runtime it reports. Returns False (chat stays off) for a vault without one."""
+    from .build import VOICE_LABEL, VOICE_VERSION
+    table = root / 'bin' / 'replies.json'
+    if not table.is_file() or table.is_symlink():
+        return False
+    replies = json.loads(table.read_text())
+    script = {'replies': replies.get('replies', {}), 'runtime': {'cli': 'demo-voice', 'version': VOICE_VERSION, 'model': VOICE_LABEL}}
+    (api / 'chat.json').write_text(json.dumps(script, ensure_ascii=False, separators=(',', ':')))
+    return True
+
+
 def copy_tree(source, target, skip=lambda path: False):
     for file in sorted(source.rglob('*')):
         relative = file.relative_to(source)
@@ -203,9 +217,9 @@ def rebase(text, base):
     return re.sub(r'''(["'(`])/(assets/|\?pane=1)''', lambda m: m.group(1) + base + m.group(2), text)
 
 
-def page(base, site_url, exported_at):
+def page(base, site_url, exported_at, chat=False):
     html = (STATIC / 'index.html').read_text()
-    flag = json.dumps({'base': base, 'format': FORMAT, 'exported_at': exported_at})
+    flag = json.dumps({'base': base, 'format': FORMAT, 'exported_at': exported_at, 'chat': chat})
     description = 'Try Reader, a local-first library reader, on a demo library of public-domain essays and fictional notes. Runs entirely in your browser.'
     social = [f'<meta name="description" content="{description}">',
               '<meta property="og:type" content="website">', '<meta property="og:title" content="Reader demo · The library, at your pace">',
@@ -334,6 +348,7 @@ def export(root, out, base='/', site_url=None, say=print):
                                                     'synthetic': list(SYNTHETIC), 'routes': crawl.routes}, ensure_ascii=False, separators=(',', ':')))
     (api / 'resolve.json').write_text(json.dumps(resolve, ensure_ascii=False, separators=(',', ':')))
     (api / 'search.json').write_text(json.dumps(search_index(root), ensure_ascii=False, separators=(',', ':')))
+    chat = chat_script(root, api)
     (api / 'paths.json').write_text(json.dumps(sorted(str(p.relative_to(root)) for folder in ('library', 'inbox') for p in (root / folder).rglob('*')
                                                        if p.is_file() and not p.is_symlink() and not any(x.startswith('.') for x in p.relative_to(root).parts))))
     copy_tree(STATIC, out / 'assets', skip=lambda p: p.as_posix() in ('index.html',))
@@ -346,7 +361,7 @@ def export(root, out, base='/', site_url=None, say=print):
     (out / 'assets' / 'manifest.webmanifest').write_text(manifest(base))
     for folder in ('library', 'inbox'):
         copy_tree(root / folder, out / 'files' / folder)
-    (out / 'index.html').write_text(page(base, site_url, exported_at))
+    (out / 'index.html').write_text(page(base, site_url, exported_at, chat))
     (out / '.nojekyll').write_text('')
     (out / 'robots.txt').write_text('User-agent: *\nAllow: /\n')
     (out / MARKER).write_text(json.dumps({'kind': MARKER_KIND, 'format': FORMAT, 'exported_at': exported_at}) + '\n')

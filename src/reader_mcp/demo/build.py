@@ -26,6 +26,7 @@ GUT = 'https://www.gutenberg.org/ebooks/'
 PEOPLE = {'editors': ('The Editors', 'editors@reader-demo.invalid'), 'mira': ('Mira Okafor', 'mira@reader-demo.invalid'),
           'jonah': ('Jonah Reyes', 'jonah@reader-demo.invalid'), 'archivist': ('Archivist', 'archivist@reader-demo.invalid')}
 VOICE_LABEL = 'scripted demo voice (no AI)'
+VOICE_VERSION = 'demo-voice 1.0 (scripted replies)'  # What bin/demo-voice --version prints.
 
 # key: (library path, title, author, year, ebook, project, type, topics, added offset, extra)
 PD = {
@@ -602,7 +603,7 @@ metadata_created: '{self.day(added)}'
                 job = {'path': path, 'sha256': library.digest(path), 'auto': False, 'log': None}
                 made = self.when(5, 9)
                 producer = {'id': 'voice:Architect', 'kind': 'voice', 'label': 'Architect', 'model': VOICE_LABEL, 'cli': 'demo-voice',
-                            'cli_version': 'demo-voice 1.0 (scripted replies)'}
+                            'cli_version': VOICE_VERSION}
                 studio.save(job, entry['title'], entry['brief'], scene, counts, {
                     'prompts': {k: (v if k != 'repair' else None) for k, v in PROMPT_VERSIONS.items()}, 'producer': producer, 'seconds': None,
                     'stages': [], 'usage': None, 'repaired': False, 'note': 'Handcrafted for the Reader demo; no model was run.',
@@ -623,7 +624,7 @@ metadata_created: '{self.day(added)}'
         chat = chats.create(path, hashlib.sha256(data).hexdigest(), title, 'You', request_id=rid('chat', path))
         asked, answered, hand = rid('chat', 'asked'), rid('chat', 'answered'), rid('chat', 'hand')
         at = lambda minutes: (self.when(4, 20) + timedelta(minutes=minutes)).isoformat()
-        runtime = lambda session: {'cli': 'demo-voice', 'version': 'demo-voice 1.0 (scripted replies)', 'model': VOICE_LABEL, 'session_id': session}
+        runtime = lambda session: {'cli': 'demo-voice', 'version': VOICE_VERSION, 'model': VOICE_LABEL, 'session_id': session}
         turn = lambda id, seconds: {'id': id, 'state': 'done', 'seconds': seconds, 'changed_paths': [], 'changes_tracked': True, 'commits': [],
                                     'commit': None, 'exit_code': 0, 'timeout_seconds': 60}
         messages = [

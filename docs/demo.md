@@ -101,10 +101,13 @@ How it is made:
    `data/manifest.json` maps each request (route plus sorted query, without the UTC offset `tz`) to
    its answer and status.
 3. It writes `data/search.json` (the passages of the vault's keyword index), `data/resolve.json`
-   (each document's link targets, resolved by the server), `data/paths.json`, copies of `library/`
+   (each document's link targets, resolved by the server), `data/paths.json`, `data/chat.json` (the
+   scripted voices' `bin/replies.json` table and the runtime they report; a vault without
+   `bin/replies.json` gets none, and chat stays off), copies of `library/`
    and `inbox/` under `files/`, and the web UI under `assets/`, with root-absolute `/assets/` and
    `/?pane=1` URLs rewritten for the base path.
-4. `index.html` is the normal page plus a `<meta name="reader-static-demo">` flag, a
+4. `index.html` is the normal page plus a `<meta name="reader-static-demo">` flag (`base`,
+   `format`, `exported_at`, and `chat`: whether `data/chat.json` was written), a
    Content-Security-Policy that allows only the site itself, social-preview tags, and
    `assets/static-demo.js` loaded before the app.
 
@@ -119,10 +122,11 @@ the normal server, which never loads it, is unaffected. With the flag it replace
 | `/api/resolve`, `/api/resolve-batch` | `data/resolve.json`, else a relative path that exists in the export |
 | `/api/file?path=…`, image `src` | The copy under `files/` |
 | `POST /api/annotations` (create, reply, resolve), `/api/bookmark`, `/api/seen`, `/api/history` | Kept in this browser's `localStorage` (`reader.static-demo.v1`) and merged into margins and bookmarks |
-| Chat posts, the queue, themes, maintenance, inbox runner, local model, service, speech, prose colors, comparing two arbitrary versions | A JSON error with `unavailable: true` that says to run Reader locally (status 501, or 503 for machine routes) |
+| `POST /api/chat` (create, send, paste, cancel, retry, settings), `/api/chats`, `/api/chat`, `/api/chat/raw` | Answered in the browser by the scripted voices (see **Scripted chat** below) and kept in `localStorage`; raised hands are refused with a note |
+| The queue, themes, maintenance, inbox runner, local model, service, speech, prose colors, comparing two arbitrary versions | A JSON error with `unavailable: true` that says to run Reader locally (status 501, or 503 for machine routes) |
 | `/api/art` | The exported scene, Artist's note and versions, drawn by Reader's own renderer in the browser; still images and running jobs are not exported (without WebGL the Artist's note shows instead) |
 | `/api/art/jobs`, `POST /api/art` | No jobs and one producer, so the placeholder explains how art is made; **Generate art** is disabled (see below) and a commission answers with a note that making art needs Reader on your computer; a still upload is accepted and dropped |
-| `/api/chat/stream` | A quiet stream (`hello`, then `ping` every 15 s) |
+| `/api/chat/stream` | The shim's own chat events: `hello` (revision and pending turns) and a `state` snapshot, then `posted`, `state`, `started`, `delta` and `done` as the scripted turns run, and `ping` every 15 s |
 
 A dismissible note says that changes stay in this browser and links to the local demo, with
 **Reset this demo** to clear them.
@@ -140,15 +144,37 @@ there. With it:
   computer** (they keep pointer events, so the tooltip shows): **Check again**, each rebuild and
   **Remove** for the legacy index, **You got mail**, the Theme Editor's save and delete, **Generate
   art** (placeholder and issue), the issue's queue buttons, the queue panel's add, remove and clear,
-  and the chat composer, **Send** and chime-in setting (pasted replies are hidden).
+  and the chat's chime-in setting.
 - The **Service**, **Companions** and **Local model** sections are left out, with one note saying
   they live on your computer; a companion prompt becomes a plain note.
 - Keyboard paths to the same writes (`q`, `Space g` then Generate) show an info toast instead of an
   error.
 - Reading preferences still save in this browser.
 
-`serves` lists server features the shim answers itself; `serves.chat` is `false` today, and is the
-one switch that turns the chat composer back on once the shim can reply (#108).
+`serves` lists server features the shim answers itself. `serves.chat` is the export's `chat` flag:
+with it, `needsReader('chat')` is false and the composer, **Send** and the manual voice's paste are on;
+`needsReader('chime-ins')` stays true.
+
+**Scripted chat** (#108). With `data/chat.json`, the shim answers chat the way `reader demo`'s
+`bin/demo-voice` does, without a server or a model:
+
+- Routing follows the server: `@mentions` choose the voices (up to three, each answering in turn), a
+  reply without a mention goes to the voice you answer, and a message with neither goes to one
+  runnable voice chosen at random. The voice registry is the export's recorded `/api/chats` answer.
+- The reply is the first entry in that voice's `replies` list whose every keyword group (`a|b|c`)
+  appears in the message answered, else its default, with `{title}` replaced by the document title
+  (the same picker as `demo-voice.py`).
+- Each turn runs through the panel's real stream path: the `POST` answers with the queued turn, then
+  the stream emits `state` (running), `started`, `delta` pieces of six words about 60 ms apart and
+  `done` with the stored message. Turns run one at a time. A new stream gets `hello` and a `state`
+  snapshot, as on a server, so the first message of a new chat is not `posted` to it.
+- **Paste Wren's reply** stores the pasted text as the manual voice, labelled "pasted by hand".
+  Cancel and Retry work on running and cancelled turns. Raised hands and chime-ins do not happen.
+- Every message the visitor's browser writes carries `local: true`, which the panel shows as **only
+  in this browser**; the composer's note says replies are scripted and nothing is sent anywhere.
+  Chats live under `chats` in `reader.static-demo.v1`; a recorded chat is copied there on its first
+  new message, so its exported history stays. **Reset this demo** clears them. A reply still being
+  typed when the page reloads is lost; the message it answers is kept.
 
 **Safety and limits.** The output folder must be new, empty, or an earlier export (it carries a
 `.reader-static-demo` marker; a refresh replaces everything else). Exported answers drop
@@ -189,6 +215,7 @@ READER_PYTHON=.venv/bin/python PYTHONPATH=src node tests/web_demo.cjs
 PYTHONPATH=src .venv/bin/python -m pytest -q tests/test_static_demo.py
 READER_PYTHON=.venv/bin/python PYTHONPATH=src node tests/web_static_demo.cjs
 READER_PYTHON=.venv/bin/python PYTHONPATH=src node tests/web_static_demo_ui.cjs
+READER_PYTHON=.venv/bin/python PYTHONPATH=src node tests/web_static_chat.cjs
 ```
 
 `tests/test_demo.py` covers marker safety, a byte-identical refresh for a fixed clock, preserved
@@ -205,3 +232,8 @@ that no request reaches `/api/*`, leaves the base path or leaves the origin.
 for no job and shows no toast, that each server-only control is disabled with the **Needs Reader on
 your computer** tooltip under the pointer, that the machine-only sections are left out, that `q`
 explains instead of failing, and that nothing logs an error.
+`tests/web_static_chat.cjs` exports the same way and chats: a mention, two mentions answered in
+order, a random pick, a pasted reply and a message in the seeded chat get their scripted replies
+through `started`, `delta`, `posted` and `done`, the deltas spell the reply, every message is
+labelled only in this browser, the chats survive a reload and Reset clears them, and every request
+the page made is a GET of an exported file.

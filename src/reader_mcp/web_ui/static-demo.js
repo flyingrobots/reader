@@ -1,7 +1,8 @@
 /* Static demo shim (RW-42). Inert unless the page carries <meta name="reader-static-demo">, which only
    `reader demo --export-static` writes. With the flag, /api/* requests are answered from the exported
    files in data/, search runs on a client-side keyword index, and highlights, comments and reading
-   positions stay in this browser's storage. Everything that needs a running Reader says so. */
+   positions stay in this browser's storage, and the demo's scripted chat voices answer from data/chat.json. Everything
+   that needs a running Reader says so. */
 (() => {
   'use strict';
   const flag = document.querySelector('meta[name="reader-static-demo"]');
@@ -21,8 +22,8 @@
   };
   const manifest = () => load('manifest.json');
 
-  // Local state: this visitor's highlights, replies and reading positions, in this browser only.
-  const blank = () => ({version: 1, threads: {}, replies: {}, resolved: {}, bookmarks: {}});
+  // Local state: this visitor's highlights, replies, reading positions and chats, in this browser only.
+  const blank = () => ({version: 1, threads: {}, replies: {}, resolved: {}, bookmarks: {}, chats: {}});
   let memory = null;
   function local() {
     if (memory) return memory;
@@ -231,6 +232,176 @@
     return {...data, threads};
   }
 
+  // ---- Chat (#108): the demo's scripted voices answer here, from the exported replies.json, as `reader demo` does.
+  // Messages and replies stay in this browser; turns stream through the same events as the server's chat stream. ----
+  const CHAT = config.chat === true;
+  const MAX_HOPS = 3, MAX_BODY = 65536, TIMEOUT = 60, PIECE = 6;
+  const MENTION = /(?<![\w@/.])@([A-Za-z][\w-]{0,39})/g;
+  const TERMINAL = new Set(['done', 'failed', 'timeout', 'cancelled']);
+  const streams = new Map(), live = new Map(), queue = [];
+  let active = null;
+  const script = () => load('chat.json');
+  const ready = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+  function emit(chatId, kind, data) { for (const source of streams.get(chatId) || []) source.send(kind, data); }
+  const pendingOf = chatId => [...live.values()].filter(t => t.chat_id === chatId).map(view);
+  function view(turn) { const {asked, ...shown} = turn; return {...shown, ahead: turn.state === 'queued' ? queue.indexOf(turn) + (active ? 1 : 0) : undefined}; }
+  function publish(turn) { turn.rev += 1; emit(turn.chat_id, 'state', view(turn)); }
+  /** The registry the export recorded for this document's chats (every document's is the same demo registry). */
+  async function roster(path) {
+    const found = await recorded('/api/chats', [['path', path]]) || await recorded('/api/chats', [['path', (await library()).works[0]?.primary || '']]);
+    const data = found?.status === 200 ? found.data : {configured: false, voices: [], timeout_seconds: TIMEOUT};
+    return {configured: data.configured, voices: data.voices, timeout_seconds: data.timeout_seconds, llm_logs: null, owner: {owner: true, writable: true, message: null}};
+  }
+  async function readChat(id) {
+    const mine = local().chats[id];
+    if (mine) return mine;
+    const found = await recorded('/api/chat', [['id', id]]);
+    return found?.status === 200 ? found.data.chat : null;
+  }
+  /** This browser's copy of a chat, made on its first change (a recorded chat keeps its exported history). */
+  async function ownChat(id) {
+    const state = local();
+    if (state.chats[id]) return state.chats[id];
+    const chat = await readChat(id);
+    if (!chat) throw Object.assign(new Error('Unknown chat'), {status: 400});
+    state.chats[id] = structuredClone(chat);
+    return state.chats[id];
+  }
+  async function chatView(chat) { return {chat, pending: pendingOf(chat.id), commit: null, last_event: 0, ...await roster(chat.document_path)}; }
+  function summary(chat) {
+    const last = chat.messages[chat.messages.length - 1];
+    return {...Object.fromEntries(['id', 'title', 'document_path', 'document_sha256', 'started_by', 'created_at', 'revision'].map(k => [k, chat[k] ?? null])),
+      updated_at: last ? last.created_at : chat.created_at, messages: chat.messages.length, last: last ? {author: last.author, body: last.body.slice(0, 200)} : null};
+  }
+  async function chatList(path) {
+    const found = await recorded('/api/chats', [['path', path]]), byId = new Map();
+    for (const row of found?.status === 200 ? found.data.chats : []) byId.set(row.id, row);
+    for (const chat of Object.values(local().chats)) if (chat.document_path === path) byId.set(chat.id, summary(chat));
+    return [...byId.values()].sort((a, b) => a.updated_at < b.updated_at ? 1 : a.updated_at > b.updated_at ? -1 : 0);
+  }
+  function mentions(body, voices) {
+    const table = new Map(voices.flatMap(v => v.mention.map(alias => [alias.toLowerCase(), v.name]))), found = [];
+    for (const match of String(body || '').matchAll(MENTION)) { const name = table.get(match[1].replace(/[-_]+$/, '').toLowerCase()); if (name && !found.includes(name)) found.push(name); }
+    return found;
+  }
+  /** demo-voice.py's picker: the first reply whose every keyword group (a|b|c) appears in the message answered. */
+  function pick(table, voice, body, title) {
+    const text = String(body || '').toLowerCase(), options = table.replies?.[voice] || [];
+    const fits = entry => (entry.match || []).every(group => group.split('|').some(word => text.includes(word.toLowerCase())));
+    const chosen = options.find(o => o.match && fits(o)) || options.find(o => !o.match);
+    return (chosen ? chosen.reply : `I have read ${title} and have little to add yet.`).replaceAll('{title}', title);
+  }
+  async function postChat(request, author, runtime, randomly) {
+    const body = String(request.body ?? '');
+    if (!body.trim()) return json({error: 'Message is required'}, 400);
+    if (body.length > MAX_BODY) return json({error: 'Message is too long'}, 400);
+    const chat = await ownChat(request.id), registry = await roster(chat.document_path), id = request.request_id || uuid();
+    const repeat = chat.messages.find(m => m.id === id);
+    if (repeat) return json({...await chatView(chat), message: repeat, turns: []});
+    const target = request.reply_to ? chat.messages.find(m => m.id === request.reply_to) : null;
+    if (request.reply_to && (!target || target.kind === 'hand')) return json({error: 'Reply target is not a message in this chat'}, 400);
+    const table = new Map(registry.voices.map(v => [v.name, v]));
+    let named = mentions(body, registry.voices), chosen = named.filter(n => table.get(n)?.runnable), how = 'mention';
+    if (!named.length && target && table.has(target.author)) { named = [target.author]; chosen = table.get(target.author).runnable ? [target.author] : []; how = 'reply'; }
+    else if (!named.length && randomly) { const candidates = registry.voices.filter(v => v.runnable).map(v => v.name); if (candidates.length) { chosen = [candidates[Math.floor(Math.random() * candidates.length)]]; how = 'random'; } }
+    const message = {id, author, body, mentions: named, reply_to: target ? target.id : null, runtime, routing: {voices: chosen.slice(0, MAX_HOPS), chosen_by: chosen.length ? how : null},
+      created_at: now(), local: true};
+    chat.messages.push(message); chat.revision += 1; persist();
+    emit(chat.id, 'posted', {message, revision: chat.revision});
+    const turns = chosen.slice(0, MAX_HOPS).map(name => enqueue(chat, name, message, how, null));
+    return json({...await chatView(chat), message, turns: turns.map(view)});
+  }
+  function enqueue(chat, voice, asked, how, retryOf) {
+    const turn = {id: uuid(), chat_id: chat.id, voice, reply_to: asked.id, chain: asked.id, hop: 0, chosen_by: how, retry_of: retryOf, state: 'queued', message: 'Queued',
+      queued_at: now(), started_at: null, finished_at: null, text: '', error: null, stderr_tail: null, process_group: null, rev: 0, kind: 'turn', root: asked.root || asked.id,
+      reason: null, hand_id: null, log: null, timeout_seconds: TIMEOUT, asked: asked.body};
+    live.set(turn.id, turn); queue.push(turn); publish(turn);
+    setTimeout(pump, 0);
+    return turn;
+  }
+  /** One turn at a time, as the server's runner does: a short pause, then the reply in six-word pieces. */
+  async function pump() {
+    if (active || !queue.length) return;
+    const turn = active = queue.shift();
+    try {
+      const [table, chat] = [await script(), local().chats[turn.chat_id]];
+      await ready(300);
+      if (turn.state !== 'queued') return;
+      Object.assign(turn, {state: 'running', message: 'Thinking…', started_at: now()});
+      publish(turn); emit(turn.chat_id, 'started', {turn_id: turn.id, voice: turn.voice});
+      const reply = pick(table, turn.voice, turn.asked, chat?.title || 'this piece'), words = reply.split(' ');
+      for (let i = 0; i < words.length && turn.state === 'running'; i += PIECE) {
+        const text = words.slice(i, i + PIECE).join(' ') + (i + PIECE < words.length ? ' ' : ''), offset = turn.text.length;
+        turn.text += text; emit(turn.chat_id, 'delta', {turn_id: turn.id, offset, text});
+        await ready(60);
+      }
+      if (turn.state === 'running') finish(turn, 'done', reply, table.runtime);
+    } catch (error) {
+      console.warn('Reader static demo chat', error);
+      if (!TERMINAL.has(turn.state)) finish(turn, 'failed', turn.text, null, String(error.message || error));
+    } finally { active = null; setTimeout(pump, 0); }
+  }
+  function finish(turn, state, body, runtime, error = null) {
+    const chat = local().chats[turn.chat_id], started = turn.started_at ? Date.parse(turn.started_at) : null;
+    const index = queue.indexOf(turn); if (index >= 0) queue.splice(index, 1);
+    let message = null;
+    if (chat && turn.started_at) {
+      message = {id: turn.id, author: turn.voice, body, mentions: [], reply_to: turn.reply_to, chosen_by: turn.chosen_by, root: turn.root,
+        ...(turn.retry_of ? {retry_of: turn.retry_of} : {}), runtime: runtime ? {...runtime, session_id: null} : null,
+        turn: {id: turn.id, state, seconds: started ? Math.round((Date.now() - started) / 100) / 10 : null, changed_paths: [], changes_tracked: false, commits: [], commit: null,
+          exit_code: state === 'done' ? 0 : null, timeout_seconds: TIMEOUT, ...(error ? {error} : {})},
+        created_at: now(), local: true};
+      chat.messages.push(message); chat.revision += 1; persist();
+    }
+    Object.assign(turn, {state, message: {done: 'Done', failed: 'Failed', timeout: 'Timed out', cancelled: 'Cancelled'}[state], finished_at: now(), error});
+    publish(turn); live.delete(turn.id);
+    emit(turn.chat_id, 'done', {turn_id: turn.id, state, message, revision: chat ? chat.revision : null});
+  }
+  async function chat(request) {
+    if (!CHAT) return unavailable('Chat voices run on your computer: try `reader demo`, whose scripted voices answer without any AI account.');
+    const action = request.action;
+    if (action === 'create') {
+      const path = String(request.path || ''), doc = path ? await documentText(path) : null;
+      if (!doc) return json({error: 'Choose a document in the demo library to chat about'}, 400);
+      const id = request.request_id || uuid(), state = local();
+      if (!state.chats[id] && request.reuse) { const newest = (await chatList(path))[0]; if (newest) return json(await chatView(await readChat(newest.id))); }
+      if (!state.chats[id]) { state.chats[id] = {schema_version: 1, id, document_path: path, document_sha256: doc.sha256, title: doc.title || path.split('/').pop(),
+        started_by: request.participant, created_at: now(), revision: 1, messages: [], local: true}; persist(); }
+      return json(await chatView(state.chats[id]));
+    }
+    if (action === 'send') return postChat(request, request.participant, null, true);
+    if (action === 'paste') {
+      const manual = (await roster((await readChat(request.id))?.document_path || '')).voices.filter(v => v.manual).map(v => v.name);
+      const voice = request.voice ?? manual[0];
+      if (!manual.includes(voice)) return json({error: 'Paste a reply only for a voice marked manual in voices.json'}, 400);
+      return postChat({...request, reply_to: null}, voice, {manual: true, pasted_by: request.participant}, false);
+    }
+    if (action === 'settings') {
+      if (!['off', 'hands', 'free'].includes(request.chime_ins)) return json({error: 'Chime-ins must be off, hands or free'}, 400);
+      const own = await ownChat(request.id); own.settings = {...own.settings, chime_ins: request.chime_ins}; own.revision += 1; persist();
+      return json(await chatView(own));
+    }
+    if (action === 'cancel') {
+      const turn = live.get(request.turn_id);
+      if (turn && !TERMINAL.has(turn.state)) finish(turn, 'cancelled', turn.text, null);
+      return json({turn: turn ? view(turn) : null});
+    }
+    if (action === 'retry') {
+      const own = await ownChat(request.id), message = own.messages.find(m => m.id === request.message_id);
+      if (!message || !message.turn || message.turn.state === 'done') return json({error: 'Only a failed, timed-out or cancelled voice reply can be retried'}, 400);
+      const asked = own.messages.find(m => m.id === message.reply_to);
+      const again = own.messages.some(m => m.retry_of === message.id) || [...live.values()].some(t => t.retry_of === message.id) || !asked ? [] : [enqueue(own, message.author, asked, message.chosen_by || 'mention', message.id)];
+      return json({...await chatView(own), turns: again.map(view)});
+    }
+    if (action === 'hush') return json({hushed: 0, static_demo: true});
+    return unavailable('Raised hands and chime-ins need Reader on your computer; the web demo’s voices answer when addressed.');
+  }
+  /** The chat panel's raw-output view: scripted replies run no CLI, so there is no archive to show. */
+  function raw(params) {
+    const turn = live.get(params.get('turn'));
+    return json({turn_id: params.get('turn'), log: null, running: !!turn && !TERMINAL.has(turn.state), limit: 0, stdout: null, stderr: null, prompt: null, system: null, meta: null});
+  }
+
   async function get(url) {
     const path = url.pathname, params = url.searchParams;
     if (path === '/') return new Response('ok', {status: 200});
@@ -256,6 +427,9 @@
       const found = await recorded(path, params);
       return found && found.status === 200 ? json(withLocalThreads(found.data, params.get('path'))) : replay(path, params);
     }
+    if (CHAT && path === '/api/chats') return json({path: params.get('path'), chats: await chatList(params.get('path') || ''), ...await roster(params.get('path') || '')});
+    if (CHAT && path === '/api/chat') { const found = await readChat(params.get('id') || ''); return found ? json(await chatView(found)) : replay(path, params); }
+    if (CHAT && path === '/api/chat/raw') return raw(params);
     if (path === '/api/document') {
       const found = await recorded(path, params);
       if (found && found.status === 200) { const mark = local().bookmarks[params.get('path')]; return json(mark && mark.source_sha256 === found.data.sha256 ? {...found.data, bookmark: mark} : found.data); }
@@ -274,7 +448,7 @@
       return json(local().bookmarks[doc]);
     }
     if (path === '/api/history') return json({participant: request.participant, static_demo: true});
-    if (path === '/api/chat') return unavailable('Chat voices run on your computer: try `reader demo`, whose scripted voices answer without any AI account.');
+    if (path === '/api/chat') return chat(request);
     if (path === '/api/queue') return unavailable('The reading queue saves into the library; run Reader on your computer to change it.');
     if (path === '/api/art') return request.action === 'still' ? json({static_demo: true})
       : unavailable('Making art needs Reader on your computer: `reader demo` has a scripted voice that answers art commissions.');
@@ -290,7 +464,8 @@
     catch (error) { console.warn('Reader static demo', error); return json({error: 'The web demo could not answer: ' + (error.message || error)}, 500); }
   };
 
-  /** Chat streams have no server: the panel gets a quiet, healthy stream. */
+  /** Chat streams have no server: the shim's chat turns (above) arrive here as the server's events would, after a
+      `hello` and a `state` snapshot of pending turns; an idle stream pings with the chat's revision. */
   class StaticEventSource extends EventTarget {
     constructor(url, options) {
       const parsed = new URL(url, location.href);
@@ -299,13 +474,21 @@
       }
       super();
       this.url = parsed.href; this.readyState = 0; this.withCredentials = false; this.onopen = this.onmessage = this.onerror = null;
-      const send = (kind, data) => { if (this.readyState === 2) return; const event = new MessageEvent(kind, {data: JSON.stringify(data)}); this.dispatchEvent(event); };
-      const id = parsed.searchParams.get('id');
-      setTimeout(() => { if (this.readyState === 2) return; this.readyState = 1; const open = new Event('open'); this.dispatchEvent(open); this.onopen?.(open);
-        send('hello', {chat_id: id, seq: 0, revision: null, pending: [], interval: 15}); }, 0);
-      this.timer = setInterval(() => send('ping', {revision: null, pending: [], interval: 15}), 15000);
+      this.send = (kind, data) => { if (this.readyState !== 1) return; const event = new MessageEvent(kind, {data: JSON.stringify(data)}); this.dispatchEvent(event); };
+      const id = this.chatId = parsed.searchParams.get('id');
+      const status = async () => ({revision: CHAT && id ? (await readChat(id).catch(() => null))?.revision ?? null : null, pending: pendingOf(id).map(t => t.id), interval: 15});
+      setTimeout(async () => {
+        const first = await status();
+        if (this.readyState === 2) return;
+        this.readyState = 1; const open = new Event('open'); this.dispatchEvent(open); this.onopen?.(open);
+        if (!streams.has(id)) streams.set(id, new Set());
+        streams.get(id).add(this);
+        this.send('hello', {chat_id: id, seq: 0, ...first});
+        for (const turn of pendingOf(id)) this.send('state', turn);
+      }, 0);
+      this.timer = setInterval(async () => this.send('ping', await status()), 15000);
     }
-    close() { this.readyState = 2; clearInterval(this.timer); }
+    close() { this.readyState = 2; clearInterval(this.timer); streams.get(this.chatId)?.delete(this); }
   }
   StaticEventSource.CONNECTING = 0; StaticEventSource.OPEN = 1; StaticEventSource.CLOSED = 2;
   window.EventSource = StaticEventSource;
@@ -327,7 +510,7 @@
     document.head.append(style);
     const box = document.createElement('aside');
     box.className = 'static-demo-note'; box.setAttribute('data-reader-decoration', ''); box.setAttribute('role', 'note'); box.id = 'static-demo-note';
-    box.innerHTML = '<p><strong>Web demo.</strong> Highlights, notes and reading positions you add stay only in this browser. Chat voices, semantic search, the inbox runner, the local model and Read aloud need Reader on your computer: <a href="https://github.com/flyingrobots/reader#try-the-demo" rel="noopener">try it locally</a>. <a href="#" data-static-reset>Reset this demo</a></p><button type="button" aria-label="Hide this note">Hide</button>';
+    box.innerHTML = '<p><strong>Web demo.</strong> Highlights, notes and reading positions you add stay only in this browser. '+(CHAT?'Chat voices answer from a script here, also only in this browser. Semantic search':'Chat voices, semantic search')+', the inbox runner, the local model and Read aloud need Reader on your computer: <a href="https://github.com/flyingrobots/reader#try-the-demo" rel="noopener">try it locally</a>. <a href="#" data-static-reset>Reset this demo</a></p><button type="button" aria-label="Hide this note">Hide</button>';
     box.querySelector('button').onclick = () => { box.remove(); try { sessionStorage.setItem(NOTE, '1'); } catch {} };
     box.querySelector('[data-static-reset]').onclick = event => { event.preventDefault(); try { localStorage.removeItem(STORE); } catch {} memory = null; location.reload(); };
     document.body.append(box);
@@ -335,6 +518,6 @@
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', note, {once: true}); else note();
   // The UI's one source of truth for "static" (#107): with this object present, every control that needs a running
   // Reader is disabled with "Needs Reader on your computer", except the features listed true in `serves`, which
-  // this shim answers itself. Chat is the switch #108 turns on when the shim gains a scripted reply.
-  window.readerStaticDemo = {base: BASE, exportedAt: config.exported_at, serves: {chat: false}, reset() { try { localStorage.removeItem(STORE); } catch {} memory = null; }};
+  // this shim answers itself: chat, when the export carries the demo's scripted replies (#108).
+  window.readerStaticDemo = {base: BASE, exportedAt: config.exported_at, serves: {chat: CHAT}, reset() { try { localStorage.removeItem(STORE); } catch {} memory = null; }};
 })();
