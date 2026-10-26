@@ -69,6 +69,21 @@ def test_generation_uses_shared_runner_and_commits_only_quiz_and_logs(library):
     assert library.quizzes.dispatch(dict(action='generate', path=PATH), 'Reader')['quiz']['id'] == quiz['id']
 
 
+def test_plain_text_voice_preserves_compact_json_generation_and_review(library):
+    file = library.root / 'voices.json'
+    settings = json.loads(file.read_text())
+    voice = next(v for v in settings['voices'] if v['name'] == 'Claude')
+    voice['stream'] = 'text'
+    voice['argv'][voice['argv'].index('--style') + 1] = 'text'
+    file.write_text(json.dumps(settings))
+    job = settle(library, generate(library))
+    assert job['state'] == 'done', 'compact JSON from a text voice must remain its response'
+    quiz = library.quizzes.get(PATH)
+    task = library.quizzes.dispatch(dict(action='review', path=PATH, voice='Claude', request_id=str(uuid4()),
+        edition=quiz['document_sha256'], quiz_id=quiz['id'], question_id='q5', answer='Purple.'), 'Reader')['task']
+    assert settle(library, task)['result']['verdict'] == 'right'
+
+
 def test_invalid_first_generation_retries_once_and_preserves_both_logs(library):
     file = library.root / 'voices.json'
     settings = json.loads(file.read_text())

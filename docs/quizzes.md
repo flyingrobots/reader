@@ -56,6 +56,8 @@ Source text is limited to 4 MiB. Quiz files and generated JSON are limited to 64
 
 File-capable voices receive the source path and digest. A voice configured for inline documents receives the source text; its argv/stdin transport must support the resulting prompt size. CLI timeouts and resource limits follow voice chat. There is no new spending cap.
 
+A voice configured with the `text` stream returns literal text, including a compact JSON object. Reader does not reinterpret that object as a provider event envelope.
+
 ## Verification
 
 Run the Python quiz, queue, receipt and chat tests in a bounded copy-isolated Docker worker. `tests/test_quizzes.py` covers quote validation, immutable storage, editions and scores; `tests/test_quiz_runner.py` covers fake CLI generation, retries, logs, commits, reviews, HTTP access and queue integration. `tests/web_quiz.cjs` drives generation, local grading, passage highlighting in both reading layouts, short-answer review, results, retakes and a 390-pixel viewport against `tests/quiz_fixture.py`. These fixtures contain synthetic material and never contact a provider.

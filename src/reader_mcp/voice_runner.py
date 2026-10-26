@@ -94,15 +94,19 @@ class StreamParser:
         if not line.strip():
             return '\n' if self.kind == 'text' else ''
         self.lines += 1
+        if self.kind == 'text':
+            # A text transport has no event envelope. A JSON object is its
+            # literal reply too, including JSON-only article task responses.
+            self.text.append(line)
+            self.understood += 1
+            return line + '\n'
         try:
             event = json.loads(line)
         except ValueError:
             event = None
         if not isinstance(event, dict):
             self.text.append(line)
-            if self.kind == 'text':
-                self.understood += 1
-            return line + '\n' if self.kind in ('text', 'agy') else ''
+            return line + '\n' if self.kind == 'agy' else ''
         if isinstance(event.get('event'), str) and 'type' not in event:
             return self.agy(event)
         if event.get('type') in KNOWN_TYPES or isinstance(event.get('msg'), dict):
