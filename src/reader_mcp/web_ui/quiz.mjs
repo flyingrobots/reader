@@ -7,7 +7,7 @@ export function installQuiz({api,document:currentDocument,participant:currentPar
   const params=()=>new URLSearchParams({path:context.path,participant:context.participant});
   function post(request){return api('/api/quiz',{...request,path:context.path,participant:context.participant});}
   function resetQuestions(quiz){return {quiz,index:0,answers:{},short:{},reviews:{},result:null,task:null};}
-  function close(){sequence++;clearTimeout(timer);update({open:false,loading:false});}
+  function close(){sequence++;clearTimeout(timer);update({open:false,loading:false,busy:false});}
   function adopt(data){
     const voices=(data.voices||[]).filter(v=>v.runnable);
     // Another tab can regenerate while this participant awaits a short-answer

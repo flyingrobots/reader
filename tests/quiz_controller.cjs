@@ -25,3 +25,16 @@ test('a completed review stays with the quiz being answered after another tab re
   assert.equal(h.get().reviews.q1.comment,review.comment);
  }finally{h.controller.destroy();}
 });
+
+test('closing an in-flight result does not leave a borrowed quiz busy on reopen',async()=>{
+ const quiz={...oldQuiz,questions:[{id:'q1',type:'choice',options:['A','B','C','D'],answer:0}]};
+ let finish;
+ const h=await harness(async(path,body)=>body?new Promise(resolve=>{finish=resolve;}):listing(quiz));
+ try{
+  await h.controller.open();h.actions().choose('0');const pending=h.actions().next();
+  assert.equal(h.get().busy,true);h.controller.close();
+  finish({score:1,total:1,missed:[]});await pending;
+  await h.controller.open();
+  assert.equal(h.get().busy,false,'a load with no participant task must clear transient request state');
+ }finally{h.controller.destroy();}
+});

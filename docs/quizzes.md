@@ -4,6 +4,8 @@ Reader can generate an edition-bound quiz for a Markdown or plain-text article u
 
 The quiz opens in a shadcn/Base UI dialog. Choose the voice before generating. The default is the last runnable voice that spoke in the article’s chat, then the first runnable voice in registry order. No deployment’s participant roster is built into the software.
 
+Closing the dialog does not cancel a server-side voice job. Reopening reads its current state; an obsolete local save request cannot keep the dialog disabled.
+
 Each multiple-choice answer is graded immediately in the browser against the saved answer key. The explanation and **Show me in the text** control expose the supporting passage. A short-answer question is optional: ask a voice to review the answer, or skip it. A reviewed answer receives `right`, `partly`, or `not yet`. The result counts a partly correct short answer as half a point; skipped short answers do not enter the total.
 
 The result is saved under the requesting participant and appears in the reading log. It never marks an article or discussion read. A retake uses the same questions; generating a new quiz preserves the earlier one. A pending short-answer review stays attached to the saved quiz being answered when another tab regenerates. Opening a document still has its ordinary read-status behavior, independently of the quiz.
