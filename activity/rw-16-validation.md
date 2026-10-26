@@ -19,3 +19,5 @@ These checks precede final integration of the quiz PR and current main. Complete
 The quiz branch's published review fixes were merged normally into this separate worktree. A matching prompt-store regression showed that OS/editor dotfiles disabled prompt discovery; ignoring hidden entries without altering their bytes made all 12 prompt tests pass (`prompt-dotfiles-red` / `prompt-dotfiles-green`, bounded Docker).
 
 A public prompt-runtime regression reproduced a host path in the voice version. The existing display redaction now applies to the public runtime copy, while the immutable archive remains byte-identical. All 13 prompt tests passed (`prompt-runtime-red` / `prompt-runtime-green`).
+
+The prompt and notebook GET routes now share expensive-request admission because each scans its bounded inventory. The route regression was RED before classification; the refusal and ordinary-read availability checks both passed afterward (`prompt-admission-red` / `prompt-admission-green`).

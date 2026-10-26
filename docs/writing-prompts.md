@@ -26,6 +26,8 @@ Reading-log links show the current participant's responses. Margin pins appear w
 
 Writes require the existing same-origin Reader token and JSON content type.
 
+Prompt and notebook GETs share the existing expensive-request pool. Public runtime metadata uses host-path redaction; canonical question archives retain their original values. Inventory discovery ignores hidden OS/editor metadata without removing it.
+
 | Route | Behavior |
 | --- | --- |
 | `GET /api/prompt?path=&participant=&voice=&task=` | Cached question or `prompt: null`, voice selection and participant-owned task state |
