@@ -111,7 +111,7 @@ its filter hidden and focus on the tree;
 light/dark themes, with the supplied Harvest OKLCH ramps preserved. Two-page reading
 turns single spreads with a Three.js 3D page curl, falling back to a slide without
 WebGL, with reduced motion, or by preference. A Theme Editor
-(Space , t, F10 or Behind the scenes) creates, edits, duplicates and deletes custom light/dark
+(Space , t, F10 or Reader Admin) creates, edits, duplicates and deletes custom light/dark
 themes over a standard token contract. They are stored in the vault's `themes/`.
 It checks WCAG 2.x contrast and simulated color-vision separation, suggests fixes,
 generates themes from a seed, and previews a sample article. Each heading level (H1–H6)
@@ -121,7 +121,10 @@ locally. APCA contrast and non-latin font subsets are not included.
 
 Search (Space /) is a full page over the search index: Best (words and meaning blended), Exact words and Meaning modes; results grouped by catalog work with up to three highlighted passages each; Project, Author, Type, date, read-state, folder and machine-file filters with work counts over the top 500 passages; linkable `#search=` URLs; `j`/`k`/`J`/`K` keys; and opening at the passage, with the query's words highlighted and steppable with `n`, in both reading layouts. It reads the format 2 index (with only the retired format 1 index present it asks for a rebuild), and never rebuilds it; and says when results are partial, stale or exact-word only.
 
-Behind the scenes (Space p) shows the freshness of the search index, browse indexes,
+Reader Admin (the footer's Backstage; Space p opens its Settings) is a sidebar layout with one
+route per section (`#admin`, `#admin/indexes`, `#admin/inbox`, … `#admin/settings`); its
+read-only Overview summarizes running work, the inbox, attention items and index health, and
+shows a status it could not read as unavailable. Its Indexes page shows the freshness of the search index, browse indexes,
 catalog SQL mirror and link graph. It rebuilds any of them on demand, one job at a time, through
 the existing guarded entry points, and announces each start, finish and failure with
 toasts. Each card shows usage against its budget (search passages, database and
@@ -177,7 +180,7 @@ linked heading. External links show only their host. Each article ends with **Li
 from**, the documents that link to it, with link counts and the heading each link
 sits under. Both rest on a link graph of the whole library in `.reader/links.sqlite3`:
 a rebuildable cache that builds itself on first use and refreshes incrementally from
-Behind the scenes. Links resolve exactly as a click resolves them. Wikilinks, embeds
+Reader Admin. Links resolve exactly as a click resolves them. Wikilinks, embeds
 and Markdown links are recorded; links inside code, links that leave `library/`, and
 links in PDFs are not. The graph parses at most 10,000 Markdown files of 4 MiB each and
 holds at most 500,000 links and 256 MiB.
@@ -194,7 +197,7 @@ any two versions can be compared. Restoring an old version is not offered.
 Families come from `reading_source`, `previous_version`, `.vN.md` names,
 `original/` folders and catalog-note paths. They cover Markdown files, are
 rebuilt in memory when files change (checked at most once a minute) and are never
-written back. Unresolvable references are listed in Behind the scenes, not guessed.
+written back. Unresolvable references are listed in Reader Admin, not guessed.
 Catalog notes are named but not opened, since the reader serves only `library/`.
 
 When your receipt names an earlier edition of a Markdown or text document, a
@@ -240,7 +243,7 @@ Each check is a cold CLI start for that voice; there is no spending cap beyond t
 90-second timeout. Threaded sub-conversations and voices starting chats are not
 implemented.
 
-Behind the scenes also supervises a local model on any OpenAI-compatible server:
+Reader Admin also supervises a local model on any OpenAI-compatible server:
 LM Studio (the default), Ollama, llama.cpp's `llama-server`, or another server such
 as vLLM, LocalAI or Jan, chosen by preset or base URL, with models discovered through
 `GET /v1/models` and an optional API key that is kept out of git and never shown or
@@ -264,7 +267,7 @@ the 50 GiB free-disk reserve. Embedding requests are not archived.
 
 **Space c** highlights the grammar of Markdown prose and PDF text with the optional
 local [Colorful Language](https://github.com/flyingrobots/colorful-language) CLI
-(0.4.0 or newer, found through `READER_COLORFUL`, a path set in Behind the scenes, Reader's own build, `PATH` or `~/.cargo/bin`). Three
+(0.4.0 or newer, found through `READER_COLORFUL`, a path set in Reader Admin, Reader's own build, `PATH` or `~/.cargo/bin`). Three
 intensities: Subtle fades function words a little; Clear (the default) recedes function
 words and punctuation to about 3:1 while content words hold 7:1 and names, numbers and
 quotes take their own hues; Vivid gives every role a distinct saturated hue, underlines
@@ -274,7 +277,7 @@ stay uncolored. Every Colorful artifact passes a port of its reference admission
 checks before use. Open-class roles cover only Colorful's small seed lexicon, plain
 text is not colored, and its lint diagnostics are not shown.
 
-**Companions** in Behind the scenes reports the optional companion projects (AI-TTS,
+**Companions** in Reader Admin reports the optional companion projects (AI-TTS,
 Colorful Language, wide-md, git-locks) with their state, version and path, what each
 adds and its repository, plus the `claude`, `codex` and `agy` command lines (status
 only) and how GPU use is coordinated. A feature whose companion is missing (Space s,
@@ -302,7 +305,7 @@ touching receipts or bookmarks. The queue (`queues/`) holds at most 500 items in
 Inbox previews are never queued or logged.
 
 Reading controls use local shadcn Base UI components: Progress and Popover on the
-reading rail, Pagination in facing-page mode, Select and Switch in the Behind the scenes settings,
+reading rail, Pagination in facing-page mode, Select and Switch in the Reader Admin settings,
 Card and Badge for index status, Sonner toasts, a paired light/dark Switch, Code Block for every fenced block (language label, exact-text copy with a toast, line numbers in documents, and lazily loaded local Shiki syntax colors painted as CSS highlights in theme colors, without changing the code text), and Skeleton
 loading placeholders. The compiled assets ship with the Python package; rebuilding
 these controls requires the separate `web/` Node toolchain.
@@ -326,8 +329,8 @@ visitor's browser. The demo's article art draws in the browser from exported sce
 the demo's scripted voices: a message gets a keyword-picked reply, streamed in the browser and kept
 only in that browser; chime-ins and raised hands need Reader. Semantic search, the inbox runner, the local model, speech, prose colors, making new art, the queue,
 themes and index maintenance need Reader running locally: their controls are disabled with a
-"Needs Reader on your computer" tooltip, Behind the scenes starts no job, and the service, companions
-and local-model sections are left out. See
+"Needs Reader on your computer" tooltip, Reader Admin starts no job, and its Service & tools,
+Voices and Models pages say they need Reader instead of showing controls. See
 [static web demo](demo.md#static-web-demo).
 
 ## Verification boundaries

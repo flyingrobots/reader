@@ -1,6 +1,6 @@
 # Library search and reading
 
-Reader searches local library file paths and contents through its CLI and `reader_search` MCP tool. `reader_read` opens source text at the returned location. Originals remain canonical; `.reader/search.v2.sqlite3` is a disposable SQLite FTS5 and embedding index (format 2). The retired format 1 index, `.reader/search.sqlite3`, is never read; remove a leftover copy from Behind the scenes (see [format 1 is retired](#format-1-is-retired)). Neither indexing nor retrieval executes document content.
+Reader searches local library file paths and contents through its CLI and `reader_search` MCP tool. `reader_read` opens source text at the returned location. Originals remain canonical; `.reader/search.v2.sqlite3` is a disposable SQLite FTS5 and embedding index (format 2). The retired format 1 index, `.reader/search.sqlite3`, is never read; remove a leftover copy from Reader Admin, Indexes (see [format 1 is retired](#format-1-is-retired)). Neither indexing nor retrieval executes document content.
 
 ## Agent skill and MCP
 
@@ -80,7 +80,7 @@ Identical text in reading copies and their originals is stored once. A shared pa
 
 Format 1 (`.reader/search.sqlite3`, the index before passage deduplication) is no longer read or written. Search, the search page, Read next and article shapes use only `.reader/search.v2.sqlite3`; a format 2 build does not seed vectors from format 1 (it reuses the shared `.reader/embedding-cache.sqlite3` by text hash, then embeds what is missing).
 
-- **Only format 1 present.** Search and the search page refuse with "Search index missing: Reader no longer reads the format 1 index (.reader/search.sqlite3); run reader index to build format 2". The Behind the scenes search card shows **Missing** with "Rebuild the search index to restore search". Read next and article shapes have no vectors until the rebuild.
+- **Only format 1 present.** Search and the search page refuse with "Search index missing: Reader no longer reads the format 1 index (.reader/search.sqlite3); run reader index to build format 2". The Reader Admin search card shows **Missing** with "Rebuild the search index to restore search". Read next and article shapes have no vectors until the rebuild.
 - **Validation.** The first completed format 2 build is checked before it is served: `quick_check`, the FTS integrity check, no orphan chunks or passages, and every file with a chunk. A failure clears `indexed_at` and asks for a rebuild.
 - **Removal.** A leftover format 1 file is shown on the search card as "Old search index (format 1, no longer read)" with **Remove**, the explicit `remove-legacy-search` job. Removal never takes search away. It is refused while any index run holds `.reader/search.lock` and while another process holds the format 1 database's write lock, then deletes `search.sqlite3` and its `-wal`, `-shm` and `-journal` companions. Until removed, the file counts toward the 4 GiB `.reader/` data budget.
 - **Older processes.** Reader code from before format 2 still reads and writes only format 1, so it cannot see a format 2 index. Run every Reader process from current code.

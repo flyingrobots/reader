@@ -106,20 +106,27 @@ function CompanionCard({item,api,act,busy}:{item:Companion;api:Api;act:Companion
 }
 
 export function CompanionsSection({api,act,status,busy,onRefresh}:{api:Api;act:CompanionAct;status:CompanionsStatus|null;busy:boolean;onRefresh:()=>void}){
-  const gpu=status?.local_model?.gpu;
   return <section className="backstage-section" id="companions" aria-labelledby="companions-title">
     <div className="backstage-section-head"><h2 id="companions-title">Companions</h2>
       <span className="backstage-checked">{status?'Checked '+when(status.checked_at):'Looking for companion tools…'}</span>
       <Button id="companions-check" variant="outline" size="sm" onClick={onRefresh}>Check again</Button></div>
     <p className="backstage-intro">Separate projects that add features. Reader works without each one; a feature that needs a missing companion says so and offers setup here.</p>
     <div className="backstage-grid">{status?status.companions.map(item=><CompanionCard key={item.name} item={item} api={api} act={act} busy={busy}/>):null}</div>
-    {status?.cli||gpu?<Card size="sm" className="backstage-card companion-cli" id="companion-cli">
+  </section>;
+}
+
+/** Reader Admin › Voices: the agent command lines chat voices and the librarian run, and GPU coordination for the local
+ *  model. Reader only finds them; it never installs or signs in. An unchecked or unreadable status says so. */
+export function AgentsCard({status,error=null}:{status:CompanionsStatus|null;error?:string|null}){
+  const gpu=status?.local_model?.gpu;
+  if(!status)return <p className="backstage-message" id="companion-cli-pending" data-state={error?'unavailable':'loading'}>{error?'Couldn’t look for agent command lines: '+error:'Looking for agent command lines…'}</p>;
+  if(!status.cli&&!gpu)return <p className="backstage-message" id="companion-cli-none">This Reader reports no agent command lines.</p>;
+  return <Card size="sm" className="backstage-card companion-cli" id="companion-cli">
       <CardHeader><CardTitle>Agents and models</CardTitle><CardDescription>Chat voices and the inbox librarian run these command lines with your own account; Reader only finds them. Install and sign in yourself.</CardDescription></CardHeader>
       <CardContent><ul className="companion-cli-list">{(status?.cli||[]).map(cli=><li key={cli.name} data-cli={cli.name} data-state={cli.state}>
         <span><strong>{cli.title}</strong> <code>{cli.name}</code>{cli.voices.length?<small> · used by {cli.voices.join(', ')}</small>:null}</span>
         <span>{cli.path?<code>{cli.path}</code>:<>Not found{cli.link?<> · <a href={cli.link} target="_blank" rel="noreferrer">setup</a></>:null}</>}</span></li>)}</ul>
-        {gpu?<p className="backstage-message" data-gpu={gpu.mode} id="companion-gpu"><strong>GPU coordination: {gpu.label}.</strong> {gpu.message}</p>:null}</CardContent></Card>:null}
-  </section>;
+        {gpu?<p className="backstage-message" data-gpu={gpu.mode} id="companion-gpu"><strong>GPU coordination: {gpu.label}.</strong> {gpu.message}</p>:null}</CardContent></Card>;
 }
 
 /** The non-blocking prompt a missing feature shows: what is missing, what it adds, its repo, Install when safe, and Don't show again. */

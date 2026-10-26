@@ -20,7 +20,7 @@ const {chromium}=require(process.env.READER_PLAYWRIGHT||'playwright-core');
   await page.locator('#main').focus();await page.keyboard.press('Space');await page.keyboard.press(',');await page.waitForFunction(()=>document.querySelector('#status-keys').textContent.includes('theme editor'));await page.keyboard.press('t');await editor.waitFor();
   await page.keyboard.press('Escape');await editor.waitFor({state:'hidden'});
   await page.locator('#main').focus();await page.keyboard.press('Space');await page.keyboard.press('p');await page.locator('#theme-editor-open').click();await editor.waitFor();
-  assert.ok(await page.locator('#backstage').isVisible(),'the editor opens over Behind the scenes');
+  assert.ok(await page.locator('#backstage-settings').isVisible(),'the editor opens over Reader Admin\'s Settings');
   // Built-in Ink & Paper is read from the cascade; the dark variant is current.
   assert.equal(await page.locator('#token-bg').inputValue(),'#141713');assert.ok(await page.getByText('Saving creates your own copy').isVisible());
   await page.locator('#theme-name').fill('Dusk test');

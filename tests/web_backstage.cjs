@@ -1,4 +1,4 @@
-/* Behind the scenes: index cards, job toasts, settings, and Read next at the end of a document. */
+/* Reader Admin's Indexes and Settings pages: index cards, job toasts, settings, and Read next at the end of a document. */
 const assert=require('node:assert/strict');
 const {spawn}=require('node:child_process');
 const {createInterface}=require('node:readline');
@@ -18,9 +18,10 @@ const {chromium}=require(process.env.READER_PLAYWRIGHT||'playwright-core');
   {const {page,context}=await open({});
    await page.goto(url);await page.locator('#home-title').waitFor();
    await page.locator('#main').focus();await page.keyboard.press('Space');await page.keyboard.press('p');
-   await page.locator('#backstage').waitFor();await page.waitForFunction(()=>document.activeElement?.id==='settings-title');
-   assert.equal(new URL(page.url()).hash,'#backstage');await page.waitForFunction(()=>document.querySelector('#vim-mode').textContent==='BACKSTAGE');await page.locator('#main').focus();
-   assert.equal(await page.locator('#status-location [aria-current=page]').textContent(),'Behind the scenes');
+   await page.locator('#reader-admin').waitFor();await page.waitForFunction(()=>document.activeElement?.id==='admin-title'&&document.activeElement.textContent==='Settings');
+   assert.equal(new URL(page.url()).hash,'#admin/settings');await page.waitForFunction(()=>document.querySelector('#vim-mode').textContent==='ADMIN');
+   assert.equal(await page.locator('#status-location [aria-current=page]').textContent(),'Reader Admin');
+   await page.locator('[data-admin-nav=indexes]').click();await page.waitForFunction(()=>document.activeElement?.textContent==='Indexes');await page.locator('#main').focus();
    for(const [index,state] of [['search','missing'],['browse','unconfigured'],['catalog','missing']])await page.locator(`[data-index=${index}][data-state=${state}]`).waitFor();
    await page.locator('[data-job=search]').click();
    await toast(page,'Search index (with embeddings) running…').waitFor();assert.equal(await toast(page,'running…').getAttribute('data-type'),'loading');
@@ -35,11 +36,12 @@ const {chromium}=require(process.env.READER_PLAYWRIGHT||'playwright-core');
    assert.equal(await page.locator('.backstage-jobs li[data-job-state=failed]').count(),1);
    assert.ok(await page.locator('.backstage-jobs').textContent().then(t=>t.includes('Synthetic catalog failure')));
    await page.screenshot({path:'.reader/web-dev/backstage.png',fullPage:true});
-   // Settings live on the page.
+   // Settings have their own page.
+   await page.locator('[data-admin-nav=settings]').click();await page.locator('#preferences-form').waitFor();
    await page.locator('#theme-choice').click();await page.getByRole('option',{name:'Orchid · Dark',exact:true}).click();await page.locator('[data-slot=select-content][data-open]').waitFor({state:'hidden'});
    await page.locator('#preferences-form button[type=submit]').click();await toast(page,'Preferences saved.').waitFor();
-   assert.equal(await page.locator('html').getAttribute('data-theme'),'orchid-dark');assert.ok(await page.locator('#backstage').isVisible(),'saving stays on the page');
-   await page.locator('#settings-open').click();await page.waitForFunction(()=>document.activeElement?.id==='settings-title');
+   assert.equal(await page.locator('html').getAttribute('data-theme'),'orchid-dark');assert.ok(await page.locator('#backstage-settings').isVisible(),'saving stays on the page');
+   await page.locator('#settings-open').click();await page.waitForFunction(()=>document.activeElement?.id==='admin-title'&&location.hash==='#admin');
    await page.setViewportSize({width:390,height:844});await page.waitForTimeout(200);assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),'no horizontal scroll at phone width');
    await context.close();}
   // Read next: continuous layout, after the article.
@@ -63,6 +65,6 @@ const {chromium}=require(process.env.READER_PLAYWRIGHT||'playwright-core');
    const without=await lastSpread(false),withReads=await lastSpread(true);
    assert.equal(without.shown,0);assert.equal(withReads.label,without.label,'Read next never adds a spread');}
   assert.deepEqual(external,[]);assert.deepEqual(errors,[]);
-  console.log('Backstage passed: Space p page and focus, index states, loading/success/error toasts, real keyword rebuild, one job at a time, settings save, phone width, Read next order and placement in scroll and two-page layouts, local-only assets.');
+  console.log('Backstage passed: Space p Settings page and focus, Indexes page, index states, loading/success/error toasts, real keyword rebuild, one job at a time, settings save, phone width, Read next order and placement in scroll and two-page layouts, local-only assets.');
  }finally{await browser?.close();if(fixture.exitCode===null&&fixture.signalCode===null){fixture.kill('SIGTERM');await new Promise(resolve=>fixture.once('exit',resolve));}}
 })().catch(error=>{console.error(error);process.exitCode=1;});

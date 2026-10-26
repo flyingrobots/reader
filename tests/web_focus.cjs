@@ -1,4 +1,4 @@
-/* Focus after Space p, saving Settings and closing the Theme Editor (synthetic data). */
+/* Focus after Space p (Reader Admin's Settings page), saving Settings and closing the Theme Editor (synthetic data). */
 const assert=require('node:assert/strict');
 const {spawn}=require('node:child_process');
 const {createInterface}=require('node:readline');
@@ -12,7 +12,7 @@ const {chromium}=require(process.env.READER_PLAYWRIGHT||'playwright-core');
   const active=()=>page.evaluate(()=>document.activeElement?.id||document.activeElement?.tagName);
   // #42: Space p focuses the Settings heading in NORMAL mode; the next leader key acts instead of typing.
   await page.goto(url);await page.locator('#home-title').waitFor();await page.locator('#main').focus();
-  await page.keyboard.press('Space');await page.keyboard.press('p');await page.locator('#backstage').waitFor();await page.waitForFunction(()=>document.activeElement?.id==='settings-title');
+  await page.keyboard.press('Space');await page.keyboard.press('p');await page.locator('#backstage-settings').waitFor();await page.waitForFunction(()=>document.activeElement?.id==='admin-title');
   assert.notEqual(await page.locator('#vim-mode').textContent(),'INSERT');const name=await page.locator('#profile-name').inputValue();
   await page.keyboard.press('Space');await page.keyboard.press('e');await page.locator('#picker[open]').waitFor();await page.keyboard.press('Escape');
   assert.equal(await page.locator('#profile-name').inputValue(),name,'the participant field is untouched');

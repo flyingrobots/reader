@@ -102,11 +102,15 @@ as you edit. The checks are aids, not an accessibility certification.
 
 ![The Theme Editor's checks for a theme generated from a seed color](docs/images/theme-editor.png)
 
-### Behind the scenes and the inbox
+### Reader Admin and the inbox
 
-**Space p** opens Behind the scenes: the freshness of the search index, browse
-indexes, catalog mirror and link graph, with rebuilds on demand; library
-statistics; settings; and the local-model provider, queue and controls. Other tools and
+The footer's **Backstage** button opens Reader Admin, a sidebar layout with one page
+per section: an Overview of running work, waiting mail, anything needing attention
+and index health; the freshness of the search index, browse indexes, catalog mirror
+and link graph, with rebuilds on demand; the inbox; artwork; library statistics; the
+service and companion tools; agent voices; the local-model provider, queue and
+controls; and settings (**Space p**). **Back to Library** returns to the document
+where you left it. Other tools and
 agents deliver documents into the vault's `inbox/` with `reader ingest` or the
 `reader_ingest` MCP tool. **You got mail** then starts a librarian run through your
 own Codex CLI, which files the arrivals, and you can watch its live transcript
@@ -179,15 +183,15 @@ server by hand. The Obsidian sidebar plugin is optional. Both are covered in
 
 For the full experience, install these sibling projects as well. Each is a
 separate repository, not a package dependency, so `uv sync` does not fetch them;
-Reader finds them on your PATH and works without them. **Behind the scenes,
-Companions** shows each one's status; when a feature needs a missing companion, Reader
+Reader finds them on your PATH and works without them. **Reader Admin,
+Service & tools** shows each one's status; when a feature needs a missing companion, Reader
 says so and offers setup, and it can build Colorful Language and wide-md for you
-([details](docs/web.md#behind-the-scenes-companions)).
+([details](docs/web.md#reader-admin-companions)).
 
 | Project | What it adds | Install |
 | --- | --- | --- |
 | [AI-TTS](https://github.com/flyingrobots/AI-TTS) | Read aloud (Space s): a local speech daemon that queues speech, keeps history and honours pauses | Follow its README; Reader talks to the running daemon |
-| [Colorful Language](https://github.com/flyingrobots/colorful-language) | Prose colors (Space c): syntax highlighting for English prose | **Install** in Behind the scenes, Companions (builds the pinned release; needs Rust), or `cargo install --path crates/colorful-cli --locked` in a clone and **Set path** there |
+| [Colorful Language](https://github.com/flyingrobots/colorful-language) | Prose colors (Space c): syntax highlighting for English prose | **Install** in Reader Admin, Service & tools (builds the pinned release; needs Rust), or `cargo install --path crates/colorful-cli --locked` in a clone and **Set path** there |
 | [wide-md](https://github.com/flyingrobots/wide-md) | Reading copies: removes artificial line wrapping from filed Markdown | **Install** in Companions, or `python3 scripts/install_wide_md.py`; both build the pinned revision ([details](docs/reading-copies.md)) |
 | [git-locks](https://github.com/git-stunts/locks) | Safe commits when several agents or Reader processes write to the vault at once | Follow its README so `git-locks` is on your PATH (Companions shows the commands); without it Reader coordinates only its own processes with local file locks |
 
@@ -196,8 +200,8 @@ says so and offers setup, and it can build Colorful Language and wide-md for you
 | To get | Install | Then |
 | --- | --- | --- |
 | Chat voices | Any of `claude`, `codex` or `agy`, signed in with your own account | Copy [`templates/voices.json`](templates/voices.json) into the vault and edit it ([voice registry](docs/web.md#voice-registry)) |
-| Inbox librarian | `codex`, signed in (`codex login`) | Press **You got mail** in Behind the scenes ([inbox runner](docs/inbox-runner.md)) |
-| Local model | Any OpenAI-compatible server: [LM Studio](https://lmstudio.ai/) (Reader can start it and load models through `lms`), [Ollama](https://ollama.com/), llama.cpp's `llama-server`, vLLM, LocalAI, Jan | Behind the scenes, Local model, Provider: pick a preset or enter its `/v1` base URL ([details](docs/web.md#behind-the-scenes-local-model-any-openai-compatible-server)) |
+| Inbox librarian | `codex`, signed in (`codex login`) | Press **You got mail** in Reader Admin, Inbox ([inbox runner](docs/inbox-runner.md)) |
+| Local model | Any OpenAI-compatible server: [LM Studio](https://lmstudio.ai/) (Reader can start it and load models through `lms`), [Ollama](https://ollama.com/), llama.cpp's `llama-server`, vLLM, LocalAI, Jan | Reader Admin, Local model, Provider: pick a preset or enter its `/v1` base URL ([details](docs/web.md#reader-admin-local-model-any-openai-compatible-server)) |
 | Read aloud | A local [AI-TTS](https://github.com/flyingrobots/AI-TTS) daemon | Space s ([details](docs/web.md#send-to-ai-tts)) |
 | Prose colors | [Colorful Language](https://github.com/flyingrobots/colorful-language) 0.4.0 or newer | Space c ([details](docs/web.md#prose-colors-colorful-language)) |
 
@@ -224,7 +228,7 @@ is never shown or logged. Chat voices use the CLIs above, not the local model.
   chat transcript and whatever the voice chooses to read to that CLI's provider
   (Anthropic, OpenAI or Google). The built-in embedding model runs locally, and so
   does the local model unless you explicitly allow a server on another machine, in
-  which case Behind the scenes shows that the text of queued documents is sent there.
+  which case Reader Admin shows that the text of queued documents is sent there.
 - **Logs are kept.** Every chat turn's prompt, output and metadata are archived in
   the vault under `logs/llm/` and committed with the chat. Nothing prunes them, and
   a new turn will not start when the disk is low enough that its log could not be
@@ -244,7 +248,7 @@ map.
 | j / k, gg / G | Scroll (or turn spreads); beginning / end |
 | ]] / [[ | Next / previous heading |
 | Space o | Document outline |
-| Space h / t / p | Home / passage discussions / Behind the scenes |
+| Space h / t / p | Home / passage discussions / Settings (Reader Admin) |
 | Space m | Chat with the voices |
 | Space r, Space n | Reading queue, open the next item |
 | Space v, Space d | Versions, what changed |

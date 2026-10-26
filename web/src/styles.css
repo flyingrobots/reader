@@ -23,6 +23,15 @@
   --color-border: var(--line);
   --color-input: var(--line);
   --color-ring: var(--accent);
+  /* Reader Admin's sidebar uses the same theme tokens: no separate palette. */
+  --color-sidebar: var(--surface);
+  --color-sidebar-foreground: var(--ink);
+  --color-sidebar-primary: var(--accent);
+  --color-sidebar-primary-foreground: var(--accent-ink);
+  --color-sidebar-accent: var(--raised);
+  --color-sidebar-accent-foreground: var(--ink);
+  --color-sidebar-border: var(--line);
+  --color-sidebar-ring: var(--accent);
   --font-sans: Manrope, Helvetica, sans-serif;
   --radius-sm: 4px;
   --radius-md: 6px;
@@ -175,11 +184,40 @@
 .theme-checks li[data-severity=fail] .theme-check-badge { background: var(--warning); color: var(--bg); }
 .theme-checks li[data-severity=warn] .theme-check-badge { color: var(--ink); outline: 1px solid var(--line); }
 
-/* Behind the scenes */
-.backstage { max-width: 1180px; margin: auto; padding: 44px 48px 90px; font-family: var(--sans); }
-.backstage-header { padding-bottom: 26px; border-bottom: 1px solid var(--line); }
-.backstage-header h1 { font-family: var(--serif); font-weight: 450; font-size: 46px; line-height: 1.05; margin: 14px 0 12px; }
-.backstage-header p { max-width: 62ch; color: var(--muted); font-size: 14px; line-height: 1.55; margin: 0; }
+/* Reader Admin: a sidebar layout with native scrolling. The fixed sidebar stops at the status line. */
+.reader-admin { font-family: var(--sans); --admin-status: 33px; }
+.reader-admin [data-slot="sidebar-container"] { bottom: var(--admin-status); height: auto; }
+.reader-admin [data-slot="sidebar-header"] { padding: 18px 16px 6px; }
+.admin-brand { font: 650 15px/1.2 var(--sans); color: var(--ink); text-decoration: none; }
+.admin-brand:focus-visible, .admin-breadcrumb a:focus-visible, .admin-tile-link a:focus-visible, .admin-attention a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 2px; }
+.reader-admin [data-slot="sidebar-menu-button"] { color: var(--ink); text-decoration: none; }
+.reader-admin [data-slot="sidebar-menu-button"][data-active] { background: var(--raised); font-weight: 650; }
+.reader-admin [data-slot="sidebar-menu-button"]:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.reader-admin [data-slot="sidebar-menu-button"] svg { width: 16px; height: 16px; flex: none; }
+.reader-admin [data-slot="sidebar-footer"] { padding: 8px 8px 12px; }
+.admin-back-side { justify-content: flex-start; }
+.admin-inset { min-width: 0; background: var(--bg); }
+.admin-header { position: sticky; top: 0; z-index: 5; display: flex; align-items: center; gap: 10px; min-height: 52px; padding: 8px 24px 8px 14px; background: var(--bg); border-bottom: 1px solid var(--line); }
+.admin-header-rule { height: 18px; }
+.admin-breadcrumb { min-width: 0; flex: 1; }
+.admin-breadcrumb ol { display: flex; align-items: center; gap: 8px; list-style: none; margin: 0; padding: 0; font-size: 13px; color: var(--muted); white-space: nowrap; overflow: hidden; }
+.admin-breadcrumb a { color: var(--muted); text-decoration: none; }
+.admin-breadcrumb a:hover { color: var(--ink); text-decoration: underline; }
+.admin-breadcrumb [aria-current] { color: var(--ink); font-weight: 600; overflow: hidden; text-overflow: ellipsis; }
+.admin-content { width: 100%; max-width: 1180px; margin: 0 auto; padding: 32px 48px 96px; }
+.admin-page-head { padding-bottom: 22px; border-bottom: 1px solid var(--line); }
+.admin-page-head h1 { font-family: var(--serif); font-weight: 450; font-size: 40px; line-height: 1.08; margin: 0 0 10px; scroll-margin-top: 64px; }
+.admin-page-head h1:focus { outline: none; }
+.admin-page-head h1:focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; }
+.admin-lede { max-width: 66ch; color: var(--muted); font-size: 14px; line-height: 1.55; margin: 0; }
+.admin-content > .backstage-section:first-of-type, .admin-content > .admin-overview, .admin-content > #backstage-models > .backstage-section:first-child, .admin-content > #backstage-art { margin-top: 28px; }
+.admin-list { margin: 0; padding-left: 18px; display: grid; gap: 6px; font-size: 13px; line-height: 1.45; }
+.admin-attention a { color: var(--ink); }
+.admin-tile-link { margin: 0; font-size: 12px; }
+.admin-tile-link a { color: var(--accent); }
+.admin-health div { display: grid; gap: 4px; }
+.admin-overview-note { margin-top: 22px; }
+.admin-needs-reader { margin-top: 28px; }
 .backstage-section { margin-top: 38px; display: grid; gap: 16px; }
 .backstage-section-head { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
 .backstage-section-head h2 { font-family: var(--serif); font-weight: 450; font-size: 28px; margin: 0 auto 0 0; }
@@ -376,8 +414,11 @@
   .activity-dots { margin-left: 0; }
 }
 @media (max-width: 700px) {
-  .backstage { padding: 26px 16px 80px; }
-  .backstage-header h1 { font-size: 34px; }
+  .reader-admin { --admin-status: 39px; }
+  .admin-header { padding: 6px 12px 6px 8px; gap: 6px; }
+  .admin-back { padding-inline: 8px; }
+  .admin-content { padding: 22px 16px 88px; }
+  .admin-page-head h1 { font-size: 32px; }
 }
 
 /* Diagrams (Pele). Colors follow Reader tokens through CSS variables, so a theme change recolors without re-rendering. */

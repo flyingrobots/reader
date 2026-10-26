@@ -125,7 +125,7 @@ const {chromium}=require(process.env.READER_PLAYWRIGHT||'playwright-core');
   {const {context,page,errors}=await open({prefs:{artHero:false}});
    await read(page,'library/issue/keep.md');await page.waitForTimeout(1600);
    assert.equal(await page.locator('#article .article-art').count(),0,'Open articles with their art: off');
-   await page.locator('#settings-open').click();await page.locator('#setting-art-hero').waitFor();
+   await page.locator('#settings-open').click();await page.locator('[data-admin-nav=settings]').click();await page.locator('#setting-art-hero').waitFor();
    assert.equal(await page.locator('#setting-art-hero').evaluate(el=>el.getAttribute('aria-checked')??String(el.checked??el.dataset.checked!==undefined)),'false');
    assert.deepEqual(errors,[]);await context.close();}
 

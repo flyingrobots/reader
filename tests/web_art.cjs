@@ -160,18 +160,19 @@ const median=values=>{const s=[...values].sort((a,b)=>a-b);return s.length?s[s.l
    assert.match(await page.locator('.article-art .art-placeholder').textContent(),/No voice or local model can make art here yet\./);
    assert.equal(await page.locator('.article-art [data-art-generate]').count(),0);
    await page.click('.article-art [data-art-setup]');
-   await page.locator('#companions').waitFor();assert.match(await page.evaluate(()=>location.hash),/^#backstage/);
+   await page.locator('#backstage-voices').waitFor();assert.equal(await page.evaluate(()=>location.hash),'#admin/voices');
    assert.deepEqual(errors,[]);await context.close();}
 
-  // Behind the scenes: the Art studio card lists the commissions with time and cost; Settings chooses who makes art.
+  // Reader Admin, Artwork: the Art studio card lists the commissions with time and cost; Settings chooses who makes art.
   {const {context,page,errors}=await open();
-   await page.goto(url+'#backstage');await page.locator('#backstage-art').waitFor();
+   await page.goto(url+'#admin/artwork');await page.locator('#backstage-art').waitFor();
    await page.waitForFunction(()=>document.querySelectorAll('#backstage-art [data-art-job]').length>=2);
    const card=await page.locator('#backstage-art').textContent();
    assert.match(card,/Art can be made by Painter \(fake-model-1\)/);assert.match(card,/Ready/);assert.match(card,/4,000 tokens · \$0\.02/);assert.match(card,/logs\/llm\/art\//);
+   await page.locator('#backstage-art').screenshot({path:'.reader/web-dev/art-studio.png'});
+   await page.locator('[data-admin-nav=settings]').click();await page.locator('#preferences-form').waitFor();
    assert.equal(await page.locator('#art-by').count(),1);assert.equal(await page.locator('#art-auto').count(),1);assert.equal(await page.locator('#setting-art').count(),1);
    assert.equal(await page.locator('#setting-shapes').count(),0,'the shapes experiment setting is gone');
-   await page.locator('#backstage-art').screenshot({path:'.reader/web-dev/art-studio.png'});
    assert.deepEqual(errors,[]);await context.close();}
 
   // Phone width keeps the page inside 390px.

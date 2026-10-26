@@ -111,9 +111,9 @@ const {chromium}=require(process.env.READER_PLAYWRIGHT||'playwright-core');
      assert.ok(hit,`${row.source}: anchor ${row.fragment} is a rendered heading slug of ${JSON.stringify(slugs)}`);
      assert.equal(hit[0],slugs.at(-1)[0],`${row.source}: the link sits under the last heading`);}
    await context.close();}
-  // Behind the scenes: the Link graph card and a refresh with toasts.
+  // Reader Admin, Indexes: the Link graph card and a refresh with toasts.
   {const {page,context}=await open({});
-   await page.goto(url+'#backstage');await page.locator('[data-index=links][data-state=current]').waitFor({timeout:20000});
+   await page.goto(url+'#admin/indexes');await page.locator('[data-index=links][data-state=current]').waitFor({timeout:20000});
    assert.match(await page.locator('[data-index=links]').textContent(),/Links20/);
    await page.locator('[data-job=links]').click();
    await page.locator('[data-sonner-toast]').filter({hasText:'Link graph finished'}).waitFor({timeout:15000});

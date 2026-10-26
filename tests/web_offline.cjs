@@ -17,7 +17,7 @@ const {chromium}=require(process.env.READER_PLAYWRIGHT||'playwright-core');
   let down=true;
   await context.route(()=>true,route=>down?route.abort('connectionrefused'):route.continue());
   await page.mouse.move(600,400);await page.mouse.wheel(0,600);await page.waitForTimeout(1500);
-  await page.evaluate(()=>{location.hash='#backstage';});await page.locator('[data-job=search]').waitFor();
+  await page.evaluate(()=>{location.hash='#admin/indexes';});await page.locator('[data-job=search]').waitFor();
   await page.locator('[data-job=search]').click();
   await page.locator('[data-job=catalog]').click();
   await page.waitForTimeout(1500);

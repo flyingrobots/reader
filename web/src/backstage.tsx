@@ -1,5 +1,5 @@
-/* Behind the scenes: index freshness, on-demand rebuilds and settings. */
-import {useEffect, useLayoutEffect, useRef, useState, type ReactNode} from 'react';
+/* Reader Admin panels: index freshness and on-demand rebuilds, and the inbox. */
+import {useEffect, useState, type ReactNode} from 'react';
 import {Loader2Icon, MailIcon, SquareIcon} from 'lucide-react';
 import {toast} from 'sonner';
 import {ActivityTranscript} from './activity/transcript';
@@ -81,13 +81,6 @@ function summary(job:Job){
   return null;
 }
 
-/** A DOM slot React renders once and never touches again: the vanilla dashboard owns its contents. */
-function Slot({id,mount}:{id:string;mount:(element:HTMLElement)=>void}){
-  const ref=useRef<HTMLDivElement>(null);
-  useLayoutEffect(()=>{if(ref.current)mount(ref.current);},[mount]);
-  return <div id={id} ref={ref}/>;
-}
-
 type EditionStats={stats:{files:number;families:number;unresolved:number;build_ms?:number;partial:boolean;header_bytes:number};unresolved:{path:string;field:string;value:string}[]};
 /** Edition links: families found and the references that could not be resolved (never guessed or repaired). */
 export function EditionLinks({api}:{api:(path:string)=>Promise<any>}){
@@ -111,56 +104,48 @@ function Legacy({legacy,busy,onRemove}:{legacy:LegacyIndex;busy:boolean;onRemove
   </p>;
 }
 
-export function Backstage({status,onStart,settings,themeEditor,library,inbox,inboxFirst,editions,localModel,art,server,companions}:{companions?:ReactNode;art?:ReactNode;status:MaintenanceStatus|null;onStart:(kind:string)=>void;settings:ReactNode;themeEditor:()=>void;server?:ReactNode;library?:(element:HTMLElement)=>void;inbox:ReactNode;inboxFirst:boolean;editions?:ReactNode;localModel?:ReactNode}){
+/** Reader Admin › Indexes: freshness of each rebuildable index, on-demand rebuilds, this server's recent runs and the
+ *  edition-link diagnostics. Unreadable maintenance status is shown as unavailable, never as a set of empty cards. */
+export function Indexes({status,error,onStart,editions}:{status:MaintenanceStatus|null;error:string|null;onStart:(kind:string)=>void;editions?:ReactNode}){
   const running=status?.running,busy=!!running||!!status?.checking,checkedAt=Object.values(status?.checks||{})[0]?.checked_at,local=needsReader();
-  const mail=<section className="backstage-section" id="backstage-inbox" aria-label="Inbox">{inbox}</section>;
-  return <div className="backstage" id="backstage">
-    <header className="backstage-header"><div className="eyebrow">Behind the scenes</div><h1 id="backstage-title">How the library is kept.</h1>
-      <p>Indexes are rebuildable copies of what the vault already holds. Check whether they have drifted, rebuild one when it has, look over the library’s statistics, and keep your reading settings here.</p></header>
-    {inboxFirst?mail:null}
-    <section className="backstage-section" aria-labelledby="indexes-title">
-      <div className="backstage-section-head"><h2 id="indexes-title">Indexes</h2><span className="backstage-checked" aria-live="polite">{status?.checking||running?.kind==='check'?<><Loader2Icon className="size-3 animate-spin" aria-hidden/> Checking…</>:checkedAt?'Checked '+when(checkedAt):local?'Checks need Reader on your computer':'Not checked yet'}</span>
-        <Button id="maintenance-check" variant="outline" size="sm" disabled={busy} {...localOnly()} onClick={()=>onStart('check')}>Check again</Button></div>
-      <div className="backstage-grid">{INDEXES.map(index=>{
-        const check=status?.checks?.[index.key],active=running&&INDEX_OF[running.kind]===index.key;
-        const state=active?{label:'Rebuilding…',variant:'default' as const}:check?STATES[check.state]||{label:check.state,variant:'outline' as const}:{label:local?'Not checked':status?'Checking…':'Loading…',variant:'outline' as const};
-        return <Card key={index.key} size="sm" className="backstage-card" data-index={index.key} data-state={active?'running':check?.state||'unknown'}>
-          <CardHeader><CardTitle>{index.title}</CardTitle><CardDescription>{index.description}</CardDescription>
-            <CardAction><Badge variant={state.variant} className="backstage-badge">{active?<Loader2Icon data-icon="inline-start" className="animate-spin" aria-hidden/>:null}{state.label}</Badge></CardAction></CardHeader>
-          <CardContent>
-            {active?<p className="backstage-message">{running!.label} running for <Elapsed since={running!.started_at}/>.</p>:check?.message?<p className="backstage-message">{check.message}</p>:null}
-            {check?<dl className="backstage-facts">{index.facts.map(([label,value])=>{const v=value(check);return v===undefined||v===null?null:<div key={label} data-fact={label}><dt>{label}</dt><dd>{typeof v==='number'?v.toLocaleString():String(v)}</dd></div>;})}</dl>:null}
-            {index.note?<p className="backstage-note">{index.note}</p>:null}
-            {index.key==='search'&&check?.legacy?<Legacy legacy={check.legacy as LegacyIndex} busy={busy} onRemove={()=>onStart('remove-legacy-search')}/>:null}
-          </CardContent>
-          {index.actions.length?<CardFooter><ButtonGroup>{index.actions.map(action=><Button key={action.kind} data-job={action.kind} variant={action.primary?'default':'outline'} size="sm" disabled={busy} {...localOnly()} onClick={()=>onStart(action.kind)}>{action.label}</Button>)}</ButtonGroup></CardFooter>:null}
-        </Card>;})}</div>
-      <Card size="sm" className="backstage-card"><CardHeader><CardTitle>Recent runs</CardTitle><CardDescription>This server’s jobs since it started. Toasts announce each start, finish and failure.</CardDescription></CardHeader>
-        <CardContent>{status?.jobs.length||running?<ol className="backstage-jobs">{[...(running?[running]:[]),...status!.jobs].slice(0,10).map(job=><li key={job.id+job.state} data-job-state={job.state}>
-          <span className="backstage-job-state">{job.state==='running'?<Loader2Icon className="size-3 animate-spin" aria-label="Running"/>:job.state==='succeeded'?'✓':'✕'}</span>
-          <span><strong>{job.label}</strong><small>{job.state==='running'?<>Started {when(job.started_at)}{job.progress?<> · {job.progress}</>:null}</>:<>{when(job.finished_at)} · {job.elapsed_seconds} s</>}</small>{job.state!=='running'&&summary(job)?<small className={job.state==='failed'?'backstage-error':''}>{summary(job)}</small>:null}</span></li>)}</ol>
-          :<p className="backstage-message">No runs yet.</p>}</CardContent></Card>
-      {editions}
-    </section>
-    {/* The web demo leaves out the cards that describe this machine, and says where they live. */}
-    {local?<p className="backstage-note" id="backstage-local-only">On your computer, Behind the scenes also shows the Reader service and its updater, companion tools such as Colorful Language and AI-TTS, and a local model for bulk work. Rebuilds and checks run there too.</p>:null}
-    {/* The running service sits beside the indexes it serves. */}
-    {server?<section className="backstage-section" id="backstage-server" aria-labelledby="server-title">
-      <div className="backstage-section-head"><h2 id="server-title">Service</h2></div>{server}</section>:null}
-    {companions}
-    {inboxFirst?null:mail}
-    {localModel}
-    {art}
-    {library?<section className="backstage-section backstage-library" id="backstage-library" aria-labelledby="library-title">
-      <div className="backstage-section-head"><h2 id="library-title">Library</h2><span className="backstage-checked">Holdings, arrivals, reading and the margins</span></div>
-      <Slot id="backstage-library-mount" mount={library}/>
-    </section>:null}
-    <section className="backstage-section" id="backstage-settings" aria-labelledby="settings-title">
-      <div className="backstage-section-head"><h2 id="settings-title">Settings</h2><Button id="theme-editor-open" variant="outline" size="sm" onClick={themeEditor}>Theme Editor…</Button></div>
-      <Card size="sm" className="backstage-card">{settings}</Card>
-    </section>
-  </div>;
+  const unavailable=!status&&!!error;
+  return <section className="backstage-section" id="backstage-indexes" aria-label="Indexes" data-state={unavailable?'unavailable':status?'ready':'loading'}>
+    <div className="backstage-section-head"><span className="backstage-checked" aria-live="polite">{status?.checking||running?.kind==='check'?<><Loader2Icon className="size-3 animate-spin" aria-hidden/> Checking…</>:unavailable?'Index status is unavailable':checkedAt?'Checked '+when(checkedAt):local?'Checks need Reader on your computer':'Not checked yet'}</span>
+      <Button id="maintenance-check" variant="outline" size="sm" disabled={busy} {...localOnly()} onClick={()=>onStart('check')}>Check again</Button></div>
+    {unavailable?<p className="backstage-message backstage-error" id="indexes-unavailable" role="status">Couldn’t read the index status: {error}</p>:null}
+    {status&&error?<p className="backstage-note" id="indexes-stale" role="status">The last status refresh failed ({error}); showing the status read before it.</p>:null}
+    <div className="backstage-grid">{INDEXES.map(index=>{
+      const check=status?.checks?.[index.key],active=running&&INDEX_OF[running.kind]===index.key;
+      const state=active?{label:'Rebuilding…',variant:'default' as const}:check?STATES[check.state]||{label:check.state,variant:'outline' as const}:{label:unavailable?'Unavailable':local?'Not checked':status?'Checking…':'Loading…',variant:unavailable?'destructive' as const:'outline' as const};
+      return <Card key={index.key} size="sm" className="backstage-card" data-index={index.key} data-state={active?'running':check?.state||(unavailable?'unavailable':'unknown')}>
+        <CardHeader><CardTitle role="heading" aria-level={2}>{index.title}</CardTitle><CardDescription>{index.description}</CardDescription>
+          <CardAction><Badge variant={state.variant} className="backstage-badge">{active?<Loader2Icon data-icon="inline-start" className="animate-spin" aria-hidden/>:null}{state.label}</Badge></CardAction></CardHeader>
+        <CardContent>
+          {active?<p className="backstage-message">{running!.label} running for <Elapsed since={running!.started_at}/>.</p>:check?.message?<p className="backstage-message">{check.message}</p>:null}
+          {check?<dl className="backstage-facts">{index.facts.map(([label,value])=>{const v=value(check);return v===undefined||v===null?null:<div key={label} data-fact={label}><dt>{label}</dt><dd>{typeof v==='number'?v.toLocaleString():String(v)}</dd></div>;})}</dl>:null}
+          {index.note?<p className="backstage-note">{index.note}</p>:null}
+          {index.key==='search'&&check?.legacy?<Legacy legacy={check.legacy as LegacyIndex} busy={busy} onRemove={()=>onStart('remove-legacy-search')}/>:null}
+        </CardContent>
+        {index.actions.length?<CardFooter><ButtonGroup>{index.actions.map(action=><Button key={action.kind} data-job={action.kind} variant={action.primary?'default':'outline'} size="sm" disabled={busy||unavailable} {...localOnly()} onClick={()=>onStart(action.kind)}>{action.label}</Button>)}</ButtonGroup></CardFooter>:null}
+      </Card>;})}</div>
+    <RecentRuns status={status} error={error}/>
+    {editions}
+  </section>;
 }
+/** This server's maintenance jobs since it started (the inventory Overview links to). */
+export function RecentRuns({status,error}:{status:MaintenanceStatus|null;error:string|null}){
+  const running=status?.running;
+  return <Card size="sm" className="backstage-card" id="recent-runs"><CardHeader><CardTitle role="heading" aria-level={2}>Recent runs</CardTitle><CardDescription>This server’s jobs since it started. Toasts announce each start, finish and failure.</CardDescription></CardHeader>
+    <CardContent>{status?.jobs.length||running?<ol className="backstage-jobs">{[...(running?[running]:[]),...status!.jobs].slice(0,10).map(job=><li key={job.id+job.state} data-job-state={job.state}>
+      <span className="backstage-job-state">{job.state==='running'?<Loader2Icon className="size-3 animate-spin" aria-label="Running"/>:job.state==='succeeded'?'✓':'✕'}</span>
+      <span><strong>{job.label}</strong><small>{job.state==='running'?<>Started {when(job.started_at)}{job.progress?<> · {job.progress}</>:null}</>:<>{when(job.finished_at)} · {job.elapsed_seconds} s</>}</small>{job.state!=='running'&&summary(job)?<small className={job.state==='failed'?'backstage-error':''}>{summary(job)}</small>:null}</span></li>)}</ol>
+      :status?<p className="backstage-message">No runs yet.</p>:error?<p className="backstage-message backstage-error">Unavailable: {error}</p>:<p className="backstage-message">Loading…</p>}</CardContent></Card>;
+}
+/** The state label and badge variant of one index check, shared with Overview. */
+export function checkState(check:Check|undefined){return check?STATES[check.state]||{label:check.state,variant:'outline' as const}:null;}
+export const INDEX_TITLES:Record<string,string>=Object.fromEntries(INDEXES.map(index=>[index.key,index.title]));
+/** A job's one-line outcome, shared with Overview. */
+export {summary as jobOutcome};
 
 // Inbox: what is waiting, and You got mail, which starts the existing librarian inbox runner.
 export type Arrival={id:string;path:string;bundle:boolean;document:string;title:string;source:string|null;project:string|null;author:string|null;report_date:string|null;request_id:string|null;integrity:'intact'|'changed'|null;receipt_error:string|null;files:number;bytes:number;received_at:string|null};
@@ -186,15 +171,15 @@ function Report({markdown,html,onOpen}:{markdown:string;html:(text:string)=>stri
   };
   return <div id="inbox-report" className="inbox-report" data-reader-decoration="" onClick={click} dangerouslySetInnerHTML={{__html:html(markdown)}}/>;
 }
-export function Inbox({status,starting,onMail,onStop,onOpen,html,activity}:{status:InboxStatus|null;starting:boolean;onMail:()=>void;onStop:()=>void;onOpen:(path:string)=>void;html:(text:string)=>string;activity:ActivityModel|null}){
+export function Inbox({status,error=null,starting,onMail,onStop,onOpen,html,activity}:{status:InboxStatus|null;error?:string|null;starting:boolean;onMail:()=>void;onStop:()=>void;onOpen:(path:string)=>void;html:(text:string)=>string;activity:ActivityModel|null}){
   const arrivals=status?.arrivals||[],run=status?.runner,active=starting||ACTIVE_RUN.includes(run?.status||''),blocked=status?.blocked;
   const state=starting&&!active?RUN_STATES.starting:run?RUN_STATES[run.status]||{label:run.status,variant:'outline' as const}:null;
   const disabled=!status||starting||!!blocked;
   const report=()=>{const details=document.getElementById('inbox-report-wrap') as HTMLDetailsElement|null;if(details){details.open=true;details.scrollIntoView({block:'start',behavior:'smooth'});}};
   const transcript=activity?.run?<ActivityTranscript activity={activity.activity} run={activity.run} live={active||!activity.done} html={html} onOpen={onOpen} onReport={run?.report_md?report:undefined}/>:null;
-  return <Card size="sm" className="backstage-card inbox-card" id="inbox" data-run-state={starting?'starting':run?.status||'none'} aria-labelledby="inbox-title">
+  return <Card size="sm" className="backstage-card inbox-card" id="inbox" data-run-state={starting?'starting':run?.status||'none'} data-state={status?'ready':error?'unavailable':'loading'} aria-labelledby="inbox-title">
     <CardHeader><CardTitle id="inbox-title">Inbox</CardTitle>
-      <CardDescription>{!status?'Looking in the inbox…':arrivals.length?`${plural(arrivals.length,'arrival')} waiting to be filed. Opening one previews it; it is not marked read.`:'No arrivals are waiting.'}</CardDescription>
+      <CardDescription>{!status?(error?<span className="backstage-error" id="inbox-unavailable">Couldn’t read the inbox: {error}</span>:'Looking in the inbox…'):arrivals.length?`${plural(arrivals.length,'arrival')} waiting to be filed. Opening one previews it; it is not marked read.`:'No arrivals are waiting.'}</CardDescription>
       {state?<CardAction><Badge variant={state.variant} className="backstage-badge" data-inbox-badge="">{active?<Loader2Icon data-icon="inline-start" className="animate-spin" aria-hidden/>:null}{state.label}</Badge></CardAction>:null}</CardHeader>
     <CardContent>
       <div className="inbox-mail">

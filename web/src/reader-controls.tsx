@@ -18,16 +18,17 @@ import {toast} from 'sonner';
 import {notify} from './notify';
 import {needsReader, NEEDS_READER} from './static-demo';
 export {needsReader, NEEDS_READER};
-import {Backstage, EditionLinks, Inbox, type MaintenanceStatus, type Job, type InboxStatus} from './backstage';
+import {type MaintenanceStatus, type Job, type InboxStatus} from './backstage';
+import {AdminShell} from './admin/admin-shell';
+import type {AdminContext, AdminRoute} from './admin/sections';
 import {SpeechControl, setSpeechApi} from './speech-control';
 export {trackSpeech} from './speech-control';
 import {ChatPanel} from './chat/chat-panel';
-import {LocalModelSection, runSummary, type LocalModelStatus, type Run} from './local-model';
+import {runSummary, type LocalModelStatus, type Run} from './local-model';
 import {emptyActivity, fromCodex, reduce, type Activity} from './activity/reducer';
 import type {RunInfo} from './activity/transcript';
-import {ServerCard} from './server-card';
-import {CompanionsSection, CompanionPrompt, focusCompanion, isDismissed, type Companion, type CompanionsStatus} from './companions';
-import {ArtStudio, useArtProducers} from './art-studio';
+import {CompanionPrompt, focusCompanion, isDismissed, type Companion, type CompanionsStatus} from './companions';
+import {useArtProducers} from './art-studio';
 import {ArtRegenerate, type ArtRegenerateOptions} from './art-regenerate';
 import {DocumentTree, revealDocumentNode, type DocumentRow} from './document-tree';
 import {ChangesPanel, type ChangesOptions} from './changes-panel';
@@ -49,9 +50,13 @@ export const famousThemeIds=FAMOUS.flatMap(t=>[famousId(t.id,'light'),famousId(t
 type Preferences={participant:string;theme:string;recent:number;pace:number;layout:string;pageTurn:string;proseColors:string;atlas:boolean;activity:boolean;smooth:boolean;nextReads:boolean;backlinks:boolean;outline:boolean;shapes?:boolean;art?:boolean;artHero?:boolean;artBy?:string;artAuto?:string;inboxSandbox?:string;issueExclude:string};
 export type ProseStatus={available:boolean;version:string|null;path:string|null;origin:string|null;message:string|null;install:string};
 type Pip={id:string;owner:string;quote:string;kind:string;own:boolean;fraction:number};
-type Model={value:number;words:number;pdfPages:number|null;pace:number;spread:number;spreads:number;pages:number;columns:number;theme:string;pips:Pip[];prefs:Preferences;participants:string[];themeEditorOpen:boolean;customThemes:Theme[];fonts:InstalledFont[];maintenance:MaintenanceStatus|null;prose:ProseStatus|null;outline:OutlineModel;outlineActive:number;inbox:InboxStatus|null;inboxStarting:boolean;chat:{open:boolean;path:string|null;title:string;participant:string};localModel:LocalModelStatus|null;activity:ActivityModel;companions:CompanionsStatus|null};
+type Model={value:number;words:number;pdfPages:number|null;pace:number;spread:number;spreads:number;pages:number;columns:number;theme:string;pips:Pip[];prefs:Preferences;participants:string[];themeEditorOpen:boolean;customThemes:Theme[];fonts:InstalledFont[];maintenance:MaintenanceStatus|null;prose:ProseStatus|null;outline:OutlineModel;outlineActive:number;inbox:InboxStatus|null;inboxStarting:boolean;chat:{open:boolean;path:string|null;title:string;participant:string};localModel:LocalModelStatus|null;activity:ActivityModel;companions:CompanionsStatus|null;
+  // Reader Admin: the shown route, and the last failed read of each status (cleared by the next good one).
+  admin:AdminRoute|null;maintenanceError:string|null;inboxError:string|null;localModelError:string|null;companionsError:string|null};
 export type ActivityModel={runId:string|null;offset:number;activity:Activity;run:RunInfo|null;done:boolean};
-type Actions={seek:(fraction:number)=>void;spread:(index:number)=>void;thread:(id:string)=>void;theme:()=>void;save:(prefs:Preferences)=>Promise<void>;error:(error:unknown)=>void;themeEditor:(open:boolean)=>void;api:(path:string,payload?:unknown)=>Promise<any>;themesChanged:(themes:Theme[],fonts:InstalledFont[])=>void;useTheme:(dataTheme:string)=>void;previewFont:(href:string)=>void;open:(path:string)=>void;libraryChanged:()=>Promise<void>;markdown:(text:string)=>string;chatMarkdown:(text:string)=>string;openPath:(path:string)=>void;chatChanged:(open:boolean)=>void}&OutlineActions;
+type Actions={seek:(fraction:number)=>void;spread:(index:number)=>void;thread:(id:string)=>void;theme:()=>void;save:(prefs:Preferences)=>Promise<void>;error:(error:unknown)=>void;themeEditor:(open:boolean)=>void;api:(path:string,payload?:unknown)=>Promise<any>;themesChanged:(themes:Theme[],fonts:InstalledFont[])=>void;useTheme:(dataTheme:string)=>void;previewFont:(href:string)=>void;open:(path:string)=>void;libraryChanged:()=>Promise<void>;markdown:(text:string)=>string;chatMarkdown:(text:string)=>string;openPath:(path:string)=>void;chatChanged:(open:boolean)=>void;
+  /** Reader Admin routes (web_ui/admin-routes.mjs): a section's hash, navigation to it, and the way back. */
+  adminHref:(section?:string,...params:string[])=>string;adminGo:(section?:string,...params:string[])=>void;backToLibrary:()=>void}&OutlineActions;
 const dark=(theme:string)=>theme==='ink'||theme.endsWith('-dark');
 const clamp=(value:number)=>Math.max(0,Math.min(1,value));
 const builtInThemes=[{value:'ink',label:'Ink'},{value:'paper',label:'Paper'},{value:'orchid',label:'Orchid · Light'},{value:'orchid-dark',label:'Orchid · Dark'},{value:'harvest',label:'Harvest · Light'},{value:'harvest-dark',label:'Harvest · Dark'},...FAMOUS.flatMap(t=>(['light','dark'] as const).map(v=>({value:famousId(t.id,v),label:`${t.name} · ${t.labels[v]}`})))];
@@ -107,7 +112,7 @@ function Pages({model,actions}:{model:Model;actions:Actions}){
   const click=(index:number)=>(event:React.MouseEvent)=>{event.preventDefault();actions.spread(index);};
   return <Pagination aria-label="Document pages"><PaginationContent><PaginationItem><PaginationPrevious text="" size="icon-sm" href="#" aria-disabled={model.spread===0} tabIndex={model.spread===0?-1:0} onClick={click(Math.max(0,model.spread-1))}/></PaginationItem>{indices.map((i,index)=><PaginationItem key={i} className={i!==model.spread?'page-neighbor':''}>{index>0&&i>indices[index-1]+1?<PaginationEllipsis/>:null}<PaginationLink href="#" size="sm" isActive={i===model.spread} aria-label={`Pages ${label(i)}`} onClick={click(i)}>{label(i)}</PaginationLink></PaginationItem>)}<PaginationItem><PaginationNext text="" size="icon-sm" href="#" aria-disabled={model.spread===model.spreads-1} tabIndex={model.spread===model.spreads-1?-1:0} onClick={click(Math.min(model.spreads-1,model.spread+1))}/></PaginationItem></PaginationContent></Pagination>;
 }
-// One store shared by the global controls root and route-owned islands (Behind the scenes).
+// One store shared by the global controls root and route-owned islands (Reader Admin).
 let model:Model;let controlActions:Actions;
 const listeners=new Set<()=>void>();
 const subscribe=(listener:()=>void)=>{listeners.add(listener);return ()=>{listeners.delete(listener);};};
@@ -115,6 +120,8 @@ const snapshot=()=>model;
 function update(patch:Partial<Model>){if(Object.entries(patch).every(([key,value])=>Object.is(model[key as keyof Model],value)))return;model={...model,...patch};listeners.forEach(listener=>listener());}
 
 export {notify};
+/** A failed read's reason, for an unavailable state. */
+const message=(error:unknown)=>error instanceof Error?error.message:String(error);
 
 // Maintenance jobs: poll fast while one runs, slowly otherwise, and toast each transition.
 let pollTimer:ReturnType<typeof setTimeout>|undefined,polled=false;const started=new Set<string>(),finished=new Set<string>();
@@ -150,7 +157,7 @@ function announceRuns(runs:Run[],labels:Record<string,string>){
     const before=runsSeen.get(run.id);if(before===run.state)continue;runsSeen.set(run.id,run.state);
     if(!runsPolled&&run.state!=='running')continue;
     const id='local-model-'+run.id;
-    if(run.state==='running'){toast.loading('Local model running…',{id,description:'Behind the scenes shows the live output. You can keep reading.',duration:Infinity});continue;}
+    if(run.state==='running'){toast.loading('Local model running…',{id,description:'Reader Admin, Models, shows the live output. You can keep reading.',duration:Infinity});continue;}
     if(run.warning==='server-stopped')toast.warning('LM Studio stopped while the queue was running',{id,description:runSummary(run,labels)+'. The queue is paused; start the server and press Run to continue.',duration:15000});
     else if(run.state==='failed')toast.error('Local model run failed',{id,description:(run.error||'')+(Object.keys(run.counts).length?' · '+runSummary(run,labels):''),duration:12000});
     else toast.success(run.state==='finished'?'Local model finished':'Local model paused',{id,description:runSummary(run,labels),duration:8000});
@@ -159,7 +166,7 @@ function announceRuns(runs:Run[],labels:Record<string,string>){
 }
 async function pollMaintenance(){
   clearTimeout(pollTimer);let status:MaintenanceStatus|null=null;
-  try{status=await controlActions.api('/api/maintenance');update({maintenance:status});announce(status!);}catch{/* The next poll retries. */}
+  try{status=await controlActions.api('/api/maintenance');update({maintenance:status,maintenanceError:null});announce(status!);}catch(error){update({maintenanceError:message(error)});/* The next poll retries. */}
   const fast=!!(status?.running||status?.checking||status?.local_model?.running);
   pollTimer=setTimeout(()=>{if(document.visibilityState==='visible'||fast)pollMaintenance();else document.addEventListener('visibilitychange',pollMaintenance,{once:true});},fast?1500:15000);
 }
@@ -175,7 +182,7 @@ export async function startJob(kind:string){
 // Companions: optional tools, their setup jobs and the "not installed" prompt.
 const COMPANION_JOBS=new Set(['install-colorful','update-colorful','install-wide-md','update-wide-md','start-ai-tts']);
 export async function refreshCompanions(){
-  try{update({companions:await controlActions.api('/api/companions')});}catch{/* The card keeps its last status. */}
+  try{update({companions:await controlActions.api('/api/companions'),companionsError:null});}catch(error){update({companionsError:message(error)});/* The card keeps its last status. */}
 }
 function mergeCompanion(result:CompanionsStatus){
   const current=model.companions,item=result.companions?.[0];if(!current||!item)return;
@@ -185,7 +192,7 @@ function mergeCompanion(result:CompanionsStatus){
 export async function companionAction(name:string,action:string,extra:Record<string,unknown>={}){
   const result=await controlActions.api('/api/companions',{action,name,...extra});
   if(result?.kind&&result?.id){
-    started.add(result.id);toast.loading(`${result.label} running…`,{id:result.id,description:'Progress and the log are in Behind the scenes, Companions.',duration:Infinity});
+    started.add(result.id);toast.loading(`${result.label} running…`,{id:result.id,description:'Progress and the log are in Reader Admin, Service & tools.',duration:Infinity});
     update({maintenance:model.maintenance?{...model.maintenance,running:result}:model.maintenance});pollMaintenance();refreshCompanions();
   }else{mergeCompanion(result);if(action==='set-path')toast.success(extra.path?'Path saved.':'Path cleared.');}
   return result;
@@ -200,8 +207,8 @@ export async function promptCompanion(name:string,fallback?:string){
   if(item.state==='installed'&&!item.job){if(fallback)toast.error(fallback,{duration:8000});return;}
   if(item.job){toast(`${item.label}: ${item.job.label} is running.`,{description:item.job.progress||undefined});return;}
   const heading=item.state==='not-running'?`${item.title} isn’t running.`:`${item.feature} needs ${item.title}.`;
-  if(isDismissed(name)){toast(heading,{description:'Setup is in Behind the scenes, Companions.',id:'companion-'+name});return;}
-  const setup=(panel:string)=>{focusCompanion(name,panel);controlActions.open(':backstage');};
+  if(isDismissed(name)){toast(heading,{description:'Setup is in Reader Admin, Service & tools.',id:'companion-'+name});return;}
+  const setup=(panel:string)=>{focusCompanion(name,panel);controlActions.adminGo('service');};
   toast.custom(id=><CompanionPrompt item={item!} id={id} onSetup={setup}
     onInstall={()=>companionAction(name,item!.actions.includes('install')?'install':'update').catch(error=>toast.error('Couldn’t start the install',{description:error instanceof Error?error.message:String(error),duration:8000}))}/>,
     {id:'companion-'+name,duration:20000});
@@ -214,7 +221,7 @@ const ACTIVE=['starting','running'];
 function inboxBadge(status:InboxStatus|null){
   const button=document.getElementById('settings-open'),label=button?.querySelector('span');if(!button||!label)return;
   const count=status?.arrivals.length||0;label.textContent=count?`Backstage · ${count}`:'Backstage';
-  button.dataset.inbox=String(count);button.setAttribute('aria-label',`Open Behind the scenes: indexes and settings${count?`; ${count} inbox arrival${count===1?'':'s'} waiting`:''}`);
+  button.dataset.inbox=String(count);button.setAttribute('aria-label',`Open Reader Admin${count?`; ${count} inbox arrival${count===1?'':'s'} waiting`:''}`);
 }
 function announceInbox(status:InboxStatus){
   const run=status.runner;
@@ -223,7 +230,7 @@ function announceInbox(status:InboxStatus){
     if(previous!==run.status){
       if(ACTIVE.includes(run.status)){if(!previous)toast.loading('The librarian is reading the mail…',{id,description:run.arrivals?`${run.arrivals} arrival${run.arrivals===1?'':'s'}. You can keep reading.`:'You can keep reading.',duration:Infinity});}
       else if(previous&&ACTIVE.includes(previous)||ownRuns.has(run.run_id)||inboxPolled&&!previous){
-        const filed=Math.max(0,(run.arrivals||0)-(run.remaining||0)),report={label:'Report',onClick:()=>{controlActions.open(':backstage');requestAnimationFrame(()=>document.getElementById('inbox')?.scrollIntoView({block:'start'}));}};
+        const filed=Math.max(0,(run.arrivals||0)-(run.remaining||0)),report={label:'Report',onClick:()=>controlActions.adminGo('inbox')};
         if(run.status==='finished')toast.success(`Mail filed: ${filed} arrival${filed===1?'':'s'}`,{id,description:run.commit?`Commit ${run.commit.short}. ${run.message}`:run.message,duration:12000,action:report});
         else if(run.status==='stopped'||run.status==='empty')toast(run.status==='stopped'?'Inbox run stopped':'Nothing to file',{id,description:run.message,duration:8000});
         else toast.error('The librarian couldn’t file the mail',{id,description:run.message,duration:15000,action:report});
@@ -261,7 +268,7 @@ async function pollInbox(){
     for(const arrival of status!.arrivals)arrivalTitles[arrival.id]=arrival.title;
     const run=status!.runner;
     if(run?.run_id&&(run.run_id!==model.activity.runId||ACTIVE.includes(run.status)&&model.activity.done))pollActivity();
-    else if(run?.commit&&model.activity.run&&model.activity.runId===run.run_id&&!model.activity.run.commit)update({activity:{...model.activity,run:{...model.activity.run,commit:run.commit}}});const own=model.inboxStarting&&ACTIVE.includes(status!.runner?.status||'')&&ownRuns.has(status!.runner!.run_id||'');update({inbox:status,...(own?{inboxStarting:false}:{})});inboxBadge(status);announceInbox(status!);}catch{/* The next poll retries. */}
+    else if(run?.commit&&model.activity.run&&model.activity.runId===run.run_id&&!model.activity.run.commit)update({activity:{...model.activity,run:{...model.activity.run,commit:run.commit}}});const own=model.inboxStarting&&ACTIVE.includes(status!.runner?.status||'')&&ownRuns.has(status!.runner!.run_id||'');update({inbox:status,inboxError:null,...(own?{inboxStarting:false}:{})});inboxBadge(status);announceInbox(status!);}catch(error){update({inboxError:message(error)});/* The next poll retries. */}
   const fast=model.inboxStarting||ACTIVE.includes(status?.runner?.status||'');
   inboxTimer=setTimeout(()=>{if(document.visibilityState==='visible'||fast)pollInbox();else document.addEventListener('visibilitychange',pollInbox,{once:true});},fast?2000:15000);
 }
@@ -286,7 +293,7 @@ export async function stopInbox(){
 
 export function installControls(actions:Actions,prefs:Preferences){
   controlActions=actions;setSpeechApi(actions.api);
-  model={value:0,words:0,pdfPages:null,pace:220,spread:0,spreads:0,pages:0,columns:2,theme:prefs.theme,pips:[],prefs,participants:[],themeEditorOpen:false,customThemes:[],fonts:[],maintenance:null,prose:null,chat:{open:false,path:null,title:'',participant:''},outline:{mode:null,open:false,title:'',entries:[],folded:false,railOpen:false},outlineActive:-1,inbox:null,inboxStarting:false,activity:newActivity(),localModel:null,companions:null};
+  model={value:0,words:0,pdfPages:null,pace:220,spread:0,spreads:0,pages:0,columns:2,theme:prefs.theme,pips:[],prefs,participants:[],themeEditorOpen:false,customThemes:[],fonts:[],maintenance:null,prose:null,chat:{open:false,path:null,title:'',participant:''},outline:{mode:null,open:false,title:'',entries:[],folded:false,railOpen:false},outlineActive:-1,inbox:null,inboxStarting:false,activity:newActivity(),localModel:null,companions:null,admin:null,maintenanceError:null,inboxError:null,localModelError:null,companionsError:null};
   function View(){const current=useSyncExternalStore(subscribe,snapshot);return <>{createPortal(<ReadingProgress model={current} actions={actions}/>,document.getElementById('progress-controls-slot')!)}{createPortal(<Pages model={current} actions={actions}/>,document.getElementById('pagination-slot')!)}{createPortal(<OutlineControl outline={current.outline} active={current.outlineActive} actions={actions}/>,document.getElementById('outline-slot')!)}{createPortal(<SpeechControl/>,document.getElementById('speech-slot')!)}{createPortal(<label className="theme-toggle"><Switch id="theme-swap" size="sm" aria-label="Dark mode" checked={dark(current.theme)} onCheckedChange={checked=>{if(checked!==dark(current.theme))actions.theme();}}/><span>Dark</span></label>,document.getElementById('theme-switch-slot')!)}<ThemeEditor open={current.themeEditorOpen} onOpenChange={actions.themeEditor} themes={current.customThemes} fonts={current.fonts} current={current.theme} api={actions.api} onChanged={actions.themesChanged} onUse={actions.useTheme} onPreviewFont={actions.previewFont} error={actions.error}/><ChatPanel open={current.chat.open} path={current.chat.path} title={current.chat.title} participant={current.chat.participant} api={actions.api} markdown={actions.chatMarkdown} openPath={actions.openPath} onClose={()=>closeChat()} notify={notify}/><Toaster theme={dark(current.theme)?'dark':'light'} position="bottom-center" offset={{bottom:44}} mobileOffset={{bottom:56}}/></>;}
   ensureProseTokens();new MutationObserver(()=>ensureProseTokens()).observe(document.documentElement,{attributes:true,attributeFilter:['data-theme']});
   observeButtons();installCodeCopy();
@@ -301,12 +308,12 @@ export function openChat(path:string,title:string,participant:string){update({ch
 export function closeChat(){if(!model.chat.open)return;update({chat:{...model.chat,open:false}});controlActions.chatChanged(false);}
 export function chatOpen(){return model.chat.open;}
 // Local model: poll every second while something runs (for the streaming preview), every 6 s otherwise,
-// and only while Behind the scenes is on screen and visible.
+// and only while Reader Admin's Models page is on screen and visible.
 let localTimer:ReturnType<typeof setTimeout>|undefined,localHost:HTMLElement|null=null;
 async function pollLocalModel(){
   clearTimeout(localTimer);if(!localHost?.isConnected){localHost=null;return;}
   let status:LocalModelStatus|null=null;
-  try{status=await controlActions.api('/api/local-model');update({localModel:status});announceRuns(status!.runs,status!.labels);}catch{/* The next poll retries. */}
+  try{status=await controlActions.api('/api/local-model');update({localModel:status,localModelError:null});announceRuns(status!.runs,status!.labels);}catch(error){update({localModelError:message(error)});/* The next poll retries. */}
   const fast=!!(status?.now||status?.running||status?.server.control?.state==='running');
   localTimer=setTimeout(()=>{if(document.visibilityState==='visible')pollLocalModel();else document.addEventListener('visibilitychange',pollLocalModel,{once:true});},fast?1000:6000);
 }
@@ -322,29 +329,38 @@ export async function localModelAction(action:string,payload:Record<string,unkno
   catch(error){toast.error('Local model: that didn’t work',{description:error instanceof Error?error.message:String(error),duration:8000});}
   finally{await pollLocalModel();}
 }
-function BackstageView({library}:{library?:(element:HTMLElement)=>void}){
-  const current=useSyncExternalStore(subscribe,snapshot);
-  const inbox=current.inbox,local=needsReader(),first=!!inbox&&(inbox.arrivals.length>0||['starting','running'].includes(inbox.runner?.status||''))||current.inboxStarting;
-  return <Backstage status={current.maintenance} onStart={startJob} settings={<SettingsForm model={current} actions={controlActions}/>} themeEditor={()=>controlActions.themeEditor(true)}
-    library={library} inboxFirst={first} inbox={<Inbox status={inbox} starting={current.inboxStarting} onMail={startInbox} onStop={stopInbox} onOpen={controlActions.open} html={controlActions.markdown}
-      activity={current.activity.runId&&current.activity.runId===inbox?.runner?.run_id?current.activity:null}/>} editions={<EditionLinks api={controlActions.api}/>}
-    localModel={local?undefined:<LocalModelSection status={current.localModel} act={localModelAction}/>} art={<ArtStudio api={controlActions.api} open={controlActions.open}/>} server={local?undefined:<ServerCard api={controlActions.api}/>}
-    companions={local?undefined:<CompanionsSection api={controlActions.api} status={current.companions} busy={!!current.maintenance?.running} onRefresh={()=>{controlActions.api('/api/companions',{action:'check',name:'colorful'}).catch(()=>{}).finally(refreshCompanions);}}
-      act={(name,action,extra)=>companionAction(name,action,extra)}/>}/>;
-}
-/** Behind the scenes, as a route-owned island in #main. Checks freshness when the last check is old. */
-export function mountBackstage(container:HTMLElement,{library}:{library?:(element:HTMLElement)=>void}={}){
-  mount(container,<BackstageView library={library}/>);
-  pollInbox();
-  // The web demo shows its recorded status and starts nothing: no local model, companions or freshness check.
+/** Index freshness for Admin › Indexes: read the status and, as Behind the scenes did, run the light freshness check
+ *  when the last one is over two minutes old. Never in the web demo, and never from Overview. */
+async function checkIndexes(){
   if(needsReader()){if(!model.maintenance)pollMaintenance();return;}
-  localHost=container;pollLocalModel();refreshCompanions();
-  (async()=>{
-    if(!model.maintenance)await pollMaintenance();
-    const status=model.maintenance,checked=Object.values(status?.checks||{})[0]?.checked_at;
-    if(status&&!status.running&&!status.checking&&(!checked||Date.now()-+new Date(checked)>120000))startJob('check');
-  })();
+  if(!model.maintenance)await pollMaintenance();
+  const status=model.maintenance,checked=Object.values(status?.checks||{})[0]?.checked_at;
+  if(status&&!status.running&&!status.checking&&(!checked||Date.now()-+new Date(checked)>120000))startJob('check');
 }
+function watchLocalModel(element:HTMLElement){localHost=element;pollLocalModel();}
+function AdminView({library}:{library?:(element:HTMLElement)=>void}){
+  const current=useSyncExternalStore(subscribe,snapshot);
+  const inbox=current.inbox,route=current.admin||{section:'overview',params:[]};
+  const context:AdminContext={route,local:needsReader(),
+    maintenance:current.maintenance,maintenanceError:current.maintenanceError,
+    inbox,inboxError:current.inboxError,inboxStarting:current.inboxStarting,
+    activity:current.activity.runId&&current.activity.runId===inbox?.runner?.run_id?current.activity:null,
+    localModel:current.localModel,localModelError:current.localModelError,companions:current.companions,companionsError:current.companionsError,
+    api:controlActions.api,markdown:controlActions.markdown,open:controlActions.open,
+    href:controlActions.adminHref,go:controlActions.adminGo,backToLibrary:controlActions.backToLibrary,
+    startJob,startInbox,stopInbox,localModelAction,companionAction,refreshCompanions,checkIndexes,watchLocalModel,
+    settings:<SettingsForm model={current} actions={controlActions}/>,themeEditor:()=>controlActions.themeEditor(true),library};
+  return <AdminShell context={context}/>;
+}
+/** Reader Admin, as a route-owned island in #main: the shell mounts once and section changes re-render it in place.
+ *  Entering reads the inbox and maintenance status (reads only; no check, rebuild, model or inbox run starts here). */
+export function mountAdmin(container:HTMLElement,route:AdminRoute,{library}:{library?:(element:HTMLElement)=>void}={}){
+  update({admin:route});
+  mount(container,<AdminView library={library}/>);
+  pollInbox();pollMaintenance();
+}
+/** Show another admin route in the mounted shell (Back/Forward and sidebar navigation), without remounting it. */
+export function setAdminRoute(route:AdminRoute){flushSync(()=>update({admin:route}));}
 
 // Route-owned roots are always disposed before the vanilla renderer replaces DOM.
 const islands=new Map<HTMLElement,Root>();

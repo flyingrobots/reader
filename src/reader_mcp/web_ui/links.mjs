@@ -68,7 +68,7 @@ export function installLinks({state,api,reading,navigate,openBackstage}){
   function body(data,all){
     const count=data.inbound_count||0;
     if(data.state==='building')return '<p class="linked-from-note">Building the link graph…</p>';
-    if(data.state==='failed')return `<p class="linked-from-note">The link graph couldn’t be built: ${esc(data.error||'unknown error')}. <a href="#backstage" data-backstage>Behind the scenes</a></p>`;
+    if(data.state==='failed')return `<p class="linked-from-note">The link graph couldn’t be built: ${esc(data.error||'unknown error')}. <a href="#admin/indexes" data-backstage>Reader Admin, Indexes</a></p>`;
     if(!count)return '<p class="linked-from-note">No other library document links here yet.</p>';
     const shown=all?data.inbound:data.inbound.slice(0,VISIBLE);
     return rows(shown)+(!all&&count>VISIBLE?`<button type="button" data-button="ghost xs" class="linked-from-more">Show all ${count}</button>`:'')+(all&&count>data.inbound.length?`<p class="linked-from-note">Showing the ${data.inbound.length} documents with the most links of ${count}.</p>`:'');
