@@ -138,7 +138,7 @@ A dismissible note says that changes stay in this browser and links to the local
 the bundle. That object is the only signal: a normal server never loads the shim, so nothing changes
 there. With it:
 
-- Behind the scenes starts nothing: no automatic freshness check, and no polling of the local model
+- Reader Admin starts nothing: no automatic freshness check, and no polling of the local model
   or companions. The index cards read **Not checked** and the header says checks need Reader on your
   computer.
 - Controls that would write to a server are disabled and carry the tooltip **Needs Reader on your
@@ -229,7 +229,7 @@ file server, and checks the magazine, margins, outline, Read next, the link grap
 changed, an image, a PDF, keyword and fuzzy search, a theme, a local-only highlight across a reload,
 the labelled server-only features and an inert shim on a page without the flag, while asserting
 that no request reaches `/api/*`, leaves the base path or leaves the origin.
-`tests/web_static_demo_ui.cjs` exports the same way and checks that visiting Behind the scenes asks
+`tests/web_static_demo_ui.cjs` exports the same way and checks that visiting Reader Admin asks
 for no job and shows no toast, that each server-only control is disabled with the **Needs Reader on
 your computer** tooltip under the pointer, that the machine-only sections are left out, that `q`
 explains instead of failing, and that nothing logs an error.

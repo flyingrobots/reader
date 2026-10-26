@@ -48,7 +48,7 @@ The web server does not rebuild indexes or download models at startup.
 | ]] / [[ | Next heading / start of this section, then the previous heading |
 | Space o; footer Outline | Show or hide the document outline (rail, popover or sheet) |
 | Ctrl-d / Ctrl-u; Ctrl-f / Ctrl-b | Half-screen / screen, or turn a spread |
-| Space h / t / p | Home (this week's issue) / passage discussions / Behind the scenes (indexes, library statistics and settings) |
+| Space h / t / p | Home (this week's issue) / passage discussions / Settings in Reader Admin (the footer's Backstage and `:backstage` open its Overview) |
 | Space v | Versions: every edition and its git history as a timeline (`j`/`k` or arrows move, Enter opens, `c` on two items compares, Escape closes) |
 | Space d | What changed: since your receipt, else against the newer version, else against another reader's edition |
 | Space , t; F10 | Theme Editor (F10 also closes it; focus returns to where it was opened from) |
@@ -84,7 +84,7 @@ a **Find a document** button, without an error toast; the API answers it with 40
 Commands yield to text fields, selects, composition and dialogs. Standard browser
 selection, copying and context menus remain available. The sticky footer reports
 the active interaction mode and its applicable shortcuts. It offers layout,
-light/dark theme controls, an **Outline** button when the document has an outline, the current section title, and a **Backstage** button that opens Behind the scenes. In zen mode the chrome reappears on keyboard
+light/dark theme controls, an **Outline** button when the document has an outline, the current section title, and a **Backstage** button that opens Reader Admin's Overview. In zen mode the chrome reappears on keyboard
 focus or when the pointer reaches the lower-right corner.
 
 The mode corner has a distinct background for Normal, Browse, Search, Insert,
@@ -210,7 +210,7 @@ closest match ("Did you mean :changes?"). Commands: `:open <document>` (`:e`),
 `:theme <id>`, `:layout scroll|spread`, `:speak [article|here|selection]`,
 `:rebuild search|keywords|browse|catalog|links`, `:check`, `:changes`, `:versions`,
 `:outline`, `:chat`, `:threads`, `:queue`, `:next`, `:home`, `:files`, `:search
-[words]`, `:backstage`, `:zen`, `:colors`, `:find <words>`, `:noh`, `:grep <words>`,
+[words]`, `:backstage` (`:admin`), `:settings`, `:zen`, `:colors`, `:find <words>`, `:noh`, `:grep <words>`,
 `:copen`, `:cclose`, `:cnext`, `:cprev`, `:cclear`, `:marks`, `:registers` and
 `:help [command]`. The help dialog lists them all.
 
@@ -537,7 +537,7 @@ current one.
   pieces are dimmed. Six pieces per group show, and the rest expand. When there are
   more than six sections, one-piece sections share an **Elsewhere** group.
 - **Footer:** how the pieces were chosen, and a link to the library statistics on
-  Behind the scenes.
+  Reader Admin.
 
 Keys: **j** / **k** move between pieces (the cover, the features, then visible
 contents rows), **Enter** opens one, **g c** returns to the cover, and **[** / **]**
@@ -597,7 +597,7 @@ Reading time is source bytes ÷ 6 as words, at the Settings reading pace, shown 
 **Standfirsts** come from `GET /api/standfirst?path=…`, requested for the cover and
 features only (at most 12 per view, three at a time). A `standfirst` frontmatter
 string wins. Next comes a local-model standfirst that is current for the source's
-exact SHA-256 (see [Local model](#behind-the-scenes-local-model-any-openai-compatible-server)): the
+exact SHA-256 (see [Local model](#reader-admin-local-model-any-openai-compatible-server)): the
 route returns `source: "local-model"` with its `model`, and the cover or feature
 shows a small `local model · <model>` mark under it (`data-reader-decoration`, text
 only). Otherwise the first prose paragraph of the source is used, after the
@@ -667,7 +667,7 @@ It is decoration (`data-reader-decoration`): find, selection and annotations ign
   Space g again hides it. A piece without art shows a calm placeholder that says
   who would make it and roughly how long it takes, with **Generate art**. When no
   voice or local model can make art, the placeholder says so and offers **Set up a
-  voice**, which opens Behind the scenes at Companions (its *Agents and models*
+  voice**, which opens Reader Admin's Voices page (its *Agents and models*
   card lists the agent command lines Reader found); Generate art from the magazine
   then shows an information toast instead of an error.
   `:generate-art` commissions another version for the open article. Above the text
@@ -732,7 +732,7 @@ the card and closes on Esc, a click elsewhere, or leaving both.
 for the current edition; else the newest for any earlier edition (labelled *for an
 earlier edition*). A new edition never removes old art.
 
-**Settings** (Behind the scenes):
+**Settings** (Reader Admin):
 
 - **Article art** (on by default) shows art on the cover, features and with Space g.
 - **Open articles with their art** (on by default) opens an article that has art on
@@ -751,7 +751,7 @@ While one runs, the page polls `GET /api/art/jobs` every 2 s and toasts *Making 
 for ‘…’…* (with the stage), then *Art ready* (with who and how long), *failed* (with
 the reason) or *cancelled*; the cover or the open article repaints when its art is
 ready. The article's placeholder shows the running stage, elapsed time and **Cancel**.
-**Behind the scenes › Art studio** lists the last commissions (state, producer and
+**Reader Admin › Artwork** lists the last commissions (state, producer and
 model, automatic or explicit, time, tokens and cost, the archived run's path) with
 **Cancel** and **Open**.
 
@@ -1048,15 +1048,71 @@ Markdown or text source of at most 4 MiB:
 
 No model is called and nothing leaves the machine; the route writes nothing.
 
-### Behind the scenes: indexes, library statistics and settings
+### Reader Admin: indexes, the inbox, library statistics and settings
 
-**Space p** or the footer's **Backstage** button opens Behind the scenes at
-`#backstage`. Its Settings heading takes focus in NORMAL mode, so leader keys keep
-working and Tab moves into the fields; after **Save preferences** focus stays on
-the form. Browser history and **h** return
-to the previous route, and the breadcrumb reads *Library › Behind the scenes*.
+Reader Admin (formerly Reader Admin) is a separate layout for administration,
+not a page inside the article reader. A shadcn **Sidebar** lists its sections; a
+header carries the sidebar trigger, a breadcrumb (*Reader Admin › Section*) and
+**Back to Library**; the page shows one section at a time under its own heading.
+Each section is its own hash route:
 
-The **Indexes** section shows one shadcn **Card** per rebuildable index, with a
+| Route | Section |
+| --- | --- |
+| `#admin` | Overview: active work, the inbox, attention needed, index health and capacity |
+| `#admin/voices` | The agent command lines chat voices and the librarian run (the *Agents and models* card) |
+| `#admin/models` | The local model: provider, server, queue, outputs and task settings |
+| `#admin/inbox` | Arrivals, receipts, claims and **You got mail** |
+| `#admin/indexes` | Index cards, rebuilds, **Recent runs** and edition links |
+| `#admin/artwork` | The Art studio |
+| `#admin/library` | Holdings and reading statistics |
+| `#admin/service` | The Reader service, its updater, and Companions |
+| `#admin/settings` | Reading preferences and the Theme Editor |
+
+The footer's **Backstage** button, `:backstage` (or `:admin`) and the legacy
+`#backstage` address open the Overview; `#backstage` is shown as `#admin`.
+**Space p**, `:settings` and `:set` with no option open Settings. Every section
+opens at its own top with its heading focused (without scrolling), so Tab moves
+into its controls, screen readers announce it, and leader keys keep working; no
+field or filter takes focus just because a page opened. Choosing the open section
+again, or Space p while on Settings, returns to its top. Browser Back and Forward
+move between sections, and a reload or a direct link opens its section without
+showing the Overview first. An unknown section (`#admin/no-such-page`) says so and
+links to the Overview. The status line shows ADMIN mode and *Library › Reader Admin*.
+
+Admin scrolls the window natively. The reading smoother, two-page pagination, the
+progress meter, margins, the reading cursor and the article footer are not part of
+it, and nothing in Admin saves a reading position. **Back to Library** (and browser
+Back) returns to the view Admin was opened from: a document reopens at its saved
+bookmark (not at the heading or passage it was once opened at), and the homepage,
+an issue, Search or a scratch pad reopen as they were. The return target survives a
+reload within the tab. In a split layout, Admin replaces the layout instead of
+opening inside a pane: every pane saves its place, the panes close, and Back to
+Library or browser Back restores the same layout and focused pane. A pane's
+`Space p` or `:backstage` asks the window to open Admin, and a saved layout naming
+`#backstage` opens the homepage in that pane.
+
+The sidebar collapses with its trigger; collapsed, it leaves the Tab order. Below
+768 px it is a sheet (a dialog named *Admin sections*); choosing a section closes
+it and that page's heading takes focus. Reader's keys never act on typing in Admin
+forms, and Space on a focused button, switch, select or checkbox activates it
+rather than starting the leader. The sidebar uses the active theme's tokens, and
+reduced motion removes its transitions.
+
+Status is read, never assumed. The Overview summarizes what Reader already polls
+(`/api/maintenance` and `/api/inbox`); opening it starts no check, rebuild, model
+or inbox run. A tile says *Loading…* until its status arrives, and a status that
+could not be read is shown as unavailable with the reason, never as zero or
+healthy; if a later refresh fails, the page says the tiles show the earlier status.
+Indexes and the Inbox show the same unavailable state, with their actions disabled.
+In the static web demo, Service & tools, Voices and Models say that they need
+Reader on your computer instead of showing empty controls.
+
+New sections are added in one place: the section registry in
+`web/src/admin/sections.tsx` (id, title, icon, description, whether it needs Reader
+on this computer, which route parameters it accepts, and its page). The route
+syntax, `#admin/<section>[/<param>…]`, is parsed by `web_ui/admin-routes.mjs`.
+
+**Indexes** shows one shadcn **Card** per rebuildable index, with a
 state **Badge** (Current, Needs rebuild, Partial, Not built, Not configured, Error):
 
 | Index | Freshness check | Rebuild |
@@ -1077,8 +1133,8 @@ time limit finishes with "Stopped at the time limit; N passages saved. Run again
 continue." in its toast and in Recent runs. A failed run shows the worker's last
 meaningful error line, not its log tail.
 
-Opening the page runs a freshness check when the last one is older than two
-minutes. **Check again** reruns it, and every rebuild is followed by one. On a
+Opening the Indexes page runs a freshness check when the last one is older than two
+minutes (the Overview never does). **Check again** reruns it, and every rebuild is followed by one. On a
 large vault the browse check takes about ten seconds. A catalog check can refuse
 outright: for example, an inventory over the 50,000-file / 2 GiB catalog limit, or
 a duplicate `document_id`, shows as Error with that message. Jobs run one at a time in a background thread of
@@ -1094,7 +1150,7 @@ check runs, and otherwise every 15 seconds while the tab is visible, so toasts a
 appear while you read elsewhere in the app. Every other app message, such as saved
 replies and errors, uses the same Toaster.
 
-The **Library** section holds the statistics dashboard that used to be the
+The **Library** page holds the statistics dashboard that used to be the
 homepage, unchanged (see [Search, dashboard and shared discussion](#search-dashboard-and-shared-discussion)).
 The page owns the header, so the dashboard's own masthead is omitted there.
 
@@ -1106,7 +1162,7 @@ toasts of their own. A probe (`GET /`) retries with backoff from 1 to 30 seconds
 the first success, or any request that reaches the server, replaces the toast with
 *Reader is reachable again.*
 
-The Settings section holds the preferences form, with shadcn **Select** controls
+The Settings page holds the preferences form, with shadcn **Select** controls
 for palette, prose colors, recent-file count, layout, page turn and reading pace, the issue's
 excluded types, and switches
 for the atlas, activity, smooth scrolling, Read next, the outline rail and Linked from. Escape dismisses an open
@@ -1116,9 +1172,9 @@ take effect when saved; you stay on the page, and a toast confirms the save.
 
 ### Inbox and You got mail
 
-Behind the scenes has an **Inbox** card. It is the first section while arrivals
-are waiting or a run is active; otherwise it follows the indexes. While mail waits,
-the footer button reads **Backstage · N**. The card lists one row per top-level
+Reader Admin's **Inbox** page (`#admin/inbox`) holds the **Inbox** card, and the
+Overview counts what is waiting. While mail waits, the footer button reads
+**Backstage · N**. The card lists one row per top-level
 arrival: a folder under `inbox/`, or a loose file. It uses the inbox runner's own
 inventory: at most 10,000 files, excluding `inbox/README.md`, hidden files, symlinks
 and empty folders. Each row shows:
@@ -1241,7 +1297,7 @@ width each tool is one truncated line. The transcript is page decoration
 While a run is live the page polls `GET /api/inbox/events?after=OFFSET` every
 second. It fetches further pages immediately while a response ends before the
 stream's size, and stops when the response says `done`. A finished run is read
-once when Behind the scenes opens. Durations are measured from when the browser
+once when the Models page opens. Durations are measured from when the browser
 received events, so a transcript loaded after the run shows none. Only the latest
 run exists, because the supervisor keeps one runtime directory.
 
@@ -1369,7 +1425,15 @@ so a reload, the article and Reader Admin all show the same run. Other routes: `
 dated archive folders and read `meta.json` without decompressing anything. A second server answers job writes with
 409 and shows runs read-only. None of these routes is exported to a static site.
 
-### Behind the scenes: Local model (any OpenAI-compatible server)
+**In Reader Admin** (RW-45's shell) the same runs have three sections: **Coding jobs** (`#admin/jobs`: filter by
+repository, state and originating article; `#admin/jobs/<run-id>`: the shared job detail with its facts, trace,
+Stop, commits, GitHub links and the archived artifacts as bounded previews with Copy and Download), **LLM logs**
+(`#admin/logs`: every archived run of every kind, newest first, a page at a time; `#admin/logs/<kind>/<YYYY-MM-DD>/<run-id>`:
+its metadata and artifacts) and **Repositories** (`#admin/repositories`: the registry with its identity checks, and
+registration and removal from this Mac). The card's **Set up repository** and **Open in Reader Admin** go there.
+In the static demo these sections say they need Reader.
+
+### Reader Admin: Local model (any OpenAI-compatible server)
 
 The **Local model** section, after Indexes (and the Inbox, when it is not first) and before Library,
 supervises a small work
@@ -1393,7 +1457,7 @@ is a rebuildable cache and is never written into vault documents.
 Every piece of machine-written text carries a small `local model · <model>` mark
 (`data-reader-decoration`, rendered as text, never HTML). The page polls
 `/api/local-model` every second while an item or a server action runs and every six
-seconds otherwise, only while Behind the scenes is on screen and the tab is visible.
+seconds otherwise, only while Reader Admin's Models page is on screen and the tab is visible.
 The global watcher (`/api/maintenance`, which carries a `local_model` summary without
 probing LM Studio) shows one toast per run: a loading toast at start, then success
 ("Standfirsts: 20 done, 2 rejected"), failure, or a warning when the server stopped
@@ -1463,7 +1527,7 @@ workstation `host/gpu/` git-locks key (lease 1,500 s, waiting up to 10 minutes) 
 batch against a loopback provider, so other GPU users interleave; a remote provider
 takes no lock. Without git-locks or a workstation store it holds `.reader/gpu.lock`
 instead, which coordinates only this Reader's processes; the card then says *GPU
-coordination: This Reader only* ([Companions](#behind-the-scenes-companions)). A
+coordination: This Reader only* ([Companions](#reader-admin-companions)). A
 configured store that is not a Git directory, or a store error, fails closed. For LM Studio only, before a batch Reader loads the batch's model if nothing
 equivalent is loaded, keeps at most one model it loaded itself, and unloads that one
 when the run ends. A model the user loaded stays loaded. If the server stops
@@ -1569,10 +1633,10 @@ until the server's start time changes. **Pause updates** / **Resume updates**
 toggle scheduled updates. Without an installed service the card says so and its
 buttons are disabled.
 
-### Behind the scenes: Companions
+### Reader Admin: Companions
 
-Reader works without each of its companion projects. **Companions**, a section of
-Behind the scenes below Service, shows what each adds, whether it is present and how
+Reader works without each of its companion projects. **Companions**, on Reader
+Admin's Service & tools page below Service, shows what each adds, whether it is present and how
 to set it up:
 
 | Companion | Adds | Setup from Reader |
@@ -1790,7 +1854,7 @@ speech stay in force.
 - **Feedback.** A toast reports *Queued for AI-TTS.* with the utterance id, or
   *…it plays when the pause ends.* when AI-TTS reports a playback hold
   (submission is accepted during a hold). A missing or silent daemon shows the
-  [not-installed prompt](#behind-the-scenes-companions) (*Read aloud needs AI-TTS* or
+  [not-installed prompt](#reader-admin-companions) (*Read aloud needs AI-TTS* or
   *AI-TTS isn't running*, with setup); a daemon refusal shows its own message.
 - **Now playing.** The status line shows a speaker glyph and *Queued*, *Queued ·
   held*, *Preparing speech*, *Speaking · 3 of 41* or *Paused · …* with
@@ -1953,7 +2017,7 @@ rebuildable cache that is never committed:
   replaced. Deleted files drop their rows. When files are added or removed, or the
   work inventory changes, only unresolved rows, name-resolved rows and rows aimed at
   removed files are resolved again. The whole refresh is one transaction: a failure
-  keeps the previous graph and is reported on Behind the scenes.
+  keeps the previous graph and is reported on Reader Admin.
 - *Jobs.* The refresh is the `links` maintenance job. The first `/api/links` request
   on a vault without a graph starts it as a *quiet* job: no toasts, and only the Link
   graph card is re-checked afterwards. **Refresh** on the card is an ordinary job
@@ -2000,7 +2064,7 @@ current file (or the version a reading copy was made from) is lower; a tie
 prefers the current folder. Families are capped at 32 members; the rest are
 counted in `more`. References that cannot be resolved, including those that
 would leave `library/` or cross a symlink, are listed in `unresolved`, never
-guessed. **Behind the scenes → Edition links** shows the family count, index
+guessed. **Reader Admin → Indexes → Edition links** shows the family count, index
 build time and every unresolved reference (`/api/editions/diagnostics`).
 
 The index covers regular, non-hidden, non-symlinked Markdown under `library/` and
@@ -2427,7 +2491,7 @@ exception to the default 128 MiB log budget. Low disk space stops new runs inste
 `inbox`, `local-model` and `art`. Voice chat turns (`chat`), listening checks
 (`listen`), art commissions (`art`, by a voice or the local model; see
 [Article art](#article-art)) and the local-model worker's batches (`local-model`; see
-[Run logs](#behind-the-scenes-local-model-any-openai-compatible-server) under Local
+[Run logs](#reader-admin-local-model-any-openai-compatible-server) under Local
 model) use it; the inbox runner does not yet. Embedding requests (search over the
 provider's embedding model) are not LLM runs and are not archived: they return
 vectors rather than text, their inputs are every passage of the library at each
@@ -2511,7 +2575,7 @@ inbox preview are never colored, and Space c says so. Callout titles, like every
 | **Space c** | Steps the open document Off → Subtle → Clear → Vivid → Off |
 
 The choice holds for that document until you change the Settings default, which
-**Prose colors** (Off, Subtle, Clear, Vivid; Clear unless changed) in Behind the scenes
+**Prose colors** (Off, Subtle, Clear, Vivid; Clear unless changed) in Reader Admin
 sets for every document. Settings saved before the intensity scale map Skim to Subtle and
 Full to Vivid. The footer shows an `abc` chip while colors are on. Settings also reports
 which Colorful binary and version Reader found, or why it found none. When the Settings
@@ -2610,18 +2674,18 @@ for content words, 4.5:1 for every colored role), Vivid's closest pair of roles 
 themes.
 
 **Finding Colorful.** The server uses, in order: `READER_COLORFUL` (a path to the
-binary), the path set in Behind the scenes, Companions (`.reader/companions.json`),
+binary), the path set in Reader Admin, Service & tools (`.reader/companions.json`),
 the copy Reader built (`.reader/tooling/bin/colorful`), `colorful` on `PATH`,
 `~/.cargo/bin/colorful`, and `~/.colorful-language/bin/colorful` (Colorful's
 `scripts/install-local.sh`). It runs `colorful --version` once per binary identity
 (path, inode, mtime, size) and requires 0.4.0 or newer; an older binary
 reads *Too old* in Companions and prose colors stay off, since the v0.3.0 tag
 reports a version but its artifacts fail the schema-hash check below. **Install** in
-[Companions](#behind-the-scenes-companions) builds the pinned release; by hand, in a
+[Companions](#reader-admin-companions) builds the pinned release; by hand, in a
 clone: `cargo install --path crates/colorful-cli --locked`.
 
 Without a usable binary, Space c shows the [not-installed
-prompt](#behind-the-scenes-companions) with Install. The page renders normally.
+prompt](#reader-admin-companions) with Install. The page renders normally.
 
 **Server route.** `GET /api/prose` reports discovery: `available`, `version`,
 `path`, `origin` and a `message` when unavailable. `POST /api/prose` takes exactly
@@ -2790,7 +2854,7 @@ threads. Keys go to the focused pane, which has a 2px accent edge.
 | `Ctrl-w f`, Shift-click | Open the focused (or clicked) library link in the other pane, splitting first if there is one pane; the target pane takes focus. |
 | `Space W` | The same prefix as `Ctrl-w`, for browsers that reserve Ctrl-W (Linux and Windows close the tab). |
 | `:vsplit [doc]` / `:split [doc]` | Split side by side / stacked; with a document name (fuzzy, as `:open`, with Tab completion) the new pane opens it and skips the picker. |
-| `:set scrollbind` / `:set noscrollbind` | Scroll the focused pane with the next pane / stop (`:set scrollbind!` toggles); the divider's ⇅ button does the same. `:set` alone opens Behind the scenes. |
+| `:set scrollbind` / `:set noscrollbind` | Scroll the focused pane with the next pane / stop (`:set scrollbind!` toggles); the divider's ⇅ button does the same. `:set` alone opens Settings in Reader Admin. |
 
 The window keys are rows in the RW-18 keymap (group *Split view* in the help); `Ctrl`
 may stay held for the second key (`Ctrl-w Ctrl-w`). They never run while focus is in
@@ -2830,8 +2894,9 @@ iframes and opens that pane's document itself, so single-pane Reader has no ifra
   reopens each pane's document in the new layout.
 - **Layout and history.** The layout tree (rows and columns with fractional sizes)
   is kept in `#split=<json>`: pane routes are paths only (`#read=<path>` with an
-  optional heading, `#search`, `#backstage`, `#issue=…`, `#scratch` or
-  `#scratch=<id>`), never search text or passage terms. A scratch pad pane keeps its
+  optional heading, `#search`, `#issue=…`, `#scratch` or
+  `#scratch=<id>`), never search text or passage terms. Reader Admin is never a pane
+  route: it replaces the whole layout (see [Reader Admin](#reader-admin-indexes-the-inbox-library-statistics-and-settings)). A scratch pad pane keeps its
   draft id, so a restored layout reopens that draft. Reload restores the tree and focus. Creating a split adds one
   history entry; browser Back leaves the split for the single view before it, and
   Forward restores it. Panes load 250 ms apart.
@@ -3284,7 +3349,7 @@ search never runs it shows *Search couldn't finish*, never the no-match note.
 
 ## Search, dashboard and shared discussion
 
-The Library section of Behind the scenes is a grid of up to twelve interactive D3 statistics panels, with
+The Library section of Reader Admin is a grid of up to twelve interactive D3 statistics panels, with
 summary totals above and an editions list below. Panels cover recorded arrivals
 over twelve weeks, reading marks over 28 local days, read/unread status, first
 topic, primary format, first document type, authors, first project, primary-source
@@ -3928,6 +3993,8 @@ node --test tests/math.test.mjs
 node tests/web_math.cjs
 .venv/bin/python -m pytest -q tests/test_maintenance.py tests/test_related.py tests/test_index_scale.py tests/test_shape.py
 node tests/web_backstage.cjs
+node --test tests/admin_routes.test.mjs
+node tests/web_admin.cjs
 node --test tests/reading_log.test.mjs
 node tests/web_reading_log.cjs
 node --test tests/dates.test.mjs
@@ -4169,12 +4236,12 @@ daemon submits a short document and confirms `ai-tts get <id>` reaches `Played`.
 `web_magazine.cjs` starts the fixture with `--magazine`: pieces dated this week and
 one and two weeks earlier (relative to the run date), a newsletter for this week
 that links two of them, one read piece and an excluded Task. It checks the cover,
-features, standfirst, keys, issue URLs, the dashboard on Behind the scenes, the
+features, standfirst, keys, issue URLs, the dashboard on Reader Admin's Library page, the
 contrast of the issue's text against the page in all 22 built-in themes, the
 sections index jump, and, at 1920 and 2560px, that there is no horizontal scroll, the
 content spans at least 85% of the window with 32px margins, the rail and second lead
 sit beside the cover, standfirsts stay within 75ch and contents gain columns (at
-least four, then five). It also checks 1280px and phone width. `web_dashboard.cjs` opens the dashboard at `#backstage`.
+least four, then five). It also checks 1280px and phone width. `web_dashboard.cjs` opens the dashboard at `#admin/library`.
 
 `web_links.cjs` starts the fixture with `--links`: 13 citing notes and a link sampler
 pointing at `library/thought.md`, with a heading fragment, a wikilink, an external and a

@@ -16,7 +16,11 @@ import {JobDetail, OutcomeBadge, type JobViewOptions} from './job-detail';
 import {OUTCOME_LABELS, type JobRun} from './store';
 import {needsReader, NEEDS_READER} from '../static-demo';
 
-export type AdminPanelProps={options:JobViewOptions;navigate:(route:string)=>void};
+/** `go`/`href` are the admin shell's section navigation; `open` opens a library document. */
+export type AdminPanelProps={options:JobViewOptions;go:(section?:string,...params:string[])=>void;href:(section?:string,...params:string[])=>string;open:(path:string)=>void};
+/** A log run's route parameters: `logs/llm/<kind>/YYYY/MM/DD/<run-id>` ⇄ [kind, YYYY-MM-DD, run-id]. */
+export function logParams(path:string){const [kind,y,m,d,run]=path.replace(/^logs\/llm\//,'').split('/');return [kind,`${y}-${m}-${d}`,run];}
+export function logPath(params:string[]){const [kind,date,run]=params;return `logs/llm/${kind}/${date.replace(/-/g,'/')}/${run}`;}
 type Load<T>={data:T|null;error:string|null;loading:boolean};
 function useLoad<T>(path:string|null,api:JobViewOptions['api'],deps:unknown[]=[]):[Load<T>,()=>void]{
   const [state,setState]=React.useState<Load<T>>({data:null,error:null,loading:!!path});
@@ -34,7 +38,7 @@ function Unavailable({what,error}:{what:string;error:string|null}){
 }
 const when=(value:string|null|undefined)=>value?new Date(value).toLocaleString():'—';
 
-export function JobsPanel({options,navigate}:AdminPanelProps){
+export function JobsPanel({options,go,href}:AdminPanelProps){
   const [repo,setRepo]=React.useState(''),[state,setState]=React.useState(''),[path,setPath]=React.useState(''),[cursor,setCursor]=React.useState(0);
   const query=new URLSearchParams({...(repo?{repo}:{}),...(state?{state}:{}),...(path?{path}:{}),cursor:String(cursor),limit:'25'});
   const [list,reload]=useLoad<{runs:JobRun[];total:number;next:number|null;configured:boolean;read_only:boolean}>(needsReader('jobs')?null:'/api/jobs?'+query,options.api);
@@ -55,7 +59,7 @@ export function JobsPanel({options,navigate}:AdminPanelProps){
     {list.data?<table className="admin-table"><caption className="sr-only">Coding jobs, newest first</caption>
       <thead><tr><th scope="col">Task</th><th scope="col">Repository</th><th scope="col">State</th><th scope="col">Agent</th><th scope="col">Started</th><th scope="col">Result</th></tr></thead>
       <tbody>{list.data.runs.length?list.data.runs.map(run=><tr key={run.id} data-job-row={run.id}>
-        <td><a href={'#admin/jobs/'+run.id} onClick={e=>{e.preventDefault();navigate('#admin/jobs/'+run.id);}}>{run.source.title}</a></td>
+        <td><a href={href('jobs',run.id)} onClick={e=>{e.preventDefault();go('jobs',run.id);}}>{run.source.title}</a></td>
         <td>{run.source.repo}</td><td><OutcomeBadge run={run}/></td><td>{run.agent_label}</td><td>{when(run.created_at)}</td>
         <td>{run.pr?<a href={run.pr.url} target="_blank" rel="noreferrer noopener">PR #{run.pr.number}<ArrowUpRightIcon aria-hidden className="job-inline-icon"/></a>:run.message?.slice(0,120)}</td>
       </tr>):<tr><td colSpan={6} className="job-quiet">No coding jobs match.</td></tr>}</tbody></table>:null}
@@ -65,13 +69,13 @@ export function JobsPanel({options,navigate}:AdminPanelProps){
   </div>;
 }
 
-export function JobPanel({id,options,navigate}:AdminPanelProps&{id:string}){
+export function JobPanel({id,options,open}:AdminPanelProps&{id:string}){
   if(needsReader('jobs'))return <Unavailable what="Coding jobs" error={null}/>;
-  return <JobDetail id={id} options={options} onArticle={path=>navigate('#read='+encodeURIComponent(path))}/>;
+  return <JobDetail id={id} options={options} onArticle={open}/>;
 }
 
 type LogRow={path:string;kind:string;run_id:string;status:string|null;outcome?:string|null;started_at:string|null;ended_at:string|null;agent:string|null;title:string|null;bytes:number;artifacts:string[];sealed:boolean};
-export function LogsPanel({options,navigate}:AdminPanelProps){
+export function LogsPanel({options,go,href}:AdminPanelProps){
   const [kind,setKind]=React.useState(''),[pages,setPages]=React.useState<(string|null)[]>([null]);
   const cursor=pages.at(-1);
   const query=new URLSearchParams({...(kind?{kind}:{}),...(cursor?{cursor}:{}),limit:'30'});
@@ -87,7 +91,7 @@ export function LogsPanel({options,navigate}:AdminPanelProps){
     {page.data?<table className="admin-table"><caption className="sr-only">Archived LLM runs, newest first</caption>
       <thead><tr><th scope="col">Run</th><th scope="col">Kind</th><th scope="col">Status</th><th scope="col">Agent</th><th scope="col">Started</th><th scope="col">Size</th></tr></thead>
       <tbody>{page.data.runs.length?page.data.runs.map(row=><tr key={row.path} data-log-row={row.run_id}>
-        <td><a href={'#admin/'+row.path.replace(/^logs\/llm\//,'logs/')} onClick={e=>{e.preventDefault();navigate('#admin/'+row.path.replace(/^logs\/llm\//,'logs/'));}}>{row.title||row.run_id}</a></td>
+        <td><a href={href('logs',...logParams(row.path))} onClick={e=>{e.preventDefault();go('logs',...logParams(row.path));}}>{row.title||row.run_id}</a></td>
         <td>{row.kind}</td><td><Badge variant={row.sealed?'outline':'secondary'}>{row.outcome||row.status||'unknown'}{row.sealed?'':' · open'}</Badge></td>
         <td>{row.agent||'—'}</td><td>{when(row.started_at)}</td><td>{row.bytes?(row.bytes/1024).toLocaleString(undefined,{maximumFractionDigits:1})+' KiB':'—'}</td></tr>)
         :<tr><td colSpan={6} className="job-quiet">No archived runs{kind?` of kind ${kind}`:''}.</td></tr>}</tbody></table>:null}
@@ -97,8 +101,8 @@ export function LogsPanel({options,navigate}:AdminPanelProps){
   </div>;
 }
 
-export function LogPanel({path,options}:AdminPanelProps&{path:string}){
-  const relative='logs/llm/'+path.replace(/^logs\//,'');
+export function LogPanel({params,options}:AdminPanelProps&{params:string[]}){
+  const relative=logPath(params);
   const [detail]=useLoad<{run:LogRow;meta:Record<string,unknown>;artifacts:string[]}>(needsReader('logs')?null:'/api/logs/run?path='+encodeURIComponent(relative),options.api);
   const [name,setName]=React.useState<string|null>(null);
   const chosen=name||detail.data?.artifacts.find(a=>a.startsWith('prompt'))||detail.data?.artifacts[0]||null;

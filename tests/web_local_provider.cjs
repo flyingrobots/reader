@@ -1,4 +1,4 @@
-/* Behind the scenes · Local model with any OpenAI-compatible provider: presets, discovery, "start it yourself", a run on fake Ollama, llama.cpp, the remote opt-in and its notice, the API key never shown, phone width. Fake servers only. */
+/* Reader Admin · Models: the local model with any OpenAI-compatible provider: presets, discovery, "start it yourself", a run on fake Ollama, llama.cpp, the remote opt-in and its notice, the API key never shown, phone width. Fake servers only. */
 const assert=require('node:assert/strict');
 const {spawn}=require('node:child_process');
 const {createInterface}=require('node:readline');
@@ -18,7 +18,7 @@ const {chromium}=require(process.env.READER_PLAYWRIGHT||'playwright-core');
   const status=()=>page.evaluate(async()=>(await fetch('/api/local-model')).json());
   const choosePreset=async label=>{await page.locator('#lm-preset').click();await page.getByRole('option',{name:label,exact:true}).click();};
   const saveProvider=async()=>{await page.locator('#lm-provider-save:not([disabled])').click();};
-  await page.goto(url+'#backstage');await page.locator('#local-model').waitFor();
+  await page.goto(url+'#admin/models');await page.locator('#local-model').waitFor();
   // The default provider is LM Studio on loopback, with its lms extras.
   await page.locator('.lm-provider[data-provider=lmstudio]').waitFor();
   assert.equal(await page.locator('#lm-provider-scope').textContent(),'This machine only');

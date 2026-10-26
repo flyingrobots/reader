@@ -2,8 +2,10 @@
 import {escapeHTML as esc} from './logic.mjs';
 
 // Non-document views use a ':' sentinel instead of a library path.
-const VIEWS={':backstage':'Behind the scenes',':search':'Search'};
+const VIEWS={':search':'Search'};
 export function breadcrumbTrail(path, narrow=false) {
+  // Reader Admin has its own header breadcrumb; the status line names the layout.
+  if(path===':admin'||path?.startsWith(':admin/'))return {items:[{label:'Library',home:true},{label:'Reader Admin',current:true,title:'Reader Admin'}],hidden:[]};
   if(VIEWS[path])return {items:[{label:'Library',home:true},{label:VIEWS[path],current:true,title:VIEWS[path]}],hidden:[]};
   if(!path)return {items:[{label:'Library',home:true,current:true}],hidden:[]};
   // Inbox previews are not library folders; name the inbox instead of offering folder browsing.

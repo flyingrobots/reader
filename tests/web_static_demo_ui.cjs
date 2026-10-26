@@ -1,8 +1,8 @@
-/* The static demo knows it is static (#107): with no server behind the page, visiting Behind the scenes starts no
+/* The static demo knows it is static (#107): with no server behind the page, visiting Reader Admin starts no
    job and raises no error; every control that needs a running Reader is disabled and says "Needs Reader on your
    computer" (a tooltip the pointer can reach), or is left out where a disabled card would be pointless; keyboard
    paths to the same writes explain instead of failing; nothing logs an error. A normal server is covered by the
-   existing Behind the scenes, queue, chat, theme and art suites. */
+   existing Reader Admin, queue, chat, theme and art suites. */
 const assert=require('node:assert/strict');
 const {spawnSync}=require('node:child_process');
 const http=require('node:http');
@@ -49,28 +49,35 @@ const NEEDS=/^Needs Reader on your computer/;
   const offered=await page.locator('.issue [data-queue-add], .issue [data-art-generate]').all();
   assert.ok(offered.length>=1,'the issue offers queue or art buttons');
   for(const button of offered)await needsReader(button,'An issue button');
-  // Behind the scenes: no automatic check, no job, no error toast, no card stuck on "Checking…".
-  await page.evaluate(()=>{location.hash='#backstage';});await page.locator('#backstage').waitFor();
+  // Reader Admin: no automatic check, no job, no error toast, no card stuck on "Checking…".
+  await page.evaluate(()=>{location.hash='#backstage';});await page.locator('#admin-overview').waitFor();
+  await page.locator('[data-admin-nav=indexes]').click();await page.locator('#backstage-indexes').waitFor();
   await page.waitForTimeout(1500);
-  assert.deepEqual(await writes(),[],'visiting Behind the scenes asks nothing of a server');
+  assert.deepEqual(await writes(),[],'visiting Reader Admin asks nothing of a server');
   assert.deepEqual((await toasts()).filter(([type])=>type==='error'),[],'no error toast');
   assert.deepEqual(await toasts(),[],'no toast at all');
   assert.equal(await page.locator('.backstage-card[data-index] .backstage-badge').filter({hasText:/Checking/}).count(),0,'no index card waits on a check that never runs');
   assert.match(await page.locator('.backstage-checked').first().textContent(),/Reader on your computer/);
   await needsReader(page.locator('#maintenance-check'),'Check again');
   for(const kind of ['search','search-keyword','browse','catalog','links'])await needsReader(page.locator(`[data-job="${kind}"]`),kind+' rebuild');
-  await needsReader(page.locator('#inbox-mail'),'You got mail');
   mkdirSync('.reader/web-dev',{recursive:true});await page.locator('#maintenance-check').hover();await page.screenshot({path:'.reader/web-dev/static-demo-ui-backstage.png'});
-  // Cards that only describe this machine are left out, with one note that says where they live.
-  for(const id of ['#backstage-server','#local-model','#companions'])assert.equal(await page.locator(id).count(),0,id+' is left out of the web demo');
-  assert.match(await page.locator('#backstage-local-only').textContent(),/on your computer/i);
+  await page.locator('[data-admin-nav=inbox]').click();await needsReader(page.locator('#inbox-mail'),'You got mail');
+  // Pages that only describe this machine show where they live instead of empty controls.
+  for(const section of ['service','voices','models']){
+    await page.locator(`[data-admin-nav=${section}]`).click();await page.locator('#backstage-local-only').waitFor();
+    assert.match(await page.locator('#backstage-local-only').textContent(),/on your computer/i);
+    for(const id of ['#backstage-server','#local-model','#companions','#companion-cli'])assert.equal(await page.locator(id).count(),0,id+' is left out of the web demo');
+  }
+  assert.deepEqual(await writes(),[],'no Admin page asks anything of a server');
+  await page.locator('[data-admin-nav=settings]').click();await page.locator('#preferences-form').waitFor();
   // Settings save on this device and keep working; the Theme Editor previews here but cannot save themes.
   assert.equal(await page.locator('#preferences-form button[type=submit]').isDisabled(),false,'reading preferences still save in this browser');
   await page.locator('#theme-editor-open').click();await page.locator('.theme-editor-form').waitFor();
   for(const name of ['Save as new theme','Save and use'])await needsReader(page.getByRole('button',{name,exact:true}),name);
   await page.keyboard.press('Escape');await page.locator('.theme-editor-form').waitFor({state:'detached'});
   // A clicked disabled control does nothing.
-  await page.locator('#maintenance-check').click({force:true});await page.locator('#inbox-mail').click({force:true});await page.waitForTimeout(300);
+  await page.locator('[data-admin-nav=indexes]').click();await page.locator('#maintenance-check').click({force:true});
+  await page.locator('[data-admin-nav=inbox]').click();await page.locator('#inbox-mail').click({force:true});await page.waitForTimeout(300);
   assert.deepEqual(await writes(),[]);assert.deepEqual(await toasts(),[]);
 
   // A document: Generate art, the reading queue and the chat panel.
@@ -101,7 +108,7 @@ const NEEDS=/^Needs Reader on your computer/;
   assert.deepEqual(await writes(),[],'no server-only write was attempted');
   assert.deepEqual((await toasts()).filter(([type])=>type==='error'),[],'no error toast anywhere');
   assert.deepEqual(errors,[],'nothing logged an error');
-  console.log('Static demo UI passed: Behind the scenes starts no job and raises no toast; Check again, rebuilds, You got mail, theme saves, Generate art, queue writes and chat chime-ins are disabled with “Needs Reader on your computer” (the composer is on: scripted voices answer); service, companions and local model are left out with one note; q explains; no console errors.');
+  console.log('Static demo UI passed: Reader Admin starts no job and raises no toast; Check again, rebuilds, You got mail, theme saves, Generate art, queue writes and chat chime-ins are disabled with “Needs Reader on your computer” (the composer is on: scripted voices answer); service, companions and local model are left out with one note; q explains; no console errors.');
  }finally{
   if(browser)await browser.close();
   if(server)server.close();

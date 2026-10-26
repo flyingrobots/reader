@@ -1,4 +1,4 @@
-/* Behind the scenes · Local model: server card, load, queue counts, streaming preview, batch toast, Recent reasons, phone width. Fake LM Studio only. */
+/* Reader Admin · Models (local model): server card, load, queue counts, streaming preview, batch toast, Recent reasons, phone width. Fake LM Studio only. */
 const assert=require('node:assert/strict');
 const {spawn}=require('node:child_process');
 const {createInterface}=require('node:readline');
@@ -15,7 +15,7 @@ const {chromium}=require(process.env.READER_PLAYWRIGHT||'playwright-core');
   await context.addInitScript(()=>{try{localStorage.setItem('reader.preferences.v1',JSON.stringify({smooth:false,theme:'paper'}));}catch{}});
   const page=await context.newPage();page.on('pageerror',e=>errors.push(e.message));page.on('console',m=>{if(m.type()==='error')errors.push(m.text());});page.on('request',r=>{if(!r.url().startsWith(url))external.push(r.url());});
   const toast=text=>page.locator('[data-sonner-toast]').filter({hasText:text});
-  await page.goto(url+'#backstage');await page.locator('#local-model').waitFor();
+  await page.goto(url+'#admin/models');await page.locator('#local-model').waitFor();
   // Server card: off, then Start goes to Ready, then a model loads.
   const card=page.locator('.lm-server');
   await page.locator('.lm-server[data-server-state=off]').waitFor();
@@ -85,7 +85,7 @@ const {chromium}=require(process.env.READER_PLAYWRIGHT||'playwright-core');
   assert.ok(await mark.evaluate(el=>el.hasAttribute('data-reader-decoration')&&el.checkVisibility()));
   assert.equal(await page.locator('.issue-machine-mark').count(),await page.locator('[data-standfirst][data-source=local-model]').count(),'every machine standfirst is marked');
   await page.locator('.issue-cover').screenshot({path:'.reader/web-dev/local-model-cover.png'});
-  await page.goto(url+'#backstage');await page.locator('#local-model').waitFor();
+  await page.goto(url+'#admin/models');await page.locator('#local-model').waitFor();
   // Settings: turning a task off disables its queue buttons.
   await page.locator('[data-setting=keyterms] [data-slot=switch]').click();await page.locator('#lm-settings-form button[type=submit]').click();
   await toast('Local-model settings saved.').waitFor();

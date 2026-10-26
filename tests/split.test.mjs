@@ -50,6 +50,8 @@ test('routes keep paths, never text, and the layout round-trips',()=>{
   assert.equal(cleanRoute('#search?q=private+words'),'#search');
   assert.equal(cleanRoute('#issue=2026-W43'),'#issue=2026-W43');
   assert.equal(cleanRoute('javascript:alert(1)'),'');
+  // RW-45: Reader Admin is the window's layout, never a pane's; an old layout naming #backstage opens the homepage there.
+  for(const admin of ['#backstage','#admin','#admin/settings'])assert.equal(cleanRoute(admin),'',admin);
   // A scratch pad keeps its draft id (#92); anything else after #scratch is dropped.
   const draft='#scratch=0f8fad5b-d9cb-469f-a165-70867728950e';
   assert.equal(cleanRoute(draft),draft);assert.equal(cleanRoute('#scratch'),'#scratch');

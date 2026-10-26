@@ -18,7 +18,7 @@ import {calloutPlugin} from './callouts.mjs';
 import {drawable,fetchShape,paintShape} from './shapes.mjs';
 import {artJobs,fetchArt,focusArt,forgetArt,hasArt,paintArt,paintArtThumb,paintPlaceholder} from './art.mjs';
 import {closeArtFocus,focusOpen} from './art-focus.mjs';
-import {applyThemes,installControls,mountSkeleton,mountCodeBlocks,decorateCodeBlocks,clearControlsWithin,mountDocumentTree,visibleDocumentNodes,revealDocumentRow,mountBackstage,mountChangesPanel,mountArtRegenerate,notify as shellNotify,openChat,closeChat,chatOpen,trackSpeech,renderQueuePanel,mountCallouts,startJob,promptCompanion,needsReader,NEEDS_READER,mountPromptCards} from './controls/reader-controls.js';
+import {applyThemes,installControls,mountSkeleton,mountCodeBlocks,decorateCodeBlocks,clearControlsWithin,mountDocumentTree,visibleDocumentNodes,revealDocumentRow,mountAdmin,setAdminRoute,mountChangesPanel,mountArtRegenerate,notify as shellNotify,openChat,closeChat,chatOpen,trackSpeech,renderQueuePanel,mountCallouts,startJob,promptCompanion,needsReader,NEEDS_READER,mountPromptCards} from './controls/reader-controls.js';
 import {promptPlugin,promptMounts} from './prompt-blocks.mjs';
 import {installVersions,chipMarkup,historicalMarkup,splitRef,compareLabel} from './versions.mjs';
 import {installSplit,installPane,cleanRoute} from './split.mjs';
@@ -28,6 +28,7 @@ import {installVisual} from './visual.mjs';
 import {installPlace} from './place.mjs';
 import {installLists} from './lists.mjs';
 import {installStatusPriority} from './status-priority.mjs';
+import {SETTINGS,adminHash,adminPath,adminPathFromHash,adminRoute,isAdminPath,libraryReturn} from './admin-routes.mjs';
 
 const $ = selector => document.querySelector(selector);
 // Split view: a pane is this app in an embedded same-origin iframe (/?pane=1#…); the top document is the shell.
@@ -37,14 +38,15 @@ let split=null,pane=null;
 /** Toasts from a pane appear in the shell's toaster. */
 function notify(message,type,options){if(pane){pane.post({type:'toast',message:String(message),kind:type,options:options&&{id:options.id,duration:options.duration}});return;}return shellNotify(message,type,options);}
 const defaults = {theme:'ink', participant:null, recent:20, atlas:true, activity:true, smooth:true, layout:'scroll', pace:220, zen:false, pageTurn:'curl', nextReads:true, backlinks:true, outline:true, inboxSandbox:'workspace-write', issueExclude:DEFAULT_EXCLUDED_TYPES.join(', '), proseColors:'clear', shapes:true, art:true, artHero:true, artBy:'', artAuto:'off'};
-// Route sentinel for Behind the scenes; document routes are always library/ paths.
-const BACKSTAGE=':backstage',SEARCH=':search',SCRATCH=':scratch';  // A scratch buffer: ':scratch' (the latest draft) or ':scratch=<id>'.
+// Route sentinels for views that are not documents (document routes are always library/ paths). Reader Admin's are
+// ':admin' and ':admin/<section>/…' (admin-routes.mjs); legacy #backstage opens its Overview.
+const SEARCH=':search',SCRATCH=':scratch';  // A scratch buffer: ':scratch' (the latest draft) or ':scratch=<id>'.
 // Past issues use ':issue=<ISO week>'; the bare homepage (null) is the current issue.
 const ISSUE=':issue=';
 const isIssue=path=>!path||path.startsWith(ISSUE);
 // A passage link carries its line, page and terms: #read=<path>&at=<json>; a heading link #read=<path>&h=<heading id>.
-const routeHash=(path,at=null,heading='')=>path===BACKSTAGE?'#backstage':path?.startsWith(SCRATCH)?'#scratch'+path.slice(SCRATCH.length):path===SEARCH?search.hash():path?.startsWith(ISSUE)?'#issue='+param(path.slice(ISSUE.length)):path?'#read='+param(path)+(at?'&at='+param(JSON.stringify(at)):'')+(heading?'&h='+param(heading):''):location.pathname;
-const routeFromHash=()=>location.hash==='#backstage'?BACKSTAGE:/^#scratch(=[0-9a-f-]{36})?$/.test(location.hash)?SCRATCH+location.hash.slice(8):location.hash.startsWith('#search')?SEARCH:location.hash.startsWith('#issue=')?ISSUE+decodeURIComponent(location.hash.slice(7)):location.hash.startsWith('#read=')?readRoute().path:null;
+const routeHash=(path,at=null,heading='')=>isAdminPath(path)?adminHash(path):path?.startsWith(SCRATCH)?'#scratch'+path.slice(SCRATCH.length):path===SEARCH?search.hash():path?.startsWith(ISSUE)?'#issue='+param(path.slice(ISSUE.length)):path?'#read='+param(path)+(at?'&at='+param(JSON.stringify(at)):'')+(heading?'&h='+param(heading):''):location.pathname;
+const routeFromHash=()=>adminPathFromHash(location.hash)??(/^#scratch(=[0-9a-f-]{36})?$/.test(location.hash)?SCRATCH+location.hash.slice(8):location.hash.startsWith('#search')?SEARCH:location.hash.startsWith('#issue=')?ISSUE+decodeURIComponent(location.hash.slice(7)):location.hash.startsWith('#read=')?readRoute().path:null);
 /** Path and heading of a #read= route. Hand-made `#read=<path>#<heading>` (raw or %23) also works; a malformed escape never throws. */
 const decode=text=>{try{return decodeURIComponent(text);}catch{return text;}};
 function readRoute(){
@@ -162,7 +164,8 @@ function refreshScroll() {
 function resetScroll() {
   state.smoother?.kill(); state.smoother = null;
   window.scrollTo(0, 0);
-  if (motion() && window.ScrollSmoother && !document.body.classList.contains('two-page')) {
+  // Reader Admin scrolls natively: the reading smoother never runs against its forms and panels.
+  if (motion() && window.ScrollSmoother && !document.body.classList.contains('two-page') && state.view !== 'admin') {
     gsap.registerPlugin(ScrollTrigger, ScrollSmoother);
     state.smoother = ScrollSmoother.create({wrapper:'#smooth-wrapper',content:'#smooth-content',smooth:.8,smoothTouch:0,normalizeScroll:false,effects:false,onUpdate:()=>reading?.update()});
   }
@@ -218,7 +221,7 @@ async function renderHome(path=null,id=state.routeId) {
   state.magazine=mountMagazine({root:$('#main'),issue,weeks:issueWeeks(works,{exclude:options.exclude,through:isoWeek(state.data.today).end}),signals,prefs:state.prefs,api,wireDocumentLinks,openIssue,motion:()=>!reduced.matches,art:artwork,artMake:state.prefs.art!==false&&!!artProducer()});
   $('#main').querySelectorAll('.issue [data-art-generate]').forEach(button=>{if(needsReader('art')){localOnly(button);return;}
     button.onclick=event=>{event.preventDefault();button.disabled=true;button.textContent='Making art…';commissionArt(button.dataset.artGenerate);};});
-  $('#issue-backstage').onclick=()=>navigate(BACKSTAGE);
+  $('#issue-backstage').onclick=()=>openAdmin('library');
   $('#main').querySelectorAll('.issue [data-queue-add]').forEach(button=>{if(needsReader()){localOnly(button);return;}button.onclick=event=>{event.preventDefault();queue.add(button.dataset.queueAdd);};});
   resetScroll();reading?.updateStatus();
   paintIssueArt(artwork,id).catch(error=>console.warn('Article art',error));
@@ -271,11 +274,8 @@ function autoCommission(issue,found){
   if(!works.length)return;works.forEach(path=>state.artCommissioned.add(path));
   art.commission(works.slice(0,6),producer.id).catch(error=>console.warn('Article art',error));
 }
-/** No producer for art: Behind the scenes, at Companions' Agents and models card (or the section). */
-async function openArtSetup(){
-  await navigate(BACKSTAGE);
-  for(let tries=0;tries<40;tries++){const target=$('#companion-cli')||$('#companions');if(target){target.scrollIntoView({block:'start'});return;}await new Promise(resolve=>setTimeout(resolve,75));}
-}
+/** No producer for art: Reader Admin's Voices page, which lists the agent command lines Reader found. */
+async function openArtSetup(){await openAdmin('voices');}
 /** The static web demo (#107): a control that needs a running Reader, disabled with the reason as its tooltip. */
 function localOnly(button){button.disabled=true;button.title=NEEDS_READER;button.dataset.needsReader='';button.onclick=null;}
 async function commissionArt(path){
@@ -421,7 +421,7 @@ function movePiece(delta){
   if(rect.top<70||rect.bottom>innerHeight-70)scrollToPosition(scrollY+rect.top-innerHeight*.3);
 }
 function mountLibrary(container){
-  mountDashboard({root:container,data:state.data,prefs:state.prefs,embedded:true,workRows,wireDocumentLinks,openPicker,openPreferences,navigate,showTooltip:showChartTooltip,hideTooltip:hideChartTooltip,seek:element=>scrollToPosition(scrollY+element.getBoundingClientRect().top-50)});
+  mountDashboard({root:container,data:state.data,prefs:state.prefs,embedded:true,workRows,wireDocumentLinks,openPicker,openPreferences:openSettings,navigate,showTooltip:showChartTooltip,hideTooltip:hideChartTooltip,seek:element=>scrollToPosition(scrollY+element.getBoundingClientRect().top-50)});
 }
 function showChartTooltip(event,title,detail='') {
   const tip=$('#chart-tooltip'); tip.replaceChildren();
@@ -449,6 +449,14 @@ function closeContext() {
 }
 async function navigate(path,{thread=null,fragment='',record=true,commit=null,at=null,jump=true}={}) {
   if(commit&&path)path=path+'@'+commit;
+  if(isAdminPath(path)){
+    // Administration is the window's layout, never a pane's: a pane asks the shell to open it.
+    if(pane){pane.post({type:'open-admin',route:adminHash(path)});if(adminPathFromHash(location.hash))history.replaceState(history.state,'',location.pathname+location.search+(state.doc?'#read='+param(state.doc.path):''));return;}
+    // Entering Admin remembers the library view it left (a document, or the whole split layout) for Back to Library.
+    if(state.view!=='admin')rememberLibrary(location.hash);
+    // From a split layout: every pane saves its place and the panes close; Back (or Back to Library) restores them.
+    if(split?.active())await split.detach();
+  }
   // While the window is split, the shell's panels (queue, picker, chat links) open documents in the focused pane.
   if(split?.active()){split.openInFocused(path===SEARCH?'#search':cleanRoute(routeHash(path,null,fragment))||'#home');return;}
   // Leaving a document by a link, the picker or the queue is a jump: Ctrl-o comes back to this place.
@@ -461,12 +469,12 @@ async function navigate(path,{thread=null,fragment='',record=true,commit=null,at
     // A pane's pushed entry would join the window's session history, so browser Back would step a background pane.
     if(EMBEDDED)history.replaceState({reader:true,path},'',routeHash(path,at,fragment));else history.pushState({reader:true,path},'',routeHash(path,at,fragment));}
   clearFind();prose?.detach();await state.pdf?.destroy();state.pdf=null;state.ranges=[];placeKeeper.watch(null);CSS.highlights?.delete('reader-own');CSS.highlights?.delete('reader-other');CSS.highlights?.delete('reader-warning');
-  const quick=isIssue(path)&&state.view==='issue'&&!!state.data;
-  state.view=path===BACKSTAGE?'backstage':path===SEARCH?'search':path?.startsWith(SCRATCH)?'scratch':isIssue(path)?'issue':null;
+  const quick=isIssue(path)&&state.view==='issue'&&!!state.data,inAdmin=state.view==='admin';
+  state.view=isAdminPath(path)?'admin':path===SEARCH?'search':path?.startsWith(SCRATCH)?'scratch':isIssue(path)?'issue':null;
   state.editions=null;state.versions=null;state.changes=null;versions?.reset();versions?.update();
   if(path===SEARCH){state.doc=null;reading?.prepare();clearControlsWithin($('#main'));search.render($('#main'),record?null:location.hash);resetScroll();reading?.updateStatus();return;}
   if(path?.startsWith(SCRATCH)){state.doc=null;reading?.prepare();clearControlsWithin($('#main'));resetScroll();await scratch.open($('#main'),path.slice(SCRATCH.length+1)||null);reading?.updateStatus();return;}
-  if(path===BACKSTAGE){state.doc=null;reading?.prepare();renderBackstage(state.focusSettings);state.focusSettings=false;return;}
+  if(state.view==='admin'){state.doc=null;reading?.prepare();renderAdmin(path,inAdmin);return;}
   if(isIssue(path)){state.doc=null;reading?.prepare();if(!quick){mountSkeleton($('#main'),'library');await loadLibrary();}if(id===state.routeId)await renderHome(path,id);return;}
   state.doc=null;reading?.prepare();mountSkeleton($('#main'),'document');
   let rendered=false;
@@ -644,7 +652,8 @@ function openEditions(){versions.open();}
 function promptContext(doc){
   const blocked=needsReader('jobs')?NEEDS_READER:doc.historical?'This is a past edition. Open the current article to run its prompt.'
     :doc.preview?'Inbox arrivals can’t run prompts until they are filed.':null;
-  return {path:doc.path,sha256:doc.sha256,blocked,onAdmin:null};
+  // Set up repository and Open in Reader Admin go to the admin shell's routes (RW-45), from a pane too.
+  return {path:doc.path,sha256:doc.sha256,blocked,onAdmin:hash=>navigate(adminPathFromHash(hash)||adminPath())};
 }
 /** Render Markdown into a container. An embedded fragment passes `range` (UTF-16 [start, end) of `raw`, the
  *  embedded file), so its blocks carry that file's source offsets; `chain` and `children` come from embeds.mjs. */
@@ -1186,17 +1195,37 @@ $('#find-query').oninput=updateFind;
 $('#find-query').onkeydown=event=>{if(event.key==='Enter'){event.preventDefault();showFind();$('#find-bar').hidden=true;focusMain();}};
 $('#find-next').onclick=()=>nextFind();$('#find-prev').onclick=()=>nextFind(-1);$('#find-close').onclick=()=>{$('#find-bar').hidden=true;focusMain();};
 
-function renderBackstage(focusSettings=false){
+/** Reader Admin: a dedicated layout in #main with native scrolling (no reading smoother, pagination or reading chrome).
+ *  The shell mounts once; moving between its sections updates it in place. The shell focuses each page's heading. */
+function renderAdmin(path,inPlace=false){
+  // The smoother is parked at the top before it goes: the next one (back in reading) starts from where this one
+  // stopped, and a stale glide would throw off the restored reading position.
+  state.adminPath=path;if(state.smoother){state.smoother.scrollTo(0,false);state.smoother.kill();state.smoother=null;}
+  const route=adminRoute(path);
+  if(inPlace&&$('#reader-admin')){setAdminRoute(route);reading?.updateStatus();return;}
   controls.update({prefs:{...state.prefs},participants:state.data?.participants||[]});
-  clearControlsWithin($('#main'));mountBackstage($('#main'),{library:mountLibrary});resetScroll();reading?.updateStatus();
+  clearControlsWithin($('#main'));window.scrollTo(0,0);mountAdmin($('#main'),route,{library:mountLibrary});reading?.updateStatus();
   prose.status(true).then(status=>controls.update({prose:status}));
-  // The Settings heading takes focus (NORMAL mode), so leader keys keep working and Tab moves into the fields.
-  if(focusSettings)requestAnimationFrame(()=>{$('#backstage-settings')?.scrollIntoView({block:'start'});const heading=$('#settings-title');heading?.setAttribute('tabindex','-1');heading?.focus({preventScroll:true});});
-  else focusMain();
 }
-async function openPreferences(){
-  if(state.view==='backstage'){closeContext();renderBackstage(true);return;}
-  state.focusSettings=true;await navigate(BACKSTAGE);
+/** Open an admin section ('' is Overview). Already there: back to its top, heading focused, without a new history entry. */
+async function openAdmin(section='',...params){
+  const path=adminPath(section,...params);
+  if(state.view==='admin'&&state.adminPath===path&&$('#admin-title')){closeContext();window.scrollTo(0,0);$('#admin-title').focus({preventScroll:true});return;}
+  await navigate(path);
+}
+/** Space p, :settings and a bare :set: the Settings page, at its top. */
+function openSettings(){return openAdmin(SETTINGS);}
+const LIBRARY_RETURN='reader.admin.return.v1';
+/** The view Back to Library returns to; kept for the tab's session so a reload inside Admin still knows it. */
+function rememberLibrary(hash){
+  if(adminPathFromHash(hash))return;  // Already in Admin (a reload, or history moving between its pages): keep the target.
+  state.adminReturn=libraryReturn(hash);try{sessionStorage.setItem(LIBRARY_RETURN,state.adminReturn);}catch{}
+}
+function libraryTarget(){if(typeof state.adminReturn==='string')return state.adminReturn;try{return libraryReturn(sessionStorage.getItem(LIBRARY_RETURN)||'');}catch{return '';}}
+/** Back to Library: the document Admin was opened from, restored from its saved bookmark, or the split layout whole. */
+function backToLibrary(){
+  history.pushState({reader:true},'',location.pathname+location.search+libraryTarget());
+  followLocation();
 }
 function setThemeEditorOpen(open){
   if(open&&!state.themeEditorOpen)state.themeEditorOpener=document.activeElement;
@@ -1215,7 +1244,7 @@ function previewFont(href){if(!/^\/fonts\/[a-z0-9-]+\/font\.css$/.test(href)||do
 async function applyPreferences(prefs){
   await reading?.leave();if(prefs.proseColors!==state.prefs.proseColors)state.proseStyles?.clear();state.prefs={...state.prefs,...prefs};savePrefs();document.documentElement.dataset.theme=state.prefs.theme;
   await loadLibrary();
-  if(state.view==='backstage'){controls.update({theme:state.prefs.theme,prefs:{...state.prefs},participants:state.data?.participants||[]});const slot=$('#backstage-library-mount');if(slot)mountLibrary(slot);notify('Preferences saved.','success');}
+  if(state.view==='admin'){controls.update({theme:state.prefs.theme,prefs:{...state.prefs},participants:state.data?.participants||[]});const slot=$('#backstage-library-mount');if(slot)mountLibrary(slot);notify('Preferences saved.','success');}
   else if(state.doc)await navigate(state.doc.path,{record:false});else await renderHome(state.issuePath);reading?.updateStatus();
 }
 $('#annotation-form').onsubmit=async event=>{event.preventDefault();const button=event.currentTarget.querySelector('button');button.disabled=true;try{await createAnnotation($('#annotation-dialog').classList.contains('warning')?'warning':'highlight',$('#annotation-body').value);}catch(error){report(error);}finally{button.disabled=false;}};
@@ -1385,7 +1414,7 @@ keys.map(
   {keys:'<Space>m',run:inShell('m',()=>toggleChat()),hint:'chat',group:L,help:'Chat with the voices about this document; `@` chooses who answers, `r` on a focused voice message replies to it, `Ctrl r` `a` pastes register a'},
   {keys:'<Space>o',run:()=>outline.toggle(),hint:'outline',group:L,help:'Show or hide the document outline'},
   {keys:'<Space>s',run:()=>speech.openMenu(),hint:'speak',group:L,help:'Send to AI-TTS: the whole article, from here, or the selection'},
-  {keys:'<Space>p',run:()=>openPreferences(),hint:'backstage',group:L,help:'Behind the scenes: indexes, library statistics and settings'},
+  {keys:'<Space>p',run:()=>openSettings(),hint:'settings',group:L,help:'Settings, in Reader Admin (the footer’s Backstage and `:backstage` open its Overview)'},
   {keys:'<Space>v',run:()=>openEditions(),hint:'versions',group:L,help:'Versions: every edition and its history. In the timeline, `j` `k` move, `Enter` opens, `c` on two versions compares them'},
   {keys:'<Space>d',run:()=>changesShortcut(),hint:'changes',group:L,help:'What changed since you read it, or against the newer version'},
   {keys:'<Space>g',run:()=>toggleArt(),hint:'art',group:L,help:'Article art: show or hide the open article’s art (or Generate art when it has none)'},
@@ -1494,6 +1523,10 @@ keys.intercept(event=>{
   if(event.ctrlKey&&!event.metaKey&&!event.altKey&&event.key==='r'&&event.target.matches?.('textarea')){event.preventDefault();pasteInto=event.target;const hint=$('#status-pending');hint.textContent='Ctrl r';hint.hidden=false;return true;}
   return false;
 });
+// Reader Admin is a page of controls: Space on a focused button, checkbox, switch, tab or select activates it, as it
+// does anywhere on the web, instead of starting the leader (links, headings and the page still take Space p).
+const ADMIN_CONTROL='button,summary,[role=button],[role=checkbox],[role=radio],[role=switch],[role=tab],[role=combobox],[role=menuitem],[role=option]';
+keys.intercept(event=>event.key===' '&&state.view==='admin'&&!keys.pending().keys.length&&!event.ctrlKey&&!event.metaKey&&!event.altKey&&!!event.target.closest?.('#reader-admin')&&!!event.target.closest?.(ADMIN_CONTROL));
 document.addEventListener('keydown',event=>keys.handle(event));
 // Read-only introspection of the table (tests, extensions): every mapped sequence and command.
 Object.defineProperty(window,'readerKeymap',{value:Object.freeze({listed:()=>keys.listed(),commands:()=>keys.commands()})});
@@ -1540,10 +1573,10 @@ for(const [name,[dir,key]] of Object.entries(SPLIT_DIRS))keys.command({name,alia
     if(split.active())split.split(dir,{route,picker:false});else split.start(dir,cleanRoute(location.hash),{route}).catch(report);
   }});
 const SCROLLBIND={scrollbind:true,scb:true,noscrollbind:false,noscb:false,'scrollbind!':'toggle','scb!':'toggle','invscrollbind':'toggle'};
-keys.command({name:'set',args:'[scrollbind|noscrollbind]',help:'`:set scrollbind` scrolls the focused pane with its neighbor, `:set noscrollbind` stops; without an option, Behind the scenes',
+keys.command({name:'set',args:'[scrollbind|noscrollbind]',help:'`:set scrollbind` scrolls the focused pane with its neighbor, `:set noscrollbind` stops; without an option, Settings',
   complete:typed=>prefixed(['scrollbind','noscrollbind','scrollbind!'],typed),
   run(text){
-    if(!text){openPreferences();return;}
+    if(!text){openSettings();return;}
     if(!(text in SCROLLBIND)){toast(`Unknown option: ${text}. Try :set scrollbind or :set noscrollbind.`);return;}
     const value=SCROLLBIND[text],key=value==='toggle'?'scrollbind!':value?'scrollbind':'noscrollbind';
     if(pane){pane.post({type:'window-key',key});return;}
@@ -1570,7 +1603,8 @@ keys.command({name:'next',help:'The next document in your queue',run:()=>queue.n
 keys.command({name:'home',help:'Your homepage',run:()=>navigate(null)});
 keys.command({name:'files',aliases:['ls'],help:'The stacks: every document, by folder',run:()=>openPicker('all')});
 keys.command({name:'search',args:'[words]',help:'Search every passage; with words, search for them',run(text){if(!text){openSearch();return;}location.hash='#search='+param(new URLSearchParams({q:text.slice(0,1000)}).toString());}});
-keys.command({name:'backstage',aliases:['settings'],help:'Behind the scenes: indexes, statistics and settings',run:()=>openPreferences()});
+keys.command({name:'backstage',aliases:['admin'],help:'Reader Admin: its Overview of running work, the inbox and index health',run:()=>openAdmin()});
+keys.command({name:'settings',help:'Settings, in Reader Admin',run:()=>openSettings()});
 keys.command({name:'zen',help:'Hide or reveal the reading chrome',run:()=>{closeContext();reading.toggleZen();}});
 keys.command({name:'colors',help:'Next prose color strength for this document',run:()=>prose.press()});
 keys.command({name:'find',args:'<words>',help:'Find inside the open document',run:async text=>{if(!state.doc){toast('Open a document to find in it.');return;}if(!text){openFind();return;}$('#find-query').value=text;await updateFind();if(state.find.length){jumps.record();showFind();}else toast(`“${text}” is not in this document.`);}});
@@ -1590,16 +1624,22 @@ function openHelp(topic=''){
   const row=topic&&$(`#help [data-command="${CSS.escape(topic.replace(/^:/,''))}"]`);
   if(row){row.scrollIntoView({block:'center'});row.classList.add('help-target');setTimeout(()=>row.classList.remove('help-target'),1800);}
 }
-window.addEventListener('popstate',()=>{
+window.addEventListener('popstate',followLocation);
+/** Show what the URL now names (Back, Forward, a typed URL, a #read= link, or Back to Library's new entry). */
+function followLocation(){
   // Back into a split layout restores it; Back out of one leaves the split for the earlier single view.
-  if(!EMBEDDED&&location.hash.startsWith('#split=')){if(!split.active()){suspendShell().then(()=>split.restore(location.hash));}return;}
-  if(split?.active())split.dismiss();
-  // Back, Forward, a typed URL or a #read= link: keep the h / l visit list in step with where the browser went.
+  if(!EMBEDDED&&location.hash.startsWith('#split=')){if(!split.active()){state.view='split';suspendShell().then(()=>split.restore(location.hash));}return;}
   const path=routeFromHash();
+  // Forward (or a typed URL) into Admin: remember the view being left (a split layout whole), as navigating there would.
+  if(isAdminPath(path)&&state.view!=='admin')rememberLibrary(split?.active()?split.hash():routeHash(state.visits[state.cursor]??null));
+  if(split?.active())split.dismiss();
+  // Legacy #backstage (and #admin/overview) is shown as the Overview it opens.
+  if(isAdminPath(path)&&!EMBEDDED&&location.hash!==adminHash(path))history.replaceState(history.state,'',location.pathname+location.search+adminHash(path));
+  // Back, Forward, a typed URL or a #read= link: keep the h / l visit list in step with where the browser went.
   if(state.visits[state.cursor-1]===path)state.cursor--;else if(state.visits[state.cursor+1]===path)state.cursor++;
   else if(state.visits[state.cursor]!==path){state.visits=state.visits.slice(0,state.cursor+1);state.visits.push(path);state.cursor++;}
   navigate(path,{record:false,at:passageFromHash(),fragment:routeHeading()});
-});
+}
 /** One window key (Ctrl-w v s w W h j k l x = o q f, and scrollbind from :set): a pane forwards it to the shell. */
 function windowCommand(key){
   if(key==='f'){linkInSplit().catch(report);return;}
@@ -1650,7 +1690,7 @@ function paneFocus(focused,move){
 }
 let lastPaneDoc='',lastPaneStatus='';
 function paneStatus(){
-  const status={type:'status',mode:$('#vim-mode').textContent,position:$('#status-position').textContent,path:state.doc?.path||(state.view==='backstage'?BACKSTAGE:state.view==='search'?SEARCH:null)};
+  const status={type:'status',mode:$('#vim-mode').textContent,position:$('#status-position').textContent,path:state.doc?.path||(state.view==='admin'?state.adminPath:state.view==='search'?SEARCH:null)};
   const now=JSON.stringify(status);if(now!==lastPaneStatus){lastPaneStatus=now;pane.post(status);}
   const doc=state.doc,ref=doc?(doc.historical?doc.path+'@'+doc.commit:doc.path):null;
   const message={type:'doc',hash:location.hash,ref,path:doc?.path||null,title:doc?String(doc.metadata?.title||doc.title||''):'',preview:!!doc?.preview,historical:!!doc?.historical};
@@ -1677,19 +1717,20 @@ function openSearch(){if(state.view==='search')search.focus();else navigate(SEAR
 window.addEventListener('resize',()=>{clearTimeout(positionPins.timer);positionPins.timer=setTimeout(()=>{refreshScroll();positionPins();},120);});
 document.fonts.ready.then(()=>{refreshScroll();positionPins();});
 reduced.addEventListener('change',resetScroll);
-search=installSearch({api,state,navigate,back:goBack,backstage:()=>navigate(BACKSTAGE),notify,queue:path=>queue.add(path)});
+search=installSearch({api,state,navigate,back:goBack,backstage:()=>openAdmin('indexes'),notify,queue:path=>queue.add(path)});
 installStatusPriority($('#statusline'));
 const breadcrumbs=installBreadcrumbs({container:$('#status-location'),home:()=>navigate(null),openFolder:folder=>openPicker('all',folder),onChange:()=>reading?.updateStatus()});
 controls=installControls({seek:fraction=>reading.seek(fraction),spread:index=>reading.seekSpread(index),thread:id=>{const hit=state.ranges.find(entry=>entry.thread.id===id);if(hit)moveToRange(hit.range);openThread(id);},theme:()=>{state.prefs.theme=oppositeTheme(state.prefs.theme);document.documentElement.dataset.theme=state.prefs.theme;savePrefs();reading.updateStatus();},save:applyPreferences,error:report,outlineToggle:()=>outline.toggle(),outlineOpen:open=>outline.setOpen(open),outlineGo:index=>outline.go(index),themeEditor:setThemeEditorOpen,api,themesChanged,useTheme,previewFont,chatMarkdown,openPath:path=>navigate(path),chatChanged:()=>reading?.updateStatus(),
-  open:path=>navigate(path),libraryChanged:async()=>{await loadLibrary();if(!state.doc&&state.view!=='backstage')renderHome();},
+  open:path=>navigate(path),libraryChanged:async()=>{await loadLibrary();if(!state.doc&&state.view!=='admin')renderHome();},
+  adminHref:(section,...params)=>adminHash(adminPath(section,...params)),adminGo:(section,...params)=>openAdmin(section,...params),backToLibrary,
   markdown:text=>{const template=document.createElement('template');template.innerHTML=DOMPurify.sanitize(window.markdownit({html:false,linkify:true}).render(text),{USE_PROFILES:{html:true}});decorateCodeBlocks(template.content,{wrap:true,lineNumbers:false});return template.innerHTML;}},state.prefs);
 speech=installSpeech({state,api,reading:{capture:()=>reading.capture(),hasBook:()=>reading.hasBook()},notify,track:trackSpeech,openDialog,closeDialog,companion:promptCompanion});
 prose=installProseColors({state,api,notify,companion:promptCompanion});
 queue=installQueue({state,api,navigate,notify,needsReader,renderPanel:renderQueuePanel,focusMain:()=>focusMain(),onChange:()=>reading?.updateStatus()});
 queue.setCloseOthers(()=>{$('#thread-panel').hidden=true;state.activeThread=null;});
-reading=installReading({statusOverride:()=>{const on=!!split?.active();if(!on)$('#split-indicator').hidden=true;return on&&paintSplitStatus();},onStatus:()=>pane&&paneStatus(),mayCurl:()=>!pane||pane.focused(),scratchStatus:()=>state.view==='scratch'?scratch?.status():null,controls,updateBreadcrumbs:path=>breadcrumbs.update(path),state,api,toast,openPreferences,openThread,revealRange:moveToRange,scrollToPosition,savePrefs,reloadDocument:()=>navigate(state.doc.path,{record:false}),positionPins,keyStatus:()=>keys.status()});
+reading=installReading({statusOverride:()=>{const on=!!split?.active();if(!on)$('#split-indicator').hidden=true;return on&&paintSplitStatus();},onStatus:()=>pane&&paneStatus(),mayCurl:()=>!pane||pane.focused(),scratchStatus:()=>state.view==='scratch'?scratch?.status():null,controls,updateBreadcrumbs:path=>breadcrumbs.update(path),state,api,toast,openAdmin:()=>openAdmin(),openThread,revealRange:moveToRange,scrollToPosition,savePrefs,reloadDocument:()=>navigate(state.doc.path,{record:false}),positionPins,keyStatus:()=>keys.status()});
 outline=installOutline({state,reading,$,controls,scrollToPosition,savePrefs,notify});
-links=installLinks({state,api,reading,navigate,openBackstage:()=>navigate(BACKSTAGE)});
+links=installLinks({state,api,reading,navigate,openBackstage:()=>openAdmin('indexes')});
 scratch=installScratch({state,api,notify,navigate,focusMain:()=>$('#main').focus({preventScroll:true}),updateStatus:()=>reading?.updateStatus(),openChat,registers:()=>registers,
   // A draft has no file yet: its links resolve from the notebook folder it saves into (the server accepts a folder source).
   renderMarkdown:(container,text)=>renderMarkdown(container,text,'library/notebook/',0)});
@@ -1698,7 +1739,7 @@ if(EMBEDDED)pane=installPane({open:openRoute,save:()=>reading.save(),onFocus:pan
   reveal:element=>{if(!reading.hasBook())return false;const range=document.createRange();range.selectNodeContents(element);return reading.reveal(range,false);},
   scrollBy:delta=>{if(Math.abs(delta)>=1)scrollToPosition(scrollY+delta,false);},seek:fraction=>reading.seek(fraction,false),docFraction:()=>reading.progress()});
 else{
-  split=installSplit({notify,api,param,paint:()=>reading?.updateStatus(),suspend:suspendShell,resume:resumeShell});
+  split=installSplit({notify,api,param,paint:()=>reading?.updateStatus(),suspend:suspendShell,resume:resumeShell,openAdmin:route=>{const path=adminPathFromHash(route);if(path)navigate(path);}});
   split.setShellCommands({'?':()=>openHelp(),m:toggleChat,r:()=>queue.toggle(),n:()=>queue.next()});
   document.querySelectorAll('dialog').forEach(dialog=>dialog.addEventListener('close',()=>{if(split.active()&&!document.querySelector('dialog[open]'))split.refocus();}));
 }
@@ -1720,6 +1761,9 @@ loadThemes();
 try{await loadLibrary();
   if(!EMBEDDED&&location.hash.startsWith('#split=')){state.view='split';reading.prepare();await suspendShell();if(split.restore(location.hash))throw SPLIT;history.replaceState(null,'',location.pathname+location.search);}
   if(EMBEDDED&&new URLSearchParams(location.search).has('picker')){const url=new URL(location.href);url.searchParams.delete('picker');history.replaceState(null,'',url);state.pickerAfterBoot=true;}
-  const path=routeFromHash();if(path){state.visits=[path];const heading=routeHeading();if(location.hash.startsWith('#read='))history.replaceState(history.state,'',location.pathname+location.search+routeHash(path,passageFromHash(),heading));await navigate(path,{record:false,at:passageFromHash(),fragment:heading});}else {state.view='issue';reading.prepare();await renderHome();}
+  let path=routeFromHash();
+  // A pane never shows Admin (an old layout may name #backstage); a direct Admin load shows its canonical address.
+  if(isAdminPath(path)){if(EMBEDDED){history.replaceState(null,'',location.pathname+location.search);path=null;}else history.replaceState(history.state,'',location.pathname+location.search+adminHash(path));}
+  if(path){state.visits=[path];const heading=routeHeading();if(location.hash.startsWith('#read='))history.replaceState(history.state,'',location.pathname+location.search+routeHash(path,passageFromHash(),heading));await navigate(path,{record:false,at:passageFromHash(),fragment:heading});}else {state.view='issue';reading.prepare();await renderHome();}
   if(state.pickerAfterBoot){state.pickerAfterBoot=false;openPicker();}}
 catch(error){if(error!==SPLIT){clearControlsWithin($('#main'));$('#main').innerHTML='<div class="loading-state"><span class="brand-mark">r.</span><h2>The stacks couldn’t open.</h2><p id="load-error"></p></div>';$('#load-error').textContent=error.message;}}

@@ -37,10 +37,10 @@ const shots=process.env.READER_SHOTS||'.reader/web-dev';
   assert.equal(await speakPrompt.locator('[data-prompt-action=install]').count(),0,'AI-TTS is guided, never auto-installed');
   assert.equal(await page.locator('[data-sonner-toast][data-type=error]').count(),0);
   await page.screenshot({path:shots+'/companions-prompt.png'});
-  // How to install opens Behind the scenes on its card with the commands, and Copy copies them.
+  // How to install opens Reader Admin's Service & tools on its card with the commands, and Copy copies them.
   await speakPrompt.locator('[data-prompt-action=setup]').click();
   const guide=page.locator('#companion-guide-ai-tts');await guide.waitFor();
-  assert.match(new URL(page.url()).hash,/^#backstage$/);
+  assert.match(new URL(page.url()).hash,/^#admin\/service$/);
   assert.match(await guide.locator('pre').textContent(),/make install/);
   await guide.getByRole('button',{name:'Copy the commands'}).click();await guide.getByText('Copied').waitFor();
   assert.match(await page.evaluate(()=>navigator.clipboard.readText()),/^git clone https:\/\/github\.com\/flyingrobots\/AI-TTS\.git\ncd AI-TTS\n/);
@@ -51,10 +51,13 @@ const shots=process.env.READER_SHOTS||'.reader/web-dev';
   assert.equal(await card('ai-tts').getAttribute('data-state'),'missing');
   assert.equal(await card('colorful').getAttribute('data-state'),'missing');
   assert.equal(await card('git-locks').getAttribute('data-state'),'missing');
+  // The agent command lines are Reader Admin's Voices page.
+  await page.locator('[data-admin-nav=voices]').click();await page.locator('#companion-cli').waitFor();
   assert.match(await page.locator('#companion-gpu').textContent(),/GPU coordination: This Reader only/);
   assert.equal(await page.locator('[data-cli]').count(),3,'claude, codex and agy are listed, status only');
   assert.equal(await page.locator('[data-cli][data-state=missing]').count(),3,'the fixture never sees this Mac\'s agent CLIs (#134)');
   assert.equal(await page.locator('#companion-cli button').count(),0,'no install buttons for account-bound CLIs');
+  await page.locator('[data-admin-nav=service]').click();await card('wide-md').waitFor();
   // wide-md: Install lists what will change before anything runs; Cancel runs nothing.
   await card('wide-md').locator('[data-action=install]').click();
   const confirm=card('wide-md').locator('.companion-confirm');await confirm.waitFor();
@@ -94,20 +97,21 @@ const shots=process.env.READER_SHOTS||'.reader/web-dev';
   await toast('Read aloud needs AI-TTS.').waitFor();
   assert.equal(await page.locator('[data-companion-prompt]').count(),0);
 
-  // Behind the scenes after the install: installed, built by Reader, with the install log.
-  await page.goto(url+'#backstage');await card('colorful').waitFor();
+  // Reader Admin after the install: installed, built by Reader, with the install log; the job is in Recent runs.
+  await page.goto(url+'#admin/service');await card('colorful').waitFor();
   await page.locator('[data-companion=colorful][data-state=installed]').waitFor();
   assert.match(await card('colorful').locator('[data-fact=version]').textContent(),/0\.4\.0/);
   assert.match(await card('colorful').locator('[data-fact=path]').textContent(),/\.reader\/tooling\/bin\/colorful$/);
   await card('colorful').locator('.companion-log summary').click();
   await card('colorful').locator('.companion-log pre').filter({hasText:'Compiling colorful-cli'}).waitFor();
-  assert.ok(await page.locator('.backstage-jobs li[data-job-state=succeeded]').filter({hasText:'Install Colorful Language'}).count()>=1,'the install is in Recent runs');
+  await page.locator('[data-admin-nav=indexes]').click();await page.locator('#recent-runs').waitFor();
+  await page.locator('.backstage-jobs li[data-job-state=succeeded]').filter({hasText:'Install Colorful Language'}).first().waitFor();
   const tools=readFileSync(root+'/.fake-tools/calls.jsonl','utf8').trim().split('\n').map(l=>JSON.parse(l));
   assert.ok(tools.some(t=>t.tool==='git'&&t.argv.includes('61d0aa8b20837decdb26c92f71b967c7b14578d7')),'the pinned commit is checked out');
   assert.ok(tools.filter(t=>t.tool==='cargo').every(t=>t.argv[0]==='build'&&t.argv.includes('--locked')));
 
   // git-locks absent: a local-model run takes Reader's own GPU lock.
-  await page.locator('#lm-gpu').filter({hasText:'This Reader only'}).waitFor();
+  await page.locator('[data-admin-nav=models]').click();await page.locator('#lm-gpu').filter({hasText:'This Reader only'}).waitFor();
   await page.locator('#lm-server-start').click();await page.locator('.lm-server[data-server-state=ready]').waitFor({timeout:15000});
   await page.locator('[data-enqueue=standfirst][data-scope=recent]').click();await toast('Queued').waitFor();
   await page.locator('[data-run=standfirst]').click();
@@ -132,7 +136,7 @@ const shots=process.env.READER_SHOTS||'.reader/web-dev';
   assert.equal(git('show','--name-only','--format=','HEAD').trim(),saved[1].path);
 
   // Phone width: the Companions section has no horizontal scroll.
-  await page.setViewportSize({width:390,height:844});await page.goto(url+'#backstage');await card('git-locks').waitFor();
+  await page.setViewportSize({width:390,height:844});await page.goto(url+'#admin/service');await card('git-locks').waitFor();
   await card('git-locks').locator('[data-action=guide]').click();await page.locator('#companion-guide-git-locks').waitFor();
   assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),'no horizontal page scroll at 390px');
   await page.locator('#companions').screenshot({path:shots+'/companions-phone.png'});
