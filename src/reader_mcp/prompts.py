@@ -93,7 +93,8 @@ class Prompts:
                     earlier=prompt['document_sha256'] != document['sha256'])
 
     def task_prompt(self, job, document):
-        rows = self.annotations.list(job['path'])['threads'][-20:]
+        markdown = Path(job['path']).suffix.lower() in ('.md', '.markdown')
+        rows = self.annotations.list(job['path'])['threads'][-20:] if markdown else []
         # Bound each excerpt and the whole context; do not send private Scratch drafts.
         context = [{'owner': row['owner'], 'quote': row['anchor']['quote'][:600],
                     'comments': [{'author': c['author'], 'body': c['body'][:1000]} for c in row['comments'][-3:]]} for row in rows]

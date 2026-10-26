@@ -18,6 +18,8 @@ Editing in Scratch creates the next `.vN.md`, links `previous_version` and prese
 
 Generation is a `prompt` job on the existing voice queue. Input includes the article and at most 20 threads as fenced data, each with its quote and at most three recent comments with bounded excerpts. Existing timeout, capacity, process supervision, recovery, raw logging and commit coordination apply. There is no new spending cap or filesystem sandbox.
 
+Plain-text articles omit discussion context because passage annotations currently support Markdown only.
+
 Questions contain at most 400 characters, with quotes at most 600. Reader recomputes Unicode offsets and rejects ambiguous locations. An invalid quote removes the passage link while preserving the question. Exact location does not establish semantic correctness.
 
 Immutable questions live at `prompts/<article SHA-256>/<voice-name SHA-256>-<prompt UUID>.json`. The latest matching edition and voice is the cache. **Ask something else** creates a new file and preserves earlier questions. Two tabs can share pending generation. A source change during generation refuses publication under the wrong digest. Raw logs use `logs/llm/prompt/`.

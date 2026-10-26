@@ -33,3 +33,7 @@ An earlier complete Python run at `0d3016b` reported 803 passed, two skipped and
 The complete rerun at `7d121b1` passed 805 tests with two optional skips in 249.59 seconds. Subsequent merge `cc2b8c4` brought in current main's scrolling changes and the quiz accepted-task fix without changing Python source. The writing-prompt browser flow passed again on that merged tree (`prompt-integrated-browser`). The earlier chat failure remains retained and unexplained. Current-head CI and independent PR review remain required before merge.
 
 A stronger keyboard handoff check reproduced the question dialog's closing focus return stealing focus from the response editor. The close-complete callback now focuses an active Scratch editor, otherwise the reading page. With a deliberately slow 700 ms close, the browser flow passed without clicking the editor before typing (`prompt-focus-check` RED / `prompt-focus-green` GREEN). TypeScript checks, both production builds, 24 plugin tests and nine inherited quiz-controller tests also passed; the generated controls were exported.
+
+## PR review corrections
+
+CodeRabbit found that plain-text generation entered Markdown-only annotation discovery before invoking the voice. The actual queued `.txt` task failed in the RED regression. Plain-text tasks now omit annotation context; all 15 prompt tests passed (`prompt-txt-red` / `prompt-txt-green`).

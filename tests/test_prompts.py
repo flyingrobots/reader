@@ -75,6 +75,15 @@ def test_cache_is_specific_to_voice_and_edition(app):
     assert generate(app)['id'] != first['id']
 
 
+def test_plain_text_article_generates_without_markdown_annotation_context(app):
+    path = 'library/thought.txt'
+    (app.root / path).write_text(TEXT)
+    task = app.prompts.dispatch(dict(action='generate', path=path, voice='Claude', request_id=str(uuid4())), 'You')['task']
+    job = settle(app, task)
+    assert job['state'] == 'done', job
+    assert app.prompts.get(path, 'Claude')['question'] == QUESTION['question']
+
+
 def test_prompt_inventory_ignores_preserved_hidden_metadata(app):
     prompt = generate(app)
     entries = [app.prompts.folder / '.DS_Store',
