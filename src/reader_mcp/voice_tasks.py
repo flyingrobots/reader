@@ -19,6 +19,7 @@ from uuid import UUID, uuid4
 from .annotations import Annotations, now
 from .chats import git_locks_tool
 from .companions import repo_env
+from .display import shown
 from .learning import source
 from . import voices
 
@@ -100,7 +101,7 @@ class VoiceTasks:
                   'state', 'created_at', 'finished_at', 'attempts', 'rejected', 'result', 'error', 'commit', 'runs', 'changed_paths', 'voice_commits')}
         if self.runner:
             result['pending'] = self.runner.pending(job['id'])
-        return result
+        return shown(result, self.root)
 
     def choose(self, path, requested):
         registry = self.runner.registry.load()

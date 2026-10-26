@@ -152,6 +152,22 @@ def test_task_request_is_idempotent_and_rejects_changed_input(library):
     assert len(calls(library.root)) == 1
 
 
+def test_public_task_errors_hide_host_paths_without_rewriting_job(library):
+    task = generate(library)
+    settle(library, task)
+    with library.voice_tasks.locked():
+        job = library.voice_tasks.read(task['id'])
+        job['error'] = 'Synthetic failure in ' + str(library.root / 'library/thought.md')
+        job['commit'] = {'status': 'failed', 'error': 'Synthetic git error at ' + str(library.root / '.git/index.lock')}
+        library.voice_tasks.write(job)
+    file = library.voice_tasks.file(task['id'])
+    before = file.read_bytes()
+    public = library.voice_tasks.public(job)
+    assert str(library.root) not in json.dumps(public)
+    assert '<vault>/.git/index.lock' in public['commit']['error']
+    assert file.read_bytes() == before and str(library.root).encode() in before
+
+
 def test_two_tabs_share_the_same_pending_generation(library):
     tasks = library.voice_tasks
     with tasks.runner.lock:

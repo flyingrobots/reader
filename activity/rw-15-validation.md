@@ -41,3 +41,5 @@ The plain-text transport regression reproduced a valid compact JSON reply being 
 The admission regression showed quiz GETs entering the ordinary read pool. They now use the existing expensive pool; saturation refuses the quiz request before inventory work while health and ordinary reads remain available. Both affected HTTP admission tests passed in Docker (`quiz-admission-red` / `quiz-admission-green`).
 
 A dotfile regression reproduced the whole quiz store refusing discovery because of operating-system/editor metadata. Discovery now skips hidden entries without deleting them and retains checks on visible records. All 17 quiz storage tests passed in Docker (`quiz-dotfiles-red` / `quiz-dotfiles-green`).
+
+Two public-metadata regressions reproduced host paths in runtime versions and nested task errors. Public responses now use the existing display redaction without rewriting canonical artifacts. A first verification command named a nonexistent test module and ran no tests; the corrected quiz-store/runner command passed all 40 tests in Docker (`quiz-public-red` / `quiz-public-green-r2`).

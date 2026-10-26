@@ -10,6 +10,7 @@ import tempfile
 from uuid import UUID, uuid4
 
 from .annotations import Annotations, now
+from .display import shown
 from .learning import evidence, source
 
 MAX_QUIZ = 64 * 1024
@@ -176,7 +177,8 @@ class Quizzes:
                 visible.append(dict(question, evidence=anchor))
             except ValueError as exc:
                 hidden.append(dict(id=question['id'], reason=str(exc)))
-        return dict(quiz, questions=visible, hidden=hidden, earlier=earlier, current_sha256=document['sha256'])
+        return dict(quiz, runtime=shown(quiz.get('runtime'), self.root), questions=visible,
+                    hidden=hidden, earlier=earlier, current_sha256=document['sha256'])
 
     def get(self, path):
         document = source(self.documents, path)

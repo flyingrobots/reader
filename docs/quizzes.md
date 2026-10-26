@@ -30,7 +30,7 @@ Cancelling a queued task with no artifacts finishes without waiting for a runnin
 
 The generator is asked for five to eight questions. Validation accepts four through twelve, with at most two optional short-answer questions. Invalid JSON, insufficient source-anchored questions and other validation failures are reported with rejection reasons. A generation gets at most one automatic retry. Every attempt’s raw output is retained, including rejected attempts.
 
-The server writes the quiz and review artifacts. The task prompt asks the configured CLI to return JSON without vault edits, commands from the article, upkeep, speech or delegation. These instructions do not replace that CLI’s configured filesystem permissions. Changed paths and commits observed during the voice run are exposed in task details.
+The server writes the quiz and review artifacts. The task prompt asks the configured CLI to return JSON without vault edits, commands from the article, upkeep, speech or delegation. These instructions do not replace that CLI’s configured filesystem permissions. Changed paths and commits observed during the voice run are exposed in task details. Public task metadata and quiz runtime details use the existing host-path redaction; canonical archives retain their original values.
 
 Run artifacts are permanently archived under `logs/llm/quiz/` or `logs/llm/quiz-review/`. Successful quiz artifacts and the run logs are committed together using `Reader-Quiz` and `Reader-Voice` trailers. Failed attempts’ logs are retained and committed too. A commit failure remains explicit in task details; saving a file does not prove it was committed.
 

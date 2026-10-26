@@ -54,6 +54,17 @@ def test_dotfiles_do_not_block_saved_quizzes_and_are_preserved(store):
     assert all(file.read_bytes() == b'Preserve these unrelated bytes.' for file in clutter)
 
 
+def test_public_runtime_hides_host_paths_without_changing_archive(store):
+    quiz = store.save(PATH, 'A test voice', proposed(), expected_sha256=hashlib.sha256(TEXT.encode()).hexdigest(),
+        runtime={'version': 'Version reported from ' + str(store.root / 'bin/voice')})
+    file = store.file(quiz['document_sha256'], quiz['id'])
+    before = file.read_bytes()
+    public = store.get(PATH)
+    assert str(store.root) not in public['runtime']['version']
+    assert '<vault>/bin/voice' in public['runtime']['version']
+    assert file.read_bytes() == before and str(store.root).encode() in before
+
+
 def test_untrusted_offsets_recomputed_as_unicode_code_points():
     anchor = evidence(TEXT, {'quote': QUOTES[0], 'start': 700, 'end': 800})
     assert anchor['start'] == 2
