@@ -289,6 +289,12 @@ executable can be set only from a browser on the Mac itself. Without git-locks, 
 and scratch pad commits, the local model's GPU lock, the inbox runner and the service
 script fall back to locks that coordinate only Reader's own processes.
 
+On wide windows (from 1100 px for the margins panel, 1210 px for What changed) the
+right-hand panels (margins, Versions, lists, the reading queue, Chat and What changed)
+dock as a column beside the page instead of covering it, and the page keeps its reading
+position; narrower windows keep the overlay.
+The Theme Editor stays a modal.
+
 The reading queue (Space r) is a per-participant play queue in the side panel.
 **Up next** shows Now reading, the documents you queued (in your order, reorderable)
 and about ten suggestions with reasons: related to your five latest opens, newest

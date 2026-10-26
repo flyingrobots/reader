@@ -4,6 +4,7 @@ const {spawn}=require('node:child_process');
 const {createInterface}=require('node:readline');
 const {mkdirSync}=require('node:fs');
 const {chromium}=require(process.env.READER_PLAYWRIGHT||'playwright-core');
+const {sanitizerReport}=require('./web_wait.cjs');  // #151
 (async()=>{
  const errors=[],external=[];
  const fixture=spawn(process.env.READER_PYTHON||'.venv/bin/python',['tests/web_fixture.py','--queue'],{stdio:['ignore','pipe','inherit']});let browser;
@@ -13,7 +14,7 @@ const {chromium}=require(process.env.READER_PLAYWRIGHT||'playwright-core');
   mkdirSync('.reader/web-dev',{recursive:true});
   const context=await browser.newContext({viewport:{width:1300,height:900},reducedMotion:'reduce'});
   await context.addInitScript(()=>{try{if(!localStorage.getItem('reader.preferences.v1'))localStorage.setItem('reader.preferences.v1',JSON.stringify({smooth:false,theme:'paper',layout:'scroll'}));}catch{}});
-  const page=await context.newPage();page.on('pageerror',e=>errors.push(e.message));page.on('console',m=>{if(m.type()==='error')errors.push(m.text());});page.on('request',r=>{if(!r.url().startsWith(url))external.push(r.url());});
+  const page=await context.newPage();page.on('pageerror',e=>errors.push(e.message));page.on('console',m=>{if(m.type()==='error'&&!sanitizerReport(m))errors.push(m.text());});page.on('request',r=>{if(!r.url().startsWith(url))external.push(r.url());});
   const toast=text=>page.locator('[data-sonner-toast]').filter({hasText:text});
   const leader=async key=>{await page.evaluate(()=>{if(!document.querySelector('#queue-panel').contains(document.activeElement))document.querySelector('#main').focus({preventScroll:true});});await page.keyboard.press('Space');await page.keyboard.press(key);};
   const panel=page.locator('#queue-panel');

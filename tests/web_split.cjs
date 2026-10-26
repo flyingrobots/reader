@@ -5,6 +5,7 @@ const {spawn}=require('node:child_process');
 const {createInterface}=require('node:readline');
 const {mkdirSync}=require('node:fs');
 const {chromium}=require(process.env.READER_PLAYWRIGHT||'playwright-core');
+const {waitFor,watch,sanitizerReport}=require('./web_wait.cjs');
 const shots=process.env.READER_SHOTS||'.reader/web-dev';
 (async()=>{
  const fixture=spawn(process.env.READER_PYTHON||'.venv/bin/python',['tests/web_fixture.py','--links','--editions','--versions'],{stdio:['ignore','pipe','inherit']});let browser;
@@ -17,13 +18,13 @@ const shots=process.env.READER_SHOTS||'.reader/web-dev';
     const context=await browser.newContext({viewport,reducedMotion:'reduce'});
     // Only the first document of the context seeds preferences, so panes and reloads keep what the test changes.
     await context.addInitScript(value=>{try{if(!localStorage.getItem('reader.preferences.v1'))localStorage.setItem('reader.preferences.v1',value);}catch{}},JSON.stringify({smooth:false,theme:'paper',nextReads:false,...prefs}));
-    const page=await context.newPage();
-    page.on('pageerror',e=>errors.push(e.message));page.on('console',m=>{if(m.type()==='error')errors.push(m.text()+' '+(m.location()?.url||''));});
+    const page=await context.newPage();watch(page);
+    page.on('pageerror',e=>errors.push(e.message));page.on('console',m=>{if(m.type()==='error'&&!sanitizerReport(m))errors.push(m.text()+' '+(m.location()?.url||''));});
     page.on('request',r=>{if(!r.url().startsWith(url))external.push(r.url());else if(r.method()==='POST')writes.push({path:new URL(r.url()).pathname,body:r.postData(),frame:r.frame()?.url()||''});});
     page.on('response',r=>{if(r.status()===429)busy.push(r.url());});
     return {page,context};
   };
-  const ready=frame=>frame.waitForFunction(()=>document.querySelector('#article')&&!document.querySelector('.resume-pending')&&document.querySelector('.document-title'));
+  const ready=frame=>waitFor(frame,'pane document rendered and resumed',()=>({article:!!document.querySelector('#article'),resumed:!document.querySelector('.resume-pending'),title:!!document.querySelector('.document-title')}));
   const pane=async(page,n)=>{const handle=await page.locator(`iframe[title^="Pane ${n} of"]`).elementHandle({timeout:5000});return handle.contentFrame();};
   const count=page=>page.locator('.split-pane').count();
   const indicator=page=>page.locator('#split-indicator').textContent();
@@ -178,9 +179,14 @@ const shots=process.env.READER_SHOTS||'.reader/web-dev';
    await page.keyboard.press('Control+w');await page.keyboard.press('v');
    assert.equal(await count(page),0,'Ctrl-w v while typing does not split');assert.notEqual(await page.locator('#vim-mode').textContent(),'WINDOW');
    await page.keyboard.press('Escape');await page.locator('#main').focus();
-   await page.keyboard.press('Space');await page.keyboard.press('Shift+W');
-   assert.equal(await page.locator('#vim-mode').textContent(),'WINDOW');assert.match(await page.locator('#status-keys').textContent(),/v side by side.*s stacked/);
-   await page.keyboard.press('v');await page.waitForFunction(()=>document.querySelectorAll('.split-pane iframe').length===2);
+   // #111: the WINDOW prefix waits 1.5 s for its next key, which a loaded machine can spend on the round trips that read
+   // the status bar. So the page records the status bar while the keys go in back to back, and the test checks it after.
+   await page.evaluate(()=>{const seen=window.__windowStatus=[],bar=document.querySelector('#statusline');
+     new MutationObserver(()=>seen.push([document.querySelector('#vim-mode').textContent,document.querySelector('#status-keys').textContent])).observe(bar,{subtree:true,childList:true,characterData:true});});
+   await page.keyboard.press('Space');await page.keyboard.press('Shift+W');await page.keyboard.press('v');
+   const shown=await page.evaluate(()=>window.__windowStatus.find(([mode])=>mode==='WINDOW'));
+   assert.ok(shown,'Space W shows WINDOW');assert.match(shown[1],/v side by side.*s stacked/);
+   await waitFor(page,'Space W v opens a second pane',()=>({panes:document.querySelectorAll('.split-pane iframe').length===2}));
    const two=await pane(page,2);await ready(two);await two.waitForFunction(()=>document.querySelector('#picker').open);await page.keyboard.press('Escape');
    await two.waitForFunction(()=>!document.querySelector('#picker').open);
    await page.keyboard.press('Control+w');await page.keyboard.press('Control+w');await page.waitForFunction(()=>document.querySelector('#split-indicator').textContent==='1/2');
@@ -194,8 +200,14 @@ const shots=process.env.READER_SHOTS||'.reader/web-dev';
    const three=await pane(page,3);await three.waitForFunction(()=>document.querySelector('.document-title')?.textContent==='Another thought');
    assert.equal(await three.evaluate(()=>document.querySelector('#picker').open),false,':split with a document skips the picker');
    assert.equal(await indicator(page),'3/3');
-   await page.keyboard.press(':');await three.locator('#command-input').waitFor({state:'visible'});await page.keyboard.type('vsplit');await page.keyboard.press('Enter');
-   await page.waitForFunction(()=>document.querySelectorAll('.split-pane iframe').length===4);
+   // #111: keys reach a pane only once it has the keyboard, and a document that is still rendering moves focus to its
+   // page when it finishes (closing a command line opened meanwhile), so wait for both before typing into the new pane.
+   await ready(three);
+   await waitFor(three,'pane 3 has the keyboard',()=>({focused:document.documentElement.classList.contains('pane-focused'),keyboard:document.hasFocus(),_active:document.activeElement?.id||document.activeElement?.tagName}),{timeout:10000});
+   await page.keyboard.press(':');await waitFor(three,'pane 3 command line open',()=>({open:!!document.querySelector('#command-input')?.offsetParent,_mode:document.querySelector('#vim-mode')?.textContent,_keyboard:document.hasFocus()}),{timeout:10000});await page.keyboard.type('vsplit');await page.keyboard.press('Enter');
+   // If :vsplit does not split, report each pane's command line and status (a baseline stress run saw this wait time out).
+   await waitFor(page,':vsplit from pane 3 opens a fourth pane',()=>({panes:document.querySelectorAll('.split-pane iframe').length===4,_indicator:document.querySelector('#split-indicator').textContent,
+     _lines:[...document.querySelectorAll('.split-pane iframe')].map(f=>{const d=f.contentDocument,i=d?.querySelector('#command-input');return {line:i?(i.offsetParent?'open:':'closed:')+i.value:null,mode:d?.querySelector('#vim-mode')?.textContent,focus:d?.hasFocus()};})}));
    assert.equal(await page.evaluate(()=>[...document.querySelectorAll('.split-pane')].filter(p=>p.style.top===document.querySelector('.split-pane.focused').style.top).length),2,':vsplit splits the focused pane side by side');
    await context.close();}
 

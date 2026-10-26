@@ -5,6 +5,7 @@ const assert=require('node:assert/strict');
 const {spawn}=require('node:child_process');
 const {createInterface}=require('node:readline');
 const {chromium}=require(process.env.READER_PLAYWRIGHT||'playwright-core');
+const {waitFor,watch,settled}=require('./web_wait.cjs');
 const press=async(page,...keys)=>{for(const key of keys)await page.keyboard.press(key);};
 const status=page=>page.evaluate(()=>({mode:document.querySelector('#vim-mode').textContent,keys:document.querySelector('#status-keys').textContent,qf:document.querySelector('#status-qf').hidden?'':document.querySelector('#status-qf').textContent}));
 const highlightText=(page,name)=>page.evaluate(name=>[...(CSS.highlights.get(name)||[])].map(range=>range.toString()).join('|'),name);
@@ -15,10 +16,10 @@ const highlightText=(page,name)=>page.evaluate(name=>[...(CSS.highlights.get(nam
   browser=await chromium.launch({headless:true,executablePath:process.env.READER_CHROME||'/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',args:['--disable-gpu','--disable-background-networking','--disable-breakpad','--disable-crash-reporter','--disk-cache-size=10485760','--media-cache-size=1048576']});
   const errors=[],external=[];
   const open=async(path,{viewport={width:1440,height:900},prefs=null}={})=>{
-   const context=await browser.newContext({reducedMotion:'reduce',viewport});const page=await context.newPage();
+   const context=await browser.newContext({reducedMotion:'reduce',viewport});const page=await context.newPage();watch(page);
    page.on('pageerror',error=>errors.push(error.message));page.on('console',m=>{if(m.type()==='error')errors.push(m.text());});page.on('request',r=>{if(!r.url().startsWith(url)&&!r.url().startsWith('data:'))external.push(r.url());});
    if(prefs)await context.addInitScript(prefs=>localStorage.setItem('reader.preferences.v1',JSON.stringify(prefs)),prefs);
-   await page.goto(url+'/#read='+encodeURIComponent(path));await page.waitForFunction(()=>!document.querySelector('.resume-pending')&&document.querySelector('#article p')&&getComputedStyle(document.querySelector('#article p')).visibility==='visible');
+   await page.goto(url+'/#read='+encodeURIComponent(path));await waitFor(page,'document '+path+' shown and resumed',()=>({resumed:!document.querySelector('.resume-pending'),visible:!!document.querySelector('#article p')&&getComputedStyle(document.querySelector('#article p')).visibility==='visible'}));
    await page.locator('#main').focus();return page;};
   const source=page=>page.evaluate(()=>fetch('/api/file?path='+encodeURIComponent('library/thought.md')).then(r=>r.text()));
   let page=await open('library/thought.md');const before=await source(page);
@@ -126,9 +127,11 @@ const highlightText=(page,name)=>page.evaluate(name=>[...(CSS.highlights.get(nam
   // Links and figures.
   await press(page,'g','g');await press(page,']','l');await page.waitForFunction(()=>document.activeElement?.matches('#article a[href]'));
   assert.equal(await page.evaluate(()=>document.activeElement.textContent),'a quiet thought');
-  // ]l scrolls; its scroll event arrives on the next frame and closes any preview, so let it land first.
-  await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
-  await press(page,'K');await page.locator('#link-preview').waitFor();
+  // ]l scrolls the link to the reading line; that scroll's event arrives a frame or more later and closes any preview, and a
+  // block laid out late can re-seek it. Let the page hold still (height and scroll unchanged for two frames) before K.
+  await settled(page,']l scroll finished');
+  // #118: if the preview never shows, say why (its request refused, a selection, focus moved) instead of waiting blind.
+  await press(page,'K');await waitFor(page,'K shows the link preview',()=>({shown:document.querySelector('#link-preview')?.hidden===false,_onLink:!!document.activeElement?.matches('#article a[href]'),_collapsed:getSelection()?.isCollapsed!==false,_text:document.querySelector('#link-preview')?.textContent.slice(0,80)||'',_described:document.querySelector('[aria-describedby=link-preview]')?.textContent||null,_turning:document.body.classList.contains('page-turning')}));
   await press(page,']','f');await page.waitForFunction(()=>document.querySelector('#article .change-target')?.matches('table'));
   // gd: the first use of a term found with /.
   await press(page,':');await page.keyboard.type('find stacks');await press(page,'Enter');await press(page,'n');await press(page,'g','d');

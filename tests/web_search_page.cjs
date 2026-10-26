@@ -4,6 +4,7 @@ const {spawn}=require('node:child_process');
 const {createInterface}=require('node:readline');
 const {mkdirSync}=require('node:fs');
 const {chromium}=require(process.env.READER_PLAYWRIGHT||'playwright-core');
+const {waitFor,watch:watchResponses}=require('./web_wait.cjs');
 (async()=>{
  const fixture=spawn(process.env.READER_PYTHON||'.venv/bin/python',['tests/web_fixture.py','--search-page'],{stdio:['ignore','pipe','inherit']});let browser;
  try{
@@ -11,7 +12,7 @@ const {chromium}=require(process.env.READER_PLAYWRIGHT||'playwright-core');
   browser=await chromium.launch({headless:true,executablePath:process.env.READER_CHROME||'/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',args:['--disable-gpu','--disable-background-networking','--disable-breakpad','--disable-crash-reporter','--disk-cache-size=10485760']});
   mkdirSync('.reader/web-dev',{recursive:true});
   const errors=[],external=[];
-  const watch=page=>{page.on('pageerror',e=>errors.push(e.message));page.on('console',m=>{if(m.type()==='error')errors.push(m.text());});page.on('request',r=>{if(!r.url().startsWith(url))external.push(r.url());});};
+  const watch=page=>{watchResponses(page);page.on('pageerror',e=>errors.push(e.message));page.on('console',m=>{if(m.type()==='error')errors.push(m.text());});page.on('request',r=>{if(!r.url().startsWith(url))external.push(r.url());});};
   const start=async(prefs,viewport={width:1300,height:900})=>{const context=await browser.newContext({viewport,reducedMotion:'reduce'});await context.addInitScript(p=>{try{if(!sessionStorage.getItem('seeded')){localStorage.setItem('reader.preferences.v1',JSON.stringify(p));sessionStorage.setItem('seeded','1');}}catch{}},{smooth:false,theme:'paper',...prefs});const page=await context.newPage();watch(page);return {context,page};};
   const highlighted=(page,name)=>page.evaluate(n=>[...(CSS.highlights.get(n)||[])].map(r=>r.toString()),name);
   const currentMatch=page=>page.evaluate(()=>{const r=[...(CSS.highlights.get('reader-current')||[])][0];if(!r)return null;const b=r.getBoundingClientRect();return {text:r.toString(),top:b.top,left:b.left,right:b.right,bottom:b.bottom,width:innerWidth,height:innerHeight};});
@@ -94,8 +95,12 @@ const {chromium}=require(process.env.READER_PLAYWRIGHT||'playwright-core');
   await page.locator('#main').focus();await page.keyboard.press('h');
   await page.locator('.search-work').first().waitFor();
   assert.equal(await page.locator('#search-query').inputValue(),'distinct observation chapter 37');
-  await page.locator('[data-passage="0"]').focus();await page.keyboard.press('Escape');
-  await page.waitForFunction(()=>!document.querySelector('.search-page'));
+  // #46: let Search finish its own focus (the field, one frame after it renders) and its query before moving focus.
+  await waitFor(page,'Search is back with its results and field focus',()=>({ready:document.querySelector('.search-page')?.dataset.status==='ready',field:document.activeElement?.id==='search-query'}),{timeout:10000});
+  await page.locator('[data-passage="0"]').focus();
+  await waitFor(page,'focus on the first passage',()=>({passage:document.activeElement?.dataset.passage==='0'}),{timeout:5000});
+  await page.keyboard.press('Escape');
+  await waitFor(page,'Esc from a passage leaves Search',()=>({left:!document.querySelector('.search-page')}));
   assert.ok(!(await page.evaluate(()=>location.hash)).startsWith('#search'));
 
   // Meaning: related passages without literal matches are labelled.
@@ -120,7 +125,7 @@ const {chromium}=require(process.env.READER_PLAYWRIGHT||'playwright-core');
   await page.keyboard.press('Escape');await page.waitForFunction(()=>document.activeElement?.dataset.passage==='0');
   await page.keyboard.press('Enter');
   await page.locator('body.two-page .book-viewport').waitFor();await page.waitForFunction(()=>!document.getElementById('search-chip').hidden);
-  await page.waitForTimeout(150);
+  await waitFor(page,'the match is on the visible spread',()=>{const r=[...(CSS.highlights.get('reader-current')||[])][0],b=r?.getBoundingClientRect();return {match:!!r,visible:!!b&&b.left>=0&&b.right<=innerWidth};},{timeout:5000});
   match=await currentMatch(page);
   assert.ok(match&&match.left>=0&&match.right<=match.width,'the match is on the visible spread: '+JSON.stringify(match));
   assert.ok(await page.evaluate(()=>document.querySelector('.book-viewport').scrollLeft>0),'turned to a later spread');

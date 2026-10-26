@@ -10,6 +10,8 @@ import posixpath
 import re
 import numpy as np
 import secrets
+import select
+import socket
 import sqlite3
 import threading
 import time
@@ -17,6 +19,7 @@ from urllib.parse import parse_qs, quote, urlsplit
 
 from rapidfuzz import fuzz, process
 
+from . import clock
 from .annotations import Annotations
 from .art import ArtMissing, ArtOwned, Studio
 from .browse import Browse
@@ -305,7 +308,7 @@ class WebLibrary:
         else:
             browse = Browse(self.root)
             works = browse.inventory(browse.settings())
-            as_of = datetime.now(timezone.utc).date().isoformat()
+            as_of = clock.now().date().isoformat()
         if not isinstance(works, list) or len(works) > 10000:
             raise ValueError('Work inventory exceeds 10,000 works')
         return works, as_of
@@ -350,7 +353,7 @@ class WebLibrary:
                                 'at': thread['comments'][-1]['created_at'] if thread['comments'] else thread['created_at']})
         for row in rows:
             row['threads'] = open_threads[row['primary']]
-        today = datetime.now(timezone.utc).date()
+        today = clock.now().date()
         read = sum(w['read'] for w in rows)
         return {'participant': participant, 'participants': [r['participant'] for r in receipts], 'works': rows,
                 'as_of': as_of, 'today': today.isoformat(),
@@ -975,7 +978,7 @@ class WebLibrary:
             days[-1]['items'].append(row)
         return {'participant': participant, 'days': days, 'total': len(items), 'filter': 'finished' if finished else 'all',
                 'next_cursor': cursor + HISTORY_PAGE if cursor + HISTORY_PAGE < len(items) else None,
-                'today': (datetime.now(timezone.utc) + offset).date().isoformat()}
+                'today': (clock.now() + offset).date().isoformat()}
 
     def queue_view(self, participant, current=None):
         participant = self.engagement.participant(participant)
@@ -1161,6 +1164,7 @@ class WebServer(ThreadingHTTPServer):
         self.reads = threading.BoundedSemaphore(READ_LIMIT)
         self.streams = threading.BoundedSemaphore(4)  # SSE streams: outside both pools
         self.chat_heartbeat = 15  # Seconds between `ping` events on an idle chat stream.
+        self.chat_hangup_check = 0.25  # Seconds between checks for a chat stream's client hanging up (#152).
         super().__init__(address, WebHandler)
 
 
@@ -1255,12 +1259,19 @@ class WebHandler(BaseHTTPRequestHandler):
             snapshot()
             self.wfile.flush()
             deadline = datetime.now(timezone.utc) + timedelta(hours=1)
+            quiet_since = time.monotonic()
             while not runner.closed and datetime.now(timezone.utc) < deadline:
-                rows, latest, gap = runner.wait(chat['id'], after, interval)
+                # Wait in short slices so a closed EventSource frees its slot at once, not at the next ping (#152).
+                rows, latest, gap = runner.wait(chat['id'], after, min(interval, self.server.chat_hangup_check))
+                if self.hung_up():
+                    break
                 if gap:
                     snapshot()
                 if not rows:
+                    if time.monotonic() - quiet_since < interval:
+                        continue
                     send('ping', ping())
+                quiet_since = time.monotonic()
                 for seq, kind, data in rows:
                     send(kind, data, seq)
                 after = max([after, *[seq for seq, _, _ in rows]]) if rows else latest
@@ -1269,6 +1280,20 @@ class WebHandler(BaseHTTPRequestHandler):
             pass
         finally:
             self.server.streams.release()
+
+    def hung_up(self):
+        """True once a stream's client has closed its connection.
+
+        A stream request sends nothing after its headers, so a readable socket means EOF (or a reset);
+        any unexpected bytes are left unread and the stream continues."""
+        try:
+            if not select.select([self.connection], [], [], 0)[0]:
+                return False
+            return self.connection.recv(1, socket.MSG_PEEK) == b''
+        except (BlockingIOError, InterruptedError):
+            return False
+        except OSError:
+            return True
 
     def do_POST(self):
         self.handle_request(True)

@@ -5,6 +5,8 @@ const {createInterface}=require('node:readline');
 const {mkdirSync}=require('node:fs');
 const {chromium}=require(process.env.READER_PLAYWRIGHT||'playwright-core');
 (async()=>{
+ // The test opens more than four chat streams in quick succession (Esc and reopen, reload, the margins' Chat button, phone
+ // width) with the default 15 s heartbeat: the server frees a closed stream's slot when the client hangs up (#152).
  const fixture=spawn(process.env.READER_PYTHON||'.venv/bin/python',['tests/web_fixture.py','--chat'],{stdio:['ignore','pipe','inherit']});let browser;
  try{
   const {url}=await new Promise((resolve,reject)=>{createInterface({input:fixture.stdout}).once('line',line=>resolve(JSON.parse(line)));fixture.once('exit',code=>reject(new Error('Fixture exited '+code)));});
