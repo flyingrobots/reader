@@ -405,11 +405,36 @@ path on hover. The trail follows the composition in the
 [shadcn breadcrumb reference](https://ui.shadcn.com/docs/components/base/breadcrumb),
 adapted to Reader's existing plain-JavaScript interface.
 
-On narrow windows the status line gives way in a fixed order so the mode, the
-breadcrumb and the right-hand controls stay on screen: below 520 px the outline's
-section label is hidden (the outline button lists the sections), the version chip
-drops its icon and speech drops its label; below 400 px the position percentage is
-hidden (the progress rail shows it); below 340 px the prose-color chip is hidden.
+When the status line is too narrow for everything, items give way by declared
+priority (`status-priority.mjs`). Every `#statusline` child carries
+`data-status-priority`: `1` never gives way, and larger numbers give way first,
+rightmost first within a number. After each resize, layout change or change to the
+line's items, one pass brings back what gave way and hides items until nothing
+reaches past the line's right edge and the current breadcrumb shows at least 64 px
+(or all of its name). Items keep their content width (only the breadcrumb shrinks),
+so a crowded line overflows, which the pass sees, instead of crushing the mode
+label. Text-only changes, such as the position while scrolling, only hide more,
+never bring items back. The current ranks:
+
+| Priority | Items |
+|---|---|
+| 1 (always shown) | mode, split indicator, pending keys, command line, breadcrumb, Backstage |
+| 2 | search chip, location list, pagination, speech, layout switch |
+| 3 | outline button, version chip |
+| 4 | prose-color chip, dark-mode switch |
+| 5 | position percentage (the progress rail shows it) |
+| 6 | section label (the outline button lists the sections) |
+| 7 | keys hint |
+| none declared | gives way before every declared item |
+
+A new status item declares its own priority; one without a declaration gives way
+first, so it can never push the mode or Backstage off screen. Media queries only
+compact labels: below 700 px Backstage and the dark-mode switch drop their text, and
+below 520 px the version chip drops its icon and speech drops its label. CSS
+breakpoints alone cannot choose what stays, because they see the viewport, not how
+wide the breadcrumb, speech label or version chip is; the line also cannot clip or
+scroll, because the breadcrumb's folder menu opens above it. `tests/web_status_priority.cjs`
+injects an extra item and checks 700, 390 and 320 px in both layouts.
 
 The rail directly above the sticky footer uses shadcn Base UI **Progress**. Its separate seek target supports
 click, Left/Right, Home and End. A shadcn **Popover** on hover or keyboard focus shows position

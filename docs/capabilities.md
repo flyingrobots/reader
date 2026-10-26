@@ -54,7 +54,7 @@ implemented. The older passage-projection figure remains as a data view (`:shape
 no longer as cover art.
 It needs search-index embeddings for the full form and falls back to a term-only form. It also provides an interactive D3 dashboard, local GSAP
 scrolling, Vim keys, fuzzy/content/semantic search, shared Markdown passage
-discussion (selectable by mouse, touch or keyboard), a progress rail and a modal statusline. One keymap table drives
+discussion (selectable by mouse, touch or keyboard), a progress rail and a modal statusline whose items give way by declared priority on narrow screens. One keymap table drives
 every page key and generates the help: VISUAL and VISUAL LINE select passages from the keyboard (word, sentence,
 block and line motions, text objects, counts) to highlight, comment, warn, speak, yank with a citation or search for
 more like them; a `:` command line with completion and per-device history runs 30 commands; registers, a

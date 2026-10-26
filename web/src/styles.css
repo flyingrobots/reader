@@ -78,7 +78,6 @@
 .reader-file-tree .file-folder[aria-expanded=true] .file-chevron { transform: rotate(90deg); }
 .reader-file-tree [data-doc-node][data-active] { background: var(--raised); }
 .file-results:focus-visible [data-doc-node][data-active] { outline: 1px solid var(--accent); outline-offset: -1px; }
-@media(max-width: 1100px) { body.two-page .status-keys { display: none; } }
 @media(max-width: 700px) {
   #pagination-slot .page-neighbor { display: none; }
   .theme-toggle { padding: 0 3px; }
@@ -86,7 +85,6 @@
   /* The breadcrumb never shrinks below Library › … ›, so pagination cannot draw over it; only the current crumb ellipsizes. */
   body.two-page .status-location { min-width: min-content; }
   body.two-page .status-location .breadcrumb-current { contain: inline-size; flex: 1 1 0; }
-  body.two-page .status-position { display: none; }
 }
 @media(max-width: 380px) { body.two-page .vim-mode { min-width: 0; padding-inline: 7px; } }
 

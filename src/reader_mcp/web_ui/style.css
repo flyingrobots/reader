@@ -52,7 +52,7 @@ body.two-page .article{--book-gap:76px;width:100%;max-width:none;height:100%;mar
 body.two-page .article>*{max-width:100%;overflow-wrap:anywhere}body.two-page .article h2,body.two-page .article h3{break-after:avoid}body.two-page .article pre,body.two-page .article table{break-inside:avoid;max-height:100%;overflow:auto}
 body.two-page .article img{max-height:65vh;object-fit:contain;break-inside:avoid}body.two-page .annotation-pin{position:fixed;right:auto;z-index:5}body.two-page .article .document-embed{padding-left:18px}
 @media(max-width:900px){body.two-page .article{columns:1;--book-gap:40px}body.two-page .document-shell{padding:24px 30px}}
-@media(max-width:700px){.statusline{gap:8px;padding-right:4px;min-height:38px}.vim-mode{padding:12px 10px;min-width:75px;font-size:9px}.status-keys{display:none}.status-location{max-width:28vw;font-size:9px}.status-position{margin-left:auto;font-size:9px}#settings-open span{display:none}.thread-panel{bottom:38px}.reading-progress{height:25px}.progress-pip{width:28px;height:25px}.progress-slider{height:25px}.progress-popover{top:29px}body.two-page #smooth-wrapper{bottom:41px!important}}
+@media(max-width:700px){.statusline{gap:8px;padding-right:4px;min-height:38px}.vim-mode{padding:12px 10px;min-width:75px;font-size:9px}.status-location{max-width:28vw;font-size:9px}.status-position{margin-left:auto;font-size:9px}#settings-open span{display:none}.thread-panel{bottom:38px}.reading-progress{height:25px}.progress-pip{width:28px;height:25px}.progress-slider{height:25px}.progress-popover{top:29px}body.two-page #smooth-wrapper{bottom:41px!important}}
 @media(prefers-reduced-motion:reduce){*,*:before,*:after{animation-duration:.01ms!important;transition-duration:.01ms!important;scroll-behavior:auto!important}}
 .pdf-page{position:relative;display:flex;align-items:center;justify-content:center;width:100%;margin:0 0 24px;background:#fff;break-inside:avoid;isolation:isolate;overflow:hidden;color:#161916}
 .pdf-page-label{position:absolute;bottom:4px;right:8px;font:10px var(--sans);color:#737a70;z-index:0}.pdf-page[data-error]:after{content:attr(data-error);position:absolute;padding:20px;font:14px var(--sans)}
@@ -67,7 +67,7 @@ body.two-page .article.pdf-document{column-gap:var(--book-gap)}body.two-page .pd
 .breadcrumb-menu{position:absolute;bottom:calc(100% + 10px);left:0;min-width:180px;max-width:min(360px,calc(100vw - 16px));max-height:min(320px,50dvh);overflow:auto;padding:5px;border:1px solid var(--line);border-radius:6px;background:var(--raised);box-shadow:var(--shadow);color:var(--ink);font:12px/1.4 var(--sans)}
 .breadcrumb-menu button{display:block;width:100%;padding:9px 11px;border-radius:3px;text-align:left;white-space:normal;overflow-wrap:anywhere}.breadcrumb-menu button:hover,.breadcrumb-menu button:focus-visible{background:var(--surface)}
 .folder-scope{display:flex;align-items:center;gap:14px;padding:9px 20px;border-top:1px solid var(--line);color:var(--muted);font-size:11px}.folder-scope span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.folder-scope button{flex:none;margin-left:auto;color:var(--ink)}
-@media(max-width:1100px){.status-keys{display:none}.status-location{max-width:none;flex:1 1 auto}.status-position{margin-left:auto}}
+@media(max-width:1100px){.status-location{max-width:none;flex:1 1 auto}.status-position{margin-left:auto}}
 @media(max-width:700px){.statusline{gap:5px}.status-location{min-width:0;max-width:none;font-size:9px;flex:1 1 auto}.breadcrumb-list{gap:2px}.breadcrumb-link{padding-inline:0}.breadcrumb-overflow summary{padding-inline:2px}.breadcrumb-separator svg{width:8px}.breadcrumb-current [aria-current]{max-width:none}.breadcrumb-menu{font-size:12px}.status-position{min-width:0}.status-position:empty{display:none}}
 
 :root{--chart-1:#9fc08b;--chart-2:#86b2cb;--chart-3:#d8ac72;--chart-4:#c78e88;--chart-5:#b2a0ca;--chart-6:#8abeb0;--chart-7:#b9b88d;--chart-8:#c98aa8}
@@ -437,12 +437,13 @@ body:is(.prose-subtle,.prose-clear,.prose-vivid) .textLayer ::highlight(reader-p
 .article .callout{--callout:var(--accent);margin:1.5em 0;padding:12px 20px;border-left:2px solid var(--callout);border-radius:0 6px 6px 0;background:color-mix(in oklab,var(--callout) 7%,var(--bg));color:var(--ink);font-size:.94em}.article .callout:is([data-callout=question]){--callout:var(--rust)}.article .callout:is([data-callout=warning],[data-callout=failure],[data-callout=danger],[data-callout=bug]){--callout:var(--warning)}.article .callout[data-callout=quote]{--callout:var(--muted)}.article .callout .callout{margin:.9em 0;font-size:1em}.callout-title{display:flex;align-items:center;gap:9px;font:650 13px/1.4 var(--sans);letter-spacing:.02em;color:var(--callout);margin:2px 0 .55em}.callout-title-text{min-width:0;overflow-wrap:anywhere}.callout-title-text a{color:inherit}.callout-icon{display:inline-flex;flex:none;width:16px;height:16px}.callout-icon svg{width:16px;height:16px;stroke-width:2}summary.callout-title{cursor:pointer;list-style:none;border-radius:3px}summary.callout-title::-webkit-details-marker{display:none}summary.callout-title:after{content:'›';margin-left:auto;font-size:18px;line-height:1;transition:transform .18s}.callout-fold[open]>summary.callout-title:after{transform:rotate(90deg)}.callout-fold:not([open])>summary.callout-title{margin-bottom:2px}summary.callout-title:focus-visible{outline:2px solid var(--accent);outline-offset:3px}.callout-content>:last-child{margin-bottom:0}.callout-content>:first-child{margin-top:0}
 @media(max-width:700px){.article .callout{padding:10px 14px}}
 @media(prefers-reduced-motion:reduce){summary.callout-title:after{transition:none}}
-/* Status line priority on phones (#74): the mode, the breadcrumb and the right-hand controls keep their place;
-   the section label goes first (the outline button lists sections), then the position (the progress rail shows it),
-   then the prose chip at the smallest widths. */
-@media(max-width:520px){.status-section{display:none}.vim-mode{min-width:0;padding-inline:9px}.status-version svg{display:none}.speech-label{display:none}}
-@media(max-width:400px){.status-position{display:none}}
-@media(max-width:340px){.prose-chip{display:none}.statusline{gap:4px}}
+/* Status line priority (#74): each #statusline child declares data-status-priority, and status-priority.mjs hides
+   the largest numbers first until the line fits. Items keep their content width, so a crowded line overflows (which
+   the pass sees) instead of crushing the mode label; only the breadcrumb shrinks, down to a readable current crumb.
+   The breakpoints below only compact labels to icons; they never decide which items stay. */
+.statusline>:not(.status-location){flex-shrink:0}.statusline>[data-status-hidden]{display:none!important}
+@media(max-width:520px){.vim-mode{min-width:0;padding-inline:9px}.status-version svg{display:none}.speech-label{display:none}}
+@media(max-width:340px){.statusline{gap:4px}}
 /* A ghost "+ Queue" keeps its text on the column's left edge (#58). */
 .issue-queue{margin-left:-.5rem}
 /* Split view (RW-32): the shell lays out same-origin pane iframes; each pane hides its own chrome. */
