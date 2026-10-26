@@ -10,7 +10,7 @@ import {Button} from './components/ui/button';
 export type ArtProducer={id:string;kind:'voice'|'local';label:string;available:boolean;cli:string|null;model:string|null;provider?:string|null;estimate_seconds:number|null};
 export type ArtJob={id:string;path:string;title:string|null;producer:string;producer_label:string;model:string|null;state:string;stage:string|null;message:string|null;queued_at:string;started_at:string|null;finished_at:string|null;
   seconds:number|null;elapsed?:number;ahead?:number;usage:{input_tokens:number;output_tokens:number;usd:number|null}|null;log:string|null;error:string|null;auto:boolean;warning:string|null;foreign:boolean};
-export type ArtStatus={jobs:ArtJob[];active:number;producers:ArtProducer[];default:string|null;error:string|null};
+export type ArtStatus={jobs:ArtJob[];active:number;producers:ArtProducer[];default:string|null;error:string|null;ownership?:{owner:boolean;writable:boolean;message:string|null}};
 type Api=(path:string,payload?:unknown)=>Promise<any>;
 const ACTIVE=['queued','waiting','running'];
 const STATES:Record<string,{label:string;variant:'default'|'secondary'|'outline'|'destructive'}>={queued:{label:'Queued',variant:'outline'},waiting:{label:'Waiting',variant:'outline'},running:{label:'Making',variant:'default'},
@@ -49,6 +49,7 @@ export function ArtStudio({api,open}:{api:Api;open:(path:string)=>void}){
         <CardAction><Badge variant={active.length?'default':'outline'} className="backstage-badge">{active.length?<><Loader2Icon data-icon="inline-start" className="animate-spin" aria-hidden/>{active.length} running or waiting</>:status?'Idle':'Loading…'}</Badge></CardAction></CardHeader>
       <CardContent>
         {error?<p className="backstage-message backstage-error">{error}</p>:null}
+        {status?.ownership&&!status.ownership.writable?<p className="backstage-message" data-art-read-only>{status.ownership.message} Its commissions show here as they run there.</p>:null}
         {status?<p className="backstage-message">{available.length?<>Art can be made by {available.map(p=>p.label+(p.model?` (${p.model})`:'')).join(', ')}. Choose one in Settings (Art made by); the default is {status.producers.find(p=>p.id===status.default)?.label||'none'}.</>:'No voice with an installed CLI and no local model: add a voice to voices.json or set up a local model to make art.'}</p>:null}
         {status?.jobs.length?<ol className="backstage-jobs art-jobs">{status.jobs.slice(0,12).map(job=><li key={job.id} data-art-job={job.id} data-job-state={job.state}>
           <span className="backstage-job-state">{ACTIVE.includes(job.state)?<Loader2Icon className="size-3 animate-spin" aria-label={STATES[job.state]?.label}/>:job.state==='done'?'✓':'✕'}</span>

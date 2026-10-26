@@ -143,18 +143,15 @@ def add_usage(total, part):
     return total
 
 
-def alive(pid):
-    try:
-        os.kill(pid, 0)
-        return True
-    except (ProcessLookupError, TypeError, ValueError):
-        return False
-    except PermissionError:
-        return True
-
-
 class Cancelled(Exception):
     pass
+
+
+OWNED = 'Another Reader server owns art for this vault'
+
+
+class ArtOwned(Exception):
+    """Another Reader server owns art commissions for this vault; the API answers 409."""
 
 
 class ArtMissing(FileNotFoundError):
@@ -181,7 +178,15 @@ class Studio:
         self.worker = None
         self.closed = False
         self.versions_cache = {}
-        self.recover()
+        # Only the server that holds `.reader/art/supervisor.lock` adopts, runs or records art jobs (#138), as for chat
+        # (#20, #72); job pids are for display. Another server on the vault shows the jobs read-only and refuses art
+        # actions until the owner stops. The lock is taken at start only when there are jobs to recover, and otherwise
+        # on the first art action, so a server that only reads writes nothing to the vault.
+        from .voice_runner import Supervisor  # voice_runner imports this module
+        self.supervisor = Supervisor(self.runtime, name='reader-art-supervisor')
+        self.owner = self.jobs_file.is_file() and self.supervisor.acquire()
+        if self.owner:
+            self.recover()
 
     # Producers ----------------------------------------------------------------
 
@@ -386,10 +391,15 @@ class Studio:
 
     def status(self):
         with self.lock:
+            if not self.owner:  # The owner's jobs, read-only and fresh from jobs.json on every look.
+                self.foreign = {j['id']: j for j in self.stored()}
             rows = sorted([*self.jobs.values(), *self.foreign.values()], key=lambda j: j.get('queued_at') or '', reverse=True)
-            return {'jobs': [self.view(j) for j in rows[:KEEP_JOBS]], 'active': sum(1 for j in rows if j['state'] in ACTIVE)} | self.producers()
+            return ({'jobs': [self.view(j) for j in rows[:KEEP_JOBS]], 'active': sum(1 for j in rows if j.get('state') in ACTIVE),
+                     'ownership': self.ownership()} | self.producers())
 
     def persist(self):
+        if not self.owner:
+            return  # Only the owner writes jobs.json.
         self.runtime.mkdir(parents=True, exist_ok=True)
         keep = sorted([*self.jobs.values()], key=lambda j: j.get('queued_at') or '', reverse=True)[:KEEP_JOBS]
         data = {'schema_version': 1, 'updated_at': stamp(), 'jobs': [{k: v for k, v in j.items() if k not in ('cancel', 'monotonic')} for j in keep]
@@ -398,20 +408,54 @@ class Studio:
         temporary.write_text(json.dumps(data, ensure_ascii=False, indent=1) + '\n')
         temporary.replace(self.jobs_file)
 
-    def recover(self):
-        """Adopt this vault's queued and interrupted jobs; leave another live Reader process's jobs alone."""
+    def own(self):
+        """Refuse an art action unless this server owns art for the vault; take ownership once the previous owner stopped."""
+        with self.lock:
+            if self.owner:
+                return
+            if self.closed or not self.supervisor.acquire():
+                raise ArtOwned(OWNED + '; art is read-only here. Use the server that owns it, or stop that server first.')
+            self.owner = True
+            self.foreign.clear()
+            self.recover()
+
+    def ownership(self):
+        """`writable`: this server owns art, or will on its first art action because no other server holds it."""
+        writable = bool(self.owner) or not self.closed and not self.supervisor.held()
+        return {'owner': bool(self.owner), 'writable': writable, 'message': None if writable else OWNED + '; art is read-only here.'}
+
+    def stored(self):
+        """The job rows in jobs.json, or [] when it is missing, a symlink, too large or unreadable."""
         if not self.jobs_file.is_file() or self.jobs_file.is_symlink() or self.jobs_file.stat().st_size > 4 * 1024**2:
-            return
+            return []
         try:
             rows = json.loads(self.jobs_file.read_text()).get('jobs') or []
         except (ValueError, OSError, AttributeError):
-            return
+            return []
+        return [j for j in rows if isinstance(j, dict) and isinstance(j.get('id'), str)] if isinstance(rows, list) else []
+
+    def running_elsewhere(self):
+        """Whether another process holds `.reader/art/run.lock` (a Reader from before the supervisor lock, say)."""
+        lock = self.runtime / 'run.lock'
+        if not lock.is_file() or lock.is_symlink():
+            return False
+        with lock.open('a') as handle:
+            try:
+                fcntl.flock(handle, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            except BlockingIOError:
+                return True
+            fcntl.flock(handle, fcntl.LOCK_UN)
+        return False
+
+    def recover(self):
+        """The owner adopts this vault's queued and interrupted jobs. Only it calls this, so no other Reader server is
+        running them; a run another process still holds run.lock for is left alone."""
+        busy = self.running_elsewhere()
         requeue = False
-        for job in rows:
-            if not isinstance(job, dict) or not isinstance(job.get('id'), str):
+        for job in self.stored():
+            if job['id'] in self.jobs:
                 continue
-            owner = job.get('owner_pid')
-            if job.get('state') in ACTIVE and owner not in (None, os.getpid()) and alive(owner):
+            if busy and job.get('state') in ACTIVE:
                 self.foreign[job['id']] = job
                 continue
             if job.get('state') == 'running' or job.get('state') == 'waiting' and job.get('started_at'):
@@ -436,6 +480,7 @@ class Studio:
             self.worker.start()
 
     def enqueue(self, path, producer, auto=False, title=None):
+        self.own()
         row = self.producer(producer)
         file = self.library.path(path)
         if file.suffix.lower() not in TEXT_KINDS:
@@ -471,6 +516,7 @@ class Studio:
         """Automatic art for the issue's cover and features: only works without art for their current edition."""
         if not isinstance(paths, list) or len(paths) > MAX_COMMISSION or not all(isinstance(p, str) for p in paths):
             raise ValueError(f'Expected at most {MAX_COMMISSION} paths')
+        self.own()
         queued, skipped = [], []
         for path in paths:
             try:
@@ -496,6 +542,7 @@ class Studio:
             return 0
 
     def cancel(self, job_id):
+        self.own()
         with self.lock:
             job = self.jobs.get(job_id)
             if not job:
@@ -763,6 +810,7 @@ class Studio:
     # Requests -----------------------------------------------------------------
 
     def favor(self, path, edition, generation, participant):
+        self.own()
         folder, relative = self.generation_dir(path, edition, generation)
         root, base = self.folder(path)
         (root / 'favorite.json').write_text(json.dumps({'edition': edition, 'generation': generation, 'chosen_at': stamp(), 'chosen_by': participant}, indent=2) + '\n')
@@ -772,6 +820,7 @@ class Studio:
 
     def keep_still(self, path, edition, generation, image):
         """Keep the first still image a browser captured for a version (never replaced)."""
+        self.own()
         folder, relative = self.generation_dir(path, edition, generation)
         if any((folder / n).exists() for n in ('still.png', 'still.webp')):
             return {'kept': False, 'reason': 'exists'}
@@ -817,3 +866,8 @@ class Studio:
             self.changed.notify_all()
         if self.worker and self.worker.is_alive():
             self.worker.join(timeout)
+        # Released after the worker has requeued its job, so a successor finds jobs.json complete; a worker
+        # still running past the timeout writes nothing more.
+        with self.lock:
+            self.owner = False
+            self.supervisor.release()

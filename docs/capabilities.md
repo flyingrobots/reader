@@ -43,7 +43,8 @@ thumbnails and, with Space g, above an open article; pieces without art show not
 special, or a placeholder with Generate art. Commissions are background jobs (one at
 a time per vault, with toasts, cancel, a timeout per stage and the chat-turn resource
 guards), made on request or, by setting, automatically for each issue's cover story or
-features. Each version is stored and committed beside its edition under `art/`, never
+features. One web server per vault owns art (a lock in `.reader/art/`); any other
+server shows its commissions read-only and refuses art actions. Each version is stored and committed beside its edition under `art/`, never
 overwritten, with its brief, provenance (producer, model, prompts, time, tokens and
 reported cost) and an optional still image; every run is archived under
 `logs/llm/art/`. Colors are theme roles, so art fits every theme; it is still under

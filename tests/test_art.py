@@ -379,31 +379,116 @@ def test_local_model_art_logs_the_provider_by_host_and_never_the_api_key(tmp_pat
         library.close()
 
 
-def test_recovery_requeues_waiting_work_and_leaves_live_processes_alone(tmp_path):
+def test_recovery_requeues_waiting_work_and_ignores_job_pids(tmp_path):
     root, library = vault(tmp_path, {'Claude': ['--art-scene', str(scene_file(tmp_path))]})
     library.close()
     log = llm_logs.RunLog(root, 'art', 'art-crashed00000', {'runner': 'art'})
     log.write('brief-prompt.txt', 'partial')
     sleeper = subprocess.Popen([sys.executable, '-c', 'import time; time.sleep(60)'])
     try:
+        # A job's pid is for display (#138): with the art lock free, no Reader server owns these jobs, even one whose
+        # pid is alive (a recycled pid, say).
         jobs = [{'id': 'art-crashed00000', 'path': 'library/essay.md', 'state': 'running', 'owner_pid': 999999, 'log': log.relative, 'queued_at': '2026-10-25T00:00:00+00:00', 'producer': 'voice:Claude', 'producer_label': 'Claude'},
                 {'id': 'art-waiting00000', 'path': 'library/essay.md', 'state': 'queued', 'owner_pid': 999999, 'queued_at': '2026-10-25T00:00:01+00:00', 'producer': 'voice:Claude', 'producer_label': 'Claude', 'sha256': '0' * 64, 'title': 'The tide'},
-                {'id': 'art-foreign00000', 'path': 'library/thought.md', 'state': 'running', 'owner_pid': sleeper.pid, 'queued_at': '2026-10-25T00:00:02+00:00', 'producer': 'voice:Claude', 'producer_label': 'Claude'}]
+                {'id': 'art-recycled0000', 'path': 'library/thought.md', 'state': 'running', 'owner_pid': sleeper.pid, 'queued_at': '2026-10-25T00:00:02+00:00', 'producer': 'voice:Claude', 'producer_label': 'Claude'}]
         (root / '.reader/art').mkdir(parents=True, exist_ok=True)
         (root / '.reader/art/jobs.json').write_text(json.dumps({'schema_version': 1, 'jobs': jobs}))
         again = WebLibrary(root, chat_options={'git_locks': False}, art_options={'git_locks': False, 'capacity': lambda _: True})
         try:
+            assert again.art.status()['ownership']['owner'] is True, 'a server with jobs to recover takes the art lock at start'
             assert again.art.jobs['art-crashed00000']['state'] == 'failed'
             assert json.loads((root / log.relative / 'meta.json').read_text())['status'] == 'interrupted'
             assert wait(again.art, 'art-waiting00000')['state'] == 'done'
-            assert 'art-foreign00000' in again.art.foreign and again.art.foreign['art-foreign00000']['state'] == 'running'
-            assert any(j['id'] == 'art-foreign00000' and j['foreign'] for j in again.art.status()['jobs'])
-            with pytest.raises(ValueError):
-                again.art.cancel('art-foreign00000')
+            assert again.art.jobs['art-recycled0000']['state'] == 'failed' and not again.art.foreign
         finally:
             again.close()
     finally:
         sleeper.kill()
+
+
+def test_a_server_that_only_reads_art_writes_nothing(tmp_path):
+    root, library = vault(tmp_path)
+    try:
+        assert library.art.status()['ownership'] == {'owner': False, 'writable': True, 'message': None}
+        assert not (root / '.reader/art').exists()
+    finally:
+        library.close()
+
+
+def test_a_second_server_never_adopts_or_runs_the_owner_art_jobs(tmp_path):
+    """Two Reader servers on one vault (#138): only the one that owns art recovers and runs commissions. Here both share one
+    pid, as a host and a container that cannot see each other's pids effectively do."""
+    root, primary = vault(tmp_path, {'Claude': ['--art-scene', str(scene_file(tmp_path)), '--sleep', '1.5']})
+    secondary = server = thread = None
+    try:
+        (root / 'library/second.md').write_text(ESSAY.replace('The tide and the ledger', 'A second ledger'))
+        git(root, 'add', '-A'); git(root, 'commit', '-q', '-m', 'Add a second essay')
+        first = primary.art.enqueue('library/essay.md', 'voice:Claude')
+        second = primary.art.enqueue('library/second.md', 'voice:Claude')
+        deadline = time.monotonic() + 15
+        while primary.art.jobs[first['id']]['state'] != 'running':
+            assert time.monotonic() < deadline, 'the first commission never started'
+            time.sleep(.02)
+        secondary = WebLibrary(root, chat_options={'git_locks': False}, art_options={'git_locks': False, 'capacity': lambda _: True})
+        assert secondary.art.jobs == {} and not secondary.art.queue, 'a second server adopts nothing'
+        assert secondary.art.worker is None, 'and runs nothing'
+        status = secondary.art.status()
+        assert status['ownership'] == {'owner': False, 'writable': False, 'message': art_module.OWNED + '; art is read-only here.'}
+        shown = {j['id']: j for j in status['jobs']}
+        assert shown[first['id']]['foreign'] and shown[first['id']]['state'] == 'running', 'the owner jobs show read-only'
+        assert shown[second['id']]['foreign'] and shown[second['id']]['state'] == 'queued'
+        with pytest.raises(art_module.ArtOwned, match=art_module.OWNED):
+            secondary.art.dispatch({'action': 'generate', 'path': 'library/essay.md'}, 'You')
+        with pytest.raises(art_module.ArtOwned):
+            secondary.art.dispatch({'action': 'cancel', 'job': first['id']}, 'You')
+        server = WebServer(('127.0.0.1', 0), secondary, 'Tester')
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        request = urllib.request.Request(f'http://127.0.0.1:{server.server_port}/api/art', json.dumps({'action': 'commission', 'paths': ['library/essay.md']}).encode(),
+                                         {'Content-Type': 'application/json', 'X-Reader-Token': server.token})
+        with pytest.raises(urllib.error.HTTPError) as refused:
+            urllib.request.urlopen(request)
+        assert refused.value.code == 409 and json.loads(refused.value.read())['error'].startswith(art_module.OWNED)
+        assert wait(primary.art, first['id'])['state'] == 'done', 'the owner\'s running job is never marked failed'
+        assert wait(primary.art, second['id'])['state'] == 'done'
+        meta = json.loads((root / primary.art.jobs[first['id']]['log'] / 'meta.json').read_text())
+        assert meta['status'] == 'done', 'nor its log sealed as interrupted'
+        assert git(root, 'log', '--format=%s').count('Add art for') == 2, 'each commission ran once'
+        stored = {j['id']: j['state'] for j in json.loads((root / '.reader/art/jobs.json').read_text())['jobs']}
+        assert stored == {first['id']: 'done', second['id']: 'done'}
+        # Once the owner stops, the next art action takes over.
+        primary.close()
+        primary = None
+        assert secondary.art.status()['ownership']['writable'] is True
+        job = secondary.art.dispatch({'action': 'generate', 'path': 'library/essay.md', 'producer': 'voice:Claude'}, 'You')['job']
+        assert secondary.art.status()['ownership']['owner'] is True and not job['foreign']
+        assert wait(secondary.art, job['id'])['state'] == 'done'
+    finally:
+        if server:
+            server.shutdown(); server.server_close(); thread.join(timeout=5)
+        if secondary:
+            secondary.close()
+        if primary:
+            primary.close()
+
+
+def test_a_fresh_art_owner_record_from_another_host_counts_as_held(tmp_path):
+    # A container's live owner: its flock and pid (999999 here) are invisible across the bind mount, its heartbeat is not.
+    root, library = vault(tmp_path, {'Claude': ['--art-scene', str(scene_file(tmp_path))]})
+    library.close()
+    jobs = [{'id': 'art-container000', 'path': 'library/essay.md', 'state': 'running', 'owner_pid': 999999, 'queued_at': '2026-10-25T00:00:00+00:00', 'producer': 'voice:Claude', 'producer_label': 'Claude'}]
+    (root / '.reader/art').mkdir(parents=True, exist_ok=True)
+    (root / '.reader/art/jobs.json').write_text(json.dumps({'schema_version': 1, 'jobs': jobs}))
+    (root / '.reader/art/supervisor.lock').write_text(json.dumps({'pid': 1, 'host': 'some-container', 'started_at': '2026-10-25T00:00:00+00:00', 'heartbeat': time.time()}))
+    before = (root / '.reader/art/jobs.json').read_bytes()
+    again = WebLibrary(root, chat_options={'git_locks': False}, art_options={'git_locks': False, 'capacity': lambda _: True})
+    try:
+        assert (root / '.reader/art/jobs.json').read_bytes() == before, 'the container\'s jobs are neither failed nor rewritten'
+        assert [(j['id'], j['state'], j['foreign']) for j in again.art.status()['jobs']] == [('art-container000', 'running', True)]
+        with pytest.raises(art_module.ArtOwned):
+            again.art.enqueue('library/essay.md', None)
+    finally:
+        again.close()
 
 
 def test_http_routes(tmp_path):

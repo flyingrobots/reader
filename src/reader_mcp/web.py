@@ -18,7 +18,7 @@ from urllib.parse import parse_qs, quote, urlsplit
 from rapidfuzz import fuzz, process
 
 from .annotations import Annotations
-from .art import ArtMissing, Studio
+from .art import ArtMissing, ArtOwned, Studio
 from .browse import Browse
 from .bookmarks import Bookmarks
 from .display import shown
@@ -1484,7 +1484,7 @@ class WebHandler(BaseHTTPRequestHandler):
             self.json({'error': str(exc)}, 403)
         except ProseUnavailable as exc:
             self.json({'error': str(exc), 'unavailable': True}, 409)
-        except (RunConflict, ChatOwned) as exc:
+        except (RunConflict, ChatOwned, ArtOwned) as exc:
             self.json({'error': str(exc)}, 409)
         except WritingConflict as exc:
             self.json({'error': str(exc)} | exc.extra, 409)

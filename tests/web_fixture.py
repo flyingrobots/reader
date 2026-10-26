@@ -708,6 +708,20 @@ def main():
             assert other_owner.acquire()
             (runtime / 'state.json').write_text(json.dumps({'updated_at': '2026-01-01T00:00:00+00:00', 'supervisor_pid': 1, 'active': None, 'queue': ['t1'],
                                                             'turns': {'t1': {'id': 't1', 'chat_id': 'c1', 'voice': 'Claude', 'state': 'queued'}}}, indent=2) + '\n')
+        if '--art-owned' in sys.argv:
+            # Another Reader server owns art for this vault (#138): this fixture holds the art supervisor lock as another host
+            # and leaves owner jobs (one running, one queued) that the server under test must neither recover nor run.
+            from reader_mcp.voice_runner import Supervisor
+            runtime = root / '.reader/art'
+            other_owner = Supervisor(runtime, host='other-owner', name='fixture-art-owner')
+            assert other_owner.acquire()
+            (runtime / 'jobs.json').write_text(json.dumps({'schema_version': 1, 'updated_at': '2026-01-01T00:00:00+00:00', 'jobs': [
+                {'id': 'art-ownedrun0000', 'path': 'library/issue/cover.md', 'title': 'The owner is making this', 'sha256': '0' * 64, 'producer': 'voice:Painter',
+                 'producer_label': 'Painter', 'model': 'fake-model-1', 'state': 'running', 'stage': 'scene', 'message': 'Composing the scene',
+                 'queued_at': '2026-01-01T00:00:02+00:00', 'started_at': '2026-01-01T00:00:03+00:00', 'owner_pid': 999999, 'auto': False},
+                {'id': 'art-ownedwait000', 'path': 'library/issue/keep.md', 'title': 'The owner queued this', 'sha256': '0' * 64, 'producer': 'voice:Painter',
+                 'producer_label': 'Painter', 'model': 'fake-model-1', 'state': 'queued', 'stage': None, 'message': 'Waiting to start',
+                 'queued_at': '2026-01-01T00:00:01+00:00', 'owner_pid': 999999, 'auto': True}]}, indent=1) + '\n')
         library = WebLibrary(root, writing_options=writing_options, font_fetcher=fetcher, maintenance_runners=runners, inbox_environ=inbox_environ, chat_options=chat_options, local_model=local, prose=prose, service_runner=service, companions=companions, art_options=art_options)
         if art_options and '--art-none' not in sys.argv:
             from reader_mcp.art import PROMPT_VERSIONS

@@ -749,10 +749,19 @@ cannot drop them): *Add art for <title>* with `Reader-Art: <path>@<sha12>/<gener
 and `Reader-Log: art/<job id>` trailers, serialized with chat commits (the same flock
 and the repository `.git/` git-locks key). A favorite and a still image are their own
 small commits. Without Git, art is saved but not committed, and the job says so. Job
-history (the last 60) is kept in `.reader/art/jobs.json`. On start, a server adopts
-waiting jobs and marks a job that was running when its process died *failed* (sealing
-its log as interrupted); jobs owned by another live Reader process are shown, never
-adopted or cancelled.
+history (the last 60) is kept in `.reader/art/jobs.json`. One web server per vault owns
+art: it holds `.reader/art/supervisor.lock` for its life, the same kind of lock as chat's
+(flock, plus a heartbeat record so a host and a container on one vault see each other).
+Only the owner adopts, runs or records jobs. It takes the lock at start when
+`jobs.json` exists, and otherwise on its first art action, so a server that only reads
+writes nothing. On taking it, the owner adopts waiting jobs and marks a job that was
+running when its server stopped *failed* (sealing its log as interrupted). A job's
+`owner_pid` is for display only; a run another process still holds `run.lock` for is
+left alone. Any other server on the vault shows the owner's jobs read-only (fresh from
+`jobs.json`, marked `foreign`, with no Cancel), the Art studio card says *Another
+Reader server owns art for this vault; art is read-only here.*, and every
+`POST /api/art` action answers **409** with that message. It takes over on its next
+art action once the owner stops.
 
 **The still image.** The first browser with WebGL to draw a version renders its frame
 at `still.at` (960 × 480, WebP, else PNG) and posts it (`action: "still"`). The server
@@ -828,7 +837,9 @@ and no animation frames run.
   `{edition, generation, folder, scene, counts, brief, title, provenance, still,
   current, favorite}`, or null; `versions` lists up to 50, newest first; `job` is an
   active commission for the path. 404 for an unknown version.
-- `GET /api/art/jobs`: `{jobs, active, producers, default, error}`; each producer is
+- `GET /api/art/jobs`: `{jobs, active, ownership, producers, default, error}`;
+  `ownership` is `{owner, writable, message}` (`writable`: this server owns art, or will
+  on its first art action because no other server holds the lock); each producer is
   `{id, kind, label, available, cli, model, estimate_seconds}` (the median time of
   finished commissions).
 - `GET /api/art/still?path=…&edition=…&generation=…`: the version's still image (404
@@ -837,7 +848,8 @@ and no animation frames run.
   producer?}` (one active job per path: a repeat returns it), `{action: "commission",
   paths, producer?}` (at most 6, skipping as above: `{queued, skipped}`), `{action:
   "cancel", job}`, `{action: "favorite", path, edition, generation}` and `{action:
-  "still", path, edition, generation, image}` (a data URL).
+  "still", path, edition, generation, image}` (a data URL). 409 when another server
+  owns art for the vault.
 
 Paths go through `WebLibrary.path` (library files only, no symlinks); art folders
 refuse symlinks; only Markdown and plain-text pieces of at least 200 characters

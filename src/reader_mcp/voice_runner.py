@@ -368,14 +368,16 @@ class ChatOwned(Exception):
 
 class Supervisor:
     """`.reader/voice-runner/supervisor.lock`: the one Reader server per vault that owns chat holds it for its life (#20, #72).
+    Art commissions use the same kind of lock in `.reader/art/` (#138).
 
     flock decides between processes on one kernel, and the kernel releases it when the holder exits or crashes.
     A host and a container may not share flock through a bind mount, so the holder also keeps a small heartbeat
     record in the file: a record from another host fresher than SUPERVISOR_STALE seconds counts as held."""
     SIZE = 512
 
-    def __init__(self, runtime, clock=time.time, host=None):
+    def __init__(self, runtime, clock=time.time, host=None, name='reader-chat-supervisor'):
         self.file = Path(runtime) / 'supervisor.lock'
+        self.name = name
         self.clock = clock
         self.host = host or socket.gethostname()
         self.fd = None
@@ -419,7 +421,7 @@ class Supervisor:
         self.fd, self.started = fd, stamp()
         self.write(self.clock())
         self.stop = threading.Event()  # A fresh event per hold, so an old heartbeat thread never resumes.
-        threading.Thread(target=self.beat, args=(self.stop,), name='reader-chat-supervisor', daemon=True).start()
+        threading.Thread(target=self.beat, args=(self.stop,), name=self.name, daemon=True).start()
         return True
 
     def beat(self, stop):
