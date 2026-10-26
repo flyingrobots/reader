@@ -2,7 +2,7 @@
 const assert=require('node:assert/strict');
 const {spawn}=require('node:child_process');
 const {createInterface}=require('node:readline');
-const {chromium}=require('playwright-core');
+const {chromium}=require(process.env.READER_PLAYWRIGHT || 'playwright-core');
 (async()=>{
  const fixture=spawn(process.env.READER_PYTHON||'python3',['tests/quiz_fixture.py'],{stdio:['ignore','pipe','inherit']});let browser;
  try{
