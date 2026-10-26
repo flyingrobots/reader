@@ -6,6 +6,7 @@ const {createInterface}=require('node:readline');
 const {mkdirSync,readFileSync,writeFileSync,rmSync,existsSync}=require('node:fs');
 const {join}=require('node:path');
 const {chromium}=require(process.env.READER_PLAYWRIGHT||'playwright-core');
+const {scrollUntilHeld}=require('./web_wait.cjs');
 (async()=>{
  const fixture=spawn(process.env.READER_PYTHON||'.venv/bin/python',['tests/web_fixture.py','--speech'],{stdio:['ignore','pipe','inherit']});let browser;
  try{
@@ -54,7 +55,9 @@ const {chromium}=require(process.env.READER_PLAYWRIGHT||'playwright-core');
   sent=submits().at(-1);assert.equal(sent.text,'A quiet thought.\n\na precise passage');
   // From here: starts at the block at the reading line.
   await page.evaluate(()=>getSelection().removeAllRanges());
-  await page.evaluate(()=>{const h=[...document.querySelectorAll('#article h2')].find(el=>el.textContent==='Chapter 30');scrollTo(0,scrollY+h.getBoundingClientRect().top-innerHeight*.22+4);});await page.waitForTimeout(150);
+  // Chapter 30 starts far below, where blocks have estimated heights until they near the window: scroll until it
+  // holds at the reading line once the blocks around it are laid out (#155).
+  await scrollUntilHeld(page,'Chapter 30 at the reading line',()=>{const h=[...document.querySelectorAll('#article h2')].find(el=>el.textContent==='Chapter 30');return scrollY+h.getBoundingClientRect().top-innerHeight*.22+4;});
   const before=submits().length;await leader('s');await page.keyboard.press('f');await until(()=>submits().length>before);sent=submits().at(-1);assert.equal(submits().length,before+1);
   assert.ok(sent.text.startsWith('A quiet thought.\n\n## Chapter 30')&&!sent.text.includes('chapter 29 waits')&&sent.text.includes('chapter 44'),'from the reading position');
   await control.waitFor({state:'detached',timeout:15000});
