@@ -5,6 +5,7 @@ import {addDays, localMidnight, todayLocal, workDay} from './logic.mjs';
 const BLANK = {project:[], author:[], type:[], from:null, to:null, read:'all', folder:null, machine:false};
 const MODES = ['best', 'words', 'meaning'];
 const RECENT = 'reader.search.recent.v1', SESSION = 'reader.search.session.v1';
+const RETRIES = 5; // a refused (429) search retries after 0.5, 1, 2, 4 and 8 s, as the picker does
 const read = (store, key, fallback) => { try { return JSON.parse(store.getItem(key) || 'null') ?? fallback; } catch { return fallback; } };
 const write = (store, key, value) => { try { store.setItem(key, JSON.stringify(value)); } catch {} };
 
@@ -82,7 +83,8 @@ export function installSearch({api, state, navigate, back, backstage, notify, qu
       set({status:'ready', result, works, loadingMore:false, active:offset ? model.active : 0, terms:result.terms});
     } catch (error) {
       if (id !== request || error.name === 'AbortError') return;
-      if (/running; try again/.test(error.message) && attempt < 4) { timer = setTimeout(() => run(offset, attempt + 1), 250 * (attempt + 1)); return; }
+      // A 429 (another search running, or the server's busy gate) retries like the picker; it never reads as "nothing matched" (#57).
+      if (error.status === 429 && attempt < RETRIES) { timer = setTimeout(() => { if (id === request) run(offset, attempt + 1); }, 500 * 2 ** attempt); return; }
       set({status:'error', error:error.message, loadingMore:false});
     }
   }

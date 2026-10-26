@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Search page under contention (#57): its passage search now waits up to 8 seconds for a running search, as content and semantic search do, instead of answering 429 at once, and the page retries any 429 on `/api/search/page` (including the server's busy gate) after 0.5, 1, 2, 4 and 8 seconds, like the Documents picker. A search that never runs shows *Search couldn't finish*, never the no-match note.
+
 - Math typesets after first paint (fixes #117): a document with formulas is shown as soon as its place is restored, with TeX placeholders, instead of waiting for KaTeX (a synthetic 1,500-formula document became visible in about 0.27 s instead of 1.8 s, and finished typesetting sooner). Formulas near the reader go first; the first block in view stays put while heights change, in scroll and two-page mode; highlights and an open find are redrawn from the typeset text; prose colors skip formulas. `web_math.cjs` covers a math-heavy fixture with a late bookmark, a note beside math, find during typesetting and TeX copy.
 
 - No web API answer names a host folder any more (#105), since the same answers reach allowed tailnet browsers: `/api/search` drops `absolute_path` (the MCP tools keep it), `/api/inbox` reports `codex: {name, installed}` and `/api/local-model` `server.cli: {name, installed}` instead of executable paths, and Companions paths, chat raw output, the inbox activity transcript and error messages show the vault as `<vault>` and the home folder as `~` (Set path accepts both forms). A new HTTP test walks every GET route on the synthetic fixture and fails on any host path. The static exporter's scrub no longer needs to drop `absolute_path`; its refusal check stays.

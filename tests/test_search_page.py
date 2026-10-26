@@ -220,18 +220,30 @@ def http(library):
     server.server_close()
 
 
-def test_route_parses_repeated_facets_and_answers_429_under_contention(http):
+def test_route_parses_repeated_facets_and_bounds(http):
     library, get = http
     status, body = get('/api/search/page?q=crash&mode=words&project=Storage&project=Field&limit=5')
     assert status == 200 and body['filters']['project'] == ['Field', 'Storage'] and len(body['works']) <= 5
     assert get('/api/search/page?q=crash&mode=words&limit=abc')[0] == 400
     assert get('/api/search/page?q=' + quote('x' * 1001))[0] == 400
+
+
+def test_passage_search_waits_for_a_running_search_then_answers_429(http, monkeypatch):
+    """Issue #57: the page's passage search queues behind a running search like the picker's does."""
+    import time
+    from reader_mcp import web as web_module
+    library, get = http
     library.search_lock.acquire()
-    try:
+    releaser = threading.Timer(1, library.search_lock.release); releaser.start()
+    started = time.monotonic()
+    status, body = get('/api/search/page?q=crash&mode=words')
+    releaser.join()
+    assert status == 200 and body['works'], body
+    assert .8 < time.monotonic() - started < 6, 'a contended passage search waits for the running one'
+    monkeypatch.setattr(web_module, 'SEARCH_WAIT', .2)
+    with library.search_lock:
         status, body = get('/api/search/page?q=crash')
-        assert status == 429 and 'try again' in body['error']
-    finally:
-        library.search_lock.release()
+    assert status == 429 and 'try again' in body['error']
 
 
 def test_format_1_index_serves_the_page_read_only_until_format_2_completes(vault):

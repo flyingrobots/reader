@@ -480,8 +480,9 @@ class WebLibrary:
         def passes(skip=None):
             return lambda path, doc: all(test(work(path, doc)) for name, test in tests.items() if name != skip)
         relaxed = [name for name in FACETS if f[name]]
-        if not self.search_lock.acquire(blocking=False):
-            raise BlockingIOError('A content search is running; try again shortly')
+        # Like search(): wait briefly for a running search instead of refusing at once (#57).
+        if not self.search_lock.acquire(timeout=SEARCH_WAIT):
+            raise BlockingIOError('Another content search is still running; try again shortly')
         try:
             result = self.engine.passages(query, {'best': 'hybrid', 'words': 'keyword', 'meaning': 'semantic'}[mode],
                                           path_prefix=f['folder'] or 'library/', include_machine=f['machine'],

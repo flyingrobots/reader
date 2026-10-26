@@ -3019,8 +3019,11 @@ passage, no file-name channel, and a warning says format 1 is serving). It takes
 pool of 500 chunks, after the folder and machine-file scope and the work filters.
 Words in a short stopword list are dropped unless the query has no others. Meaning keeps passages with cosine similarity of at least 0.62 and within 0.08 of the best match, at most 300 (100 in Best, so exact words lead); bge-small-en-v1.5 similarities on a real library cluster near 0.53, and even a nonsense query reaches about 0.67, so a passage marked related is a lead, not a claim. Meaning
 vectors are normalized once per published index version and reused while it is
-unchanged. Concurrent content searches share the server's search lock; a second one
-gets 429 and the page retries briefly.
+unchanged. Passage searches share the server's search lock with content and semantic
+search: a second one waits up to 8 seconds (`SEARCH_WAIT`) and is then refused with
+HTTP 429. The page retries any 429 on this route (the search lock's or the server's
+busy gate) after 0.5, 1, 2, 4 and 8 seconds, keeping its loading state, and if the
+search never runs it shows *Search couldn't finish*, never the no-match note.
 
 ## Search, dashboard and shared discussion
 
@@ -3056,7 +3059,8 @@ The server runs one content or semantic search at a time (the index engine is no
 shared between concurrent queries); another waits up to 8 seconds (`SEARCH_WAIT`)
 for it and is then refused with HTTP 429. The Documents picker retries a 429 after
 0.5, 1, 2, 4 and 8 seconds, showing *Another search is running; retrying…*, and,
-if the search never runs, says so instead of showing the no-results note.
+if the search never runs, says so instead of showing the no-results note. The search
+page waits and retries the same way (see `GET /api/search/page` above).
 
 Opening a document automatically records the displayed source version as read for
 the selected participant. Opening a thread records its inspected current highlight,
