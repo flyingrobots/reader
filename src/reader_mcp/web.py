@@ -287,6 +287,11 @@ class WebLibrary:
             if job['path'] != path or job['participant'] != participant or not job['kind'].startswith('quiz'):
                 raise ValueError('Task belongs to another document or participant')
             task = self.voice_tasks.public(job)
+            if job['kind'] == 'quiz-review':
+                reviewed = self.quizzes.read(job['payload']['edition'], job['payload']['quiz_id'])
+                if reviewed['document_path'] != path:
+                    raise ValueError('Reviewed quiz belongs to another document')
+                quiz = self.quizzes.view(reviewed, self.chat_document(path, True))
         else:
             task = self.voice_tasks.latest(path, participant, self.digest(path))
         try:
@@ -1171,7 +1176,7 @@ class WebLibrary:
 # admission and limited only by its own four-stream semaphore, so it never holds a slot.
 STATIC_PREFIXES = ('/assets/', '/fonts/')
 UNGATED = frozenset({'/', '/api/health'})  # The page itself and the cheap liveness probe.
-EXPENSIVE_GETS = frozenset({'/api/search', '/api/search/page', '/api/next', '/api/prose', '/api/service', '/api/shape'})
+EXPENSIVE_GETS = frozenset({'/api/search', '/api/search/page', '/api/next', '/api/prose', '/api/service', '/api/shape', '/api/quiz'})
 EXPENSIVE_GET_PREFIXES = ('/api/chat',)  # /api/chat, /api/chats, /api/chat/raw
 EXPENSIVE_LIMIT, READ_LIMIT, READ_WAIT = 8, 32, 5.0
 

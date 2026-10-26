@@ -75,7 +75,8 @@ def main():
                    '.venv/bin/python -m pytest -q') if kind == 'python' else (
                    'npm --prefix plugins/reader ci --cache /work/npm-cache && '
                    'npm --prefix plugins/reader run check && npm --prefix plugins/reader test && '
-                   'npm --prefix plugins/reader run build')
+                   'npm --prefix plugins/reader run build && '
+                   'node --test tests/quiz_controller.cjs')
             if kind=='formatter':
                 cmd = ('git init /work/formatter && git -C /work/formatter fetch --depth=1 '
                        'https://github.com/flyingrobots/wide-md c167101b32bbe37954429e9de5db33efcdc0a16c && '

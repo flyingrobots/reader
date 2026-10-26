@@ -599,7 +599,7 @@ def test_admission_classes_cover_every_expensive_route_and_leave_streams_out(web
         return 'none' if found is None else 'expensive' if found is server.requests else 'read'
     for path in ('/', '/assets/app.mjs', '/assets/controls/diagrams.js', '/fonts/serif/font.css', '/api/health'):
         assert gate(path) == 'none', path
-    for path in ('/api/search?q=x', '/api/search/page?q=x', '/api/next?path=a', '/api/prose', '/api/chat?id=x', '/api/chats?path=a', '/api/chat/raw?id=x&turn=y', '/api/service'):
+    for path in ('/api/search?q=x', '/api/search/page?q=x', '/api/next?path=a', '/api/prose', '/api/chat?id=x', '/api/chats?path=a', '/api/chat/raw?id=x&turn=y', '/api/service', '/api/quiz?path=a'):
         assert gate(path) == 'expensive', path
     for path in ('/api/maintenance', '/api/local-model', '/api/inbox', '/api/prose', '/api/chat', '/api/seen', '/api/bookmark', '/api/service'):
         assert gate(path, write=True) == 'expensive', path
@@ -611,6 +611,7 @@ def test_admission_classes_cover_every_expensive_route_and_leave_streams_out(web
         held += 1
     try:
         assert request('/api/chats?path=library/thought.md')[0] == 429
+        assert request('/api/quiz?path=library/thought.md')[0] == 429
         assert request('/api/chat/stream?id=not-a-uuid')[0] == 400  # answered by the stream route, not refused as busy
         assert request('/api/health')[0] == 200, 'health answers while the server is busy'
         reads = 0

@@ -69,6 +69,21 @@ def test_generation_uses_shared_runner_and_commits_only_quiz_and_logs(library):
     assert library.quizzes.dispatch(dict(action='generate', path=PATH), 'Reader')['quiz']['id'] == quiz['id']
 
 
+def test_plain_text_voice_preserves_compact_json_generation_and_review(library):
+    file = library.root / 'voices.json'
+    settings = json.loads(file.read_text())
+    voice = next(v for v in settings['voices'] if v['name'] == 'Claude')
+    voice['stream'] = 'text'
+    voice['argv'][voice['argv'].index('--style') + 1] = 'text'
+    file.write_text(json.dumps(settings))
+    job = settle(library, generate(library))
+    assert job['state'] == 'done', 'compact JSON from a text voice must remain its response'
+    quiz = library.quizzes.get(PATH)
+    task = library.quizzes.dispatch(dict(action='review', path=PATH, voice='Claude', request_id=str(uuid4()),
+        edition=quiz['document_sha256'], quiz_id=quiz['id'], question_id='q5', answer='Purple.'), 'Reader')['task']
+    assert settle(library, task)['result']['verdict'] == 'right'
+
+
 def test_invalid_first_generation_retries_once_and_preserves_both_logs(library):
     file = library.root / 'voices.json'
     settings = json.loads(file.read_text())
@@ -115,6 +130,17 @@ def test_short_answer_review_is_participant_and_edition_bound(library):
     assert library.engagement.attention('Reader', PATH)['items'][0]['read'] is False
 
 
+def test_review_poll_returns_the_reviewed_quiz_after_another_generation(library):
+    settle(library, generate(library))
+    original = library.quizzes.get(PATH)
+    newer = library.quizzes.save(PATH, 'Claude', original['questions'], expected_sha256=original['document_sha256'])
+    assert newer['id'] != original['id']
+    with library.conversations.runner.lock:
+        task = library.quizzes.dispatch(dict(action='review', path=PATH, voice='Claude', request_id=str(uuid4()),
+            edition=original['document_sha256'], quiz_id=original['id'], question_id='q5', answer='Purple.'), 'Reader')['task']
+        assert library.quiz(PATH, 'Reader', task['id'])['quiz']['id'] == original['id']
+
+
 def test_task_request_is_idempotent_and_rejects_changed_input(library):
     request_id = str(uuid4())
     tasks = library.voice_tasks
@@ -124,6 +150,22 @@ def test_task_request_is_idempotent_and_rejects_changed_input(library):
         tasks.submit('quiz', PATH, 'Agy', 'Reader', request_id=request_id)
     assert settle(library, first)['state'] == 'done'
     assert len(calls(library.root)) == 1
+
+
+def test_public_task_errors_hide_host_paths_without_rewriting_job(library):
+    task = generate(library)
+    settle(library, task)
+    with library.voice_tasks.locked():
+        job = library.voice_tasks.read(task['id'])
+        job['error'] = 'Synthetic failure in ' + str(library.root / 'library/thought.md')
+        job['commit'] = {'status': 'failed', 'error': 'Synthetic git error at ' + str(library.root / '.git/index.lock')}
+        library.voice_tasks.write(job)
+    file = library.voice_tasks.file(task['id'])
+    before = file.read_bytes()
+    public = library.voice_tasks.public(job)
+    assert str(library.root) not in json.dumps(public)
+    assert '<vault>/.git/index.lock' in public['commit']['error']
+    assert file.read_bytes() == before and str(library.root).encode() in before
 
 
 def test_two_tabs_share_the_same_pending_generation(library):
@@ -168,6 +210,71 @@ def test_queued_task_can_be_cancelled_without_a_provider_call(library):
     assert job['state'] == 'cancelled' and not calls(library.root)
 
 
+@pytest.mark.parametrize('prior_attempt', [False, True])
+def test_queued_cancellation_does_not_block_the_active_writer(library, monkeypatch, prior_attempt):
+    """Force quiet -> runner.lock against cancellation, with bounded actor waits."""
+    from reader_mcp import llm_logs
+    runner = library.conversations.runner
+    active, publish, finished, cancelling = (threading.Event() for _ in range(4))
+    progressed, errors = [], []
+
+    def active_chat(turn):
+        try:
+            with runner.quiet:
+                active.set()
+                if not publish.wait(5):
+                    return
+                acquired = runner.lock.acquire(timeout=1)
+                progressed.append(acquired)
+                if acquired:
+                    runner.lock.release()
+            runner.complete(turn, 'done', body='The synthetic active writer finished.')
+        finally:
+            finished.set()
+
+    monkeypatch.setattr(runner, 'run', active_chat)
+    chat = library.conversations.create(PATH, 'Reader')['chat']
+    library.conversations.send(chat['id'], 'A synthetic active chat.', 'Reader')
+    assert active.wait(5)
+    task = generate(library)
+    turn = runner.pending(task['id'])[0]
+    if prior_attempt:
+        log = llm_logs.RunLog(library.root, 'quiz', str(uuid4()), {'document_path': PATH})
+        log.write('stdout.jsonl', '{}\n')
+        log.finish('failed', error='Synthetic insufficient first attempt')
+        with library.voice_tasks.locked():
+            job = library.voice_tasks.read(task['id'])
+            job.update(attempts=1, runs=[{'turn_id': log.meta['run_id'], 'log': log.relative}])
+            library.voice_tasks.write(job)
+    finish_unrun = runner.finish_unrun
+
+    def observed(turn, message):
+        cancelling.set()
+        return finish_unrun(turn, message)
+
+    monkeypatch.setattr(runner, 'finish_unrun', observed)
+    def cancel():
+        try:
+            runner.cancel(turn['id'])
+        except Exception as exc:
+            errors.append(exc)
+    thread = threading.Thread(target=cancel, daemon=True)
+    try:
+        thread.start()
+        assert cancelling.wait(5)
+        publish.set()
+        assert finished.wait(5)
+        thread.join(5)
+        assert not thread.is_alive() and not errors
+        assert progressed == [True], 'cancellation must leave runner.lock available to the active writer'
+        job = library.voice_tasks.read(task['id'])
+        assert job['state'] == 'cancelled'
+        assert job['commit']['status'] == ('committed' if prior_attempt else 'unchanged')
+    finally:
+        publish.set()
+        thread.join(5)
+
+
 def test_recovery_preserves_interrupted_task_logs_without_rerunning(library):
     from reader_mcp import llm_logs
     root = library.root
@@ -190,6 +297,33 @@ def test_recovery_preserves_interrupted_task_logs_without_rerunning(library):
         assert job['state'] == 'failed' and job['commit']['status'] == 'committed'
         assert json.loads((root / log.relative / 'meta.json').read_text())['status'] == 'interrupted'
         assert not calls(root)
+    finally:
+        recovered.close()
+
+
+@pytest.mark.parametrize('kind', ['quiz', 'quiz-review'])
+def test_recovery_uses_task_identity_from_real_saved_runner_state(library, kind):
+    if kind == 'quiz-review':
+        settle(library, generate(library))
+        quiz = library.quizzes.get(PATH)
+    runner = library.conversations.runner
+    with runner.lock:
+        if kind == 'quiz':
+            task = generate(library)
+        else:
+            task = library.quizzes.dispatch(dict(action='review', path=PATH, voice='Claude',
+                edition=quiz['document_sha256'], quiz_id=quiz['id'], question_id='q5',
+                answer='Purple.', request_id=str(uuid4())), 'Reader')['task']
+        runner.save(True)
+        saved = json.loads((library.root / '.reader/voice-runner/state.json').read_text())
+        library.close()  # Prevent the queued synthetic CLI from starting before restart.
+    turn = next(t for t in saved['turns'].values() if t['kind'] == kind)
+    assert turn.get('task_id') == task['id'], 'saved task turns must retain their task identity'
+    recovered = WebLibrary(library.root, chat_options={'git_locks': False})
+    try:
+        job = recovered.voice_tasks.read(task['id'])
+        assert job['state'] == 'failed' and 'retry explicitly' in job['error']
+        assert not recovered.conversations.runner.pending(task['id'])
     finally:
         recovered.close()
 

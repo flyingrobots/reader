@@ -10,6 +10,7 @@ import tempfile
 from uuid import UUID, uuid4
 
 from .annotations import Annotations, now
+from .display import shown
 from .learning import evidence, source
 
 MAX_QUIZ = 64 * 1024
@@ -101,13 +102,14 @@ class Quizzes:
             raise ValueError('Quiz folder must not be a symlink')
         files = []
         # Refuse oversized inventories while iterating, before building an unbounded list.
-        for count, directory in enumerate(self.folder.iterdir() if self.folder.exists() else (), 1):
+        entries = self.folder.iterdir() if self.folder.exists() else ()
+        for count, directory in enumerate((entry for entry in entries if not entry.name.startswith('.')), 1):
             if count > MAX_QUIZZES:
                 raise ValueError('Quiz inventory exceeds 5,000 edition folders')
             if directory.is_symlink() or not directory.is_dir() or not SHA.fullmatch(directory.name):
                 raise ValueError('Invalid quiz edition folder')
             for path in directory.iterdir():
-                if path.name.startswith('.quiz-'):
+                if path.name.startswith('.'):
                     continue
                 if path.is_symlink():
                     raise ValueError('Quiz file must not be a symlink')
@@ -175,7 +177,8 @@ class Quizzes:
                 visible.append(dict(question, evidence=anchor))
             except ValueError as exc:
                 hidden.append(dict(id=question['id'], reason=str(exc)))
-        return dict(quiz, questions=visible, hidden=hidden, earlier=earlier, current_sha256=document['sha256'])
+        return dict(quiz, runtime=shown(quiz.get('runtime'), self.root), questions=visible,
+                    hidden=hidden, earlier=earlier, current_sha256=document['sha256'])
 
     def get(self, path):
         document = source(self.documents, path)

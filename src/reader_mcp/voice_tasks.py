@@ -19,6 +19,7 @@ from uuid import UUID, uuid4
 from .annotations import Annotations, now
 from .chats import git_locks_tool
 from .companions import repo_env
+from .display import shown
 from .learning import source
 from . import voices
 
@@ -100,7 +101,7 @@ class VoiceTasks:
                   'state', 'created_at', 'finished_at', 'attempts', 'rejected', 'result', 'error', 'commit', 'runs', 'changed_paths', 'voice_commits')}
         if self.runner:
             result['pending'] = self.runner.pending(job['id'])
-        return result
+        return shown(result, self.root)
 
     def choose(self, path, requested):
         registry = self.runner.registry.load()
@@ -223,12 +224,15 @@ class VoiceTasks:
                 job['state'] = 'saving'
                 self.write(job)
         # Git is serialized with normal chat commits and targets only owned artifacts/logs.
-        with self.runner.quiet:
-            try:
-                job['commit'] = self.commit(job)
-            except (OSError, subprocess.SubprocessError, ValueError) as exc:
-                job['commit'] = {'status': 'failed', 'commit': None,
-                                 'error': 'Could not commit article-task artifacts: ' + type(exc).__name__}
+        if not job['runs'] and not (job.get('result') or {}).get('artifact'):
+            job['commit'] = {'status': 'unchanged', 'commit': None}
+        else:
+            with self.runner.quiet:
+                try:
+                    job['commit'] = self.commit(job)
+                except (OSError, subprocess.SubprocessError, ValueError) as exc:
+                    job['commit'] = {'status': 'failed', 'commit': None,
+                                     'error': 'Could not commit article-task artifacts: ' + type(exc).__name__}
         with self.locked():
             job.update(state=final_state, finished_at=now())
             self.write(job)

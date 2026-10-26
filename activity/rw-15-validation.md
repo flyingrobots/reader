@@ -20,6 +20,28 @@ These results precede integration with the latest main branch. Complete-suite va
 
 ## Integrated validation recovery
 
-Main at `4a09619f301756e41801571113747900b38441cd` was merged normally, retaining its dock layout, calendar clock and focus fixes. The merged TypeScript source passed checking and was rebuilt in Docker.
+Main at `5d5a513d35ebaedc8335bd6faf3a76c9facae7c8` was merged normally, retaining its dock layout, calendar clock and focus fixes. The merged TypeScript source passed checking and was rebuilt in Docker.
 
 The first complete Python run reported 665 passing tests, two skips, 18 failures and 99 setup errors. Its failures exposed missing package/fixture inputs in the copied test environment, fake companion installs consulting a small tmpfs as though it were a real install destination, and test-created servers accumulating background workers until the container's 256-process limit was exhausted. The validation archive now includes the required source inputs and omits published screenshots within its unchanged 24 MiB limit. Synthetic install tests inject their capacity input locally; production disk guards remain unchanged. An automatic test fixture closes both WebLibrary instances and directly constructed voice runners. An intermediate run with incomplete teardown was stopped, and its partial log was retained. A complete rerun is required; the failed runs are not green evidence.
+
+## Review fixes
+
+Codex found that real runner serialization omitted `task_id`, although a manually constructed recovery fixture supplied it. New regressions created queued quiz and review state through `VoiceRunner.save()` and both failed at the missing task identity on source head `9400967`. Preserving that field made both cases pass, including restart disposition. The relevant quiz queue and supervisor suites then passed 26 tests in Docker. Raw RED/GREEN logs are retained locally as `quiz-recovery-red` and `quiz-recovery-green`.
+
+The cross-tab review regression failed in both the controller and HTTP response: a newer quiz replaced the question set being reviewed. Polling now returns that review's saved quiz, and the controller retains its attempt and checks the result's quiz identity. The controller regression and all 18 quiz-runner tests passed in Docker (`quiz-review-identity-red` / `quiz-review-identity-green`). The controller suite is included in the container Node check.
+
+The close/reopen regression reproduced a permanently busy dialog when a result request finished after closing and the reopened quiz had no participant-owned generation task. Closing now clears transient busy state while retaining the attempt; reopening restores any real pending task from the server. Both controller race tests passed in Docker (`quiz-busy-red` / `quiz-busy-green`).
+
+Two bounded actor regressions reproduced the cancellation lock inversion, with and without a prior attempt's log. Queued finalization now runs outside the caller's state lock; artifact-free tasks skip the quiet wait, while retries retain and commit their earlier logs. Both actors could progress after the fix, and 29 quiz-runner/supervisor tests passed in Docker (`quiz-cancel-order-red` / `quiz-cancel-order-green`).
+
+The integration-parent record was corrected against the actual second parent of merge `9501969`. The complete suite at source head `9400967` passed 782 tests with two optional skips in 244.57 seconds; both CI checks on that head passed. These historical results do not substitute for validation after the review fixes.
+
+The plain-text transport regression reproduced a valid compact JSON reply being discarded as an unknown event. Text streams now preserve every nonempty line literally. Generation and short-answer review passed through that transport, and the quiz queue plus existing chat suite passed 70 tests with one optional sample skipped in Docker (`quiz-text-red` / `quiz-text-green`).
+
+The admission regression showed quiz GETs entering the ordinary read pool. They now use the existing expensive pool; saturation refuses the quiz request before inventory work while health and ordinary reads remain available. Both affected HTTP admission tests passed in Docker (`quiz-admission-red` / `quiz-admission-green`).
+
+A dotfile regression reproduced the whole quiz store refusing discovery because of operating-system/editor metadata. Discovery now skips hidden entries without deleting them and retains checks on visible records. All 17 quiz storage tests passed in Docker (`quiz-dotfiles-red` / `quiz-dotfiles-green`).
+
+Two public-metadata regressions reproduced host paths in runtime versions and nested task errors. Public responses now use the existing display redaction without rewriting canonical artifacts. A first verification command named a nonexistent test module and ran no tests; the corrected quiz-store/runner command passed all 40 tests in Docker (`quiz-public-red` / `quiz-public-green-r2`).
+
+A later Codex review reproduced a short-answer request losing its accepted task ID when the dialog closed before its POST returned. Closing now invalidates rendering while retaining the accepted task for its originating context; another submission or document context supersedes it. The two close/reopen regressions failed before the fix, and all five controller tests, including context isolation, passed afterward in Docker (`quiz-delayed-review-red` / `quiz-delayed-review-context-green`).
