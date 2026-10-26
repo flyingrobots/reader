@@ -1120,7 +1120,7 @@ own streams to `AgentEvent` and reuse the reducer and `ActivityTranscript`.
 
 | Codex event (0.163.0) | Shown as |
 | --- | --- |
-| `item.*` `agent_message` | **Message** "Librarian", sanitized Markdown. Vault paths it mentions (`library/…`, `inbox/…` documents) become **Inline Citation** chips: a hover card with the path and an Open button. |
+| `item.*` `agent_message` | **Message** "Librarian", sanitized Markdown; headings are scaled to the transcript (a report's `# Title` is 17px, as in the report view). Vault paths it mentions (`library/…`, `inbox/…` documents) become **Inline Citation** chips: a hover card with the path and an Open button. |
 | `reasoning` | **Reasoning**: "Thinking…", then "Thought" (with seconds when both ends were seen live), collapsed. |
 | `command_execution` | **Tool** line: "Ran `cmd`", "Running `cmd`" with a spinner, or "`cmd` exited with code N". The `/bin/zsh -lc '…'` wrapper is removed from the title. Its body is the full command and a **Terminal** (Code Block) with the last 200 lines and **Show all N lines**. Failed commands open by themselves. |
 | pytest or `node --test` output | **Test Results** inside the tool: passed, failed and skipped counts from pytest's final summary line or node's `ℹ pass`/`ℹ fail` lines, with failing test names. Other output stays a Terminal. |

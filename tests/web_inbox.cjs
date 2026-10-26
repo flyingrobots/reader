@@ -88,6 +88,10 @@ const {chromium}=require(process.env.READER_PLAYWRIGHT||'playwright-core');
   await page.locator('#inbox-report').filter({hasText:'Filed the synthetic mail'}).waitFor();
   assert.equal(await page.evaluate(()=>window.reportScriptRan),undefined,'report HTML is sanitized');
   assert.equal(await page.locator('#inbox-report').getAttribute('data-reader-decoration'),'');
+  // A report that opens with `# Title` stays at transcript scale in the log (#79); the report view keeps its own heading size.
+  const heads=await page.evaluate(()=>{const px=el=>parseFloat(getComputedStyle(el).fontSize),log=document.querySelector('#inbox .activity-log'),body=log.querySelector('.activity-prose');
+    return {body:px(body),h1:px(log.querySelector('.activity-prose h1')),h2:px(log.querySelector('.activity-prose h2')),report:px(document.querySelector('#inbox-report h1'))};});
+  assert.ok(heads.h1<=heads.body*1.25&&heads.h2<=heads.h1,JSON.stringify(heads));assert.equal(heads.report,17,JSON.stringify(heads));
   // The finished transcript ends with the commit Checkpoint and Context.
   await page.locator('#inbox [data-activity-item=context]').waitFor();
   const kinds=await log.locator('[data-activity-item]').evaluateAll(rows=>rows.map(r=>r.dataset.activityItem));

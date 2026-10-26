@@ -323,6 +323,8 @@
 .activity-prose > :first-child { margin-top: 0; } .activity-prose > :last-child { margin-bottom: 0; }
 .activity-prose p, .activity-prose ul, .activity-prose ol { margin: 6px 0; }
 .activity-prose :is(ul, ol) { padding-left: 1.3em; }
+.activity-prose :is(h1, h2, h3) { font-size: 17px; line-height: 1.3; letter-spacing: 0; margin: 12px 0 6px; }  /* A report's `# Title` stays at transcript scale, as in the report view. */
+.activity-prose :is(h4, h5, h6) { font-size: 1em; margin: 10px 0 4px; }
 .activity-prose a { color: var(--accent); }
 .activity-prose code { font-family: var(--mono); font-size: 12.5px; }
 .activity-prose pre { white-space: pre-wrap; font-size: 12px; }
