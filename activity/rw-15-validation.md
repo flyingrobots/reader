@@ -17,3 +17,9 @@ The feature worker used a read-only root, no host mounts, a 3 GiB `/work` tmpfs 
 ## Remaining gates
 
 These results precede integration with the latest main branch. Complete-suite validation, an independent current-head Code Lawyer review and current-head CI are still required before merge.
+
+## Integrated validation recovery
+
+Main at `4a09619f301756e41801571113747900b38441cd` was merged normally, retaining its dock layout, calendar clock and focus fixes. The merged TypeScript source passed checking and was rebuilt in Docker.
+
+The first complete Python run reported 665 passing tests, two skips, 18 failures and 99 setup errors. Its failures exposed missing package/fixture inputs in the copied test environment, fake companion installs consulting a small tmpfs as though it were a real install destination, and test-created servers accumulating background workers until the container's 256-process limit was exhausted. The validation archive now includes the required source inputs and omits published screenshots within its unchanged 24 MiB limit. Synthetic install tests inject their capacity input locally; production disk guards remain unchanged. An automatic test fixture closes both WebLibrary instances and directly constructed voice runners. An intermediate run with incomplete teardown was stopped, and its partial log was retained. A complete rerun is required; the failed runs are not green evidence.

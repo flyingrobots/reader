@@ -2,6 +2,7 @@
  *  comment, warn, speak, yank or search for more like them. Also the motions NORMAL shares with it
  *  (% footnotes, gd first use, zz/zt/zb), which work on the same text model. */
 import {textModel,lineMove,lineEdge} from './cursor.mjs';
+import {pageWidth} from './dock.mjs';
 import {plural} from './logic.mjs';
 
 export function installVisual({state,keys,reading,scrollToPosition,notify,captureSelection,createAnnotation,annotate,speak,registers,quickfix,links,jumps,report}){
@@ -17,7 +18,7 @@ export function installVisual({state,keys,reading,scrollToPosition,notify,captur
     const book=reading.geometry();
     if(book){const box=book.viewport.getBoundingClientRect();return {book:true,top:box.top,bottom:box.bottom,left:box.left,right:box.right,width:box.width};}
     const status=$('#statusline')?.getBoundingClientRect().height||32;
-    return {book:false,top:8,bottom:innerHeight-status-8,left:0,right:innerWidth,width:innerWidth};
+    return {book:false,top:8,bottom:innerHeight-status-8,left:0,right:pageWidth(),width:pageWidth()};
   }
   const onScreen=(r,box=view())=>box.book?r.left>=box.left-1&&r.right<=box.right+1:r.top>=box.top-1&&r.bottom<=box.bottom+1;
   /** The first position on screen: the top of the window, or the left page of the spread. */

@@ -7,15 +7,16 @@ const {createInterface}=require('node:readline');
 const {mkdirSync,readFileSync}=require('node:fs');
 const path=require('node:path');
 const {chromium}=require(process.env.READER_PLAYWRIGHT||'playwright-core');
+const {pinDate}=require('./web_clock.cjs');  // the fixture's pinned clock (#131)
 const OWNED='Another Reader server owns art for this vault';
 (async()=>{
  const fixture=spawn(process.env.READER_PYTHON||'.venv/bin/python',['tests/web_fixture.py','--magazine','--art','--art-owned'],{stdio:['ignore','pipe','inherit']});let browser;
  try{
-  const {url,root}=await new Promise((resolve,reject)=>{createInterface({input:fixture.stdout}).once('line',line=>resolve(JSON.parse(line)));fixture.once('exit',code=>reject(new Error('Fixture exited '+code)));});
+  const {url,root,now}=await new Promise((resolve,reject)=>{createInterface({input:fixture.stdout}).once('line',line=>resolve(JSON.parse(line)));fixture.once('exit',code=>reject(new Error('Fixture exited '+code)));});
   const jobsFile=path.join(root,'.reader/art/jobs.json'),before=readFileSync(jobsFile);
   browser=await chromium.launch({headless:true,executablePath:process.env.READER_CHROME||'/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',args:['--disable-gpu','--disable-background-networking','--disable-breakpad','--disable-crash-reporter','--disk-cache-size=10485760']});
   const errors=[],posts=[];
-  const context=await browser.newContext({viewport:{width:1300,height:900},reducedMotion:'reduce'});
+  const context=await browser.newContext({viewport:{width:1300,height:900},reducedMotion:'reduce'});await pinDate(context,now);
   await context.addInitScript(()=>{try{localStorage.setItem('reader.preferences.v1',JSON.stringify({smooth:false,theme:'paper',layout:'scroll'}));}catch{}});
   const page=await context.newPage();page.on('pageerror',e=>errors.push(e.message));
   page.on('response',r=>{if(r.request().method()==='POST'&&new URL(r.url()).pathname==='/api/art')posts.push(r.status());});

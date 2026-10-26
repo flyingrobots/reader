@@ -20,7 +20,7 @@
     "src/art/art.ts": "cd1242a47eda6306459ef1906116ada99778ea58660ca54e252aecd1106375a2",
     "src/backstage.tsx": "d89d37ef6074c00a0aa2898326ee0901b920d8d22c088af60d31d293861c79d1",
     "src/callouts.tsx": "fccf6b854b5c95a48ef40d206edfe927718f2ad9e8b59f3b5005548819172584",
-    "src/changes-panel.tsx": "2a06b103e068f758afbfe34976ff9461ed43adbf421d5f13cb5a63b45ce5b268",
+    "src/changes-panel.tsx": "11941b33dc0809a4536108411d6910da883706f3a4e8cfad9d5db341cfd36a73",
     "src/chat/chat-panel.tsx": "1254b58827cbb57206ddc8949a295ed7c2644054b862b53eca2f8b41a9d853ff",
     "src/chat/raw-output.tsx": "e27ca3496ded4ca39ae3f252e92fd6bd89393183f5b20b88613eafe1eb694d5e",
     "src/chat/raw-steps.ts": "10faca4988fc72a912529eeb4201af7fd7193e669110db409606879f44579678",
@@ -74,18 +74,18 @@
     "src/plural.ts": "4c0d0698a171b39d5683548f00e2e9a8a7c5ea1af28e4067aaa63612476b5fa2",
     "src/queue-panel.tsx": "5ed0363915f6ed4af4a11bd071791e59451f397fffc2246786512598bd177530",
     "src/quiz.tsx": "701461de3797ae331891fcbba4b1462ecd7700b5b83f7208dac3db86041c810f",
-    "src/reader-controls.tsx": "014314d5decef3dfe5333db7f16195bbe9b237d6638329f670bd528667c1088b",
+    "src/reader-controls.tsx": "4c324377a5f0ea1bf126d5fd15ebbe04c9c30c6d4a775e762f1b97f3c6b02418",
     "src/search-page.tsx": "2cd0ec009e41f4dc701efa2ed64edd91e54503d1e880d083df21fff52ef82a5d",
     "src/server-card.tsx": "677721ee033724bbe168e6f566703ddc8df4331d2b046437c1ba91ea4e6a88b0",
     "src/shape/shape.ts": "9fe4b2b1dd21a2869130afa25aed34e2ea482fc8fe05aa2609193aa24c04b50c",
     "src/speech-control.tsx": "45a7efd449606ea196c7adef281ddadb2bd89dab1b5c9a945f56897cadbb4e0c",
     "src/static-demo.ts": "036a0b4413452d2ec8f7a51248157340082f3c030fc51d3237275021340e8810",
-    "src/styles.css": "b17f98bc9683bb87cfb1867aecf82991a1ee236cc3f86c1b930fe2f80785aafd",
+    "src/styles.css": "a99865d6f06fb4ae0b8d4bc3260b7cf476e97fdfe4e28cdce6156f046a1b729a",
     "src/theme/color.ts": "6537487f39aba3a1381baf01ec22fe458ae3e547b2ae0ffbbc5852c82b671746",
     "src/theme/famous-build.ts": "2cd184dabb7dae2e46f936e2c1aea0ff5a4696ca1e1a35eccc78439877af4b12",
     "src/theme/famous.ts": "de4969de8a1c4a4d2d3017a9d9f7a6745868f1828d677c4ab6f3f45096318101",
     "src/theme/theme-css.ts": "311a0e08004e521b191c9c670625dddf4857e3bf1eac6e8b8e6561e8073f8202",
-    "src/theme/theme-editor.tsx": "42f39a516197a0e304975a9de2b7827cc8eea3f4a3f357341e8fc6e7c30d08c0",
+    "src/theme/theme-editor.tsx": "8be687dc741271f1238a5b04065feba2f02bb0dfc492e78aeb82e6d1615fb8cd",
     "src/vanilla-buttons.ts": "f54cd8c9ffec8fb89fb410301462a3b4da10fd1d449063a7ac5de71c0166c24b",
     "src/writing-prompt.tsx": "b1b92082dc344be92de2f739b6a26237196d8a509fd14d2610b8c19f66c49657"
   },
@@ -897,12 +897,12 @@
       "sha256": "cb2ee2554fd41ac9f8e2e69c350365f0e1cf9732d27ad161c9c97b20945bbe4c"
     },
     "reader-controls.css": {
-      "bytes": 148182,
-      "sha256": "e23e38e5251970f132752018a6ba9d6d2397929c8c279033db67b78c566c8c0e"
+      "bytes": 148397,
+      "sha256": "2af868aa793b27eff6244dc83e9f64cf6fb0373406e2fae5296ae465370184b5"
     },
     "reader-controls.js": {
-      "bytes": 998253,
-      "sha256": "38b107044f8669e2a8c8b038874a428db8fa98264a297bbed70910650a762130"
+      "bytes": 998561,
+      "sha256": "d1ecf297964f979a9d80ee31e3acb91df70a444372119d554cf69ce95ec2f611"
     },
     "reader-controls.js.LEGAL.txt": {
       "bytes": 5290,

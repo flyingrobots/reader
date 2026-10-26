@@ -4,6 +4,7 @@ const {spawn}=require('node:child_process');
 const {createInterface}=require('node:readline');
 const {mkdirSync}=require('node:fs');
 const {chromium}=require(process.env.READER_PLAYWRIGHT||'playwright-core');
+const {waitFor,watch:watchResponses}=require('./web_wait.cjs');
 const THEMES=['ink','paper','orchid','orchid-dark','harvest','harvest-dark',...require('../src/reader_mcp/web_ui/famous-themes.json').themes.flatMap(t=>[t.id,t.id+'-dark'])];
 (async()=>{
  const fixture=spawn(process.env.READER_PYTHON||'.venv/bin/python',['tests/web_fixture.py','--outline'],{stdio:['ignore','pipe','inherit']});let browser;
@@ -13,8 +14,10 @@ const THEMES=['ink','paper','orchid','orchid-dark','harvest','harvest-dark',...r
   mkdirSync('.reader/web-dev',{recursive:true});
   const errors=[],external=[];
   const context=async(viewport,prefs={})=>{const ctx=await browser.newContext({viewport,reducedMotion:'reduce'});await ctx.addInitScript(value=>{try{if(!sessionStorage.getItem('seeded')){localStorage.setItem('reader.preferences.v1',value);sessionStorage.setItem('seeded','1');}}catch{}},JSON.stringify({smooth:false,theme:'paper',...prefs}));return ctx;};
-  const watch=page=>{page.on('pageerror',e=>errors.push(e.message));page.on('console',m=>{if(m.type()==='error')errors.push(m.text());});page.on('request',r=>{if(!r.url().startsWith(url))external.push(r.url());});return page;};
-  const open=async(page,path)=>{await page.evaluate(()=>document.querySelector('#article')?.setAttribute('data-stale','')).catch(()=>{});await page.goto(url+'/#read='+encodeURIComponent(path));await page.waitForFunction(()=>document.querySelector('#article:not([data-stale])')&&!document.querySelector('.resume-pending'));await page.waitForTimeout(150);};
+  const watch=page=>{watchResponses(page);page.on('pageerror',e=>errors.push(e.message));page.on('console',m=>{if(m.type()==='error')errors.push(m.text());});page.on('request',r=>{if(!r.url().startsWith(url))external.push(r.url());});return page;};
+  const open=async(page,path)=>{await page.evaluate(()=>document.querySelector('#article')?.setAttribute('data-stale','')).catch(()=>{});await page.goto(url+'/#read='+encodeURIComponent(path));
+    // #77: name the half that is missing if a loaded machine is slow to render the new document or resume it.
+    await waitFor(page,'document '+path+' rendered and resumed',()=>({fresh:!!document.querySelector('#article:not([data-stale])'),resumed:!document.querySelector('.resume-pending')}));await page.waitForTimeout(150);};
   const activeTitle=()=>{const el=document.querySelector('[aria-label="Document outline"] [aria-current=location]');return el?(el.querySelector('.outline-entry-title')||el).textContent.trim():null;};
   const current=page=>page.evaluate(activeTitle);
   const waitCurrent=(page,text)=>page.waitForFunction(text=>{const el=document.querySelector('[aria-label="Document outline"] [aria-current=location]');return !!el&&(el.querySelector('.outline-entry-title')||el).textContent.trim()===text;},text,{timeout:5000});
@@ -52,7 +55,10 @@ const THEMES=['ink','paper','orchid','orchid-dark','harvest','harvest-dark',...r
    await page.locator('#main').focus();await leader(page,'o');await rail.waitFor({state:'hidden'});
    assert.equal(await page.evaluate(()=>JSON.parse(localStorage.getItem('reader.preferences.v1')).outline),false);
    assert.equal(await page.locator('#outline-open').getAttribute('aria-pressed'),'false');
-   await page.reload();await page.locator('#outline-open').waitFor();await page.waitForTimeout(200);assert.equal(await rail.isVisible(),false,'hidden preference persists');
+   await page.reload();
+   // The rail would show once the document is in and resumed; check after that rather than after a fixed 200 ms.
+   await waitFor(page,'reloaded document rendered and resumed',()=>({button:!!document.querySelector('#outline-open'),article:!!document.querySelector('#article p'),resumed:!document.querySelector('.resume-pending')}));
+   await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));assert.equal(await rail.isVisible(),false,'hidden preference persists');
    await page.locator('#main').focus();await leader(page,'o');await rail.waitFor();
    assert.equal(await page.evaluate(()=>document.activeElement.closest('#outline-rail')!==null),true,'Space o focuses the rail');
    assert.equal(await page.evaluate(()=>JSON.parse(localStorage.getItem('reader.preferences.v1')).outline),true);

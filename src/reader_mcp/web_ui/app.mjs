@@ -29,6 +29,7 @@ import {installVisual} from './visual.mjs';
 import {installPlace} from './place.mjs';
 import {installLists} from './lists.mjs';
 import {installStatusPriority} from './status-priority.mjs';
+import {installDock,pageWidth} from './dock.mjs';
 
 const $ = selector => document.querySelector(selector);
 // Split view: a pane is this app in an embedded same-origin iframe (/?pane=1#…); the top document is the shell.
@@ -980,8 +981,8 @@ function spreadPinPlacer(article){
   const gap=parseFloat(style.columnGap)||40,columns=parseInt(style.columnCount)||1,width=(viewport.width-gap*(columns-1))/columns,stacks=[];
   return (rect,pin)=>{
     const column=Math.max(0,Math.min(columns-1,Math.floor((rect.left-viewport.left+gap/2)/(width+gap)))),right=viewport.left+column*(width+gap)+width;
-    const size=pin.offsetWidth||28,room=column<columns-1?gap:innerWidth-right,top=Math.max((stacks[column]??-Infinity)+size+3,rect.top+rect.height/2);stacks[column]=top;
-    return {left:Math.min(innerWidth-size-2,right+Math.max(2,(room-size)/2)),top};
+    const size=pin.offsetWidth||28,room=column<columns-1?gap:pageWidth()-right,top=Math.max((stacks[column]??-Infinity)+size+3,rect.top+rect.height/2);stacks[column]=top;
+    return {left:Math.min(pageWidth()-size-2,right+Math.max(2,(room-size)/2)),top};
   };
 }
 function positionPins(){
@@ -994,7 +995,7 @@ function positionPins(){
   for(const {thread,range} of state.ranges){const rects=[...range.getClientRects()];const rect=spread?rects.find(r=>r.width>0&&r.right>spread.left+1&&r.left<spread.right-1):reading?.hasBook()?null:rects.at(-1);const pin=article.querySelector(`[data-thread="${CSS.escape(thread.id)}"]`);if(!pin)continue;pin.hidden=!rect;if(rect)placed.push({pin,rect});}
   for(const piece of state.writingRecords||[]){const range=learningEvidenceRange(piece.evidence||piece.prompt?.evidence);if(!range)continue;let pin=article.querySelector(`[data-writing-pin="${CSS.escape(piece.path)}"]`);if(!pin){pin=document.createElement('button');pin.className='annotation-pin writing-pin';pin.dataset.readerDecoration='';pin.dataset.writingPin=piece.path;pin.type='button';pin.textContent='✎';pin.title='Your writing: '+piece.title;pin.setAttribute('aria-label',pin.title);pin.onclick=()=>navigate(piece.path);article.append(pin);}const rects=[...range.getClientRects()],rect=spread?rects.find(r=>r.width>0&&r.right>spread.left+1&&r.left<spread.right-1):reading?.hasBook()?null:rects.at(-1);pin.hidden=!rect;if(rect)placed.push({pin,rect});}
   placed.sort((a,b)=>a.rect.top-b.rect.top||a.rect.left-b.rect.left);
-  for(const {pin,rect} of placed){if(place){const at=place(rect,pin);pin.style.left=at.left+'px';pin.style.top=at.top+'px';}else if(reading?.hasBook()){pin.style.left=Math.min(innerWidth-25,rect.right+9)+'px';pin.style.top=rect.bottom-5+'px';}else{pin.style.left='';const top=Math.max(previous+27,rect.bottom-box.top-5);pin.style.top=top+'px';previous=top;}}
+  for(const {pin,rect} of placed){if(place){const at=place(rect,pin);pin.style.left=at.left+'px';pin.style.top=at.top+'px';}else if(reading?.hasBook()){pin.style.left=Math.min(pageWidth()-25,rect.right+9)+'px';pin.style.top=rect.bottom-5+'px';}else{pin.style.left='';const top=Math.max(previous+27,rect.bottom-box.top-5);pin.style.top=top+'px';previous=top;}}
 }
 function threadUnread(id){return state.attention.find(i=>i.key==='thread:'+id)?.read!==true;}
 function seenLabel(key){const item=state.attention.find(i=>i.key===key);return item?.seen_by?.length?'Seen by '+item.seen_by.map(r=>r.participant).join(', '):'Not yet seen by another reader';}
@@ -1083,7 +1084,7 @@ function captureSelection(given=null){
     state.selected={...coords,path:doc.path,sha256:doc.sha256,quote:rawCodePoints(doc.text,coords.start,coords.end),requests:{}};
     state.lastQuote={quote:plainQuote(state.selected.quote),path:doc.path,title:String(doc.metadata?.title||doc.title||doc.path)};  // :cite in the scratch pad
     const rect=[...range.getClientRects()].at(-1) || range.getBoundingClientRect(),tools=$('#selection-tools');
-    tools.hidden=false;tools.style.left=Math.max(130,Math.min(innerWidth-130,rect.right))+'px';tools.style.top=Math.max(60,rect.top-10)+'px';
+    tools.hidden=false;tools.style.left=Math.max(130,Math.min(pageWidth()-130,rect.right))+'px';tools.style.top=Math.max(60,rect.top-10)+'px';
     // Touch browsers draw their own selection menu above the passage, so the toolbar goes below it there.
     if(matchMedia('(pointer: coarse)').matches)tools.style.top=Math.min(innerHeight-20,range.getBoundingClientRect().bottom+tools.offsetHeight+28)+'px';
   }catch(error){state.selected=null;$('#selection-tools').hidden=true;if(!error.offline&&captureSelection.failed!==quote)toast(error.message);captureSelection.failed=quote;}
@@ -1234,8 +1235,12 @@ async function openPreferences(){
 function setThemeEditorOpen(open){
   if(open&&!state.themeEditorOpen)state.themeEditorOpener=document.activeElement;
   state.themeEditorOpen=open;controls.update({themeEditorOpen:open});state.smoother?.paused(open);reading?.updateStatus();
-  // Closing returns focus to where the editor was opened from (after the sheet's own focus handling), or the page.
-  if(!open)setTimeout(()=>{const opener=state.themeEditorOpener;state.themeEditorOpener=null;if(state.themeEditorOpen)return;(opener?.isConnected&&opener!==document.body&&!opener.closest('#theme-editor')?opener:$('#main')).focus({preventScroll:true});reading?.updateStatus();},0);
+}
+/** The sheet calls this once its close has finished and it has unmounted (it moves no focus itself), so nothing races the
+    return: focus goes back to where the editor was opened from, or the page (#124). */
+function themeEditorClosed(){
+  const opener=state.themeEditorOpener;state.themeEditorOpener=null;if(state.themeEditorOpen)return;
+  (opener?.isConnected&&opener!==document.body&&!opener.closest('#theme-editor')?opener:$('#main')).focus({preventScroll:true});reading?.updateStatus();
 }
 function useTheme(theme){state.prefs.theme=theme;document.documentElement.dataset.theme=theme;savePrefs();controls.update({theme,prefs:{...state.prefs}});reading?.updateStatus();}
 function themesChanged(themes,fonts){
@@ -1286,7 +1291,7 @@ document.addEventListener('selectionchange',()=>{
 });
 let hoverFrame;
 document.addEventListener('mousemove',event=>{
-  document.body.classList.toggle('reveal-controls',event.clientX>innerWidth-75&&event.clientY>innerHeight-80);
+  document.body.classList.toggle('reveal-controls',event.clientX>pageWidth()-75&&event.clientX<pageWidth()&&event.clientY>innerHeight-80);
   if(hoverFrame)return;
   hoverFrame=requestAnimationFrame(()=>{hoverFrame=null;const spread=reading?.geometry()?.viewport.getBoundingClientRect(),inside=!spread||event.clientX>=spread.left&&event.clientX<=spread.right&&event.clientY>=spread.top&&event.clientY<=spread.bottom;const hit=inside&&state.ranges.find(({range})=>[...range.getClientRects()].some(r=>event.clientX>=r.left&&event.clientX<=r.right&&event.clientY>=r.top&&event.clientY<=r.bottom));const tip=$('#passage-tooltip');if(hit){tip.textContent=`${hit.thread.owner} · ${plural(hit.thread.comments.length,'comment')}`;tip.style.left=Math.max(10,Math.min(innerWidth-260,event.clientX+12))+'px';tip.style.top=event.clientY+20+'px';tip.classList.add('visible');}else tip.classList.remove('visible');});
 });
@@ -1717,7 +1722,7 @@ reduced.addEventListener('change',resetScroll);
 search=installSearch({api,state,navigate,back:goBack,backstage:()=>navigate(BACKSTAGE),notify,queue:path=>queue.add(path)});
 installStatusPriority($('#statusline'));
 const breadcrumbs=installBreadcrumbs({container:$('#status-location'),home:()=>navigate(null),openFolder:folder=>openPicker('all',folder),onChange:()=>reading?.updateStatus()});
-controls=installControls({seek:fraction=>reading.seek(fraction),spread:index=>reading.seekSpread(index),thread:id=>{const hit=state.ranges.find(entry=>entry.thread.id===id);if(hit)moveToRange(hit.range);openThread(id);},theme:()=>{state.prefs.theme=oppositeTheme(state.prefs.theme);document.documentElement.dataset.theme=state.prefs.theme;savePrefs();reading.updateStatus();},save:applyPreferences,error:report,outlineToggle:()=>outline.toggle(),outlineOpen:open=>outline.setOpen(open),outlineGo:index=>outline.go(index),themeEditor:setThemeEditorOpen,api,themesChanged,useTheme,previewFont,chatMarkdown,openPath:path=>navigate(path),chatChanged:()=>reading?.updateStatus(),
+controls=installControls({seek:fraction=>reading.seek(fraction),spread:index=>reading.seekSpread(index),thread:id=>{const hit=state.ranges.find(entry=>entry.thread.id===id);if(hit)moveToRange(hit.range);openThread(id);},theme:()=>{state.prefs.theme=oppositeTheme(state.prefs.theme);document.documentElement.dataset.theme=state.prefs.theme;savePrefs();reading.updateStatus();},save:applyPreferences,error:report,outlineToggle:()=>outline.toggle(),outlineOpen:open=>outline.setOpen(open),outlineGo:index=>outline.go(index),themeEditor:setThemeEditorOpen,themeEditorClosed,api,themesChanged,useTheme,previewFont,chatMarkdown,openPath:path=>navigate(path),chatChanged:()=>reading?.updateStatus(),
   open:path=>navigate(path),libraryChanged:async()=>{await loadLibrary();if(!state.doc&&state.view!=='backstage')renderHome();},
   markdown:text=>{const template=document.createElement('template');template.innerHTML=DOMPurify.sanitize(window.markdownit({html:false,linkify:true}).render(text),{USE_PROFILES:{html:true}});decorateCodeBlocks(template.content,{wrap:true,lineNumbers:false});return template.innerHTML;}},state.prefs);
 speech=installSpeech({state,api,reading:{capture:()=>reading.capture(),hasBook:()=>reading.hasBook()},notify,track:trackSpeech,openDialog,closeDialog,companion:promptCompanion});
@@ -1758,6 +1763,19 @@ function prefsFromStorage(){
 }
 window.addEventListener('storage',event=>{if(event.key==='reader.preferences.v1')prefsFromStorage();else if(event.key==='reader.themes.v1')loadThemes();});
 window.addEventListener('reader:prefs',prefsFromStorage);
+// A docked panel narrows continuous reading: keep the line at the reading line (22% down) in view.
+installDock({
+  before(){
+    const article=$('#article');if(!article||reading?.hasBook()||split?.active())return null;
+    const list=[...article.children].filter(el=>!el.classList.contains('annotation-pin')),line=innerHeight*.22;
+    let lo=0,hi=list.length-1;if(hi<0)return null;
+    while(lo<hi){const mid=(lo+hi)>>1;if(list[mid].getBoundingClientRect().bottom>line)hi=mid;else lo=mid+1;}
+    const rect=list[lo].getBoundingClientRect();return {el:list[lo],line,fraction:rect.height?Math.max(0,Math.min(1,(line-rect.top)/rect.height)):0};
+  },
+  after(kept){
+    if(!kept?.el.isConnected)return;const rect=kept.el.getBoundingClientRect(),shift=rect.top+rect.height*kept.fraction-kept.line;
+    if(Math.abs(shift)>1)scrollToPosition(scrollY+shift,false,kept.el,kept.fraction);
+  }});
 mountSkeleton($('#main'),'library');
 loadThemes();
 try{await loadLibrary();

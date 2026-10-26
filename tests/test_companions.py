@@ -9,6 +9,7 @@ import subprocess
 import sys
 import threading
 import time
+from types import SimpleNamespace
 import urllib.error
 import urllib.request
 from uuid import uuid4
@@ -38,6 +39,11 @@ def no_git_locks(monkeypatch, tmp_path):
     for name in ('READER_GIT_LOCKS', 'READER_GIT_LOCKS_STORE', 'GIT_LOCKS_STORE', 'READER_COLORFUL', 'AI_TTS_SOCKET'):
         monkeypatch.delenv(name, raising=False)
     monkeypatch.setenv('AI_TTS_SOCKET', str(tmp_path / 'no-ai-tts.sock'))
+    # These installs use fake tools and tiny fixtures. Model the install's capacity
+    # input without changing the Docker guard or any other subsystem's disk probe.
+    usage = cp.shutil.disk_usage
+    monkeypatch.setattr(cp, 'shutil', SimpleNamespace(**(vars(cp.shutil) | {
+        'disk_usage': lambda path: usage(path)._replace(free=10 * 1024**3)})))
 
 
 def vault(path, git=False):

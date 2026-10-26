@@ -11,7 +11,7 @@ import {bestContrastWith, COLOR_TOKENS, FONT_ROLES, HEADINGS, HEADING_SIZES, BUN
 import {FAMOUS, famousId} from './famous';
 import {readBuiltIn, themeId, variantProperties, type InstalledFont} from './theme-css';
 
-export type EditorProps={open:boolean;onOpenChange:(open:boolean)=>void;themes:Theme[];fonts:InstalledFont[];current:string;
+export type EditorProps={open:boolean;onOpenChange:(open:boolean)=>void;/** After the close animation ends and the sheet unmounts: the caller restores focus (#124). */onClosed?:()=>void;themes:Theme[];fonts:InstalledFont[];current:string;
   api:(path:string,payload?:unknown)=>Promise<any>;onChanged:(themes:Theme[],fonts:InstalledFont[])=>void;onUse:(dataTheme:string)=>void;onPreviewFont:(href:string)=>void;error:(error:unknown)=>void};
 
 const BUILT_INS=[{key:'ink',name:'Ink & Paper',light:'paper',dark:'ink'},{key:'orchid',name:'Orchid',light:'orchid',dark:'orchid-dark'},{key:'harvest',name:'Harvest',light:'harvest',dark:'harvest-dark'},...FAMOUS.map(t=>({key:t.id,name:t.name,light:famousId(t.id,'light'),dark:famousId(t.id,'dark')}))];
@@ -140,8 +140,8 @@ export function ThemeEditor(props:EditorProps){
   const other:Variant=variant==='light'?'dark':'light';
   const failingOther=otherChecks.filter(c=>c.severity==='fail').length;
   const requestOpen=(next:boolean)=>{if(!next&&!confirmDiscard())return;props.onOpenChange(next);};
-  return <Sheet open={open} onOpenChange={requestOpen}>
-    <SheetContent onKeyDown={e=>{if(e.key==='F10'){e.preventDefault();requestOpen(false);}}} id="theme-editor" className="theme-editor data-[side=right]:w-full data-[side=right]:sm:max-w-[min(1320px,100vw)]" initialFocus={()=>document.querySelector<HTMLElement>('#theme-source')} finalFocus={()=>document.querySelector<HTMLElement>('#main')}>
+  return <Sheet open={open} onOpenChange={requestOpen} onOpenChangeComplete={next=>{if(!next)props.onClosed?.();}}>
+    <SheetContent onKeyDown={e=>{if(e.key==='F10'){e.preventDefault();requestOpen(false);}}} id="theme-editor" className="theme-editor data-[side=right]:w-full data-[side=right]:sm:max-w-[min(1320px,100vw)]" initialFocus={()=>document.querySelector<HTMLElement>('#theme-source')} finalFocus={false}>
       <SheetHeader className="theme-editor-head"><SheetTitle>Theme Editor</SheetTitle><SheetDescription>Every theme has a light and a dark variant. Checks use WCAG 2.2 contrast and simulated color vision; they are guides, not proof of accessibility.</SheetDescription></SheetHeader>
       <div className="theme-editor-body">
         <form className="theme-editor-form" onSubmit={e=>{e.preventDefault();if(!needsReader())save(false);}}>

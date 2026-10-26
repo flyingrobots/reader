@@ -14,6 +14,9 @@ export type ChangesOptions={data:ChangeSet;participant:string;seek:(start:number
 const NARROW='(max-width: 640px)';
 const subscribe=(listener:()=>void)=>{const q=matchMedia(NARROW);q.addEventListener('change',listener);return ()=>q.removeEventListener('change',listener);};
 const narrowNow=()=>matchMedia(NARROW).matches;
+// Docked beside the page (web_ui/dock.mjs sets data-dock on the root): clicking the page keeps the panel open.
+const subscribeDocked=(listener:()=>void)=>{const o=new MutationObserver(listener);o.observe(document.documentElement,{attributes:true,attributeFilter:['data-dock']});return ()=>o.disconnect();};
+const dockedNow=()=>document.documentElement.dataset.dock==='right';
 const plural=(n:number,word:string)=>`${n} ${word}${n===1?'':'s'}`;
 const day=(value?:string)=>value?new Date(value).toLocaleDateString(undefined,{month:'short',day:'numeric'}):'';
 
@@ -43,6 +46,7 @@ function HunkView({hunk,seek}:{hunk:Hunk;seek:(start:number,end:number)=>void}){
 export function ChangesPanel({data,participant,seek,caughtUp,onClose}:ChangesOptions){
   const [open,setOpen]=useState(true),[busy,setBusy]=useState(false);
   const narrow=useSyncExternalStore(subscribe,narrowNow);
+  const docked=useSyncExternalStore(subscribeDocked,dockedNow);
   // Closing returns focus to the page (#59). Base UI's own return skipped the non-tabbable #main for the first
   // tabbable element inside it (the reading log), so focus moves here instead, unless it already went elsewhere.
   useEffect(()=>{if(open)return;onClose();requestAnimationFrame(()=>{const active=document.activeElement;
@@ -50,8 +54,9 @@ export function ChangesPanel({data,participant,seek,caughtUp,onClose}:ChangesOpt
   const s=data.stats;
   const title=data.title||(data.successor?'Compared with the newer version':data.against?`Since ${data.against} read it`:'Since you read it');
   const summary=annotationSummary(data,participant);
-  // On wide screens the panel sits beside the article (no backdrop), so clicking a change shows it in place.
-  return <Sheet open={open} onOpenChange={setOpen} modal={narrow?true:false}>
+  // On wide screens the panel sits beside the article (no backdrop), so clicking a change shows it in place; docked, a
+  // click on the page leaves it open.
+  return <Sheet open={open} onOpenChange={setOpen} modal={narrow?true:false} disablePointerDismissal={docked}>
     <SheetContent side={narrow?'bottom':'right'} id="changes-panel" className="changes-panel data-[side=right]:w-full data-[side=right]:sm:max-w-[min(520px,100vw)]" data-reader-decoration=""
       finalFocus={false}>
       <SheetHeader><SheetTitle>{title}</SheetTitle>
