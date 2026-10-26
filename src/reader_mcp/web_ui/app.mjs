@@ -1191,8 +1191,12 @@ async function openPreferences(){
 function setThemeEditorOpen(open){
   if(open&&!state.themeEditorOpen)state.themeEditorOpener=document.activeElement;
   state.themeEditorOpen=open;controls.update({themeEditorOpen:open});state.smoother?.paused(open);reading?.updateStatus();
-  // Closing returns focus to where the editor was opened from (after the sheet's own focus handling), or the page.
-  if(!open)setTimeout(()=>{const opener=state.themeEditorOpener;state.themeEditorOpener=null;if(state.themeEditorOpen)return;(opener?.isConnected&&opener!==document.body&&!opener.closest('#theme-editor')?opener:$('#main')).focus({preventScroll:true});reading?.updateStatus();},0);
+}
+/** The sheet calls this once its close has finished and it has unmounted (it moves no focus itself), so nothing races the
+    return: focus goes back to where the editor was opened from, or the page (#124). */
+function themeEditorClosed(){
+  const opener=state.themeEditorOpener;state.themeEditorOpener=null;if(state.themeEditorOpen)return;
+  (opener?.isConnected&&opener!==document.body&&!opener.closest('#theme-editor')?opener:$('#main')).focus({preventScroll:true});reading?.updateStatus();
 }
 function useTheme(theme){state.prefs.theme=theme;document.documentElement.dataset.theme=theme;savePrefs();controls.update({theme,prefs:{...state.prefs}});reading?.updateStatus();}
 function themesChanged(themes,fonts){
@@ -1670,7 +1674,7 @@ reduced.addEventListener('change',resetScroll);
 search=installSearch({api,state,navigate,back:goBack,backstage:()=>navigate(BACKSTAGE),notify,queue:path=>queue.add(path)});
 installStatusPriority($('#statusline'));
 const breadcrumbs=installBreadcrumbs({container:$('#status-location'),home:()=>navigate(null),openFolder:folder=>openPicker('all',folder),onChange:()=>reading?.updateStatus()});
-controls=installControls({seek:fraction=>reading.seek(fraction),spread:index=>reading.seekSpread(index),thread:id=>{const hit=state.ranges.find(entry=>entry.thread.id===id);if(hit)moveToRange(hit.range);openThread(id);},theme:()=>{state.prefs.theme=oppositeTheme(state.prefs.theme);document.documentElement.dataset.theme=state.prefs.theme;savePrefs();reading.updateStatus();},save:applyPreferences,error:report,outlineToggle:()=>outline.toggle(),outlineOpen:open=>outline.setOpen(open),outlineGo:index=>outline.go(index),themeEditor:setThemeEditorOpen,api,themesChanged,useTheme,previewFont,chatMarkdown,openPath:path=>navigate(path),chatChanged:()=>reading?.updateStatus(),
+controls=installControls({seek:fraction=>reading.seek(fraction),spread:index=>reading.seekSpread(index),thread:id=>{const hit=state.ranges.find(entry=>entry.thread.id===id);if(hit)moveToRange(hit.range);openThread(id);},theme:()=>{state.prefs.theme=oppositeTheme(state.prefs.theme);document.documentElement.dataset.theme=state.prefs.theme;savePrefs();reading.updateStatus();},save:applyPreferences,error:report,outlineToggle:()=>outline.toggle(),outlineOpen:open=>outline.setOpen(open),outlineGo:index=>outline.go(index),themeEditor:setThemeEditorOpen,themeEditorClosed,api,themesChanged,useTheme,previewFont,chatMarkdown,openPath:path=>navigate(path),chatChanged:()=>reading?.updateStatus(),
   open:path=>navigate(path),libraryChanged:async()=>{await loadLibrary();if(!state.doc&&state.view!=='backstage')renderHome();},
   markdown:text=>{const template=document.createElement('template');template.innerHTML=DOMPurify.sanitize(window.markdownit({html:false,linkify:true}).render(text),{USE_PROFILES:{html:true}});decorateCodeBlocks(template.content,{wrap:true,lineNumbers:false});return template.innerHTML;}},state.prefs);
 speech=installSpeech({state,api,reading:{capture:()=>reading.capture(),hasBook:()=>reading.hasBook()},notify,track:trackSpeech,openDialog,closeDialog,companion:promptCompanion});

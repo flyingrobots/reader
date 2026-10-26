@@ -71,7 +71,7 @@
     "src/page-turn/svg-images.ts": "7279f2b05c66b7a496d2b891b65030e6738f90b032fabbdf9057106f518d887e",
     "src/plural.ts": "4c0d0698a171b39d5683548f00e2e9a8a7c5ea1af28e4067aaa63612476b5fa2",
     "src/queue-panel.tsx": "5ed0363915f6ed4af4a11bd071791e59451f397fffc2246786512598bd177530",
-    "src/reader-controls.tsx": "35b369f87cb01fa55d4699c2195bc337703d591a388e8466b01b189c29413e7a",
+    "src/reader-controls.tsx": "a5420961c6540203323dfc4eca89e50a54346f7eae6b0ddec690f0270e243ca5",
     "src/search-page.tsx": "2cd0ec009e41f4dc701efa2ed64edd91e54503d1e880d083df21fff52ef82a5d",
     "src/server-card.tsx": "677721ee033724bbe168e6f566703ddc8df4331d2b046437c1ba91ea4e6a88b0",
     "src/shape/shape.ts": "9fe4b2b1dd21a2869130afa25aed34e2ea482fc8fe05aa2609193aa24c04b50c",
@@ -82,7 +82,7 @@
     "src/theme/famous-build.ts": "2cd184dabb7dae2e46f936e2c1aea0ff5a4696ca1e1a35eccc78439877af4b12",
     "src/theme/famous.ts": "de4969de8a1c4a4d2d3017a9d9f7a6745868f1828d677c4ab6f3f45096318101",
     "src/theme/theme-css.ts": "311a0e08004e521b191c9c670625dddf4857e3bf1eac6e8b8e6561e8073f8202",
-    "src/theme/theme-editor.tsx": "42f39a516197a0e304975a9de2b7827cc8eea3f4a3f357341e8fc6e7c30d08c0",
+    "src/theme/theme-editor.tsx": "8be687dc741271f1238a5b04065feba2f02bb0dfc492e78aeb82e6d1615fb8cd",
     "src/vanilla-buttons.ts": "f54cd8c9ffec8fb89fb410301462a3b4da10fd1d449063a7ac5de71c0166c24b"
   },
   "dependencies": {
@@ -897,8 +897,8 @@
       "sha256": "864f14ee4bcbd3e71d04971077c98e9b3bd96957d3d8179f67da799853dc40b7"
     },
     "reader-controls.js": {
-      "bytes": 981271,
-      "sha256": "00f0c96c2252a500443448d8806a1fde1d210f23aba5ac0ba940e439267f04e2"
+      "bytes": 981311,
+      "sha256": "5d6103bcbd070062b8ec941745cf4d6a7e67ba4d18cd23db1ab37ca36413082c"
     },
     "reader-controls.js.LEGAL.txt": {
       "bytes": 5290,

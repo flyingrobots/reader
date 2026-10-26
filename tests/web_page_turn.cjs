@@ -4,7 +4,7 @@ const {spawn}=require('node:child_process');
 const {createInterface}=require('node:readline');
 const {mkdirSync}=require('node:fs');
 const {chromium}=require(process.env.READER_PLAYWRIGHT||'playwright-core');
-const {sanitizerReport}=require('./web_wait.cjs');  // #151
+const {waitFor,watch,sanitizerReport}=require('./web_wait.cjs');
 (async()=>{
  const fixture=spawn(process.env.READER_PYTHON||'.venv/bin/python',['tests/web_fixture.py'],{stdio:['ignore','pipe','inherit']});let browser;
  try{
@@ -13,7 +13,9 @@ const {sanitizerReport}=require('./web_wait.cjs');  // #151
   mkdirSync('.reader/web-dev',{recursive:true});
   const open=async(reducedMotion,prefs,path)=>{const context=await browser.newContext({viewport:{width:1300,height:820},reducedMotion});await context.addInitScript(value=>{try{localStorage.setItem('reader.preferences.v1',value);}catch{}},JSON.stringify({layout:'spread',smooth:false,theme:'paper',...prefs}));
     const page=await context.newPage(),errors=[],external=[];page.on('pageerror',e=>errors.push(e.message));page.on('console',m=>{if(m.type()==='error'&&!sanitizerReport(m))errors.push(m.text());});page.on('request',r=>{if(!r.url().startsWith(url))external.push(r.url());});
-    await page.goto(url+'#read='+encodeURIComponent(path));await page.waitForFunction(()=>document.body.classList.contains('two-page')&&!document.querySelector('.resume-pending'));
+    watch(page);await page.goto(url+'#read='+encodeURIComponent(path));
+    // #76: say which half is missing when a loaded machine is slow to lay out the spread or to resume.
+    await waitFor(page,'two-page layout, resumed',()=>({twoPage:document.body.classList.contains('two-page'),resumed:!document.querySelector('.resume-pending'),article:!!document.querySelector('#article p')}));
     return {page,errors,external,context};};
   const current=page=>page.locator('#pagination-slot [aria-current=page]').textContent();
   const overlay=page=>page.evaluate(()=>!!document.querySelector('.page-turn-canvas'));
@@ -27,10 +29,10 @@ const {sanitizerReport}=require('./web_wait.cjs');  // #151
    await page.waitForFunction(()=>import('/assets/controls/page-turn.js').then(()=>true));await page.waitForTimeout(200);
    assert.equal(await current(page),'1–2');
    await page.locator('#main').focus();await page.keyboard.press('j');
-   await page.waitForTimeout(350);assert.ok(await overlay(page),'WebGL sheet is drawn mid-turn');assert.ok(await page.evaluate(()=>document.body.classList.contains('page-turning')));
+   await waitFor(page,'WebGL sheet is drawn mid-turn',()=>({sheet:!!document.querySelector('.page-turn-canvas'),turning:document.body.classList.contains('page-turning'),_page:document.querySelector('#pagination-slot [aria-current=page]')?.textContent,_scroll:Math.round(document.querySelector('.book-viewport')?.scrollLeft??-1)}),{timeout:3000});
    await page.screenshot({path:'.reader/web-dev/page-turn-mid.png'});
    await page.waitForFunction(()=>!document.querySelector('.page-turn-canvas'),null,{timeout:3000});assert.equal(await current(page),'3–4');
-   await page.keyboard.press('k');await page.waitForTimeout(300);assert.ok(await overlay(page),'backward turn uses the sheet too');
+   await page.keyboard.press('k');await waitFor(page,'backward turn uses the sheet too',()=>({sheet:!!document.querySelector('.page-turn-canvas')}),{timeout:3000});
    await page.waitForFunction(()=>!document.querySelector('.page-turn-canvas'),null,{timeout:3000});assert.equal(await current(page),'1–2');
    await page.keyboard.press('j');await page.waitForTimeout(120);await page.keyboard.press('j');
    await page.waitForFunction(()=>!document.querySelector('.page-turn-canvas'),null,{timeout:3000});assert.equal(await current(page),'5–6','a second press finishes the first turn and starts the next');
@@ -42,7 +44,7 @@ const {sanitizerReport}=require('./web_wait.cjs');  // #151
    const {page,errors,context}=await open(motion,prefs,'library/thought.md');await page.waitForTimeout(300);
    const before=await current(page),next=before.split('–').map(n=>String(+n+2)).join('–');
    await page.locator('#main').focus();await page.keyboard.press('j');await page.waitForTimeout(200);assert.equal(await overlay(page),false,JSON.stringify(prefs)+motion);
-   await page.waitForFunction(expected=>document.querySelector('#pagination-slot [aria-current=page]')?.textContent===expected,next,{timeout:5000});assert.deepEqual(errors,[]);await context.close();}
+   await waitFor(page,'j turns to '+next,expected=>({turned:document.querySelector('#pagination-slot [aria-current=page]')?.textContent===expected,_page:document.querySelector('#pagination-slot [aria-current=page]')?.textContent,_scroll:Math.round(document.querySelector('.book-viewport')?.scrollLeft??-1),_mode:document.querySelector('#vim-mode')?.textContent}),{arg:next,timeout:5000});assert.deepEqual(errors,[]);await context.close();}
   console.log('Page turn passed: blank facing page, WebGL sheet forward/backward, rapid presses, multi-spread slide, Slide and reduced-motion fallbacks, local-only assets.');
  }finally{await browser?.close();if(fixture.exitCode===null&&fixture.signalCode===null){fixture.kill('SIGTERM');await new Promise(resolve=>fixture.once('exit',resolve));}}
 })().catch(error=>{console.error(error);process.exitCode=1;});

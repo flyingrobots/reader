@@ -3,6 +3,7 @@ const assert=require('node:assert/strict');
 const {spawn}=require('node:child_process');
 const {createInterface}=require('node:readline');
 const {chromium}=require(process.env.READER_PLAYWRIGHT||'playwright-core');
+const {waitFor,watch,settled}=require('./web_wait.cjs');
 (async()=>{
  const fixture=spawn(process.env.READER_PYTHON||'.venv/bin/python',['tests/web_fixture.py','--outline','--maintenance'],{stdio:['ignore','pipe','inherit']});let browser;
  try{
@@ -11,23 +12,26 @@ const {chromium}=require(process.env.READER_PLAYWRIGHT||'playwright-core');
   const errors=[];
   const open=async({smooth,reducedMotion,abortSeen=false})=>{
    const context=await browser.newContext({viewport:{width:1440,height:900},reducedMotion});await context.addInitScript(value=>{try{localStorage.setItem('reader.preferences.v1',value);}catch{}},JSON.stringify({layout:'scroll',smooth}));
-   const page=await context.newPage();page.on('pageerror',error=>errors.push(error.message));
+   const page=await context.newPage();watch(page);page.on('pageerror',error=>errors.push(error.message));
    if(abortSeen)await page.route('**/api/seen',route=>route.request().method()==='POST'?route.abort():route.continue());
    await page.goto(url+'/#read='+encodeURIComponent('library/thought.md'));
-   if(!abortSeen){await page.locator('#outline-rail a').first().waitFor();await page.waitForFunction(()=>!document.querySelector('.resume-pending'));await page.locator('#main').focus();}
+   if(!abortSeen){await page.locator('#outline-rail a').first().waitFor();await waitFor(page,'document resumed',()=>({resumed:!document.querySelector('.resume-pending')}));await page.locator('#main').focus();}
    return page;};
   const label=page=>page.evaluate(()=>[document.querySelector('#status-section').textContent,document.querySelector('#outline-rail [aria-current=location]')?.textContent]);
   // #47: with ScrollSmoother on, G and gg settle on the section actually at the reading line.
   {const page=await open({smooth:true,reducedMotion:'no-preference'});
-   await page.keyboard.press('G');await page.waitForTimeout(2500);assert.deepEqual(await label(page),['Chapter 44','Chapter 44'],'after G');
-   await page.keyboard.press('g');await page.keyboard.press('g');await page.waitForTimeout(2500);assert.deepEqual(await label(page),['A quiet thought','A quiet thought'],'after gg');
+   const labelIs=(text,why)=>waitFor(page,why,text=>({status:document.querySelector('#status-section').textContent===text,rail:document.querySelector('#outline-rail [aria-current=location]')?.textContent===text,_label:document.querySelector('#status-section').textContent,_y:Math.round(scrollY),_max:document.documentElement.scrollHeight-innerHeight,_ends:document.querySelectorAll('.next-reads,.document-footer').length}),{arg:text,timeout:10000});
+   await page.keyboard.press('G');await labelIs('Chapter 44','after G');
+   await page.keyboard.press('g');await page.keyboard.press('g');await labelIs('A quiet thought','after gg');
    await page.mouse.move(700,450);await page.mouse.wheel(0,6000);await page.waitForTimeout(2500);
    const atLine=await page.evaluate(()=>{const line=innerHeight*.22;let title=null;for(const h of document.querySelectorAll('#article h1,#article h2'))if(h.getBoundingClientRect().top<=line+1)title=h.textContent.trim();return title;});
    assert.deepEqual(await label(page),[atLine,atLine],'after wheel scrolling');
    await page.context().close();}
   // #51: ]] in the last section stays put and says so; #48: end-of-document blocks never draw under a visible rail.
   {const page=await open({smooth:false,reducedMotion:'reduce'});
-   await page.keyboard.press('G');await page.locator('.next-reads').waitFor();await page.waitForTimeout(300);const before=await page.evaluate(()=>scrollY);
+   // #123: the end-of-article blocks finish loading after .next-reads appears and can push the end down a line; wait for
+   // the page height and position to hold still, then G again so the check starts from the real end.
+   await page.keyboard.press('G');await page.locator('.next-reads').waitFor();await settled(page,'end of article settled');await page.keyboard.press('G');await settled(page,'at the settled end');const before=await page.evaluate(()=>scrollY);
    await page.keyboard.press(']');await page.keyboard.press(']');await page.waitForTimeout(400);
    assert.equal(await page.evaluate(()=>scrollY),before,']] in the last section does not move backwards');
    await page.getByText('This is the last heading.').waitFor();

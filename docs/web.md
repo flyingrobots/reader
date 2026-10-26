@@ -327,7 +327,10 @@ Tailwind semantic colors (`--color-primary` and so on) map onto the same tokens.
 A dark variant is any `data-theme` that is `ink` or ends in `-dark`.
 
 Open the Theme Editor with Space , t (leader, comma, t), F10, or **Theme Editor…**
-in Settings. It edits one theme at a time, with Light and Dark variants:
+in Settings. Closing it (F10, Esc or the close button) returns focus to where it was
+opened from, or the page, once the sheet's close has finished; the sheet itself moves
+no focus, so a slow close cannot leave focus on the first control behind it. It edits
+one theme at a time, with Light and Dark variants:
 
 - **Create.** Choose *New theme from a seed color*, then **Generate both variants**.
   Neutrals are tinted toward the seed hue. Each role keeps a fixed OKLCH lightness and
@@ -3163,7 +3166,9 @@ is taken as the query itself; a malformed escape is read literally.
   `o` opens it in a new browser tab and keeps you on Search, `/` returns to the
   field, `h` goes back and Esc returns to where you were. Esc on any other page
   control (a mode button, facet or filter) moves to the results, or the field when
-  there are none; a second Esc goes back.
+  there are none; a second Esc goes back. If that query is still running, focus
+  lands on the results it brings once they render (the field when there are none),
+  unless you have moved elsewhere meanwhile.
 - **Opening a passage.** The document opens at the indexed line: Markdown scrolls to
   (or, in two-page mode, turns to the spread of) the smallest block containing that
   line; plain text uses the line itself; PDFs go to the page. Every whole-word
@@ -3899,6 +3904,38 @@ node tests/web_spread_pins.cjs
 .venv/bin/python -m pytest -q tests/test_companions.py
 node tests/web_companions.cjs
 ```
+
+### Browser flakes: condition waits and the stress loop
+
+Browser suites wait on conditions, not fixed sleeps, before they assert state.
+`tests/web_wait.cjs` provides `waitFor(page, label, condition, {timeout, arg})`: the
+condition runs in the page (or a frame) and returns named values, and the wait ends
+when all are truthy (names starting with `_` are only reported). On timeout it throws
+with the label, every value, the focused element, the route and the 429/5xx responses
+the page's context received (`watch(page)` records them). `settled(page)` waits until
+the page height and scroll position hold still for two frames. The condition is sent
+as a function, never as a string, because Reader's CSP has no `unsafe-eval`.
+
+`scripts/browser-stress.mjs` repeats named suites, optionally under CPU load, to
+measure flakes:
+
+```sh
+node scripts/browser-stress.mjs --iterations 10 --burners 16 web_page_turn
+```
+
+Each iteration runs every named suite once, in order, each as its own process group.
+`--burners N` starts N busy-loop worker threads for the run (default: CPU count − 2;
+`0` for none). `--timeout` caps each suite run (240 s; SIGTERM, then SIGKILL),
+`--deadline` stops starting suites after that many minutes (5: ten repeats of one
+suite tell more than a long campaign, and a short run does not hold up other work),
+and logs are capped at 2 MiB per run and `--log-budget` MiB in total (128); passing
+logs are deleted unless `--keep-passing`. Suites get an owned `TMPDIR` under `--out`
+(default `$TMPDIR/browser-stress-<time>`), and leftover `reader-web-fixture-*` folders there
+are counted and removed. `scripts/browser-stress-track.cjs` is preloaded to count
+429 and 5xx responses per run without changing what the suite does. The summary
+(per suite: runs, failures, the failing line and message, 429s; fixture counts; log
+bytes) is printed and written to `summary.json`; the exit status is 1 when any run
+failed.
 
 `tests/test_companions.py` and `web_companions.cjs` use `tests/fake_toolchain.py`:
 fake `git`, `cargo`, `git-locks` and `launchctl` that record their argv. The fake
