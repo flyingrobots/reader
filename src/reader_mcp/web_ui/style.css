@@ -47,7 +47,7 @@ body.zen.reveal-controls .statusline,body.zen .statusline:focus-within{opacity:1
    and change the spacing): paragraphs, headings, code, tables, rules, callouts, formulas and diagrams. Lists,
    quotes and embeds lay out as before, as do two-page columns and PDF pages. */
 body:not(.two-page) #article:not(.pdf-document)>:is(p,h1,h2,h3,h4,h5,h6,pre,table,hr,.reader-code-block,.reader-math-block,.reader-diagram,.callout){content-visibility:auto;contain-intrinsic-size:auto 240px}
-body.two-page{overflow:hidden}body.two-page #smooth-wrapper{position:fixed!important;inset:0 0 35px!important;overflow:hidden!important}body.two-page #smooth-content{height:100%!important;transform:none!important}body.two-page #main{height:100%}
+body.two-page{overflow:hidden}body.two-page #smooth-wrapper{position:fixed!important;inset:0 var(--dock-width,0px) 35px 0!important;overflow:hidden!important}body.two-page #smooth-content{height:100%!important;transform:none!important}body.two-page #main{height:100%}
 body.two-page .document-shell{max-width:1500px;width:100%;height:100%;padding:25px 52px 25px;display:flex;flex-direction:column}
 body.two-page .document-kicker,body.two-page .document-meta,body.two-page .document-footer{display:none}
 .article .document-title{font-family:var(--h1-font,var(--serif));font-size:clamp(36px,4.8vw,68px);line-height:1.08;letter-spacing:-.018em;max-width:22ch;margin:0 0 .65em;color:var(--ink);white-space:normal;overflow-wrap:anywhere;break-inside:avoid;break-after:avoid;hyphens:none}.article .document-meta{font-family:var(--sans)}
@@ -625,3 +625,17 @@ body.two-page .article-shape{break-inside:avoid;max-height:38vh}
 .embed-pdf{position:relative;max-width:720px;border:1px solid var(--line);break-inside:avoid}.embed-pdf canvas{display:block;max-width:100%;height:auto!important}.embed-pdf .pdf-page-label{position:absolute;right:8px;bottom:6px}
 body.two-page .article .document-embed .document-embed{padding-left:12px}
 body.two-page .embed-pdf canvas{max-height:65vh;width:auto!important}
+/* Docked right panels (dock.mjs): at 1100 px and wider an open panel is a column beside the page, which gives up
+   --dock-width on the right. No shadow or backdrop; narrower windows keep the overlay. */
+.thread-panel{--panel-width:410px}.queue-panel{--panel-width:420px}
+/* The page moves in one step (reduced motion's tiny transitions would hold the old width for a frame), so the
+   reading line can be kept the moment the dock changes. */
+body{margin-right:var(--dock-width,0px);transition-property:none}#smooth-wrapper{transition-property:none}
+:root[data-dock] #smooth-wrapper{right:var(--dock-width)!important;width:auto!important}
+:root[data-dock] .statusline,:root[data-dock] .split-root{right:var(--dock-width)}
+:root[data-dock] .summon{right:calc(26px + var(--dock-width))}
+:root[data-dock] .find-bar{left:calc(50% - var(--dock-width)/2)}
+:root[data-dock] :is(.thread-panel,.queue-panel){top:0;bottom:0;width:var(--dock-width);box-shadow:none}
+:root[data-dock] .article-art.art-hero{width:calc(100vw - var(--dock-width));margin-left:calc(50% - 50vw + var(--dock-width)/2)}
+:root[data-dock-narrow] body.two-page .article{columns:1;--book-gap:40px}:root[data-dock-narrow] body.two-page .document-shell{padding:24px 30px}
+:root[data-dock-narrow] body.two-page .article .art-hero-spacer+.art-hero-spacer{display:none}

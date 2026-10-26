@@ -1696,6 +1696,45 @@ limit; the message suggests From here or a selection), one request line of at mo
 text JSON-escaped), a 5-second socket timeout, and PDFs of at most 64 MiB and 5,000
 pages. Document text is only spoken, never executed or followed as instructions.
 
+### Docked side panels
+
+The right-hand panels — In the margins (and Linked from), Versions, the Locations,
+Registers and Marks lists, the reading queue, Chat and What changed — dock beside
+the page when the window is wide enough to keep a comfortable reading column beside
+them. An open panel becomes a column
+at the right edge, the full height of the window, with no shadow or backdrop. The
+page gives up that width: the article recenters in what is left, and the status line,
+the summon button, the smooth-scrolling and two-page wrappers, split view, the art hero
+and margin pins stop at the column's edge, and the find bar centres on the page. The page stays
+interactive: it scrolls, selects and opens links while the panel is open, and a click
+on the page leaves a docked What changed open.
+
+`web_ui/dock.mjs` is the one mechanism. It watches the panels' `hidden` attributes
+(and the What changed Sheet's `data-side`), and while one is open it sets
+`data-dock="right"` and `--dock-width` on the root; the layout rules in `style.css`
+and `web/src/styles.css` consume them. Each panel declares its width as
+`--panel-width` (410 px for the margins, Versions and lists, 420 px for the queue,
+440 px for Chat, 520 px for What changed). Panels open together share the column: the
+widest sets its width, every docked panel takes it, and the one opened last is on top.
+Code that clamps to the window uses `pageWidth()` (the window less the dock).
+
+A dock change keeps the reader's place. In continuous reading the block at the reading
+line (22% down the window) is measured before the column narrows and scrolled back to
+the same line after, as a jump held by `place.mjs`. The dock then sends a `resize`, so
+two-page reading repaginates from its first visible character, and pins, the outline
+rail and split panes lay out again (a rail that no longer fits left of the narrower page
+gives way to the Outline button's popover until the dock closes). When less than 900 px remains beside the dock,
+two-page reading shows one page, as a window that narrow would (`data-dock-narrow`).
+The page moves in one step rather than animating, so the reflow measures the final width.
+
+A panel docks when at least 690 px of window remains beside it (`DOCK_ROOM`): the
+article column is 773 px (65ch at 21 px) inside 40 px gutters, and 690 px keeps a
+610 px column, about 55 characters a line. That is from 1100 px for the 410 px panels,
+1130 px for Chat and 1210 px for What changed; from about 1280 px the column keeps its
+full width. Narrower windows keep the overlay: the panel covers the right of the page
+with a shadow, and becomes a bottom sheet at phone width, as before. The Theme Editor
+is a full-width modal editor and never docks.
+
 ### Document outline
 
 Long documents show their headings beside the text. The outline is built in the
