@@ -4,6 +4,8 @@
 
 Choose a voice and generate a question. **Show me in the text** highlights a verified passage. **Write a response** opens the existing Scratch editor with the question above the buffer. It retains Vim commands, live preview, responsive layouts and IndexedDB autosave. Reopening the same question resumes the matching participant's draft on that device. Drafts never enter question-generation requests.
 
+When the question dialog finishes closing into Scratch, keyboard focus remains in the response editor. Other closes return focus to the reading page.
+
 ## Saving and replies
 
 Only an explicit save writes the response to `library/notebook/`. The author comes from the vault's Git configuration, with participant attribution recorded separately. Prompted responses use the current versioned metadata profile and block YAML: title, creation date, revision, source article and exact digest, prompt ID, generating voice, question, quote and source evidence. A reply request also records its chat path.

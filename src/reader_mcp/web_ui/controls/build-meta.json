@@ -87,7 +87,7 @@
     "src/theme/theme-css.ts": "311a0e08004e521b191c9c670625dddf4857e3bf1eac6e8b8e6561e8073f8202",
     "src/theme/theme-editor.tsx": "8be687dc741271f1238a5b04065feba2f02bb0dfc492e78aeb82e6d1615fb8cd",
     "src/vanilla-buttons.ts": "f54cd8c9ffec8fb89fb410301462a3b4da10fd1d449063a7ac5de71c0166c24b",
-    "src/writing-prompt.tsx": "b1b92082dc344be92de2f739b6a26237196d8a509fd14d2610b8c19f66c49657"
+    "src/writing-prompt.tsx": "a2c5fa97a3eb788d16e0d585e497bf5c692660cfcdef3160032936ad4706b92e"
   },
   "dependencies": {
     "@base-ui/react": {
@@ -901,8 +901,8 @@
       "sha256": "2af868aa793b27eff6244dc83e9f64cf6fb0373406e2fae5296ae465370184b5"
     },
     "reader-controls.js": {
-      "bytes": 998561,
-      "sha256": "d1ecf297964f979a9d80ee31e3acb91df70a444372119d554cf69ce95ec2f611"
+      "bytes": 998618,
+      "sha256": "bf905c463a7e8f8e24b2fb7793d0e3224e1b5e9fc25389cf5f232637272d5356"
     },
     "reader-controls.js.LEGAL.txt": {
       "bytes": 5290,

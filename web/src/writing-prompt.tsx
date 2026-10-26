@@ -10,7 +10,7 @@ type Model={open:boolean;loading:boolean;busy:boolean;error:string;prompt:null|{
 type Options={getSnapshot():Model;subscribe(fn:()=>void):()=>void;actions:{close():void;generate(regenerate?:boolean):void;voice(value:string):void;write():void;evidence():void}};
 function WritingPrompt({getSnapshot,subscribe,actions}:Options){
   const model=useSyncExternalStore(subscribe,getSnapshot),disabled=model.loading||model.busy;
-  return <Dialog open={model.open} onOpenChange={open=>{if(!open)actions.close();}} onOpenChangeComplete={open=>{if(!open&&!getSnapshot().open)document.querySelector<HTMLElement>('#main')?.focus({preventScroll:true});}}>
+  return <Dialog open={model.open} onOpenChange={open=>{if(!open)actions.close();}} onOpenChangeComplete={open=>{if(!open&&!getSnapshot().open)(document.querySelector<HTMLElement>('.scratch-editor .cm-content')??document.querySelector<HTMLElement>('#main'))?.focus({preventScroll:true});}}>
     <DialogContent className="reader-quiz-dialog" data-reader-writing-prompt="" finalFocus={false} onKeyDown={event=>event.stopPropagation()}>
       <DialogHeader><DialogTitle>Write about this</DialogTitle><DialogDescription>A voice asks a question. Your answer stays on this device until you save it.</DialogDescription></DialogHeader>
       {model.loading?<Skeleton className="h-24 w-full"/>:<>
