@@ -521,6 +521,31 @@ body.two-page .article-art{break-inside:avoid}body.two-page .article-art .art-su
 .feature-art img{display:block;width:100%;height:100%;object-fit:cover}
 .issue-art-make{margin-top:10px;color:var(--muted)}
 @media(max-width:640px){.cover-art .art-surface{aspect-ratio:16/10}.feature-art{aspect-ratio:2.4/1}.art-figure{margin-bottom:36px}.art-caption{flex-wrap:wrap}}
+/* The hero (#145): an article with art opens on it, full width above the title in continuous reading; in two-page
+   reading it covers the whole first spread (the empty .art-hero-spacer pages keep the text off it). */
+#main:has(.has-hero){overflow-x:clip}body:not(.two-page) .document-shell.has-hero{padding-top:0}
+.article-art.art-hero{position:relative;width:100vw;max-width:none;height:clamp(220px,min(78vh,62vw),980px);margin:0 0 64px calc(50% - 50vw);border-radius:0;overflow:hidden;background:var(--bg)}
+.article-art.art-hero .art-surface,body.two-page .article-art.art-hero .art-surface{position:absolute;inset:0;width:100%;height:100%;max-height:none;aspect-ratio:auto;border-radius:0}
+.art-hero .art-surface>canvas{position:absolute;inset:0}
+.art-hero:after{content:'';position:absolute;inset:auto 0 0;height:38%;background:linear-gradient(to bottom,transparent,color-mix(in oklab,var(--bg) 82%,transparent));pointer-events:none}
+.art-hero .art-caption{position:absolute;z-index:2;left:clamp(16px,4vw,48px);bottom:18px;margin:0;padding:5px 12px;gap:14px;border-radius:999px;background:color-mix(in oklab,var(--bg) 80%,transparent);backdrop-filter:blur(8px)}
+.art-hero .art-caption .art-note-toggle{color:var(--ink)}
+.art-hero-continue{position:absolute;z-index:2;right:clamp(16px,4vw,48px);bottom:16px;background:color-mix(in oklab,var(--bg) 80%,transparent);backdrop-filter:blur(8px)}
+.art-hero .art-note{position:absolute;z-index:3;left:clamp(16px,4vw,48px);bottom:62px;margin:0;width:min(62ch,calc(100% - 32px));max-height:calc(100% - 92px);overflow:auto;box-shadow:var(--shadow);border-radius:4px}
+.art-hero .art-message{z-index:1}
+.art-hero-spacer{display:none}
+body.two-page .article .art-hero-spacer{display:block;height:100%;margin:0;padding:0;break-after:column}
+body.two-page .article-art.art-hero{position:absolute;left:0;top:0;width:100%;height:100%;margin:0;border-radius:4px}
+body.two-page .article .art-hero img{max-height:none;object-fit:cover}
+body.two-page .art-hero:after{height:62%}
+.art-hero-opener{position:absolute;z-index:1;left:clamp(20px,5%,64px);bottom:76px;width:min(46%,30ch);margin:0;color:var(--ink);pointer-events:none}
+.art-hero-opener p{margin:0}
+.art-hero-kicker{font:600 11px/1.3 var(--sans);letter-spacing:.14em;text-transform:uppercase;color:var(--accent);margin-bottom:18px!important}
+.art-hero-title{font:500 clamp(40px,4.6vw,76px)/1.04 var(--serif);letter-spacing:-.02em;text-wrap:balance;color:var(--ink)}
+.art-hero-standfirst{font:400 19px/1.45 var(--serif);color:var(--ink);margin-top:20px!important;max-width:34ch}
+.art-hero-byline{font:500 12px/1.4 var(--sans);color:var(--muted);margin-top:18px!important}
+@media(max-width:900px){body.two-page .article .art-hero-spacer+.art-hero-spacer{display:none}.art-hero-opener{width:auto;right:24px}}
+@media(max-width:700px){.article-art.art-hero{margin-bottom:40px}.art-hero .art-caption{bottom:10px;left:12px}.art-hero-continue{bottom:8px;right:12px}.art-hero .art-note{left:12px;bottom:48px;max-height:calc(100% - 64px)}}
 /* Article shapes (RW-20): the data view (`:shape`), above an article's kicker. Theme tokens only. */
 .issue-cover:has(>.cover-shape){display:flex;flex-direction:column;align-items:flex-start}
 /* The figure follows the title in the document (g c, then Tab, reaches it) but is drawn above the kicker. */

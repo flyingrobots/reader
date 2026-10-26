@@ -726,7 +726,13 @@ def main():
         if art_options and '--art-none' not in sys.argv:
             from reader_mcp.art import PROMPT_VERSIONS
             from reader_mcp.art_scene import validate
-            for target, name in (('library/issue/cover.md', 'books'), ('library/issue/keep.md', 'loom')):
+            arts = [('library/issue/cover.md', 'books'), ('library/issue/keep.md', 'loom')]
+            if '--art-long' in sys.argv:
+                # A long article with art (#145): its hero opens it; late blocks, headings and spreads stay reachable.
+                (root / 'library/issue/long-art.md').write_text('---\ntitle: "A long piece with art"\nauthor: Ada\n---\n\n# A long piece with art\n\n' + ''.join(
+                    f'## Part {i}\n\n' + f'Part {i} opens with a plain sentence about tides and ledgers. ' * 9 + f'\n\nThe distinct remark for part {i} rests here.\n\n' for i in range(1, 41)))
+                arts.append(('library/issue/long-art.md', 'halo'))
+            for target, name in arts:
                 if not (root / target).exists():
                     continue
                 entry = json.loads((demo / (name + '.json')).read_text())

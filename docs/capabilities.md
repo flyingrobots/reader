@@ -39,7 +39,8 @@ Artist's note, the art's text alternative) and composes a scene in Reader's decl
 versioned scene language, which both the server and the page validate strictly (types,
 ranges, references, budgets) before Reader's own Three.js interpreter draws it; no
 model-written code runs in the page. Art shows on the cover story, as feature
-thumbnails and, with Space g, above an open article; pieces without art show nothing
+thumbnails and as the hero an article opens on (full width above the title, or the whole first
+spread in two-page reading; a setting turns it off); pieces without art show nothing
 special, or a placeholder with Generate art. Commissions are background jobs (one at
 a time per vault, with toasts, cancel, a timeout per stage and the chat-turn resource
 guards), made on request or, by setting, automatically for each issue's cover story or
@@ -48,7 +49,7 @@ server shows its commissions read-only and refuses art actions. Each version is 
 overwritten, with its brief, provenance (producer, model, prompts, time, tokens and
 reported cost) and an optional still image; every run is archived under
 `logs/llm/art/`. Colors are theme roles, so art fits every theme; it is still under
-reduced motion and in two-page reading, pauses off-screen, runs at most 30 fps, turns
+reduced motion, pauses off-screen, runs at most 30 fps, turns
 into a still when frames are slow, and without WebGL shows the stored still or the
 note. A free-form mode (model-written Three.js in a sandboxed iframe) is not
 implemented. The older passage-projection figure remains as a data view (`:shape`),

@@ -96,7 +96,7 @@ const median=values=>{const s=[...values].sort((a,b)=>a-b);return s.length?s[s.l
    assert.deepEqual(errors,[]);assert.deepEqual(external,[]);await context.close();}
 
   // Without WebGL: the stored still image; an article whose art has no still yet says so and opens its note.
-  {const {context,page,errors}=await open({webgl:false});
+  {const {context,page,errors}=await open({webgl:false,prefs:{artHero:false}});  // Space g's view; tests/web_hero.cjs covers the hero.
    await home(page);await settled(page);
    assert.equal(await cover(page).getAttribute('data-state'),'image');
    assert.match(await page.locator('.cover-art img.art-still').getAttribute('src'),/^\/api\/art\/still\?path=library%2Fissue%2Fcover\.md/);

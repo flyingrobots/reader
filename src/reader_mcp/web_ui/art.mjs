@@ -50,8 +50,11 @@ export function provenanceLine(art){
   return [`Made by ${who.label||'an unknown producer'}${who.model?` (${who.model})`:''}`,art.current?'for this edition':'for an earlier edition',made,duration(p.seconds),tokens(p.usage),cost,p.repaired?'repaired once':null].filter(Boolean).join(' · ');
 }
 
-/** Draw a stored version into a figure. `live` asks for the animated canvas (the page's one); otherwise a still image. */
-export async function paintArt(figure,data,{live=false,motion=true,api,actions={},compact=false}={}){
+/** Draw a stored version into a figure. `live` asks for the animated canvas (the page's one); otherwise a still image.
+    `hero` (#145) makes it an article's opener: a way into the text and, in two-page reading (`hero.book`), the title,
+    kicker, byline and any standfirst over the art, for the eye only (the article's own title follows on the next
+    spread), with the still image kept under the live canvas so the page turn can paint it. */
+export async function paintArt(figure,data,{live=false,motion=true,api,actions={},compact=false,hero=null}={}){
   const art=data.art,path=data.path,title=art.title||'Untitled';
   figure.artView?.destroy();figure.artView=null;
   figure.classList.remove('art-empty','art-unavailable','art-error');figure.classList.add('art-figure');
@@ -69,7 +72,15 @@ export async function paintArt(figure,data,{live=false,motion=true,api,actions={
   const caption=document.createElement('figcaption');caption.className='art-caption';
   caption.innerHTML=`<button type="button" class="art-note-toggle" data-button="ghost xs" aria-expanded="false" aria-controls="${id}">Artist’s note</button><span class="art-credit">${esc(art.provenance?.producer?.label||'')}${art.current?'':' · earlier edition'}</span>`;
   const toggle=caption.querySelector('button');toggle.onclick=event=>{event.preventDefault();note.hidden=!note.hidden;toggle.setAttribute('aria-expanded',String(!note.hidden));};
-  figure.replaceChildren(surface,caption,note);figure.classList.toggle('art-compact',compact);
+  const extra=[];
+  if(hero){
+    if(hero.book){const opener=document.createElement('div');opener.className='art-hero-opener';opener.setAttribute('aria-hidden','true');
+      opener.innerHTML=`${hero.kicker?`<p class="art-hero-kicker">${esc(hero.kicker)}</p>`:''}<p class="art-hero-title">${esc(hero.title)}</p><p class="art-hero-standfirst" hidden></p>${hero.byline?`<p class="art-hero-byline">${esc(hero.byline)}</p>`:''}`;
+      hero.standfirst?.then(text=>{const slot=opener.querySelector('.art-hero-standfirst');if(text&&slot){slot.textContent=text;slot.hidden=false;}});extra.push(opener);}
+    const go=document.createElement('button');go.type='button';go.className='art-hero-continue';go.dataset.button='outline sm';
+    go.innerHTML=hero.book?'Turn the page <span aria-hidden="true">→</span>':'Begin reading <span aria-hidden="true">↓</span>';go.onclick=event=>{event.preventDefault();hero.go?.();};extra.push(go);
+  }
+  figure.replaceChildren(surface,...extra,caption,note);figure.classList.toggle('art-compact',compact);
   const image=(src,state)=>{const img=new Image();img.className='art-still';img.alt='';img.src=src;surface.replaceChildren(img);figure.dataset.state=state;};
   const unavailable=message=>{figure.classList.add('art-unavailable');figure.dataset.state='unavailable';surface.innerHTML=`<p class="art-message">${esc(message)}</p>`;note.hidden=false;toggle.setAttribute('aria-expanded','true');};
   let scene;
@@ -80,6 +91,8 @@ export async function paintArt(figure,data,{live=false,motion=true,api,actions={
   const palette=artPalette();
   try{
     if(live&&motion){
+      // Two-page reading: the page turn paints images, not a WebGL canvas, so the still frame lies under the live one.
+      if(hero?.book){const width=Math.max(160,Math.round(surface.clientWidth||STILL.width)),height=Math.max(80,Math.round(surface.clientHeight||width/2));image(stage.still(scene,palette,width,height),'still');}
       const view=stage.mount(surface,scene,palette,{onStill:(url,reason)=>{image(url,'still');figure.dataset.reason=reason;},onLost:fallback});figure.artView=view;
       if(!view.still)figure.dataset.state='live';
       figure.artFrameTimes=()=>({cpu:view.frameTimes(),interval:view.intervals()});

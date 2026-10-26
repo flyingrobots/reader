@@ -642,6 +642,26 @@ It is decoration (`data-reader-decoration`): find, selection and annotations ign
   headline). One live canvas per page.
 - **Features:** a small still thumbnail above each feature's kicker, for pieces
   that have art.
+- **Opening an article that has art** (#145): the art comes first, as a magazine
+  feature opener. In continuous reading it is a full-width hero at the top of the
+  page (`clamp(220px, min(78vh, 62vw), 980px)` tall) with the kicker, title and
+  byline right below it, the Artist's note and the producer in a caption over its
+  lower edge, and **Begin reading ↓**, which scrolls to the title. In two-page
+  reading it fills the whole first spread, across both pages: the title, kicker,
+  byline and any authored or local-model standfirst sit over the art for the eye
+  (`aria-hidden`; the article's own title opens the text), with **Turn the page →**;
+  the text begins on the next spread. One empty `.art-hero-spacer` page per column
+  (two, or one in single-column two-page reading) keeps the text off the hero, so
+  spread counts, bookmarks, heading and outline jumps, find and margin pins see an
+  ordinary first spread. The hero is live where motion is allowed (paused when it
+  is turned or scrolled away and in hidden tabs) and otherwise follows the states
+  below; in two-page reading the still frame lies under the live canvas, and the page
+  turn paints that image (it never reads back a WebGL canvas). The hero is
+  decoration (`data-reader-decoration`), reserved before the reading position is
+  restored, so a saved place deep in the text lands where it was. Its `/api/art`
+  request goes out with the document's and waits at most 1.5 s; articles without
+  art open exactly as before. **Space g** hides the hero (and art) for the rest of
+  the tab's session; Space g again brings it back.
 - **An open article:** **Space g** or `:art` shows the open article's art above
   everything else on its first page, and keeps showing art for articles opened later in this tab;
   Space g again hides it. A piece without art shows a calm placeholder that says
@@ -650,8 +670,9 @@ It is decoration (`data-reader-decoration`): find, selection and annotations ign
   voice**, which opens Behind the scenes at Companions (its *Agents and models*
   card lists the agent command lines Reader found); Generate art from the magazine
   then shows an information toast instead of an error.
-  `:generate-art` commissions another version for the open article. In two-page
-  reading the art is a still image, so the page turn can rasterize it.
+  `:generate-art` commissions another version for the open article. Above the text
+  (not as a hero) in two-page reading the art is a still image, so the page turn can
+  rasterize it.
 
 Pieces without art show nothing special. The RW-20 shape (the passages projected
 through meaning-space) is no longer cover art; it remains as a data view, `:shape`
@@ -674,6 +695,8 @@ earlier edition*). A new edition never removes old art.
 **Settings** (Behind the scenes):
 
 - **Article art** (on by default) shows art on the cover, features and with Space g.
+- **Open articles with their art** (on by default) opens an article that has art on
+  its hero; off, the art shows only with Space g, as before.
 - **Art made by:** *Default* (the server's choice: the first runnable voice in
   `voices.json`, else the local model), any runnable voice, or **Local model**
   (the model configured for the local-model provider). Manual voices cannot make art.

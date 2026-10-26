@@ -33,7 +33,7 @@ if(EMBEDDED)document.documentElement.classList.add('embedded-pane');
 let split=null,pane=null;
 /** Toasts from a pane appear in the shell's toaster. */
 function notify(message,type,options){if(pane){pane.post({type:'toast',message:String(message),kind:type,options:options&&{id:options.id,duration:options.duration}});return;}return shellNotify(message,type,options);}
-const defaults = {theme:'ink', participant:null, recent:20, atlas:true, activity:true, smooth:true, layout:'scroll', pace:220, zen:false, pageTurn:'curl', nextReads:true, backlinks:true, outline:true, inboxSandbox:'workspace-write', issueExclude:DEFAULT_EXCLUDED_TYPES.join(', '), proseColors:'clear', shapes:true, art:true, artBy:'', artAuto:'off'};
+const defaults = {theme:'ink', participant:null, recent:20, atlas:true, activity:true, smooth:true, layout:'scroll', pace:220, zen:false, pageTurn:'curl', nextReads:true, backlinks:true, outline:true, inboxSandbox:'workspace-write', issueExclude:DEFAULT_EXCLUDED_TYPES.join(', '), proseColors:'clear', shapes:true, art:true, artHero:true, artBy:'', artAuto:'off'};
 // Route sentinel for Behind the scenes; document routes are always library/ paths.
 const BACKSTAGE=':backstage',SEARCH=':search',SCRATCH=':scratch';  // A scratch buffer: ':scratch' (the latest draft) or ':scratch=<id>'.
 // Past issues use ':issue=<ISO week>'; the bare homepage (null) is the current issue.
@@ -259,7 +259,7 @@ function showArtJob(path,job){
 }
 async function showArtVersion(path,version){
   try{const data=await fetchArt(api,path,{edition:version.edition,generation:version.generation});const figure=[...document.querySelectorAll('.cover-art,.article-art')].find(f=>f.dataset.art===path);
-    if(figure&&hasArt(data))await paintArt(figure,data,{live:figure.classList.contains('cover-art')||!reading?.hasBook(),motion:!reduced.matches,api,actions:artActions});}
+    if(figure&&hasArt(data))await(figure.classList.contains('article-art')?paintArticleArt(figure,data):paintArt(figure,data,{live:true,motion:!reduced.matches,api,actions:artActions}));}
   catch(error){report(error);}
 }
 async function favoriteArt(path,chosen){
@@ -271,11 +271,30 @@ async function toggleArt(){
   const doc=state.doc;
   if(!doc||doc.preview||doc.historical||!TEXTUAL.test(doc.path)){toast('Open a Markdown or text article to see its art.');return;}
   const shown=$('#article .article-art');
-  if(shown){state.showArt=false;shown.artView?.destroy();shown.remove();refreshScroll();positionPins();return;}
+  if(shown){state.showArt=false;keepPlace(()=>removeArticleArt(shown));return;}
   state.showArt=true;
   const data=await articleArt(doc,state.routeId,true);if(!data)return;
-  const figure=placeArticleArt(doc.path);refreshScroll();positionPins();
-  figure.scrollIntoView({block:'nearest'});await paintArticleArt(figure,data);
+  const hero=heroWanted()&&hasArt(data);let figure;
+  keepPlace(()=>{figure=placeArticleArt(doc.path,hero);});
+  if(hero&&reading?.hasBook())reading.seekSpread(0,false);else figure.scrollIntoView({block:'nearest'});
+  await paintArticleArt(figure,data);
+}
+/** Change the article above the reader's place, keeping the first visible block in view in two-page reading. */
+function keepPlace(change){
+  const mark=reading?.hasBook()?reading.capture():null;change();refreshScroll();positionPins();
+  const block=mark?.source_offset!=null&&$(`#article [data-source-start="${mark.source_offset}"]`);
+  if(block){const range=document.createRange();range.selectNode(block);reading.reveal(range,false);}
+}
+function removeArticleArt(figure){
+  figure.artView?.destroy();figure.remove();$('#article').querySelectorAll('.art-hero-spacer').forEach(el=>el.remove());$('#main .document-shell')?.classList.remove('has-hero');
+}
+/** Open articles with their art (Settings, on by default; #145). */
+function heroWanted(){return state.prefs.art!==false&&state.prefs.artHero!==false;}
+/** The open article's art for its hero: only /api/art (already asked for with the document), waiting at most ART_WAIT ms. */
+async function heroArt(doc,id){
+  let data;
+  try{data=await Promise.race([fetchArt(api,doc.path),new Promise(resolve=>setTimeout(()=>resolve(null),ART_WAIT))]);}catch{return null;}
+  return id===state.routeId&&state.doc===doc?data:null;
 }
 async function articleArt(doc,id,explicit){
   let data;
@@ -285,13 +304,24 @@ async function articleArt(doc,id,explicit){
   if(data===undefined){if(explicit)toast('The art is taking a while to load; try again in a moment.');return null;}
   return data;
 }
-function placeArticleArt(path){
-  const figure=document.createElement('figure');figure.className='article-art';figure.dataset.readerDecoration='';figure.dataset.art=path;
+function placeArticleArt(path,hero=false){
+  const figure=document.createElement('figure');figure.className='article-art'+(hero?' art-hero':'');figure.dataset.readerDecoration='';figure.dataset.art=path;
+  // In two-page reading the hero covers the first spread; one empty page per column keeps the text off it (CSS shows
+  // them only there), so spread math, bookmarks and the page turn see an ordinary first spread.
+  if(hero){const spacers=[0,1].map(()=>{const el=document.createElement('div');el.className='art-hero-spacer';el.dataset.readerDecoration='';el.setAttribute('aria-hidden','true');return el;});$('#article').prepend(...spacers);$('#main .document-shell')?.classList.add('has-hero');}
   $('#article').prepend(figure);return figure;
+}
+/** The hero's opener: the title, kicker and byline over the first spread (two-page reading), and the way into the text. */
+function heroOptions(figure){
+  const book=!!reading?.hasBook(),text=selector=>$('#article '+selector)?.textContent.trim()||'';
+  return {book,kicker:text('.document-kicker'),title:text('.document-title'),byline:text('.document-meta .by'),
+    standfirst:book?api('/api/standfirst?path='+param(figure.dataset.art)).then(d=>['frontmatter','local-model'].includes(d.source)?d.standfirst:null).catch(()=>null):null,
+    go(){if(book){reading.seekSpread(1);$('#main').focus({preventScroll:true});return;}const kicker=$('#article .document-kicker')||$('#article .document-title');if(kicker)scrollToPosition(scrollY+kicker.getBoundingClientRect().top-32);}};
 }
 function paintArticleArt(figure,data){
   figure.classList.add('article-art');
-  if(hasArt(data))return paintArt(figure,data,{live:!reading?.hasBook(),motion:!reduced.matches,api,actions:artActions}).then(f=>{f.classList.add('article-art');return f;});
+  const hero=figure.classList.contains('art-hero');
+  if(hasArt(data))return paintArt(figure,data,{live:hero||!reading?.hasBook(),motion:!reduced.matches,api,actions:artActions,hero:hero?heroOptions(figure):null}).then(f=>{f.classList.add('article-art');return f;});
   paintPlaceholder(figure,{path:data.path,job:data.job,producer:artProducer(),local:needsReader('art')&&NEEDS_READER,generate:commissionArt,cancel:id=>art.cancel(id).catch(report),setup:openArtSetup});figure.classList.add('article-art');return Promise.resolve(figure);
 }
 document.addEventListener('reader:art-ready',event=>{const job=event.detail;forgetArt(job.path);repaintArt(job.path);});
@@ -418,6 +448,8 @@ async function navigate(path,{thread=null,fragment='',record=true,commit=null,at
     // layout; otherwise the chip and status twin fill in after the reading position is restored (placeLateChip).
     // Inbox arrivals are unfiled previews: they have no versions or read receipt to compare.
     const preview=path.startsWith('inbox/');
+    // An article with art opens on it (#145): its art is asked for alongside the document, so the hero costs no extra wait.
+    if(heroWanted()&&!atCommit&&!preview&&TEXTUAL.test(path))fetchArt(api,path).catch(()=>{});
     let editions=LATE;
     const pending=preview?Promise.resolve(null):secondary('Versions',()=>api('/api/versions?path='+param(path)+'&participant='+param(state.prefs.participant))).then(found=>editions=found??null);
     const [doc,changes]=await Promise.all([atCommit?api('/api/version?path='+param(path)+'&commit='+param(atCommit)):api('/api/document?path='+param(path)+'&participant='+param(state.prefs.participant)),
@@ -453,10 +485,14 @@ async function navigate(path,{thread=null,fragment='',record=true,commit=null,at
     const shape=state.showShape&&!historical&&!doc.preview&&TEXTUAL.test(path)?await articleShape(doc,id,false):null;
     if(id!==state.routeId)return;
     const shapeFigure=shape?placeArticleShape(shape):null;
-    // Show art is on for this session: the art (or its placeholder) goes above everything, reserved before the position is restored.
-    const artData=state.showArt&&state.prefs.art!==false&&!historical&&!doc.preview&&TEXTUAL.test(path)?await articleArt(doc,id,false):null;
+    // An article with art opens on it as a hero (#145), unless Space g hid art for this session; with Show art on, an
+    // article without art shows its placeholder. Either goes above everything, reserved before the position is restored.
+    const artOk=state.prefs.art!==false&&!historical&&!doc.preview&&TEXTUAL.test(path)&&state.showArt!==false;
+    let artData=null;
+    if(artOk&&heroWanted()){const found=await heroArt(doc,id);if(hasArt(found))artData=found;}
+    if(artOk&&!artData&&state.showArt)artData=await articleArt(doc,id,false);
     if(id!==state.routeId)return;
-    const artFigure=artData?placeArticleArt(path):null;
+    const artFigure=artData?placeArticleArt(path,heroWanted()&&hasArt(artData)):null;
     mountEditions();wireChanges();
     reading?.prepare();resetScroll();wireArticleLinks(article,path);await reading?.restore(doc);
     rendered=true; // From here on, failures are secondary: keep the article and toast quietly instead.

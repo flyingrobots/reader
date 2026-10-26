@@ -52,6 +52,8 @@ export function rasterize(article:HTMLElement,page:Box,dx:number,background:stri
     }
     const style=getComputedStyle(el);if(style.visibility==='hidden'||style.display==='contents')continue;
     const bg=style.backgroundColor,sides=(['Top','Right','Bottom','Left'] as const).map(side=>({side,width:parseFloat(style.getPropertyValue(`border-${side.toLowerCase()}-width`))||0,color:style.getPropertyValue(`border-${side.toLowerCase()}-color`),line:style.getPropertyValue(`border-${side.toLowerCase()}-style`)})).filter(b=>b.width>0&&b.line!=='none'&&visible(b.color));
+    // A live art canvas (WebGL, #145) cannot be read back outside its own frame; the still image under it is painted instead.
+    if(el instanceof HTMLCanvasElement&&el.classList.contains('art-canvas'))continue;
     const media=el instanceof HTMLImageElement||el instanceof HTMLCanvasElement;
     if(!visible(bg)&&!sides.length&&!media)continue;
     if(!shown(el))continue;
@@ -61,7 +63,9 @@ export function rasterize(article:HTMLElement,page:Box,dx:number,background:stri
       for(const b of sides){ctx.fillStyle=b.color;const w=b.width;
         if(b.side==='Top')ctx.fillRect(r.left,r.top,r.width,w);else if(b.side==='Bottom')ctx.fillRect(r.left,r.bottom-w,r.width,w);else if(b.side==='Left')ctx.fillRect(r.left,r.top,w,r.height);else ctx.fillRect(r.right-w,r.top,w,r.height);}
       if(media){const source=el as HTMLImageElement|HTMLCanvasElement;const natural=source instanceof HTMLImageElement?{w:source.naturalWidth,h:source.naturalHeight,ok:source.complete&&source.naturalWidth>0}:{w:source.width,h:source.height,ok:source.width>0};
-        if(natural.ok){let w=r.width,h=r.height,x=r.left,y=r.top;if(style.objectFit==='contain'){const k=Math.min(r.width/natural.w,r.height/natural.h);w=natural.w*k;h=natural.h*k;x+=(r.width-w)/2;y+=(r.height-h)/2;}try{ctx.drawImage(source,x,y,w,h);}catch{/* tainted or not decodable: leave the box */}}}
+        if(natural.ok){let w=r.width,h=r.height,x=r.left,y=r.top;
+          if(style.objectFit==='cover'){const k=Math.max(r.width/natural.w,r.height/natural.h),sw=r.width/k,sh=r.height/k;try{ctx.drawImage(source,(natural.w-sw)/2,(natural.h-sh)/2,sw,sh,x,y,w,h);}catch{/* tainted or not decodable: leave the box */}continue;}
+          if(style.objectFit==='contain'){const k=Math.min(r.width/natural.w,r.height/natural.h);w=natural.w*k;h=natural.h*k;x+=(r.width-w)/2;y+=(r.height-h)/2;}try{ctx.drawImage(source,x,y,w,h);}catch{/* tainted or not decodable: leave the box */}}}
     }});
   }
   // 1b. Fallback for flat inline SVG icons whose pre-serialized image (pass 1) is not ready:
