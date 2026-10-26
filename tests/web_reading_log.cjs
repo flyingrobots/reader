@@ -22,21 +22,21 @@ const THEMES=['ink','paper','orchid','orchid-dark','harvest','harvest-dark',...r
    await page.goto(doc('library/thought.md'));await readers;
    await page.locator('.reading-log-entry',{hasText:'You just now'}).waitFor();
    const line=await entries(page);
-   assert.deepEqual(line.map(t=>t.replace(/ (today|just now|\d+ min ago)$/,'')),['◉ Agy','◐ Reader librarian (earlier edition)','◉ You','2 task agents'],JSON.stringify(line));
+   assert.deepEqual(line.map(t=>t.replace(/ (today|just now|\d+ min ago)$/,'')),['◉ Builder','◐ Archivist (earlier edition)','◉ You','2 task agents'],JSON.stringify(line));
    assert.equal(await page.locator('.reading-log-more').count(),0,'four entries fit without +N more');
-   assert.match(await page.locator('.reading-log-entry').first().getAttribute('title'),/^Read this edition · Agy · [A-Z][a-z]{2} \d+, \d{4}, \d+:\d\d\s[AP]M \S+$/);
+   assert.match(await page.locator('.reading-log-entry').first().getAttribute('title'),/^Read this edition · Builder · [A-Z][a-z]{2} \d+, \d{4}, \d+:\d\d\s[AP]M \S+$/);
    assert.ok(await page.evaluate(()=>{const log=document.querySelector('.reading-log');return log.hasAttribute('data-reader-decoration')&&log.previousElementSibling.classList.contains('document-meta')&&log.closest('#article')!==null;}),'decoration directly under the meta, inside the article');
    await page.locator('.reading-log-details>summary').focus();await page.keyboard.press('Enter');
    await page.locator('.reading-log-body').waitFor();
    const groups=await page.locator('.reading-log-group').evaluateAll(els=>els.map(g=>[g.dataset.groupState,[...g.querySelectorAll('.reading-log-name')].map(n=>n.textContent)]));
-   assert.deepEqual(groups,[['current',['You','Agy']],['earlier',['Reader librarian']]],'newest first in each group');
+   assert.deepEqual(groups,[['current',['You','Builder']],['earlier',['Archivist']]],'newest first in each group');
    assert.equal(await page.locator('.reading-log-group[data-group-state=earlier] [data-against]').count(),1);
    await page.locator('.reading-log-agents>summary').click();
    assert.deepEqual((await page.locator('.reading-log-agents .reading-log-name').allTextContents()).sort(),['task-agent-one','task-agent-two']);
    await page.screenshot({path:'.reader/web-dev/reading-log.png'});
    // Thread link opens that participant's threads.
-   await page.locator('[data-reader-threads="Agy"]').click();await page.locator('#thread-panel:not([hidden])').waitFor();
-   assert.equal(await page.locator('#thread-title').textContent(),'In the margins · Agy');assert.equal(await page.locator('.thread-list-item').count(),1);
+   await page.locator('[data-reader-threads="Builder"]').click();await page.locator('#thread-panel:not([hidden])').waitFor();
+   assert.equal(await page.locator('#thread-title').textContent(),'In the margins · Builder');assert.equal(await page.locator('.thread-list-item').count(),1);
    await page.keyboard.press('Escape');
    // Find never matches the log.
    await page.locator('#main').focus();await page.keyboard.press('/');await page.locator('#find-query').fill('task-agent-one');await page.waitForTimeout(250);

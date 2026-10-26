@@ -1509,10 +1509,10 @@ line says who has a read receipt for the document and when, for example
   local dates; the title attribute holds the full local date and time with its zone.
 - **Groups.** *You* is the requesting participant. *Voices* are the names in the
   vault's `voices.json` (`{"schema_version": 1, "voices": [{"name": …}, …]}`, at most
-  64 KiB, not a symlink) when that file exists; otherwise the built-in list Reader
-  librarian, Reader librarian (curator), Agy, Claude and Kai
-  (`engagement.VOICES`). The two librarian identities are separate participants
-  with separate receipts and are shown separately. Everyone else is an *agent*.
+  64 KiB, not a symlink). A vault without `voices.json` has no voices: Reader
+  ships no default roster. Names are matched exactly, so two identities that
+  differ only by a suffix are separate participants with separate receipts.
+  Everyone else is an *agent*.
 - **Task agents.** An agent with fewer than 5 document receipts in the whole vault
   (`engagement.ONE_OFF_RECEIPTS`) is folded into one entry, *N task agents*;
   expanding it lists them by name. You and voices are never folded.

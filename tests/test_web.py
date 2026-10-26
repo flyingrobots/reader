@@ -424,46 +424,62 @@ def test_maintenance_and_next_routes(web):
     assert status == 400
 
 
+def test_reading_log_without_a_voice_registry_names_no_voices(web):
+    """#93: with no voices.json, nobody is a voice, including any name the code once defaulted to."""
+    root, library, server, request = web
+    assert not (root / 'voices.json').exists()
+    defaults = library.engagement.voices()  # whatever the engagement layer would name without a registry
+    for name in (*defaults, 'Synthetic voice', 'Archivist'):
+        library.engagement.seen(name, [library.engagement.document('library/thought.md')])
+    status, body, _ = request('/api/readers?path=library/thought.md')
+    groups = {r['participant']: r['group'] for r in body['readers']}
+    assert status == 200 and 'voice' not in groups.values(), groups
+    assert defaults == () and set(groups) == {'Synthetic voice', 'Archivist'}
+    assert library.engagement.group('Archivist', 'Test reader', ()) == 'agent'
+    assert library.engagement.group('Test reader', 'Test reader', ('Test reader',)) == 'you'
+
+
 def test_reading_log_reports_editions_groups_folding_and_threads_without_writing(web):
     root, library, server, request = web
     engagement = library.engagement
     for index in range(6):
         (root / f'library/extra-{index}.md').write_text(f'# Extra {index}\n')
     mark = lambda who, *paths: engagement.seen(who, [engagement.document(p) for p in paths])
+    (root / 'voices.json').write_text(json.dumps({'schema_version': 1, 'voices': [{'name': 'Builder'}, {'name': 'Archivist'}]}))
     _, body, _ = request('/api/readers?path=library/thought.md')
     assert body['readers'] == [] and body['folded'] == 0
-    mark('Agy', 'library/thought.md')
-    mark('Reader librarian', 'library/thought.md')
+    mark('Builder', 'library/thought.md')
+    mark('Archivist', 'library/thought.md')
     mark('Test reader', 'library/other.md')  # no receipt for thought.md: absent
     extras = [f'library/extra-{i}.md' for i in range(6)]
     mark('Steady agent', 'library/thought.md', *extras[:4])  # five documents: shown
     mark('One-off agent', 'library/thought.md', *extras[:3])  # four documents: folded
     start = (root / 'library/thought.md').read_text().index('a precise passage')
-    thread = library.annotations.create(path='library/thought.md', start=start, end=start + 17, owner='Agy', request_id=str(uuid4()))
-    library.annotations.reply(thread['id'], 'Reader librarian', 'Noted.')
-    library.annotations.reply(thread['id'], 'Reader librarian', 'Twice.')
-    library.annotations.create(path='library/thought.md', start=start, end=start + 1, owner='Agy', request_id=str(uuid4()))
+    thread = library.annotations.create(path='library/thought.md', start=start, end=start + 17, owner='Builder', request_id=str(uuid4()))
+    library.annotations.reply(thread['id'], 'Archivist', 'Noted.')
+    library.annotations.reply(thread['id'], 'Archivist', 'Twice.')
+    library.annotations.create(path='library/thought.md', start=start, end=start + 1, owner='Builder', request_id=str(uuid4()))
     # The librarian's receipt is for the edition before this change.
     with (root / 'library/thought.md').open('a') as stream:
         stream.write('\nA new edition.\n')
-    mark('Agy', 'library/thought.md')
+    mark('Builder', 'library/thought.md')
     status, body, _ = request('/api/readers?path=library/thought.md')
     assert status == 200 and body['version'] == library.digest('library/thought.md') and body['participant'] == 'Test reader'
     rows = {r['participant']: r for r in body['readers']}
-    assert set(rows) == {'Agy', 'Reader librarian', 'Steady agent', 'One-off agent'}
-    assert rows['Agy']['state'] == 'current' and rows['Agy']['group'] == 'voice' and rows['Agy']['threads'] == 2
-    assert rows['Reader librarian']['state'] == 'earlier' and rows['Reader librarian']['threads'] == 1
+    assert set(rows) == {'Builder', 'Archivist', 'Steady agent', 'One-off agent'}
+    assert rows['Builder']['state'] == 'current' and rows['Builder']['group'] == 'voice' and rows['Builder']['threads'] == 2
+    assert rows['Archivist']['state'] == 'earlier' and rows['Archivist']['threads'] == 1
     assert rows['Steady agent']['group'] == 'agent' and not rows['Steady agent']['folded']
     assert rows['One-off agent']['folded'] and body['folded'] == 1 and body['one_off_threshold'] == 5
-    assert [r['participant'] for r in body['readers']] == ['Agy', 'Reader librarian', 'Steady agent', 'One-off agent']
-    # The requester is "you"; a voices.json registry replaces the built-in voice list.
+    assert [r['participant'] for r in body['readers']] == ['Builder', 'Archivist', 'Steady agent', 'One-off agent']
+    # The requester is "you"; the voices are exactly the ones voices.json names now.
     mark('Test reader', 'library/thought.md')
     (root / 'voices.json').write_text(json.dumps({'schema_version': 1, 'voices': [{'name': 'Steady agent'}]}))
     receipts = {f.name: f.read_bytes() for f in (root / 'engagement').iterdir()}
     _, body, _ = request('/api/readers?path=library/thought.md')
     rows = {r['participant']: r for r in body['readers']}
-    assert rows['Test reader']['group'] == 'you' and rows['Steady agent']['group'] == 'voice' and rows['Agy']['group'] == 'agent'
-    assert rows['Agy']['folded'] and not rows['Steady agent']['folded'], 'only agents are folded'
+    assert rows['Test reader']['group'] == 'you' and rows['Steady agent']['group'] == 'voice' and rows['Builder']['group'] == 'agent'
+    assert rows['Builder']['folded'] and not rows['Steady agent']['folded'], 'only agents are folded'
     _, body, _ = request('/api/readers?path=library/thought.md&participant=One-off%20agent')
     row = next(r for r in body['readers'] if r['participant'] == 'One-off agent')
     assert row['group'] == 'you' and not row['folded'], 'you are never folded'
@@ -476,24 +492,24 @@ def test_reading_log_reports_editions_groups_folding_and_threads_without_writing
 
 def test_reading_log_counts_other_edition_paths_as_earlier(web, monkeypatch):
     root, library, server, request = web
-    library.engagement.seen('Agy', [library.engagement.document('library/other.md')])
+    library.engagement.seen('Builder', [library.engagement.document('library/other.md')])
     assert request('/api/readers?path=library/thought.md')[1]['readers'] == []
     monkeypatch.setattr(library, 'edition_paths', lambda path: ['library/other.md'])  # the RW-05 hook
     rows = request('/api/readers?path=library/thought.md')[1]['readers']
-    assert [(r['participant'], r['state']) for r in rows] == [('Agy', 'earlier')]
+    assert [(r['participant'], r['state']) for r in rows] == [('Builder', 'earlier')]
 
 
 def test_reading_log_counts_earlier_members_of_the_edition_family(web):
     root, library, server, request = web
     (root / 'library/thought.v2.md').write_text('---\ntitle: A quiet thought (v2)\nprevious_version: thought.md\n---\n\n# v2\n')
     library.editions.checked = None
-    library.engagement.seen('Agy', [library.engagement.document('library/thought.md')])
-    library.engagement.seen('Kai', [library.engagement.document('library/thought.v2.md')])
+    library.engagement.seen('Builder', [library.engagement.document('library/thought.md')])
+    library.engagement.seen('Reviewer', [library.engagement.document('library/thought.v2.md')])
     assert library.edition_paths('library/thought.v2.md') == ['library/thought.md']
     rows = request('/api/readers?path=library/thought.v2.md')[1]['readers']
-    assert sorted((r['participant'], r['state']) for r in rows) == [('Agy', 'earlier'), ('Kai', 'current')]
+    assert sorted((r['participant'], r['state']) for r in rows) == [('Builder', 'earlier'), ('Reviewer', 'current')]
     rows = request('/api/readers?path=library/thought.md')[1]['readers']  # a newer version is not an earlier edition
-    assert [(r['participant'], r['state']) for r in rows] == [('Agy', 'current')]
+    assert [(r['participant'], r['state']) for r in rows] == [('Builder', 'current')]
 
 
 def test_standfirst_skips_frontmatter_heading_code_and_mermaid_and_is_bounded(web):

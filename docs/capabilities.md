@@ -149,7 +149,8 @@ Under each document's title, a reading log shows which participants have a read
 receipt for this exact edition and which only for an earlier version of the same
 path, with relative times; the expanded log lists both groups, folds one-off task
 agents (fewer than 5 document receipts) into one entry, and links to each
-participant's threads. Receipts for earlier members of the document's edition family
+participant's threads. Voices are the names the vault's `voices.json` lists; a vault
+without one has no voices. Receipts for earlier members of the document's edition family
 (an original, or a lower version) count as earlier editions.
 
 **Send to AI-TTS** (Space s, the document footer or the selection toolbar's Speak)

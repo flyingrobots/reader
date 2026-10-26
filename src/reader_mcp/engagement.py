@@ -9,8 +9,6 @@ from .annotations import MAX_THREADS, Annotations, now, sha
 MAX_PARTICIPANTS = 100
 
 
-# Built-in voice list, used until a vault voice registry (`voices.json`, RW-14) names them.
-VOICES = ('Reader librarian', 'Reader librarian (curator)', 'Agy', 'Claude', 'Kai')
 # Participants (other than you) with fewer document receipts than this are one-off task agents.
 ONE_OFF_RECEIPTS = 5
 
@@ -41,16 +39,16 @@ class Engagement:
         return result
 
     def voices(self):
-        """Voice names from `voices.json` when present (schema 1, at most 64 KiB), else the built-in list."""
+        """Voice names from the vault's `voices.json` (schema 1, at most 64 KiB); without one, nobody is a voice."""
         file=self.root/'voices.json'
-        if file.is_symlink() or not file.is_file():return VOICES
+        if file.is_symlink() or not file.is_file():return ()
         if file.stat().st_size>64*1024:raise ValueError('voices.json exceeds 64 KiB')
         data=json.loads(file.read_text())
         if data.get('schema_version')!=1 or not isinstance(data.get('voices'),list):raise ValueError('Invalid voices.json schema')
         return tuple(self.participant(v['name']) for v in data['voices'][:100] if isinstance(v,dict) and v.get('name'))
 
-    def group(self,participant,you,voices=VOICES):
-        """`you` (the requesting participant), `voice` (in the voice registry) or `agent`."""
+    def group(self,participant,you,voices):
+        """`you` (the requesting participant), `voice` (in `voices`, normally `self.voices()`) or `agent`."""
         if participant==you:return 'you'
         return 'voice' if participant in voices else 'agent'
 

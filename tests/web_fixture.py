@@ -495,13 +495,14 @@ def main():
         if '--reading-log' in sys.argv:
             from reader_mcp.engagement import Engagement
             engagement = Engagement(root)
-            # The librarian read the edition before a one-line revision; Agy read the current one.
-            engagement.seen('Reader librarian', [engagement.document('library/thought.md')])
+            # Two voices, named by this vault's registry: one read the edition before a one-line revision, the other the current one.
+            (root / 'voices.json').write_text(json.dumps({'schema_version': 1, 'voices': [{'name': 'Archivist'}, {'name': 'Builder'}]}))
+            engagement.seen('Archivist', [engagement.document('library/thought.md')])
             (root / 'library/thought.md').write_text(source + '\nA revised closing line.\n')
-            engagement.seen('Agy', [engagement.document('library/thought.md'), engagement.document('library/other.md')])
+            engagement.seen('Builder', [engagement.document('library/thought.md'), engagement.document('library/other.md')])
             for agent in ('task-agent-one', 'task-agent-two'):
                 engagement.seen(agent, [engagement.document('library/thought.md')])
-            Annotations(root).create(path='library/thought.md', start=start, end=start+len('a precise passage'), owner='Agy', comment='Worth a second look.', request_id=str(uuid4()))
+            Annotations(root).create(path='library/thought.md', start=start, end=start+len('a precise passage'), owner='Builder', comment='Worth a second look.', request_id=str(uuid4()))
         if '--dashboard' in sys.argv:
             # A raw span that crosses Markdown markers; the UI must show it as plain prose.
             marked = source.index('**a precise passage** worth')
