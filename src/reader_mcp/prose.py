@@ -19,11 +19,14 @@ import threading
 
 CONTRACT_VERSION = 'colorful.syntax/v1'
 # Hashes of the colorful.syntax/v1 SDL (descriptions stripped, as colorful-ir does)
-# and of the colorful.vocabulary/v1 manifest, identical in v0.3.0 and v0.4.0.
+# and of the colorful.vocabulary/v1 manifest, as emitted by v0.4.0.
 # ROLES below mirrors that manifest's classRoles, so a different vocabulary is refused.
 SCHEMA_HASHES = frozenset({'sha256:4404256591b2fbaaf4a7a3fb2ae03fd4256afb4557b605a19c0b966ee287e122'})
 VOCABULARY_HASHES = frozenset({'sha256:c4f1a36f839ba6e56955c60c8fa45f8d6692685fd137eed2a084416f52531461'})
-MIN_VERSION = (0, 3, 0)
+# The v0.3.0 tag reports a version but its artifacts carry a schema hash outside SCHEMA_HASHES,
+# so every document would be refused at admission (#102); 0.4.0 is the first admitted release.
+MIN_VERSION = (0, 4, 0)
+MIN_VERSION_TEXT = '.'.join(map(str, MIN_VERSION))
 MAX_REQUEST_TEXT = 512 * 1024
 MAX_DOCUMENT_TEXT = 4 * 1024**2
 MAX_SEGMENT_TEXT = 128 * 1024
@@ -339,9 +342,9 @@ class Prose:
             except (OSError, subprocess.TimeoutExpired):
                 version = None
             if version is None:
-                status = self._missing(f'{path} did not report a Colorful version; Reader needs Colorful 0.3.0 or newer.')
+                status = self._missing(f'{path} did not report a Colorful version; Reader needs Colorful {MIN_VERSION_TEXT} or newer.')
             elif version < MIN_VERSION:
-                status = self._missing(f'Colorful {".".join(map(str, version))} at {path} is too old; Reader needs 0.3.0 or newer.')
+                status = self._missing(f'Colorful {".".join(map(str, version))} at {path} is too old; Reader needs {MIN_VERSION_TEXT} or newer.')
             else:
                 status = {'available': True, 'version': '.'.join(map(str, version)), 'path': str(path), 'origin': origin, 'message': None, 'install': INSTALL}
             with self.lock:

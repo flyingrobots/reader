@@ -122,6 +122,16 @@ def test_missing_binary_and_version_floor_messages(tmp_path):
     assert found['available'] and found['origin'] == 'cargo' and found['version'] == '0.4.0'
 
 
+def test_colorful_030_is_below_the_floor_because_its_artifacts_fail_admission(tmp_path):
+    # Colorful 0.3.0's colorful ir artifacts carry a schema hash Reader refuses (#102), so
+    # the floor is 0.4.0: status must not offer prose colors that every document would reject.
+    status = Prose(fake(tmp_path, 'v030')).status()
+    assert status['available'] is False
+    assert 'Colorful 0.3.0' in status['message'] and 'too old' in status['message'] and 'needs 0.4.0 or newer' in status['message']
+    with pytest.raises(ProseUnavailable, match='too old'):
+        Prose(fake(tmp_path, 'v030')).colorize(DOC, [{'id': 'p', 'text': 'the library'}])
+
+
 def test_cache_is_keyed_by_text_and_binary_version(tmp_path):
     binary = fake(tmp_path, 'count')
     calls = FAKE.with_name(FAKE.name + '.calls')

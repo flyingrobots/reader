@@ -248,7 +248,7 @@ local-model worker does not write to the LLM log archive.
 
 **Space c** highlights the grammar of Markdown prose and PDF text with the optional
 local [Colorful Language](https://github.com/flyingrobots/colorful-language) CLI
-(0.3.0 or newer, found through `READER_COLORFUL`, a path set in Behind the scenes, Reader's own build, `PATH` or `~/.cargo/bin`). Three
+(0.4.0 or newer, found through `READER_COLORFUL`, a path set in Behind the scenes, Reader's own build, `PATH` or `~/.cargo/bin`). Three
 intensities: Subtle fades function words a little; Clear (the default) recedes function
 words and punctuation to about 3:1 while content words hold 7:1 and names, numbers and
 quotes take their own hues; Vivid gives every role a distinct saturated hue, underlines

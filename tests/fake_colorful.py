@@ -71,7 +71,7 @@ def main():
     if args[:1] == ['--mode']:
         mode, args = args[1], args[2:]
     if args == ['--version']:
-        print('colorful 0.2.1' if mode == 'old' else 'colorful 0.4.0')
+        print({'old': 'colorful 0.2.1', 'v030': 'colorful 0.3.0'}.get(mode, 'colorful 0.4.0'))
         return 0
     if args != ['ir', '-']:
         print('usage: colorful ir -', file=sys.stderr)

@@ -392,6 +392,28 @@ def test_ai_tts_is_guided_and_start_asks_its_launch_agent(tmp_path, monkeypatch)
     library.close()
 
 
+def test_colorful_030_reads_too_old_in_companions_and_set_path(tmp_path, monkeypatch):
+    root, library, _ = companions(tmp_path, monkeypatch)
+    v030 = tmp_path / 'colorful-030'
+    v030.write_text('#!/bin/sh\necho colorful 0.3.0\n')
+    v030.chmod(0o755)
+    with pytest.raises(ValueError, match=r'Colorful 0\.3\.0 is too old; Reader needs 0\.4\.0 or newer'):
+        library.companions.dispatch({'action': 'set-path', 'name': 'colorful', 'path': str(v030)})
+    library.prose.environ['READER_COLORFUL'] = str(v030)
+    entry = library.companions.status('colorful')['companions'][0]
+    assert entry['state'] == 'too-old' and entry['label'] == 'Too old', entry
+    assert 'needs 0.4.0 or newer' in entry['message'] and 'install' in entry['actions']
+    assert library.prose.status()['available'] is False
+
+
+def test_colorful_install_refuses_a_build_below_the_floor(tmp_path, monkeypatch):
+    monkeypatch.setenv('FAKE_CARGO_VERSION', '0.3.0')
+    root, library, _ = companions(tmp_path, monkeypatch)
+    library.companions.dispatch({'action': 'install', 'name': 'colorful'})
+    done = wait_job(library)
+    assert done['state'] == 'failed' and 'did not report version 0.4.0 or newer' in json.dumps(done), done
+
+
 def test_set_path_validates_and_records(tmp_path, monkeypatch):
     root, library, _ = companions(tmp_path, monkeypatch)
     with pytest.raises(ValueError, match='absolute'):

@@ -97,6 +97,8 @@ const covered=page=>page.evaluate(()=>Object.fromEntries([...CSS.highlights].fil
    assert.equal(selected,'distinct observation for chapter 3');await page.locator('#selection-tools').waitFor();
    await leader(page,'p');await page.locator('#prose-status').filter({hasText:'Using Colorful 0.4.0'}).waitFor();
    assert.match(await page.locator('#prose-colors').textContent(),/^Subtle: function words fade a little/);
+   // #44: Colorful's open-class lexicon is a small seed list, and Settings says so rather than promising every word a color.
+   assert.match(await page.locator('#prose-status').textContent(),/Vivid colors nouns, verbs, adjectives and adverbs only for the few words Colorful's lexicon knows; most content words keep the body ink\./);
    assert.deepEqual(errors,[]);await context.close();}
 
   // 4. Two-page reading: the page-turn textures carry the prose inks.

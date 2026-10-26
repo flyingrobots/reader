@@ -1339,7 +1339,7 @@ names a URL or revision.
   one with another origin or local edits), checks out the pinned commit and verifies
   `HEAD`, then runs `cargo build --locked --release -p colorful-cli --jobs 2` with
   `CARGO_TARGET_DIR=.reader/tooling/colorful-target` and `CARGO_INCREMENTAL=0`. The
-  binary is copied to `.reader/tooling/bin/colorful`, must report 0.3.0 or newer, and
+  binary is copied to `.reader/tooling/bin/colorful`, must report 0.4.0 or newer, and
   its path is recorded in `.reader/companions.json`; `.reader/tooling/colorful.json`
   keeps the revision and SHA-256. Clone and fetch time out after 10 minutes, the build
   after 35. **Update** appears when the Reader-built copy is at another revision.
@@ -1358,7 +1358,7 @@ names a URL or revision.
   with `install_wide_md.py`; each step runs with explicit argv in its own process group,
   killed at its timeout.
 
-**Set path** accepts an absolute path: for Colorful, an executable reporting 0.3.0 or
+**Set path** accepts an absolute path: for Colorful, an executable reporting 0.4.0 or
 newer; for git-locks, the `git-locks` executable or a store (a Git directory ending in
 `.git`). An empty path clears the setting. Paths are stored in `.reader/companions.json`
 and only a browser on this Mac (a local request) may set them, since the server runs
@@ -2204,7 +2204,8 @@ underlines and background washes rather than weight or size.
 
 Colorful's open-class lexicon is a 16-word seed list, so nouns, verbs, adjectives and
 adverbs are almost never colored in ordinary prose (well under 1% of words). Unlisted content words stay in the content ink, so Vivid mostly shows
-function words, names, numbers and quotes.
+function words, names, numbers and quotes. The Prose colors description in Settings says
+so.
 
 **What is colored.** Paragraphs, list items, blockquotes, headings, table cells,
 definition lists and captions of Markdown documents, and PDF text layers. Code
@@ -2273,7 +2274,9 @@ binary), the path set in Behind the scenes, Companions (`.reader/companions.json
 the copy Reader built (`.reader/tooling/bin/colorful`), `colorful` on `PATH`,
 `~/.cargo/bin/colorful`, and `~/.colorful-language/bin/colorful` (Colorful's
 `scripts/install-local.sh`). It runs `colorful --version` once per binary identity
-(path, inode, mtime, size) and requires 0.3.0 or newer. **Install** in
+(path, inode, mtime, size) and requires 0.4.0 or newer; an older binary
+reads *Too old* in Companions and prose colors stay off, since the v0.3.0 tag
+reports a version but its artifacts fail the schema-hash check below. **Install** in
 [Companions](#behind-the-scenes-companions) builds the pinned release; by hand, in a
 clone: `cargo install --path crates/colorful-cli --locked`.
 
@@ -2300,7 +2303,7 @@ prompt](#behind-the-scenes-companions) with Install. The page renders normally.
    ranges in order, in bounds, non-empty, on character boundaries and not
    overlapping; unique occurrence ids; legal token axes; the outline graph; ranges
    in diagnostics and derivation; non-empty, unique derivation; the pinned
-   `schemaHash` and `vocabularyHash` (identical in Colorful 0.3.0 and 0.4.0); and
+   `schemaHash` and `vocabularyHash` (those of Colorful 0.4.0); and
    `contentHash` against the bytes sent. One failure rejects the whole artifact
    (HTTP 400, `Colorful output rejected: … (E_CODE)`). The page stops coloring
    that document and shows the message; earlier batches stay painted.

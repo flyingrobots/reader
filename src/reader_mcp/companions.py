@@ -472,11 +472,11 @@ class Companions:
                 output = self.probe(str(path), ('--version',) if key == 'colorful' else ('version',))
                 found = version_of(output)
                 if key == 'colorful':
-                    from .prose import MIN_VERSION
+                    from .prose import MIN_VERSION, MIN_VERSION_TEXT
                     if not found:
                         raise ValueError(f'{path} did not report a Colorful version')
                     if found < MIN_VERSION:
-                        raise ValueError(f'Colorful {".".join(map(str, found))} is too old; Reader needs 0.3.0 or newer')
+                        raise ValueError(f'Colorful {".".join(map(str, found))} is too old; Reader needs {MIN_VERSION_TEXT} or newer')
                 elif output is None:
                     raise ValueError(f'{path} did not answer `version` like git-locks')
             value = str(path)
@@ -590,7 +590,7 @@ class Companions:
                 '--ttl', '2400', '--wait', '600', '--note', note, HEAVY_KEY, '--', *argv], env
 
     def install_colorful(self):
-        from .prose import MIN_VERSION
+        from .prose import MIN_VERSION, MIN_VERSION_TEXT
         git, cargo = self.git(), self.cargo()
         if not cargo:
             raise ValueError(f'Rust is not installed; get it from {RUST}, then press Check again')
@@ -628,7 +628,7 @@ class Companions:
                 self.probes.clear()
             version = version_of(self.probe(str(binary)))
             if not version or version < MIN_VERSION:
-                raise RuntimeError('The built colorful binary did not report version 0.3.0 or newer')
+                raise RuntimeError(f'The built colorful binary did not report version {MIN_VERSION_TEXT} or newer')
             receipt = {'revision': COLORFUL_COMMIT, 'tag': COLORFUL_TAG, 'repository': COLORFUL_REPO, 'executable': str(binary),
                        'version': '.'.join(map(str, version)), 'installed_at': stamp(),
                        'executable_sha256': hashlib.sha256(binary.read_bytes()).hexdigest()}

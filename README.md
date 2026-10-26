@@ -199,7 +199,7 @@ says so and offers setup, and it can build Colorful Language and wide-md for you
 | Inbox librarian | `codex`, signed in (`codex login`) | Press **You got mail** in Behind the scenes ([inbox runner](docs/inbox-runner.md)) |
 | Local model | Any OpenAI-compatible server: [LM Studio](https://lmstudio.ai/) (Reader can start it and load models through `lms`), [Ollama](https://ollama.com/), llama.cpp's `llama-server`, vLLM, LocalAI, Jan | Behind the scenes, Local model, Provider: pick a preset or enter its `/v1` base URL ([details](docs/web.md#behind-the-scenes-local-model-any-openai-compatible-server)) |
 | Read aloud | A local [AI-TTS](https://github.com/flyingrobots/AI-TTS) daemon | Space s ([details](docs/web.md#send-to-ai-tts)) |
-| Prose colors | [Colorful Language](https://github.com/flyingrobots/colorful-language) 0.3.0 or newer | Space c ([details](docs/web.md#prose-colors-colorful-language)) |
+| Prose colors | [Colorful Language](https://github.com/flyingrobots/colorful-language) 0.4.0 or newer | Space c ([details](docs/web.md#prose-colors-colorful-language)) |
 
 The local model writes standfirsts and key terms, checked against the source and
 cached outside your documents, and can serve search embeddings. Presets fill the
