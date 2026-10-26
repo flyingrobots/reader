@@ -38,9 +38,13 @@ def main():
         # Only selected software paths. No host mount and no vault files enter the worker.
         stream = io.BytesIO()
         with tarfile.open(fileobj=stream, mode='w') as archive:
-            for top in ['src','tests','scripts','skills','schemas','plugins','pyproject.toml','uv.lock','LICENSE','.reader/tooling/bin/wide-md','.reader/tooling/installed.json']:
+            for top in ['src','tests','templates','scripts','skills','schemas','plugins','web','docs','activity','README.md','CHANGELOG.md','AGENTS.md','package.json','package-lock.json','pyproject.toml','uv.lock','LICENSE','.reader/tooling/bin/wide-md','.reader/tooling/installed.json']:
                 for path in ([ROOT/top] if (ROOT/top).is_file() else sorted((ROOT/top).rglob('*'))):
                     rel = path.relative_to(ROOT)
+                    # Published screenshots are not executable test input. Keep the
+                    # existing archive cap for source, fixtures and the Linux formatter.
+                    if rel.parts[:2] == ('docs', 'images'):
+                        continue
                     if path.is_file() and not path.is_symlink() and not any(p in ('node_modules','dist','__pycache__') for p in rel.parts):
                         archive.add(path, arcname=str(rel), recursive=False)
         if stream.tell() > 24 * 1024**2:
@@ -61,12 +65,18 @@ def main():
                 raise RuntimeError('Docker VM free space below 50 GiB')
             (RUNTIME/(kind+'-contract.json')).write_text(json.dumps(contract, indent=2))
             docker('exec','-i',name,'tar','xf','-','-C','/work',input=stream.getvalue())
+            if kind == 'python':
+                # Source-policy tests inspect tracked source names. Give the isolated
+                # copy its own index; no host repository metadata or history is copied.
+                docker('exec',name,'git','init','-q','-b','snapshot','/work')
+                docker('exec',name,'git','-C','/work','add','-A','--','.', ':(exclude).reader/')
             cmd = ('python -m pip install --disable-pip-version-check --no-cache-dir --target /work/tools uv && '
                    'PYTHONPATH=/work/tools UV_CACHE_DIR=/work/cache python -m uv sync --locked && '
                    '.venv/bin/python -m pytest -q') if kind == 'python' else (
                    'npm --prefix plugins/reader ci --cache /work/npm-cache && '
                    'npm --prefix plugins/reader run check && npm --prefix plugins/reader test && '
-                   'npm --prefix plugins/reader run build')
+                   'npm --prefix plugins/reader run build && '
+                   'node --test tests/quiz_controller.cjs')
             if kind=='formatter':
                 cmd = ('git init /work/formatter && git -C /work/formatter fetch --depth=1 '
                        'https://github.com/flyingrobots/wide-md c167101b32bbe37954429e9de5db33efcdc0a16c && '

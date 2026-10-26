@@ -15,7 +15,7 @@ const hit=(r:DOMRect|Box,b:Box)=>('width' in r?r.width:r.w)>0&&('height' in r?r.
 const concealed=(el:Element):boolean=>{const details=el.closest('details:not([open])');if(!details)return false;const summary=el.closest('summary');return !(summary&&summary.parentElement===details)||concealed(details);};
 const shown=(el:Element)=>!concealed(el);
 const visible=(color:string)=>!!color&&color!=='transparent'&&!/rgba?\([^)]*,\s*0\)$/.test(color)&&!/\/\s*0\)$/.test(color);
-const HIGHLIGHTS:Record<string,{fill?:string;wavy?:string;ink?:string;line?:string}>={'reader-own':{fill:'--own'},'reader-other':{fill:'--other'},'reader-find':{fill:'--selection'},'reader-current':{fill:'--accent',ink:'--accent-ink'},'reader-warning':{wavy:'--warning'},'reader-visual':{fill:'--selection'},'reader-cursor':{line:'--accent'}};
+const HIGHLIGHTS:Record<string,{fill?:string;wavy?:string;ink?:string;line?:string}>={'reader-own':{fill:'--own'},'reader-other':{fill:'--other'},'reader-find':{fill:'--selection'},'reader-current':{fill:'--accent',ink:'--accent-ink'},'reader-warning':{wavy:'--warning'},'reader-visual':{fill:'--selection'},'reader-cursor':{line:'--accent'},'reader-quiz':{fill:'--accent',ink:'--accent-ink'}};
 // Prose colors (Colorful Language) are read from <body>, where the intensity class sets them,
 // and lose to every annotation or find ink. Their ranges never cross a text node.
 // Syntax roles of the Code Block highlighter (code-blocks.ts CODE_ROLES).

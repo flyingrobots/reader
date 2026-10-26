@@ -56,9 +56,19 @@ parser.add_argument('--art-brief', default='TITLE: A synthetic artwork\nBRIEF:\n
 parser.add_argument('--art-scene')
 parser.add_argument('--art-first')
 parser.add_argument('--art-usage', action='store_true')
+parser.add_argument('--quiz-json')
+parser.add_argument('--quiz-first')
+parser.add_argument('--quiz-review-json')
 args, rest = parser.parse_known_args()
 prompt = args.prompt if args.prompt is not None else sys.stdin.read()
 seen = prompt + '\n' + (args.persona or '')
+if 'Generate 5–8 independent questions' in prompt and args.quiz_json:
+    marker = Path(args.log or '.reader/fake-quiz') / 'quiz-called'
+    marker.parent.mkdir(parents=True, exist_ok=True)
+    args.reply = args.quiz_first if args.quiz_first and not marker.exists() else args.quiz_json
+    marker.touch()
+elif 'Review this answer against the saved rubric' in prompt and args.quiz_review_json:
+    args.reply = args.quiz_review_json
 kind = 'listen' if 'Reader listening check' in seen else 'chime_in' if 'You are chiming in' in seen else 'turn'
 if 'Reader art brief' in prompt:
     args.reply = args.art_brief

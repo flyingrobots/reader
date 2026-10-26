@@ -23,3 +23,5 @@ Future work belongs in the [roadmap](../planning/roadmap.md). Intake, reading, m
 Open `library/index.md` in your private vault to read cataloged material.
 
 Code and content are separate repositories. Start with [separate-vault setup](separate-vault.md); `$READER_ROOT` in command examples means the private vault path.
+
+- [Article quizzes](quizzes.md) — generation, evidence, edition handling, results, runtime and API contracts.

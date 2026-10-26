@@ -47,6 +47,8 @@ from .service import Service, health
 from .web_access import WebAccess
 from .themes import Themes
 from .voice_runner import ChatOwned, Conversations
+from .voice_tasks import VoiceTasks
+from .quizzes import Quizzes
 from .versions import Versions, split_ref
 
 STATIC = Path(__file__).with_name('web_ui')
@@ -203,7 +205,10 @@ class WebLibrary:
         self.embed_texts = embed_tree.Texts()
         self.magazine = Magazine(self)
         self.shapes = Shapes(self)
-        self.conversations = Conversations(self.root, self.chat_document, **(chat_options or {}))
+        self.quizzes = Quizzes(self.root, self.chat_document, self.engagement)
+        self.voice_tasks = VoiceTasks(self.root, self.chat_document, {'quiz': self.quizzes, 'quiz-review': self.quizzes})
+        self.quizzes.tasks = self.voice_tasks
+        self.conversations = Conversations(self.root, self.chat_document, tasks=self.voice_tasks, **(chat_options or {}))
         self.writing = Writing(self.root, self.path, self.digest, **(writing_options or {}))
         self.companions = Companions(self.root, prose=self.prose, speech=self.speech, maintenance=self.maintenance,
                                      local_model=self.local_model, **(companions or {}))
@@ -270,6 +275,27 @@ class WebLibrary:
         self.path(path)  # library documents only: unfiled inbox previews are never chat subjects
         doc = self.document(path)
         return {'path': path, 'title': str(doc['title'])[:500], 'sha256': doc['sha256'], 'text': doc['text'] if inline else None}
+
+    def quiz(self, path, participant, task_id=None):
+        quiz = self.quizzes.get(path)
+        task = None
+        if task_id:
+            job = self.voice_tasks.read(task_id)
+            if job['path'] != path or job['participant'] != participant or not job['kind'].startswith('quiz'):
+                raise ValueError('Task belongs to another document or participant')
+            task = self.voice_tasks.public(job)
+            if job['kind'] == 'quiz-review':
+                reviewed = self.quizzes.read(job['payload']['edition'], job['payload']['quiz_id'])
+                if reviewed['document_path'] != path:
+                    raise ValueError('Reviewed quiz belongs to another document')
+                quiz = self.quizzes.view(reviewed, self.chat_document(path, True))
+        else:
+            task = self.voice_tasks.latest(path, participant, self.digest(path))
+        try:
+            default_voice = self.voice_tasks.choose(path, None)
+        except ValueError:
+            default_voice = None
+        return {'quiz': quiz, 'task': task, 'default_voice': default_voice} | self.conversations.voices()
 
     def close(self):
         self.art.close()
@@ -726,7 +752,10 @@ class WebLibrary:
         rank = {'voice': 0, 'you': 1, 'agent': 2}
         readers.sort(key=lambda r: r['at'], reverse=True)
         readers.sort(key=lambda r: (r['folded'], rank[r['group']]))
-        return {'path': path, 'version': current, 'participant': you, 'readers': readers,
+        quiz_results = [dict(result, group=self.engagement.group(result['participant'], you, voices),
+                             state='current' if result['document_sha256'] == current else 'earlier')
+                        for result in self.engagement.quiz_results(path)]
+        return {'path': path, 'version': current, 'participant': you, 'readers': readers, 'quiz_results': quiz_results,
                 'folded': sum(r['folded'] for r in readers), 'one_off_threshold': ONE_OFF_RECEIPTS}
 
     def family(self, path):
@@ -1119,7 +1148,7 @@ class WebLibrary:
 # admission and limited only by its own four-stream semaphore, so it never holds a slot.
 STATIC_PREFIXES = ('/assets/', '/fonts/')
 UNGATED = frozenset({'/', '/api/health'})  # The page itself and the cheap liveness probe.
-EXPENSIVE_GETS = frozenset({'/api/search', '/api/search/page', '/api/next', '/api/prose', '/api/service', '/api/shape'})
+EXPENSIVE_GETS = frozenset({'/api/search', '/api/search/page', '/api/next', '/api/prose', '/api/service', '/api/shape', '/api/quiz'})
 EXPENSIVE_GET_PREFIXES = ('/api/chat',)  # /api/chat, /api/chats, /api/chat/raw
 EXPENSIVE_LIMIT, READ_LIMIT, READ_WAIT = 8, 32, 5.0
 
@@ -1372,6 +1401,9 @@ class WebHandler(BaseHTTPRequestHandler):
                 elif parsed.path == '/api/writing':
                     participant = library.engagement.participant(request.pop('participant', self.server.participant))
                     self.json(library.writing.dispatch(request, participant))
+                elif parsed.path == '/api/quiz':
+                    participant = library.engagement.participant(request.pop('participant', self.server.participant))
+                    self.json(library.quizzes.dispatch(request, participant))
                 elif parsed.path == '/api/service':
                     if set(request) != {'action'}:
                         raise ValueError('Expected {"action": "update" | "restart" | "pause" | "resume"}')
@@ -1430,6 +1462,9 @@ class WebHandler(BaseHTTPRequestHandler):
                 self.json(library.conversations.list(args.get('path', '')))
             elif parsed.path == '/api/chat':
                 self.json(library.conversations.get(args.get('id', '')))
+            elif parsed.path == '/api/quiz':
+                participant = library.engagement.participant(args.get('participant', self.server.participant))
+                self.json(library.quiz(args.get('path', ''), participant, args.get('task')))
             elif parsed.path == '/api/local-model':
                 self.json(library.local_model.status())
             elif parsed.path == '/api/inbox/events':
