@@ -39,11 +39,12 @@ class Prompts:
         if self.folder.is_symlink():
             raise ValueError('Prompt folder must not be a symlink')
         count = 0
-        for n, directory in enumerate(self.folder.iterdir() if self.folder.exists() else (), 1):
+        entries = self.folder.iterdir() if self.folder.exists() else ()
+        for n, directory in enumerate((entry for entry in entries if not entry.name.startswith('.')), 1):
             if n > MAX_PROMPTS or directory.is_symlink() or not directory.is_dir() or not SHA.fullmatch(directory.name):
                 raise ValueError('Unsafe or oversized prompt inventory')
             for file in directory.iterdir():
-                if file.name.startswith('.prompt-'):
+                if file.name.startswith('.'):
                     continue
                 count += 1
                 if count > MAX_PROMPTS or file.is_symlink() or not file.is_file() or file.suffix != '.json' or file.stat().st_size > MAX_FILE:

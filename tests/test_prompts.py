@@ -75,6 +75,17 @@ def test_cache_is_specific_to_voice_and_edition(app):
     assert generate(app)['id'] != first['id']
 
 
+def test_prompt_inventory_ignores_preserved_hidden_metadata(app):
+    prompt = generate(app)
+    entries = [app.prompts.folder / '.DS_Store',
+               app.prompts.folder / prompt['document_sha256'] / '.editor-swap']
+    for file in entries:
+        file.write_bytes(b'Preserve metadata')
+    assert app.prompts.get(PATH)['id'] == prompt['id']
+    assert len(list(app.prompts.files())) == 1
+    assert all(file.read_bytes() == b'Preserve metadata' for file in entries)
+
+
 def test_invalid_quote_keeps_question_without_link(app):
     job = dict(id=str(uuid4()), voice='Claude', path=PATH, source_sha256=app.digest(PATH))
     result = app.prompts.task_result(job, dict(question='What do you think?', quote='Invented passage.'), {})

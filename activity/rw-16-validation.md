@@ -13,3 +13,7 @@ The checks used the existing bounded Reader Node worker: read-only root, no host
 ## Remaining gates
 
 These checks precede final integration of the quiz PR and current main. Complete-suite and integrated browser validation, current-head CI and an independent Code Lawyer review remain required. This is a development checkpoint, not a merge announcement.
+
+## Shared review corrections
+
+The quiz branch's published review fixes were merged normally into this separate worktree. A matching prompt-store regression showed that OS/editor dotfiles disabled prompt discovery; ignoring hidden entries without altering their bytes made all 12 prompt tests pass (`prompt-dotfiles-red` / `prompt-dotfiles-green`, bounded Docker).
