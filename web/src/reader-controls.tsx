@@ -11,9 +11,11 @@ import {Field, FieldGroup, FieldLabel, FieldDescription} from './components/ui/f
 import {Input} from './components/ui/input';
 import {Button} from './components/ui/button';
 import {Badge} from './components/ui/badge';
-import {CodeBlock, CodeBlockHeader, CodeBlockTitle, CodeBlockActions, CodeBlockCopyButton, CodeBlockContent} from './components/ui/code-block';
+import {decorateCodeBlocks, installCodeCopy, type CodeBlockOptions} from './code-blocks';
+export {decorateCodeBlocks};
 import {Toaster} from './components/ui/sonner';
 import {toast} from 'sonner';
+import {notify} from './notify';
 import {Backstage, EditionLinks, Inbox, type MaintenanceStatus, type Job, type InboxStatus} from './backstage';
 import {SpeechControl, setSpeechApi} from './speech-control';
 export {trackSpeech} from './speech-control';
@@ -107,12 +109,7 @@ const subscribe=(listener:()=>void)=>{listeners.add(listener);return ()=>{listen
 const snapshot=()=>model;
 function update(patch:Partial<Model>){if(Object.entries(patch).every(([key,value])=>Object.is(model[key as keyof Model],value)))return;model={...model,...patch};listeners.forEach(listener=>listener());}
 
-/** Plain-JS toasts go through the same Sonner Toaster. */
-/** A toast; pass `id` to replace an earlier toast with the same id instead of stacking another. A string third argument is a description. */
-export function notify(message:string,type:'info'|'success'|'error'='info',options:string|{id?:string;duration?:number;description?:string}={}){
-  const o=typeof options==='string'?{description:options}:options;
-  if(type==='error')toast.error(message,{duration:8000,...o});else if(type==='success')toast.success(message,o);else toast(message,o);
-}
+export {notify};
 
 // Maintenance jobs: poll fast while one runs, slowly otherwise, and toast each transition.
 let pollTimer:ReturnType<typeof setTimeout>|undefined,polled=false;const started=new Set<string>(),finished=new Set<string>();
@@ -285,7 +282,7 @@ export function installControls(actions:Actions,prefs:Preferences){
   model={value:0,words:0,pdfPages:null,pace:220,spread:0,spreads:0,pages:0,columns:2,theme:prefs.theme,pips:[],prefs,participants:[],themeEditorOpen:false,customThemes:[],fonts:[],maintenance:null,prose:null,chat:{open:false,path:null,title:'',participant:''},outline:{mode:null,open:false,title:'',entries:[],folded:false,railOpen:false},outlineActive:-1,inbox:null,inboxStarting:false,activity:newActivity(),localModel:null,companions:null};
   function View(){const current=useSyncExternalStore(subscribe,snapshot);return <>{createPortal(<ReadingProgress model={current} actions={actions}/>,document.getElementById('progress-controls-slot')!)}{createPortal(<Pages model={current} actions={actions}/>,document.getElementById('pagination-slot')!)}{createPortal(<OutlineControl outline={current.outline} active={current.outlineActive} actions={actions}/>,document.getElementById('outline-slot')!)}{createPortal(<SpeechControl/>,document.getElementById('speech-slot')!)}{createPortal(<label className="theme-toggle"><Switch id="theme-swap" size="sm" aria-label="Dark mode" checked={dark(current.theme)} onCheckedChange={checked=>{if(checked!==dark(current.theme))actions.theme();}}/><span>Dark</span></label>,document.getElementById('theme-switch-slot')!)}<ThemeEditor open={current.themeEditorOpen} onOpenChange={actions.themeEditor} themes={current.customThemes} fonts={current.fonts} current={current.theme} api={actions.api} onChanged={actions.themesChanged} onUse={actions.useTheme} onPreviewFont={actions.previewFont} error={actions.error}/><ChatPanel open={current.chat.open} path={current.chat.path} title={current.chat.title} participant={current.chat.participant} api={actions.api} markdown={actions.chatMarkdown} openPath={actions.openPath} onClose={()=>closeChat()} notify={notify}/><Toaster theme={dark(current.theme)?'dark':'light'} position="bottom-center" offset={{bottom:44}} mobileOffset={{bottom:56}}/></>;}
   ensureProseTokens();new MutationObserver(()=>ensureProseTokens()).observe(document.documentElement,{attributes:true,attributeFilter:['data-theme']});
-  observeButtons();
+  observeButtons();installCodeCopy();
   const root=createRoot(document.getElementById('reader-controls-root')!);flushSync(()=>root.render(<View/>));
   pollMaintenance();pollInbox();
   // A tab coming back into view refreshes the shared inbox state instead of waiting for its idle poll.
@@ -369,11 +366,5 @@ export function clearControlsWithin(container:HTMLElement){for(const [element,ro
 export function mountSkeleton(container:HTMLElement,kind='document'){
   mount(container,<div className={'reader-skeleton '+kind} role="status" aria-label={kind==='search'?'Searching documents':'Loading '+kind}><span className="sr-only">{kind==='search'?'Searching documents…':'Loading '+kind+'…'}</span><Skeleton className="h-5 w-28"/><Skeleton className="h-12 w-3/4"/><div className="grid gap-4">{Array.from({length:kind==='search'?3:8},(_,i)=><Skeleton key={i} className={i%3===2?'h-4 w-3/4':'h-4 w-full'}/>)}</div></div>);container.setAttribute('aria-busy','true');
 }
-export function mountCodeBlocks(container:HTMLElement){
-  for(const pre of [...container.querySelectorAll<HTMLPreElement>('pre:has(>code)')].slice(0,256)){
-    if(pre.closest('[data-slot="code-block"]'))continue;
-    const code=pre.querySelector('code')!,value=code.textContent??'',language=[...code.classList].find(name=>name.startsWith('language-'))?.slice(9)||'Text';
-    const host=document.createElement('div');host.className='reader-code-block';pre.replaceWith(host);
-    mount(host,<CodeBlock><CodeBlockHeader data-reader-decoration=""><CodeBlockTitle>{language}</CodeBlockTitle><CodeBlockActions><CodeBlockCopyButton value={value}/></CodeBlockActions></CodeBlockHeader><CodeBlockContent>{value}</CodeBlockContent></CodeBlock>);
-  }
-}
+/** Fenced code in a rendered container becomes the shadcn Code Block (see code-blocks.ts). */
+export function mountCodeBlocks(container:HTMLElement,options?:CodeBlockOptions){decorateCodeBlocks(container,options);}

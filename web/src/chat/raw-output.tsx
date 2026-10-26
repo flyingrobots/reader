@@ -3,6 +3,7 @@
 import {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {Button} from '../components/ui/button';
 import {ButtonGroup} from '../components/ui/button-group';
+import {LogBlock} from '../log-block';
 import {eventLines, rawSteps, type RawStep} from './raw-steps';
 
 export type RawFrame={turn_id:string;stream:'stdout'|'stderr';n:number;text:string;cut?:boolean};
@@ -26,9 +27,9 @@ function Step({step}:{step:RawStep}){
       {step.state?<span className="chat-raw-state">{step.state.toLowerCase()}</span>:null}
       {step.seconds!=null?<span className="chat-raw-seconds">{step.seconds.toFixed(1)} s</span>:null}</div>
     {step.detail?<code className="chat-raw-detail">{step.detail}</code>:null}
-    {step.kind==='text'&&step.body?<details className="chat-raw-text"><summary>{step.body.length} characters</summary><pre>{step.body}</pre></details>
-      :step.body?<pre className="chat-raw-body">{step.body}</pre>:null}
-    {step.error?<pre className="chat-raw-error">{step.error}</pre>:null}
+    {step.kind==='text'&&step.body?<details className="chat-raw-text"><summary>{step.body.length} characters</summary><LogBlock text={step.body}/></details>
+      :step.body?<LogBlock text={step.body} contentClassName="chat-raw-body"/>:null}
+    {step.error?<LogBlock text={step.error} destructive contentClassName="chat-raw-error"/>:null}
   </li>;
 }
 
@@ -77,11 +78,11 @@ export function RawOutput({chatId,turnId,running,open,onOpenChange,api,bus,label
           <span className="chat-raw-count">{lines.current.stdout.length} stdout lines{stderr.length?` · ${stderr.length} stderr`:''}</span>
         </div>
         {view==='steps'?(steps.length?<ol className="chat-raw-steps">{steps.map(step=><Step key={step.key} step={step}/>)}</ol>:<p className="chat-raw-note">{running?'Waiting for output…':'The CLI printed nothing on stdout.'}</p>)
-          :<pre className="chat-raw-events">{events.join('\n')}</pre>}
+          :<LogBlock text={events.join('\n')} contentClassName="chat-raw-events"/>}
         {data.stdout_truncated?<p className="chat-raw-note">Showing the first {Math.round(data.limit/1048576)} MiB; the archive holds all of it.</p>:null}
-        {stderr.length?<div className="chat-raw-stderr"><div className="chat-raw-heading">stderr</div><pre>{stderr.join('\n')}</pre></div>:null}
-        {data.prompt?<details className="chat-raw-prompt"><summary>Prompt sent ({data.prompt.length} characters)</summary><pre>{data.prompt}</pre></details>:null}
-        {data.system?<details className="chat-raw-prompt"><summary>System prompt ({data.system.length} characters)</summary><pre>{data.system}</pre></details>:null}
+        {stderr.length?<div className="chat-raw-stderr"><div className="chat-raw-heading">stderr</div><LogBlock text={stderr.join('\n')}/></div>:null}
+        {data.prompt?<details className="chat-raw-prompt"><summary>Prompt sent ({data.prompt.length} characters)</summary><LogBlock text={data.prompt}/></details>:null}
+        {data.system?<details className="chat-raw-prompt"><summary>System prompt ({data.system.length} characters)</summary><LogBlock text={data.system}/></details>:null}
         <p className="chat-raw-note">Archived in <code>{data.log}</code>{meta?.status?` · ${meta.status}`:''}{meta?.exit_code!=null?` · exit ${meta.exit_code}`:''}{Array.isArray(meta?.argv)?<> · <code title={meta!.argv.join(' ')}>{meta!.argv.slice(0,3).join(' ')}{meta!.argv.length>3?' …':''}</code></>:null}</p>
       </>:null}
     </div>:null}

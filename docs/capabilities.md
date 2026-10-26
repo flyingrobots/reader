@@ -287,7 +287,7 @@ Inbox previews are never queued or logged.
 
 Reading controls use local shadcn Base UI components: Progress and Popover on the
 reading rail, Pagination in facing-page mode, Select and Switch in the Behind the scenes settings,
-Card and Badge for index status, Sonner toasts, a paired light/dark Switch, Code Block with exact-text copying, and Skeleton
+Card and Badge for index status, Sonner toasts, a paired light/dark Switch, Code Block for every fenced block (language label, exact-text copy with a toast, line numbers in documents, and lazily loaded local Shiki syntax colors painted as CSS highlights in theme colors, without changing the code text), and Skeleton
 loading placeholders. The compiled assets ship with the Python package; rebuilding
 these controls requires the separate `web/` Node toolchain.
 

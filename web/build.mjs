@@ -21,9 +21,13 @@ rmSync(out+'/katex',{recursive:true,force:true});mkdirSync(out+'/katex/fonts',{r
 const katexDist='node_modules/katex/dist';
 writeFileSync(out+'/katex/katex.css',readFileSync(katexDist+'/katex.min.css','utf8').replace(/,url\(fonts\/[^)]+\.woff\) format\("woff"\),url\(fonts\/[^)]+\.ttf\) format\("truetype"\)/g,''));
 for(const font of readdirSync(katexDist+'/fonts').filter(name=>name.endsWith('.woff2')))writeFileSync(out+'/katex/fonts/'+font,readFileSync(katexDist+'/fonts/'+font));
+// Code highlighting: Shiki (JavaScript regex engine, no WebAssembly) as an on-demand entry whose
+// grammars are split into their own chunks under controls/highlight/, one per language. Stale chunks are removed.
+rmSync(out+'/highlight',{recursive:true,force:true});
+const highlight=await build({entryPoints:{highlight:'src/code-highlight.ts'},bundle:true,splitting:true,format:'esm',target:'es2022',minify:true,outdir:out,entryNames:'[name]',chunkNames:'highlight/[name]-[hash]',metafile:true,legalComments:'linked'});
 // Editor: the CodeMirror 6 Markdown editor with Vim keys, loaded only when a scratch buffer opens.
 const editor=await build({entryPoints:{editor:'src/markdown-editor.ts'},bundle:true,format:'esm',target:'es2022',minify:true,outdir:out,entryNames:'[name]',metafile:true,legalComments:'linked'});
-const inputs=[...Object.keys(result.metafile.inputs),...Object.keys(three.metafile.inputs),...Object.keys(diagrams.metafile.inputs),...Object.keys(math.metafile.inputs),...Object.keys(editor.metafile.inputs)];
+const inputs=[...Object.keys(result.metafile.inputs),...Object.keys(three.metafile.inputs),...Object.keys(diagrams.metafile.inputs),...Object.keys(math.metafile.inputs),...Object.keys(highlight.metafile.inputs),...Object.keys(editor.metafile.inputs)];
 // Famous themes: resolve palettes to tokens with the same code the editor uses.
 mkdirSync('node_modules/.cache',{recursive:true});
 await build({entryPoints:['src/theme/famous-build.ts'],bundle:true,format:'esm',platform:'node',target:'es2022',outfile:'node_modules/.cache/famous-build.mjs',logLevel:'error'});
@@ -42,7 +46,9 @@ function retainPackage(folder){
 }
 for(const input of [...new Set(inputs)].filter(p=>p.includes('node_modules/'))){
   let folder=dirname(input);
-  while(folder!=='.'&&!existsSync(join(folder,'package.json')))folder=dirname(folder);
+  // Skip nested {"type":"module"} markers (dist/esm/package.json): the package root has a name.
+  const named=dir=>existsSync(join(dir,'package.json'))&&!!JSON.parse(readFileSync(join(dir,'package.json'),'utf8')).name;
+  while(folder!=='.'&&!named(folder))folder=dirname(folder);
   if(folder==='.')throw new Error('Missing package metadata: '+input);
   retainPackage(folder);
 }

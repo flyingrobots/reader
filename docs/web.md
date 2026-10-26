@@ -2772,10 +2772,57 @@ total cells and margin items, chart segments, breadcrumb links, folder menu item
 annotation pins and progress pips. They follow their own list, breadcrumb or chart
 patterns.
 
-Markdown fenced code uses shadcn **Code Block**, with a language label and an
-exact-text copy button. Code remains plain text; syntax highlighting is not
-enabled. UI labels do not enter document find or passage anchoring. Up to 256
-blocks per document are enhanced; further blocks remain readable plain code.
+Every fenced code block uses the shadcn [**Code Block**](https://ui.shadcn.com/docs/components/base/code-block):
+in documents and embedded documents, the Mermaid **Diagram source**, the scratch-pad
+preview, chat messages, inbox reports and activity prose. Raw CLI output, stderr and
+prompts in chat raw output, and the theme preview use the React component directly
+(small, wrapped, with a floating copy button).
+
+- **Markup.** `web/src/code-blocks.ts` renders the React CodeBlock, CodeBlockHeader,
+  CodeBlockTitle, CodeBlockActions, CodeBlockCopyButton and CodeBlockContent once into a
+  detached prototype and gives every markdown-it fence those parts' classes and
+  `data-slot` attributes (`mountCodeBlocks` for rendered containers,
+  `decorateCodeBlocks` for HTML strings before they are inserted). The fence's own
+  `<code>` element moves into the block with its text node and its
+  `data-source-start`/`data-source-end` offsets (fences are mapped like paragraphs), so
+  find, selection, annotations and the reading position see the exact source text.
+  At most 4,000 blocks per container are converted.
+- **Header and copy.** The header shows the language (`Python`, `Mermaid`, `Text` for an
+  unlabelled fence) and a copy button labelled **Copy code**. The button copies the exact
+  fence text, shows a check for two seconds and raises a toast ("Copied 6 lines of
+  code."); it is a normal focusable button (Tab, Enter or Space). Without the Clipboard
+  API (an insecure origin) it falls back to `document.execCommand('copy')`, and a refusal
+  raises an error toast. The header is decoration (`data-reader-decoration`).
+- **Line numbers.** Document and preview blocks with two to 5,000 lines get a number
+  gutter: one decoration element per block (`aria-hidden`, not selectable, not found by
+  find). Long lines scroll horizontally inside the block, never the page. Chat, inbox
+  reports and activity prose wrap long lines and have no numbers. The component's own
+  numbering (one CodeBlockLine element per line) is not used: on the 2 MB benchmark
+  document its thousands of line elements made layout about eight times slower than
+  plain `<pre>`.
+- **Syntax highlighting.** [Shiki](https://shiki.style) 4.5.0 with its JavaScript
+  regular-expression engine (no WebAssembly) tokenizes blocks in Bash/Shell, C, CSS,
+  Diff, HTML, JavaScript, JSON, JSX, Markdown, Mermaid, PowerShell, Python, Rust, SQL,
+  TOML, TSX, TypeScript and YAML (plus common aliases such as `sh`, `py`, `ts`, `yml`,
+  `rs`). Other languages and unlabelled fences stay plain. The tokenizer
+  (`controls/highlight.js`, about 125 KB, 40 KB gzipped) and each grammar
+  (`controls/highlight/<language>-<hash>.js`, 3–180 KB) load the first time a block in
+  that language comes within about two screens of the viewport (an
+  IntersectionObserver), and blocks are tokenized in idle-time batches of about 12 ms.
+  Blocks over 100,000 characters are not highlighted. Tokens become CSS custom
+  highlights (`reader-syntax-keyword`, `-string`, `-string-expression`, `-constant`,
+  `-function`, `-parameter`, `-punctuation`, `-comment`, `-link`) over the unchanged
+  text node: highlighting never changes the DOM, so it cannot move an annotation, a find
+  match or a selection. Their priority is below annotations and find.
+- **Theme colors.** `--code-<role>` (style.css) maps each role to the theme's derived
+  prose colors (`--prose-function`, `--prose-quote`, `--prose-number`, …), which hold
+  4.5:1 on the page (the browser suite checks all 22 bundled themes); comments and punctuation
+  use `--muted`. A theme change recolors without re-highlighting. The block's background
+  is the page color, so these ratios hold inside it.
+- **Two-page mode.** Blocks avoid column breaks and scroll inside the column. The
+  page-turn rasterizer paints the syntax colors (it reads `--code-<role>`) and the
+  gutter; the turn lasts under a second.
+
 Existing source-format limitations on annotation anchoring still apply.
 
 Actual shadcn **Skeleton** placeholders appear during library, document and search
@@ -3441,6 +3488,8 @@ node --test tests/art_scene.test.mjs
 .venv/bin/python -m pytest -q tests/test_art.py
 READER_PLAYWRIGHT=/absolute/path/to/playwright-core \
 READER_CHROME=/path/to/chrome node tests/web_diagrams.cjs
+READER_PLAYWRIGHT=/absolute/path/to/playwright-core \
+READER_CHROME=/path/to/chrome node tests/web_code_block.cjs
 node --test tests/math.test.mjs
 READER_PLAYWRIGHT=/absolute/path/to/playwright-core \
 READER_CHROME=/path/to/chrome node tests/web_math.cjs

@@ -221,6 +221,22 @@ def main():
                 'A closing paragraph after the invalid diagram.\n\n' + ''.join(f'Further reading continues on the next spread, paragraph {i}. ' * 6 + '\n\n' for i in range(1, 25)))
             (root / 'library/diagrams.md').write_text(diagrams)
             works.append(dict(id='diagrams.md', title='Diagrams', primary='library/diagrams.md', authors=['Ada'], topics=['Ideas'], projects=['Synthetic'], date='2026-10-23', primary_format='.md', primary_bytes=len(diagrams.encode())))
+        if '--code-blocks' in sys.argv:
+            # Fenced code of several languages, a Mermaid source, a long line and a note anchored inside code.
+            code = ('# Code blocks\n\nA paragraph before the code.\n\n'
+                '```python\ndef greet(name):\n    """Say hello."""\n    return f"hello {name}"  # a careful comment\n\n\nprint(greet("reader"))\n```\n\n'
+                'The paragraph between the code blocks.\n\n'
+                '```text\n' + 'a very long line that keeps going ' * 12 + 'end\n```\n\n'
+                '```mermaid\nflowchart LR\n  Desk[Intake desk] --> Shelf[Library shelf]\n```\n\n'
+                '```bash\necho "the anchored shell phrase" | tr a-z A-Z\n```\n\n'
+                '```\nplain fence without a language\n```\n\n'
+                + ''.join(f'Further reading continues on the next spread, paragraph {i}. ' * 6 + '\n\n' for i in range(1, 30))
+                + '```json\n{"late": true, "count": 3}\n```\n\nThe closing paragraph.\n')
+            (root / 'library/code.md').write_text(code)
+            works.append(dict(id='code.md', title='Code blocks', primary='library/code.md', authors=['Ada'], topics=['Ideas'], projects=['Synthetic'], date='2026-10-23', primary_format='.md', primary_bytes=len(code.encode())))
+            phrase = 'the anchored shell phrase'
+            at = code.index(phrase)
+            Annotations(root).create(path='library/code.md', start=at, end=at + len(phrase), owner='Ada', comment='A note inside code.', request_id=str(uuid4()))
         if '--math' in sys.argv:
             math = ('# Formulas\n\nEuler wrote $e^{i\\pi} + 1 = 0$ in one line, and \\(a^2 + b^2 = c^2\\) in another.\n\n'
                 '$$\n\\int_0^1 x^2\\,dx = \\frac{1}{3}\n$$\n\n'

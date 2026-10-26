@@ -1,3 +1,4 @@
+import {CodeBlock, CodeBlockContent, CodeBlockHeader, CodeBlockTitle} from '../components/ui/code-block';
 import {useEffect, useMemo, useRef, useState, type CSSProperties} from 'react';
 import {Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription} from '../components/ui/sheet';
 import {Select, SelectTrigger, SelectValue, SelectContent, SelectGroup, SelectItem, SelectLabel} from '../components/ui/select';
@@ -59,7 +60,7 @@ function Preview({tokens,fonts,variant,sim}:{tokens:Tokens;fonts:Theme['fonts'];
         <blockquote>The catalog is the library’s memory of itself; the margins are its conversation.</blockquote>
         <h2>What the keeper owes</h2>
         <ul><li>Preserve what arrived, exactly as it came.</li><li>Say where certainty ends, with <code>provenance</code> attached.</li></ul>
-        <pre className="theme-preview-code"><code>{'reader browse --check\n# 2 works, 0 changed'}</code></pre>
+        <CodeBlock className="theme-preview-code"><CodeBlockHeader><CodeBlockTitle>Shell</CodeBlockTitle></CodeBlockHeader><CodeBlockContent tabIndex={-1}>{'reader browse --check\n# 2 works, 0 changed'}</CodeBlockContent></CodeBlock>
       </article>
       <aside className="theme-preview-panel">
         <h3>In the margins</h3>

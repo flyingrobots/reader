@@ -55,6 +55,22 @@ metadata (name table) states with its copyright. The stylesheet is unchanged exc
 that its `@font-face` rules list only the woff2 sources. They load only for documents
 with math. Reader's markdown-it math syntax plugin is its own.
 
+## Code highlighting
+
+Fenced code is highlighted by [Shiki](https://shiki.style) 4.5.0 (MIT, copyright Pine Wu
+and Anthony Fu; licenses retained in `controls/licenses/shiki-LICENSE` and the
+`@shikijs-*` files) with its JavaScript regular-expression engine, which uses
+`oniguruma-to-es`, `oniguruma-parser`, `regex`, `regex-recursion` and `regex-utilities`
+(all MIT). No WebAssembly is bundled or fetched. The TextMate grammars come from
+`@shikijs/langs` (MIT; each grammar keeps the license of its upstream VS Code or
+community source, recorded in the grammar files). The tokenizer is bundled into
+`controls/highlight.js`, and each grammar into its own chunk under
+`controls/highlight/`; they load only when a fenced block in a supported language
+nears the viewport. The `hast` utilities listed in `controls/licenses/` are part of
+Shiki's dependency graph and are recorded for completeness. Reader's language table
+and highlighter loader follow the shadcn/ui base-nova `lib/highlighter` (MIT); the
+CSS-highlight painting and theme mapping are Reader's own.
+
 ## Markdown editor (scratch pad)
 
 The scratch pad's Markdown editor is [CodeMirror 6](https://codemirror.net) —

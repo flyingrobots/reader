@@ -368,6 +368,11 @@ body:is(.prose-clear,.prose-vivid) #article{color:var(--prose-content,var(--ink)
 ::highlight(reader-prose-adjective){color:var(--prose-ink-adjective)}
 ::highlight(reader-prose-adverb){color:var(--prose-ink-adverb)}
 body.prose-vivid ::highlight(reader-prose-proper){color:var(--prose-ink-proper);text-decoration:underline 1px var(--prose-line-proper)}
+/* Code Block syntax colors: CSS custom highlights over unchanged code text (controls code-blocks.ts),
+   painted with each theme's derived prose roles, which hold 4.5:1 on the page in every theme.
+   The page-turn rasterizer reads --code-<role>. */
+:root{--code-keyword:var(--prose-function,var(--accent));--code-string:var(--prose-adjective,var(--ink));--code-string-expression:var(--prose-quote,var(--ink));--code-constant:var(--prose-number,var(--ink));--code-function:var(--prose-proper,var(--accent));--code-parameter:var(--prose-adverb,var(--ink));--code-punctuation:var(--muted);--code-comment:var(--muted);--code-link:var(--accent)}
+::highlight(reader-syntax-keyword){color:var(--code-keyword)}::highlight(reader-syntax-string){color:var(--code-string)}::highlight(reader-syntax-string-expression){color:var(--code-string-expression)}::highlight(reader-syntax-constant){color:var(--code-constant)}::highlight(reader-syntax-function){color:var(--code-function)}::highlight(reader-syntax-parameter){color:var(--code-parameter)}::highlight(reader-syntax-punctuation){color:var(--code-punctuation)}::highlight(reader-syntax-comment){color:var(--code-comment)}::highlight(reader-syntax-link){color:var(--code-link)}
 body.prose-vivid ::highlight(reader-prose-quoted){background-color:var(--prose-bg-quoted)}
 /* PDF text layers are transparent over the page image, which is always white: tint behind the
    words at a fixed lightness instead of revealing the layer's glyphs. Subtle and Clear tint

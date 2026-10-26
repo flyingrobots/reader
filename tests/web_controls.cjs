@@ -28,7 +28,7 @@ const {chromium}=require(process.env.READER_PLAYWRIGHT||'playwright-core');
   const expected='const answer = "a fenced observation 🐈";\nconsole.log(answer);\n';
   assert.equal(await page.locator('[data-slot=code-block-code]').textContent(),expected);assert.equal(await page.evaluate(()=>window.untrustedScriptRan),undefined);assert.equal(await page.locator('#main [data-slot=skeleton]').count(),0);
   const sourceBefore=await (await page.request.get(url+'/api/document?path=library/other.md')).json();
-  await context.grantPermissions(['clipboard-read','clipboard-write']);await page.getByRole('button',{name:'Copy',exact:true}).click();assert.equal(await page.evaluate(()=>navigator.clipboard.readText()),expected);
+  await context.grantPermissions(['clipboard-read','clipboard-write']);await page.getByRole('button',{name:'Copy code',exact:true}).click();assert.equal(await page.evaluate(()=>navigator.clipboard.readText()),expected);
   await page.locator('#main').focus();await page.keyboard.press('/');await page.locator('#find-query').fill('fenced observation');await page.keyboard.press('Enter');assert.equal(await page.locator('#find-count').textContent(),'1 / 1');
   await page.locator('[data-slot=code-block-code]').evaluate(element=>{const text=element.firstChild,start=text.textContent.indexOf('fenced observation'),range=document.createRange();range.setStart(text,start);range.setEnd(text,start+'fenced observation'.length);getSelection().removeAllRanges();getSelection().addRange(range);element.dispatchEvent(new MouseEvent('mouseup',{bubbles:true}));});
   await page.locator('#selection-tools').waitFor();await page.locator('[data-annotate=highlight]').click();await page.waitForFunction(()=>document.querySelectorAll('#progress-pips button').length===1);

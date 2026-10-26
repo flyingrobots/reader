@@ -1,4 +1,5 @@
 /* Chat with the voices about the open document: history, streamed turns, @mentions, pasted replies for manual voices, replies and chime-ins. */
+import {LogBlock} from '../log-block';
 import {useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState} from 'react';
 import {Autocomplete as AutocompletePrimitive, Combobox as ComboboxPrimitive} from '@base-ui/react';
 import {ArrowUpIcon, ClipboardPasteIcon, CornerUpLeftIcon, PlusIcon, RefreshCwIcon, RotateCcwIcon, SquareIcon, XIcon} from 'lucide-react';
@@ -95,7 +96,7 @@ function Footer({message,retried,onRetry,onReply,openPath,raw}:{message:ChatMess
       {failed&&!retried?<Button variant="ghost" size="xs" onClick={onRetry} data-chat-retry=""><RotateCcwIcon/>Retry</Button>:null}
     </span>
     {listening?.warnings.map((warning,index)=><span key={index} className="chat-failed" data-chat-warning="">{warning.message}</span>)}
-    {failed&&turn.stderr_tail?<details className="chat-error" data-chat-reason=""><summary>{turn.error||'Details'}</summary><div className="chat-raw-heading">stderr (last lines)</div><pre>{turn.stderr_tail}</pre></details>
+    {failed&&turn.stderr_tail?<details className="chat-error" data-chat-reason=""><summary>{turn.error||'Details'}</summary><div className="chat-raw-heading">stderr (last lines)</div><LogBlock text={turn.stderr_tail} contentClassName="max-h-40"/></details>
       :failed&&turn.error?<p className="chat-error" data-chat-reason="">{turn.error}</p>:null}
     {!failed&&turn.warning?<p className="chat-warning" data-chat-warning="">{turn.warning}</p>:null}
     <RawOutput chatId={raw.chatId} turnId={turn.id} running={false} open={raw.openRaw.has(turn.id)} onOpenChange={open=>raw.setRaw(turn.id,open)} api={raw.api} bus={raw.bus}/>

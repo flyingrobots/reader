@@ -2,7 +2,7 @@
    Nothing is re-laid-out: every word is drawn at the rectangle the browser already
    gave it, so justification, hyphen-free wrapping and column breaks are exact.
    Covered: text (font, color, case, letter spacing, underline), block backgrounds and
-   borders, CSS custom highlights, images and canvases (PDF pages), and inline SVG through
+   borders, CSS custom highlights (annotations, find, prose and code syntax colors), images and canvases (PDF pages), and inline SVG through
    images pre-serialized by svg-images.ts. A flat icon SVG (Lucide-style path, circle,
    ellipse, rect, line, polyline, polygon) whose image is not ready yet is drawn from its
    shapes instead; diagrams and formulas only ever come from their image, never twice.
@@ -18,6 +18,8 @@ const visible=(color:string)=>!!color&&color!=='transparent'&&!/rgba?\([^)]*,\s*
 const HIGHLIGHTS:Record<string,{fill?:string;wavy?:string;ink?:string;line?:string}>={'reader-own':{fill:'--own'},'reader-other':{fill:'--other'},'reader-find':{fill:'--selection'},'reader-current':{fill:'--accent',ink:'--accent-ink'},'reader-warning':{wavy:'--warning'},'reader-visual':{fill:'--selection'},'reader-cursor':{line:'--accent'}};
 // Prose colors (Colorful Language) are read from <body>, where the intensity class sets them,
 // and lose to every annotation or find ink. Their ranges never cross a text node.
+// Syntax roles of the Code Block highlighter (code-blocks.ts CODE_ROLES).
+const CODE_ROLES=['keyword','string','string-expression','constant','function','parameter','punctuation','comment','link'];
 const PROSE=['function','proper','quote','number','punct','noun','verb','adjective','adverb'];
 
 export function rasterize(article:HTMLElement,page:Box,dx:number,background:string,scale:number):HTMLCanvasElement{
@@ -104,6 +106,10 @@ export function rasterize(article:HTMLElement,page:Box,dx:number,background:stri
       if(spec.ink)inkRanges.push({range,ink:token(spec.ink)});}}
   const proseInk=new Map<Node,[number,number,string][]>();
   if(highlights)for(const role of PROSE){const set=highlights.get('reader-prose-'+role),ink=body.getPropertyValue('--prose-ink-'+role).trim();if(!set||!ink)continue;
+    for(const range of set){const node=(range as Range).startContainer;if(node!==(range as Range).endContainer||!article.contains(node))continue;
+      let list=proseInk.get(node);if(!list)proseInk.set(node,list=[]);list.push([(range as Range).startOffset,(range as Range).endOffset,ink]);}}
+  // Code Block syntax colors (code-blocks.ts): one range per token inside one line's text node.
+  if(highlights)for(const role of CODE_ROLES){const set=highlights.get('reader-syntax-'+role),ink=token('--code-'+role);if(!set||!ink)continue;
     for(const range of set){const node=(range as Range).startContainer;if(node!==(range as Range).endContainer||!article.contains(node))continue;
       let list=proseInk.get(node);if(!list)proseInk.set(node,list=[]);list.push([(range as Range).startOffset,(range as Range).endOffset,ink]);}}
   // 3. Text, word by word at the browser's own rectangles.
