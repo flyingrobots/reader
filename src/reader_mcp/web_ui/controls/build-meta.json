@@ -13,13 +13,13 @@
     "components.json": "6bcabb7870c5c5634cf69e9138a782ca7242f00cfc94e2cc3de981dc84cb6f6b",
     "licenses.mjs": "6d68777363b8fa9c496a32b60fab061ea62145c1a0f033014607a9ace9aa45da",
     "package-lock.json": "a216a7ad0e13d0dead70179f3aad332c0e10c9fa861b4ec651b1359fe8d3baf8",
-    "src/activity/reducer.ts": "44af5ec36d572ae62673b1f8f94ce4b2f4f75999b5e2a0169e21daee9333cfe8",
-    "src/activity/transcript.tsx": "2055824889b5f3fbdfb5bed8c7c21d6231323911242930bb88b631a3723bcee8",
+    "src/activity/reducer.ts": "dc2d362529582c1e68cbed1403733b82c06df15a093cec817cde6bbfd2ef9bf3",
+    "src/activity/transcript.tsx": "d7f7f6256f5a2cc10f3732be16174d3d1df5e9092eb705dbba4dc279d3976a18",
     "src/admin/admin-shell.tsx": "039db7748dd951300ab3fc2fbff68906f56380baf5928fcfbc2ae47f58c532a2",
     "src/admin/link.tsx": "717f9b35be950c8623c6a0e3d822deb921ce681c493d273ae8562ca3f60cf027",
     "src/admin/overview.tsx": "85299af071e5ca17fa455271a9b48c1187907060be38e089730a141be52c4c96",
     "src/admin/panels.tsx": "63bb07f043fdeb4ca168c4a8d39059fe434e1a4c97eb6c7fc14978190c0ffa06",
-    "src/admin/sections.tsx": "b426b402edd3af14a8d6495e9eca25c0653d3c8f17416b1fe683d7b1d6b0fd16",
+    "src/admin/sections.tsx": "feeaf9aeceb66444db5b04d493e399aa088e599a6985836206f2cbed75e23f8f",
     "src/art-regenerate.tsx": "8d0c621e0239e13fcf89a528747a15a0028e01722585b4156ba5db590fbcd7e9",
     "src/art-studio.tsx": "f03b80591a1593d82c990f930a9ef49fc5e6d77d641569c93820140641e789ec",
     "src/art/art.ts": "cd1242a47eda6306459ef1906116ada99778ea58660ca54e252aecd1106375a2",
@@ -68,6 +68,10 @@
     "src/diagrams.ts": "6afe727e3302c2d2ddd4a023105a5a6cf36b6ac969e3ceb2d51f0f0712b326ea",
     "src/document-tree.tsx": "9f54593440ed174d2e92e8da2ee951ea62bb5e0d021dbcd12431341b8233d55b",
     "src/hooks/use-mobile.ts": "ad0936f84f1df79d3697bfbff9c18f8ad58431c1cbaf2359c6a853b0fcc9f28b",
+    "src/jobs/admin.tsx": "e0cc0a5d481b873135dbf5aeca4a4827ff7f16bda2319a6cdc3b5d5ea36977c9",
+    "src/jobs/job-detail.tsx": "2af3ffb68d4ad15bc21192d205fe2a3d4e837994f84e50ae223d99a93736abd4",
+    "src/jobs/prompt-card.tsx": "97bce3b5393043c20f811ba1ee0bf4c45e97a22182689102be104b7a389c3643",
+    "src/jobs/store.ts": "253f612ed164f90369acdb9114b6ec48c777e9785ad06f1db8212ab3fcc0eee5",
     "src/local-model.tsx": "1e833a07054251a762107dec44e55650138f0ba5ba935180806ee8fa1ba5a043",
     "src/log-block.tsx": "bc4bd556c2366d9578b40718911491290bc95ff67c2b3bc0cf124871aaa6105a",
     "src/markdown-editor.ts": "88b1c43e194e5efe4c0a87824ad238df80640f48fafa180a6349ec11752eb1da",
@@ -79,13 +83,13 @@
     "src/page-turn/svg-images.ts": "7279f2b05c66b7a496d2b891b65030e6738f90b032fabbdf9057106f518d887e",
     "src/plural.ts": "4c0d0698a171b39d5683548f00e2e9a8a7c5ea1af28e4067aaa63612476b5fa2",
     "src/queue-panel.tsx": "5ed0363915f6ed4af4a11bd071791e59451f397fffc2246786512598bd177530",
-    "src/reader-controls.tsx": "467207429f7a768585d2f1be3cb232adc5abab319895ef0b393a3c9c70a99650",
+    "src/reader-controls.tsx": "3bc4423041dde1cf457e9d64b9d18c8bc26c83a2e1fe039b0d7a75e37fa01d5b",
     "src/search-page.tsx": "2cd0ec009e41f4dc701efa2ed64edd91e54503d1e880d083df21fff52ef82a5d",
     "src/server-card.tsx": "677721ee033724bbe168e6f566703ddc8df4331d2b046437c1ba91ea4e6a88b0",
     "src/shape/shape.ts": "9fe4b2b1dd21a2869130afa25aed34e2ea482fc8fe05aa2609193aa24c04b50c",
     "src/speech-control.tsx": "45a7efd449606ea196c7adef281ddadb2bd89dab1b5c9a945f56897cadbb4e0c",
     "src/static-demo.ts": "036a0b4413452d2ec8f7a51248157340082f3c030fc51d3237275021340e8810",
-    "src/styles.css": "e5da7779acf8c77ee5ef663cb7becae0e21334fd72630f4ced36134254d68790",
+    "src/styles.css": "6aa17c51b8fdad1456147bc2e361092220aad086500b86399b951189bbc6dff0",
     "src/theme/color.ts": "6537487f39aba3a1381baf01ec22fe458ae3e547b2ae0ffbbc5852c82b671746",
     "src/theme/famous-build.ts": "2cd184dabb7dae2e46f936e2c1aea0ff5a4696ca1e1a35eccc78439877af4b12",
     "src/theme/famous.ts": "de4969de8a1c4a4d2d3017a9d9f7a6745868f1828d677c4ab6f3f45096318101",
@@ -901,16 +905,16 @@
       "sha256": "cfe35634bd446702b8830e17e32333693fcb5187b0cb406665019f7ec4594126"
     },
     "reader-controls.css": {
-      "bytes": 163846,
-      "sha256": "368af56c7668ddfb1ca13df8ef9f8508bb06cd2694a419e09ae493d394693bcf"
+      "bytes": 168608,
+      "sha256": "4cfb3f5ece9cb2f2b505462dafd6c461a1a9979055903da510f8d2d2e3c8bc47"
     },
     "reader-controls.js": {
-      "bytes": 1020915,
-      "sha256": "d1c6fdfe10137f47a14b4ee6314c857075ba39e574b6f20ff97b9ee0a69f20aa"
+      "bytes": 1062283,
+      "sha256": "301d1b8afdb62c11d75a5f927f131a998783f6451db82b253645bc3f3c027f53"
     },
     "reader-controls.js.LEGAL.txt": {
-      "bytes": 5660,
-      "sha256": "cd093ddbcf47d508353d89460452a14e5eebfa2258ab2088c52875516e9cdf4c"
+      "bytes": 5935,
+      "sha256": "827fdb9a4c68bbe16b6fbcc8c8d29179f5a48a37ba18929251145201a3a8d087"
     },
     "shape.js": {
       "bytes": 8806,
