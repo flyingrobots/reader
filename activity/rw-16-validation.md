@@ -39,3 +39,5 @@ A stronger keyboard handoff check reproduced the question dialog's closing focus
 CodeRabbit found that plain-text generation entered Markdown-only annotation discovery before invoking the voice. The actual queued `.txt` task failed in the RED regression. Plain-text tasks now omit annotation context; all 15 prompt tests passed (`prompt-txt-red` / `prompt-txt-green`).
 
 Five notebook-discovery cases cover oversized files, malformed YAML, invalid UTF-8, symlinks and directories. Four failed before the fix; the invalid UTF-8 case already remained undiscoverable. Individual unreadable entries are now skipped without modification, while root-folder and total-inventory refusal remain outside the per-file handler. All 27 prompt/notebook tests passed (`prompt-notebook-red` / `prompt-notebook-green`).
+
+The reading-log route now uses expensive-request admission too, because it also scans notebook entries. Its classification assertion was RED; both refusal and ordinary-read availability checks passed after classification (`prompt-readers-admission-red` / `prompt-readers-admission-green`).

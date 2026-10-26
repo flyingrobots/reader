@@ -1176,7 +1176,7 @@ class WebLibrary:
 # admission and limited only by its own four-stream semaphore, so it never holds a slot.
 STATIC_PREFIXES = ('/assets/', '/fonts/')
 UNGATED = frozenset({'/', '/api/health'})  # The page itself and the cheap liveness probe.
-EXPENSIVE_GETS = frozenset({'/api/search', '/api/search/page', '/api/next', '/api/prose', '/api/service', '/api/shape', '/api/quiz', '/api/prompt', '/api/writing'})
+EXPENSIVE_GETS = frozenset({'/api/search', '/api/search/page', '/api/next', '/api/prose', '/api/service', '/api/shape', '/api/quiz', '/api/prompt', '/api/writing', '/api/readers'})
 EXPENSIVE_GET_PREFIXES = ('/api/chat',)  # /api/chat, /api/chats, /api/chat/raw
 EXPENSIVE_LIMIT, READ_LIMIT, READ_WAIT = 8, 32, 5.0
 
