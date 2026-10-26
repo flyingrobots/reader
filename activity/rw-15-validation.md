@@ -37,3 +37,5 @@ Two bounded actor regressions reproduced the cancellation lock inversion, with a
 The integration-parent record was corrected against the actual second parent of merge `9501969`. The complete suite at source head `9400967` passed 782 tests with two optional skips in 244.57 seconds; both CI checks on that head passed. These historical results do not substitute for validation after the review fixes.
 
 The plain-text transport regression reproduced a valid compact JSON reply being discarded as an unknown event. Text streams now preserve every nonempty line literally. Generation and short-answer review passed through that transport, and the quiz queue plus existing chat suite passed 70 tests with one optional sample skipped in Docker (`quiz-text-red` / `quiz-text-green`).
+
+The admission regression showed quiz GETs entering the ordinary read pool. They now use the existing expensive pool; saturation refuses the quiz request before inventory work while health and ordinary reads remain available. Both affected HTTP admission tests passed in Docker (`quiz-admission-red` / `quiz-admission-green`).

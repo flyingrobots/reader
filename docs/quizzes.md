@@ -44,6 +44,8 @@ The reading log shows results only for participants who submitted an attempt. Pa
 
 All writes require the existing same-origin Reader token and JSON content type.
 
+Quiz GETs use the expensive-request pool because they inspect source evidence and saved inventories. Saturation returns 429 while ordinary reads and health checks retain their existing admission rules.
+
 | Route | Behavior |
 | --- | --- |
 | `GET /api/quiz?path=&participant=` | Current quiz, or the latest earlier one with relocated evidence; runnable voices and the latest generation job |
