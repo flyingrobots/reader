@@ -521,7 +521,7 @@ class VoiceRunner:
     def view(self, turn):
         result = {k: turn.get(k) for k in ('id', 'chat_id', 'voice', 'reply_to', 'chain', 'hop', 'chosen_by', 'retry_of', 'state',
                                            'message', 'queued_at', 'started_at', 'finished_at', 'text', 'error', 'stderr_tail',
-                                           'process_group', 'rev', 'kind', 'root', 'reason', 'hand_id', 'log', 'timeout_seconds')}
+                                           'process_group', 'rev', 'kind', 'task_id', 'root', 'reason', 'hand_id', 'log', 'timeout_seconds')}
         if turn.get('kind') == 'listen':
             result['text'] = ''  # A listening check's answer is routing, never shown as a reply.
         if turn['state'] == 'queued':

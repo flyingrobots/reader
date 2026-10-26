@@ -28,7 +28,7 @@ The server writes the quiz and review artifacts. The task prompt asks the config
 
 Run artifacts are permanently archived under `logs/llm/quiz/` or `logs/llm/quiz-review/`. Successful quiz artifacts and the run logs are committed together using `Reader-Quiz` and `Reader-Voice` trailers. Failed attempts’ logs are retained and committed too. A commit failure remains explicit in task details; saving a file does not prove it was committed.
 
-Interrupted jobs are marked failed when the next owner recovers them; they are not silently rerun. Recovery seals and retains their logs. If an earlier CLI process may still exist, the outcome asks the operator to inspect it before retrying.
+Interrupted jobs are marked failed when the next owner recovers them; they are not silently rerun. Persisted runner turns retain the article task UUID so recovery can locate its outcome. Recovery seals and retains their logs. If an earlier CLI process may still exist, the outcome asks the operator to inspect it before retrying.
 
 ## Results and participant isolation
 

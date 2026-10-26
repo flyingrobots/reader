@@ -194,6 +194,33 @@ def test_recovery_preserves_interrupted_task_logs_without_rerunning(library):
         recovered.close()
 
 
+@pytest.mark.parametrize('kind', ['quiz', 'quiz-review'])
+def test_recovery_uses_task_identity_from_real_saved_runner_state(library, kind):
+    if kind == 'quiz-review':
+        settle(library, generate(library))
+        quiz = library.quizzes.get(PATH)
+    runner = library.conversations.runner
+    with runner.lock:
+        if kind == 'quiz':
+            task = generate(library)
+        else:
+            task = library.quizzes.dispatch(dict(action='review', path=PATH, voice='Claude',
+                edition=quiz['document_sha256'], quiz_id=quiz['id'], question_id='q5',
+                answer='Purple.', request_id=str(uuid4())), 'Reader')['task']
+        runner.save(True)
+        saved = json.loads((library.root / '.reader/voice-runner/state.json').read_text())
+        library.close()  # Prevent the queued synthetic CLI from starting before restart.
+    turn = next(t for t in saved['turns'].values() if t['kind'] == kind)
+    assert turn.get('task_id') == task['id'], 'saved task turns must retain their task identity'
+    recovered = WebLibrary(library.root, chat_options={'git_locks': False})
+    try:
+        job = recovered.voice_tasks.read(task['id'])
+        assert job['state'] == 'failed' and 'retry explicitly' in job['error']
+        assert not recovered.conversations.runner.pending(task['id'])
+    finally:
+        recovered.close()
+
+
 @pytest.mark.parametrize('text', ['{"questions":[],"questions":[]}', '{"answer":NaN}', '```json\n{}\n```', '[]'])
 def test_structured_output_is_strict_json(text):
     with pytest.raises(ValueError):
