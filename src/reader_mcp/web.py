@@ -10,6 +10,8 @@ import posixpath
 import re
 import numpy as np
 import secrets
+import select
+import socket
 import sqlite3
 import threading
 import time
@@ -1138,6 +1140,7 @@ class WebServer(ThreadingHTTPServer):
         self.reads = threading.BoundedSemaphore(READ_LIMIT)
         self.streams = threading.BoundedSemaphore(4)  # SSE streams: outside both pools
         self.chat_heartbeat = 15  # Seconds between `ping` events on an idle chat stream.
+        self.chat_hangup_check = 0.25  # Seconds between checks for a chat stream's client hanging up (#152).
         super().__init__(address, WebHandler)
 
 
@@ -1232,12 +1235,19 @@ class WebHandler(BaseHTTPRequestHandler):
             snapshot()
             self.wfile.flush()
             deadline = datetime.now(timezone.utc) + timedelta(hours=1)
+            quiet_since = time.monotonic()
             while not runner.closed and datetime.now(timezone.utc) < deadline:
-                rows, latest, gap = runner.wait(chat['id'], after, interval)
+                # Wait in short slices so a closed EventSource frees its slot at once, not at the next ping (#152).
+                rows, latest, gap = runner.wait(chat['id'], after, min(interval, self.server.chat_hangup_check))
+                if self.hung_up():
+                    break
                 if gap:
                     snapshot()
                 if not rows:
+                    if time.monotonic() - quiet_since < interval:
+                        continue
                     send('ping', ping())
+                quiet_since = time.monotonic()
                 for seq, kind, data in rows:
                     send(kind, data, seq)
                 after = max([after, *[seq for seq, _, _ in rows]]) if rows else latest
@@ -1246,6 +1256,20 @@ class WebHandler(BaseHTTPRequestHandler):
             pass
         finally:
             self.server.streams.release()
+
+    def hung_up(self):
+        """True once a stream's client has closed its connection.
+
+        A stream request sends nothing after its headers, so a readable socket means EOF (or a reset);
+        any unexpected bytes are left unread and the stream continues."""
+        try:
+            if not select.select([self.connection], [], [], 0)[0]:
+                return False
+            return self.connection.recv(1, socket.MSG_PEEK) == b''
+        except (BlockingIOError, InterruptedError):
+            return False
+        except OSError:
+            return True
 
     def do_POST(self):
         self.handle_request(True)

@@ -596,6 +596,40 @@ def test_stream_pings_with_revision_and_publishes_other_tabs_messages(web):
     connection.close()
 
 
+def test_a_closed_stream_frees_its_slot_before_the_next_heartbeat(web):
+    # #152: with the default 15 s heartbeat, closing and reopening chat panels quickly must not hit 429.
+    root, library, server, request = web
+    assert server.chat_heartbeat == 15
+    chat_id = request('/api/chat', {'action': 'create', 'path': 'library/thought.md', 'participant': 'Ada'})[1]['chat']['id']
+    def open_stream():
+        connection = HTTPConnection('127.0.0.1', server.server_port, timeout=10)
+        connection.request('GET', '/api/chat/stream?id=' + chat_id)
+        stream = connection.getresponse()
+        if stream.status == 200:
+            read_events(stream, 'hello')
+        return connection, stream.status
+    for _ in range(3):  # Three rounds of four: every round reuses the slots the previous one closed.
+        opened = [open_stream() for _ in range(4)]
+        assert [status for _, status in opened] == [200] * 4
+        started = time.monotonic()
+        [connection.close() for connection, _ in opened]
+        while time.monotonic() - started < 1:
+            connection, status = open_stream()
+            connection.close()
+            if status == 200:
+                break
+        assert status == 200, 'a closed stream still held its slot a second later'
+        # Let the probe stream's own close be noticed too before the next round takes all four.
+        deadline = time.monotonic() + 1
+        while time.monotonic() < deadline and server.streams._value < 4:
+            time.sleep(0.02)
+        assert server.streams._value == 4
+    # The limit still holds for streams that stay open.
+    opened = [open_stream() for _ in range(5)]
+    assert [status for _, status in opened] == [200] * 4 + [429]
+    [connection.close() for connection, _ in opened]
+
+
 def test_reuse_returns_the_documents_newest_chat_instead_of_a_second_one(vault):
     conversations = service(vault)
     first = conversations.create('library/thought.md', 'You', request_id=str(uuid4()), reuse=True)['chat']

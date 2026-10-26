@@ -3522,7 +3522,9 @@ events for one chat.
 the IDs of its queued and running turns, and the heartbeat in seconds. An idle
 stream sends `ping` every 15 seconds (`WebServer.chat_heartbeat`; the browser
 fixture's `--chat-heartbeat N` shortens it). At most four streams may be open, they use
-neither request pool, and each closes after an hour (the browser reconnects).
+neither request pool, and each closes after an hour (the browser reconnects). A stream
+checks its connection every `WebServer.chat_hangup_check` seconds (0.25) and frees its
+slot as soon as the client hangs up, rather than at the next failed `ping`.
 POST `/api/chat` takes `{"action": "create"|"send"|"paste"|"cancel"|"retry"|"hand"|"settings"|"hush", …}`
 and an optional `participant`. `send` accepts `reply_to` (a message id in the same
 chat, otherwise 400); `paste` takes `body` and an optional `voice`, which must name a
