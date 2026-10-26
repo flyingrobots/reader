@@ -247,11 +247,14 @@ class Writing:
         for count, file in enumerate(notebook.glob('*.md'), 1):
             if count > 5000:
                 raise ValueError('Notebook inventory exceeds 5,000 files')
-            if file.is_symlink() or file.stat().st_size > MAX_BODY + 16 * 1024:
-                raise ValueError('Unsafe or oversized notebook piece')
-            # Older Scratch pieces can predate the current metadata authoring profile.
-            # Discover their preserved fields without silently rewriting those sources.
-            metadata, _ = source_frontmatter(file.read_bytes())
+            try:
+                if file.is_symlink() or not file.is_file() or file.stat().st_size > MAX_BODY + 16 * 1024:
+                    continue
+                # Preserve old source fields; an unreadable piece must not disable
+                # every article's reading log or the other notebook entries.
+                metadata, _ = source_frontmatter(file.read_bytes())
+            except (ValueError, OSError):
+                continue
             if metadata.get('participant') != participant or responds_to and metadata.get('responds_to') != responds_to:
                 continue
             rows.append({key: metadata.get(key) for key in ('title', 'date', 'responds_to', 'responds_to_sha256', 'prompt_id', 'participant', 'document_revision')}

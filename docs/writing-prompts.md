@@ -41,6 +41,8 @@ Prompt and notebook GETs share the existing expensive-request pool. Public runti
 
 Prompt files are limited to 16 KiB and 5,000 records. Source text has the shared 4 MiB limit. Notebook bodies retain the 64 KiB limit; listing refuses more than 5,000 files. A requested reply must fit the chat message limit after adding the voice mention.
 
+Notebook discovery skips individual unreadable, malformed, oversized or symlinked pieces without changing them. An unsafe notebook root or excessive total inventory still refuses discovery.
+
 Save request UUIDs bind a content/participant fingerprint. `.reader/writing-requests/` retains at most 5,000 records of at most 128 KiB each. A plan is recorded atomically before publication. An interrupted retry verifies any existing destination's digest and resumes the same save. Completed identical requests return their earlier result across restarts; changed input with the same ID is refused. Preserve the journal during recovery. Cooperating locks and atomic files do not provide a multi-file transaction or a physical power-loss guarantee.
 
 ## Verification

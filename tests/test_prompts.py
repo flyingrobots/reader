@@ -171,6 +171,27 @@ def test_notebook_listing_preserves_legacy_free_writing_discovery(app):
     assert app.writing.list('You')[0]['path'] == saved['path']
 
 
+@pytest.mark.parametrize('bad_kind', ['oversized', 'yaml', 'utf8', 'symlink', 'directory'])
+def test_unreadable_notebook_entry_does_not_break_reading_logs(app, bad_kind):
+    saved = app.writing.dispatch(dict(action='save', title='Valid', slug='valid', body='Keep this discoverable.', request_id=str(uuid4())), 'You')
+    bad = app.root / 'library/notebook/unreadable.md'
+    if bad_kind == 'oversized':
+        bad.write_bytes(b'x' * (80 * 1024 + 1))
+    elif bad_kind == 'yaml':
+        bad.write_text('---\nauthor: [\n---\n')
+    elif bad_kind == 'utf8':
+        bad.write_bytes(b'\xff')
+    elif bad_kind == 'directory':
+        bad.mkdir()
+    else:
+        target = app.root / 'outside.md'
+        target.write_text('Preserve this target.')
+        bad.symlink_to(target)
+    assert [p['path'] for p in app.writing.list('You')] == [saved['path']]
+    assert app.readers(PATH, 'You')['path'] == PATH
+    assert bad.exists(), 'discovery must preserve the unreadable entry'
+
+
 def test_completed_save_request_is_idempotent_across_restart_and_rejects_changes(app):
     prompt = generate(app)
     request = dict(action='save', title='Once', slug='once', body='Once.', responds_to=PATH,
