@@ -27,3 +27,5 @@ The first complete Python run reported 665 passing tests, two skips, 18 failures
 ## Review fixes
 
 Codex found that real runner serialization omitted `task_id`, although a manually constructed recovery fixture supplied it. New regressions created queued quiz and review state through `VoiceRunner.save()` and both failed at the missing task identity on source head `9400967`. Preserving that field made both cases pass, including restart disposition. The relevant quiz queue and supervisor suites then passed 26 tests in Docker. Raw RED/GREEN logs are retained locally as `quiz-recovery-red` and `quiz-recovery-green`.
+
+The cross-tab review regression failed in both the controller and HTTP response: a newer quiz replaced the question set being reviewed. Polling now returns that review's saved quiz, and the controller retains its attempt and checks the result's quiz identity. The controller regression and all 18 quiz-runner tests passed in Docker (`quiz-review-identity-red` / `quiz-review-identity-green`). The controller suite is included in the container Node check.

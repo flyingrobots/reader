@@ -9,7 +9,10 @@ export function installQuiz({api,document:currentDocument,participant:currentPar
   function resetQuestions(quiz){return {quiz,index:0,answers:{},short:{},reviews:{},result:null,task:null};}
   function close(){sequence++;clearTimeout(timer);update({open:false,loading:false});}
   function adopt(data){
-    const voices=(data.voices||[]).filter(v=>v.runnable),quiz=data.quiz;
+    const voices=(data.voices||[]).filter(v=>v.runnable);
+    // Another tab can regenerate while this participant awaits a short-answer
+    // review. That result belongs to the question set being answered.
+    const quiz=data.task?.kind==='quiz-review'&&state.quiz?state.quiz:data.quiz;
     const patch={voices,loading:false};
     if(!state.voice||!voices.some(v=>v.name===state.voice))patch.voice=data.default_voice||voices[0]?.name||'';
     if(quiz&&quiz.id!==state.quiz?.id)Object.assign(patch,resetQuestions(quiz));
@@ -25,7 +28,9 @@ export function installQuiz({api,document:currentDocument,participant:currentPar
       if(['done','failed','cancelled','timeout'].includes(task.state)){
         update({busy:false,error:task.state==='done'?'':task.error||'The quiz task did not finish.'});
         if(task.state==='done'&&task.kind==='quiz-review'){
-          const review=task.result;update({reviews:{...state.reviews,[review.question_id]:{...review,review_id:task.id}}});
+          const review=task.result;
+          if(review.quiz_id!==state.quiz?.id){update({error:'This review belongs to another quiz. Reopen the quiz to continue.'});return;}
+          update({reviews:{...state.reviews,[review.question_id]:{...review,review_id:task.id}}});
         }
         if(task.commit?.status==='failed')toast('The quiz was saved, but its commit failed. See task details.');
         return;

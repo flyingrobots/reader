@@ -6,7 +6,7 @@ The quiz opens in a shadcn/Base UI dialog. Choose the voice before generating. T
 
 Each multiple-choice answer is graded immediately in the browser against the saved answer key. The explanation and **Show me in the text** control expose the supporting passage. A short-answer question is optional: ask a voice to review the answer, or skip it. A reviewed answer receives `right`, `partly`, or `not yet`. The result counts a partly correct short answer as half a point; skipped short answers do not enter the total.
 
-The result is saved under the requesting participant and appears in the reading log. It never marks an article or discussion read. A retake uses the same questions; generating a new quiz preserves the earlier one. Opening a document still has its ordinary read-status behavior, independently of the quiz.
+The result is saved under the requesting participant and appears in the reading log. It never marks an article or discussion read. A retake uses the same questions; generating a new quiz preserves the earlier one. A pending short-answer review stays attached to the saved quiz being answered when another tab regenerates. Opening a document still has its ordinary read-status behavior, independently of the quiz.
 
 ## Sources and editions
 
@@ -57,5 +57,7 @@ File-capable voices receive the source path and digest. A voice configured for i
 Run the Python quiz, queue, receipt and chat tests in a bounded copy-isolated Docker worker. `tests/test_quizzes.py` covers quote validation, immutable storage, editions and scores; `tests/test_quiz_runner.py` covers fake CLI generation, retries, logs, commits, reviews, HTTP access and queue integration. `tests/web_quiz.cjs` drives generation, local grading, passage highlighting in both reading layouts, short-answer review, results, retakes and a 390-pixel viewport against `tests/quiz_fixture.py`. These fixtures contain synthetic material and never contact a provider.
 
 Typecheck and build the web controls in Docker before browser verification. Do not replace browser evidence with source inspection of the highlight map. A separate live provider check is needed to assess a real generated quiz’s questions and explanations; fake-CLI tests establish plumbing and refusal behavior.
+
+The container Node check also runs `node --test tests/quiz_controller.cjs` to exercise asynchronous controller transitions independently of browser timing.
 
 UI components: [shadcn Dialog](https://ui.shadcn.com/docs/components/base/dialog) and [Radio Group](https://ui.shadcn.com/docs/components/base/radio-group), using the repository’s existing Base UI preset and semantic theme tokens.

@@ -115,6 +115,17 @@ def test_short_answer_review_is_participant_and_edition_bound(library):
     assert library.engagement.attention('Reader', PATH)['items'][0]['read'] is False
 
 
+def test_review_poll_returns_the_reviewed_quiz_after_another_generation(library):
+    settle(library, generate(library))
+    original = library.quizzes.get(PATH)
+    newer = library.quizzes.save(PATH, 'Claude', original['questions'], expected_sha256=original['document_sha256'])
+    assert newer['id'] != original['id']
+    with library.conversations.runner.lock:
+        task = library.quizzes.dispatch(dict(action='review', path=PATH, voice='Claude', request_id=str(uuid4()),
+            edition=original['document_sha256'], quiz_id=original['id'], question_id='q5', answer='Purple.'), 'Reader')['task']
+        assert library.quiz(PATH, 'Reader', task['id'])['quiz']['id'] == original['id']
+
+
 def test_task_request_is_idempotent_and_rejects_changed_input(library):
     request_id = str(uuid4())
     tasks = library.voice_tasks

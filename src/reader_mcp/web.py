@@ -284,6 +284,11 @@ class WebLibrary:
             if job['path'] != path or job['participant'] != participant or not job['kind'].startswith('quiz'):
                 raise ValueError('Task belongs to another document or participant')
             task = self.voice_tasks.public(job)
+            if job['kind'] == 'quiz-review':
+                reviewed = self.quizzes.read(job['payload']['edition'], job['payload']['quiz_id'])
+                if reviewed['document_path'] != path:
+                    raise ValueError('Reviewed quiz belongs to another document')
+                quiz = self.quizzes.view(reviewed, self.chat_document(path, True))
         else:
             task = self.voice_tasks.latest(path, participant, self.digest(path))
         try:
