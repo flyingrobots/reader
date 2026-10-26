@@ -118,3 +118,35 @@ def test_curation_timeout_preserves_discovery_report(tmp_path,monkeypatch,capsys
     result=json.loads(capsys.readouterr().out)
     assert result['inbox'][0]['path']=='inbox/a'
     assert result['curation']['status']=='unavailable' and 'deadline' in result['curation']['error']
+
+
+def run_with_bundles(tmp_path, monkeypatch, capsys, count, role='librarian', claimed=0, runner=None):
+    code=tmp_path/'code';vault=tmp_path/'vault';(vault/'inbox').mkdir(parents=True)
+    for n in range(count):(vault/f'inbox/b{n:02}').mkdir()
+    if claimed:upkeep.claims(vault,claim=str(uuid4()),paths=[f'inbox/b{n:02}' for n in range(claimed)],role='librarian')
+    if runner:(vault/'.reader/inbox-runner').mkdir(parents=True,exist_ok=True);(vault/'.reader/inbox-runner/state.json').write_text(json.dumps({'status':runner}))
+    monkeypatch.setattr(upkeep.runpy,'run_path',lambda _: {'paths':lambda:(code,vault)})
+    monkeypatch.setattr(upkeep.subprocess,'run',lambda *a,**k: SimpleNamespace(returncode=0,stderr='',stdout='{"pending":[],"total":0,"next_offset":null}'))
+    upkeep.main(['--participant','Curator']+(['--role',role] if role=='librarian' else []))
+    return json.loads(capsys.readouterr().out)
+
+
+@pytest.mark.parametrize('count, workers', [(0,0),(1,1),(10,1),(11,2),(20,2),(21,3),(45,3)])
+def test_recommended_intake_workers_is_a_recommendation_by_batch_size(tmp_path, monkeypatch, capsys, count, workers):
+    result=run_with_bundles(tmp_path,monkeypatch,capsys,count)
+    assert result['recommended_intake_workers']==workers
+    assert result['intake_workers']==workers, 'the deprecated alias keeps its value during migration'
+    assert result['deprecated']=={'intake_workers':'renamed recommended_intake_workers: a recommended delegation count, not a live worker count'}
+
+
+@pytest.mark.parametrize('count', [0,1,25])
+def test_observers_are_never_recommended_workers(tmp_path, monkeypatch, capsys, count):
+    result=run_with_bundles(tmp_path,monkeypatch,capsys,count,role='observer')
+    assert result['recommended_intake_workers']==0 and result['intake_workers']==0
+
+
+def test_claims_and_blocking_runner_states_keep_their_exclusions(tmp_path, monkeypatch, capsys):
+    assert run_with_bundles(tmp_path/'a',monkeypatch,capsys,12,claimed=2)['recommended_intake_workers']==1
+    for status in ('starting','running','interrupted'):
+        assert run_with_bundles(tmp_path/status,monkeypatch,capsys,5,runner=status)['recommended_intake_workers']==0
+    assert run_with_bundles(tmp_path/'done',monkeypatch,capsys,5,runner='succeeded')['recommended_intake_workers']==1

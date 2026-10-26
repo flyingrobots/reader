@@ -101,8 +101,11 @@ def main(argv=None):
                       dict(status='unavailable',error=(queued.stderr or queued.stdout)[-4000:]))
         except subprocess.TimeoutExpired:
             curation=dict(status='unavailable',error='Curation discovery exceeded its 30-second deadline')
+    # A recommended delegation count from unclaimed bundles, never an observed number of live workers.
+    recommended=min(3,(available+9)//10) if intake_allowed else 0
     print(json.dumps(dict(role=args.role,intake_allowed=intake_allowed,inbox=inbox,claims=owners,
-                         intake_workers=min(3,(available+9)//10) if intake_allowed else 0,
+                         recommended_intake_workers=recommended,intake_workers=recommended,
+                         deprecated=dict(intake_workers='renamed recommended_intake_workers: a recommended delegation count, not a live worker count'),
                          runner=runner,discussion=json.loads(result.stdout),curation=curation),ensure_ascii=False,indent=2))
 
 if __name__=='__main__':main()
