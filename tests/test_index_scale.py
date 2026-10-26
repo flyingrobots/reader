@@ -1,16 +1,13 @@
-"""RW-25: content types, passage deduplication, float16 vectors, budgets, resumable runs, v1 migration,
+"""RW-25: content types, passage deduplication, float16 vectors, budgets, resumable runs, format 1 retirement,
 and quiet PDF warnings. Synthetic vaults only; the fake embedders count calls and never download."""
 import io
 import json
 import sqlite3
-import sys
-from pathlib import Path
+from contextlib import closing
 
 import numpy as np
 import pytest
 
-sys.path.insert(0, str(Path(__file__).parent))
-import legacy_search_v1  # noqa: E402
 from reader_mcp import search as search_module  # noqa: E402
 from reader_mcp.search import CONTENT_TYPES, MACHINE, Search, edition_rank, pack, unpack  # noqa: E402
 
@@ -217,21 +214,27 @@ def test_timeout_publishes_completed_batches_and_next_run_resumes(vault, monkeyp
     assert not any('stopped' in w for w in resumed.search('journal', 'keyword')['warnings'])
 
 
-def legacy_index(vault, model):
-    engine = legacy_search_v1.Search(vault)
-    engine._model = model
-    engine.index(True)
-    return engine
-
-
-QUERIES = [('journal crash', 'keyword'), ('ledger.md', 'keyword'), ('patiense', 'fuzzy'),
-           ('archive proof', 'semantic'), ('river garden', 'hybrid')]
-
-
-def ranked(engine, query, mode):
-    if engine._model is None:
-        engine._model = CountingModel()
-    return [r['path'] for r in engine.search(query, mode)['results'] if not r['path'].endswith(('.json', '.rs', '.log'))]
+def format_1(vault):
+    """A format 1 index file as older Reader processes left it (`.reader/search.sqlite3`): settings, docs and
+    chunks with float32 vectors. Format 1 is retired (#9), so nothing reads it; only the explicit removal job touches it."""
+    path = vault / '.reader/search.sqlite3'
+    path.parent.mkdir(exist_ok=True)
+    with closing(sqlite3.connect(path)) as con, con:
+        con.executescript('''
+            CREATE TABLE settings (key TEXT PRIMARY KEY, value TEXT);
+            CREATE TABLE docs (path TEXT PRIMARY KEY, sha256 TEXT, metadata TEXT, status TEXT, size INTEGER, mtime INTEGER,
+                               frontmatter_schema_version INTEGER, document_revision INTEGER, metadata_status TEXT,
+                               metadata_profile TEXT, metadata_diagnostics TEXT);
+            CREATE TABLE chunks (id INTEGER PRIMARY KEY, path TEXT, page INTEGER, start_line INTEGER, end_line INTEGER, text TEXT, vector BLOB);
+            CREATE VIRTUAL TABLE terms USING fts5(path, text, tokenize='unicode61');
+        ''')
+        con.executemany('INSERT INTO settings VALUES (?,?)', [('version', '1'), ('metadata_index_version', '1'),
+                                                               ('embedding_signature', 'counting'), ('indexed_at', '2026-10-01T00:00:00Z')])
+        text = 'A journal survives a crash. The journal is replayed.'
+        con.execute("INSERT INTO docs VALUES ('library/journal.md','x','{}','text',1,0,NULL,NULL,'none','document','[]')")
+        con.execute('INSERT INTO chunks VALUES (1,?,NULL,1,3,?,?)', ('library/journal.md', text, CountingModel.vector(text).tobytes()))
+        con.execute('INSERT INTO terms(rowid,path,text) VALUES (1,?,?)', ('library/journal.md', text))
+    return path
 
 
 def fingerprint(path):
@@ -241,114 +244,68 @@ def fingerprint(path):
             if not p.name.endswith('-shm')}
 
 
-@pytest.mark.parametrize('drop_cache', [False, True])
-def test_v2_builds_beside_v1_reusing_vectors_and_never_touching_it(vault, drop_cache):
-    legacy = legacy_index(vault, CountingModel())
-    before = {q: ranked(legacy, *q) for q in QUERIES}
-    v1 = vault / '.reader/search.sqlite3'
-    # Until a format 2 build completes, search is served from format 1, read-only, with a warning.
-    served = Search(vault).search('journal crash', 'keyword')
-    assert served['format'] == 1 and any('rebuild the search index to upgrade' in w for w in served['warnings'])
-    assert {q: ranked(Search(vault), *q) for q in QUERIES} == before
-    if drop_cache:  # Then the vectors come from the format 1 index alone.
-        (vault / '.reader/embedding-cache.sqlite3').unlink()
+def test_format_1_alone_is_not_read_and_asks_for_a_rebuild(vault):
+    """#9: format 1 is retired. A vault with only the old index gets a clear rebuild state, never format 1 results."""
+    import importlib.util
+    from reader_mcp.maintenance import Maintenance
+    from reader_mcp.related import Related
+    v1 = format_1(vault)
     untouched = fingerprint(v1)
-    counting = CountingModel()
     engine = Search(vault)
-    engine._model = counting
-    report = engine.index(True)
-    assert counting.calls == 0, 'seeding must not call the model'
-    assert report['seeded_from_legacy'] is True and report['reused_vectors'] > 0 and report['embedded'] == 0
-    assert fingerprint(v1) == untouched, 'the format 1 index is never written'
-    assert engine.db.name == 'search.v2.sqlite3'
-    with db(vault) as con:
-        assert con.execute("SELECT value FROM settings WHERE key='version'").fetchone()[0] == '2'
-        assert con.execute("SELECT value FROM settings WHERE key='validated'").fetchone()[0] == '1'
-        assert con.execute('SELECT count(*) FROM passages WHERE vector IS NULL').fetchone()[0] == 0
-        assert len(con.execute('SELECT vector FROM passages LIMIT 1').fetchone()[0]) == len(WORDS) * 2
-        assert Search.validate(con) == []
-    after = engine.search('journal crash', 'keyword')
-    assert 'format' not in after and not any('upgrade' in w for w in after['warnings'])
-    assert {q: ranked(engine, *q) for q in QUERIES} == before
-    assert engine.index(True)['changed'] == 0 and counting.calls == 0
-    # Older Reader code keeps working on its own (now stale) format 1 index.
-    old = legacy_search_v1.Search(vault)
-    old._model = CountingModel()
-    assert {q: ranked(old, *q) for q in QUERIES} == before
-    old.index(True)
-    assert Search(vault).search('journal', 'keyword')['results']
-
-
-def test_keyword_only_build_keeps_format_1_vectors(vault):
-    legacy_index(vault, CountingModel())
-    engine = Search(vault)
-    report = engine.index(False)
-    assert report['seeded_from_legacy'] and report['reused_vectors'] > 0
     engine._model = CountingModel()
-    result = engine.search('archive proof', 'semantic')
-    assert 'format' not in result and result['results'][0]['path'] == 'library/notes/ledger.md'
+    for query in (lambda: engine.search('journal crash', 'keyword'), lambda: engine.passages('journal crash', 'keyword', 10)):
+        with pytest.raises(ValueError, match=r'no longer reads the format 1 index.*run reader index'):
+            query()
+    assert Related(vault).vectors({'library/journal.md'}) == {}
+    check = Maintenance(vault).search_check()
+    assert check['state'] == 'missing' and 'Rebuild the search index' in check['message'] and 'format 1' in check['message']
+    assert check['legacy'] == {'format': 1, 'bytes': check['legacy']['bytes'], 'removable': True} and check['legacy']['bytes'] > 0
+    assert fingerprint(v1) == untouched and not engine.db.exists()
+    assert importlib.util.find_spec('reader_mcp.search_legacy') is None
 
 
-def test_partial_v2_build_keeps_serving_v1_until_it_completes(vault, monkeypatch):
-    legacy_index(vault, CountingModel())
+def test_a_format_2_build_ignores_format_1(vault, monkeypatch):
+    v1 = format_1(vault)
+    untouched = fingerprint(v1)
     clock = iter(range(1000))
     monkeypatch.setattr(search_module.time, 'time', lambda: next(clock))
     engine = Search(vault)
     engine._model = CountingModel()
-    assert engine.index(True, deadline=2)['complete'] is False
-    assert search_module.active(vault / '.reader') == 1
-    assert engine.search('ledger', 'keyword')['format'] == 1
-    from reader_mcp.maintenance import Maintenance
-    check = Maintenance(vault).search_check()
-    assert check['state'] == 'partial' and 'serves the format 1 index until then' in check['message']
-    assert check['legacy']['serving'] is True and check['legacy']['removable'] is False
+    engine._signature = 'counting'
+    first = engine.index(True, deadline=2)
+    assert first['complete'] is False and 'seeded_from_legacy' not in first
+    # A stopped first build serves what it saved, with the usual warning, rather than format 1.
+    partial = engine.search('journal crash', 'keyword')
+    assert partial['results'] and 'format' not in partial and any('stopped before finishing' in w for w in partial['warnings'])
     monkeypatch.setattr(search_module.time, 'time', lambda: 0)
     report = engine.index(True)
-    assert report['complete'] and engine._model.calls == 0
-    assert search_module.active(vault / '.reader') == 2 and (vault / '.reader/search.sqlite3').is_file()
-
-
-def test_related_reads_v1_until_v2_completes(vault):
-    from reader_mcp.related import Related
-    legacy_index(vault, CountingModel())
-    paths = {'library/journal.md', 'library/notes/ledger.md'}
-    from_v1 = Related(vault).vectors(paths)
-    assert set(from_v1) == paths
-    engine = Search(vault)
-    engine._model = CountingModel()
-    engine.index(True)
-    vectors = Related(vault).vectors(paths)
-    assert set(vectors) == paths
-    assert abs(float(np.linalg.norm(vectors['library/journal.md'])) - 1) < 1e-5
-    assert float(vectors['library/journal.md'] @ from_v1['library/journal.md']) > 0.999  # float16 vs float32
+    assert report['complete'] and report['embedded'] + first['embedded'] > 0, 'vectors come from the cache or the model, never format 1'
+    assert fingerprint(v1) == untouched, 'the format 1 index is never written'
+    with db(vault) as con:
+        assert con.execute("SELECT value FROM settings WHERE key='validated'").fetchone()[0] == '1'
+        assert Search.validate(con) == []
 
 
 def test_legacy_index_is_removed_only_on_request_and_never_while_busy(vault):
     import fcntl
     from reader_mcp.maintenance import Maintenance
-    legacy_index(vault, CountingModel())
+    format_1(vault)
     m = Maintenance(vault)
-    with pytest.raises(ValueError, match='still serves search'):
-        m.remove_legacy_search()
-    engine = Search(vault)
-    engine._model = CountingModel()
-    engine.index(True)
-    check = m.search_check()
-    assert check['legacy'] == {'format': 1, 'bytes': check['legacy']['bytes'], 'serving': False, 'removable': True}
-    assert check['legacy']['bytes'] > 0
-    with (vault / '.reader/search.lock').open('a') as held:  # an index run (old or new) holds this
+    assert m.search_check()['legacy']['removable'] is True, 'nothing reads format 1, so it is removable even before a rebuild'
+    with (vault / '.reader/search.lock').open('a') as held:  # an index run holds this
         fcntl.flock(held, fcntl.LOCK_EX)
         with pytest.raises(ValueError, match='holds .reader/search.lock'):
             m.remove_legacy_search()
     assert (vault / '.reader/search.sqlite3').is_file()
     writer = sqlite3.connect(vault / '.reader/search.sqlite3')
-    writer.execute('BEGIN EXCLUSIVE')  # another process mid-write
+    writer.execute('BEGIN EXCLUSIVE')  # an older process mid-write
     with pytest.raises(ValueError, match='Another Reader process'):
         m.remove_legacy_search()
     writer.rollback(); writer.close()
     result = m.remove_legacy_search()
     assert result['freed_bytes'] > 0 and not list((vault / '.reader').glob('search.sqlite3*'))
-    assert 'legacy' not in m.search_check() and engine.search('journal', 'keyword')['results']
+    check = m.search_check()
+    assert 'legacy' not in check and check['state'] == 'missing'
     with pytest.raises(ValueError, match='no legacy search index'):
         m.remove_legacy_search()
 

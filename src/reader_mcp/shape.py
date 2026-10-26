@@ -19,7 +19,7 @@ import threading
 
 import numpy as np
 
-from .search import STOPWORDS, active, chunks, fold, readable, tokens, unpack
+from .search import STOPWORDS, chunks, fold, readable, tokens, unpack
 
 MAX_POINTS = 400          # passages drawn; longer documents are evenly subsampled in order
 MAX_TERMS, MIN_TERMS = 7, 4
@@ -235,8 +235,8 @@ class Shapes:
     # Index access -------------------------------------------------------------------------
     def connect(self):
         """The published search index, read-only, with its version and publication key; None without one."""
-        version = active(self.state)
-        db = self.state / ('search.v2.sqlite3' if version == 2 else 'search.sqlite3')
+        version = 2  # the only format read; format 1 is retired
+        db = self.state / 'search.v2.sqlite3'
         if not db.is_file() or db.is_symlink():
             return None
         con = sqlite3.connect(f'{db.as_uri()}?mode=ro', uri=True, timeout=5)
@@ -253,15 +253,9 @@ class Shapes:
     @staticmethod
     def passages(con, version, path):
         """(start_line, end_line, text, vector or None) for a path's passages, in reading order."""
-        if version == 2:
-            rows = con.execute('SELECT c.start_line, c.end_line, p.text, p.vector FROM chunks c JOIN passages p ON p.id = c.passage_id '
-                               'WHERE c.path = ? ORDER BY coalesce(c.page, 0), c.start_line, c.id', (path,)).fetchall()
-            decode = unpack
-        else:
-            rows = con.execute('SELECT start_line, end_line, text, vector FROM chunks WHERE path = ? '
-                               'ORDER BY coalesce(page, 0), start_line, id', (path,)).fetchall()
-            decode = lambda blob: np.frombuffer(blob, dtype=np.float32).copy()  # noqa: E731
-        return [(start or 1, end or start or 1, text or '', decode(blob) if blob else None) for start, end, text, blob in rows]
+        rows = con.execute('SELECT c.start_line, c.end_line, p.text, p.vector FROM chunks c JOIN passages p ON p.id = c.passage_id '
+                           'WHERE c.path = ? ORDER BY coalesce(c.page, 0), c.start_line, c.id', (path,)).fetchall()
+        return [(start or 1, end or start or 1, text or '', unpack(blob) if blob else None) for start, end, text, blob in rows]
 
     @staticmethod
     def indexed_digest(con, path):

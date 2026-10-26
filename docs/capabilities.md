@@ -112,7 +112,7 @@ can take its own font and size in a theme. Fonts can be added from
 Google Fonts. They are downloaded once into the vault on request and then served
 locally. APCA contrast and non-latin font subsets are not included.
 
-Search (Space /) is a full page over the search index: Best (words and meaning blended), Exact words and Meaning modes; results grouped by catalog work with up to three highlighted passages each; Project, Author, Type, date, read-state, folder and machine-file filters with work counts over the top 500 passages; linkable `#search=` URLs; `j`/`k`/`J`/`K` keys; and opening at the passage, with the query's words highlighted and steppable with `n`, in both reading layouts. It reads the format 2 index once a build has completed, else the format 1 index read-only, and never rebuilds either; and says when results are partial, stale or exact-word only.
+Search (Space /) is a full page over the search index: Best (words and meaning blended), Exact words and Meaning modes; results grouped by catalog work with up to three highlighted passages each; Project, Author, Type, date, read-state, folder and machine-file filters with work counts over the top 500 passages; linkable `#search=` URLs; `j`/`k`/`J`/`K` keys; and opening at the passage, with the query's words highlighted and steppable with `n`, in both reading layouts. It reads the format 2 index (with only the retired format 1 index present it asks for a rebuild), and never rebuilds it; and says when results are partial, stale or exact-word only.
 
 Behind the scenes (Space p) shows the freshness of the search index, browse indexes,
 catalog SQL mirror and link graph. It rebuilds any of them on demand, one job at a time, through

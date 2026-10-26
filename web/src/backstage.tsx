@@ -101,14 +101,13 @@ export function EditionLinks({api}:{api:(path:string)=>Promise<any>}){
       {data.unresolved.length?<ul className="backstage-unresolved">{data.unresolved.map(u=><li key={u.path+u.field}><code>{u.path}</code><small>{u.field}: {u.value}</small></li>)}</ul>:null}</>:null}</CardContent></Card>;
 }
 
-type LegacyIndex={format:number;bytes:number;serving:boolean;removable:boolean};
-/** The format 1 index older Reader processes still use. Removal is explicit and refused while it serves search. */
+type LegacyIndex={format:number;bytes:number;removable:boolean};
+/** The retired format 1 index, which Reader no longer reads. Removal is explicit. */
 function Legacy({legacy,busy,onRemove}:{legacy:LegacyIndex;busy:boolean;onRemove:()=>void}){
   const mb=Math.max(1,Math.round(legacy.bytes/1e6)).toLocaleString();
-  return <p className="backstage-note backstage-legacy" data-legacy={legacy.serving?'serving':'idle'}>
-    Legacy index (format {legacy.format}, used by older Reader processes): {mb} MB
-    {legacy.serving?<> · serving search until a format 2 build completes</>:<> · <Button data-job="remove-legacy-search" variant="link" size="xs" className="backstage-legacy-remove" disabled={busy} {...localOnly()}
-      title="Deletes .reader/search.sqlite3 only. Refused while an index run or another process is using it." onClick={onRemove}>Remove</Button></>}
+  return <p className="backstage-note backstage-legacy" data-legacy="retired">
+    Old search index (format {legacy.format}, no longer read): {mb} MB · <Button data-job="remove-legacy-search" variant="link" size="xs" className="backstage-legacy-remove" disabled={busy} {...localOnly()}
+      title="Deletes .reader/search.sqlite3 only. Refused while an index run or another process is using it." onClick={onRemove}>Remove</Button>
   </p>;
 }
 

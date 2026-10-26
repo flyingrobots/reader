@@ -39,11 +39,9 @@ class Related:
     def vectors(self, paths):
         """Unit mean passage vector per path, cached per published index build.
 
-        Reads the format 2 index once a build has completed, else the format 1 index that
-        older Reader processes keep, read-only."""
-        from .search import active
-        version = active(self.state)
-        db = self.state / ('search.v2.sqlite3' if version == 2 else 'search.sqlite3')
+        Reads the format 2 index; there are none without one (format 1 is retired)."""
+        version = 2
+        db = self.state / 'search.v2.sqlite3'
         if not db.is_file():
             return {}
         with closing(sqlite3.connect(f'{db.as_uri()}?mode=ro', uri=True, timeout=5)) as con:
@@ -61,13 +59,11 @@ class Related:
             sums, counts = {}, {}
             paths = sorted(paths)
             query = ('SELECT c.path, p.vector FROM chunks c JOIN passages p ON p.id = c.passage_id '
-                     'WHERE p.vector IS NOT NULL AND c.path IN ({})' if version == 2 else
-                     'SELECT path, vector FROM chunks WHERE vector IS NOT NULL AND path IN ({})')
-            decode = unpack if version == 2 else (lambda blob: np.frombuffer(blob, dtype=np.float32).copy())
+                     'WHERE p.vector IS NOT NULL AND c.path IN ({})')
             for offset in range(0, len(paths), 900):
                 batch = paths[offset:offset + 900]
                 for path, blob in con.execute(query.format(','.join('?' * len(batch))), batch):
-                    vector = decode(blob)
+                    vector = unpack(blob)
                     sums[path] = sums[path] + vector if path in sums else vector
                     counts[path] = counts.get(path, 0) + 1
         result = {}

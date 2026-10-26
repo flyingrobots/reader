@@ -143,7 +143,7 @@ def test_no_frontmatter_and_cyclic_sources_remain_readable(vault):
     assert 'Recursion.' in cyclic['text']
 
 
-def test_version_one_index_migrates_with_metadata_and_never_reuses_unfingerprinted_vectors(vault):
+def test_a_version_one_index_is_ignored_and_format_two_rebuilds_with_metadata(vault):
     original = document('project: salesos\n')
     (vault / 'library/task.md').write_bytes(original)
     state = vault / '.reader'
@@ -160,11 +160,11 @@ def test_version_one_index_migrates_with_metadata_and_never_reuses_unfingerprint
         con.execute('INSERT INTO chunks VALUES (1,?,NULL,1,1,?,?)', ('library/task.md','Searchable evidence.',b'old-vector'))
         con.execute('INSERT INTO terms(rowid,path,text) VALUES (1,?,?)',('library/task.md','Searchable evidence.'))
     engine = Search(vault)
-    with pytest.raises(ValueError, match='run reader index'):
+    with pytest.raises(ValueError, match='no longer reads the format 1 index'):
         engine.search('Searchable','keyword')
     report = engine.index(False)
-    # The format 2 build re-chunks beside format 1; a vector without a model fingerprint is never reused.
-    assert report['changed'] == 1 and report['reused_vectors'] == 0 and report['seeded_from_legacy'] is False
+    # Format 1 is retired: the format 2 build re-chunks from the source and never reads its vectors.
+    assert report['changed'] == 1 and report['reused_vectors'] == 0
     with sqlite3.connect(state / 'search.sqlite3') as legacy:
         assert legacy.execute('SELECT vector FROM chunks').fetchone()[0] == b'old-vector'
     with engine.connect() as con:

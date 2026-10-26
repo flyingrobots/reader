@@ -167,7 +167,7 @@ class Maintenance:
         return files
 
     def search_check(self):
-        from .search import MACHINE, VERSION, active, settings as search_settings
+        from .search import MACHINE, VERSION, settings as search_settings
         state_dir = self.root / '.reader'
         db = state_dir / 'search.v2.sqlite3'
         cache = state_dir / 'embedding-cache.sqlite3'
@@ -176,16 +176,15 @@ class Maintenance:
         usage = {'database': [db.stat().st_size if db.is_file() else 0, limits['max_database_mib'] * MIB],
                  'cache': [cache.stat().st_size if cache.is_file() else 0, limits['max_cache_mib'] * MIB]}
         legacy = None
-        if (state_dir / 'search.sqlite3').is_file():
-            serving = active(state_dir) == 1
+        if (state_dir / 'search.sqlite3').is_file():  # retired format 1: never read, removable on request
             legacy = {'format': 1, 'bytes': sum((state_dir / n).stat().st_size for n in LEGACY_FILES if (state_dir / n).is_file()),
-                      'serving': serving, 'removable': not serving}
+                      'removable': True}
         extra = {'legacy': legacy} if legacy else {}
         if not db.is_file():
             if legacy:
-                return {'state': 'stale', 'files': len(files), 'usage': usage, **extra,
-                        'message': 'Search serves the format 1 index read-only. Rebuild to upgrade; cached embeddings '
-                                   'and format 1 vectors are reused, and the format 1 index is left for older Reader processes.'}
+                return {'state': 'missing', 'files': len(files), 'usage': usage, **extra,
+                        'message': 'No search index: Reader no longer reads the format 1 index. Rebuild the search index '
+                                   'to restore search; cached embeddings are reused.'}
             return {'state': 'missing', 'message': 'No search index yet.', 'files': len(files), 'usage': usage}
         with closing(sqlite3.connect(f'{db.as_uri()}?mode=ro', uri=True, timeout=10)) as con:
             settings = dict(con.execute("SELECT key, value FROM settings"))
@@ -207,8 +206,7 @@ class Maintenance:
         removed = [p for p in docs if p not in files]
         stale = bool(new or changed or removed)
         state = 'partial' if not complete else 'stale' if stale else 'partial' if unembedded else 'current'
-        message = (f'The last rebuild stopped before finishing; {passages:,} passages saved. Run again to continue.'
-                   + (' Search serves the format 1 index until then.' if legacy and legacy['serving'] else '') if not complete
+        message = (f'The last rebuild stopped before finishing; {passages:,} passages saved. Run again to continue.' if not complete
                    else f'{len(new)} new, {len(changed)} changed and {len(removed)} removed files since the last build.' if stale
                    else f'{unembedded} of {text} text documents have no embeddings; semantic search and Read next are incomplete.' if unembedded
                    else 'Every library file is indexed with embeddings.')
@@ -300,18 +298,14 @@ class Maintenance:
             'pdf_warnings': (result.get('pdf_warnings') or {}).get('messages', 0)}
 
     def remove_legacy_search(self):
-        """Delete the format 1 index on explicit request, once format 2 serves search and nothing holds it.
+        """Delete the retired format 1 index on explicit request, when nothing holds it.
 
-        Best effort: an index run (any Reader version) holds .reader/search.lock, and a process
-        mid-write holds the database's write lock. A reader between queries is not detectable without
-        lsof; it reports "Search index missing" afterwards, and older code can rebuild format 1."""
-        from .search import active
+        Reader no longer reads format 1, so removal never takes search away. Best effort: an index run
+        holds .reader/search.lock, and an older process mid-write holds the database's write lock."""
         state = self.root / '.reader'
         legacy = state / 'search.sqlite3'
         if not legacy.is_file() or legacy.is_symlink():
             raise ValueError('There is no legacy search index to remove')
-        if active(state) != 2:
-            raise ValueError('The legacy index still serves search; build the format 2 search index first')
         with (state / 'search.lock').open('a') as stream:
             try:
                 fcntl.flock(stream, fcntl.LOCK_EX | fcntl.LOCK_NB)

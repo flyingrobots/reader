@@ -6,10 +6,9 @@ disk and float32 in arithmetic. Only reading material is split into passages by
 default; machine files stay findable by path. A run publishes per batch of
 paths, so a stopped rebuild keeps its work and the next run continues.
 
-Format 2 lives in `.reader/search.v2.sqlite3`, beside the format 1 index
-`.reader/search.sqlite3` that older Reader processes still read and write. New
-code never writes or deletes the format 1 file: it seeds vectors from it read-only
-and serves search from it (see search_legacy) until a format 2 build completes."""
+Format 2 lives in `.reader/search.v2.sqlite3`. Format 1 (`.reader/search.sqlite3`)
+is retired: nothing reads it, and only the explicit "Remove legacy search index"
+maintenance job deletes it. A vault that has only format 1 is asked to rebuild."""
 from contextlib import contextmanager, closing
 from datetime import datetime, timezone
 import fcntl
@@ -38,7 +37,6 @@ Mode = Literal['hybrid', 'keyword', 'fuzzy', 'semantic']
 Editions = Literal['preferred', 'all']
 MODEL = 'BAAI/bge-small-en-v1.5'
 VERSION = '2'
-LEGACY_VERSION = '1'
 METADATA_INDEX_VERSION = '1'
 METADATA_COLUMNS = {'frontmatter_schema_version', 'document_revision', 'metadata_status',
                     'metadata_profile', 'metadata_diagnostics'}
@@ -333,24 +331,6 @@ def chunks(sections):
             start = next_start
 
 
-def active(state):
-    """Which index serves queries: 2 once a format 2 build has completed, else 1 if a format 1
-    index exists, else 2 (whatever partial format 2 index there is, or none)."""
-    state = Path(state)
-    for name, version in (('search.v2.sqlite3', 2), ('search.sqlite3', 1)):
-        path = state / name
-        if not path.is_file():
-            continue
-        try:
-            with closing(sqlite3.connect(f'{path.as_uri()}?mode=ro', uri=True, timeout=10)) as con:
-                found = dict(con.execute("SELECT key, value FROM settings WHERE key IN ('version', 'indexed_at')"))
-        except sqlite3.Error:
-            continue
-        if found.get('version') == str(version) and (version == 1 or found.get('indexed_at')):
-            return version
-    return 2
-
-
 def setting(con, key):
     row = con.execute('SELECT value FROM settings WHERE key=?', (key,)).fetchone()
     return row[0] if row else None
@@ -362,7 +342,7 @@ class Search:
         self.state = self.root / '.reader'
         self.state.mkdir(exist_ok=True)
         self.db = self.state / 'search.v2.sqlite3'
-        self.legacy = self.state / 'search.sqlite3'  # format 1, kept for older Reader processes
+        self.legacy = self.state / 'search.sqlite3'  # retired format 1: only named in the rebuild message
         self._model = None
         self._signature = None
         self._backend = 'fastembed'  # switching away from the default drops the loaded model
@@ -463,6 +443,9 @@ class Search:
     @contextmanager
     def connect(self, create=False):
         if not create and not self.db.exists():
+            if self.legacy.is_file():
+                raise ValueError('Search index missing: Reader no longer reads the format 1 index (.reader/search.sqlite3); '
+                                 'run reader index to build format 2')
             raise ValueError('Search index missing; run reader index')
         con = sqlite3.connect(self.db if create else f'{self.db.as_uri()}?mode=ro',
                               uri=not create, timeout=60)
@@ -504,21 +487,11 @@ class Search:
             self._limits = settings(self.root)
             return self._index(semantic, deadline)
 
-    # Migration -------------------------------------------------------------
-
-    def legacy_source(self):
-        """The format 1 index, opened read-only, when it can seed vectors; never written."""
-        if not self.legacy.is_file():
-            return None
-        try:
-            with closing(sqlite3.connect(f'{self.legacy.as_uri()}?mode=ro', uri=True, timeout=10)) as con:
-                return self.legacy if setting(con, 'version') == LEGACY_VERSION else None
-        except sqlite3.Error:
-            return None
+    # Validation ------------------------------------------------------------
 
     @staticmethod
     def validate(con):
-        """Structural checks a migrated index must pass before the format 1 copy is removed."""
+        """Structural checks the first completed format 2 build must pass before it is served."""
         problems = []
         if con.execute('PRAGMA quick_check').fetchone()[0] != 'ok':
             problems.append('quick_check failed')
@@ -552,12 +525,10 @@ class Search:
         content_types = set(limits['content_types'])
         model = self.model(download=True) if semantic else None
         signature = self.model_signature() if model else None
-        legacy_path = self.legacy_source()
         run = {'issues': [], 'metadata_issues': [], 'changed': 0, 'removed': 0, 'embedded': 0, 'reused': 0,
                'pdf_warnings': {}}
         with closing(sqlite3.connect(self.state / 'embedding-cache.sqlite3')) as cache, \
-                self.connect(create=True) as con, \
-                closing(sqlite3.connect(f'{legacy_path.as_uri()}?mode=ro', uri=True)) if legacy_path else _null() as legacy:
+                self.connect(create=True) as con:
             con.isolation_level = None
             cache.execute(f'PRAGMA max_page_count={limits["max_cache_mib"] * MIB // PAGE_SIZE}')
             cache.execute('CREATE TABLE IF NOT EXISTS vectors (key TEXT PRIMARY KEY, vector BLOB)')
@@ -566,13 +537,8 @@ class Search:
             if switched and not semantic:
                 raise ValueError('Embedding model changed; rebuild the search index with embeddings')
             stored = setting(con, 'embedding_signature')
-            if not stored and not semantic and legacy is not None:
-                # A keyword-only first build adopts the format 1 vectors' fingerprint, so it can keep them.
-                stored = setting(legacy, 'embedding_signature')
             reembed = bool(semantic and (switched or (stored and stored != signature)))  # a backend switch re-embeds every passage
             vectors_signature = signature if semantic else stored
-            if legacy is not None and (not vectors_signature or setting(legacy, 'embedding_signature') != vectors_signature):
-                legacy = None  # Format 1 vectors without a matching model fingerprint are not reused.
             con.execute('BEGIN IMMEDIATE')
             if reembed:
                 con.execute('UPDATE passages SET vector=NULL, vector_path=NULL')
@@ -583,7 +549,7 @@ class Search:
             for key, value in published.items():
                 con.execute('INSERT OR REPLACE INTO settings VALUES (?,?)', (key, value))
             con.execute('COMMIT')
-            context = dict(con=con, cache=cache, legacy=legacy, model=model, semantic=semantic,
+            context = dict(con=con, cache=cache, model=model, semantic=semantic,
                            signature=vectors_signature, content_types=content_types, run=run)
             passages = con.execute('SELECT count(*) FROM passages').fetchone()[0]
             seen, pending, stopped = set(), 0, None
@@ -636,9 +602,8 @@ class Search:
                                      f'{passages:,} passages saved. Raise the setting or narrow '
                                      'search.content_types, then run again.') from exc
                 raise
-            seeded = legacy is not None
             if stopped is None and setting(con, 'validated') != '1':
-                # The first completed build is checked before search switches to it from format 1.
+                # The first completed build is checked before search is served from it.
                 problems = self.validate(con)
                 if problems:
                     con.execute("INSERT OR REPLACE INTO settings VALUES ('complete', '0')")
@@ -646,9 +611,9 @@ class Search:
                     raise ValueError('The new search index failed validation (' + '; '.join(problems)
                                      + '); search keeps serving the previous index. Rebuild to retry.')
                 con.execute("INSERT OR REPLACE INTO settings VALUES ('validated', '1')")
-        return self.report(run, semantic, stopped, seeded=seeded)
+        return self.report(run, semantic, stopped)
 
-    def report(self, run, semantic, stopped, seeded=False):
+    def report(self, run, semantic, stopped):
         limits = self.limits
         with closing(sqlite3.connect(f'{self.db.as_uri()}?mode=ro', uri=True)) as con:
             documents = con.execute('SELECT count(*) FROM docs').fetchone()[0]
@@ -659,7 +624,7 @@ class Search:
         result = {'documents': documents, 'chunks': chunk_count, 'passages': passages, 'path_only_machine': machine,
                   'changed': run['changed'], 'removed': run['removed'], 'semantic': semantic,
                   'embedded': run['embedded'], 'reused_vectors': run['reused'],
-                  'complete': stopped is None, 'stopped': stopped, 'seeded_from_legacy': seeded,
+                  'complete': stopped is None, 'stopped': stopped,
                   'database_bytes': pages, 'budgets': {k: limits[k] for k in RANGES},
                   'issues': run['issues'], 'metadata_issues': run['metadata_issues']}
         warned = run['pdf_warnings']
@@ -748,15 +713,9 @@ class Search:
         return added - self._collect(con, removed)
 
     def _attach_vectors(self, path, unembedded, ctx):
-        """Vectors for new passages: format 1 copy, then the cache, then (semantic runs only) the model."""
+        """Vectors for new passages: the cache, then (semantic runs only) the model."""
         con, signature = ctx['con'], ctx['signature']
         found = {}
-        if ctx['legacy'] is not None:
-            wanted = set(unembedded.values())
-            for text, blob in ctx['legacy'].execute(
-                    'SELECT text, vector FROM chunks WHERE path=? AND vector IS NOT NULL', (path,)):
-                if text in wanted and isinstance(blob, bytes) and blob and len(blob) % 4 == 0:
-                    found[text] = blob
         if signature:
             remaining = {path + '\n' + t: t for t in unembedded.values() if t not in found}
             for key, blob in self.cached(ctx['cache'], signature, remaining).items():
@@ -823,9 +782,6 @@ class Search:
             raise ValueError('editions must be preferred or all')
         if not path_prefix.startswith('library/') or '..' in Path(path_prefix).parts:
             raise ValueError('path_prefix must start with library/')
-        if active(self.state) == 1:
-            from . import search_legacy
-            return search_legacy.search(self, query, mode, limit, path_prefix)
         with self.connect() as con:
             settings_ = dict(con.execute('SELECT key,value FROM settings'))
             docs = {r['path']: dict(r) for r in con.execute('SELECT * FROM docs')
@@ -958,8 +914,7 @@ class Search:
         passages collapse to the preferred edition. For each predicate in `allow` (a callable
         taking a path and its index row, or None for all), returns that predicate's top `limit` chunks, so one
         query serves both filtered results and facet counts. When the embedding model or
-        vectors are unavailable, Meaning falls back to exact words and says so. While only a
-        format 1 index exists (no completed format 2 build), candidates come from it read-only."""
+        vectors are unavailable, Meaning falls back to exact words and says so."""
         if not query.strip() or len(query) > 1000:
             raise ValueError('Query must contain 1–1000 characters')
         if mode not in {'hybrid', 'keyword', 'semantic'} or not 1 <= limit <= PAGE_POOL:
@@ -967,10 +922,6 @@ class Search:
         if not path_prefix.startswith('library/') or '..' in Path(path_prefix).parts:
             raise ValueError('path_prefix must start with library/')
         words = list(dict.fromkeys(w for w in tokens(query) if w not in STOPWORDS)) or list(dict.fromkeys(tokens(query)))
-        if active(self.state) == 1:
-            # Until a format 2 build completes, the page reads the format 1 index read-only, as search() does.
-            from . import search_legacy
-            return search_legacy.passages(self, query, mode, limit, path_prefix, allow, words)
         with self.connect() as con:
             settings_ = dict(con.execute('SELECT key,value FROM settings'))
             docs = {r['path']: {'status': r['status'], 'sha256': r['sha256'], 'metadata': r['metadata']}
@@ -1123,8 +1074,3 @@ class Search:
 
 def stamp():
     return datetime.now(timezone.utc).isoformat()
-
-
-@contextmanager
-def _null():
-    yield None

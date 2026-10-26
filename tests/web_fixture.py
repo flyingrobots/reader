@@ -605,9 +605,10 @@ def main():
             from reader_mcp.search import Search
             (root / 'library/receipt.json').write_text('{"machine": "record"}')
             (root / 'indexes/settings.json').write_text(json.dumps({'search': {'max_passages': 1000, 'max_database_mib': 64, 'max_cache_mib': 32}}))
-            sys.path.insert(0, str(Path(__file__).parent))
-            import legacy_search_v1
-            legacy_search_v1.Search(root).index(False)  # A format 1 index, as older Reader processes keep it.
+            import sqlite3
+            (root / '.reader').mkdir(exist_ok=True)
+            with sqlite3.connect(root / '.reader/search.sqlite3') as legacy:  # A retired format 1 index left by older Reader code.
+                legacy.executescript("CREATE TABLE settings (key TEXT PRIMARY KEY, value TEXT); INSERT INTO settings VALUES ('version', '1');")
             Search(root).index(False)  # A real format 2 index beside it, keywords only.
             import time
             def stopped():

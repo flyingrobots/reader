@@ -17,7 +17,7 @@
     "src/activity/transcript.tsx": "2055824889b5f3fbdfb5bed8c7c21d6231323911242930bb88b631a3723bcee8",
     "src/art-studio.tsx": "f868ad8cbdc4947a7e2f9fffb4d989c67a6e5f7e542cfc2ae1614221bec09dde",
     "src/art/art.ts": "0f9941cdef72d6159e769d2960f5901efbfa070c1f4c2ce2632dba9aad0e5531",
-    "src/backstage.tsx": "d511cce07d1a2fc4d8fbfa73c27ba08939d901131a78b970f94cf2d347fbb607",
+    "src/backstage.tsx": "d89d37ef6074c00a0aa2898326ee0901b920d8d22c088af60d31d293861c79d1",
     "src/callouts.tsx": "fccf6b854b5c95a48ef40d206edfe927718f2ad9e8b59f3b5005548819172584",
     "src/changes-panel.tsx": "2a06b103e068f758afbfe34976ff9461ed43adbf421d5f13cb5a63b45ce5b268",
     "src/chat/chat-panel.tsx": "69990caf8a47efa89779d34f46feb046679882344d2a8c534b9cda96f9eb36a2",
@@ -895,8 +895,8 @@
       "sha256": "d23727568478cdc803ed2c40e4445025ef4069248d2807513b7d768615d6bdc8"
     },
     "reader-controls.js": {
-      "bytes": 916483,
-      "sha256": "de0ee3670f63a821478658498e5d675c637af96ac913ba2db45518f9013c9a5c"
+      "bytes": 916312,
+      "sha256": "486bda76cde40fdf3a979bdc6acdc5b96a581cb59dc7a326c65c606915c382e5"
     },
     "reader-controls.js.LEGAL.txt": {
       "bytes": 5290,

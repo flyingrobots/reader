@@ -246,25 +246,16 @@ def test_passage_search_waits_for_a_running_search_then_answers_429(http, monkey
     assert status == 429 and 'try again' in body['error']
 
 
-def test_format_1_index_serves_the_page_read_only_until_format_2_completes(vault):
-    """A vault with only the format 1 index (older Reader processes) still gets the search page."""
-    import sys
-    from pathlib import Path
-    sys.path.insert(0, str(Path(__file__).parent))
-    import legacy_search_v1
+def test_a_format_1_index_alone_asks_for_a_rebuild(vault):
+    """Format 1 is retired (#9): with only the old index, the page says to rebuild and never reads or writes it."""
+    import sqlite3
     (vault / '.reader/search.v2.sqlite3').unlink()
-    legacy = legacy_search_v1.Search(vault)
-    legacy._model = ConceptModel()
-    legacy.index(True)
+    with sqlite3.connect(vault / '.reader/search.sqlite3') as con:
+        con.executescript("CREATE TABLE settings (key TEXT PRIMARY KEY, value TEXT); INSERT INTO settings VALUES ('version', '1');")
     before = (vault / '.reader/search.sqlite3').read_bytes()
     library = WebLibrary(vault)
-    library.engine._model = ConceptModel()
-    library.engine._signature = legacy.model_signature()
-    words = library.search_page('journal transactions crash', 'words')
-    assert 'Durable journal' in titles(words) and any('format 1' in w for w in words['warnings'])
-    journal = next(w for w in words['works'] if w['title'] == 'Durable journal')
-    assert journal['passages'] and all(p['spans'] for p in journal['passages'])
-    meaning = library.search_page('lost work', 'meaning')
-    assert meaning['semantic'] == 'used' and 'Durable journal' in titles(meaning)
+    for mode in ('words', 'meaning', 'best'):
+        with pytest.raises(ValueError, match='no longer reads the format 1 index.*run reader index'):
+            library.search_page('journal transactions crash', mode)
     assert (vault / '.reader/search.sqlite3').read_bytes() == before, 'format 1 is never written'
     assert not (vault / '.reader/search.v2.sqlite3').exists()

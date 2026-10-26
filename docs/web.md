@@ -914,8 +914,8 @@ same angle, with the same hover, click and keys.
 **Data: `GET /api/shape?path=library/…`** (read-only, expensive pool). For a
 Markdown or text source of at most 4 MiB:
 
-1. The source's passages come from the published search index (format 2, else the
-   format 1 index), in reading order. A source the index does not hold yet uses the
+1. The source's passages come from the published format 2 search index, in reading
+   order. A source the index does not hold yet uses the
    indexer's own passage windows without vectors. At most 400 passages are drawn;
    longer sources are evenly subsampled, keeping order, the first and the last.
 2. **Projection.** When at least 90% of the drawn passages have vectors, they are
@@ -973,7 +973,7 @@ state **Badge** (Current, Needs rebuild, Partial, Not built, Not configured, Err
 
 | Index | Freshness check | Rebuild |
 | --- | --- | --- |
-| Search index | Compares every library file's size and mtime with `.reader/search.v2.sqlite3`, and counts text documents without embeddings (Partial). A run that stopped before finishing is Partial with "The last rebuild stopped before finishing; N passages saved. Run again to continue." With only a format 1 index, the card is Needs rebuild and search serves format 1 read-only. The rebuild writes `search.v2.sqlite3` beside it. While `.reader/search.sqlite3` exists, the card adds "Legacy index (format 1, used by older Reader processes): N MB · Remove". **Remove** runs the *Remove legacy search index* job. It is shown only once format 2 serves search, and the job refuses while an index run or another process holds the file (see [format 1 beside format 2](search.md#format-1-beside-format-2)). | **Rebuild with embeddings** or **Keywords only**, through the guarded `run_index` worker and its resource limits |
+| Search index | Compares every library file's size and mtime with `.reader/search.v2.sqlite3`, and counts text documents without embeddings (Partial). A run that stopped before finishing is Partial with "The last rebuild stopped before finishing; N passages saved. Run again to continue." With only a retired format 1 index, the card is Missing ("No search index: Reader no longer reads the format 1 index. Rebuild the search index to restore search") and search is unavailable until the rebuild writes `search.v2.sqlite3`. While `.reader/search.sqlite3` exists, the card adds "Old search index (format 1, no longer read): N MB · Remove". **Remove** runs the *Remove legacy search index* job, which refuses while an index run or another process holds the file (see [format 1 is retired](search.md#format-1-is-retired)). | **Rebuild with embeddings** or **Keywords only**, through the guarded `run_index` worker and its resource limits |
 | Browse indexes | `Browse.run(check=True)`: navigation files that would change. Not configured without `indexes/settings.json`. | **Refresh** writes `indexes/` and the README dashboard in the vault; commit them afterwards |
 | Catalog SQL mirror | `catalog check` against `.reader/catalog.sqlite3` | **Sync** (`catalog sync`) |
 | Link graph | Compares every library file's size and mtime with `.reader/links.sqlite3` | **Refresh** re-reads only new and changed files ([Link previews and Linked from](#link-previews-and-linked-from)) |
@@ -3052,9 +3052,8 @@ types, date, read, score, passages:[{path, page, start_line, end_line, line, exc
 spans, matched_by, literal}]}], terms, facets:{project, author, type, folder}, total,
 facet_scope, pool, indexed_at, complete, semantic, warnings}`. `spans` are `[start,
 end)` Unicode code-point offsets into `excerpt`. Ranking runs once over the published
-index snapshot (`Search.passages`): `.reader/search.v2.sqlite3` once a format 2 build has
-completed, otherwise the format 1 `.reader/search.sqlite3` read-only (each chunk is its own
-passage, no file-name channel, and a warning says format 1 is serving). It takes at most 2,000 passages per channel and a
+index snapshot (`Search.passages`) in `.reader/search.v2.sqlite3`; with only the retired
+format 1 file present the page asks for a rebuild. It takes at most 2,000 passages per channel and a
 pool of 500 chunks, after the folder and machine-file scope and the work filters.
 Words in a short stopword list are dropped unless the query has no others. Meaning keeps passages with cosine similarity of at least 0.62 and within 0.08 of the best match, at most 300 (100 in Best, so exact words lead); bge-small-en-v1.5 similarities on a real library cluster near 0.53, and even a nonsense query reaches about 0.67, so a passage marked related is a lead, not a claim. Meaning
 vectors are normalized once per published index version and reused while it is
@@ -3845,8 +3844,8 @@ and `search-phone-filters.png`.
 
 `web_index_scale.cjs` starts the fixture with `--index-scale`. It builds a real
 keyword-only format 2 index with small budgets, including one machine file, beside a
-format 1 index built by the frozen `tests/legacy_search_v1.py`. It checks the budget,
-machine-file and inventory facts, then the legacy note and its explicit removal. Its embedding rebuild is a
+leftover synthetic format 1 file. It checks the budget, machine-file and inventory facts,
+then the "Old search index (format 1, no longer read)" note and its explicit removal. Its embedding rebuild is a
 synthetic run that stops at its time limit, to check the toast and Recent runs.
 
 `tests/test_versions.py` builds a temporary git vault holding a v1/v2/v3 family
