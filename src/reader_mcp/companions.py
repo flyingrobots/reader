@@ -387,7 +387,7 @@ class Companions:
                 uses.setdefault(os.path.basename(voice['cli']), []).append(voice['name'])
         rows = []
         for cli, title, link in VOICE_CLIS:
-            path = resolve_cli(cli)
+            path = resolve_cli(cli, self.environ)  # this Companions' PATH and HOME, never the host's (#134)
             rows.append({'name': cli, 'title': title, 'link': link, 'path': path, 'state': 'installed' if path else 'missing',
                          'voices': uses.get(cli, [])})
         return rows

@@ -692,12 +692,12 @@ def main():
             (root / '.fake-code/scripts').mkdir(parents=True)
             (root / '.fake-code/scripts/install_wide_md.py').write_text('import time\nprint("fake wide-md install", flush=True)\ntime.sleep(1)\nraise SystemExit(1)\n')
             companions = {'environ': {'PATH': f'{root / ".fake-tools"}:/usr/bin:/bin', 'HOME': str(home), 'FAKE_CARGO_SLEEP': '4',
-                                      'READER_GIT_LOCKS_CANDIDATES': '', 'FAKE_TOOL_LOG': str(root / '.fake-tools/calls.jsonl')},
+                                      'READER_GIT_LOCKS_CANDIDATES': '', 'READER_CLI_CANDIDATES': '', 'FAKE_TOOL_LOG': str(root / '.fake-tools/calls.jsonl')},
                           'launchctl': str(root / '.fake-tools/launchctl'), 'code': root / '.fake-code'}
         if companions is None:
-            # Never this Mac's companions: no ai-tts CLI or launch agent, no cargo, and launchctl is never reachable.
+            # Never this Mac's companions: no ai-tts CLI or launch agent, no cargo, no agent CLIs, and launchctl is never reachable.
             (root / '.no-home').mkdir(exist_ok=True)
-            companions = {'environ': {'PATH': '/usr/bin:/bin', 'HOME': str(root / '.no-home'), 'READER_GIT_LOCKS_CANDIDATES': ''},
+            companions = {'environ': {'PATH': '/usr/bin:/bin', 'HOME': str(root / '.no-home'), 'READER_GIT_LOCKS_CANDIDATES': '', 'READER_CLI_CANDIDATES': ''},
                           'launchctl': str(root / '.no-launchctl')}
         if '--chat-owned' in sys.argv:
             # Another Reader server owns chat for this vault (#20, #72): this fixture holds the supervisor lock and leaves

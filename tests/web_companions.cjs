@@ -53,6 +53,7 @@ const shots=process.env.READER_SHOTS||'.reader/web-dev';
   assert.equal(await card('git-locks').getAttribute('data-state'),'missing');
   assert.match(await page.locator('#companion-gpu').textContent(),/GPU coordination: This Reader only/);
   assert.equal(await page.locator('[data-cli]').count(),3,'claude, codex and agy are listed, status only');
+  assert.equal(await page.locator('[data-cli][data-state=missing]').count(),3,'the fixture never sees this Mac\'s agent CLIs (#134)');
   assert.equal(await page.locator('#companion-cli button').count(),0,'no install buttons for account-bound CLIs');
   // wide-md: Install lists what will change before anything runs; Cancel runs nothing.
   await card('wide-md').locator('[data-action=install]').click();

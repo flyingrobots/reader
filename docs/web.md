@@ -1436,7 +1436,11 @@ build, `PATH`, `~/.cargo/bin` and `~/.colorful-language/bin`. git-locks:
 three folders. AI-TTS: its socket (`AI_TTS_SOCKET`, `AI_TTS_HOME` or
 `~/Library/Application Support/ai-tts/ai-tts.sock`), the `ai-tts` CLI on `PATH` or in
 `~/.local/bin`, and its launch agent. `cargo` and `git` come from `PATH`
-(`~/.cargo/bin/cargo` and `/usr/bin/git` as fallbacks).
+(`~/.cargo/bin/cargo` and `/usr/bin/git` as fallbacks). The *Agents and models* card
+looks `claude`, `codex` and `agy` up the way voices resolve them: `PATH`, then
+`~/.local/bin`, `/opt/homebrew/bin` and `/usr/local/bin`, where `READER_CLI_CANDIDATES`
+(folders separated by `:`, may be empty) replaces those three folders. Every probe uses
+the environment Companions was given, so a test fixture never reports this Mac's tools.
 
 **Without git-locks.** Reader keeps working; it then coordinates only its own processes:
 
@@ -2091,7 +2095,7 @@ entry has:
 | --- | --- |
 | `name`, `mention` | Display name and single-word `@` aliases (case-insensitive, unique) |
 | `enabled` | `false` hides the voice from routing and random choice |
-| `cli` | Executable name or absolute path; `null` with `manual: true` for paste-only voices. Names resolve on `PATH`, then `~/.local/bin`, `/opt/homebrew/bin` and `/usr/local/bin` |
+| `cli` | Executable name or absolute path; `null` with `manual: true` for paste-only voices. Names resolve on `PATH`, then `~/.local/bin`, `/opt/homebrew/bin` and `/usr/local/bin` (`READER_CLI_CANDIDATES` replaces those folders) |
 | `argv` | Arguments. `{vault}`, `{prompt}`, `{persona}` and `{last_message}` are replaced; an element `{sandbox_add_dirs}` expands to `--add-dir PATH` for each Git metadata and git-locks directory the inbox runner grants |
 | `stream` | Output parser: `claude` (stream-json), `codex` (`exec --json`), `agy` (stream-json), or `text` |
 | `persona` | `agents_md_section` (one or more `AGENTS.md` headings or top-level list-item labels, copied verbatim), `profiles` (vault-relative pages) and `text` |

@@ -24,21 +24,34 @@ TURN_INSTRUCTIONS = ('This is a Reader chat turn: a conversational reply in a ch
                      'A chat turn is not a full session turn: do not run turn-boundary upkeep, intake, or spoken summaries, '
                      'and do not launch other agents, unless this message asks you to. To bring another voice in, @mention it by name. '
                      'Write your reply in Markdown; your final message is posted to the chat as your reply.')
-# Where agent CLIs commonly live when the web server's PATH is narrower than a terminal's.
-EXTRA_PATHS = [str(Path.home() / '.local/bin'), '/opt/homebrew/bin', '/usr/local/bin']
+# Where agent CLIs commonly live when the web server's PATH is narrower than a terminal's. `~` expands
+# against the environment's HOME; READER_CLI_CANDIDATES (os.pathsep-separated, may be empty) replaces them.
+CLI_DIRS = ('~/.local/bin', '/opt/homebrew/bin', '/usr/local/bin')
 
 
-def resolve_cli(name):
+def cli_dirs(environ=None):
+    environ = os.environ if environ is None else environ
+    folders = environ.get('READER_CLI_CANDIDATES')
+    folders = [f for f in folders.split(os.pathsep) if f] if folders is not None else list(CLI_DIRS)
+    home = environ.get('HOME') or str(Path.home())
+    return [home + f[1:] if f == '~' or f.startswith('~/') else f for f in folders]
+
+
+def resolve_cli(name, environ=None):
+    """An agent CLI by absolute path, or by name on `environ`'s PATH (the process's by default), then the
+    usual install folders."""
     if not isinstance(name, str) or not name:
         return None
     if os.path.isabs(name):
         return name if os.path.isfile(name) and os.access(name, os.X_OK) else None
     if '/' in name:
         return None
-    found = shutil.which(name)
+    environ = os.environ if environ is None else environ
+    found = shutil.which(name, path=environ.get('PATH') or os.defpath)
     if found:
         return found
-    return shutil.which(name, path=os.pathsep.join(EXTRA_PATHS))
+    folders = cli_dirs(environ)
+    return shutil.which(name, path=os.pathsep.join(folders)) if folders else None
 
 
 def stream_kind(cli):

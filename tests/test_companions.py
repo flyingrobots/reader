@@ -222,6 +222,33 @@ def companions(tmp_path, monkeypatch, tools=('git', 'cargo'), **options):
     return root, library, log
 
 
+def fake_cli(folder, name):
+    folder.mkdir(parents=True, exist_ok=True)
+    path = folder / name
+    path.write_text('#!/bin/sh\nexit 0\n')
+    path.chmod(0o755)
+    return str(path)
+
+
+def test_agents_card_uses_the_configured_environment_not_the_host(tmp_path, monkeypatch):
+    # #134: the Agents and models card looks CLIs up on Companions' own PATH and HOME, never the server process's.
+    root = vault(tmp_path / 'v')
+    claude = fake_cli(tmp_path / 'bin', 'claude')
+    agy = fake_cli(tmp_path / 'home/.local/bin', 'agy')
+    environ = {'PATH': str(tmp_path / 'bin'), 'HOME': str(tmp_path / 'home'), 'READER_CLI_CANDIDATES': '~/.local/bin'}
+    library = WebLibrary(root, prose=Prose(environ={'PATH': str(tmp_path / 'empty'), 'HOME': str(tmp_path / 'home')}),
+                         companions={'environ': environ})
+    rows = {c['name']: c for c in library.companions.voices()}
+    assert rows['claude']['path'] == claude and rows['claude']['state'] == 'installed'
+    assert rows['agy']['path'] == agy, 'the usual folders expand against the configured HOME'
+    assert rows['codex']['state'] == 'missing' and rows['codex']['path'] is None, 'a host codex never leaks into the card'
+    hidden = WebLibrary(vault(tmp_path / 'w'), prose=Prose(environ={'PATH': str(tmp_path / 'empty'), 'HOME': str(tmp_path / 'home')}),
+                        companions={'environ': {'PATH': str(tmp_path / 'empty'), 'HOME': str(tmp_path / 'home'), 'READER_CLI_CANDIDATES': ''}})
+    assert {c['name']: c['state'] for c in hidden.companions.voices()} == {'claude': 'missing', 'codex': 'missing', 'agy': 'missing'}
+    library.close()
+    hidden.close()
+
+
 def wait_job(library, timeout=30):
     deadline = time.monotonic() + timeout
     while library.maintenance.status()['running']:
