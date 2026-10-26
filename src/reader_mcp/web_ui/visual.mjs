@@ -4,6 +4,7 @@
 import {textModel,lineMove,lineEdge} from './cursor.mjs';
 import {pageWidth} from './dock.mjs';
 import {plural} from './logic.mjs';
+import {shownTop} from './place.mjs';
 
 export function installVisual({state,keys,reading,scrollToPosition,notify,captureSelection,createAnnotation,annotate,speak,registers,quickfix,links,jumps,report}){
   const $=selector=>document.querySelector(selector);
@@ -85,7 +86,7 @@ export function installVisual({state,keys,reading,scrollToPosition,notify,captur
     if(!range)return;
     if(reading.geometry()){reading.reveal(range);return;}
     const r=range.getBoundingClientRect(),box=view();
-    if(r.top<box.top+24||r.bottom>box.bottom-24)scrollToPosition(scrollY+r.top-innerHeight*.36,true,range);
+    if(r.top<box.top+24||r.bottom>box.bottom-24)scrollToPosition(shownTop(state.smoother)+r.top-innerHeight*.36,true,range);
   }
   /** Apply a motion count times; vertical motions keep the column they started in. */
   function move(step,{count}={},vertical=false){
@@ -157,7 +158,7 @@ export function installVisual({state,keys,reading,scrollToPosition,notify,captur
     registry.set('reader-cursor',new Highlight(range));clearTimeout(v.flashTimer);
     v.flashTimer=setTimeout(()=>{if(!active())registry.delete('reader-cursor');},1600);
   }
-  function revealNormal(range){if(!range)return;jumps.record();const r=range.getBoundingClientRect();if(!reading.reveal(range))scrollToPosition(scrollY+r.top-innerHeight*.36,true,range);flash(range);}
+  function revealNormal(range){if(!range)return;jumps.record();const r=range.getBoundingClientRect();if(!reading.reveal(range))scrollToPosition(shownTop(state.smoother)+r.top-innerHeight*.36,true,range);flash(range);}
   /** zt / zz / zb: put a place at the top, centre or bottom of the window (continuous reading). */
   function align(where){
     let range=null;
@@ -168,7 +169,7 @@ export function installVisual({state,keys,reading,scrollToPosition,notify,captur
     if(!range){notify('Nothing to align yet: find a passage, follow a jump or select with v first.');return;}
     if(reading.geometry()){reading.reveal(range);return;}
     const r=range.getBoundingClientRect(),box=view();
-    const top=where==='top'?scrollY+r.top-box.top-16:where==='bottom'?scrollY+r.bottom-box.bottom+16:scrollY+r.top-(box.top+box.bottom)/2+r.height/2;
+    const y=shownTop(state.smoother),top=where==='top'?y+r.top-box.top-16:where==='bottom'?y+r.bottom-box.bottom+16:y+r.top-(box.top+box.bottom)/2+r.height/2;
     scrollToPosition(top,true,range);
   }
   const normalModel=()=>textual()?textModel(article()):null;
