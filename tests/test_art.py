@@ -357,6 +357,28 @@ def test_the_local_model_makes_art_under_the_gpu_lock(tmp_path):
         library.close()
 
 
+def test_local_model_art_logs_the_provider_by_host_and_never_the_api_key(tmp_path):
+    from fake_openai_servers import FakeServer, guarded_connect
+    sentinel = 'sk-art-sentinel-' + 'Z9' * 12
+    root, library = vault(tmp_path)
+    try:
+        with FakeServer('ollama', api_key=sentinel) as fake:
+            library.local_model.connect, library.local_model.clients = guarded_connect, {}
+            library.local_model.dispatch({'action': 'settings', 'settings': {'provider': {
+                'preset': 'ollama', 'base_url': fake.url, 'model': 'llama3.2:3b', 'api_key': sentinel}}})
+            done = wait(library.art, library.art.enqueue('library/essay.md', 'local')['id'])
+            assert any(r['auth'] for r in fake.requests if r['path'] == '/v1/chat/completions')
+        meta = json.loads((root / done['log'] / 'meta.json').read_text())
+        assert meta['status'] in ('done', 'failed') and meta['ended_at']  # the fake's prose is not a scene; the log is sealed either way
+        assert meta['preset'] == 'ollama' and meta['host'] == '127.0.0.1' and meta['loopback'] is True and meta['api_key'] is True
+        assert 'brief-prompt.txt' in meta['files'] and 'brief-response.txt' in meta['files']
+        for path in (root / done['log']).iterdir():
+            text = (gzip.decompress(path.read_bytes()) if path.suffix == '.gz' else path.read_bytes()).decode()
+            assert sentinel not in text and 'authorization' not in text.lower(), path.name
+    finally:
+        library.close()
+
+
 def test_recovery_requeues_waiting_work_and_leaves_live_processes_alone(tmp_path):
     root, library = vault(tmp_path, {'Claude': ['--art-scene', str(scene_file(tmp_path))]})
     library.close()

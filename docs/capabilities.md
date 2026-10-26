@@ -219,8 +219,7 @@ and metadata are archived permanently in the vault under `logs/llm/chat/`
 followed),
 gzip-compressed on completion and committed with the chat; nothing prunes them, and
 no new turn starts below the 50 GiB free-disk reserve. Spoken replies are not
-implemented; the inbox runner and local-model worker do not use the LLM log archive
-yet.
+implemented; the inbox runner does not use the LLM log archive yet.
 **Reply to @Voice** (or `r` on a focused voice message) addresses your next message
 to that voice and quotes the message you answer in its prompt. After an addressed
 exchange, the other voices get short listening checks, one at a time, and may raise
@@ -247,8 +246,11 @@ written into vault files. Runs happen only on request; nightly or idle triggers,
 connection triage and quiz drafting are not included. Search can optionally embed
 through the provider's embedding model instead of the built-in bge-small, which
 forces a full re-embed. Providers must be on loopback unless the user explicitly allows a server
-on another machine; Reader then shows that document text leaves the machine. The
-local-model worker does not write to the LLM log archive.
+on another machine; Reader then shows that document text leaves the machine. Every
+batch of local-model work is archived permanently under `logs/llm/local-model/`
+(request template, each item's request and response, and the provider's preset,
+host and model, never its API key), committed on its own, and no batch starts below
+the 50 GiB free-disk reserve. Embedding requests are not archived.
 
 **Space c** highlights the grammar of Markdown prose and PDF text with the optional
 local [Colorful Language](https://github.com/flyingrobots/colorful-language) CLI

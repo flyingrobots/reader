@@ -602,7 +602,8 @@ def main():
                 return {'documents': 5, 'chunks': 60, 'passages': 18400, 'changed': 2, 'removed': 0, 'semantic': True, 'complete': False,
                         'message': 'Stopped at the time limit; 18,400 passages saved. Run again to continue.', 'issues': 0}
             runners = {'search': stopped}
-        local = {'url': f'http://127.0.0.1:{fake_lmstudio.free_port()}', 'cli': lms, 'gpu_lock': gpu_lock, 'data_usage': lambda: 0}
+        local = {'url': f'http://127.0.0.1:{fake_lmstudio.free_port()}', 'cli': lms, 'gpu_lock': gpu_lock, 'data_usage': lambda: 0,
+                 'capacity': lambda _: True, 'git_locks': False}
         providers = {}
         if '--local-provider' in sys.argv:
             # Fake Ollama and llama.cpp servers in this process. Every other address, a real local

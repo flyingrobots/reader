@@ -694,7 +694,9 @@ the low-disk reserve refuses to start, because LLM logs are never dropped.
 
 **Run logs.** Every commission is archived forever under
 `logs/llm/art/YYYY/MM/DD/<job id>/` (`llm_logs.RunLog`): `meta.json` (producer, model,
-CLI version, redacted argv per stage, prompts used, outcome, usage, the art folder),
+CLI version, redacted argv per stage, prompts used, outcome, usage, the art folder;
+for the local model, its provider preset, the base URL's host only, whether it is
+loopback and whether an API key was sent, which never appears in the log),
 and per stage `<stage>-prompt.txt`, the CLI's `<stage>-stdout.jsonl` and
 `<stage>-stderr.log` or the local model's `<stage>-response.txt` (and
 `-reasoning.txt`), plus `scene-errors.txt` when a repair ran; all gzip-compressed when
@@ -1225,6 +1227,36 @@ when the run ends. A model the user loaded stays loaded. If the server stops
 mid-item, the item fails, the queue pauses and the warning toast appears. When the
 web server shuts down, the in-flight request is cancelled and its item returns to
 the queue. The journal survives restarts.
+
+**Run logs.** Every batch that asks the model anything is archived forever, like a
+chat turn, at `logs/llm/local-model/YYYY/MM/DD/<run id>-b<batch>/` (see [LLM
+logs](#llm-logs)), and no batch starts while free disk is below the 50 GiB reserve:
+**Run** is refused with *Reader refuses to start LLM runs while free disk space is
+below 50 GiB*, and a run that reaches the reserve between batches stops as failed
+with that message, its remaining items still waiting. A batch's directory holds:
+
+- `request-template.json`: the method, the path relative to the base URL
+  (`/chat/completions`), the `Accept` and `Content-Type` headers, the body without
+  its messages (model, `stream`, `temperature`, `max_tokens`, `stream_options`) and
+  whether an API key was sent.
+- Per item, `item-NN-request.json` (item id, task, path, title, source SHA-256,
+  model, prompt version, whether the source was truncated, and the exact messages)
+  and `item-NN-response.json` (outcome and error, the answer and reasoning text,
+  finish reason, usage, tokens and rate, seconds, and the accepted output; for a
+  failed or cancelled request, whatever had streamed, marked `partial`).
+- `meta.json`: the worker run id and batch number, provider preset and label, the
+  base URL's **host only** and whether it is loopback, whether an API key was sent,
+  model, prompt versions, per-item outcomes, counts and the batch outcome (`done`,
+  `failed` with the error, or `interrupted` when Reader stopped).
+
+The API key and the `Authorization` header never reach the archive: the template
+omits credentials, and the key is replaced by `<redacted>` in anything a server
+echoes. When the batch ends its directory is sealed (gzip) and committed on its own
+with the subject `Log local model: <tasks> (<n> items)` and a `Reader-Log:
+local-model/<run id>-b<batch>` trailer. A batch Reader stops is sealed `interrupted`
+(after a crash, at the next start, and then committed with the next batch's log), and
+a log whose commit failed is retried with the next one. Recent items
+carry their log path (`log`) and each run its `logs` and last `commit` result.
 
 **Tasks.**
 
@@ -2006,7 +2038,9 @@ store lock); only **+** starts a second chat.
 **Authority and privacy.** Voices run with the authority they have in a normal
 Reader session in this vault, as configured in `voices.json`: they may read, write
 and commit. Every turn records its changed paths (from `git status` before and
-after, excluding `chats/`, `logs/llm/` and `.reader/`) and the commits it made. Each turn sends
+after, excluding `chats/`, `logs/llm/` and `.reader/`) and the commits it made, leaving out
+Reader's own commits (a `Reader-Chat` commit of chats and logs, or a `Reader-Log` commit
+that touches only `logs/llm/`, such as the local-model worker's). Each turn sends
 the document's identity, the chat transcript and anything the voice chooses to read
 to that voice's provider (Anthropic, OpenAI or Google). Nothing is excluded.
 
@@ -2136,7 +2170,16 @@ Every voice turn's raw artifacts are archived in the vault, permanently, at
 decision this archive is never pruned, expired or size-capped; it is an approved
 exception to the default 128 MiB log budget. Low disk space stops new runs instead.
 `src/reader_mcp/llm_logs.py` defines the layout for the kinds `chat`, `listen`,
-`inbox` and `local-model`; only chat turns use it so far.
+`inbox`, `local-model` and `art`. Voice chat turns (`chat`), listening checks
+(`listen`), art commissions (`art`, by a voice or the local model; see
+[Article art](#article-art)) and the local-model worker's batches (`local-model`; see
+[Run logs](#behind-the-scenes-local-model-any-openai-compatible-server) under Local
+model) use it; the inbox runner does not yet. Embedding requests (search over the
+provider's embedding model) are not LLM runs and are not archived: they return
+vectors rather than text, their inputs are every passage of the library at each
+re-embed (archiving them would copy the corpus into the vault again on every
+rebuild, forever) or a search query, and the index already records the model and the
+provider's signature.
 
 - While a run is in progress its artifacts are streamed uncompressed as
   `prompt.txt.partial`, `system.txt.partial` (the persona), `stdout.jsonl.partial`
@@ -2155,6 +2198,11 @@ exception to the default 128 MiB log budget. Low disk space stops new runs inste
   -f` of the directory (so the compressed files replace any partials a voice may
   have committed), with the trailer `Reader-Log: chat/<turn-id>`. Like chat
   commits, it never lands while a voice's turn runs.
+- Runners other than chat commit their own run directories with
+  `llm_logs.commit`: exactly the listed paths, `git add -A -f`, one `Reader-Log:
+  <kind>/<run-id>` trailer per run, serialized with chat commits (the vault's `.git/`
+  git-locks key when git-locks is installed, and always
+  `.reader/voice-runner/chat-commit.lock`).
 - `/api/chats` and `/api/chat` report `llm_logs` (`bytes` and `runs` under
   `logs/llm/`, cached for 30 seconds and refreshed when a turn ends); the chat
   panel's footer shows it. If the chat owner (see [one chat owner per

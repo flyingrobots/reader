@@ -263,6 +263,26 @@ def test_kai_paste_is_manual_and_routes_only_mentions(vault):
     assert chat['messages'][-1]['author'] == 'Claude'
 
 
+def test_reader_log_commits_are_never_attributed_to_a_voice(vault):
+    """A local-model or other runner's LLM-log commit made during a voice turn is Reader's, not the voice's."""
+    from reader_mcp import llm_logs
+    conversations = service(vault)
+    runner = conversations.runner
+    before = runner.snapshot()
+    log = llm_logs.RunLog(vault, 'local-model', 'synthetic-run-b001', {'runner': 'local-model'})
+    log.write('item-01-request.json', '{}')
+    relative = log.finish('done')
+    assert llm_logs.commit(vault, [relative], 'Log local model: Standfirsts (1 item)', [('Reader-Log', llm_logs.trailer(relative))],
+                           git_locks=False)['status'] == 'committed'
+    (vault / 'notes').mkdir(exist_ok=True)
+    (vault / 'notes/voice.md').write_text('a voice wrote this\n')
+    subprocess.run(['git', 'add', 'notes/voice.md'], cwd=vault, check=True, capture_output=True)
+    subprocess.run(['git', 'commit', '-q', '-m', 'A voice commit\n\nReader-Log: chat/forged'], cwd=vault, check=True, capture_output=True)
+    paths, commits = runner.changes(before)
+    voice_commit = subprocess.run(['git', 'rev-parse', 'HEAD'], cwd=vault, capture_output=True, text=True, check=True).stdout.strip()
+    assert paths == ['notes/voice.md'] and commits == [voice_commit], 'only the commit touching other files is the voice\'s'
+
+
 def test_sends_are_idempotent(vault):
     conversations = service(vault)
     chat = new_chat(conversations)

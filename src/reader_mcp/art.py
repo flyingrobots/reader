@@ -211,7 +211,7 @@ class Studio:
             provider = model.provider()
         except (ValueError, OSError):
             return None
-        return {'model': provider.get('model') or '', 'label': provider.get('label')}
+        return {'model': provider.get('model') or '', 'label': provider.get('label'), 'preset': provider.get('preset')}
 
     def producer(self, value):
         listed = self.producers()
@@ -364,44 +364,11 @@ class Studio:
         os.rename(staging, target)
         return f'{relative}/{job["sha256"]}/{generation}', generation
 
-    def git(self):
-        git = shutil.which('git')
-        if not git:
-            return None
-        inside = subprocess.run([git, 'rev-parse', '--show-toplevel'], cwd=self.root, capture_output=True, text=True, timeout=10)
-        return git if inside.returncode == 0 and Path(inside.stdout.strip()).resolve() == self.root else None
-
     def commit(self, paths, subject, trailers):
         """Commit exactly `paths` (vault-relative) with Reader trailers; serialized with chat commits."""
         if not self.commit_enabled:
             return {'commit': None, 'status': 'disabled'}
-        if not self.git():
-            return {'commit': None, 'status': 'not-a-repository'}
-        from .chats import git_locks_tool
-        message = subject + '\n\n' + ''.join(f'{k}: {v}\n' for k, v in trailers)
-        locks = self.root / '.reader' / 'voice-runner'
-        locks.mkdir(parents=True, exist_ok=True)
-        with tempfile.NamedTemporaryFile('w', dir=self.runtime, prefix='.commit-', suffix='.txt', delete=False) as out:
-            out.write(message); note = Path(out.name)
-        try:
-            script = ('note="$1"; shift; git add -A -f -- "$@" || exit 1; '
-                      'if git diff --cached --quiet -- "$@"; then echo nothing-to-commit; else git commit -q -F "$note" -- "$@"; fi')
-            command = ['sh', '-c', script, 'reader-art-commit', str(note), *paths]
-            tool = None if self.git_locks is False else (self.git_locks or git_locks_tool())
-            if tool:
-                command = [tool, 'with', '--job', 'reader-art-' + uuid.uuid4().hex, '--holder', 'reader-art', '--ttl', '300',
-                           '--wait', '120', '--note', 'Reader art commit', '.git/', '--'] + command
-            with (locks / 'chat-commit.lock').open('a') as lock:
-                fcntl.flock(lock, fcntl.LOCK_EX)
-                result = subprocess.run(command, cwd=self.root, capture_output=True, text=True, timeout=180)
-        finally:
-            note.unlink(missing_ok=True)
-        if result.returncode:
-            return {'commit': None, 'status': 'failed', 'error': (result.stderr or result.stdout)[-600:].strip()}
-        if 'nothing-to-commit' in result.stdout:
-            return {'commit': None, 'status': 'unchanged'}
-        head = subprocess.run(['git', 'rev-parse', 'HEAD'], cwd=self.root, capture_output=True, text=True, timeout=10)
-        return {'commit': head.stdout.strip() or None, 'status': 'committed'}
+        return llm_logs.commit(self.root, paths, subject, trailers, git_locks=self.git_locks, holder='reader-art', note='Reader art commit')
 
     # Jobs ---------------------------------------------------------------------
 
@@ -677,7 +644,7 @@ class Studio:
             llm_logs.forget_usage(self.root)
             committed = self.commit([folder, relative_log], f'Add art for {document["title"][:72]}',
                                     [('Reader-Art', f'{job["path"]}@{job["sha256"][:12]}/{generation}'),
-                                     ('Reader-Log', '/'.join(llm_logs.RELATIVE.fullmatch(relative_log).group(1, 2)))])
+                                     ('Reader-Log', llm_logs.trailer(relative_log))])
             self.update(job, state='done', stage=None, message='Ready', finished_at=stamp(), seconds=self.elapsed(job), model=producer['model'],
                         result={'edition': job['sha256'], 'generation': generation, 'folder': folder, 'title': art_title},
                         commit=committed, warning=None if committed['status'] in ('committed', 'disabled') else 'Saved, but not committed: ' + committed.get('error', committed['status']))
@@ -768,7 +735,10 @@ class Studio:
         if not name:
             raise ValueError('No local model is configured (Behind the scenes, Local model)')
         client = model.client
-        log.update(provider=settings.get('label'), model=name)
+        # The provider by preset and host only (as the local-model worker logs it); never the key.
+        scrub = getattr(client, 'scrub', lambda text: text)
+        log.update(provider=settings.get('label'), preset=settings.get('preset'), host=getattr(client, 'host', None),
+                   loopback=getattr(client, 'loopback', None), api_key=bool(getattr(client, 'api_key', None)), model=name)
 
         def ask(job, stage, prompt):
             messages = [{'role': 'system', 'content': ART_RULES}, {'role': 'user', 'content': prompt}]
@@ -781,9 +751,9 @@ class Studio:
                                          max_output=LOCAL_OUTPUT, reasoning=LOCAL_REASONING)
             except LocalCancelled as exc:
                 raise Cancelled() from exc
-            log.write(f'{stage}-response.txt', result['text'])
+            log.write(f'{stage}-response.txt', scrub(result['text']))
             if result.get('reasoning'):
-                log.write(f'{stage}-reasoning.txt', result['reasoning'])
+                log.write(f'{stage}-reasoning.txt', scrub(result['reasoning']))
             usage = result.get('usage') if isinstance(result.get('usage'), dict) else {}
             return result['text'], {'input_tokens': usage.get('prompt_tokens') or 0, 'output_tokens': usage.get('completion_tokens') or result.get('tokens') or 0, 'usd': None}, {'model': name}
         return ask

@@ -814,13 +814,18 @@ class VoiceRunner:
         return visible[:200], commits
 
     def chat_commit(self, commit):
-        """Reader's own chat and LLM-log commits are not the voice's."""
+        """Reader's own chat and LLM-log commits are not the voice's: a `Reader-Chat` commit of chats and
+        logs, or a `Reader-Log` commit of LLM logs only (the local-model worker's)."""
         shown = self.git('show', '--name-only', '--format=%B%x00', commit)
         if not shown:
             return False
         body, _, names = shown.decode('utf-8', 'replace').partition('\0')
         files = [n for n in names.split('\n') if n.strip()]
-        return '\nReader-Chat: ' in body and bool(files) and all(n.startswith(('chats/', llm_logs.ROOT + '/')) for n in files)
+        if not files:
+            return False
+        if '\nReader-Chat: ' in body and all(n.startswith(('chats/', llm_logs.ROOT + '/')) for n in files):
+            return True
+        return '\nReader-Log: ' in body and all(n.startswith(llm_logs.ROOT + '/') for n in files)
 
     def version(self, voice):
         if not voice.get('version_argv') or not voice.get('executable'):

@@ -9,14 +9,19 @@ decision, LLM logs are kept forever. Runners refuse to start when free space is 
 instead of dropping logs. Commit the run directory with the vault's other writes
 (`Reader-Log: <kind>/<run-id>` trailer)."""
 from datetime import datetime, timezone
+import fcntl
 import gzip
 import hashlib
 import json
 import os
 from pathlib import Path
 import re
+import shutil
+import subprocess
+import tempfile
 import threading
 import time
+import uuid
 
 ROOT = 'logs/llm'
 KINDS = ('chat', 'listen', 'inbox', 'local-model', 'art')
@@ -162,6 +167,53 @@ def seal(root, relative, status='interrupted', note=None):
     (folder / '.meta.next').write_text(json.dumps(meta, ensure_ascii=False, indent=2) + '\n')
     (folder / '.meta.next').replace(meta_file)
     return relative
+
+
+def trailer(relative):
+    """The `Reader-Log: <kind>/<run-id>` trailer value for a run directory."""
+    return '/'.join(RELATIVE.fullmatch(relative).group(1, 2))
+
+
+def commit(root, paths, subject, trailers, *, git_locks=None, holder='reader-llm-log', note='Reader LLM log commit'):
+    """Commit exactly `paths` (vault-relative; LLM run directories and their companions) with trailers.
+
+    Serialized with chat commits: the vault repository's `.git/` git-locks key when git-locks is
+    installed (`git_locks` names it; False never uses it) and always the `.reader/voice-runner/
+    chat-commit.lock` flock. Directories are added with `git add -A -f`, so compressed files replace
+    streamed partials and an ignore rule never hides an archive. Returns {'commit', 'status'[, 'error']}."""
+    root = Path(root).resolve(strict=True)
+    git = shutil.which('git')
+    if not git:
+        return {'commit': None, 'status': 'no-git'}
+    inside = subprocess.run([git, 'rev-parse', '--show-toplevel'], cwd=root, capture_output=True, text=True, timeout=10)
+    if inside.returncode or Path(inside.stdout.strip()).resolve() != root:
+        return {'commit': None, 'status': 'not-a-repository'}
+    from .companions import find_git_locks, repo_env
+    message = subject + '\n\n' + ''.join(f'{k}: {v}\n' for k, v in trailers)
+    runtime = root / '.reader' / 'voice-runner'
+    runtime.mkdir(parents=True, exist_ok=True)
+    with tempfile.NamedTemporaryFile('w', dir=runtime, prefix='.commit-', suffix='.txt', delete=False) as out:
+        out.write(message); message_file = Path(out.name)
+    try:
+        script = ('note="$1"; shift; git add -A -f -- "$@" || exit 1; '
+                  'if git diff --cached --quiet -- "$@"; then echo nothing-to-commit; else git commit -q -F "$note" -- "$@"; fi')
+        command = ['sh', '-c', script, 'reader-log-commit', str(message_file), *paths]
+        tool = None if git_locks is False else (git_locks or find_git_locks(root=root))
+        if tool:
+            command = [tool, 'with', '--job', holder + '-' + uuid.uuid4().hex, '--holder', holder, '--ttl', '300',
+                       '--wait', '120', '--note', note, '.git/', '--'] + command
+        with (runtime / 'chat-commit.lock').open('a') as lock:
+            fcntl.flock(lock, fcntl.LOCK_EX)
+            # The .git/ key lives in the vault repository's default store, never GIT_LOCKS_STORE's host store.
+            result = subprocess.run(command, cwd=root, capture_output=True, text=True, timeout=180, env=repo_env())
+    finally:
+        message_file.unlink(missing_ok=True)
+    if result.returncode:
+        return {'commit': None, 'status': 'failed', 'error': (result.stderr or result.stdout)[-600:].strip()}
+    if 'nothing-to-commit' in result.stdout:
+        return {'commit': None, 'status': 'unchanged'}
+    head = subprocess.run([git, 'rev-parse', 'HEAD'], cwd=root, capture_output=True, text=True, timeout=10)
+    return {'commit': head.stdout.strip() or None, 'status': 'committed'}
 
 
 def read(root, relative, name, limit):

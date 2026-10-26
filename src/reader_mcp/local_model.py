@@ -39,7 +39,9 @@ import traceback
 from urllib.parse import urlsplit
 import uuid
 
+from . import llm_logs
 from .metadata import FrontmatterError, decode_frontmatter
+from .resources import has_capacity, minimum_free_bytes
 
 DEFAULT_URL = 'http://127.0.0.1:1234/v1'
 GPU_KEY = 'host/gpu/'
@@ -193,11 +195,11 @@ class Client:
         except (ConnectionRefusedError, socket.gaierror) as exc:
             raise ServerGone(f'{self.name} is not running at {self.url}') from exc
 
-    def headers(self, data=False, stream=False):
+    def headers(self, data=False, stream=False, credentials=True):
         headers = {'Accept': 'text/event-stream' if stream else 'application/json'}
         if data:
             headers['Content-Type'] = 'application/json'
-        if self.api_key:
+        if self.api_key and credentials:
             headers['Authorization'] = 'Bearer ' + self.api_key
         return headers
 
@@ -287,6 +289,19 @@ class Client:
             raise ValueError(f'{self.name} returned the wrong number of embeddings')
         return vectors
 
+    @staticmethod
+    def chat_body(model, messages, max_output=OUTPUT_TOKENS, reasoning=REASONING_TOKENS):
+        return {'model': model, 'messages': messages, 'stream': True, 'temperature': 0.2,
+                'max_tokens': max_output + reasoning, 'stream_options': {'include_usage': True}}
+
+    def request_template(self, model, max_output=OUTPUT_TOKENS, reasoning=REASONING_TOKENS):
+        """The chat request as archived in an LLM log: the body without messages, no credentials, and the
+        path relative to the base URL (whose host alone is logged)."""
+        body = self.chat_body(model, None, max_output, reasoning)
+        del body['messages']
+        return {'method': 'POST', 'path': '/chat/completions', 'headers': self.headers(True, True, credentials=False),
+                'body': body, 'api_key': bool(self.api_key)}
+
     def chat(self, model, messages, *, on_delta=None, cancelled=lambda: False, timeout=ITEM_TIMEOUT,
              max_output=OUTPUT_TOKENS, reasoning=REASONING_TOKENS):
         """A chat completion, streamed when the server streams. Returns text, reasoning, finish reason and rates.
@@ -294,8 +309,7 @@ class Client:
         Accepts the variants local servers send: `reasoning_content` (LM Studio, llama.cpp) or
         `reasoning` (Ollama) beside `content`; usage, LM Studio `stats` or llama.cpp `timings`
         for the rate; a plain JSON answer when the server ignores `stream`; and an error event."""
-        body = {'model': model, 'messages': messages, 'stream': True, 'temperature': 0.2,
-                'max_tokens': max_output + reasoning, 'stream_options': {'include_usage': True}}
+        body = self.chat_body(model, messages, max_output, reasoning)
         started = time.monotonic()
         deadline = started + timeout
         connection = self.connection(min(timeout, 30))
@@ -889,7 +903,8 @@ def embedder(root, backend):
 # Queue, cache and worker ----------------------------------------------------
 
 class LocalModel:
-    def __init__(self, root, library, *, url=None, cli=None, gpu_lock=None, data_usage=None, connect=None):
+    def __init__(self, root, library, *, url=None, cli=None, gpu_lock=None, data_usage=None, connect=None,
+                 capacity=None, git_locks=None, commit=True):
         self.root = Path(root)
         self.library = library
         self.dir = self.root / '.reader' / 'local-model'
@@ -919,6 +934,10 @@ class LocalModel:
         self.control = None          # the running or last server/model control action
         self.cli_cache = {}          # name -> (time, value)
         self.outputs_cache = None
+        self.capacity = capacity or has_capacity
+        self.git_locks = git_locks       # the vault's .git/ key for log commits (False: flock only)
+        self.commit_enabled = commit
+        self.unsaved_logs = []           # sealed after a restart, committed with the next run's log
 
     # Provider -----------------------------------------------------------
 
@@ -1031,6 +1050,12 @@ class LocalModel:
                 self.lines += 1
             for item in self.items.values():
                 if item['state'] == 'running':  # interrupted by a restart
+                    if item.get('log'):
+                        try:
+                            llm_logs.seal(self.root, item['log'], 'interrupted', 'Reader stopped before this run finished.')
+                            self.unsaved_logs.append(item['log'])
+                        except (OSError, ValueError):
+                            pass
                     item.update(state='queued', started_at=None)
 
     def record(self, item):
@@ -1350,8 +1375,16 @@ class LocalModel:
     def waiting(self, task=None):
         return [i for i in self.items.values() if i['state'] == 'queued' and (task is None or i['task'] == task)]
 
+    def refuse_low_disk(self, error=ValueError):
+        """Every run is archived in logs/llm/, so a run that could not be logged does not start."""
+        if not self.capacity(self.root):
+            reserve = minimum_free_bytes(self.root) / 1024 ** 3
+            raise error(f'Reader refuses to start LLM runs while free disk space is below {reserve:g} GiB, '
+                        'so their logs are never dropped. Free some space, then Run again.')
+
     def start(self, task=None):
         self.load()
+        self.refuse_low_disk()
         with self.lock:
             names = [self.task(task).name] if task else sorted({i['task'] for i in self.waiting()})
             self.active.update(names)
@@ -1434,23 +1467,37 @@ class LocalModel:
         counts[item['state']] = counts.get(item['state'], 0) + 1
 
     def _work(self, run):
+        number = 0
         try:
             while not self.stopping.is_set():
                 batch = self.next_batch()
                 if not batch:
                     break
                 self.check_budget()
+                self.refuse_low_disk(RuntimeError)
+                number += 1
+                client = self.client
                 tasks = sorted({TASKS[i['task']].label for i in batch})
                 # The workstation GPU lock covers servers on this machine; a remote provider uses no local GPU.
-                local = self.client.loopback
-                lock = self.gpu_lock(f'Reader local model: {", ".join(tasks)} ({len(batch)} items)', self.stopping.is_set) if local else nullcontext()
-                with lock:
-                    self.ensure_model(batch[0]['model'])
-                    for item in batch:
-                        with self.lock:
-                            if self.stopping.is_set() or item['task'] not in self.active or item['state'] != 'queued':
-                                continue
-                        self.process(run, item)
+                lock = self.gpu_lock(f'Reader local model: {", ".join(tasks)} ({len(batch)} items)', self.stopping.is_set) if client.loopback else nullcontext()
+                log, ran, failure = None, [], None
+                try:
+                    with lock:
+                        self.ensure_model(batch[0]['model'])
+                        for item in batch:
+                            with self.lock:
+                                if self.stopping.is_set() or item['task'] not in self.active or item['state'] != 'queued':
+                                    continue
+                            if log is None:  # one sealed LLM log per batch that asks the model anything
+                                log = self.open_log(run, number, client, batch[0]['model'])
+                            ran.append(item)
+                            self.process(run, item, log, len(ran))
+                except Exception as exc:
+                    failure = exc
+                    raise
+                finally:
+                    if log is not None:
+                        self.close_log(run, log, ran, failure)
                 self.outputs_cache = None
             run['state'] = 'stopped' if self.stopping.is_set() else 'finished'
         except ServerGone as exc:
@@ -1505,17 +1552,17 @@ class LocalModel:
                 pass  # Reported as still loaded on the card; the user can unload it.
             self.cli_cache.pop('ps', None)
 
-    def process(self, run, item):
+    def process(self, run, item, log=None, index=1):
         task = TASKS[item['task']]
         started = time.monotonic()
         with self.lock:
-            item.update(state='running', started_at=stamp(), error=None)
+            item.update(state='running', started_at=stamp(), error=None, log=log.relative if log else None)
             self.current = {'id': item['id'], 'task': item['task'], 'task_label': task.label, 'path': item['path'],
                             'title': item['title'], 'model': item['model'], 'started_at': item['started_at'],
                             'preview': '', 'thinking': '', 'tokens': 0, 'tokens_per_second': None}
             self.record(item)
         cancelled = lambda: item['id'] in self.cancel_ids or self.stopping.is_set()
-        gone = None
+        gone, result, streamed, value = None, None, {'text': '', 'reasoning': ''}, None
         try:
             file = self.library.path(item['path'])
             if file.stat().st_size > MAX_SOURCE:
@@ -1527,15 +1574,21 @@ class LocalModel:
             meta, body = document_parts(data)
             title = str(meta.get('title') or item['title'])
             messages, truncated = task.messages(title, body)
+            if log:
+                self.archive(log, f'item-{index:02d}-request.json', {
+                    'index': index, 'id': item['id'], 'task': task.name, 'path': item['path'], 'title': title,
+                    'source_sha256': sha, 'model': item['model'], 'prompt_version': task.version, 'truncated': truncated,
+                    'messages': messages})
 
             def delta(text, thinking, tokens, rate):
+                streamed.update(text=text, reasoning=thinking)
                 with self.lock:
                     if self.current and self.current['id'] == item['id']:
                         self.current.update(preview=text[-PREVIEW_CHARS:], thinking=thinking[-400:], tokens=tokens, tokens_per_second=rate)
             result = self.client.chat(item['model'], messages, on_delta=delta, cancelled=cancelled)
             item.update(output=result['text'][:KEPT_OUTPUT], tokens_per_second=result['tokens_per_second'],
                         tokens=result['tokens'], truncated=truncated)
-            value = task.validate(result['text'], title + '\n' + body)
+            value = task.validate(result['text'], title + '\n' + body)  # the model's answer, as Reader accepted it
             with closing(self.db()) as con, con:
                 con.execute('INSERT OR REPLACE INTO outputs VALUES (?,?,?,?,?,?,?)',
                             (task.name, item['path'], sha, item['model'], task.version, value, stamp()))
@@ -1551,6 +1604,14 @@ class LocalModel:
             item.update(state='failed', error=short(exc))
         except Exception as exc:
             item.update(state='failed', error=short(exc))
+        if log:
+            answer = {'index': index, 'id': item['id'], 'state': item['state'], 'error': item['error'], 'output': value,
+                      'seconds': round(time.monotonic() - started, 2)}
+            if result is not None:
+                answer.update({k: result.get(k) for k in ('text', 'reasoning', 'finish_reason', 'usage', 'tokens', 'tokens_per_second', 'rate_reported')})
+            else:  # what streamed before the request failed or was cancelled
+                answer.update(text=streamed['text'], reasoning=streamed['reasoning'], partial=True)
+            self.archive(log, f'item-{index:02d}-response.json', answer)
         with self.lock:
             if item['state'] == 'cancelled' and self.stopping.is_set() and item['id'] not in self.cancel_ids:
                 item.update(state='queued', started_at=None, error=None)  # shutdown returns it to the queue
@@ -1562,6 +1623,52 @@ class LocalModel:
             self.record(item)
         if gone:
             raise gone
+
+    # LLM logs -----------------------------------------------------------
+
+    def archive(self, log, name, data):
+        """One JSON artifact, with the API key scrubbed from anything a server echoed."""
+        log.write(name, self.client.scrub(json.dumps(data, ensure_ascii=False, indent=1)) + '\n')
+
+    def open_log(self, run, number, client, model):
+        """The batch's run directory under logs/llm/local-model/. The provider is named by preset and host only."""
+        provider = self.provider()
+        log = llm_logs.RunLog(self.root, 'local-model', f'{run["id"]}-b{number:03d}', {
+            'runner': 'local-model', 'run': run['id'], 'batch': number, 'preset': provider['preset'], 'provider': provider['label'],
+            'host': client.host, 'loopback': client.loopback, 'api_key': bool(client.api_key), 'model': model})
+        llm_logs.forget_usage(self.root)
+        log.write('request-template.json', json.dumps(client.request_template(model), indent=1) + '\n')
+        return log
+
+    def close_log(self, run, log, ran, failure):
+        """Seal the batch's log and commit it (with any log a restart sealed) on its own."""
+        counts = {}
+        for item in ran:
+            counts[item['state']] = counts.get(item['state'], 0) + 1
+        status = 'failed' if failure else 'interrupted' if self.stopping.is_set() else 'done'
+        relative = log.finish(status, error=short(failure) if failure else None, counts=counts,
+                              prompts={TASKS[i['task']].name: TASKS[i['task']].version for i in ran},
+                              items=[{'index': n, 'id': i['id'], 'task': i['task'], 'path': i['path'], 'source_sha256': i['source_sha256'],
+                                      'state': i['state'], 'error': i.get('error')} for n, i in enumerate(ran, 1)])
+        llm_logs.forget_usage(self.root)
+        logs = [relative] + [p for p in self.unsaved_logs if p != relative]
+        run.setdefault('logs', []).append(relative)
+        del run['logs'][:-20]
+        if not self.commit_enabled:
+            run['commit'] = {'commit': None, 'status': 'disabled'}
+            return
+        labels = sorted({TASKS[i['task']].label for i in ran})
+        subject = f'Log local model: {", ".join(labels)} ({len(ran)} item{"s" if len(ran) != 1 else ""})'
+        try:
+            result = llm_logs.commit(self.root, logs, subject, [('Reader-Log', llm_logs.trailer(p)) for p in logs],
+                                     git_locks=self.git_locks, holder='reader-local-model', note='Reader local-model log commit')
+        except Exception as exc:  # a commit failure never loses the sealed log; the next run's commit retries it
+            result = {'commit': None, 'status': 'failed', 'error': short(exc)}
+        if result['status'] in ('committed', 'unchanged'):
+            self.unsaved_logs = [p for p in self.unsaved_logs if p not in logs]
+        elif result['status'] == 'failed':
+            self.unsaved_logs = list(dict.fromkeys(self.unsaved_logs + [relative]))
+        run['commit'] = result
 
     def close(self, timeout=5):
         """Server shutdown: cancel the in-flight request and return its item to the queue."""
@@ -1632,7 +1739,7 @@ class LocalModel:
             finished = sorted((i for i in self.items.values() if i['state'] not in ('queued', 'running')),
                               key=lambda i: (i.get('finished_at') or '', i.get('seq') or 0), reverse=True)[:MAX_RECENT]
             recent = [{k: i.get(k) for k in ('id', 'task', 'path', 'title', 'model', 'prompt_version', 'state', 'error', 'output',
-                                             'created_at', 'started_at', 'finished_at', 'duration_seconds', 'tokens_per_second', 'truncated')}
+                                             'created_at', 'started_at', 'finished_at', 'duration_seconds', 'tokens_per_second', 'truncated', 'log')}
                       | {'task_label': TASKS[i['task']].label, 'display': TASKS[i['task']].render(i['output']) if i['state'] == 'done' and i.get('output') else i.get('output')}
                       for i in finished]
             now = dict(self.current) if self.current else None
