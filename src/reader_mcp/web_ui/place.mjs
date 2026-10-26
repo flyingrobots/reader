@@ -4,6 +4,9 @@
  *  target at the line it was sent to while blocks around it settle, until the reader scrolls or types. With
  *  smooth scrolling the article sits in a fixed wrapper that the browser's scroll anchoring cannot see, so the
  *  first block in view is also held when blocks above it change height. Pins follow every change. */
+/** The scroll offset of the page the reader sees. With smooth scrolling the shown page glides behind the scroll
+ *  position, so a jump measured from what is on screen (a rect) adds this, not scrollY, to land where it means (#156). */
+export const shownTop=smoother=>{const content=smoother&&document.querySelector('#smooth-content');return content?-content.getBoundingClientRect().top:scrollY;};
 export function installPlace({content, scroll, smoother, onChange}){
   let article=null,observer=null,mutations=null,hold=null,heights=new WeakMap();
   // Layout offset of a block or range in the scrolled content: the same before and after a scroll.
@@ -14,14 +17,17 @@ export function installPlace({content, scroll, smoother, onChange}){
   const end=()=>{hold=null;};
   const at=top=>Math.abs(scrollY-Math.min(top,bound()))<2;
   const alive=target=>target instanceof Range?target.startContainer.isConnected:target.isConnected;
+  // Where the held jump belongs now: its target at its line, or the page's start or end (gg, G), wherever that is.
+  const live=held=>held.edge||alive(held.target);
+  const goal=held=>held.edge==='end'?bound():held.edge==='start'?0:offset(held.target,held.fraction)-held.line;
   const input=()=>end();
   for(const type of ['wheel','keydown','pointerdown','touchstart'])addEventListener(type,input,{capture:true,passive:true});
   // Dragging the scrollbar sends no input event: once the jump has arrived, a scroll away from the held line ends
   // the hold. Scroll anchoring scrolls too, when heights change: then the target has moved, so follow it instead.
   addEventListener('scroll',()=>{
-    if(!hold)return;if(!alive(hold.target)){end();return;}
+    if(!hold)return;if(!live(hold)){end();return;}
     if(!hold.arrived){hold.arrived=at(hold.top);return;}
-    const top=offset(hold.target,hold.fraction)-hold.line;
+    const top=goal(hold);
     if(Math.abs(top-hold.top)>1){hold.top=top;scroll(top,false);}else if(!at(hold.top))end();
   },{passive:true});
   /** A skipped block is as tall as its estimate (240 px in style.css) until it is first laid out. Paragraphs and
@@ -38,8 +44,8 @@ export function installPlace({content, scroll, smoother, onChange}){
     }
   }
   // Smooth scrolling sets the page height after the article grows, so a jump near the end may stop short: go on
-  // to the held line once there is room.
-  new ResizeObserver(()=>{if(hold&&alive(hold.target)&&!at(hold.top))scroll(hold.top,hold.smooth&&performance.now()-hold.at<1000);}).observe(document.body);
+  // to the held line once there is room. Blocks after the article (Read next) lengthen the page, so a held end moves.
+  new ResizeObserver(()=>{if(!hold||!live(hold))return;if(hold.edge)hold.top=goal(hold);if(!at(hold.top))scroll(hold.top,hold.smooth&&performance.now()-hold.at<1000);}).observe(document.body);
   function changed(entries){
     if(!article)return;
     const moved=[];
@@ -48,10 +54,10 @@ export function installPlace({content, scroll, smoother, onChange}){
       if(before!==undefined&&Math.abs(size-before)>.5&&el.parentElement===article)moved.push({el,delta:size-before});
     }
     if(!moved.length)return;
-    if(hold&&!alive(hold.target))hold=null;
+    if(hold&&!live(hold))hold=null;
     if(hold){
       // Still moving there smoothly: glide to the corrected line; afterwards correct at once.
-      const top=offset(hold.target,hold.fraction)-hold.line;
+      const top=goal(hold);
       if(Math.abs(top-hold.top)>1){const smooth=hold.smooth&&performance.now()-hold.at<1000;hold.top=top;scroll(top,smooth);hold.arrived=!smooth&&at(top);}
     }else if(smoother())keep(moved);
     onChange?.();
@@ -83,6 +89,8 @@ export function installPlace({content, scroll, smoother, onChange}){
       if(!article||!target||!(target instanceof Range?article.contains(target.startContainer):article.contains(target))){hold=null;return;}
       hold={target,fraction,top,line:offset(target,fraction)-top,smooth,arrived:!smooth&&at(top),at:performance.now()};
     },
+    /** A jump Reader made to the page's start or end (gg, G): keep it there while blocks settle and arrive. */
+    edge(last,smooth){if(!article){hold=null;return;}const edge=last?'end':'start',top=last?bound():0;hold={edge,top,smooth,arrived:!smooth&&at(top),at:performance.now()};},
     release:end,
     holding:()=>!!hold,
   };

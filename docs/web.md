@@ -3312,12 +3312,26 @@ estimate theirs from their text length; other blocks count as 240 px.
 see steady while estimates turn into real heights:
 
 - **Jumps hold their target.** A jump Reader makes in continuous reading (find, a heading link,
-  the outline, `]]`/`[[`, an opened passage, a bookmark, the jump list, `G`, VISUAL motions)
+  the outline, `]]`/`[[`, an opened passage, a bookmark, the jump list, VISUAL motions)
   passes its element or range to `scrollToPosition`. A `ResizeObserver` on the top-level
   blocks re-seeks after each height change, so the target lands on the line it was sent to. A
   bookmark lands at its fraction of the block, measured on the block's settled height. The hold
   ends when you wheel, touch, click or press a key, or scroll the page yourself (a scrollbar drag),
   or when another jump or document replaces it.
+- **`gg` and `G` hold the page's start and end.** They hold the edge itself, not a block, so `gg`
+  ends at the top while the blocks it glides over settle (smooth scrolling has no scroll anchoring
+  to keep its destination), and `G` follows the end as Read next and other end blocks arrive after
+  it and lengthen the page.
+- **Jumps measure what is shown.** With smooth scrolling the article glides behind the scroll
+  position, so a jump computed from a block's on-screen position adds the shown offset
+  (`shownTop()` in `place.mjs`, the content wrapper's offset), not `scrollY`. A find hit or
+  heading taken mid-glide then lands at its line instead of off by the distance left to glide.
+- **The smoother measures before a jump past its end.** ScrollSmoother maps the scroll position
+  onto the page height it measured at its last refresh, and refreshes only once the article stops
+  changing height. A jump whose target lies past that measure (blocks laid out taller than their
+  estimates) refreshes the smoother's ScrollTrigger first (`smoothTo()` in `app.mjs`); otherwise
+  the page glides to the old end and, if the refresh lands after the glide, waits there until the
+  next scroll.
 - **Smooth scrolling keeps the first block in view.** ScrollSmoother moves the article inside a
   fixed wrapper, which the browser's scroll anchoring cannot see. There, when blocks above the
   window change height, the view moves by the same amount, so scrolling up past blocks never laid

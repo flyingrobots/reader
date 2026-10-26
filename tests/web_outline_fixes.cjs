@@ -21,8 +21,7 @@ const {waitFor,watch,settled}=require('./web_wait.cjs');
   // #47: with ScrollSmoother on, G and gg settle on the section actually at the reading line.
   {const page=await open({smooth:true,reducedMotion:'no-preference'});
    const labelIs=(text,why)=>waitFor(page,why,text=>({status:document.querySelector('#status-section').textContent===text,rail:document.querySelector('#outline-rail [aria-current=location]')?.textContent===text,_label:document.querySelector('#status-section').textContent,_y:Math.round(scrollY),_max:document.documentElement.scrollHeight-innerHeight,_ends:document.querySelectorAll('.next-reads,.document-footer').length}),{arg:text,timeout:10000});
-   // G goes to the end that exists. Read next and the reading log arrive by their own requests and lengthen the page,
-   // so a G before them stops short of Chapter 44: wait for them and a still layout first (as #123 does below).
+   // Start from a complete page, so this checks the labels only; G following late end blocks is checked below (#154).
    await page.locator('.next-reads').waitFor({state:'attached'});await settled(page,'end blocks loaded');
    await page.keyboard.press('G');await labelIs('Chapter 44','after G');
    await page.keyboard.press('g');await page.keyboard.press('g');await labelIs('A quiet thought','after gg');
@@ -30,6 +29,26 @@ const {waitFor,watch,settled}=require('./web_wait.cjs');
    const atLine=await page.evaluate(()=>{const line=innerHeight*.22;let title=null;for(const h of document.querySelectorAll('#article h1,#article h2'))if(h.getBoundingClientRect().top<=line+1)title=h.textContent.trim();return title;});
    assert.deepEqual(await label(page),[atLine,atLine],'after wheel scrolling');
    await page.context().close();}
+  // #154: G and gg hold the page's end and start while the page settles around them, until the reader moves.
+  // The article opens at its last heading, so the blocks above have never been laid out and change height as gg glides
+  // over them; Read next is held back until G has landed, so it lengthens the page after the jump.
+  {const context=await browser.newContext({viewport:{width:1440,height:900},reducedMotion:'no-preference'});await context.addInitScript(value=>{try{localStorage.setItem('reader.preferences.v1',value);}catch{}},JSON.stringify({layout:'scroll',smooth:true}));
+   const page=await context.newPage();watch(page);page.on('pageerror',error=>errors.push(error.message));
+   let release;const late=new Promise(resolve=>{release=resolve;});
+   await page.route('**/api/next*',async route=>{await late;await route.continue().catch(()=>{});});
+   // Smooth scrolling shows the page behind its scroll position while it glides: at rest, the two agree and hold still.
+   const rest=async why=>{await waitFor(page,why,()=>({shown:Math.abs(document.querySelector('#smooth-content').getBoundingClientRect().top+scrollY)<1}));await settled(page,why);await waitFor(page,why,()=>({shown:Math.abs(document.querySelector('#smooth-content').getBoundingClientRect().top+scrollY)<1}));};
+   const edge=()=>page.evaluate(()=>({y:Math.round(scrollY),max:document.documentElement.scrollHeight-innerHeight,label:document.querySelector('#status-section').textContent}));
+   await page.goto(url+'/#read='+encodeURIComponent('library/thought.md')+'&h=chapter-44');
+   await page.locator('#outline-rail a').first().waitFor();await waitFor(page,'document resumed',()=>({resumed:!document.querySelector('.resume-pending')}));
+   await rest('opened at the last heading');await page.locator('#main').focus();
+   await page.keyboard.press('G');await rest('after G');
+   assert.equal(await page.locator('.next-reads').count(),0,'Read next is still on its way');
+   release();await page.locator('.next-reads').waitFor({state:'attached'});await rest('Read next arrived');
+   const end=await edge();assert.ok(end.max-end.y<=2&&end.label==='Chapter 44','G follows the end as Read next lengthens the page: '+JSON.stringify(end));
+   await page.keyboard.press('g');await page.keyboard.press('g');await rest('after gg');
+   const top=await edge();assert.deepEqual([top.y,top.label],[0,'A quiet thought'],'gg ends at the top while the blocks above settle: '+JSON.stringify(top));
+   await context.close();}
   // #51: ]] in the last section stays put and says so; #48: end-of-document blocks never draw under a visible rail.
   {const page=await open({smooth:false,reducedMotion:'reduce'});
    // #123: the end-of-article blocks finish loading after .next-reads appears and can push the end down a line; wait for

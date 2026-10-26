@@ -25,7 +25,7 @@ import {installScratch} from './scratch.mjs';
 import {installQuiz} from './quiz.mjs';
 import {createKeys,closest as keysClosest} from './keys.mjs';
 import {installVisual} from './visual.mjs';
-import {installPlace} from './place.mjs';
+import {installPlace,shownTop} from './place.mjs';
 import {installLists} from './lists.mjs';
 import {installStatusPriority} from './status-priority.mjs';
 import {installDock,pageWidth} from './dock.mjs';
@@ -154,6 +154,7 @@ async function secondary(label, work) {
   try { return await work(); }
   catch (error) { console.warn(label, error); if (!error?.offline && error?.status !== 404) notify(`${label} could not load: ${error.message || error}`); return undefined; }
 }
+const shown = () => shownTop(state.smoother);
 function motion() { return !reduced.matches && state.prefs.smooth; }
 function refreshScroll() {
   if (state.smoother) window.ScrollTrigger?.refresh();
@@ -168,11 +169,20 @@ function resetScroll() {
   }
   requestAnimationFrame(refreshScroll);
 }
+/** ScrollSmoother maps the scroll position onto the page height it measured when it last refreshed, and refreshes
+ *  only once the article has stopped changing height. Far blocks laid out taller than their estimates move a jump's
+ *  target past that measure: the page would glide to the old end and, if the refresh came after the glide, stay there,
+ *  short of the scroll position, until the next scroll (#156). So measure again before scrolling past it. */
+function smoothTo(top, smooth) {
+  const trigger = state.smoother.scrollTrigger;
+  if (trigger && top > trigger.end - 1) trigger.refresh();
+  state.smoother.scrollTo(top, smooth);
+}
 /** Scroll continuous reading to `top`. A `target` (the element or range the jump is for, or the point `fraction`
  *  of the way down it) stays where it lands while the blocks around it settle their heights. */
 function scrollToPosition(top, smooth=true, target=null, fraction=0) {
   const bounded = Math.max(0, Math.min(top, document.documentElement.scrollHeight - innerHeight));
-  if (state.smoother) state.smoother.scrollTo(bounded, smooth && motion());
+  if (state.smoother) smoothTo(bounded, smooth && motion());
   else window.scrollTo({top:bounded, behavior:smooth && motion() ? 'smooth' : 'instant'});
   if (target) placeKeeper.hold(target, bounded, smooth && motion(), fraction); else placeKeeper.release();
 }
@@ -180,7 +190,7 @@ let placePips=0;
 const placeKeeper = installPlace({content:()=>$('#smooth-content'), smoother:()=>state.smoother,
   scroll:(top,smooth)=>{const bounded=Math.max(0,Math.min(top,document.documentElement.scrollHeight-innerHeight));
     // A correction replaces the smoother's glide toward the old line rather than racing it.
-    if(state.smoother){gsap.killTweensOf(state.smoother);state.smoother.scrollTo(bounded,smooth);}else window.scrollTo({top:bounded,behavior:smooth?'smooth':'instant'});},
+    if(state.smoother){gsap.killTweensOf(state.smoother);smoothTo(bounded,smooth);}else window.scrollTo({top:bounded,behavior:smooth?'smooth':'instant'});},
   onChange:()=>{positionPins();clearTimeout(placePips);placePips=setTimeout(()=>reading?.pips(),250);}});
 function moveToRange(range) {
   lateMoved?.(range);
@@ -188,7 +198,7 @@ function moveToRange(range) {
   for(let fold=range.startContainer.parentElement?.closest('details.callout-fold:not([open])');fold;fold=fold.parentElement?.closest('details.callout-fold:not([open])'))fold.open=true;
   if(reading?.reveal(range))return;
   const rect = range.getBoundingClientRect();
-  scrollToPosition(window.scrollY + rect.top - innerHeight * .36, true, range);
+  scrollToPosition(shown() + rect.top - innerHeight * .36, true, range);
 }
 async function loadLibrary() {
   const profile = state.prefs.participant ? '?participant=' + param(state.prefs.participant) : '';
@@ -347,7 +357,7 @@ function heroOptions(figure){
   const book=!!reading?.hasBook(),text=selector=>$('#article '+selector)?.textContent.trim()||'';
   return {book,kicker:text('.document-kicker'),title:text('.document-title'),byline:text('.document-meta .by'),
     standfirst:book?api('/api/standfirst?path='+param(figure.dataset.art)).then(d=>['frontmatter','local-model'].includes(d.source)?d.standfirst:null).catch(()=>null):null,
-    go(){if(book){reading.seekSpread(1);$('#main').focus({preventScroll:true});return;}const kicker=$('#article .document-kicker')||$('#article .document-title');if(kicker)scrollToPosition(scrollY+kicker.getBoundingClientRect().top-32);}};
+    go(){if(book){reading.seekSpread(1);$('#main').focus({preventScroll:true});return;}const kicker=$('#article .document-kicker')||$('#article .document-title');if(kicker)scrollToPosition(shown()+kicker.getBoundingClientRect().top-32);}};
 }
 function paintArticleArt(figure,data){
   figure.classList.add('article-art');
@@ -418,10 +428,10 @@ function movePiece(delta){
   const pieces=state.magazine?.pieces()||[];if(!pieces.length)return;
   const index=pieces.indexOf(document.activeElement),next=pieces[index<0?(delta>0?0:pieces.length-1):Math.max(0,Math.min(pieces.length-1,index+delta))];
   next.focus({preventScroll:true});const rect=next.getBoundingClientRect();
-  if(rect.top<70||rect.bottom>innerHeight-70)scrollToPosition(scrollY+rect.top-innerHeight*.3);
+  if(rect.top<70||rect.bottom>innerHeight-70)scrollToPosition(shown()+rect.top-innerHeight*.3);
 }
 function mountLibrary(container){
-  mountDashboard({root:container,data:state.data,prefs:state.prefs,embedded:true,workRows,wireDocumentLinks,openPicker,openPreferences,navigate,showTooltip:showChartTooltip,hideTooltip:hideChartTooltip,seek:element=>scrollToPosition(scrollY+element.getBoundingClientRect().top-50)});
+  mountDashboard({root:container,data:state.data,prefs:state.prefs,embedded:true,workRows,wireDocumentLinks,openPicker,openPreferences,navigate,showTooltip:showChartTooltip,hideTooltip:hideChartTooltip,seek:element=>scrollToPosition(shown()+element.getBoundingClientRect().top-50)});
 }
 function showChartTooltip(event,title,detail='') {
   const tip=$('#chart-tooltip'); tip.replaceChildren();
@@ -781,7 +791,7 @@ function imageLoaded(){if(imageLoaded.frame)return;imageLoaded.frame=requestAnim
 function showHeading(root,id){
   const target=id&&findFragment(root,id);if(!target)return false;lateMoved?.(target);
   const range=document.createRange();range.selectNode(target);
-  if(!reading?.reveal(range,false))scrollToPosition(scrollY+target.getBoundingClientRect().top-24,false,target);
+  if(!reading?.reveal(range,false))scrollToPosition(shown()+target.getBoundingClientRect().top-24,false,target);
   return true;
 }
 function wireArticleLinks(root,path){
@@ -1324,7 +1334,7 @@ function restorePlace(spot){
   const blocks=spot.page?[...document.querySelectorAll(`#article [data-pdf-page="${spot.page}"]`)]:spot.offset!=null?[...document.querySelectorAll(`#article [data-source-start="${spot.offset}"]`)].filter(el=>!el.closest('.document-embed')).sort((a,b)=>size(a)-size(b)):[];
   const target=blocks[0];if(!target){reading.seek(spot.progress??0,false);return;}
   const range=document.createRange();range.selectNode(target);
-  if(!reading.reveal(range,false)){const r=target.getBoundingClientRect();scrollToPosition(scrollY+r.top+r.height*(spot.fraction||0)-innerHeight*.22,false,target,spot.fraction||0);}
+  if(!reading.reveal(range,false)){const r=target.getBoundingClientRect();scrollToPosition(shown()+r.top+r.height*(spot.fraction||0)-innerHeight*.22,false,target,spot.fraction||0);}
   reading.update();
 }
 async function goTo(spot){
@@ -1394,7 +1404,7 @@ function stepLink(delta,{count}){
   const next=stepThrough(list,delta,focusedLink(),count);if(!next){toast(delta>0?'No more links after this one.':'No links before this one.');return;}
   next.focus({preventScroll:true});const range=document.createRange();range.selectNodeContents(next);moveToRange(range);
 }
-function seekEdge(end){jumps.record();if(reading.hasBook())reading.seek(end?1:0);else scrollToPosition(end?document.documentElement.scrollHeight:0,true,end?[...$('#article')?.children||[]].filter(el=>!el.classList.contains('annotation-pin')).at(-1):null);}
+function seekEdge(end){jumps.record();if(reading.hasBook()){reading.seek(end?1:0);return;}scrollToPosition(end?document.documentElement.scrollHeight:0);placeKeeper.edge(end,motion());}
 const R='Reading',L='Leader: Space or comma',H='Homepage',S='Search page',M='Marks and jumps',Q='Lists',P='In panels',W='Split view: Ctrl w or Space W',X='Scratch pad';
 keys.group('<Space>,','more');
 keys.prefix('<C-w>',{label:'WINDOW',ms:1500});
