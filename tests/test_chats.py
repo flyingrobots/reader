@@ -42,12 +42,20 @@ def service(root, seed=7, **options):
     return Conversations(root, documents(root), rng=random.Random(seed), git_locks=options.pop('git_locks', False), **options)
 
 
+def idle(runner, chat_id):
+    """No turn of this chat is pending or still held by the runner (a finished turn, listening checks included,
+    leaves `runner.turns` only after the worker is done with it)."""
+    with runner.lock:
+        return not any(t['chat_id'] == chat_id for t in runner.turns.values())
+
+
 def settle(conversations, chat_id, count=None, timeout=20):
-    """Wait until no turn is pending (and optionally `count` messages exist)."""
+    """Wait until no turn is pending or held by the runner, no commit is queued (and optionally `count` messages exist)."""
     deadline = time.monotonic() + timeout
     while time.monotonic() < deadline:
         chat = conversations.chats.read(chat_id)
-        if not conversations.runner.pending(chat_id) and (count is None or len(chat['messages']) >= count) and conversations.runner.commits.unfinished_tasks == 0:
+        if (not conversations.runner.pending(chat_id) and idle(conversations.runner, chat_id)
+                and (count is None or len(chat['messages']) >= count) and conversations.runner.commits.unfinished_tasks == 0):
             return chat
         time.sleep(.05)
     raise AssertionError('Chat turns did not settle: ' + json.dumps(conversations.runner.pending(chat_id))[:2000])
@@ -871,6 +879,59 @@ def test_typing_hushes_listening_and_listen_turns_never_jump_the_queue(tmp_path)
     settle(conversations, chat['id'])
     with conversations.runner.lock:
         assert not any(t.get('kind') == 'listen' for t in conversations.runner.turns.values())
+
+
+def test_hush_stops_a_listening_check_that_is_being_scheduled(tmp_path):
+    """#73: you start typing while the reply's end is scheduling listening checks; none of them run."""
+    root = make_vault(tmp_path / 'v', default_voices(tmp_path / 'v', {'Agy': ['--listen', 'HAND: slow']}), git=False)
+    conversations = service(root)
+    runner = conversations.runner
+    entered, release, left = threading.Event(), threading.Event(), threading.Event()
+    original = runner.exchange_ended
+
+    def barrier(*args):
+        entered.set()
+        release.wait(10)
+        try:
+            return original(*args)
+        finally:
+            left.set()
+    runner.exchange_ended = barrier
+    chat = new_chat(conversations)
+    conversations.send(chat['id'], '@claude go', 'You')
+    try:
+        assert entered.wait(10), 'the reply ended its exchange'
+        assert conversations.hush(chat['id'], 'You') == {'ok': True}
+    finally:
+        release.set()
+    assert left.wait(10)
+    chat = settle(conversations, chat['id'], 2)
+    assert listened(root) == [] and hands(chat) == [] and 'listening' not in chat['messages'][1]
+    with runner.lock:
+        assert not any(t.get('kind') == 'listen' for t in runner.turns.values())
+
+
+def test_listening_outcome_is_on_the_reply_before_the_check_is_finished(tmp_path):
+    """#91: a check is published as finished only after its outcome is stored, even when storing it is slow."""
+    root = make_vault(tmp_path / 'v', default_voices(tmp_path / 'v'), git=False)
+    conversations = service(root)
+    runner = conversations.runner
+    noted = {}
+    original = runner.note_listened
+
+    def slow(turn, entry):
+        time.sleep(.5)
+        chat = original(turn, entry)
+        noted[turn['id']] = runner.seq
+        return chat
+    runner.note_listened = slow
+    chat = new_chat(conversations)
+    conversations.send(chat['id'], '@claude go', 'You')
+    chat = settle(conversations, chat['id'], 2)
+    assert chat['messages'][1]['listening']['voices'] == ['Reader librarian', 'Agy']
+    finished = {d['id']: seq for seq, _, kind, d in runner.events if kind == 'state' and d.get('kind') == 'listen' and d['state'] in ('done', 'failed')}
+    assert len(noted) == 2 and set(noted) == set(finished)
+    assert all(noted[tid] < finished[tid] for tid in noted), 'each check is finished only after its note is on the reply'
 
 
 def test_listening_routes_over_http(web):

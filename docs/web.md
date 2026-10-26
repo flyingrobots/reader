@@ -1956,7 +1956,7 @@ store lock); only **+** starts a second chat.
   the other hands. `PASS` adds only a *listened: …* note to the reply's footer. A
   raised hand expires after 10 minutes or when you send or paste the next message;
   sending or pasting also drops pending checks, and typing in the composer stops
-  them. A toast batches new hands (*✋ 1 voice has something to add*).
+  them (and any the exchange has not started yet). A toast batches new hands (*✋ 1 voice has something to add*).
 - **Listening checks are read-only in effect.** Their prompt forbids changes, and the
   runner records changed paths and commits as for any turn. A check that changes or
   commits anything has its answer discarded, adds a warning to the reply's footer
@@ -3202,7 +3202,9 @@ and an optional `participant`. `send` accepts `reply_to` (a message id in the sa
 chat, otherwise 400); `paste` takes `body` and an optional `voice`, which must name a
 manual voice in `voices.json` (default: the first one; 400 when there is none); `hand` takes `message_id` and `decision` (`accept` or
 `decline`); `settings` takes `chime_ins` (`off`, `hands` or `free`); `hush` stops the
-chat's listening checks. Pending turns carry `kind` (`turn`, `chime_in` or
+chat's listening checks, including those the current exchange has not queued yet.
+A reply's follow-up turns and listening checks are queued before its `done` event,
+and a listening check's `done` follows its `message` note on the reply. Pending turns carry `kind` (`turn`, `chime_in` or
 `listen`); listening checks never stream text.
 `/api/queue?participant=…&current=…` (`{now, queued, suggested, updated_at}` and
 `/api/history?participant=…&cursor=…&tz=…&filter=finished` (paged day groups; `tz`

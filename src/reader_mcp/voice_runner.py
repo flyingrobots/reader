@@ -889,14 +889,8 @@ class VoiceRunner:
                 self.commit_later(turn['chat_id'], f'Chat log: {turn["voice"]} turn could not be saved', turn['voice'], [turn['log']])
             self.emit(turn['chat_id'], 'done', {'turn_id': turn['id'], 'state': 'failed', 'message': None, 'error': str(exc)})
             return
-        turn.update(state=state, message={'done': 'Done', 'failed': 'Failed', 'timeout': 'Timed out', 'cancelled': 'Cancelled'}[state],
-                    finished_at=stamp(), error=error, stderr_tail=tail)
-        self.publish(turn)
-        self.emit(turn['chat_id'], 'done', {'turn_id': turn['id'], 'state': state, 'message': message, 'revision': chat['revision'],
-                                            'llm_logs': llm_logs.usage(self.root, ttl=0)})
-        verb = {'done': 'replied', 'failed': 'turn failed', 'timeout': 'turn timed out', 'cancelled': 'turn cancelled'}[state]
-        self.commit_later(turn['chat_id'], f'Chat: {chat["title"]} — {turn["voice"]} {verb}', turn['voice'],
-                          [turn['log']] if turn.get('log') else ())
+        # Follow-up turns and listening checks are queued before this turn is published as finished, so no
+        # observer ever sees the chat idle between a reply and the work it starts.
         if state == 'done' and registry:
             for name in message['mentions']:
                 voice = next((v for v in registry['voices'] if v['name'] == name), None)
@@ -905,6 +899,14 @@ class VoiceRunner:
                                  root=turn.get('root'), listen=turn.get('listen', False))
         if turn.get('listen') and registry:
             self.exchange_ended(turn, chat, registry)
+        turn.update(state=state, message={'done': 'Done', 'failed': 'Failed', 'timeout': 'Timed out', 'cancelled': 'Cancelled'}[state],
+                    finished_at=stamp(), error=error, stderr_tail=tail)
+        self.publish(turn)
+        self.emit(turn['chat_id'], 'done', {'turn_id': turn['id'], 'state': state, 'message': message, 'revision': chat['revision'],
+                                            'llm_logs': llm_logs.usage(self.root, ttl=0)})
+        verb = {'done': 'replied', 'failed': 'turn failed', 'timeout': 'turn timed out', 'cancelled': 'turn cancelled'}[state]
+        self.commit_later(turn['chat_id'], f'Chat: {chat["title"]} — {turn["voice"]} {verb}', turn['voice'],
+                          [turn['log']] if turn.get('log') else ())
 
     # Listening checks and chime-ins ------------------------------------------
 
@@ -978,11 +980,18 @@ class VoiceRunner:
         if turn.get('log'):
             with self.lock:
                 self.pending_logs.setdefault(turn['chat_id'], []).append(turn['log'])
-        turn.update(state=state if state in TERMINAL else 'failed', message='Listened', finished_at=stamp(), error=error)
-        self.publish(turn)
-        self.emit(turn['chat_id'], 'done', {'turn_id': turn['id'], 'state': turn['state'], 'message': None})
-        if state == 'cancelled':
-            return
+        try:
+            if state != 'cancelled':
+                self.attend(turn, state, outcome, reason, warning, failure)
+        finally:
+            # The check is published as finished only after its outcome is on the reply (and any hand or
+            # chime-in it started is stored or queued), so the chat never looks idle without it.
+            turn.update(state=state if state in TERMINAL else 'failed', message='Listened', finished_at=stamp(), error=error)
+            self.publish(turn)
+            self.emit(turn['chat_id'], 'done', {'turn_id': turn['id'], 'state': turn['state'], 'message': None})
+
+    def attend(self, turn, state, outcome, reason, warning, failure):
+        """Record a finished listening check's outcome: its note or warning on the reply, and any hand it raised."""
         try:
             run = {'turn_id': turn['id'], 'voice': turn['voice'], 'state': state, 'outcome': outcome, 'failure': failure,
                    'log': turn.get('log')} if turn.get('log') else None
@@ -1008,7 +1017,7 @@ class VoiceRunner:
             raised = chat['messages'][-1]
             self.emit(turn['chat_id'], 'message', {'message': raised, 'revision': chat['revision'], 'hand': True})
             if free:
-                self.drop_listening(turn['chat_id'])
+                self.drop_listening(turn['chat_id'], keep=turn['id'])
                 self.chime(chat, raised)
         if raised or warning or turn.get('last'):
             self.commit_later(turn['chat_id'], f'Chat: {chat["title"]} — ' + (f'{turn["voice"]} raised a hand' if raised else 'voices listened'))
@@ -1021,11 +1030,20 @@ class VoiceRunner:
         return self.enqueue(chat['id'], hand['author'], hand['reply_to'], 'chime:' + hand['root'], 0, 'hand', kind='chime_in',
                             root=hand['root'], reason=hand['reason'], hand_id=hand['id'])
 
-    def drop_listening(self, chat_id):
-        """Cancel this chat's queued and running listening checks."""
+    def hush(self, chat):
+        """Stop the current exchange's listening checks: those queued or running, and those its end has not
+        queued yet (the exchange counts as listened), so a check being scheduled cannot slip past."""
+        with self.lock:
+            root = latest_user(chat)
+            if root:
+                self.listened.add(root)
+            self.drop_listening(chat['id'])
+
+    def drop_listening(self, chat_id, keep=None):
+        """Cancel this chat's queued and running listening checks (except `keep`, a check that is finishing)."""
         with self.lock:
             for turn in list(self.turns.values()):
-                if turn['chat_id'] != chat_id or turn.get('kind') != 'listen' or turn['state'] in TERMINAL:
+                if turn['chat_id'] != chat_id or turn.get('kind') != 'listen' or turn['state'] in TERMINAL or turn['id'] == keep:
                     continue
                 turn['cancel'] = True
                 if turn['id'] in self.queue:
@@ -1282,7 +1300,7 @@ class Conversations:
     def hush(self, id, participant):
         """You started typing: stop this chat's listening checks (raised hands stay)."""
         chat = self.chats.read(id)
-        self.runner.drop_listening(chat['id'])
+        self.runner.hush(chat)
         self.runner.commit_later(chat['id'], f'Chat: {chat["title"]} — voices listened')
         return {'ok': True}
 
