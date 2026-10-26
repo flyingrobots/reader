@@ -50,6 +50,11 @@ test('routes keep paths, never text, and the layout round-trips',()=>{
   assert.equal(cleanRoute('#search?q=private+words'),'#search');
   assert.equal(cleanRoute('#issue=2026-W43'),'#issue=2026-W43');
   assert.equal(cleanRoute('javascript:alert(1)'),'');
+  // A scratch pad keeps its draft id (#92); anything else after #scratch is dropped.
+  const draft='#scratch=0f8fad5b-d9cb-469f-a165-70867728950e';
+  assert.equal(cleanRoute(draft),draft);assert.equal(cleanRoute('#scratch'),'#scratch');
+  for(const bad of ['#scratch=not-an-id','#scratch='+'a'.repeat(36)+'&q=x','#scratchy','#scratch=0F8FAD5B-D9CB-469F-A165-70867728950E'])assert.equal(cleanRoute(bad),'',bad);
+  assert.equal(decodeLayout('#split='+encodeURIComponent(JSON.stringify({t:{d:'row',s:[.5,.5],c:['#read=library%2Fa.md',draft]},f:1})),1).tree.children[1].route,draft);
   const tree={dir:'row',sizes:[.6,.4],children:[{id:7,route:'#read=library%2Fa.md&at=%7B%7D'},{dir:'col',sizes:[.5,.5],children:[B,C]}]};
   const hash=encodeLayout(tree,2,[7,2]);
   assert.ok(!hash.includes('%26at'));

@@ -657,6 +657,12 @@ def main():
             (root / 'library/index.md').write_text('# Library index\n')
             subprocess.run(['git', '-C', str(root), 'add', 'library/index.md'], env=env, check=True, capture_output=True)
             subprocess.run(['git', '-C', str(root), 'commit', '-q', '-m', 'Synthetic index'], env=env, check=True, capture_output=True)
+            # A local image and a note a scratch draft can show in its preview (#114).
+            import base64
+            (root / 'library/figures').mkdir(exist_ok=True)
+            (root / 'library/figures/pixel.png').write_bytes(base64.b64decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII='))
+            (root / 'library/notes').mkdir(exist_ok=True)
+            (root / 'library/notes/seed-note.md').write_text('# Seed note\n\nA small embedded idea.\n')
             writing_options = {'git_locks': False}
         companions = None
         if '--no-git-locks' in sys.argv:

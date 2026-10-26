@@ -128,6 +128,20 @@ const shots=process.env.READER_SHOTS||'.reader/web-dev';
    await page.goBack();await page.waitForFunction(()=>!document.querySelector('.split-pane')&&document.querySelector('.document-title')?.textContent==='Link sampler');
    await context.close();}
 
+  // A #split= layout with a scratch pad pane restores that draft, not the homepage (#92).
+  {const {page,context}=await open();
+   const draft='0f8fad5b-d9cb-469f-a165-70867728950e',layout={t:{d:'row',s:[.5,.5],c:['#read='+encodeURIComponent('library/thought.md'),'#scratch='+draft]},f:1};
+   await page.goto(url+'#split='+encodeURIComponent(JSON.stringify(layout)));
+   await page.waitForFunction(()=>document.querySelectorAll('.split-pane iframe').length===2);
+   const scratch=await pane(page,2);await scratch.locator('.cm-editor').waitFor({timeout:8000});
+   assert.equal(new URL(scratch.url()).hash,'#scratch='+draft,'the pane opens that draft');
+   await page.waitForTimeout(300);
+   assert.deepEqual(JSON.parse(decodeURIComponent(new URL(page.url()).hash.slice(7))).t.c,layout.t.c,'the shell keeps the scratch route in its layout');
+   await page.reload();await page.waitForFunction(()=>document.querySelectorAll('.split-pane iframe').length===2);
+   await (await pane(page,2)).locator('.cm-editor').waitFor({timeout:8000});
+   assert.equal(new URL((await pane(page,2)).url()).hash,'#scratch='+draft,'and survives a reload');
+   await context.close();}
+
   // Side by side compare from the Versions panel: the older version on the left, scrolling together.
   {const {page,context}=await open();
    await page.goto(url+'#read='+encodeURIComponent('library/essays/tidal/tidal.md'));await ready(page.mainFrame());
@@ -205,6 +219,6 @@ const shots=process.env.READER_SHOTS||'.reader/web-dev';
    await context.close();}
 
   assert.deepEqual(external,[]);assert.deepEqual(busy,[]);assert.deepEqual(errors,[]);
-  console.log('Split view passed: Space W prefix with WINDOW hints, Ctrl-w Ctrl-w, Ctrl-w ignored while typing, :set scrollbind / noscrollbind and :vsplit / :split from a pane, Ctrl-w v with picker and Esc, per-pane highlights and j, Ctrl-w h/l focus with status number and breadcrumb, panes replace history, per-pane receipts and bookmarks, theme to every pane, Ctrl-w s/x/=/drag, fifth pane refused, four panes without 429, reload restore, q and o back to one pane without iframes, Shift-click and Ctrl-w f, Back leaves the split, side-by-side compare aligned within a frame plus 50 ms and unlinking, one column per two-page pane at 1280px, narrow fallback, 390px refusal, local-only requests.');
+  console.log('Split view passed: Space W prefix with WINDOW hints, Ctrl-w Ctrl-w, Ctrl-w ignored while typing, :set scrollbind / noscrollbind and :vsplit / :split from a pane, Ctrl-w v with picker and Esc, per-pane highlights and j, Ctrl-w h/l focus with status number and breadcrumb, panes replace history, per-pane receipts and bookmarks, theme to every pane, Ctrl-w s/x/=/drag, fifth pane refused, four panes without 429, reload restore, a scratch pane in a #split= layout, q and o back to one pane without iframes, Shift-click and Ctrl-w f, Back leaves the split, side-by-side compare aligned within a frame plus 50 ms and unlinking, one column per two-page pane at 1280px, narrow fallback, 390px refusal, local-only requests.');
  }catch(error){console.error('Page errors:',errors);throw error;}finally{await browser?.close();if(fixture.exitCode===null&&fixture.signalCode===null){fixture.kill('SIGTERM');await new Promise(resolve=>fixture.once('exit',resolve));}}
 })().catch(error=>{console.error(error);process.exitCode=1;});

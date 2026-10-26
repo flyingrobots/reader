@@ -1569,7 +1569,8 @@ reading=installReading({statusOverride:()=>{const on=!!split?.active();if(!on)$(
 outline=installOutline({state,reading,$,controls,scrollToPosition,savePrefs,notify});
 links=installLinks({state,api,reading,navigate,openBackstage:()=>navigate(BACKSTAGE)});
 scratch=installScratch({state,api,notify,navigate,focusMain:()=>$('#main').focus({preventScroll:true}),updateStatus:()=>reading?.updateStatus(),openChat,registers:()=>registers,
-  renderMarkdown:(container,text)=>renderMarkdown(container,text,'library/notebook/scratch.md',0)});
+  // A draft has no file yet: its links resolve from the notebook folder it saves into (the server accepts a folder source).
+  renderMarkdown:(container,text)=>renderMarkdown(container,text,'library/notebook/',0)});
 versions=installVersions({state,api,navigate:ref=>navigate(ref),openCompare:openComparison,openSideBySide:(older,newer)=>{if(pane)pane.post({type:'open-in-split',compare:{a:older,b:newer}});else split.compare(older,newer,cleanRoute(location.hash)).catch(report);},notify,param,onChange:()=>reading?.updateStatus()});
 if(EMBEDDED)pane=installPane({open:openRoute,save:()=>reading.save(),onFocus:paneFocus,
   reveal:element=>{if(!reading.hasBook())return false;const range=document.createRange();range.selectNodeContents(element);return reading.reveal(range,false);},

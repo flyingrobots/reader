@@ -2576,8 +2576,9 @@ iframes and opens that pane's document itself, so single-pane Reader has no ifra
   reopens each pane's document in the new layout.
 - **Layout and history.** The layout tree (rows and columns with fractional sizes)
   is kept in `#split=<json>`: pane routes are paths only (`#read=<path>` with an
-  optional heading, `#search`, `#backstage`, `#issue=…`), never search text or
-  passage terms. Reload restores the tree and focus. Creating a split adds one
+  optional heading, `#search`, `#backstage`, `#issue=…`, `#scratch` or
+  `#scratch=<id>`), never search text or passage terms. A scratch pad pane keeps its
+  draft id, so a restored layout reopens that draft. Reload restores the tree and focus. Creating a split adds one
   history entry; browser Back leaves the split for the single view before it, and
   Forward restores it. Panes load 250 ms apart.
 - **Messages.** `postMessage` with `targetOrigin` set to the page origin; receivers
@@ -2622,7 +2623,9 @@ draft. Back and reload work. The buffer is a monospace Markdown source editor
 in theme tokens) beside a live preview drawn by the document renderer (the same
 markdown-it pipeline, DOMPurify, KaTeX and Mermaid diagrams as library documents), updated
 150 ms after typing stops. The preview marks and scrolls to the cursor's block through
-`data-source-start`, whose code-point offsets map directly to the buffer.
+`data-source-start`, whose code-point offsets map directly to the buffer. Links,
+local images and embeds in the preview resolve as they will once saved: from the
+notebook folder (`library/notebook/`, even before the first save creates it).
 
 - **Layouts.** *Side by side*, *Source* and *Preview*; the bar's layout button or
   `:preview` cycles them. Below 900px a buffer opens in Source; at phone width the
@@ -2838,7 +2841,8 @@ document and prints its timings.
 Not supported: audio and video players, `.canvas` files, Obsidian's
 `![[note#heading|alias]]` display variants beyond the header caption, embed
 search queries (```` ```query ````), and editing embedded text in place. The
-scratch pad preview has no file to resolve from, so its embeds show a note.
+scratch pad preview has no file yet, so it resolves embeds and local images from
+the folder it saves into (`from=library/notebook/`; see `/api/resolve-batch`).
 
 ### Document controls
 
@@ -3280,7 +3284,13 @@ activity transcript's event stream). Document GET alone is read-only.
 `/api/resolve-batch?from=…&target=…&target=…` resolves up to 64 links from one
 library document (or inbox arrival, which may resolve its own bundle's attachments) in order, returning `{"results": [...]}` with either the
 `/api/resolve` result or `{"error": …}` per target; unresolved targets share one
-inventory read, and more than 64 targets are refused.
+inventory read, and more than 64 targets are refused. A draft with no file yet
+passes its folder with a trailing slash (`from=library/notebook/`) to this route,
+`/api/resolve` and `/api/embeds`: links resolve as from a file in that folder. The
+folder must be a real, existing library folder (normalized, no hidden or `..`
+parts, no symlinks on the way); the one exception is `library/notebook/` before the
+scratch pad's first save creates it. A GET never creates it. A missing source
+*document* still answers 404.
 `/api/chat/raw?id=…&turn=…` returns one turn's (or listening check's) archived output, decompressed:
 `stdout` (at most 4 MiB, with `stdout_truncated`; the archive keeps all of it),
 `stderr`, `prompt` (1 MiB each), `system` (256 KiB), `meta`, `log` (the archive

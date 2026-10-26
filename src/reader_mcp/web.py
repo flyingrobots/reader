@@ -28,7 +28,7 @@ from .editions import Editions
 from . import embeds as embed_tree
 from .engagement import ONE_OFF_RECEIPTS, Engagement
 from .inbox_view import InboxView, RunConflict
-from .writing import Writing, WritingConflict
+from .writing import NOTEBOOK, Writing, WritingConflict
 from .local_model import LocalModel
 from .links import LinkError, LinkGraph, Resolver, excerpt, title_of
 from .magazine import Magazine
@@ -226,6 +226,24 @@ class WebLibrary:
         if not file.is_file() or file.stat().st_size > MAX_ASSET:
             raise ValueError('Expected a regular library file of at most 256 MiB')
         return file
+
+    def link_source(self, value):
+        """A link source: a document (see `path`), or a draft that has no file yet, written as its folder with a
+        trailing slash (`library/notebook/`). The folder must be a real library folder, or the scratch pad's
+        notebook folder before its first save. Returns the path the resolver works from."""
+        if not (isinstance(value, str) and value.startswith('library/') and value.endswith('/')):
+            self.path(value, preview=True)
+            return value
+        folder = value[:-1]
+        if '\\' in folder or '\x00' in folder or any(p in ('', '.', '..') or p.startswith('.') for p in folder.split('/')):
+            raise ValueError('Expected a normalized library-relative folder')
+        directory = self.root / folder
+        if any(p.is_symlink() for p in (directory, *directory.parents) if p != self.root):
+            raise ValueError('Library paths must not cross symlinks')
+        notebook = folder == NOTEBOOK and not directory.exists() and directory.parent.is_dir()
+        if not (directory.is_dir() or notebook):
+            raise MissingDocument('No folder at this path.')
+        return value
 
     def digest(self, path, preview=False):
         file = self.path(path, preview)
@@ -565,7 +583,7 @@ class WebLibrary:
 
     def resolve(self, source, target, resolver=None):
         """A click on a link; the link graph resolves stored links with the same `Resolver`."""
-        self.path(source, preview=True)
+        self.link_source(source)
         if source.startswith('inbox/') and isinstance(target, str) and len(target) <= 2000 and not urlsplit(target).scheme and not target.startswith(('/', '//', 'library/')):
             # An inbox preview may resolve its own bundle's attachments; library documents stay in library/.
             bundle = '/'.join(source.split('/')[:2]) + '/'
@@ -578,7 +596,8 @@ class WebLibrary:
                         return {'path': option, 'fragment': fragment}
                     except (ValueError, OSError):
                         pass
-        path, fragment, _ = (resolver or self.resolver)().resolve(source, target)
+        # A folder source resolves like a file inside that folder.
+        path, fragment, _ = (resolver or self.resolver)().resolve(source + 'draft.md' if source.endswith('/') else source, target)
         return {'path': path, 'fragment': fragment}
 
     def resolver(self):
@@ -632,7 +651,7 @@ class WebLibrary:
         """Resolve up to MAX_RESOLVE_BATCH links from one document, in order; one inventory read."""
         if not isinstance(targets, list) or len(targets) > MAX_RESOLVE_BATCH:
             raise ValueError(f'Expected at most {MAX_RESOLVE_BATCH} link targets')
-        self.path(source, preview=True)  # Inbox previews resolve their bundle's images too.
+        self.link_source(source)  # Inbox previews resolve their bundle's images too; a draft resolves from its folder.
         cache, results = [], []
 
         def resolver():

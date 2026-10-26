@@ -246,7 +246,7 @@ def tree(library, source, targets, ancestors=(), depth=0, texts=None):
         raise ValueError('Expected a short ancestor chain')
     if not isinstance(depth, int) or not 0 <= depth <= MAX_DEPTH:
         raise ValueError(f'Expected an embed depth of 0-{MAX_DEPTH}')
-    library.path(source, preview=True)
+    library.link_source(source)  # A document, or a draft's folder (`library/notebook/`).
     texts = texts or Texts()
     documents, budget = {}, {'nodes': MAX_NODES, 'chars': MAX_RESPONSE_CHARS}
     resolver = []
@@ -278,7 +278,7 @@ def tree(library, source, targets, ancestors=(), depth=0, texts=None):
         if budget['nodes'] <= 0:
             return item | {'status': 'deferred'}
         budget['nodes'] -= 1
-        if not part['target'] and not part['fragment']:
+        if not part['target'] and (not part['fragment'] or src.endswith('/')):  # A draft folder has no headings.
             return item | {'status': 'missing'}
         try:
             path = resolve(src, part['target']) if part['target'] else src  # ![[#Heading]]: this document

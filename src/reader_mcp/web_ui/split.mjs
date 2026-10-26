@@ -106,11 +106,12 @@ export function neighbor(rects,id,key){
 }
 
 // Routes and the #split= hash --------------------------------------------------------------------
-/** A pane route keeps a path, never text: `#read=<path>` (a heading id survives), the homepage, an issue, Search or Backstage. */
+/** A pane route keeps a path, never text: `#read=<path>` (a heading id survives), the homepage, an issue, Search,
+ *  Backstage or a scratch pad (`#scratch`, the latest draft, or `#scratch=<id>`, as app.mjs routes it). */
 export function cleanRoute(hash){
   hash=String(hash||'');
   if(hash.startsWith('#read=')){const [value,...rest]=hash.slice(6).split('&');const heading=rest.find(p=>p.startsWith('h='));return value?'#read='+value+(heading&&heading.length<=200?'&'+heading:''):'';}
-  if(hash==='#backstage')return hash;
+  if(hash==='#backstage'||/^#scratch(=[0-9a-f-]{36})?$/.test(hash))return hash;
   if(hash.startsWith('#search'))return '#search';
   if(/^#issue=[0-9]{4}-W[0-9]{2}$/.test(decodeSafe(hash)))return hash;
   return '';

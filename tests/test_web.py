@@ -201,6 +201,29 @@ def test_resolve_batch_keeps_order_reports_per_target_errors_and_reads_inventory
     assert len(request('/api/resolve-batch?from=library/thought.md' + too_many[:-16 * 1])[1]['results']) == 64
 
 
+def test_resolve_routes_accept_a_draft_folder_source(web, tmp_path):
+    # A scratch draft has no file yet: it resolves from the folder it will be saved in (#114).
+    root, library, server, request = web
+    (root / 'library/figures').mkdir()
+    (root / 'library/figures/plot.png').write_bytes(b'\x89PNG synthetic')
+    status, data, _ = request('/api/resolve-batch?from=library/notebook/&target=library/figures/plot.png&target=../thought.md&target=other&target=missing.png')
+    assert status == 200, data
+    assert [r.get('path') for r in data['results']] == ['library/figures/plot.png', 'library/thought.md', 'library/other.md', None]
+    assert request('/api/resolve?from=library/figures/&target=plot.png')[1]['path'] == 'library/figures/plot.png'
+    status, data, _ = request('/api/embeds?from=library/notebook/&target=Another%20thought&target=other&target=%23Heading')
+    assert status == 200, data
+    assert [n['status'] for n in data['nodes']] == ['missing', 'ok', 'missing'] and 'library/other.md' in data['documents']
+    assert not (root / 'library/notebook').exists(), 'a GET never creates the notebook folder'
+    # Bounds: only an existing real folder in library/ (or the not-yet-created notebook); never a file, inbox, symlink or escape.
+    (root / 'outside').mkdir()
+    (root / 'library/linked').symlink_to(root / 'outside', target_is_directory=True)
+    for bad in ('library/linked/', 'library/missing/', 'inbox/', 'library/thought.md/', 'library/../', 'library//', '/library/', 'library/.hidden/', 'library/notebook/x/'):
+        status, data, _ = request('/api/resolve-batch?from=' + bad + '&target=other.md')
+        assert status in (400, 404), (bad, status, data)
+        assert request('/api/embeds?from=' + bad + '&target=other')[0] in (400, 404), bad
+    assert request('/api/resolve-batch?from=library/missing.md&target=other.md')[0] == 404  # a missing source document stays missing
+
+
 def test_server_refuses_external_bind(web):
     _, library, _, _ = web
     with pytest.raises(ValueError, match='loopback'):

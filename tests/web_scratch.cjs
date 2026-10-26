@@ -50,6 +50,13 @@ const shots=process.env.READER_SHOTS||'.reader/web-dev';
   await page.locator('.scratch-preview .reader-diagram-canvas[data-state=ready] svg').waitFor();
   await page.locator('.scratch-preview .reader-math[data-state=ready]').waitFor();
   assert.equal(await page.locator('.scratch-preview h1').textContent(),'On splits');
+  // A local image and an embed resolve from the notebook folder, before it exists (#114).
+  assert.equal(existsSync(root+'/library/notebook'),false);
+  await page.keyboard.press('G');await page.keyboard.press('o');await page.keyboard.type('![a pixel](library/figures/pixel.png)\n\n![[seed-note]]\n');await page.keyboard.press('Escape');
+  await page.waitForFunction(()=>document.querySelector('.scratch-preview img[alt="a pixel"]')?.complete&&document.querySelector('.scratch-preview img[alt="a pixel"]').naturalWidth===1,null,{timeout:8000}).catch(async()=>{throw new Error('local image did not load: '+await page.locator('.scratch-preview').innerHTML());});
+  assert.equal(await page.locator('.scratch-preview img[alt="a pixel"]').getAttribute('src'),'/api/file?path=library%2Ffigures%2Fpixel.png');
+  await page.locator('.scratch-preview .embedded-content',{hasText:'A small embedded idea.'}).waitFor({timeout:8000});
+  assert.equal(await page.locator('.scratch-preview').getByText(/unavailable|couldn’t be read/).count(),0);
   assert.match(await page.locator('#status-position').textContent(),/^\d+ words · (Saved on this device|Unsaved)$/);
   // :cite inserts the last selection as a cited quote.
   await page.keyboard.press('G');await page.keyboard.press('o');await page.keyboard.press('Escape');await ex('cite');
@@ -121,6 +128,6 @@ const shots=process.env.READER_SHOTS||'.reader/web-dev';
   assert.deepEqual(layout,{scroll:true,left:16,right:16,preview:'none'});
   await page.screenshot({path:shots+'/scratch-phone.png'});
   assert.deepEqual(external,[]);assert.deepEqual(errors,[]);
-  console.log('Scratch pad passed: lazy editor chunk, Space w route, Vim insert/normal and double Esc, Mermaid and math preview, :cite quote, reload restore, :drafts, :preview layouts, Save to vault with exact frontmatter and a one-file commit, :enew and :e scratch from the page command line, Ctrl-r a register paste, Ctrl-w left to the editor, .v2.md with original bytes kept, Edit in scratch, 390px layout, local-only requests.');
+  console.log('Scratch pad passed: lazy editor chunk, Space w route, Vim insert/normal and double Esc, Mermaid and math preview, local image and embed preview, :cite quote, reload restore, :drafts, :preview layouts, Save to vault with exact frontmatter and a one-file commit, :enew and :e scratch from the page command line, Ctrl-r a register paste, Ctrl-w left to the editor, .v2.md with original bytes kept, Edit in scratch, 390px layout, local-only requests.');
  }catch(error){console.error('Page errors:',errors);throw error;}finally{await browser?.close();if(fixture.exitCode===null&&fixture.signalCode===null){fixture.kill('SIGTERM');await new Promise(resolve=>fixture.once('exit',resolve));}}
 })().catch(error=>{console.error(error);process.exitCode=1;});
