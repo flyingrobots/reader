@@ -1358,7 +1358,7 @@ function stepLink(delta,{count}){
   const next=stepThrough(list,delta,focusedLink(),count);if(!next){toast(delta>0?'No more links after this one.':'No links before this one.');return;}
   next.focus({preventScroll:true});const range=document.createRange();range.selectNodeContents(next);moveToRange(range);
 }
-function seekEdge(end){jumps.record();if(reading.hasBook())reading.seek(end?1:0);else scrollToPosition(end?document.documentElement.scrollHeight:0,true,end?[...$('#article')?.children||[]].filter(el=>!el.classList.contains('annotation-pin')).at(-1):null);}
+function seekEdge(end){jumps.record();if(reading.hasBook()){reading.seek(end?1:0);return;}scrollToPosition(end?document.documentElement.scrollHeight:0);placeKeeper.edge(end,motion());}
 const R='Reading',L='Leader: Space or comma',H='Homepage',S='Search page',M='Marks and jumps',Q='Lists',P='In panels',W='Split view: Ctrl w or Space W',X='Scratch pad';
 keys.group('<Space>,','more');
 keys.prefix('<C-w>',{label:'WINDOW',ms:1500});

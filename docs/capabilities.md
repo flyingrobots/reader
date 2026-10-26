@@ -89,8 +89,8 @@ formula copies its TeX.
 Markdown rendering scales linearly with document size, and local images resolve in
 batched requests. In continuous reading the browser lays out only blocks near the window
 (`content-visibility`): long documents show sooner, and jumps, bookmarks, pins and smooth
-scrolling hold their place while far blocks settle. The scrollbar length is an estimate until
-then.
+scrolling hold their place while far blocks settle; `gg` and `G` hold the page's start and end,
+including end blocks that arrive late. The scrollbar length is an estimate until then.
 See [web operation, privacy, limits and recovery](web.md).
 
 `scripts/reader_service.py` runs the web reader as a macOS LaunchAgent from a

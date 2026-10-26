@@ -3311,12 +3311,16 @@ estimate theirs from their text length; other blocks count as 240 px.
 see steady while estimates turn into real heights:
 
 - **Jumps hold their target.** A jump Reader makes in continuous reading (find, a heading link,
-  the outline, `]]`/`[[`, an opened passage, a bookmark, the jump list, `G`, VISUAL motions)
+  the outline, `]]`/`[[`, an opened passage, a bookmark, the jump list, VISUAL motions)
   passes its element or range to `scrollToPosition`. A `ResizeObserver` on the top-level
   blocks re-seeks after each height change, so the target lands on the line it was sent to. A
   bookmark lands at its fraction of the block, measured on the block's settled height. The hold
   ends when you wheel, touch, click or press a key, or scroll the page yourself (a scrollbar drag),
   or when another jump or document replaces it.
+- **`gg` and `G` hold the page's start and end.** They hold the edge itself, not a block, so `gg`
+  ends at the top while the blocks it glides over settle (smooth scrolling has no scroll anchoring
+  to keep its destination), and `G` follows the end as Read next and other end blocks arrive after
+  it and lengthen the page.
 - **Smooth scrolling keeps the first block in view.** ScrollSmoother moves the article inside a
   fixed wrapper, which the browser's scroll anchoring cannot see. There, when blocks above the
   window change height, the view moves by the same amount, so scrolling up past blocks never laid
