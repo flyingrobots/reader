@@ -6,6 +6,8 @@ Choose a voice and generate a question. **Show me in the text** highlights a ver
 
 When the question dialog finishes closing into Scratch, keyboard focus remains in the response editor. Other closes return focus to the reading page.
 
+If browser storage is unavailable or full, the response still opens in memory and shows **Not saved on this device**. The current draft can be reopened through its question in the same page and explicitly saved to the vault. Save or copy it before reloading, closing the page or replacing the active buffer; this fallback is not durable autosave.
+
 ## Saving and replies
 
 Only an explicit save writes the response to `library/notebook/`. The author comes from the vault's Git configuration, with participant attribution recorded separately. Prompted responses use the current versioned metadata profile and block YAML: title, creation date, revision, source article and exact digest, prompt ID, generating voice, question, quote and source evidence. A reply request also records its chat path.
@@ -50,3 +52,5 @@ Save request UUIDs bind a content/participant fingerprint. `.reader/writing-requ
 ## Verification
 
 Run `tests/test_prompts.py`, existing `tests/test_writing.py`, web typechecking and production builds in bounded copy-isolated Docker workers. `tests/web_writing_prompt.cjs` uses fake voices and the synthetic `tests/quiz_fixture.py` to verify generation, evidence links, Scratch reload, saves, reading-log/home discovery, pins, preserved revisions, reply chat and a 390-pixel viewport. Fake output verifies plumbing, not the quality of real questions.
+
+`tests/web_prompt_storage.cjs` verifies blocked IndexedDB and quota failures, current-buffer recovery within the same page, and explicit vault saves with prompt provenance.

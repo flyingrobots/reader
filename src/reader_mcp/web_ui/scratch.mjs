@@ -48,7 +48,7 @@ export const drafts={
 
 export function installScratch({state,api,notify,renderMarkdown,navigate,focusMain,updateStatus,openChat,savedChanged=()=>{},registers=()=>null,confirmAction=message=>confirm(message)}){
   const $=s=>document.querySelector(s);
-  let editor=null,editorModule=null,draft=null,root=null,mode='NORMAL',layout=null,saveState='Unsaved',local=true,dirty=false,autosave=0,previewTimer=0,cursor=0,list=null,lastSaved=null;
+  let editor=null,editorModule=null,draft=null,handoff=null,root=null,mode='NORMAL',layout=null,saveState='Unsaved',local=true,dirty=false,autosave=0,previewTimer=0,cursor=0,list=null,lastSaved=null;
   const narrow=()=>innerWidth<900;
   const now=()=>new Date().toISOString();
   // A new buffer responds, by default, to the document you came from; the draft keeps that across reloads.
@@ -108,11 +108,11 @@ export function installScratch({state,api,notify,renderMarkdown,navigate,focusMa
   }
   async function open(main,id){
     await leave();
-    let found=null;
-    try{
+    let found=handoff?.id===id?handoff:null;handoff=null;
+    try{if(!found){
       if(id)found=await drafts.get(id);
       else{const all=await drafts.all();found=all.sort((a,b)=>b.updated.localeCompare(a.updated))[0]||null;}
-    }catch{local=false;}
+    }}catch{local=false;}
     draft=found||fresh(id||undefined);lastSaved=draft.vault_path?draft.body:null;
     saveState=!local?'Not saved on this device':found?(draft.vault_path&&draft.body===lastSaved?'In vault':'Saved on this device'):'Unsaved';
     if(!id)history.replaceState(history.state,'','#scratch='+draft.id);
@@ -243,15 +243,21 @@ export function installScratch({state,api,notify,renderMarkdown,navigate,focusMa
   async function editSaved(doc,body){
     const id=crypto.randomUUID(),title=String(doc.metadata?.title||doc.title||'Untitled');
     const meta=doc.metadata||{},prompt=meta.prompt_id&&meta.prompt?{id:meta.prompt_id,author:meta.prompt.by,question:meta.prompt.text,document_path:meta.responds_to,evidence:meta.prompt.evidence}:null;
-    const record={...fresh(id),title,body,base:{path:doc.path,sha256:doc.sha256},vault_path:doc.path,responds_to:meta.responds_to||null,prompt};
+    const record={...fresh(id),title,body,base:{path:doc.path,sha256:doc.sha256},vault_path:doc.path,responds_to:meta.responds_to||null,prompt,promptParticipant:state.prefs.participant};
     try{await drafts.put(record);}catch{local=false;}
+    handoff=record;
     navigate(':scratch='+id);
   }
   async function forPrompt(prompt){
     await persist();const participant=state.prefs.participant;
-    const previous=(await drafts.all()).find(d=>d.prompt?.id===prompt.id&&d.promptParticipant===participant);
+    const matches=d=>d?.prompt?.id===prompt.id&&d.promptParticipant===participant;
+    let previous=matches(draft)?draft:null;
+    if(!previous)try{previous=(await drafts.all()).find(matches);}catch{local=false;}
     const record=previous||{...fresh(),title:'On '+(state.doc?.title||'this article'),responds_to:prompt.document_path,prompt,promptParticipant:participant};
-    if(!previous)await drafts.put(record);
+    if(!previous)try{await drafts.put(record);}catch{local=false;}
+    // The route may open before a durable write, or with storage unavailable.
+    // Keep this handoff and the active draft in memory; neither survives reload.
+    handoff=record;
     navigate(':scratch='+record.id);
   }
   return {open,leave,editSaved,forPrompt,isOpen:()=>!!root,
