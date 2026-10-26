@@ -160,6 +160,22 @@ def test_diagram_chunks_are_packaged_and_served_locally(web):
     assert request('/assets/controls/diagrams/../../../web.py', raw=True)[0] == 404
 
 
+def test_control_licenses_match_shipped_packages():
+    controls = Path(__file__).parents[1] / 'src/reader_mcp/web_ui/controls'
+    meta = json.loads((controls / 'build-meta.json').read_text())
+    deps = meta['dependencies']
+    files = {path.name for path in (controls / 'licenses').iterdir()}
+    owner = lambda name: next(dep for dep in sorted(deps, key=len, reverse=True) if name.startswith(dep.replace('/', '-') + '-'))
+    # Every license file belongs to a listed package (no stale copies) and every package has one.
+    assert {owner(name) for name in files - {'shadcn-ui-LICENSE'}} == set(deps)
+    assert {'licenses/' + name for name in files} <= set(meta['outputs'])
+    # Tree-shaken packages (Shiki's HTML renderer, CodeMirror's unused languages) are not listed.
+    for shaken in ['hast-util-to-html', 'property-information', '@codemirror/lang-html', '@lezer/javascript']:
+        assert shaken not in deps
+    for kept in ['@shikijs/core', '@shikijs/langs', 'oniguruma-to-es', '@codemirror/view', 'react', 'three', 'katex', 'tailwindcss', 'tw-animate-css']:
+        assert kept in deps
+
+
 def test_katex_chunk_styles_and_woff2_fonts_are_local(web):
     _, _, _, request = web
     controls = Path(__file__).parents[1] / 'src/reader_mcp/web_ui/controls'

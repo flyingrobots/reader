@@ -58,16 +58,16 @@ with math. Reader's markdown-it math syntax plugin is its own.
 ## Code highlighting
 
 Fenced code is highlighted by [Shiki](https://shiki.style) 4.5.0 (MIT, copyright Pine Wu
-and Anthony Fu; licenses retained in `controls/licenses/shiki-LICENSE` and the
-`@shikijs-*` files) with its JavaScript regular-expression engine, which uses
+and Anthony Fu; licenses retained in the `controls/licenses/@shikijs-*` files, the
+packages whose code is bundled; the `shiki` package itself only re-exports them) with its JavaScript regular-expression engine, which uses
 `oniguruma-to-es`, `oniguruma-parser`, `regex`, `regex-recursion` and `regex-utilities`
 (all MIT). No WebAssembly is bundled or fetched. The TextMate grammars come from
 `@shikijs/langs` (MIT; each grammar keeps the license of its upstream VS Code or
 community source, recorded in the grammar files). The tokenizer is bundled into
 `controls/highlight.js`, and each grammar into its own chunk under
 `controls/highlight/`; they load only when a fenced block in a supported language
-nears the viewport. The `hast` utilities listed in `controls/licenses/` are part of
-Shiki's dependency graph and are recorded for completeness. Reader's language table
+nears the viewport. Shiki's HTML renderer and its `hast` utilities are tree-shaken
+out, so they are neither bundled nor listed. Reader's language table
 and highlighter loader follow the shadcn/ui base-nova `lib/highlighter` (MIT); the
 CSS-highlight painting and theme mapping are Reader's own.
 
@@ -75,15 +75,15 @@ CSS-highlight painting and theme mapping are Reader's own.
 
 The scratch pad's Markdown editor is [CodeMirror 6](https://codemirror.net) —
 `@codemirror/state` 6.7.6, `@codemirror/view` 6.43.15, `@codemirror/commands` 6.11.1,
-`@codemirror/language` 6.13.1, `@codemirror/lang-markdown` 6.5.2 and their `@lezer/*`,
-`style-mod`, `w3c-keyname`, `crelt` and `@marijn/find-cluster-break` dependencies (MIT,
+`@codemirror/language` 6.13.1, `@codemirror/lang-markdown` 6.5.2 and their bundled
+`@lezer/*`, `style-mod`, `w3c-keyname` and `@marijn/find-cluster-break` dependencies (MIT,
 copyright Marijn Haverbeke and others) — with Vim keys from
 [`@replit/codemirror-vim`](https://github.com/replit/codemirror-vim) 6.4.0 (MIT,
 copyright Replit and the CodeMirror contributors). They are bundled into
-`controls/editor.js`, which loads only when a scratch buffer opens; each package's
-license is retained under `controls/licenses/` (the build retains the license of
-every package esbuild reads, including the HTML, CSS and JavaScript language packages
-`lang-markdown` references but the bundle leaves out).
+`controls/editor.js`, which loads only when a scratch buffer opens; each bundled
+package's license is retained under `controls/licenses/`. The HTML, CSS and
+JavaScript language packages `lang-markdown` references are tree-shaken out and not
+listed.
 
 ## Colorful Language (optional, not distributed)
 
@@ -122,7 +122,10 @@ shadcn/ui `base-nova` registry using CLI 4.22.1. They are covered by the retaine
 MIT license in `web/LICENSE.shadcn-ui`. Reader's composition and build tooling use
 Apache-2.0. Compiled assets in `web_ui/controls/` include React, React DOM,
 Base UI, Floating UI, Lucide, Sonner (MIT), `@shadcn/react` (MIT, for the chat MessageScroller), `cn`, class-variance-authority and their runtime
-dependencies. Full license texts are retained in `controls/licenses/`; bundled
+dependencies. Full license texts are retained in `controls/licenses/`, which each build rebuilds
+from scratch with exactly the packages that contribute bytes to a `controls/` output
+(esbuild's per-output `bytesInOutput`), plus Tailwind CSS, tw-animate-css and KaTeX,
+whose CSS and fonts are copied outside esbuild; bundled
 headers and `controls/build-meta.json` record exact dependency versions and
 source/output hashes. The npm lockfile records package integrity. Tailwind CSS
 4.3.3 generates the component utilities during development. The activity transcript

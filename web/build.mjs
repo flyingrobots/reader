@@ -1,7 +1,8 @@
 import {build} from 'esbuild';
 import {execFileSync} from 'node:child_process';
-import {mkdirSync,writeFileSync,readFileSync,existsSync,readdirSync,rmSync} from 'node:fs';
-import {dirname,join} from 'node:path';
+import {mkdirSync,writeFileSync,readFileSync,readdirSync,rmSync} from 'node:fs';
+import {join} from 'node:path';
+import {packageRoot,shippedInputs,writeLicenses} from './licenses.mjs';
 import {createHash} from 'node:crypto';
 const out='../src/reader_mcp/web_ui/controls';
 const hash=path=>createHash('sha256').update(readFileSync(path)).digest('hex');
@@ -34,28 +35,13 @@ await build({entryPoints:['src/theme/famous-build.ts'],bundle:true,format:'esm',
 const {famousStylesheet}=await import(new URL('./node_modules/.cache/famous-build.mjs?'+Date.now(),import.meta.url));
 writeFileSync(out+'/famous-themes.css',famousStylesheet().css);
 execFileSync('node_modules/.bin/tailwindcss',['-i','src/styles.css','-o',out+'/reader-controls.css','--minify'],{stdio:'inherit'});
-const packages=new Map();
-function retainPackage(folder){
-  const pkg=JSON.parse(readFileSync(join(folder,'package.json'),'utf8'));
-  if(packages.has(pkg.name))return;
-  const licenses=readdirSync(folder).filter(name=>/^licen[cs]e(?:\.|$)/i.test(name));
-  if(!licenses.length)throw new Error('Missing license: '+pkg.name);
-  mkdirSync(out+'/licenses',{recursive:true});
-  for(const license of licenses)writeFileSync(out+'/licenses/'+pkg.name.replaceAll('/','-')+'-'+license,readFileSync(join(folder,license)));
-  packages.set(pkg.name,{version:pkg.version,license:pkg.license});
-}
-for(const input of [...new Set(inputs)].filter(p=>p.includes('node_modules/'))){
-  let folder=dirname(input);
-  // Skip nested {"type":"module"} markers (dist/esm/package.json): the package root has a name.
-  const named=dir=>existsSync(join(dir,'package.json'))&&!!JSON.parse(readFileSync(join(dir,'package.json'),'utf8')).name;
-  while(folder!=='.'&&!named(folder))folder=dirname(folder);
-  if(folder==='.')throw new Error('Missing package metadata: '+input);
-  retainPackage(folder);
-}
-for(const name of ['tailwindcss','tw-animate-css'])retainPackage('node_modules/'+name);
-writeFileSync(out+'/licenses/shadcn-ui-LICENSE',readFileSync('LICENSE.shadcn-ui'));
-const sources=Object.fromEntries([...new Set(inputs.filter(p=>!p.includes('node_modules/'))),'src/styles.css','src/theme/famous-build.ts','src/theme/famous.ts','../src/reader_mcp/web_ui/famous-themes.json','package-lock.json','components.json','build.mjs'].sort().map(path=>[path,hash(path)]));
+// Licenses: only packages with bytes in an output, plus the CSS (Tailwind, tw-animate-css) and KaTeX
+// stylesheet/font sources copied outside esbuild; licenses/ is rebuilt so removed dependencies drop out.
+const metafiles=[result,three,diagrams,math,highlight,editor].map(build=>build.metafile);
+const shipped=shippedInputs(metafiles).filter(p=>p.includes('node_modules/')).map(packageRoot);
+const dependencies=writeLicenses(out+'/licenses',[...shipped,...['tailwindcss','tw-animate-css','katex'].map(name=>'node_modules/'+name)],{'shadcn-ui-LICENSE':'LICENSE.shadcn-ui'});
+const sources=Object.fromEntries([...new Set(inputs.filter(p=>!p.includes('node_modules/'))),'src/styles.css','src/theme/famous-build.ts','src/theme/famous.ts','../src/reader_mcp/web_ui/famous-themes.json','package-lock.json','components.json','build.mjs','licenses.mjs'].sort().map(path=>[path,hash(path)]));
 const outputs={};
 function collect(folder){for(const file of readdirSync(folder,{withFileTypes:true})){const path=join(folder,file.name);if(file.isDirectory())collect(path);else if(file.name!=='build-meta.json')outputs[path.slice(out.length+1)]={bytes:readFileSync(path).length,sha256:hash(path)};}}
 collect(out);
-writeFileSync(out+'/build-meta.json',JSON.stringify({registry:{name:'shadcn/ui',cli:'4.22.1',style:'base-nova',url:'https://ui.shadcn.com'},sources,dependencies:Object.fromEntries([...packages].sort()),outputs},null,2)+'\n');
+writeFileSync(out+'/build-meta.json',JSON.stringify({registry:{name:'shadcn/ui',cli:'4.22.1',style:'base-nova',url:'https://ui.shadcn.com'},sources,dependencies,outputs},null,2)+'\n');

@@ -3583,7 +3583,14 @@ npm run build
 
 Run these within the workstation's shared build lock and project resource guard.
 The build emits local JS/CSS, bundled license notices and a SHA-256 source/output
-register under `src/reader_mcp/web_ui/controls/`. Commit those assets together with
+register under `src/reader_mcp/web_ui/controls/`. `controls/licenses/` and the
+`dependencies` map in `controls/build-meta.json` are rebuilt from scratch on every
+build and list exactly the npm packages with bytes in an output (esbuild's
+`metafile.outputs[*].inputs[*].bytesInOutput > 0`, in `web/licenses.mjs`), plus
+Tailwind CSS, tw-animate-css and KaTeX, whose CSS and fonts are copied outside
+esbuild, and the shadcn/ui license. A package esbuild reads but tree-shakes out
+entirely is not listed, and a removed dependency's license disappears with it;
+`web_ui/vendor/` files keep their own license copies. Commit those assets together with
 their editable sources and lockfile. To recover from missing or stale controls,
 rebuild from the lockfile; do not substitute a CDN script or loosen the CSP.
 
