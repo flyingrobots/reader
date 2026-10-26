@@ -42,6 +42,18 @@ def save(store, raw=None, request_id=None):
     return store.save(PATH, 'A test voice', raw or proposed(), expected_sha256=digest, request_id=request_id)
 
 
+def test_dotfiles_do_not_block_saved_quizzes_and_are_preserved(store):
+    quiz = save(store)
+    directory = store.file(quiz['document_sha256'], quiz['id']).parent
+    clutter = [store.folder / '.DS_Store', directory / '.DS_Store', directory / '.draft.swp']
+    for file in clutter:
+        file.write_bytes(b'Preserve these unrelated bytes.')
+    assert store.get(PATH)['id'] == quiz['id']
+    second = save(store)
+    assert second['id'] != quiz['id'] and len(store.inventory()) == 2
+    assert all(file.read_bytes() == b'Preserve these unrelated bytes.' for file in clutter)
+
+
 def test_untrusted_offsets_recomputed_as_unicode_code_points():
     anchor = evidence(TEXT, {'quote': QUOTES[0], 'start': 700, 'end': 800})
     assert anchor['start'] == 2

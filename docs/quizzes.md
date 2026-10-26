@@ -18,6 +18,8 @@ An exact quotation verifies where the evidence is. It does not establish that th
 
 Quizzes live at `quizzes/<document SHA-256>/<quiz UUID>.json`. A saved quiz is immutable. Storage uses a cooperating file lock, a sibling temporary file and exclusive publication. This is a per-file atomicity contract, not a multi-file transaction or a power-loss guarantee.
 
+Inventory discovery ignores dotfiles, including operating-system metadata and editor swap files, without deleting them. Visible records retain the edition, UUID, size and symlink checks.
+
 If an article changes, the latest earlier quiz is labelled accordingly. Reader relocates evidence against the current text and hides questions whose passage is missing or ambiguous. The earlier quiz file stays unchanged. If no evidence survives, generate a new quiz. A source change during generation or while submitting results is refused rather than silently attributed to the new edition.
 
 ## Supervised generation and review

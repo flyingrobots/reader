@@ -39,3 +39,5 @@ The integration-parent record was corrected against the actual second parent of 
 The plain-text transport regression reproduced a valid compact JSON reply being discarded as an unknown event. Text streams now preserve every nonempty line literally. Generation and short-answer review passed through that transport, and the quiz queue plus existing chat suite passed 70 tests with one optional sample skipped in Docker (`quiz-text-red` / `quiz-text-green`).
 
 The admission regression showed quiz GETs entering the ordinary read pool. They now use the existing expensive pool; saturation refuses the quiz request before inventory work while health and ordinary reads remain available. Both affected HTTP admission tests passed in Docker (`quiz-admission-red` / `quiz-admission-green`).
+
+A dotfile regression reproduced the whole quiz store refusing discovery because of operating-system/editor metadata. Discovery now skips hidden entries without deleting them and retains checks on visible records. All 17 quiz storage tests passed in Docker (`quiz-dotfiles-red` / `quiz-dotfiles-green`).
