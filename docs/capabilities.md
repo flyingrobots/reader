@@ -79,8 +79,9 @@ Mermaid diagrams in Markdown are drawn locally by Pele, recolor with the theme,
 open full size, and appear on the two-page page turn. An invalid or over-limit
 diagram (more than 64 KiB of source, or after the 64th in a document) shows its
 source with the reason. TeX math (`$$…$$`, `\[…\]`, `\(…\)` and a conservative
-`$…$` that leaves currency alone) is typeset locally by KaTeX; rejected TeX stays
-visible with its reason, and copying a formula copies its TeX.
+`$…$` that leaves currency alone) is typeset locally by KaTeX after the document is
+shown, keeping your place; rejected TeX stays visible with its reason, and copying a
+formula copies its TeX.
 Markdown rendering scales linearly with document size, and local images resolve in
 batched requests.
 See [web operation, privacy, limits and recovery](web.md).

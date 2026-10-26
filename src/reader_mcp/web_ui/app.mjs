@@ -169,6 +169,7 @@ function scrollToPosition(top, smooth=true) {
   else window.scrollTo({top:bounded, behavior:smooth && motion() ? 'smooth' : 'instant'});
 }
 function moveToRange(range) {
+  lateMoved?.(range);
   // A folded callout opens when find or a thread jumps into its body.
   for(let fold=range.startContainer.parentElement?.closest('details.callout-fold:not([open])');fold;fold=fold.parentElement?.closest('details.callout-fold:not([open])'))fold.open=true;
   if(reading?.reveal(range))return;
@@ -579,23 +580,54 @@ async function renderMarkdown(container,raw,path,depth,{defer=false,range=null,c
   await embeds.mount(container,path,{depth,chain,children});
   container.querySelectorAll('img').forEach(image=>image.addEventListener('load',imageLoaded));
   mountCodeBlocks(container);mountCallouts(container,()=>{refreshScroll();positionPins();});
-  // A deferred render leaves diagrams to drawLate() after first paint; drawing many waits on the renderer.
-  if(!defer)await drawDiagrams(container);
+  // A deferred render leaves diagrams and math to drawLate() after first paint; drawing many waits on the
+  // renderer, and KaTeX typesets in idle slices. So do embeds mounted before the document is shown.
+  if(defer||container.closest('.resume-pending'))return;
+  await drawDiagrams(container);
   await drawMath(container);
 }
-/** Draw a shown document's diagrams (its own and its embeds') after first paint, keeping the reader's place. */
+/** Typeset a shown document's math, then draw its diagrams (its own and its embeds'), after first paint,
+ *  keeping the reader's place: formulas near it go first, and the first block in view stays put while
+ *  heights change, unless the reader moves. */
 async function drawLate(article,id){
-  if(!article.querySelector('.reader-diagram-canvas[data-state=loading]'))return;
-  const place=readingPlace();let moved=false;const stop=()=>{moved=true;};
+  const math=!!article.querySelector('.reader-math[data-tex]:not([data-state])'),diagrams=!!article.querySelector('.reader-diagram-canvas[data-state=loading]');
+  if(!math&&!diagrams)return;
+  let place=readingPlace(),moved=false;const stop=()=>{moved=true;};
+  const keep=()=>{
+    if(id!==state.routeId||moved||!place?.block.isConnected)return;
+    if(reading?.geometry()){reading.reflow();let range=place.range;if(!range){range=document.createRange();range.selectNodeContents(place.block);}reading.reveal(range,false);}
+    else{const shift=place.block.getBoundingClientRect().top-place.top;if(Math.abs(shift)>1)scrollTo(0,scrollY+shift);}
+  };
   const events=['wheel','keydown','pointerdown','touchstart'];events.forEach(type=>addEventListener(type,stop,{capture:true,passive:true}));
+  // A jump Reader makes becomes the place to keep in two-page mode (columns have no scroll anchoring); in
+  // continuous reading it ends the keeping, as the browser's scroll anchoring holds the new place.
+  const jumped=target=>{if(!reading?.geometry()||!target){stop();return;}
+    const range=target instanceof Range?target:document.createRange();if(!(target instanceof Range))range.selectNode(target);
+    const node=range.startContainer,block=(node instanceof Element?node:node.parentElement)?.closest('[data-source-start]')||(target instanceof Element?target:null);
+    if(block)place={block,range,top:0};else stop();};
+  lateMoved=jumped;
   try{
-    await drawDiagrams(article);
-    for(const content of article.querySelectorAll('.embedded-content'))await drawDiagrams(content);
-  }finally{events.forEach(type=>removeEventListener(type,stop,{capture:true}));}
-  if(id!==state.routeId||moved||!place?.block.isConnected)return;
-  const geometry=reading?.geometry();
-  if(geometry){const range=document.createRange();range.selectNodeContents(place.block);reading.reveal(range,false);}
-  else{const shift=place.block.getBoundingClientRect().top-place.top;if(Math.abs(shift)>1)scrollTo(0,scrollY+shift);}
+    // Between slices at most every 100 ms: each re-seek lays out the whole article again.
+    let last=0;const slice=()=>{const now=performance.now();if(now-last<100)return;last=now;keep();positionPins();};
+    if(math){await drawMath(article,{first:nearReader(),onSlice:slice});if(id!==state.routeId)return;mathLanded();keep();}
+    if(diagrams){
+      await drawDiagrams(article);
+      for(const content of article.querySelectorAll('.embedded-content'))await drawDiagrams(content);
+      keep();
+    }
+  }finally{events.forEach(type=>removeEventListener(type,stop,{capture:true}));if(lateMoved===jumped)lateMoved=null;}
+}
+/** Set while drawLate() keeps the reader's place, for jumps Reader makes: a heading link, a passage, find or a thread. */
+let lateMoved=null;
+/** Whether an element is on or next to what the reader sees: one window around it, or one spread around it. */
+function nearReader(){
+  const box=reading?.geometry()?.viewport.getBoundingClientRect();
+  return box?el=>{const r=el.getBoundingClientRect();return r.right>box.left-box.width&&r.left<box.right+box.width;}:el=>{const r=el.getBoundingClientRect();return r.bottom>-innerHeight&&r.top<innerHeight*2;};
+}
+/** Typeset formulas replace their TeX text, so anchors painted over it are drawn again from the new text. */
+function mathLanded(){
+  if(state.ranges.length||state.threads.length||state.embedThreads?.size)paintAnnotations();
+  if(!state.pdf&&!$('#find-bar').hidden&&$('#find-query').value){const index=state.findIndex;updateFind().then(()=>{if(index>0&&state.find.length){state.findIndex=Math.min(index,state.find.length-1);showFind(false);}});}
 }
 /** The first source block in view, and its offset from the top of the window. */
 function readingPlace(){
@@ -605,13 +637,13 @@ function readingPlace(){
 }
 // Math placeholders from math.mjs are typeset by the lazy KaTeX chunk; its CSS and fonts load with it.
 let mathModule=null;
-async function drawMath(container){
+async function drawMath(container,{first,onSlice}={}){
   if(!container.querySelector('.reader-math[data-tex]:not([data-state])'))return;
   try{
     if(!document.querySelector('link[data-katex]')){const link=document.createElement('link');link.rel='stylesheet';link.href='/assets/controls/katex/katex.css';link.dataset.katex='';const loaded=new Promise((resolve,reject)=>{link.onload=resolve;link.onerror=()=>reject(new Error('KaTeX styles did not load'));});document.head.append(link);await loaded;}
     mathModule??=await import('./controls/math.js');mathModule.installMathCopy();
   }catch(error){console.error(error);document.querySelector('link[data-katex]')?.remove();notify('Formulas couldn’t load; showing their TeX instead.','error');return;}
-  const {skipped}=await mathModule.renderMath(container,{onRender:()=>{refreshScroll();positionPins();}});
+  const {skipped}=await mathModule.renderMath(container,{first,onSlice,onRender:()=>{refreshScroll();positionPins();}});
   if(skipped)notify(`Showing the first ${mathModule.MATH_LIMIT.toLocaleString('en-US')} formulas.`);
 }
 // Mermaid fences become figures: a decoration canvas for the drawing (the lazy Pele chunk
@@ -659,7 +691,7 @@ async function resolveMany(path,targets){
 function imageLoaded(){if(imageLoaded.frame)return;imageLoaded.frame=requestAnimationFrame(()=>{imageLoaded.frame=0;refreshScroll();positionPins();});}
 /** Bring a heading (by id or slug) to the top of the reading view; an unknown id is ignored. */
 function showHeading(root,id){
-  const target=id&&findFragment(root,id);if(!target)return false;
+  const target=id&&findFragment(root,id);if(!target)return false;lateMoved?.(target);
   const range=document.createRange();range.selectNode(target);
   if(!reading?.reveal(range,false))scrollToPosition(scrollY+target.getBoundingClientRect().top-24,false);
   return true;
@@ -995,7 +1027,7 @@ function searchChip(){
 }
 /** Open-at-passage: reveal the indexed line (or PDF page) in either layout, then highlight the query's words with find. */
 async function revealPassage(at){
-  const anchor=reading.revealLine(at.line,at.page);
+  const anchor=reading.revealLine(at.line,at.page);lateMoved?.(anchor);
   const terms=[...new Set(at.terms)].filter(Boolean).sort((a,b)=>b.length-a.length);
   if(!terms.length)return;
   if(state.pdf){

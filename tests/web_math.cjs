@@ -1,5 +1,6 @@
 /* Math typeset by KaTeX: display, inline, invalid and currency cases, copying TeX,
-   annotations beside math, two-page fit, the page-turn texture and lazy local loading. */
+   annotations beside math, two-page fit, the page-turn texture and lazy local loading.
+   A math-heavy document is shown before its formulas typeset, and keeps the reader's place. */
 const assert=require('node:assert/strict');
 const {spawn}=require('node:child_process');
 const {createInterface}=require('node:readline');
@@ -11,10 +12,13 @@ const {chromium}=require(process.env.READER_PLAYWRIGHT||'playwright-core');
   const {url}=await new Promise((resolve,reject)=>{createInterface({input:fixture.stdout}).once('line',line=>resolve(JSON.parse(line)));fixture.once('exit',code=>reject(new Error('Fixture exited '+code)));});
   browser=await chromium.launch({headless:true,executablePath:process.env.READER_CHROME||'/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',args:['--use-angle=swiftshader','--enable-unsafe-swiftshader','--disable-background-networking','--disable-breakpad','--disable-crash-reporter','--disk-cache-size=10485760']});
   mkdirSync('.reader/web-dev',{recursive:true});
-  const open=async(prefs,path,viewport={width:1300,height:860})=>{
-    const context=await browser.newContext({viewport});await context.addInitScript(value=>{try{localStorage.setItem('reader.preferences.v1',value);}catch{}},JSON.stringify({smooth:false,theme:'paper',...prefs}));
+  const open=async(prefs,path,viewport={width:1300,height:860},suffix='')=>{
+    const context=await browser.newContext({viewport});await context.addInitScript(value=>{try{localStorage.setItem('reader.preferences.v1',value);}catch{}
+      // The moment the document is shown: how many formulas were still waiting for KaTeX.
+      new MutationObserver((_,observer)=>{if(!document.querySelector('#article')||document.querySelector('.resume-pending'))return;observer.disconnect();
+        window.__shown={formulas:document.querySelectorAll('.reader-math').length,pending:document.querySelectorAll('.reader-math:not([data-state])').length};}).observe(document,{subtree:true,childList:true,attributes:true,attributeFilter:['class']});},JSON.stringify({smooth:false,theme:'paper',...prefs}));
     const page=await context.newPage(),errors=[],external=[],requests=[];page.on('pageerror',e=>errors.push(e.message));page.on('console',m=>{if(m.type()==='error')errors.push(m.text());});page.on('request',r=>{requests.push(r.url());if(!r.url().startsWith(url))external.push(r.url());});
-    await page.goto(url+'#read='+encodeURIComponent(path));await page.waitForFunction(()=>document.querySelector('#article')&&!document.querySelector('.resume-pending'));
+    await page.goto(url+'#read='+encodeURIComponent(path)+suffix);await page.waitForFunction(()=>document.querySelector('#article')&&!document.querySelector('.resume-pending'));
     return {page,errors,external,requests,context};};
   const settled=page=>page.waitForFunction(()=>document.querySelectorAll('.reader-math').length>0&&!document.querySelector('.reader-math:not([data-state])'));
 
@@ -76,10 +80,56 @@ const {chromium}=require(process.env.READER_PLAYWRIGHT||'playwright-core');
    console.log('Math texture alignment',JSON.stringify(overlap));
    assert.deepEqual(errors,[]);assert.deepEqual(external,[]);await context.close();}
 
+  // Many formulas: the text is shown first and typeset after; a restored place survives the height changes.
+  {const heavy='library/math-heavy.md',formulas=1500;
+   const typeset=page=>page.waitForFunction(count=>document.querySelectorAll('.reader-math[data-state=ready]').length===count,formulas,{timeout:30000});
+   const shownFirst=async page=>{const shown=await page.evaluate(()=>window.__shown);assert.equal(shown.formulas,formulas);assert.ok(shown.pending>0,'the document is visible before its formulas typeset: '+JSON.stringify(shown));};
+   // Save a late place in continuous reading.
+   let mark;
+   {const {page,errors,context}=await open({layout:'scroll'},heavy);await shownFirst(page);await typeset(page);
+    const saved=page.waitForRequest(r=>r.url().includes('/api/bookmark')&&r.method()==='POST',{timeout:5000});
+    await page.evaluate(()=>{const h=[...document.querySelectorAll('#article h2')].find(h=>h.textContent==='Part 250');scrollTo(0,h.getBoundingClientRect().top+scrollY-innerHeight*.22+4);});
+    mark=(await saved).postDataJSON();assert.ok(mark.source_offset>0);assert.deepEqual(errors,[]);await context.close();}
+   const at=page=>page.evaluate(offset=>{const el=[...document.querySelectorAll('#article [data-source-start]')].find(el=>+el.dataset.sourceStart===offset),r=el.getBoundingClientRect(),v=document.querySelector('.book-viewport')?.getBoundingClientRect();
+     return {top:r.top,bottom:r.bottom,line:innerHeight*.22,inSpread:v?[...el.getClientRects()].some(c=>c.width>0&&c.left>=v.left-2&&c.right<=v.right+2):null};},mark.source_offset);
+   // Reopen: shown before typesetting, then back at the saved block once every formula is ready; the late note anchors.
+   {const {page,errors,external,context}=await open({layout:'scroll'},heavy);await shownFirst(page);await typeset(page);
+    const place=await at(page);assert.ok(place.top<=place.line+40&&place.bottom>=place.line-40,'the saved block is still at the reading line after typesetting: '+JSON.stringify(place));
+    await page.waitForFunction(()=>CSS.highlights.get('reader-other')?.size===1&&document.querySelectorAll('.annotation-pin').length===1);
+    assert.equal(await page.evaluate(()=>[...CSS.highlights.get('reader-other')][0].toString()),'distinct remark for part 280','the note beside late math anchors after typesetting');
+    assert.deepEqual(errors,[]);assert.deepEqual(external,[]);await context.close();}
+   // Two-page: the saved block's spread survives the reflow, and the next turn advances one spread.
+   {const {page,errors,context}=await open({layout:'spread',pageTurn:'slide'},heavy);await shownFirst(page);await typeset(page);
+    const place=await at(page);assert.ok(place.inSpread,'two-page reopening shows the saved block after typesetting: '+JSON.stringify(place));
+    const pages=await page.evaluate(()=>{const v=document.querySelector('.book-viewport'),gap=parseFloat(getComputedStyle(v.querySelector('.article')).columnGap)||40;return {offset:v.scrollLeft/(v.clientWidth+gap),label:document.querySelector('#pagination-slot [aria-current=page]')?.textContent};});
+    assert.ok(Math.abs(pages.offset-Math.round(pages.offset))<.02,'the spread is aligned after the reflow: '+JSON.stringify(pages));
+    const next=pages.label.split('–').map(n=>String(+n+2)).join('–');
+    await page.locator('#main').focus();await page.keyboard.press('j');
+    await page.waitForFunction(expected=>document.querySelector('#pagination-slot [aria-current=page]')?.textContent===expected,next,{timeout:5000});
+    assert.deepEqual(errors,[]);await context.close();}
+   // A heading link wins over the bookmark: typesetting keeps the heading in view, not the saved place.
+   for(const layout of ['scroll','spread']){const {page,errors,context}=await open({layout},heavy,undefined,'&h=part-120');await typeset(page);await page.waitForTimeout(150);
+    const heading=await page.evaluate(()=>{const h=document.querySelector('#part-120'),r=h.getBoundingClientRect(),v=document.querySelector('.book-viewport')?.getBoundingClientRect();return v?{shown:r.left>=v.left-2&&r.right<=v.right+2}:{shown:r.top>-10&&r.top<innerHeight*.4,top:r.top};});
+    assert.ok(heading.shown,layout+': the linked heading stays in view after typesetting: '+JSON.stringify(heading));
+    assert.deepEqual(errors,[]);await context.close();}
+   // Find typed while formulas typeset: hits are taken again from the typeset text (TeX is no longer found).
+   {const {page,errors,context}=await open({layout:'scroll'},heavy);
+    await page.locator('#main').focus();await page.keyboard.press('/');
+    assert.ok(await page.evaluate(()=>document.querySelectorAll('.reader-math:not([data-state])').length)>0,'find starts before typesetting ends');
+    await page.locator('#find-query').fill('pmatrix');await typeset(page);
+    await page.waitForFunction(()=>document.querySelector('#find-count').textContent==='0 / 0');
+    await page.locator('#find-query').fill('distinct remark for part 290');await page.waitForFunction(()=>document.querySelector('#find-count').textContent==='1 / 1');
+    assert.equal(await page.evaluate(()=>[...CSS.highlights.get('reader-find')][0].toString()),'distinct remark for part 290');
+    // Copying a typeset display formula still yields its TeX.
+    const copied=await page.evaluate(()=>{const glyph=document.querySelectorAll('.reader-math-block')[299].querySelector('.katex-html'),range=document.createRange();range.selectNodeContents(glyph);getSelection().removeAllRanges();getSelection().addRange(range);
+      const data=new DataTransfer();document.dispatchEvent(new ClipboardEvent('copy',{clipboardData:data,bubbles:true,cancelable:true}));return data.getData('text/plain');});
+    assert.match(copied,/^\$\$\\begin\{pmatrix\} 300 & 1/);
+    assert.deepEqual(errors,[]);await context.close();}}
+
   // math: false keeps $ literal; a document without math never loads KaTeX.
   {const {page,requests,context}=await open({layout:'scroll'},'library/prices.md');await page.waitForTimeout(300);
    assert.equal(await page.locator('.reader-math').count(),0);assert.match(await page.locator('#article').textContent(),/\$x_1\$ and \$y_2\$/);
    assert.equal(requests.filter(r=>/\/controls\/(math\.js|katex\/)/.test(r)).length,0);await context.close();}
-  console.log('Math passed: display, inline and \\(\\) formulas, invalid TeX with its reason, currency and code untouched, TeX copy, find and annotation offsets beside math, two-page fit, aligned page-turn texture, math: false, lazy local KaTeX with woff2 fonts.');
+  console.log('Math passed: display, inline and \\(\\) formulas, invalid TeX with its reason, currency and code untouched, TeX copy, find and annotation offsets beside math, two-page fit, aligned page-turn texture, a math-heavy document shown before typesetting with its place, note and find kept, math: false, lazy local KaTeX with woff2 fonts.');
  }finally{await browser?.close();if(fixture.exitCode===null&&fixture.signalCode===null){fixture.kill('SIGTERM');await new Promise(resolve=>fixture.once('exit',resolve));}}
 })().catch(error=>{console.error(error);process.exitCode=1;});

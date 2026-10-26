@@ -3112,8 +3112,8 @@ targets resolve through `/api/resolve-batch` (at most 64 targets and about
 12 KB of query per request, two requests at a time), and embeds resolve through
 `/api/embeds` (one request for the first 16 and their nested embeds). The source projection that annotation
 painting and passage selection use is built on first need, not before display.
-Image loads trigger at most one scroll/pin reflow per animation frame. Mermaid diagrams are drawn after first paint (see Diagrams below); TeX is still
-typeset before first paint. A document is
+Image loads trigger at most one scroll/pin reflow per animation frame. Mermaid diagrams are drawn and TeX is
+typeset after first paint (see Diagrams and Math below). A document is
 still sanitized and laid out in full before it is shown, so sanitizing plus the
 browser's layout and paint of the whole DOM remain proportional to its size.
 
@@ -3143,8 +3143,8 @@ offsets of surrounding passages are unchanged.
 - **Rendering.** Diagrams render one per idle slice (`requestIdleCallback` with a
   60 ms timeout, or `setTimeout`). `mount()` adapts the layout to the column width and
   re-renders when that width changes. The top-level document's diagrams (and its
-  embeds') render after the reading position is restored, so first paint never waits
-  for them; when they finish, the block that was first in view is kept in view (unless
+  embeds') render after the reading position is restored and its math is typeset, so
+  first paint never waits for them; when they finish, the block that was first in view is kept in view (unless
   you moved meanwhile) and spread counts are re-measured.
 - **Errors and limits.** A diagram that does not parse, an unsupported type, a source
   over 64 KiB, or any diagram after the first 64 in a document shows its source
@@ -3208,6 +3208,18 @@ code stay exactly as written.
   `strict: 'warn'`, `maxSize: 20` and `maxExpand: 1000`, in idle slices of about 12 ms.
   At most 2,000 formulas per document are typeset; the rest keep their TeX, and a
   toast says "Showing the first 2,000 formulas."
+- **After first paint.** An open document (and the embeds mounted with it) is shown
+  with its TeX placeholders as soon as the reading position is restored; typesetting
+  starts afterwards, before its diagrams are drawn. Formulas within about a window
+  (or a spread) of the reader go first. While heights change, the block that was first
+  in view is kept in place at most every 100 ms and once at the end (spread counts are
+  re-measured in two-page mode), unless you scroll, press a key or click meanwhile. When
+  Reader moves you (a heading link, a passage from search, find or a thread), two-page
+  mode keeps that target in view instead; continuous reading stops re-seeking and
+  relies on the browser's scroll anchoring.
+  When typesetting ends, highlights and an open find are drawn again from the typeset
+  text, so TeX found in a placeholder is no longer a hit. Prose colors never color a
+  formula. Embeds that load later, and the scratch preview, typeset as they render.
 - **Errors.** A formula KaTeX rejects, such as an undefined macro, shows its original
   TeX in monospace with a dotted `--warning` underline. Its title gives KaTeX's
   message. Custom macros defined elsewhere (for example in another tool's preamble)

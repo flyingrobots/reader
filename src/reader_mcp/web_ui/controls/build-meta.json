@@ -60,7 +60,7 @@
     "src/local-model.tsx": "1e833a07054251a762107dec44e55650138f0ba5ba935180806ee8fa1ba5a043",
     "src/log-block.tsx": "bc4bd556c2366d9578b40718911491290bc95ff67c2b3bc0cf124871aaa6105a",
     "src/markdown-editor.ts": "88b1c43e194e5efe4c0a87824ad238df80640f48fafa180a6349ec11752eb1da",
-    "src/math.ts": "75df1ce8e43e3a75e249a959ca89fcf20144888a3aaea933a761903d50c832dc",
+    "src/math.ts": "f4ebd1d4e82c2cb58a1e1ff0cc119f39951e422bbb7057abaf51903d92334e21",
     "src/notify.ts": "792ebb9eb5e43bae5327e5b3c40814e3122d776dd5ac2934f10784dac8cacb2f",
     "src/outline.tsx": "24bec26b51b1b5e487d6604983cb4eb75bc30a9f68b097717165c51cdfcfd5ac",
     "src/page-turn/page-turn.ts": "fca2fca355de2ac96a2a88157162dfe023ea1751d4e4459aa77dec2613d08727",
@@ -1057,8 +1057,8 @@
       "sha256": "ca4662cb5d1b738fbe5350c0d5485ba11773b4b7208974082ae6e129a52d631d"
     },
     "math.js": {
-      "bytes": 270050,
-      "sha256": "f07bd652ea62886cfa10d528c2b122207ce7ec1540ec61df2c30a5c5d2dbc748"
+      "bytes": 270175,
+      "sha256": "71ad55f2fc1250c58a42d9bbde8813287707d6fb41af25498dd2cb84bb924c45"
     },
     "page-turn.js": {
       "bytes": 17152,

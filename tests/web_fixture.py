@@ -249,6 +249,18 @@ def main():
                 'The closing paragraph.\n')
             (root / 'library/math.md').write_text(math)
             (root / 'library/prices.md').write_text('---\ntitle: Prices\nmath: false\n---\n\n# Prices\n\nA price list where $x_1$ and $y_2$ are product codes.\n')
+            # A math-heavy document (1,500 formulas, tall display blocks) for typesetting after first paint.
+            heavy = '# Many formulas\n\n' + '\n\n'.join(
+                f'## Part {i}\n\nPart {i} relates $x_{{{i}}}^2 + y_{{{i}}}^2 = r^2$, $\\alpha_{{{i}}} \\leq \\beta$, '
+                f'$\\sum_{{k=1}}^{{{i}}} k = \\frac{{{i}({i}+1)}}{{2}}$ and $\\sqrt{{{i}}}$ in one paragraph.\n\n'
+                f'$$\n\\begin{{pmatrix}} {i} & 1 \\\\ 0 & \\frac{{1}}{{{i}}} \\end{{pmatrix}} = \\int_0^{{{i}}} \\frac{{\\sum_{{n=0}}^{{\\infty}} t^n}}{{\\prod_{{m=1}}^{{3}} (1+t^m)}}\\,dt\n$$\n\n'
+                f'The distinct remark for part {i} rests here.'
+                for i in range(1, 301)) + '\n'
+            (root / 'library/math-heavy.md').write_text(heavy)
+            remark = 'distinct remark for part 280'
+            at = heavy.index(remark)
+            Annotations(root).create(path='library/math-heavy.md', start=at, end=at + len(remark), owner='Ada', comment='A note beside late math.', request_id=str(uuid4()))
+            works.append(dict(id='math-heavy.md', title='Many formulas', primary='library/math-heavy.md', authors=['Ada'], topics=['Ideas'], projects=['Synthetic'], date='2026-10-23', primary_format='.md', primary_bytes=len(heavy.encode())))
             for name, title, text in (('math.md', 'Formulas', math), ('prices.md', 'Prices', '')):
                 works.append(dict(id=name, title=title, primary='library/' + name, authors=['Ada'], topics=['Ideas'], projects=['Synthetic'], date='2026-10-23', primary_format='.md', primary_bytes=max(1, len(text.encode()))))
         if '--editions' in sys.argv:

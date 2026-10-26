@@ -23,7 +23,7 @@ export function quotedRuns(text,spans){
 const BLOCKS='p,li,blockquote,h1,h2,h3,h4,h5,h6,td,th,dt,dd,figcaption';
 // Never colored: code, math, diagrams and every non-source decoration (embed headers and notes included).
 // Embedded documents are prose on the page and are colored like the document around them.
-const EXCLUDED='pre,code,kbd,samp,var,math,svg,.callout-title,.katex,.MathJax,mjx-container,.mermaid,.reader-code-block,[data-reader-decoration],.annotation-pin,.next-reads,script,style,textarea';
+const EXCLUDED='pre,code,kbd,samp,var,math,.reader-math,svg,.callout-title,.katex,.MathJax,mjx-container,.mermaid,.reader-code-block,[data-reader-decoration],.annotation-pin,.next-reads,script,style,textarea';
 const BATCH_BYTES=96*1024,BATCH_SEGMENTS=400,SEGMENT_BYTES=128*1024;
 const encoder=new TextEncoder();
 

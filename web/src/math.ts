@@ -27,14 +27,18 @@ function typeset(el:HTMLElement){
     el.title=String((error as Error)?.message??error).replace(/^KaTeX parse error:\s*/,'Couldn’t typeset this formula: ').slice(0,300);
   }
 }
-/** Typeset every pending formula under `root` in idle slices; at most MATH_LIMIT per call. */
-export async function renderMath(root:HTMLElement,{onRender}:{onRender?:()=>void}={}){
+/** Typeset every pending formula under `root` in idle slices; at most MATH_LIMIT per call (the first in
+    document order). `first` picks formulas to typeset before the rest (those near the reader); `onSlice`
+    runs after each slice, while the page is still changing height. */
+export async function renderMath(root:HTMLElement,{onRender,onSlice,first}:{onRender?:()=>void,onSlice?:()=>void,first?:(el:HTMLElement)=>boolean}={}){
   const pending=[...root.querySelectorAll<HTMLElement>('.reader-math[data-tex]:not([data-state])')];
-  const queue=pending.slice(0,MATH_LIMIT);
+  let queue=pending.slice(0,MATH_LIMIT);
   for(const el of pending.slice(MATH_LIMIT))el.dataset.state='skipped';
+  if(first){const soon=queue.filter(first),set=new Set(soon);queue=[...soon,...queue.filter(el=>!set.has(el))];}
   for(let index=0;index<queue.length;){
     await idle();const start=performance.now();
-    while(index<queue.length&&performance.now()-start<SLICE_MS){const el=queue[index++];if(el.isConnected)typeset(el);}
+    while(index<queue.length&&performance.now()-start<SLICE_MS){const el=queue[index++];if(el.isConnected&&!el.dataset.state)typeset(el);}
+    if(index<queue.length)onSlice?.();
   }
   if(queue.length){root.dispatchEvent(new CustomEvent('reader:math',{bubbles:true}));onRender?.();}
   return {rendered:queue.length,skipped:pending.length-queue.length};
