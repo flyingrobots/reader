@@ -4,6 +4,7 @@ const {spawn}=require('node:child_process');
 const {createInterface}=require('node:readline');
 const {mkdirSync}=require('node:fs');
 const {chromium}=require(process.env.READER_PLAYWRIGHT||'playwright-core');
+const {sanitizerReport}=require('./web_wait.cjs');  // #151
 (async()=>{
  const fixture=spawn(process.env.READER_PYTHON||'.venv/bin/python',['tests/web_fixture.py'],{stdio:['ignore','pipe','inherit']});let browser;
  try{
@@ -11,7 +12,7 @@ const {chromium}=require(process.env.READER_PLAYWRIGHT||'playwright-core');
   browser=await chromium.launch({headless:true,executablePath:process.env.READER_CHROME||'/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',args:['--use-angle=swiftshader','--enable-unsafe-swiftshader','--disable-background-networking','--disable-breakpad','--disable-crash-reporter','--disk-cache-size=10485760']});
   mkdirSync('.reader/web-dev',{recursive:true});
   const open=async(reducedMotion,prefs,path)=>{const context=await browser.newContext({viewport:{width:1300,height:820},reducedMotion});await context.addInitScript(value=>{try{localStorage.setItem('reader.preferences.v1',value);}catch{}},JSON.stringify({layout:'spread',smooth:false,theme:'paper',...prefs}));
-    const page=await context.newPage(),errors=[],external=[];page.on('pageerror',e=>errors.push(e.message));page.on('console',m=>{if(m.type()==='error')errors.push(m.text());});page.on('request',r=>{if(!r.url().startsWith(url))external.push(r.url());});
+    const page=await context.newPage(),errors=[],external=[];page.on('pageerror',e=>errors.push(e.message));page.on('console',m=>{if(m.type()==='error'&&!sanitizerReport(m))errors.push(m.text());});page.on('request',r=>{if(!r.url().startsWith(url))external.push(r.url());});
     await page.goto(url+'#read='+encodeURIComponent(path));await page.waitForFunction(()=>document.body.classList.contains('two-page')&&!document.querySelector('.resume-pending'));
     return {page,errors,external,context};};
   const current=page=>page.locator('#pagination-slot [aria-current=page]').textContent();

@@ -5,6 +5,7 @@ const {spawn}=require('node:child_process');
 const {createInterface}=require('node:readline');
 const {mkdirSync}=require('node:fs');
 const {chromium}=require(process.env.READER_PLAYWRIGHT||'playwright-core');
+const {sanitizerReport}=require('./web_wait.cjs');  // #151
 const shots=process.env.READER_SHOTS||'.reader/web-dev';
 (async()=>{
  const fixture=spawn(process.env.READER_PYTHON||'.venv/bin/python',['tests/web_fixture.py','--links','--editions','--versions'],{stdio:['ignore','pipe','inherit']});let browser;
@@ -18,7 +19,7 @@ const shots=process.env.READER_SHOTS||'.reader/web-dev';
     // Only the first document of the context seeds preferences, so panes and reloads keep what the test changes.
     await context.addInitScript(value=>{try{if(!localStorage.getItem('reader.preferences.v1'))localStorage.setItem('reader.preferences.v1',value);}catch{}},JSON.stringify({smooth:false,theme:'paper',nextReads:false,...prefs}));
     const page=await context.newPage();
-    page.on('pageerror',e=>errors.push(e.message));page.on('console',m=>{if(m.type()==='error')errors.push(m.text()+' '+(m.location()?.url||''));});
+    page.on('pageerror',e=>errors.push(e.message));page.on('console',m=>{if(m.type()==='error'&&!sanitizerReport(m))errors.push(m.text()+' '+(m.location()?.url||''));});
     page.on('request',r=>{if(!r.url().startsWith(url))external.push(r.url());else if(r.method()==='POST')writes.push({path:new URL(r.url()).pathname,body:r.postData(),frame:r.frame()?.url()||''});});
     page.on('response',r=>{if(r.status()===429)busy.push(r.url());});
     return {page,context};

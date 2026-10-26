@@ -7,6 +7,7 @@ const assert=require('node:assert/strict');
 const {spawn}=require('node:child_process');
 const {createInterface}=require('node:readline');
 const {chromium}=require(process.env.READER_PLAYWRIGHT||'playwright-core');
+const {sanitizerReport}=require('./web_wait.cjs');  // #151
 // Lays every block out, as before the rule: the baseline each check compares against.
 const LAID_OUT='#article>*{content-visibility:visible!important;contain-intrinsic-size:none!important}';
 const PATH='library/large.md';
@@ -20,7 +21,7 @@ const PATH='library/large.md';
     await context.addInitScript(([value,laidOut,css])=>{try{localStorage.setItem('reader.preferences.v1',value);}catch{}
       if(laidOut)document.addEventListener('DOMContentLoaded',()=>{const style=document.createElement('style');style.textContent=css;document.head.append(style);});},[JSON.stringify(prefs),laidOut,LAID_OUT]);
     const page=await context.newPage(),errors=[];
-    page.on('pageerror',e=>errors.push(e.message));page.on('console',m=>{if(m.type()==='error')errors.push(m.text());});
+    page.on('pageerror',e=>errors.push(e.message));page.on('console',m=>{if(m.type()==='error'&&!sanitizerReport(m))errors.push(m.text());});
     await page.goto(url+'#read='+encodeURIComponent(path)+suffix);
     await page.waitForFunction(()=>document.querySelector('#article')&&!document.querySelector('.resume-pending'),null,{timeout:60000,polling:50});
     return {context,page,errors};
