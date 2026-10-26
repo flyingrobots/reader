@@ -1,6 +1,12 @@
 #!/usr/bin/env python3
-"""Run bounded copy-isolated checks using existing Python and Node Docker images."""
+"""Run bounded copy-isolated checks using existing Python and Node Docker images.
+
+Kinds: `formatter` (pinned wide-md build), `python` (pytest; optional test paths or -k expressions after the
+kind run a focused subset), `node` (the Obsidian plugin) and `web` (tests/*.test.mjs, then the web controls
+type check and build from web/package-lock.json; the built web_ui/controls are copied back to the checkout)."""
 import argparse
+import re
+import shlex
 import fcntl
 import io
 import json
@@ -21,8 +27,13 @@ def docker(*args, **kwargs):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('kind', choices=['python', 'node', 'formatter'])
+    parser.add_argument('kind', choices=['python', 'node', 'formatter', 'web'])
+    parser.add_argument('pytest_args', nargs='*', help='python only: test paths, node IDs or -k EXPRESSION')
     args = parser.parse_args()
+    if args.pytest_args and args.kind != 'python':
+        parser.error('Only the python kind takes test arguments')
+    if any(not re.fullmatch(r'[A-Za-z0-9_./:\[\]= -]{1,300}', a) for a in args.pytest_args):
+        parser.error('Test arguments may name tests/ paths, node IDs or -k expressions only')
     RUNTIME.mkdir(parents=True, exist_ok=True)
     with (RUNTIME / 'validation.lock').open('w') as lock:
         fcntl.flock(lock, fcntl.LOCK_EX)
@@ -30,7 +41,7 @@ def main():
             raise RuntimeError('Host free space below 50 GiB')
         kind = args.kind
         name = 'reader-' + kind + '-checks'
-        image = {'python':'python:3.12-bookworm','node':'node:24.18.0','formatter':'rust:1.96.0'}[kind]
+        image = {'python':'python:3.12-bookworm','node':'node:24.18.0','formatter':'rust:1.96.0','web':'node:24.18.0'}[kind]
         docker('image', 'inspect', image, stdout=subprocess.DEVNULL)
         prior = subprocess.run(['docker', 'inspect', name], capture_output=True, text=True)
         if prior.returncode == 0:
@@ -38,7 +49,12 @@ def main():
         # Only selected software paths. No host mount and no vault files enter the worker.
         stream = io.BytesIO()
         with tarfile.open(fileobj=stream, mode='w') as archive:
-            for top in ['src','tests','scripts','skills','schemas','plugins','pyproject.toml','uv.lock','LICENSE','.reader/tooling/bin/wide-md','.reader/tooling/installed.json']:
+            tops = ['src','tests','scripts','skills','schemas','plugins','pyproject.toml','uv.lock','LICENSE','.reader/tooling/bin/wide-md','.reader/tooling/installed.json']
+            if kind == 'web':
+                tops = ['src','tests','web','package.json','package-lock.json','LICENSE']
+            for top in tops:
+                if not (ROOT/top).exists():
+                    continue
                 for path in ([ROOT/top] if (ROOT/top).is_file() else sorted((ROOT/top).rglob('*'))):
                     rel = path.relative_to(ROOT)
                     if path.is_file() and not path.is_symlink() and not any(p in ('node_modules','dist','__pycache__') for p in rel.parts):
@@ -63,10 +79,13 @@ def main():
             docker('exec','-i',name,'tar','xf','-','-C','/work',input=stream.getvalue())
             cmd = ('python -m pip install --disable-pip-version-check --no-cache-dir --target /work/tools uv && '
                    'PYTHONPATH=/work/tools UV_CACHE_DIR=/work/cache python -m uv sync --locked && '
-                   '.venv/bin/python -m pytest -q') if kind == 'python' else (
+                   '.venv/bin/python -m pytest -q' + ''.join(' ' + shlex.quote(a) for a in args.pytest_args)) if kind == 'python' else (
                    'npm --prefix plugins/reader ci --cache /work/npm-cache && '
                    'npm --prefix plugins/reader run check && npm --prefix plugins/reader test && '
                    'npm --prefix plugins/reader run build')
+            if kind=='web':
+                cmd = ('node --test tests/*.test.mjs && cd web && npm ci --cache /work/npm-cache --no-audit --no-fund && '
+                       'npm run check && npm run build')
             if kind=='formatter':
                 cmd = ('git init /work/formatter && git -C /work/formatter fetch --depth=1 '
                        'https://github.com/flyingrobots/wide-md c167101b32bbe37954429e9de5db33efcdc0a16c && '
@@ -106,6 +125,19 @@ def main():
                 (ROOT/'.reader/tooling/installed.json').write_text(json.dumps({
                     'revision':'c167101b32bbe37954429e9de5db33efcdc0a16c',
                     'executable_sha256':hashlib.sha256(data).hexdigest(),'platform':'linux-container'}))
+            if kind=='web':
+                # The built controls replace the checkout's copy (tracked in Git, so any change is reviewable).
+                data=docker('exec',name,'tar','cf','-','-C','/work/src/reader_mcp/web_ui','controls',capture_output=True).stdout
+                if len(data)>96*1024**2:raise RuntimeError('Built controls exceed 96 MiB')
+                controls=ROOT/'src/reader_mcp/web_ui/controls'
+                staging=RUNTIME/'controls.next'
+                shutil.rmtree(staging,ignore_errors=True);staging.mkdir(parents=True)
+                with tarfile.open(fileobj=io.BytesIO(data)) as built:
+                    for member in built.getmembers():
+                        if not (member.isfile() or member.isdir()) or member.name.startswith('/') or '..' in member.name.split('/'):
+                            raise RuntimeError('Unexpected entry in built controls: '+member.name)
+                    built.extractall(staging)  # Members were checked above (Python 3.9 has no extraction filters).
+                shutil.rmtree(controls);(staging/'controls').replace(controls);shutil.rmtree(staging,ignore_errors=True)
             if kind=='node':
                 (ROOT/'plugins/reader/dist').mkdir(exist_ok=True)
                 for file in ['main.js','styles.css','manifest.json','LICENSE']:
