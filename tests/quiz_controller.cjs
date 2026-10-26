@@ -66,3 +66,55 @@ for(const reopenEarly of [false,true])test(`an accepted review survives closing 
   assert.equal(h.get().reviews.q1?.comment,'Preserved review.');
  }finally{h.controller.destroy();}
 });
+
+for(const reopenEarly of [false,true])test(`regeneration replaces a prior review task after closing (reopen early: ${reopenEarly})`,async()=>{
+ let finish,generated=false;
+ const review={id:'old-review',kind:'quiz-review',state:'done',result:{quiz_id:oldQuiz.id,question_id:'q1',verdict:'right'}};
+ const generation={id:'new-generation',kind:'quiz',state:'done'};
+ const h=await harness(async(path,body)=>{
+  if(body?.action==='review')return {task:review};
+  if(body)return new Promise(resolve=>{finish=resolve;});
+  if(path.includes('task=new-generation')){generated=true;return {...listing(newQuiz),task:generation};}
+  if(path.includes('task=old-review'))return {...listing(oldQuiz),task:review};
+  return listing(oldQuiz);
+ });
+ try{
+  await h.controller.open();h.actions().shortAnswer('My answer.');await h.actions().review();
+  const pending=h.actions().generate(true);h.controller.close();if(reopenEarly)await h.controller.open();
+  finish({task:generation});await pending;if(!reopenEarly)await h.controller.open();
+  assert.equal(generated,true,'reopening must poll the accepted generation rather than the prior review');
+  assert.equal(h.get().quiz.id,newQuiz.id);
+ }finally{h.controller.destroy();}
+});
+
+test('an earlier reopening listing cannot overwrite a newly accepted generation',async()=>{
+ let finish,listingRead,reads=0;
+ const task={id:'generation',kind:'quiz',state:'done'};
+ const h=await harness(async(path,body)=>{
+  if(body)return new Promise(resolve=>{finish=resolve;});
+  if(path.includes('task=generation'))return {...listing(newQuiz),task};
+  if(reads++)return new Promise(resolve=>{listingRead=resolve;});
+  return listing(oldQuiz);
+ });
+ try{
+  await h.controller.open();const pending=h.actions().generate(true);h.controller.close();
+  const reopening=h.controller.open();finish({task});await pending;
+  listingRead(listing(oldQuiz));await reopening;
+  assert.equal(h.get().quiz.id,newQuiz.id,'acceptance supersedes the older listing response');
+ }finally{h.controller.destroy();}
+});
+
+test('a cached generation response clears a reopening loading state',async()=>{
+ let finish,listingRead,reads=0;
+ const h=await harness(async(path,body)=>{
+  if(body)return new Promise(resolve=>{finish=resolve;});
+  if(reads++)return new Promise(resolve=>{listingRead=resolve;});
+  return listing(oldQuiz);
+ });
+ try{
+  await h.controller.open();const pending=h.actions().generate();h.controller.close();
+  const reopening=h.controller.open();finish({quiz:newQuiz});await pending;
+  listingRead(listing(oldQuiz));await reopening;
+  assert.equal(h.get().quiz.id,newQuiz.id);assert.equal(h.get().loading,false);assert.equal(h.get().busy,false);
+ }finally{h.controller.destroy();}
+});

@@ -39,6 +39,15 @@ export function installQuiz({api,document:currentDocument,participant:currentPar
     }
   }
   function failure(error,token=sequence){if(token===sequence)update({loading:false,busy:false,error:error.message||String(error)});}
+  async function acceptResponse(data,owner,request){
+    // Accepted work survives closing. A different context or newer submission
+    // supersedes it, and its acceptance invalidates earlier listing requests.
+    if(owner!==context||request!==submission)return;
+    const token=++sequence;clearTimeout(timer);
+    if(data.quiz){update({...resetQuestions(data.quiz),busy:false,loading:false});return;}
+    update({task:data.task});
+    if(state.open)try{await load(data.task.id,token);}catch(error){failure(error,token);}
+  }
   async function open(){
     const unavailable=available?.();if(unavailable){toast(unavailable);return;}
     const doc=currentDocument(),participant=currentParticipant();
@@ -51,12 +60,10 @@ export function installQuiz({api,document:currentDocument,participant:currentPar
     try{await load(state.task?.id,token);}catch(error){failure(error,token);}
   }
   async function generate(regenerate=false){
-    if(state.busy)return;submission++;const token=++sequence;clearTimeout(timer);update({busy:true,error:'',result:null});
+    if(state.busy)return;const token=++sequence,owner=context,request=++submission;clearTimeout(timer);update({busy:true,error:'',result:null});
     try{
       const data=await post({action:'generate',voice:state.voice||undefined,request_id:crypto.randomUUID(),regenerate});
-      if(token!==sequence)return;
-      if(data.quiz){update({...resetQuestions(data.quiz),busy:false});return;}
-      update({task:data.task});await load(data.task.id,token);
+      await acceptResponse(data,owner,request);
     }catch(error){failure(error,token);}
   }
   function choose(value){
@@ -70,10 +77,7 @@ export function installQuiz({api,document:currentDocument,participant:currentPar
     try{
       const data=await post({action:'review',voice:state.voice||quiz.author,request_id:crypto.randomUUID(),edition:quiz.document_sha256,
         quiz_id:quiz.id,question_id:question.id,answer:state.short[question.id]||''});
-      // Closing invalidates rendering, not the accepted provider request. Keep
-      // its identity for this context unless another submission superseded it.
-      if(owner!==context||request!==submission)return;
-      update({task:data.task});if(state.open)await load(data.task.id,sequence);
+      await acceptResponse(data,owner,request);
     }catch(error){failure(error,token);}
   }
   async function next(){
