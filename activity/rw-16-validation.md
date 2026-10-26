@@ -23,3 +23,9 @@ A public prompt-runtime regression reproduced a host path in the voice version. 
 The prompt and notebook GET routes now share expensive-request admission because each scans its bounded inventory. The route regression was RED before classification; the refusal and ordinary-read availability checks both passed afterward (`prompt-admission-red` / `prompt-admission-green`).
 
 A failed reply handoff also exposed a host path in its successful-save response. Fresh, recovered and replayed public save results now use display redaction; the notebook and internal diagnostic journal remain unchanged. The new failure-path regression and the prompt/notebook suites passed all 21 tests (`prompt-save-privacy-red` / `prompt-save-privacy-green`).
+
+## Integrated validation checkpoint
+
+At `7d121b1`, both web/plugin TypeScript checks and production builds, 24 plugin tests, five inherited quiz-controller tests and the complete writing-prompt browser flow passed. Rebuilt assets matched tracked bytes. The browser worker used approximately 820 MiB in `/work` and 9 MiB in `/tmp`, within its existing limits.
+
+An earlier complete Python run at `0d3016b` reported 803 passed, two skipped and one failure in the existing chat commit-trailer assertion. That test passed in isolation without a code change. Its original log is retained as `prompt-full-failed`; the cause is unconfirmed. A complete rerun after the final public-error fix remains required. A passing isolated check is not a fix or a substitute for that rerun.
