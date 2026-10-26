@@ -1,7 +1,7 @@
 /** Article quizzes: edition-bound controller; the UI is a shadcn/Base UI island. */
 export function installQuiz({api,document:currentDocument,participant:currentParticipant,mount,showEvidence,changed,mode,available,toast}){
   const empty=()=>({open:false,loading:false,busy:false,error:'',quiz:null,task:null,voices:[],voice:'',index:0,answers:{},short:{},reviews:{},result:null});
-  let state=empty(),context=null,sequence=0,timer=null;const listeners=new Set();
+  let state=empty(),context=null,sequence=0,submission=0,timer=null;const listeners=new Set();
   const getSnapshot=()=>state,subscribe=listener=>{listeners.add(listener);return()=>listeners.delete(listener);};
   function update(patch){const before=state.open;state={...state,...patch};if(before!==state.open)mode?.(state.open);for(const listener of listeners)listener();}
   const params=()=>new URLSearchParams({path:context.path,participant:context.participant});
@@ -51,7 +51,7 @@ export function installQuiz({api,document:currentDocument,participant:currentPar
     try{await load(state.task?.id,token);}catch(error){failure(error,token);}
   }
   async function generate(regenerate=false){
-    if(state.busy)return;const token=++sequence;clearTimeout(timer);update({busy:true,error:'',result:null});
+    if(state.busy)return;submission++;const token=++sequence;clearTimeout(timer);update({busy:true,error:'',result:null});
     try{
       const data=await post({action:'generate',voice:state.voice||undefined,request_id:crypto.randomUUID(),regenerate});
       if(token!==sequence)return;
@@ -66,11 +66,14 @@ export function installQuiz({api,document:currentDocument,participant:currentPar
   function shortAnswer(value){const question=state.quiz?.questions[state.index];if(question)update({short:{...state.short,[question.id]:value}});}
   async function review(){
     const quiz=state.quiz,question=quiz?.questions[state.index];if(!question||state.busy)return;
-    const token=++sequence;update({busy:true,error:''});
+    const token=++sequence,owner=context,request=++submission;update({busy:true,error:''});
     try{
       const data=await post({action:'review',voice:state.voice||quiz.author,request_id:crypto.randomUUID(),edition:quiz.document_sha256,
         quiz_id:quiz.id,question_id:question.id,answer:state.short[question.id]||''});
-      if(token!==sequence)return;update({task:data.task});await load(data.task.id,token);
+      // Closing invalidates rendering, not the accepted provider request. Keep
+      // its identity for this context unless another submission superseded it.
+      if(owner!==context||request!==submission)return;
+      update({task:data.task});if(state.open)await load(data.task.id,sequence);
     }catch(error){failure(error,token);}
   }
   async function next(){
