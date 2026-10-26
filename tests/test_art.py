@@ -603,3 +603,54 @@ def test_the_prompts_behind_a_version_are_read_back_bounded_and_split(tmp_path, 
         server.shutdown()
         server.server_close()
         library.close()
+
+
+# Regenerate with a reader's direction (#147) ---------------------------------------------------
+
+def test_a_readers_direction_is_bounded_sent_fenced_and_recorded(tmp_path):
+    root, library = vault(tmp_path, {'Claude': ['--art-scene', str(scene_file(tmp_path))]})
+    server = WebServer(('127.0.0.1', 0), library, 'Tester')
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    base = f'http://127.0.0.1:{server.server_port}'
+
+    def call(method, path, payload=None):
+        request = urllib.request.Request(base + path, json.dumps(payload).encode() if payload is not None else None,
+                                         {'Content-Type': 'application/json', 'X-Reader-Token': server.token}, method=method)
+        try:
+            with urllib.request.urlopen(request) as response:
+                return response.status, json.loads(response.read())
+        except urllib.error.HTTPError as error:
+            return error.code, json.loads(error.read())
+    try:
+        generate = {'action': 'generate', 'path': 'library/essay.md', 'producer': 'voice:Claude'}
+        assert call('POST', '/api/art', generate | {'direction': 'x' * (art_module.MAX_DIRECTION + 1)})[0] == 400
+        assert call('POST', '/api/art', generate | {'direction': ['not text']})[0] == 400
+        assert library.art.jobs == {}, 'a refused direction queues nothing'
+        direction = 'Make it a night scene:\r\n slower, with one bright accent.\x00'
+        status, created = call('POST', '/api/art', generate | {'direction': direction})
+        assert status == 200 and created['job']['direction'] == 'Make it a night scene:\n slower, with one bright accent.'
+        done = wait(library.art, created['job']['id'])
+        assert done['state'] == 'done', done.get('error')
+        art = library.art.art('library/essay.md')['art']
+        assert art['provenance']['direction'] == 'Make it a night scene:\n slower, with one bright accent.'
+        assert art['provenance']['prompts']['direction'] == 'direction.v1'
+        meta = json.loads((root / done['log'] / 'meta.json').read_text())
+        assert meta['direction'] == art['provenance']['direction'] and meta['prompts']['direction'] == 'direction.v1'
+        for stage in ('brief', 'scene'):
+            prompt = gzip.open(root / done['log'] / f'{stage}-prompt.txt.gz').read().decode()
+            assert "The reader's direction (prompt direction.v1)" in prompt and '<<<READER-DIRECTION' in prompt and 'one bright accent' in prompt
+        # The prompt card shows it as its own part, and the answer carries the direction for the next Regenerate.
+        status, data = call('GET', f'/api/art/prompt?path=library%2Fessay.md&edition={art["edition"]}&generation={art["generation"]}')
+        assert status == 200 and data['direction'] == art['provenance']['direction']
+        assert [p['text'] for p in data['stages'][0]['parts'] if p['kind'] == 'direction'] == [art['provenance']['direction']]
+        # Without a direction nothing changes: no slot in the prompts, no direction in provenance.
+        done = wait(library.art, call('POST', '/api/art', generate)[1]['job']['id'])
+        other = next(v for v in library.art.versions('library/essay.md') if v['generation'] != art['generation'])
+        plain = library.art.load('library/essay.md', other['edition'], other['generation'])
+        assert 'direction' not in plain['provenance'] and 'direction' not in plain['provenance']['prompts']
+        assert '<<<READER-DIRECTION' not in gzip.open(root / done['log'] / 'brief-prompt.txt.gz').read().decode()
+        assert library.art.art('library/essay.md')['count'] == 2, 'a new version beside the old one'
+    finally:
+        server.shutdown()
+        server.server_close()
+        library.close()

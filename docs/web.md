@@ -688,6 +688,30 @@ validator sent the scene back. With several versions it shows *version n of m*,
 version**. The art's surface is `role="img"`, labelled with the artwork's title and
 described (`aria-describedby`) by the note, so the brief is the text alternative.
 
+**Focus and Regenerate this (#147).** **Focus** in the art's caption, a double click
+(or double tap) on the art, **Space G** or `:art-focus` shows the article's art (or the
+cover's, on the magazine) full screen, as a modal dialog. Where motion is allowed the
+scene is live and can be turned: drag, or the arrow keys on the focused art; the wheel
+or + and − zoom; 0 resets. Otherwise it is the still image (the stored still without
+WebGL, else the note). Its **Artist's note** and **Prompt** card open over it (the card
+opens only from its button here, never on hover). **Esc** or **Close** returns to the
+same place in the article, in either layout, with focus back on the button that opened
+it; the page's own keys do not act behind the view. **Regenerate this** opens a Prompt
+Input (the shadcn AI Elements recipe: an Input Group with a textarea, a character count
+to 2,000, an **Art made by** menu listing the runnable producers, and a send button;
+Enter sends, Shift+Enter adds a line, Esc cancels). It is prefilled with the direction
+the version on screen was made with or, when it had none, its Artist's note. Sending
+queues a commission for the same article with that direction (`POST /api/art`
+`direction`); the result is a new version beside the old ones, never a replacement. In
+the static demo Regenerate this is disabled (*Needs Reader on your computer*).
+
+A reader's direction is plain text of at most 2,000 characters (control characters are
+dropped). It is appended, fenced with the run's nonce, after both the brief and the
+scene prompts by the versioned template `art_prompts/direction.v1.md` (recorded as
+`prompts.direction` only when a direction was given), and kept in the job, the run
+log's `meta.json` and the version's `provenance.json` as `direction`. The prompt card
+shows it as its own part; `/api/art/prompt` returns it as `direction`.
+
 **How it was made (the prompt card, #146).** Hovering a piece of art (the article
 hero, the cover, a feature thumbnail, the Space g view) for a moment, pressing the
 caption's **Prompt** button (keyboard: it opens the card and moves focus into it;
@@ -897,7 +921,7 @@ and no animation frames run.
   as `/api/art` (400 for a malformed one, 404 for an unknown version or a piece
   without art); vault-relative paths only.
 - `POST /api/art` (token, JSON; at most 3 MiB): `{action: "generate", path,
-  producer?}` (one active job per path: a repeat returns it), `{action: "commission",
+  producer?, direction?}` (a reader's direction, at most 2,000 characters; #147) (one active job per path: a repeat returns it), `{action: "commission",
   paths, producer?}` (at most 6, skipping as above: `{queued, skipped}`), `{action:
   "cancel", job}`, `{action: "favorite", path, edition, generation}` and `{action:
   "still", path, edition, generation, image}` (a data URL). 409 when another server

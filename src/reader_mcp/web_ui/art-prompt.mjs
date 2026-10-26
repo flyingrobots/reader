@@ -17,14 +17,14 @@ function ensureCard(){
   card.setAttribute('role','dialog');card.setAttribute('aria-label','How this art was made');card.dataset.readerDecoration='';
   card.addEventListener('pointerenter',()=>clearTimeout(hideTimer));
   card.addEventListener('pointerleave',()=>{if(!pinned)scheduleHide();});
-  card.addEventListener('keydown',event=>{if(event.key==='Escape'){event.preventDefault();event.stopPropagation();hide(true);}});
+  card.addEventListener('keydown',event=>{if(event.key==='Escape'){event.preventDefault();event.stopPropagation();if(!event.artPromptClosed)hide(true);}});
   document.addEventListener('pointerdown',event=>{if(card.hidden||card.contains(event.target)||current?.anchor.contains(event.target)||current?.button?.contains(event.target))return;hide();},true);
-  document.addEventListener('keydown',event=>{if(event.key==='Escape'&&!card.hidden&&!event.defaultPrevented){hide(true);}},true);
+  document.addEventListener('keydown',event=>{if(event.key==='Escape'&&!card.hidden){event.artPromptClosed=true;hide(true);}},true);
   addEventListener('scroll',()=>{if(!card.hidden&&!pinned)hide();},{passive:true});
   document.body.append(card);return card;
 }
 const promptUrl=(path,art)=>`/api/art/prompt?path=${encodeURIComponent(path)}&edition=${art.edition}&generation=${encodeURIComponent(art.generation)}`;
-function load(api,path,art){
+export function loadPrompt(api,path,art){
   const key=path+'|'+art.generation;
   if(!answers.has(key))answers.set(key,api(promptUrl(path,art)).catch(error=>{answers.delete(key);throw error;}));
   return answers.get(key);
@@ -66,7 +66,7 @@ async function show(target,{focus=false}={}){
   card.innerHTML='<p class="art-prompt-message">Reading the run log…</p>';place(target.anchor);target.button?.setAttribute('aria-expanded','true');
   if(focus){opener=document.activeElement;card.focus({preventScroll:true});}
   let prompt;
-  try{prompt=await load(target.api,target.path,target.art);}
+  try{prompt=await loadPrompt(target.api,target.path,target.art);}
   catch(error){if(current!==target)return;card.dataset.state='error';card.innerHTML=`<p class="art-prompt-message">${esc(error.message||'The prompt could not be read.')}</p>`;return;}
   if(current!==target||card.hidden)return;
   card.innerHTML=promptMarkup(prompt,target.art);card.dataset.state=prompt.handcrafted?'handcrafted':prompt.recorded?'recorded':'unrecorded';
@@ -85,13 +85,14 @@ export function hide(restore=false){
 }
 
 /** Show the card for `art` (an /api/art version) when `anchor` is hovered or long-pressed, or `button` is pressed. */
-export function wireArtPrompt(anchor,{api,path,art,button=null}){
+export function wireArtPrompt(anchor,{api,path,art,button=null,hover=true}){
   if(!api||!art?.generation)return;
   // A repaint (theme, version) keeps the anchor's listeners and points them at the version now shown.
   if(anchor.artPrompt){Object.assign(anchor.artPrompt,{api,path,art});return;}
   const target={anchor,api,path,art,button};anchor.artPrompt=target;
   if(button){button.setAttribute('aria-haspopup','dialog');button.setAttribute('aria-expanded','false');button.setAttribute('aria-controls','art-prompt-card');
     button.addEventListener('click',event=>{event.preventDefault();if(current===target&&!card.hidden&&pinned)hide(true);else{pinned=true;show(target,{focus:true});}});}
+  if(!hover)return;  // the focus view: its Prompt button only, so resting the pointer on the art never covers it
   anchor.addEventListener('pointerenter',event=>{if(event.pointerType==='touch')return;clearTimeout(hideTimer);if(current===target&&!card?.hidden)return;clearTimeout(showTimer);showTimer=setTimeout(()=>show(target),HOVER);});
   anchor.addEventListener('pointerleave',event=>{if(event.pointerType==='touch')return;clearTimeout(showTimer);if(current===target&&!pinned)scheduleHide();});
   let press=0,pressed=false;

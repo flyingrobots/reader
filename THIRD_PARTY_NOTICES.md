@@ -131,7 +131,10 @@ source/output hashes. The npm lockfile records package integrity. Tailwind CSS
 4.3.3 generates the component utilities during development. The activity transcript
 follows shadcn's AI Elements (Base UI) recipes. It uses only the registry items above
 (`trace`, `message`, `marker` and `hover-card` among them) and adds
-no npm dependency. The recipes' Vercel AI SDK demos are not included.
+no npm dependency. The recipes' Vercel AI SDK demos are not included. The art focus view's
+**Regenerate this** form (`web/src/art-regenerate.tsx`) follows the AI Elements Prompt Input and
+Model Selector recipes (Base UI): an Input Group with a Dropdown Menu (`dropdown-menu`, added from the
+`base-nova` registry with the shadcn CLI; it uses Base UI's Menu) and adds no npm dependency.
 
 ## Demo vault content
 

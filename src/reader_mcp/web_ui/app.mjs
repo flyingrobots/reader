@@ -16,8 +16,9 @@ import {DEFAULT_EXCLUDED_TYPES,currentIssue,isoWeek,issueWindow,issueWeeks,selec
 import {THEMES,oppositeTheme} from './themes.mjs';
 import {calloutPlugin} from './callouts.mjs';
 import {drawable,fetchShape,paintShape} from './shapes.mjs';
-import {artJobs,fetchArt,forgetArt,hasArt,paintArt,paintArtThumb,paintPlaceholder} from './art.mjs';
-import {applyThemes,installControls,mountSkeleton,mountCodeBlocks,decorateCodeBlocks,clearControlsWithin,mountDocumentTree,visibleDocumentNodes,revealDocumentRow,mountBackstage,mountChangesPanel,notify as shellNotify,openChat,closeChat,chatOpen,trackSpeech,renderQueuePanel,mountCallouts,startJob,promptCompanion,needsReader,NEEDS_READER} from './controls/reader-controls.js';
+import {artJobs,fetchArt,focusArt,forgetArt,hasArt,paintArt,paintArtThumb,paintPlaceholder} from './art.mjs';
+import {closeArtFocus,focusOpen} from './art-focus.mjs';
+import {applyThemes,installControls,mountSkeleton,mountCodeBlocks,decorateCodeBlocks,clearControlsWithin,mountDocumentTree,visibleDocumentNodes,revealDocumentRow,mountBackstage,mountChangesPanel,mountArtRegenerate,notify as shellNotify,openChat,closeChat,chatOpen,trackSpeech,renderQueuePanel,mountCallouts,startJob,promptCompanion,needsReader,NEEDS_READER} from './controls/reader-controls.js';
 import {installVersions,chipMarkup,historicalMarkup,splitRef,compareLabel} from './versions.mjs';
 import {installSplit,installPane,cleanRoute} from './split.mjs';
 import {installScratch} from './scratch.mjs';
@@ -225,7 +226,25 @@ async function issueArt(issue){
   await Promise.all(works.map(async work=>{try{const data=await Promise.race([fetchArt(api,work.primary),new Promise(resolve=>setTimeout(()=>resolve(null),ART_WAIT))]);if(hasArt(data))found[work.primary]=data;}catch{/* No art for this piece. */}}));
   return found;
 }
-const artActions={generate:path=>commissionArt(path),version:(path,v)=>showArtVersion(path,v),favorite:(path,a)=>favoriteArt(path,a)};
+const artActions={generate:path=>commissionArt(path),version:(path,v)=>showArtVersion(path,v),favorite:(path,a)=>favoriteArt(path,a),focus:(figure,data)=>openArtFocus(figure,data)};
+/** The art focus view (#147): the figure's version full screen, with Regenerate this; closing repaints the figure (the focus view held the page's one live canvas). */
+async function openArtFocus(figure,data){
+  if(!data?.art)return;
+  if(!art.status())await art.poll().catch(()=>{});
+  const title=state.data?.works.find(w=>w.primary===data.path)?.title||(state.doc?.path===data.path?$('#article .document-title')?.textContent.trim():null)||data.path.split('/').pop();
+  await focusArt(data,{api,motion:!reduced.matches,
+    restore:()=>{if(!figure.isConnected)return;return figure.classList.contains('article-art')?paintArticleArt(figure,data):paintArt(figure,data,{live:true,motion:!reduced.matches,api,actions:artActions});},
+    regenerate:{title,max:2000,mount:mountArtRegenerate,disabled:needsReader('art')?NEEDS_READER:null,
+      producers:()=>(art.status()?.producers||[]).filter(p=>p.available&&!p.static_demo),producer:()=>artProducer()?.id||null,
+      submit:async(direction,producer)=>{const job=await art.generate(data.path,producer,direction);forgetArt(data.path);notify('Making a new version of the art','info',{description:'With your direction. The version you were looking at is kept.'});return job;}}});
+}
+/** Space G and :art-focus: the open article's art, else the cover's. */
+function focusShownArt(){
+  if(focusOpen()){closeArtFocus();return;}
+  const figure=$('#article .article-art[data-generation]')||$('#main .cover-art[data-generation]');
+  if(!figure?.artData){toast(state.doc?'This article has no art on screen; Space g shows it or offers to make it.':'Open an article with art to focus on it.');return;}
+  openArtFocus(figure,figure.artData).catch(report);
+}
 async function paintIssueArt(found,id){
   // Thumbnails first (still images from the shared renderer), then the cover's live canvas.
   for(const slot of $('#main').querySelectorAll('[data-art-thumb]')){if(id!==state.routeId)return;await paintArtThumb(slot,found[slot.dataset.artThumb],api);}
@@ -1347,6 +1366,7 @@ keys.map(
   {keys:'<Space>v',run:()=>openEditions(),hint:'versions',group:L,help:'Versions: every edition and its history. In the timeline, `j` `k` move, `Enter` opens, `c` on two versions compares them'},
   {keys:'<Space>d',run:()=>changesShortcut(),hint:'changes',group:L,help:'What changed since you read it, or against the newer version'},
   {keys:'<Space>g',run:()=>toggleArt(),hint:'art',group:L,help:'Article art: show or hide the open article’s art (or Generate art when it has none)'},
+  {keys:'<Space>G',run:()=>focusShownArt(),group:L,help:'Focus on the art full screen, with Regenerate this (Esc returns)'},
   {keys:'<Space>z',run:()=>{closeContext();reading.toggleZen();},group:L,help:'Hide or reveal the reading chrome'},
   {keys:'<Space>w',run:()=>navigate(SCRATCH+'='+crypto.randomUUID()),hint:'scratch',group:L,help:'Scratch pad: a new Markdown buffer with Vim keys and a live preview (see Scratch pad below)'},
   {keys:'<Space>W',run:()=>{keys.feed('<C-w>');},hint:'window',group:L,display:'Space W',help:'The window prefix, as `Ctrl w` (for browsers that keep Ctrl W)'},
@@ -1483,6 +1503,7 @@ keys.command({name:'open',aliases:['e','edit'],args:'<document>',help:'Open a do
   run:openFuzzy});
 keys.command({name:'shape',help:'Data view: show or hide the open article’s shape (its passages through meaning-space)',run:()=>toggleShape()});
 keys.command({name:'art',help:'Show or hide the open article’s art, as `Space g`',run:()=>toggleArt()});
+keys.command({name:'art-focus',help:'Focus on the art full screen (Esc returns), as `Space G`',run:()=>focusShownArt()});
 keys.command({name:'generate-art',help:'Commission new art for the open article (a background job; the current art is kept)',run:()=>{if(state.doc&&TEXTUAL.test(state.doc.path)&&!state.doc.preview)commissionArt(state.doc.path);else toast('Open a Markdown or text article to make art for it.');}});
 keys.command({name:'enew',help:'A new scratch pad buffer',run:()=>navigate(SCRATCH+'='+crypto.randomUUID())});
 const SPLIT_DIRS={vsplit:['row','v'],split:['col','s']};

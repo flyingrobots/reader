@@ -48,10 +48,12 @@ from .resources import has_capacity, minimum_free_bytes
 
 PROMPTS = Path(__file__).with_name('art_prompts')
 PROMPT_VERSIONS = {'brief': 'brief.v1', 'scene': 'scene.v1', 'repair': 'repair.v1', 'dsl': 'dsl.v1'}
+DIRECTION_VERSION = 'direction.v1'  # the reader's direction for one commission (#147), appended to the brief and scene prompts
+MAX_DIRECTION = 2000           # characters of a reader's direction
 PROMPT_LIMIT = 512 * 1024      # bytes of one stage's archived prompt that /api/art/prompt returns (#146)
 PROMPT_STAGES = ('brief', 'scene', 'repair')
 # The quoted blocks a prompt fences with its nonce: the article (brief stage) and the brief (scene stage).
-FENCE = re.compile(r'<<<READER-(ARTICLE|BRIEF) ([0-9a-f]{8,64})>>>\n(.*?)\n<<<END READER-\1 \2>>>', re.S)
+FENCE = re.compile(r'<<<READER-(ARTICLE|BRIEF|DIRECTION) ([0-9a-f]{8,64})>>>\n(.*?)\n<<<END READER-\1 \2>>>', re.S)
 ART_ROOT = 'art'
 # `Reader-Art: library/<path>@<edition>/<generation>[ (favorite|still)]`; group 1 is the path under library/.
 ART_TRAILER = re.compile(r'^Reader-Art: library/([^@\n]+)@[0-9a-f]{12}/', re.M)
@@ -86,7 +88,7 @@ def short(error, limit=600):
 
 
 def template(name):
-    return (PROMPTS / (PROMPT_VERSIONS[name] + '.md')).read_text()
+    return (PROMPTS / ((DIRECTION_VERSION if name == 'direction' else PROMPT_VERSIONS[name]) + '.md')).read_text()
 
 
 def render(name, **values):
@@ -94,6 +96,18 @@ def render(name, **values):
     for key, value in values.items():
         text = text.replace('{{' + key + '}}', str(value))
     return text
+
+
+def direction_of(value):
+    """A reader's direction for a commission (#147): None, or plain text of at most MAX_DIRECTION characters."""
+    if value is None:
+        return None
+    if not isinstance(value, str):
+        raise ValueError('A direction is text')
+    text = re.sub(r'[\x00-\x08\x0b-\x1f\x7f]', '', value).replace('\r\n', '\n').strip()
+    if len(text) > MAX_DIRECTION:
+        raise ValueError(f'A direction is at most {MAX_DIRECTION:,} characters')
+    return text or None
 
 
 def parse_brief(text):
@@ -358,7 +372,7 @@ class Studio:
         producer = provenance.get('producer') if isinstance(provenance.get('producer'), dict) else {}
         result = {'path': path, 'edition': edition, 'generation': generation, 'title': provenance.get('title'),
                   'created_at': provenance.get('created_at'), 'producer': {k: producer.get(k) for k in ('label', 'model', 'kind')},
-                  'prompts': provenance.get('prompts'), 'log': None, 'recorded': False, 'handcrafted': False, 'message': None, 'stages': []}
+                  'prompts': provenance.get('prompts'), 'direction': provenance.get('direction'), 'log': None, 'recorded': False, 'handcrafted': False, 'message': None, 'stages': []}
         log, note = provenance.get('log'), provenance.get('note')
         if not log:
             if isinstance(note, str) and note.strip():
@@ -385,7 +399,7 @@ class Studio:
     def prompt_parts(text, versions):
         """[{kind, text, chars}] covering `text` exactly: instructions, and the quoted article or brief and the
         scene-language reference (the prompt version's own file) that a reader would collapse."""
-        spans = [(m.start(3), m.end(3), 'article' if m.group(1) == 'ARTICLE' else 'brief') for m in FENCE.finditer(text)]
+        spans = [(m.start(3), m.end(3), m.group(1).lower()) for m in FENCE.finditer(text)]
         dsl = (versions or {}).get('dsl') if isinstance(versions, dict) else None
         if isinstance(dsl, str) and re.fullmatch(r'dsl\.v\d{1,3}', dsl) and (PROMPTS / (dsl + '.md')).is_file():
             reference = (PROMPTS / (dsl + '.md')).read_text()
@@ -427,7 +441,8 @@ class Studio:
                       'created_at': created, 'title': title, 'scene_version': art_scene.VERSION, 'prompts': meta['prompts'],
                       'producer': meta['producer'], 'seconds': meta['seconds'], 'stages': meta['stages'], 'usage': meta['usage'],
                       'repaired': meta['repaired'], 'counts': counts, 'log': job.get('log'), 'reader_version': llm_logs.reader_version(),
-                      'requested': 'automatic' if job.get('auto') else 'explicit'} | ({'note': meta['note']} if meta.get('note') else {})
+                      'requested': 'automatic' if job.get('auto') else 'explicit'} | ({'note': meta['note']} if meta.get('note') else {}) \
+            | ({'direction': job['direction']} if job.get('direction') else {})
         made_by = meta['producer']['label'] + (f' ({meta["producer"]["model"]})' if meta['producer'].get('model') else '')
         header = {'title': title, 'kind': 'Art brief', 'author': meta['producer']['label'], 'art_for': job['path'], 'source_sha256': job['sha256'],
                   'made_with': made_by, 'prompt': PROMPT_VERSIONS['brief'], 'created': created}
@@ -451,7 +466,7 @@ class Studio:
 
     def view(self, job):
         row = {k: job.get(k) for k in ('id', 'path', 'title', 'sha256', 'producer', 'producer_label', 'model', 'state', 'stage', 'message', 'queued_at',
-                                         'started_at', 'finished_at', 'seconds', 'usage', 'log', 'result', 'error', 'auto', 'commit', 'warning')}
+                                         'started_at', 'finished_at', 'seconds', 'usage', 'log', 'result', 'error', 'auto', 'commit', 'warning', 'direction')}
         if job.get('monotonic') and job['state'] in ('running', 'waiting'):
             row['elapsed'] = round(time.monotonic() - job['monotonic'], 1)
         if job['state'] == 'queued' and job['id'] in self.queue:
@@ -549,7 +564,8 @@ class Studio:
             self.worker = threading.Thread(target=self.work, name='reader-art', daemon=True)
             self.worker.start()
 
-    def enqueue(self, path, producer, auto=False, title=None):
+    def enqueue(self, path, producer, auto=False, title=None, direction=None):
+        direction = direction_of(direction)
         self.own()
         row = self.producer(producer)
         file = self.library.path(path)
@@ -565,6 +581,8 @@ class Studio:
             job = {'id': 'art-' + uuid.uuid4().hex[:12], 'path': path, 'title': title or self.title_of(file, path), 'sha256': sha,
                    'producer': row['id'], 'producer_label': row['label'], 'model': row.get('model'), 'state': 'queued', 'stage': None,
                    'message': 'Waiting to start', 'queued_at': stamp(), 'auto': bool(auto), 'owner_pid': os.getpid(), 'cancel': False}
+            if direction:
+                job['direction'] = direction
             self.jobs[job['id']] = job
             self.queue.append(job['id'])
             self.persist()
@@ -706,7 +724,8 @@ class Studio:
             job['sha256'] = document['sha256']  # art is made for the edition actually read
             log = llm_logs.RunLog(self.root, 'art', job['id'], {
                 'runner': 'art', 'producer': row['id'], 'producer_kind': row['kind'], 'label': row['label'], 'model': row.get('model'),
-                'document_path': job['path'], 'source_sha256': document['sha256'], 'prompts': PROMPT_VERSIONS, 'automatic': bool(job.get('auto'))})
+                'document_path': job['path'], 'source_sha256': document['sha256'], 'prompts': PROMPT_VERSIONS | ({'direction': DIRECTION_VERSION} if job.get('direction') else {}), 'automatic': bool(job.get('auto')),
+                'direction': job.get('direction')})
             llm_logs.forget_usage(self.root)
             self.update(job, state='running', log=log.relative, title=document['title'] or job['title'])
             (self.runtime / 'work').mkdir(parents=True, exist_ok=True)
@@ -727,10 +746,12 @@ class Studio:
                 self.update(job, usage=usage)
                 return answer, runtime
 
-            answer, runtime = stage('brief', render('brief', title=document['title'], path=job['path'], nonce=nonce, text=document['text']), 'Reading the article and writing the brief')
+            # A reader's direction (#147) follows each prompt, fenced with the same nonce.
+            steer = '\n\n' + render('direction', nonce=nonce, direction=job['direction']) if job.get('direction') else ''
+            answer, runtime = stage('brief', render('brief', title=document['title'], path=job['path'], nonce=nonce, text=document['text']) + steer, 'Reading the article and writing the brief')
             art_title, brief = parse_brief(answer)
             dsl = template('dsl')
-            answer, runtime = stage('scene', render('scene', art_title=art_title, brief=brief, nonce=nonce, dsl=dsl), 'Composing the scene')
+            answer, runtime = stage('scene', render('scene', art_title=art_title, brief=brief, nonce=nonce, dsl=dsl) + steer, 'Composing the scene')
             repaired = False
             try:
                 scene, counts = art_scene.parse(art_scene.extract(answer))
@@ -755,7 +776,7 @@ class Studio:
             self.update(job, stage='saving', message='Saving and committing')
             producer = {'id': row['id'], 'kind': row['kind'], 'label': row['label'], 'model': runtime.get('model') or row.get('model'),
                         'cli': runtime.get('cli'), 'cli_version': runtime.get('version'), 'provider': row.get('provider')}
-            meta = {'prompts': {k: (v if k != 'repair' or repaired else None) for k, v in PROMPT_VERSIONS.items()}, 'producer': producer,
+            meta = {'prompts': {k: (v if k != 'repair' or repaired else None) for k, v in PROMPT_VERSIONS.items()} | ({'direction': DIRECTION_VERSION} if job.get('direction') else {}), 'producer': producer,
                     'seconds': self.elapsed(job), 'stages': stages, 'usage': usage, 'repaired': repaired}
             folder, generation = self.save(job, art_title, brief, scene, counts, meta)
             log.finish('done', art=folder, usage=usage, model=producer['model'])
@@ -916,12 +937,12 @@ class Studio:
 
     def dispatch(self, request, participant):
         action = request.get('action')
-        allowed = {'generate': {'action', 'path', 'producer'}, 'commission': {'action', 'paths', 'producer'}, 'cancel': {'action', 'job'},
+        allowed = {'generate': {'action', 'path', 'producer', 'direction'}, 'commission': {'action', 'paths', 'producer'}, 'cancel': {'action', 'job'},
                    'favorite': {'action', 'path', 'edition', 'generation'}, 'still': {'action', 'path', 'edition', 'generation', 'image'}}
         if action not in allowed or set(request) - allowed[action]:
             raise ValueError('Expected an art action: generate, commission, cancel, favorite or still')
         if action == 'generate':
-            return {'job': self.view(self.enqueue(request.get('path', ''), request.get('producer')))}
+            return {'job': self.view(self.enqueue(request.get('path', ''), request.get('producer'), direction=request.get('direction')))}
         if action == 'commission':
             return self.commission(request.get('paths'), request.get('producer'))
         if action == 'cancel':

@@ -28,6 +28,7 @@ import type {RunInfo} from './activity/transcript';
 import {ServerCard} from './server-card';
 import {CompanionsSection, CompanionPrompt, focusCompanion, isDismissed, type Companion, type CompanionsStatus} from './companions';
 import {ArtStudio, useArtProducers} from './art-studio';
+import {ArtRegenerate, type ArtRegenerateOptions} from './art-regenerate';
 import {DocumentTree, revealDocumentNode, type DocumentRow} from './document-tree';
 import {ChangesPanel, type ChangesOptions} from './changes-panel';
 import {SearchPage, type SearchModel, type SearchActions} from './search-page';
@@ -355,6 +356,11 @@ export function mountSearchPage(container:HTMLElement,initial:SearchModel,action
   function View(){const value=useSyncExternalStore(watch,()=>current);return <SearchPage model={value} actions={actions}/>;}
   mount(container,<View/>);
   return {update(patch:Partial<SearchModel>){current={...current,...patch};watchers.forEach(listener=>listener());}};
+}
+/** Regenerate this (#147): the Prompt Input island inside the art focus view; `close` unmounts it. */
+export function mountArtRegenerate(container:HTMLElement,options:ArtRegenerateOptions){
+  mount(container,<ArtRegenerate {...options} close={()=>{options.close();}}/>);
+  return {unmount(){clearControlsWithin(container);}};
 }
 export function mountDocumentTree(container:HTMLElement,rows:DocumentRow[],onOpen:(index:number)=>void,onActive:(element:HTMLElement)=>void){mount(container,<DocumentTree rows={rows} onOpen={onOpen} onActive={onActive}/>);}
 /** What changed, as a Sheet island; closing unmounts it. */

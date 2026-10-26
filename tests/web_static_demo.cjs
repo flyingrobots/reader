@@ -50,6 +50,11 @@ const TYPES={'.html':'text/html; charset=utf-8','.js':'text/javascript','.mjs':'
   await page.waitForFunction(()=>document.querySelector('#art-prompt-card:not([hidden])')?.dataset.state==='handcrafted');
   assert.match(await page.locator('#art-prompt-card').textContent(),/Handcrafted for the Reader demo; no model was run\./);
   await page.keyboard.press('Escape');
+  // The focus view (#147) works here; Regenerate this needs Reader on your computer.
+  await cover.locator('.art-focus-toggle').click();await page.locator('.art-focus').waitFor();
+  const regenerate=page.locator('.art-focus [data-focus-regenerate]');
+  assert.equal(await regenerate.isDisabled(),true);assert.equal(await regenerate.getAttribute('title'),'Needs Reader on your computer');
+  await page.keyboard.press('Escape');await page.locator('.art-focus').waitFor({state:'detached'});
   // A document with margins, its outline rail, Read next and the link graph.
   await open('library/walden/thoreau/where-i-lived.md','Where I Lived');
   await page.waitForFunction(()=>document.querySelectorAll('#article [data-thread]').length>=3);

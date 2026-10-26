@@ -19,8 +19,10 @@ type J=any;
 type RGB=[number,number,number];
 /** The theme as concrete colors: every token the language names, and whether the page is dark. */
 export type ArtPalette={tokens:Record<string,RGB>;dark:boolean};
-export type ArtView={destroy():void;pause():void;resume():void;readonly frames:number;readonly still:boolean;readonly reason:string|null;frameTimes():number[];intervals():number[]};
-type Mounted={onStill?:(url:string,reason:string)=>void;onLost?:()=>void;start?:number};
+export type ArtView={view?:View;destroy():void;pause():void;resume():void;readonly frames:number;readonly still:boolean;readonly reason:string|null;frameTimes():number[];intervals():number[]};
+type Mounted={onStill?:(url:string,reason:string)=>void;onLost?:()=>void;start?:number;interactive?:boolean};
+/** The reader's own view in the focus view (#147): turns around the scene's target and a zoom, on top of the scene's camera motion. */
+type View={yaw:number;pitch:number;zoom:number};
 
 const DEFAULTS:Record<string,J>=(SCHEMA as J).geometry_defaults,LIMITS=(SCHEMA as J).limits;
 const FPS=30,TAU=Math.PI*2,STEP=1/30,WARM=3,PROBE=8,BUDGET_MS=34,SUSTAINED_MS=50,SLOW_INTERVAL_MS=125,MAX_GPU_OBJECTS=600;
@@ -143,7 +145,7 @@ function layout(spec:J,count:number,random:()=>number):Placement[]{
 
 // The scene -------------------------------------------------------------------------------------
 type Animated={node:Object3D;p:Vector3;q:Quaternion;s:Vector3;list:J[];materials:Material[];opacity:number[];emissive:number[];spring?:{x:Vector3;v:Vector3}};
-type Built={scene:Scene;camera:PerspectiveCamera;update(t:number,dt:number):void;dispose():void;triangles:number;start:number};
+type Built={scene:Scene;camera:PerspectiveCamera;update(t:number,dt:number):void;dispose():void;triangles:number;start:number;view:View;aim():void};
 
 function softDot(){const c=document.createElement('canvas');c.width=c.height=64;const g=c.getContext('2d')!;const r=g.createRadialGradient(32,32,0,32,32,32);r.addColorStop(0,'rgba(255,255,255,1)');r.addColorStop(.45,'rgba(255,255,255,.85)');r.addColorStop(1,'rgba(255,255,255,0)');g.fillStyle=r;g.fillRect(0,0,64,64);const t=new CanvasTexture(c);t.colorSpace=SRGBColorSpace;return t;}
 
@@ -287,9 +289,15 @@ function build(data:J,palette:ArtPalette,aspect:number):Built{
     if(motion.kind==='orbit')offset.applyQuaternion(turn.setFromAxisAngle(axisOf(motion.axis),(motion.direction??1)*TAU*t/(motion.period??90)));
     else if(motion.kind==='sway')offset.applyQuaternion(turn.setFromAxisAngle(new Vector3(0,1,0),(motion.amplitude??.25)*Math.sin(TAU*t/(motion.period??80))));
     else if(motion.kind==='dolly')offset.multiplyScalar(1+(motion.amplitude??.1)*Math.sin(TAU*t/(motion.period??60)));
-    camera.position.copy(target).add(offset);camera.lookAt(target);
+    last.copy(offset);aim();
   };
-  return {scene,camera,update,triangles,start:data.still?.at??0,dispose:()=>{for(const d of new Set(disposables))d.dispose();}};
+  // The reader's view (focus view): yaw about the vertical, pitch about the camera's side, then the zoom.
+  const view:View={yaw:0,pitch:0,zoom:1},last=eye.clone().sub(target),side=new Vector3();
+  function aim(){const offset=last.clone();
+    if(view.yaw)offset.applyAxisAngle(new Vector3(0,1,0),view.yaw);
+    if(view.pitch){side.crossVectors(new Vector3(0,1,0),offset).normalize();if(side.lengthSq()>1e-9)offset.applyAxisAngle(side,view.pitch);}
+    camera.position.copy(target).add(offset.multiplyScalar(view.zoom));camera.lookAt(target);}
+  return {scene,camera,update,triangles,view,aim,start:data.still?.at??0,dispose:()=>{for(const d of new Set(disposables))d.dispose();}};
 }
 function orbitOffset(item:J,t:number){const a=TAU*(t/item.period+(item.phase??0)),axis=axisOf(item.axis),offset=new Vector3(Math.cos(a),0,Math.sin(a)).multiplyScalar(item.radius);return offset.applyQuaternion(new Quaternion().setFromUnitVectors(new Vector3(0,1,0),axis));}
 /** Advance a built scene to `at` seconds with a fixed step, so stills are the same everywhere. */
@@ -330,10 +338,26 @@ class LiveView implements ArtView{
     this.observer=new IntersectionObserver(entries=>{this.visible=entries.some(e=>e.isIntersecting);this.schedule();});this.observer.observe(host);
     this.resize=new ResizeObserver(()=>{const w=this.width,h=this.height;this.measure();if(w!==this.width||h!==this.height){this.renderer.setSize(this.width,this.height,false);this.built.camera.aspect=this.width/this.height;this.built.camera.updateProjectionMatrix();this.draw(0);}});this.resize.observe(host);
     document.addEventListener('visibilitychange',this.onVisibility);
+    if(options.interactive)this.interact();
     this.renderer.compile(this.built.scene,this.built.camera);this.draw(0);
     const info=this.renderer.info.memory;
     if(performance.now()-begin>2500||info.geometries+info.textures>MAX_GPU_OBJECTS){this.toStill('budget');return;}
     this.schedule();
+  }
+  get view(){return this.built.view;}
+  /** Drag to turn around the scene, wheel or pinch-free +/− to zoom, arrows to turn, 0 to reset (the focus view). */
+  private interact(){
+    const el=this.renderer.domElement,view=this.built.view,clamp=(v:number,a:number,b:number)=>Math.max(a,Math.min(b,v));
+    const apply=()=>{view.pitch=clamp(view.pitch,-1.2,1.2);view.zoom=clamp(view.zoom,.35,3);this.built.aim();if(!this.frame)this.draw(0);};
+    let drag:{x:number;y:number}|null=null;el.style.touchAction='none';el.style.cursor='grab';
+    el.addEventListener('pointerdown',e=>{drag={x:e.clientX,y:e.clientY};el.setPointerCapture(e.pointerId);el.style.cursor='grabbing';});
+    el.addEventListener('pointermove',e=>{if(!drag)return;view.yaw-=(e.clientX-drag.x)*.006;view.pitch+=(e.clientY-drag.y)*.006;drag={x:e.clientX,y:e.clientY};apply();});
+    const end=()=>{drag=null;el.style.cursor='grab';};el.addEventListener('pointerup',end);el.addEventListener('pointercancel',end);
+    el.addEventListener('wheel',e=>{e.preventDefault();view.zoom*=Math.exp(e.deltaY*.0015);apply();},{passive:false});
+    this.host.addEventListener('keydown',e=>{const k=e.key,step=.12;
+      if(k==='ArrowLeft')view.yaw+=step;else if(k==='ArrowRight')view.yaw-=step;else if(k==='ArrowUp')view.pitch-=step;else if(k==='ArrowDown')view.pitch+=step;
+      else if(k==='+'||k==='=')view.zoom/=1.15;else if(k==='-'||k==='_')view.zoom*=1.15;else if(k==='0'){view.yaw=view.pitch=0;view.zoom=1;}else return;
+      e.preventDefault();e.stopPropagation();apply();});
   }
   frameTimes(){return [...this.timings];}
   intervals(){return [...this.gaps];}

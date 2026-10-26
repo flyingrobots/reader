@@ -9,6 +9,7 @@
     `artJobs` polls /api/art/jobs while one runs and announces each start, finish and failure. */
 import {SCHEMA,TOKENS,validate} from './art-scene.mjs';
 import {wireArtPrompt} from './art-prompt.mjs';
+import {openArtFocus} from './art-focus.mjs';
 const DERIVED=SCHEMA.derived_tokens;
 
 const THUMB={width:320,height:150},STILL={width:960,height:480};
@@ -59,7 +60,7 @@ export async function paintArt(figure,data,{live=false,motion=true,api,actions={
   const art=data.art,path=data.path,title=art.title||'Untitled';
   figure.artView?.destroy();figure.artView=null;
   figure.classList.remove('art-empty','art-unavailable','art-error');figure.classList.add('art-figure');
-  figure.dataset.readerDecoration='';figure.dataset.art=path;figure.dataset.generation=art.generation;delete figure.dataset.frames;
+  figure.dataset.readerDecoration='';figure.dataset.art=path;figure.dataset.generation=art.generation;delete figure.dataset.frames;figure.artData=data;
   const surface=document.createElement('div');surface.className='art-surface';surface.setAttribute('role','img');surface.setAttribute('aria-label',`Art: ${title}`);
   const note=document.createElement('div'),id='art-note-'+(++figures);note.className='art-note';note.id=id;note.hidden=true;surface.setAttribute('aria-describedby',id);
   note.innerHTML=`<h3 class="art-note-title">${esc(title)}</h3>${art.brief.split(/\n{2,}/).map(p=>`<p>${esc(p)}</p>`).join('')}<p class="art-provenance">${esc(provenanceLine(art))}${data.count>1?` · version ${data.versions.findIndex(v=>v.generation===art.generation)+1} of ${data.count}`:''}</p><div class="art-actions" data-button-group></div>`;
@@ -71,7 +72,7 @@ export async function paintArt(figure,data,{live=false,motion=true,api,actions={
   if(data.count>1&&!art.favorite&&actions.favorite)button('Keep this one',()=>actions.favorite(path,art),'Show this version from now on');
   if(!buttons.children.length)buttons.remove();
   const caption=document.createElement('figcaption');caption.className='art-caption';
-  caption.innerHTML=`<button type="button" class="art-note-toggle" data-button="ghost xs" aria-expanded="false" aria-controls="${id}">Artist’s note</button><button type="button" class="art-prompt-toggle" data-button="ghost xs" title="The prompts that made this art (or hover over it)">Prompt</button><span class="art-credit">${esc(art.provenance?.producer?.label||'')}${art.current?'':' · earlier edition'}</span>`;
+  caption.innerHTML=`<button type="button" class="art-note-toggle" data-button="ghost xs" aria-expanded="false" aria-controls="${id}">Artist’s note</button><button type="button" class="art-prompt-toggle" data-button="ghost xs" title="The prompts that made this art (or hover over it)">Prompt</button>${actions.focus?'<button type="button" class="art-focus-toggle" data-button="ghost xs" title="Show the art full screen (or double-click it) · Space G">Focus</button>':''}<span class="art-credit">${esc(art.provenance?.producer?.label||'')}${art.current?'':' · earlier edition'}</span>`;
   const toggle=caption.querySelector('button');toggle.onclick=event=>{event.preventDefault();note.hidden=!note.hidden;toggle.setAttribute('aria-expanded',String(!note.hidden));};
   const extra=[];
   if(hero){
@@ -83,6 +84,8 @@ export async function paintArt(figure,data,{live=false,motion=true,api,actions={
   }
   figure.replaceChildren(surface,...extra,caption,note);figure.classList.toggle('art-compact',compact);
   wireArtPrompt(surface,{api,path,art,button:caption.querySelector('.art-prompt-toggle')});
+  if(actions.focus){caption.querySelector('.art-focus-toggle').onclick=event=>{event.preventDefault();actions.focus(figure,data);};
+    surface.addEventListener('dblclick',event=>{event.preventDefault();actions.focus(figure,data);});}
   const image=(src,state)=>{const img=new Image();img.className='art-still';img.alt='';img.src=src;surface.replaceChildren(img);figure.dataset.state=state;};
   const unavailable=message=>{figure.classList.add('art-unavailable');figure.dataset.state='unavailable';surface.innerHTML=`<p class="art-message">${esc(message)}</p>`;note.hidden=false;toggle.setAttribute('aria-expanded','true');};
   let scene;
@@ -102,6 +105,12 @@ export async function paintArt(figure,data,{live=false,motion=true,api,actions={
   }catch(error){console.warn('Article art',error);fallback();return figure;}
   keepStill(api,data,stage,scene,palette);
   return figure;
+}
+
+/** The focus view (#147) for a stored version: live where motion is allowed, else the still; `restore` repaints the figure it came from. */
+export async function focusArt(data,{api,motion=true,restore,regenerate}={}){
+  const stage=await loadStage();
+  return openArtFocus(data,{api,stage,palette:artPalette(),motion,stillUrl:stillUrl(data.path,data.art),restore,regenerate});
 }
 
 /** The first browser to draw a version gives the server a still image for browsers without WebGL. */
@@ -174,7 +183,7 @@ export function artJobs({api,notify}){
   return {
     poll,
     status:()=>last,
-    async generate(path,producer){const {job}=await api('/api/art',{action:'generate',path,producer:producer||undefined});poll();return job;},
+    async generate(path,producer,direction){const {job}=await api('/api/art',{action:'generate',path,producer:producer||undefined,direction:direction||undefined});poll();return job;},
     async commission(paths,producer){const result=await api('/api/art',{action:'commission',paths,producer:producer||undefined});if(result.queued.length)poll();return result;},
     async cancel(id){const {job}=await api('/api/art',{action:'cancel',job:id});poll();return job;},
   };

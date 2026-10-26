@@ -48,7 +48,9 @@ features. One web server per vault owns art (a lock in `.reader/art/`); any othe
 server shows its commissions read-only and refuses art actions. Each version is stored and committed beside its edition under `art/`, never
 overwritten, with its brief, provenance (producer, model, prompts, time, tokens and
 reported cost) and an optional still image; every run is archived under
-`logs/llm/art/`, and hovering the art (or its Prompt button) shows the prompts that made it. Colors are theme roles, so art fits every theme; it is still under
+`logs/llm/art/`, and hovering the art (or its Prompt button) shows the prompts that made it. A focus
+view shows the art full screen (live and turnable where motion is allowed), and **Regenerate
+this** queues a new version steered by the reader's own direction. Colors are theme roles, so art fits every theme; it is still under
 reduced motion, pauses off-screen, runs at most 30 fps, turns
 into a still when frames are slow, and without WebGL shows the stored still or the
 note. A free-form mode (model-written Three.js in a sandboxed iframe) is not
