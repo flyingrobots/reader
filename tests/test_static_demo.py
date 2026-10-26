@@ -71,7 +71,7 @@ def test_output_folder_safety(tmp_path):
 
 
 def test_scrub_drops_machine_fields_and_points_files_at_the_export():
-    data = {'results': [{'path': 'library/a.md', 'absolute_path': '/home/someone/vault/library/a.md'}], 'token': 'secret', 'codex': '/usr/bin/codex',
+    data = {'results': [{'path': 'library/a.md'}], 'token': 'secret', 'codex': {'name': 'codex', 'installed': True},
             'file_url': '/api/file?path=library%2Fsub%2Fa%20b.pdf'}
     assert static.scrub(data) == {'results': [{'path': 'library/a.md'}], 'file_url': 'files/library/sub/a%20b.pdf'}
 

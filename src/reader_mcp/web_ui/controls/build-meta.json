@@ -16,7 +16,7 @@
     "src/activity/transcript.tsx": "2055824889b5f3fbdfb5bed8c7c21d6231323911242930bb88b631a3723bcee8",
     "src/art-studio.tsx": "f868ad8cbdc4947a7e2f9fffb4d989c67a6e5f7e542cfc2ae1614221bec09dde",
     "src/art/art.ts": "0f9941cdef72d6159e769d2960f5901efbfa070c1f4c2ce2632dba9aad0e5531",
-    "src/backstage.tsx": "e90cfc3fee8a961ddde2ee2a2d778750b8fd00f60ffbcf7837b7200cab38ec9f",
+    "src/backstage.tsx": "175a252a85b6783f144e8883d3182d37b7db43975453d22a62a0a7081ed29adb",
     "src/callouts.tsx": "fccf6b854b5c95a48ef40d206edfe927718f2ad9e8b59f3b5005548819172584",
     "src/changes-panel.tsx": "2a06b103e068f758afbfe34976ff9461ed43adbf421d5f13cb5a63b45ce5b268",
     "src/chat/chat-panel.tsx": "87f98a0d77cfed30f541436278921271c3dd498e92a37a4de6d5d5ea5d97dbfd",
@@ -57,7 +57,7 @@
     "src/components/ui/trace.tsx": "f03ab1824e7312d00623f052a611497372a654cb33f5e6683b19ac53952f93e0",
     "src/diagrams.ts": "6afe727e3302c2d2ddd4a023105a5a6cf36b6ac969e3ceb2d51f0f0712b326ea",
     "src/document-tree.tsx": "9f54593440ed174d2e92e8da2ee951ea62bb5e0d021dbcd12431341b8233d55b",
-    "src/local-model.tsx": "e70c44a60f18d0a9e618e4e56c22aa0cbd5fa10c0031f36cf62c8b0f51022df5",
+    "src/local-model.tsx": "1e833a07054251a762107dec44e55650138f0ba5ba935180806ee8fa1ba5a043",
     "src/log-block.tsx": "bc4bd556c2366d9578b40718911491290bc95ff67c2b3bc0cf124871aaa6105a",
     "src/markdown-editor.ts": "88b1c43e194e5efe4c0a87824ad238df80640f48fafa180a6349ec11752eb1da",
     "src/math.ts": "75df1ce8e43e3a75e249a959ca89fcf20144888a3aaea933a761903d50c832dc",
@@ -1069,8 +1069,8 @@
       "sha256": "6961e71c9d8905c3a8c07d8ad398f87b160e9a907369bd552034823b3c0aa1e5"
     },
     "reader-controls.js": {
-      "bytes": 912256,
-      "sha256": "f2bcac1ef1a370ea37c1fa31fd566bf24cf899a442974d93d1eb3e0f1c695eb7"
+      "bytes": 912269,
+      "sha256": "3c3bed7b75e41144f5db3bd5782740deaea42a96d70d197cac86cadd53ff6fca"
     },
     "reader-controls.js.LEGAL.txt": {
       "bytes": 5290,

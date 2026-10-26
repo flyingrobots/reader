@@ -23,6 +23,7 @@ import time
 import traceback
 from uuid import uuid4
 
+from .display import shown
 from .chats import Chats, MAX_BODY, chime_ins
 from .resources import has_capacity, minimum_free_bytes
 from . import llm_logs
@@ -1275,7 +1276,8 @@ class Conversations:
             result['meta'] = json.loads(meta) if meta else None
         except ValueError:
             result['meta'] = None
-        return result
+        # The archive keeps the real cwd, argv and prompt; a browser (a tailnet one too) sees <vault> and ~ (#105).
+        return shown(result, self.runner.root)
 
     def list(self, path):
         self.documents(path, False)

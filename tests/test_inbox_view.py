@@ -300,7 +300,7 @@ def test_inbox_routes_validate_actions_and_keep_previews_read_only(vault):
         return response.status, body
     try:
         status, body = request('/api/inbox')
-        assert status == 200 and body['arrivals'][0]['title'] == 'A delivered spec' and body['codex'] is None
+        assert status == 200 and body['arrivals'][0]['title'] == 'A delivered spec' and body['codex'] == {'name': 'codex', 'installed': False}
         assert body['blocked']['reason'] == 'codex'
         assert request('/api/inbox', {'action': 'start'}, token='wrong')[0] == 403
         assert request('/api/inbox', {'action': 'start', 'prompt': 'do something else'})[0] == 400

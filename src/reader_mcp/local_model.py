@@ -1231,7 +1231,8 @@ class LocalModel:
             n = len(served)
             state, label = 'ready', f'Ready · {n} model{"" if n == 1 else "s"}' if n else 'Ready · no models listed'
         return {'state': state, 'label': label, 'running': running, 'url': client.url, 'port': client.port,
-                'cli': cli, 'lms': lms, 'loaded': loaded, 'available': available if isinstance(available, list) else [],
+                # Whether the lms CLI is installed, never where: the answer reaches tailnet browsers too (#105).
+                'cli': {'name': 'lms', 'installed': bool(cli)} if lms else None, 'lms': lms, 'loaded': loaded, 'available': available if isinstance(available, list) else [],
                 'available_error': available.get('error') if isinstance(available, dict) else None,
                 'control': control, 'error': error or (control or {}).get('error') if state == 'error' else None,
                 'provider': provider}

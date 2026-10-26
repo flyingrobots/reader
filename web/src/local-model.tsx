@@ -15,7 +15,7 @@ type Control={id:string;action:string;model:string|null;label:string;state:'runn
 type Loaded={id:string;size_bytes?:number|null;loaded_by_reader?:boolean;context_length?:number|null};
 type Available={key:string;type:'llm'|'embedding';name:string;size_bytes?:number|null;params?:string|null};
 export type Provider={preset:string;label:string;base_url:string;saved_base_url:string|null;model:string;allow_remote:boolean;loopback:boolean;host:string|null;remote_notice:string|null;api_key:{set:boolean;source:'file'|'environment'|null;env:string};start:string|null;hint:string;presets:Record<string,{label:string;base_url:string|null}>};
-type Server={state:'not-installed'|'off'|'starting'|'ready'|'busy'|'error';label:string;running:boolean;url:string;port:number|null;cli:string|null;lms:boolean;loaded:Loaded[];available:Available[];available_error:string|null;control:Control|null;error:string|null;provider:Provider};
+type Server={state:'not-installed'|'off'|'starting'|'ready'|'busy'|'error';label:string;running:boolean;url:string;port:number|null;cli:{name:string;installed:boolean}|null;lms:boolean;loaded:Loaded[];available:Available[];available_error:string|null;control:Control|null;error:string|null;provider:Provider};
 type Now={id:string;task:string;task_label:string;path:string;title:string;model:string;started_at:string;preview:string;thinking:string;tokens:number;tokens_per_second:number|null};
 type QueueRow={label:string;waiting:number;active:boolean;running:boolean;next:{id:string;title:string;path:string}[]};
 export type Item={id:string;task:string;task_label:string;path:string;title:string;model:string;prompt_version:string;state:'done'|'rejected'|'failed'|'cancelled';error:string|null;output:string|null;display:string|null;finished_at:string|null;duration_seconds:number|null;tokens_per_second:number|null;truncated?:boolean};
@@ -58,7 +58,7 @@ function ServerCard({server,act}:{server:Server;act:Act}){
        :server.state==='off'?<div className="backstage-message lm-start-yourself" id="lm-start-yourself"><p>Nothing answers at <code>{server.url}</code>. Reader does not start {provider.label}; start it yourself.</p>
           {provider.start?<code className="lm-command">{provider.start}</code>:null}<p className="backstage-note">{provider.hint}</p></div>
        :server.state==='error'?<p className="backstage-message backstage-error" role="alert">{server.error}</p>:null}
-      <dl className="backstage-facts">{lms?<div><dt>CLI</dt><dd title={server.cli||undefined}>{server.cli?'Found':'Missing'}</dd></div>:<div><dt>Control</dt><dd>Start it yourself</dd></div>}<div><dt>Port</dt><dd>{server.port??'—'}</dd></div>
+      <dl className="backstage-facts">{lms?<div><dt>CLI</dt><dd>{server.cli?.installed?'Found':'Missing'}</dd></div>:<div><dt>Control</dt><dd>Start it yourself</dd></div>}<div><dt>Port</dt><dd>{server.port??'—'}</dd></div>
         <div><dt>{lms?'Loaded':'Models'}</dt><dd>{server.running?(lms?server.loaded.length:server.available.length):'—'}</dd></div>
         {lms&&server.running&&server.loaded.length?<div><dt>Memory</dt><dd>{bytes(server.loaded.reduce((n,m)=>n+(m.size_bytes||0),0))||'—'}</dd></div>:null}</dl>
       {server.available.length?<ul className="lm-models" aria-label={lms?'Models on disk':'Models the server lists'}>{server.available.map(m=>{const on=lms?loaded(m.key):undefined;return <li key={m.key} data-model={m.key} data-loaded={on?'true':'false'}>
@@ -68,9 +68,9 @@ function ServerCard({server,act}:{server:Server;act:Act}){
        :server.available_error?<p className="backstage-note">Couldn’t list models: {server.available_error}</p>:null}
     </CardContent>
     {lms?<CardFooter><ButtonGroup>
-      {!server.running?<Button id="lm-server-start" size="sm" disabled={!server.cli||controlling||server.state==='starting'} onClick={()=>act('server-start')}>{server.state==='starting'?'Starting…':'Start server'}</Button>
+      {!server.running?<Button id="lm-server-start" size="sm" disabled={!server.cli?.installed||controlling||server.state==='starting'} onClick={()=>act('server-start')}>{server.state==='starting'?'Starting…':'Start server'}</Button>
        :confirm?<><Button id="lm-server-stop-confirm" size="sm" variant="destructive" onClick={()=>{setConfirm(false);act('server-stop');}}>Stop for every tool</Button><Button size="sm" variant="outline" onClick={()=>setConfirm(false)}>Keep running</Button></>
-       :<Button id="lm-server-stop" size="sm" variant="outline" disabled={!server.cli||controlling||working} title={working?'Pause the queue first':undefined} onClick={()=>setConfirm(true)}>Stop server…</Button>}
+       :<Button id="lm-server-stop" size="sm" variant="outline" disabled={!server.cli?.installed||controlling||working} title={working?'Pause the queue first':undefined} onClick={()=>setConfirm(true)}>Stop server…</Button>}
     </ButtonGroup>{confirm?<span className="lm-confirm" role="status">Other apps using LM Studio will lose it too.</span>:null}</CardFooter>:null}
   </Card>;
 }

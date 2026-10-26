@@ -91,7 +91,8 @@ only to commits that pass a smoke test, with rollback when the restarted server 
 unhealthy and a wait while inbox runs or rebuilds are active. `tailscale on`
 publishes it on the user's own tailnet with `tailscale serve` (never Funnel); Reader
 still binds to loopback and admits proxied requests only for allow-listed
-Tailscale logins. The app ships a web app manifest and icons for Add to Home
+Tailscale logins. No web API answer names a host folder: executables are reported as
+installed or not, and paths that must be shown use `<vault>` and `~`. The app ships a web app manifest and icons for Add to Home
 Screen. Linux service units and public exposure are not supported.
 
 The dashboard presents catalog and participant statistics in an interactive chart

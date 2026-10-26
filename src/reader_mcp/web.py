@@ -21,6 +21,7 @@ from .annotations import Annotations
 from .art import ArtMissing, Studio
 from .browse import Browse
 from .bookmarks import Bookmarks
+from .display import shown
 from .companions import Companions, load_settings as companion_settings
 from .changes import MAX_BLOB, SHA, TEXT_TYPES, Changes, Unavailable, bounded, diff, prose
 from .editions import Editions
@@ -433,9 +434,11 @@ class WebLibrary:
         if not self.search_lock.acquire(timeout=SEARCH_WAIT):
             raise BlockingIOError('Another content search is still running; try again shortly')
         try:
-            return self.engine.search(query, mode=mode, limit=limit, path_prefix=path_prefix)
+            result = self.engine.search(query, mode=mode, limit=limit, path_prefix=path_prefix)
         finally:
             self.search_lock.release()
+        # The engine's absolute_path is for local agents (the MCP tools); the browser opens vault-relative paths.
+        return result | {'results': [{k: v for k, v in row.items() if k != 'absolute_path'} for row in result['results']]}
 
     def search_page(self, query, mode='best', filters=None, offset=0, limit=20, participant='You'):
         """Passages grouped by work, with facets, for the full search page (see docs/web.md)."""
@@ -1153,6 +1156,9 @@ class WebHandler(BaseHTTPRequestHandler):
         self.send_header('Content-Security-Policy', "default-src 'none'; sandbox; frame-ancestors 'self'" if raw else policy)
 
     def json(self, data, status=200):
+        if status >= 400 and isinstance(data.get('error'), str):
+            # An OSError's message names the file it failed on; show it as <vault>/… or ~/… (#105).
+            data = data | {'error': shown(data['error'], self.server.library.root)}
         body = json.dumps(data, ensure_ascii=False).encode()
         self.response_headers(status, 'application/json; charset=utf-8', len(body))
         self.end_headers()

@@ -20,6 +20,7 @@ import threading
 import time
 from uuid import uuid4
 
+from .display import shown
 from .inbox_runner import chat_turn_running, inventory
 
 MAX_RECEIPT = 256 * 1024
@@ -38,6 +39,9 @@ ACTIVE = ('starting', 'running')
 CANCEL_TEXT = 'Stop requested by the Reader web user.\n'
 INTERRUPTED = ('The inbox runner stopped unexpectedly. Inspect its report and partial changes before retrying: '
                'confirm the recorded process group is gone, then remove only .reader/inbox-runner/state.json to allow another run.')
+
+
+CODEX_MISSING = 'Codex was not found. Set READER_CODEX to its executable path, then run codex login in your terminal.'
 
 
 class RunConflict(Exception):
@@ -359,7 +363,7 @@ class InboxView:
             result['events'], result['next_offset'] = events, end
             result['done'] = result['done'] and end >= size
         if result['done'] and status in ('failed', 'interrupted', 'stopped'):
-            result['message'] = state.get('message')
+            result['message'] = shown(state.get('message'), self.root)
             result['stderr_tail'] = self.stderr_tail()
         return result
 
@@ -373,14 +377,14 @@ class InboxView:
                 for change in item['changes']:
                     if isinstance(change, dict) and isinstance(change.get('path'), str) and change['path'].startswith(prefix):
                         change['path'] = change['path'][len(prefix):]
-        return event
+        return shown(event, self.root)  # Commands and their output may name the vault or home folder anywhere.
 
     def stderr_tail(self):
         try:
             read = read_bounded(self.safe_runtime() / 'stderr.log', 8 * 1024, tail=True)
         except (ValueError, OSError):
             return None
-        return read[0].decode('utf-8', 'replace') if read and read[0].strip() else None
+        return shown(read[0].decode('utf-8', 'replace'), self.root) if read and read[0].strip() else None
 
     @staticmethod
     def bounded_event(event):
@@ -429,7 +433,8 @@ class InboxView:
         return None
 
     def status(self):
-        result = {'arrivals': [], 'runner': None, 'claims_held': [], 'codex': find_codex(self.environ),
+        # Whether Codex is installed, never where: tailnet browsers see this answer too (#105).
+        result = {'arrivals': [], 'runner': None, 'claims_held': [], 'codex': {'name': 'codex', 'installed': bool(find_codex(self.environ))},
                   'sandbox_modes': list(SANDBOX_MODES), 'errors': []}
         try:
             result['arrivals'] = self.arrivals()
@@ -458,10 +463,10 @@ class InboxView:
                     report, truncated = None, False
                     result['errors'].append(f'Cannot read the librarian report: {exc}')
                 # Librarian reports link vault files by absolute path; show them vault-relative.
-                runner['report_md'] = report.replace('](' + str(self.root) + '/', '](') if report else report
+                runner['report_md'] = report.replace('](' + str(self.root) + '/', '](').replace(str(self.root) + '/', '') if report else report
                 runner['report_truncated'] = truncated
                 runner['commit'] = self.commit(report) if state['status'] == 'finished' else None
-            result['runner'] = runner
+            result['runner'] = shown(runner, self.root)
         try:
             result['chat_turn'] = chat_turn_running(self.root)
         except OSError as exc:
@@ -489,8 +494,8 @@ class InboxView:
             return {'reason': 'chat', 'message': 'A voice chat turn is running in this vault. You got mail can start when it finishes.'}
         if not status['arrivals']:
             return {'reason': 'empty', 'message': 'The inbox is empty.'}
-        if not status['codex']:
-            return {'reason': 'codex', 'message': 'Codex was not found. Set READER_CODEX to its executable path, then run codex login in your terminal.'}
+        if not (status.get('codex') or {}).get('installed'):
+            return {'reason': 'codex', 'message': CODEX_MISSING}
         return None
 
     # Actions ------------------------------------------------------------
@@ -513,8 +518,11 @@ class InboxView:
             if status['blocked']:
                 error = RunConflict if status['blocked']['reason'] == 'active' else ValueError
                 raise error(status['blocked']['message'])
+            codex = find_codex(self.environ)
+            if not codex:
+                raise ValueError(CODEX_MISSING)
             run_id = str(uuid4())
-            argv = self.command(status['codex'], run_id, sandbox_mode)
+            argv = self.command(codex, run_id, sandbox_mode)
             # The supervisor imports the same reader_mcp package as this server, whatever its working directory.
             package_root = str(Path(__file__).resolve().parents[1])
             env = dict(os.environ, PYTHONPATH=os.pathsep.join(p for p in (package_root, os.environ.get('PYTHONPATH', '')) if p))

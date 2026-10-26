@@ -28,6 +28,8 @@ import threading
 import time
 import uuid
 
+from .display import resolve, shown
+
 CODE = Path(__file__).resolve().parents[2]
 SETTINGS = '.reader/companions.json'
 MAX_SETTINGS = 64 * 1024
@@ -415,7 +417,9 @@ class Companions:
                 result['local_model'] = self.local()
             except Exception:
                 result['local_model'] = None
-        return result
+        # Paths, facts, messages and setup commands show the vault as <vault> and the home folder as ~ (#105);
+        # set-path accepts both forms back.
+        return shown(shown(result, self.root, str(self.home)), self.root)
 
     # Actions -----------------------------------------------------------------
 
@@ -460,7 +464,7 @@ class Companions:
         if not key:
             raise ValueError(f'{INFO[name]["title"]} has no path setting')
         if value:
-            path = Path(value).expanduser()
+            path = Path(resolve(value, self.root, str(self.home))).expanduser()
             if not path.is_absolute():
                 raise ValueError('Use an absolute path')
             if key == 'git-locks-store':

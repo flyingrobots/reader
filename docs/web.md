@@ -1312,7 +1312,7 @@ Each card shows a state (*Installed*, *Not found*, *Too old* or *Needs reinstall
 and the actions **Check again** and, for Colorful and git-locks, **Set path**. A card
 whose install needs something missing says so: without `cargo` the Colorful and wide-md
 cards explain how to get Rust (rustup.rs) instead of offering Install. An *Agents and
-models* card lists the `claude`, `codex` and `agy` command lines (found path or *Not
+models* card lists the `claude`, `codex` and `agy` command lines (found path, shown as `~/…`, or *Not
 found*, and the voices that use each; status only, since they need your own account)
 and the current **GPU coordination** (below).
 
@@ -1358,7 +1358,8 @@ names a URL or revision.
   with `install_wide_md.py`; each step runs with explicit argv in its own process group,
   killed at its timeout.
 
-**Set path** accepts an absolute path: for Colorful, an executable reporting 0.4.0 or
+**Set path** accepts an absolute path, or one in the display form the card shows
+(`~/…` or `<vault>/…`): for Colorful, an executable reporting 0.4.0 or
 newer; for git-locks, the `git-locks` executable or a store (a Git directory ending in
 `.git`). An empty path clears the setting. Paths are stored in `.reader/companions.json`
 and only a browser on this Mac (a local request) may set them, since the server runs
@@ -3209,8 +3210,8 @@ document's annotation inventory. It returns `{path, version, participant,
 readers: [{participant, group: voice|you|agent, state: current|earlier, at,
 version, threads, folded}], folded, one_off_threshold}`; a malformed receipt file
 or `voices.json` returns 400. `/api/standfirst?path=…` and `/api/issue?start=…&end=…` (the homepage issue) are
-read-only as well, as is `/api/inbox` (arrivals, runner state, claims, Codex location
-and the reason a start is blocked), as is `/api/inbox/events?after=OFFSET` (the
+read-only as well, as is `/api/inbox` (arrivals, runner state, claims, whether Codex is
+installed as `codex: {name, installed}`, and the reason a start is blocked), as is `/api/inbox/events?after=OFFSET` (the
 activity transcript's event stream). Document GET alone is read-only.
 `/api/resolve-batch?from=…&target=…&target=…` resolves up to 64 links from one
 library document (or inbox arrival, which may resolve its own bundle's attachments) in order, returning `{"results": [...]}` with either the
@@ -3221,7 +3222,8 @@ inventory read, and more than 64 targets are refused.
 `stderr`, `prompt` (1 MiB each), `system` (256 KiB), `meta`, `log` (the archive
 path, or `null` for a turn that never started) and `running`. It needs no token;
 the Host and Origin checks apply, and the log path must match the archive layout
-with no symlinks.
+with no symlinks. The archive keeps the real working directory, argv and prompt; the
+answer shows the vault folder as `<vault>` and the home folder as `~`.
 `/api/chat/stream?id=…` is a Server-Sent Events stream of `hello`, `state`,
 `started`, `delta` (with a text offset; offset 0 replaces the streamed text),
 `raw` (`{turn_id, stream: stdout|stderr, n, text, cut}`: each CLI line of a reply or
@@ -3315,7 +3317,20 @@ case-insensitively) is in `allowed_logins`, and any Origin is in `allowed_origin
 Tailscale passes the client's Host header through unchanged, so a proxied request
 is recognized by its forwarding headers, never by its Host; a tailnet peer that
 names `127.0.0.1` is still proxied and refused. Identity headers on a loopback
-Host are therefore refused rather than trusted. A refused request gets 403: JSON
+Host are therefore refused rather than trusted.
+
+**No host paths in answers.** Because the same answers reach allowed tailnet browsers,
+no `/api/*` answer names a host folder (#105). Search results carry the vault-relative
+`path` only; the MCP tools, which serve local agents, keep `absolute_path`. Executables
+are reported as `{name, installed}` (`codex` in `/api/inbox`, `server.cli` in
+`/api/local-model`). Where a path is the information itself (a Companions card's path,
+socket, store and setup commands; a chat turn's raw output; the inbox activity
+transcript, report and stderr; error messages), it is shown with the vault as `<vault>`
+and the home folder as `~` (`src/reader_mcp/display.py`); locations outside both, such
+as `/opt/homebrew/bin`, stay as they are. `tests/test_api_paths.py` starts the
+synthetic fixture, walks every GET route the router names (read from `web.py`, so new
+routes are covered) and fails if any answer contains the fixture vault, the home
+folder, the code checkout or the Python executable. A refused request gets 403: JSON
 for `/api/*`, a plain *Not allowed* page otherwise. Writes also require JSON plus a
 random session token, issued with `/api/library`; Reader sets no cookies. CSP limits scripts, workers and
 connections to this origin; raw files are sandboxed. Library paths must be

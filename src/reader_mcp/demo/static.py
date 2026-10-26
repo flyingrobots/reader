@@ -128,9 +128,10 @@ def static_art(data):
 
 
 def scrub(value):
-    """Machine-only fields never leave the export; file URLs point at the exported copies."""
+    """The server's write token and whether this machine has Codex never leave the export; file URLs point
+    at the exported copies. The live API sends no host paths (#105); `guard` still refuses any that slip in."""
     if isinstance(value, dict):
-        return {k: scrub(v) for k, v in value.items() if k not in ('absolute_path', 'token', 'codex')}
+        return {k: scrub(v) for k, v in value.items() if k not in ('token', 'codex')}
     if isinstance(value, list):
         return [scrub(v) for v in value]
     if isinstance(value, str) and value.startswith('/api/file?path='):
