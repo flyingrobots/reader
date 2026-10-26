@@ -223,12 +223,15 @@ class VoiceTasks:
                 job['state'] = 'saving'
                 self.write(job)
         # Git is serialized with normal chat commits and targets only owned artifacts/logs.
-        with self.runner.quiet:
-            try:
-                job['commit'] = self.commit(job)
-            except (OSError, subprocess.SubprocessError, ValueError) as exc:
-                job['commit'] = {'status': 'failed', 'commit': None,
-                                 'error': 'Could not commit article-task artifacts: ' + type(exc).__name__}
+        if not job['runs'] and not (job.get('result') or {}).get('artifact'):
+            job['commit'] = {'status': 'unchanged', 'commit': None}
+        else:
+            with self.runner.quiet:
+                try:
+                    job['commit'] = self.commit(job)
+                except (OSError, subprocess.SubprocessError, ValueError) as exc:
+                    job['commit'] = {'status': 'failed', 'commit': None,
+                                     'error': 'Could not commit article-task artifacts: ' + type(exc).__name__}
         with self.locked():
             job.update(state=final_state, finished_at=now())
             self.write(job)

@@ -179,6 +179,71 @@ def test_queued_task_can_be_cancelled_without_a_provider_call(library):
     assert job['state'] == 'cancelled' and not calls(library.root)
 
 
+@pytest.mark.parametrize('prior_attempt', [False, True])
+def test_queued_cancellation_does_not_block_the_active_writer(library, monkeypatch, prior_attempt):
+    """Force quiet -> runner.lock against cancellation, with bounded actor waits."""
+    from reader_mcp import llm_logs
+    runner = library.conversations.runner
+    active, publish, finished, cancelling = (threading.Event() for _ in range(4))
+    progressed, errors = [], []
+
+    def active_chat(turn):
+        try:
+            with runner.quiet:
+                active.set()
+                if not publish.wait(5):
+                    return
+                acquired = runner.lock.acquire(timeout=1)
+                progressed.append(acquired)
+                if acquired:
+                    runner.lock.release()
+            runner.complete(turn, 'done', body='The synthetic active writer finished.')
+        finally:
+            finished.set()
+
+    monkeypatch.setattr(runner, 'run', active_chat)
+    chat = library.conversations.create(PATH, 'Reader')['chat']
+    library.conversations.send(chat['id'], 'A synthetic active chat.', 'Reader')
+    assert active.wait(5)
+    task = generate(library)
+    turn = runner.pending(task['id'])[0]
+    if prior_attempt:
+        log = llm_logs.RunLog(library.root, 'quiz', str(uuid4()), {'document_path': PATH})
+        log.write('stdout.jsonl', '{}\n')
+        log.finish('failed', error='Synthetic insufficient first attempt')
+        with library.voice_tasks.locked():
+            job = library.voice_tasks.read(task['id'])
+            job.update(attempts=1, runs=[{'turn_id': log.meta['run_id'], 'log': log.relative}])
+            library.voice_tasks.write(job)
+    finish_unrun = runner.finish_unrun
+
+    def observed(turn, message):
+        cancelling.set()
+        return finish_unrun(turn, message)
+
+    monkeypatch.setattr(runner, 'finish_unrun', observed)
+    def cancel():
+        try:
+            runner.cancel(turn['id'])
+        except Exception as exc:
+            errors.append(exc)
+    thread = threading.Thread(target=cancel, daemon=True)
+    try:
+        thread.start()
+        assert cancelling.wait(5)
+        publish.set()
+        assert finished.wait(5)
+        thread.join(5)
+        assert not thread.is_alive() and not errors
+        assert progressed == [True], 'cancellation must leave runner.lock available to the active writer'
+        job = library.voice_tasks.read(task['id'])
+        assert job['state'] == 'cancelled'
+        assert job['commit']['status'] == ('committed' if prior_attempt else 'unchanged')
+    finally:
+        publish.set()
+        thread.join(5)
+
+
 def test_recovery_preserves_interrupted_task_logs_without_rerunning(library):
     from reader_mcp import llm_logs
     root = library.root

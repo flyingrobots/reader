@@ -24,6 +24,8 @@ If an article changes, the latest earlier quiz is labelled accordingly. Reader r
 
 `quiz` and `quiz-review` run on the existing voice queue, with its supervisor ownership, process guards, cancellation, registry, logging and inbox coordination. They do not create chat messages or trigger conversational mentions and listening checks. Two tabs requesting the same pending generation for the same participant, voice and edition share its job.
 
+Cancelling a queued task with no artifacts finishes without waiting for a running voice. If a cancelled retry has earlier logs to commit, that coordination wait leaves the runner state lock available to active voices and output streaming.
+
 The generator is asked for five to eight questions. Validation accepts four through twelve, with at most two optional short-answer questions. Invalid JSON, insufficient source-anchored questions and other validation failures are reported with rejection reasons. A generation gets at most one automatic retry. Every attempt’s raw output is retained, including rejected attempts.
 
 The server writes the quiz and review artifacts. The task prompt asks the configured CLI to return JSON without vault edits, commands from the article, upkeep, speech or delegation. These instructions do not replace that CLI’s configured filesystem permissions. Changed paths and commits observed during the voice run are exposed in task details.

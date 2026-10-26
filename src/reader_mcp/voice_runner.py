@@ -689,18 +689,26 @@ class VoiceRunner:
             return self.view(turn)
 
     def cancel(self, turn_id):
+        queued = False
         with self.lock:
             turn = self.turns.get(str(turn_id))
             if not turn or turn['state'] in TERMINAL:
                 raise ValueError('That turn is not running or queued')
+            if turn.get('cancel'):
+                return self.view(turn)
             turn['cancel'] = True
             if turn['id'] in self.queue:
                 self.queue.remove(turn['id'])
-                self.finish_unrun(turn, 'Cancelled before it started.')
+                queued = True
                 self.positions()
             else:
                 (self.runtime / 'cancel').touch()
             self.changed.notify_all()
+        # Task finalization may wait for a running voice's quiet section. Keep
+        # the state lock available to that voice and its output pumps meanwhile.
+        if queued:
+            self.finish_unrun(turn, 'Cancelled before it started.')
+        with self.lock:
             return self.view(turn)
 
     def finish_unrun(self, turn, message):
@@ -712,7 +720,8 @@ class VoiceRunner:
             self.emit(turn['chat_id'], 'done', {'turn_id': turn['id'], 'state': 'cancelled', 'message': None})
         else:
             self.complete(turn, 'cancelled', error=message)
-        self.turns.pop(turn['id'], None)
+        with self.lock:
+            self.turns.pop(turn['id'], None)
 
     def work(self):
         while True:
@@ -918,8 +927,7 @@ class VoiceRunner:
         holding = [False]
         log = None
         if held is None:
-            with self.lock:
-                self.finish_unrun(turn, 'Cancelled before it started.')
+            self.finish_unrun(turn, 'Cancelled before it started.')
             return
         try:
             (self.runtime / 'cancel').unlink(missing_ok=True)
