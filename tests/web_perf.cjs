@@ -4,7 +4,7 @@ const {spawn}=require('node:child_process');
 const {createInterface}=require('node:readline');
 const {chromium}=require(process.env.READER_PLAYWRIGHT||'playwright-core');
 // Generous ceilings: the quadratic anchoring this guards against took well over 10 s on this fixture.
-const FIRST_RENDER_MS=+(process.env.READER_PERF_FIRST_RENDER_MS||5000),FIND_MS=+(process.env.READER_PERF_FIND_MS||2500);
+const FIRST_RENDER_MS=+(process.env.READER_PERF_FIRST_RENDER_MS||5000),FIND_MS=+(process.env.READER_PERF_FIND_MS||2500),KEYSTROKE_MS=+(process.env.READER_PERF_KEYSTROKE_MS||30);
 (async()=>{
  const fixture=spawn(process.env.READER_PYTHON||'.venv/bin/python',['tests/web_fixture.py','--perf'],{stdio:['ignore','pipe','inherit']});let browser;
  try{
@@ -44,6 +44,32 @@ const FIRST_RENDER_MS=+(process.env.READER_PERF_FIRST_RENDER_MS||5000),FIND_MS=+
    const findStarted=Date.now();await page.locator('#find-query').fill('observation for section 399 waits');
    await page.waitForFunction(()=>document.querySelector('#find-count').textContent==='1 / 1',null,{timeout:FIND_MS*2});
    timings.find=Date.now()-findStarted;assert.ok(timings.find<FIND_MS,`find took ${timings.find} ms (limit ${FIND_MS})`);
+   // Typing more of the query reuses the article's projection: each later keystroke only searches it (#35).
+   const keys=await page.evaluate(()=>{const q=document.querySelector('#find-query'),times=[];q.value='';
+     for(const ch of 'observation for section 399 waits'){q.value+=ch;const t=performance.now();q.dispatchEvent(new Event('input'));times.push(performance.now()-t);}
+     return {times,count:document.querySelector('#find-count').textContent};});
+   assert.equal(keys.count,'1 / 1','typed one key at a time, find lands on the same single hit');
+   const later=keys.times.slice(1).sort((a,b)=>a-b);timings.keystroke=Math.round(later[later.length>>1]);timings.keystrokeMax=Math.round(later.at(-1));
+   // Text that changes after the projection was built is found at once: the projection is rebuilt, from typed arrays.
+   const late=await page.evaluate(()=>{const q=document.querySelector('#find-query'),p=document.createElement('p'),article=document.querySelector('#article');
+     p.textContent='a late paragraph arrives';article.append(p);q.value='late paragraph arrives';const t=performance.now();q.dispatchEvent(new Event('input'));const ms=performance.now()-t,count=document.querySelector('#find-count').textContent;
+     p.firstChild.data='a late paragraph changes';q.dispatchEvent(new Event('input'));const changed=document.querySelector('#find-count').textContent;
+     p.remove();q.dispatchEvent(new Event('input'));const removed=document.querySelector('#find-count').textContent;
+     q.value='observation for section 399 waits';q.dispatchEvent(new Event('input'));return {ms,count,changed,removed};});
+   assert.deepEqual([late.count,late.changed,late.removed],['1 / 1','0 / 0','0 / 0'],'added, edited and removed article text invalidates find\'s projection');
+   timings.rebuild=Math.round(late.ms);
+   // The hits are the very ranges the per-character projection gave (the code before #35), emoji and all.
+   const same=await page.evaluate(queries=>{const q=document.querySelector('#find-query'),article=document.querySelector('#article'),out=[];
+     const skip='.annotation-pin,[data-reader-decoration],script,style',walker=document.createTreeWalker(article,NodeFilter.SHOW_TEXT,{acceptNode(node){const hit=node.parentElement?.closest(skip);return hit&&article.contains(hit)?NodeFilter.FILTER_REJECT:NodeFilter.FILTER_ACCEPT;}});
+     let text='',nodes=[],offsets=[],node;while((node=walker.nextNode()))for(let i=0;i<node.data.length;i++){text+=node.data[i];nodes.push(node);offsets.push(i);}
+     let normalized='',starts=[],ends=[];for(const match of text.matchAll(/\s+|\S/gu)){const space=/\s/u.test(match[0]);normalized+=space?' ':match[0];const last=match.index+match[0].length-1;
+       for(let k=0;k<(space?1:match[0].length);k++){starts.push([nodes[match.index+k],offsets[match.index+k]]);ends.push([nodes[last],offsets[last]+1]);}}
+     for(const query of queries){q.value=query;q.dispatchEvent(new Event('input'));const got=[...CSS.highlights.get('reader-find')],regex=new RegExp(query.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'),'giu');
+       const want=[...normalized.matchAll(regex)].slice(0,2000).map(m=>[starts[m.index],ends[m.index+m[0].length-1]]);
+       out.push(got.length===want.length&&got.every((r,i)=>r.startContainer===want[i][0][0]&&r.startOffset===want[i][0][1]&&r.endContainer===want[i][1][0]&&r.endOffset===want[i][1][1])?got.length:`${query}: ${got.length} vs ${want.length}`);}
+     q.value='observation for section 399 waits';q.dispatchEvent(new Event('input'));return out;},['e','🐈','section 39','. ','observation for section 399 waits']);
+   assert.ok(same.every(n=>typeof n==='number')&&same[0]===2000&&same[1]>0,'find hits match the per-character projection: '+same.join(', '));
+   assert.ok(timings.keystroke<KEYSTROKE_MS,`a find keystroke took ${timings.keystroke} ms at the median (limit ${KEYSTROKE_MS}); all: ${keys.times.map(Math.round).join(' ')}`);
    await page.keyboard.press('Enter');
    // Resume: the saved position returns to the same late section after reopening.
    await page.evaluate(()=>{const h=[...document.querySelectorAll('#article h2')].find(h=>h.textContent==='Section 300');scrollTo(0,h.getBoundingClientRect().top+scrollY-innerHeight*.22+4);});
@@ -68,6 +94,6 @@ const FIRST_RENDER_MS=+(process.env.READER_PERF_FIRST_RENDER_MS||5000),FIND_MS=+
    await page.locator('#main').focus();await page.keyboard.press('j');
    await page.waitForFunction(expected=>document.querySelector('#pagination-slot [aria-current=page]')?.textContent===expected,next,{timeout:5000});
    assert.deepEqual(errors,[]);await context.close();}
-  console.log(`Large-document benchmark passed (${(text.length/1e6).toFixed(1)} MB): first render ${timings.scroll} ms scroll / ${timings.spread} ms two-page (limit ${FIRST_RENDER_MS}), diagrams drawn by ${timings.diagrams} ms, find ${timings.find} ms, reopen ${timings.reopen} ms; exact anchors, batched images, late diagrams, annotation, resume and pagination.`);
+  console.log(`Large-document benchmark passed (${(text.length/1e6).toFixed(1)} MB): first render ${timings.scroll} ms scroll / ${timings.spread} ms two-page (limit ${FIRST_RENDER_MS}), diagrams drawn by ${timings.diagrams} ms, find ${timings.find} ms, find keystroke median ${timings.keystroke} ms / max ${timings.keystrokeMax} ms (limit ${KEYSTROKE_MS}), find after a text change ${timings.rebuild} ms, reopen ${timings.reopen} ms; exact anchors, batched images, late diagrams, annotation, resume and pagination.`);
  }finally{await browser?.close();if(fixture.exitCode===null&&fixture.signalCode===null){fixture.kill('SIGTERM');await new Promise(resolve=>fixture.once('exit',resolve));}}
 })().catch(error=>{console.error(error);process.exitCode=1;});

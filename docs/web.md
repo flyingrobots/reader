@@ -3150,7 +3150,14 @@ typeset after first paint (see Diagrams and Math below). A document is
 still sanitized and laid out in full before it is shown, so sanitizing plus the
 browser's layout and paint of the whole DOM remain proportional to its size.
 
-Literal document find is capped at 2,000
+Find projects the article's visible text once (typed arrays of UTF-16 offsets, not
+per-character objects) and keeps that projection until the article's text changes: a
+`MutationObserver` on `#article` drops it on any text or element change (and on a
+`data-reader-decoration` attribute change), except changes inside pins or decorations
+and pins alone being added or removed. That covers a render, an
+edition, embeds mounting (lazy ones too), late math, drawn diagrams and highlighted
+code. A keystroke in find then only searches the cached text (about 2 ms on the 2 MB
+benchmark); rebuilding after a change takes under 0.1 s there. Literal document find is capped at 2,000
 matches; when more exist the count reads `1 / 2000+`. PDF find stops at 15 seconds, 32 MiB of extracted text or 2,000 matches,
 reports partial coverage (its count also ends in `+`), and refuses pages above 200,000 text characters. It does
 not perform OCR.
@@ -3851,8 +3858,11 @@ themes, the phone bottom sheet, and that no request leaves the origin.
 `web_perf.cjs` starts the fixture with `--perf`, which adds a synthetic ~2 MB
 document (400 sections with emoji prose, 200 code blocks, 100 local images, two
 Mermaid fences and a late annotation). It fails if continuous or two-page first
-render exceeds 5 s (`READER_PERF_FIRST_RENDER_MS`) or a find exceeds 2.5 s
-(`READER_PERF_FIND_MS`), and checks exact code-point anchors, two batched resolve
+render exceeds 5 s (`READER_PERF_FIRST_RENDER_MS`), a find exceeds 2.5 s
+(`READER_PERF_FIND_MS`) or the median of later find keystrokes exceeds 30 ms
+(`READER_PERF_KEYSTROKE_MS`). It checks that find sees article text added, edited
+and removed after its projection was built, that its hits are the ranges the older
+per-character projection gave, and checks exact code-point anchors, two batched resolve
 requests, the annotation highlight, resume after reopening and a page turn. The
 ceilings are deliberately generous; the run prints the measured times.
 

@@ -120,6 +120,24 @@ export function visibleQuote(projection, start, end) {
   while (lo < hi) { const mid = (lo + hi) >> 1; if (ends[mid] <= end) lo = mid + 1; else hi = mid; }
   return lo > first ? normalize(projection.text.slice(first, lo)) : '';
 }
+/** Visible-text projection of joined DOM text: each whitespace run becomes one space and every other code
+ *  unit is kept. `starts[j]`/`ends[j]` are the raw UTF-16 span of projected unit j; both units of a surrogate
+ *  pair end after the pair. Typed arrays, not per-character objects: a 2 MB article projects in a few ms. */
+export function projectText(raw) {
+  const text = raw.replace(/\s+/gu, ' '), starts = new Int32Array(text.length), ends = new Int32Array(text.length);
+  let j = 0, i = 0;
+  const visible = to => {
+    for (; i < to; i++, j++) {
+      const c = raw.charCodeAt(i), d = raw.charCodeAt(i + 1);
+      starts[j] = i;
+      if (c >= 0xD800 && c <= 0xDBFF && d >= 0xDC00 && d <= 0xDFFF && i + 1 < to) { ends[j] = i + 2; starts[++j] = ++i; ends[j] = i + 1; }
+      else ends[j] = i + 1;
+    }
+  };
+  for (const match of raw.matchAll(/\s+/gu)) { visible(match.index); starts[j] = i; ends[j] = i = match.index + match[0].length; j++; }
+  visible(raw.length);
+  return {text, starts, ends};
+}
 export function occurrences(text, query) {
   const result = [];
   if (!query) return result;

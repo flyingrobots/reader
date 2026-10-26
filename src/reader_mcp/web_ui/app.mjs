@@ -1,4 +1,4 @@
-import {bodyOf, codePointIndex, escapeHTML as esc, findFragment, formatDate, localizeLibrary, normalize, scopeOf, slugHeadings, occurrences, plainQuote, plural, projectSource, rawCodePoints, sourceRangeForQuote, visibleQuote} from './logic.mjs';
+import {bodyOf, codePointIndex, escapeHTML as esc, findFragment, formatDate, localizeLibrary, normalize, scopeOf, slugHeadings, occurrences, plainQuote, plural, projectSource, projectText, rawCodePoints, sourceRangeForQuote, visibleQuote} from './logic.mjs';
 import {installReading} from './reading.mjs';
 import {installLinks} from './links.mjs';
 import {mathPlugin,mathOptions} from './math.mjs';
@@ -760,16 +760,39 @@ async function showNextReads(path,id){
 function domProjection(root,{embeds=false}={}) {
   const skip=embeds?'.annotation-pin,[data-reader-decoration],script,style':'.annotation-pin,.document-embed,[data-reader-decoration],script,style';
   const walker=document.createTreeWalker(root,NodeFilter.SHOW_TEXT,{acceptNode(node){const hit=node.parentElement?.closest(skip);return hit&&root.contains(hit)?NodeFilter.FILTER_REJECT:NodeFilter.FILTER_ACCEPT;}});
-  let text='',nodes=[],offsets=[],node;
-  while((node=walker.nextNode()))for(let i=0;i<node.data.length;i++){text+=node.data[i];nodes.push(node);offsets.push(i);}
-  let normalized='',starts=[],ends=[];
-  for(const match of text.matchAll(/\s+|\S/gu)){
-    normalized+=/\s/u.test(match[0])?' ':match[0];
-    for(let k=0;k<(/\s/u.test(match[0])?1:match[0].length);k++){starts.push({node:nodes[match.index+k],offset:offsets[match.index+k]});const last=match.index+match[0].length-1;ends.push({node:nodes[last],offset:offsets[last]+1});}
-  }
-  return {text:normalized,range(start,end){const a=starts[start],b=ends[end-1];if(!a||!b)return null;const range=document.createRange();range.setStart(a.node,a.offset);range.setEnd(b.node,b.offset);return range;},
+  const nodes=[],bases=[];let raw='',node;
+  while((node=walker.nextNode())){nodes.push(node);bases.push(raw.length);raw+=node.data;}
+  const {text,starts,ends}=projectText(raw);
+  // The text node holding raw UTF-16 unit i (text nodes are never empty here: an empty one adds no unit).
+  const holder=i=>{let lo=0,hi=nodes.length-1;while(lo<hi){const mid=(lo+hi+1)>>1;if(bases[mid]<=i)lo=mid;else hi=mid-1;}return lo;};
+  const start=j=>{const k=holder(starts[j]);return [nodes[k],starts[j]-bases[k]];};
+  const end=j=>{const k=holder(ends[j]-1);return [nodes[k],ends[j]-bases[k]];};
+  return {text,range(from,to){if(!(from>=0&&from<text.length&&to>=1&&to<=text.length))return null;const range=document.createRange();range.setStart(...start(from));range.setEnd(...end(to-1));return range;},
     // Projected index of the first character at or after a range's start, for telling repeated quotes apart.
-    indexOf(range){const index=starts.findIndex(point=>range.comparePoint(point.node,point.offset)>=0);return index<0?normalized.length:index;}};
+    // Projected points are in document order, so the first one at or after it is found by binary search.
+    indexOf(range){let lo=0,hi=text.length;while(lo<hi){const mid=(lo+hi)>>1;if(range.comparePoint(...start(mid))>=0)hi=mid;else lo=mid+1;}return lo;}};
+}
+/** Find's projection of the article (with or without embeds), kept until the article's visible text changes:
+ *  a render, an edition, embeds mounting, typeset math, drawn diagrams or highlighted code all mutate it.
+ *  Pins come and go without touching the text, so they keep it. Typing in find then only searches (#35). */
+const findCache={root:null,observer:null,doms:new Map()};
+function articleProjection(root,{embeds=false}={}){
+  if(findCache.root!==root){
+    findCache.observer?.disconnect();findCache.doms.clear();findCache.root=root;
+    findCache.observer=new MutationObserver(records=>{if(records.some(textChange))findCache.doms.clear();});
+    findCache.observer.observe(root,{subtree:true,childList:true,characterData:true,attributes:true,attributeFilter:['data-reader-decoration']});
+  }else if(findCache.observer.takeRecords().some(textChange))findCache.doms.clear();
+  if(!findCache.doms.has(embeds))findCache.doms.set(embeds,domProjection(root,{embeds}));
+  return findCache.doms.get(embeds);
+}
+const isPin=node=>node.nodeType===1&&node.classList.contains('annotation-pin');
+/** Whether a mutation can change a projection: anything but a pin or a decoration changing inside itself, or
+ *  pins alone being added or removed. Projected-out classes (pins, embeds) are set when elements are made. */
+function textChange(record){
+  if(record.type==='attributes')return true;
+  const el=record.target.nodeType===1?record.target:record.target.parentElement;
+  if(el?.closest('.annotation-pin,[data-reader-decoration]'))return false;
+  return record.type!=='childList'||![...record.addedNodes,...record.removedNodes].every(isPin);
 }
 // The source projection costs O(n) per document; build it only when a thread or selection needs it.
 // The open document's, or an embedded document's (embeds.doc(path)).
@@ -1036,7 +1059,7 @@ async function revealPassage(at){
     $('#find-query').value=terms[0];await updateFind();
     const index=state.find.findIndex(hit=>hit.page>=(at.page||1));state.findIndex=index>=0?index:state.find.length?0:-1;
   }else{
-    const root=$('#article');if(!root)return;const dom=domProjection(root);
+    const root=$('#article');if(!root)return;const dom=articleProjection(root);
     const pattern=new RegExp('(?<![\\p{L}\\p{N}_])(?:'+terms.map(t=>t.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')).join('|')+')(?![\\p{L}\\p{N}_])','giu');
     state.find=[];for(const match of dom.text.matchAll(pattern)){const range=dom.range(match.index,match.index+match[0].length);if(range)state.find.push(range);if(state.find.length>=2000)break;}
     if(window.Highlight&&CSS.highlights)CSS.highlights.set('reader-find',new Highlight(...state.find));
@@ -1052,7 +1075,7 @@ async function updateFind(){
   const query=$('#find-query').value;
   if(state.pdf){const controller=state.pdf;$('#find-count').textContent='Searching PDF…';try{const result=await controller.find(query);if(!result||state.pdf!==controller||$('#find-query').value!==query)return;state.find=result.hits;state.findMore=!result.complete;state.findIndex=state.find.length?0:-1;showFind(false);if(!result.complete)toast(`PDF search stopped after ${result.examined} of ${plural(controller.count,'page')}; showing partial results.`);}catch(error){report(error);}return;}
   // Find covers embedded documents too (those loaded so far); anchoring uses each document's own text.
-  const root=$('#article');if(!root)return;const dom=domProjection(root,{embeds:true});
+  const root=$('#article');if(!root)return;const dom=articleProjection(root,{embeds:true});
   const hits=occurrences(dom.text,query);state.findMore=!!hits.limited;
   state.find=hits.map(({start,end})=>dom.range(start,end)).filter(Boolean);state.findIndex=state.find.length?0:-1;
   if(window.Highlight&&CSS.highlights)CSS.highlights.set('reader-find',new Highlight(...state.find));

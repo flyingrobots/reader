@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {bodyOf, codePointIndex, codePointOffset, occurrences, projectSource, rawCodePoints, sourceRangeForQuote, visibleQuote} from '../src/reader_mcp/web_ui/logic.mjs';
+import {bodyOf, codePointIndex, codePointOffset, occurrences, projectSource, projectText, rawCodePoints, sourceRangeForQuote, visibleQuote} from '../src/reader_mcp/web_ui/logic.mjs';
 
 test('formatted selections retain exact code-point anchors after an emoji',()=>{
   const raw='---\ntitle: Hidden\n---\n\n# A title\n\nA 🐈 sees **a precise** passage &amp; a [link](other.md).';
@@ -86,4 +86,16 @@ test('find stops at 2,000 matches and says when more exist',()=>{
   const exact=occurrences('a '.repeat(2000),'a'),more=occurrences('a '.repeat(2001),'a');
   assert.equal(exact.length,2000);assert.equal(exact.limited,undefined,'exactly 2,000 is a full count');
   assert.equal(more.length,2000);assert.equal(more.limited,true,'2,001 matches report a floor');
+});
+test('the typed-array text projection matches the per-character projection it replaced (#35)',()=>{
+  // The previous domProjection loop: one {start, end} raw span per projected UTF-16 unit.
+  const reference=raw=>{let text='';const starts=[],ends=[];
+    for(const match of raw.matchAll(/\s+|\S/gu)){const space=/\s/u.test(match[0]);text+=space?' ':match[0];
+      for(let k=0;k<(space?1:match[0].length);k++){starts.push(match.index+k);ends.push(match.index+match[0].length);}}
+    return {text,starts,ends};};
+  const samples=['','a','  ','plain words here',' lead and trail\n\t','🐈 cat and 🐈🐈\n\nend','x\uD800y\uDC00z\uDBFF','emoji at end 🐈','　﻿ mixed  '];
+  let seed=7;const rand=()=>(seed=seed*48271%2147483647)/2147483647,alphabet=['a','b',' ','\n','\t',' ','🐈','\uD800','\uDC00','é',' '];
+  for(let n=0;n<200;n++)samples.push(Array.from({length:Math.floor(rand()*40)},()=>alphabet[Math.floor(rand()*alphabet.length)]).join(''));
+  for(const raw of samples){const got=projectText(raw),want=reference(raw);
+    assert.equal(got.text,want.text,JSON.stringify(raw));assert.deepEqual([...got.starts],want.starts,JSON.stringify(raw));assert.deepEqual([...got.ends],want.ends,JSON.stringify(raw));}
 });
