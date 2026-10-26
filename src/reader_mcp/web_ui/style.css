@@ -42,6 +42,11 @@ body.zen .statusline{opacity:0;transform:translateY(calc(100% - 3px))}body.zen .
 body.zen.reveal-controls .statusline,body.zen .statusline:focus-within{opacity:1;transform:none}body.zen.reveal-controls .reading-progress,body.zen .reading-progress:focus-within{opacity:1}
 .summon{bottom:47px}.find-bar{bottom:48px}.thread-panel{bottom:32px}
 :root{--faint:#8e9787}:root[data-theme=paper]{--faint:#66705f}
+/* Continuous reading skips layout and paint of top-level blocks far from the window; a block remembers its last
+   rendered height. Only blocks whose children cannot share their margins (containment would stop the collapsing
+   and change the spacing): paragraphs, headings, code, tables, rules, callouts, formulas and diagrams. Lists,
+   quotes and embeds lay out as before, as do two-page columns and PDF pages. */
+body:not(.two-page) #article:not(.pdf-document)>:is(p,h1,h2,h3,h4,h5,h6,pre,table,hr,.reader-code-block,.reader-math-block,.reader-diagram,.callout){content-visibility:auto;contain-intrinsic-size:auto 240px}
 body.two-page{overflow:hidden}body.two-page #smooth-wrapper{position:fixed!important;inset:0 0 35px!important;overflow:hidden!important}body.two-page #smooth-content{height:100%!important;transform:none!important}body.two-page #main{height:100%}
 body.two-page .document-shell{max-width:1500px;width:100%;height:100%;padding:25px 52px 25px;display:flex;flex-direction:column}
 body.two-page .document-kicker,body.two-page .document-meta,body.two-page .document-footer{display:none}

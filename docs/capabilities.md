@@ -87,7 +87,10 @@ source with the reason. TeX math (`$$…$$`, `\[…\]`, `\(…\)` and a conserva
 shown, keeping your place; rejected TeX stays visible with its reason, and copying a
 formula copies its TeX.
 Markdown rendering scales linearly with document size, and local images resolve in
-batched requests.
+batched requests. In continuous reading the browser lays out only blocks near the window
+(`content-visibility`): long documents show sooner, and jumps, bookmarks, pins and smooth
+scrolling hold their place while far blocks settle. The scrollbar length is an estimate until
+then.
 See [web operation, privacy, limits and recovery](web.md).
 
 `scripts/reader_service.py` runs the web reader as a macOS LaunchAgent from a

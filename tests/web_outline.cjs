@@ -30,7 +30,8 @@ const THEMES=['ink','paper','orchid','orchid-dark','harvest','harvest-dark',...r
    const ids=await page.evaluate(()=>[...document.querySelectorAll('#article h2')].slice(0,3).map(h=>h.id));assert.deepEqual(ids,['chapter-1','chapter-2','chapter-3'],'headings gain stable slugs');
    const box=await page.evaluate(()=>{const r=document.querySelector('#outline-rail').getBoundingClientRect(),a=document.querySelector('#article').getBoundingClientRect();return {right:r.right,left:r.left,article:a.left};});
    assert.ok(box.left>=16&&box.right<box.article,'rail sits left of the article: '+JSON.stringify(box));
-   await page.evaluate(()=>{document.getElementById('chapter-10').scrollIntoView({block:'start'});});
+   // Blocks far from the window have estimated heights (content-visibility) until the scroll arrives; scroll again until it holds.
+   await page.evaluate(async()=>{const h=document.getElementById('chapter-10');for(let i=0;i<5;i++){h.scrollIntoView({block:'start'});await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(()=>setTimeout(resolve,100))));if(Math.abs(h.getBoundingClientRect().top)<2)break;}});
    await waitCurrent(page,'Chapter 10');assert.equal(await page.locator('#status-section').textContent(),'Chapter 10');
    assert.equal(await page.evaluate(()=>document.querySelector('#outline-rail [aria-current] + .outline-progress')!==null),true,'progress bar under the active entry');
    const progress=await page.evaluate(()=>document.querySelector('.outline-progress>span').style.transform);assert.match(progress,/scaleX\(0\.\d+|scaleX\(0\)/);

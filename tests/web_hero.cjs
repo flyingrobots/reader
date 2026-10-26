@@ -53,7 +53,8 @@ const {chromium}=require(process.env.READER_PLAYWRIGHT||'playwright-core');
   // A late block is restored to its place under the hero, and a heading link lands on its heading.
   {const {context,page,errors}=await open();
    await read(page,'library/issue/long-art.md');await settled(page);
-   await page.evaluate(()=>{const block=[...document.querySelectorAll('#article p')].find(p=>p.textContent.includes('distinct remark for part 30'));scrollTo(0,scrollY+block.getBoundingClientRect().top-innerHeight*.22+2);});
+   // Blocks far from the window have estimated heights (content-visibility), which settle once the scroll arrives; scroll again until it holds.
+   await page.evaluate(async()=>{const block=[...document.querySelectorAll('#article p')].find(p=>p.textContent.includes('distinct remark for part 30'));for(let i=0;i<5;i++){scrollTo(0,scrollY+block.getBoundingClientRect().top-innerHeight*.22+2);await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(()=>setTimeout(resolve,100))));if(Math.abs(block.getBoundingClientRect().top-(innerHeight*.22-2))<2)break;}});
    await page.waitForTimeout(1200);
    await page.reload();await shown(page,'library/issue/long-art.md');await page.waitForTimeout(400);
    const restored=await page.evaluate(()=>{const block=[...document.querySelectorAll('#article p')].find(p=>p.textContent.includes('distinct remark for part 30')),r=block.getBoundingClientRect();return {top:r.top,bottom:r.bottom,line:innerHeight*.22,hero:!!document.querySelector('#article .art-hero')};});

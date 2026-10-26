@@ -131,7 +131,7 @@ export function installOutline({state,reading,$,controls,scrollToPosition,savePr
     const range=document.createRange();range.selectNode(element);
     if(!reading.reveal(range)){
       const content=$('#smooth-content').getBoundingClientRect().top;
-      scrollToPosition(element.getBoundingClientRect().top-content-line()+2);
+      scrollToPosition(element.getBoundingClientRect().top-content-line()+2,true,element);
     }
     if(close&&open){open=false;publish();$('#main').focus({preventScroll:true});}
     reading.update();

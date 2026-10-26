@@ -126,6 +126,8 @@ const highlightText=(page,name)=>page.evaluate(name=>[...(CSS.highlights.get(nam
   // Links and figures.
   await press(page,'g','g');await press(page,']','l');await page.waitForFunction(()=>document.activeElement?.matches('#article a[href]'));
   assert.equal(await page.evaluate(()=>document.activeElement.textContent),'a quiet thought');
+  // ]l scrolls; its scroll event arrives on the next frame and closes any preview, so let it land first.
+  await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
   await press(page,'K');await page.locator('#link-preview').waitFor();
   await press(page,']','f');await page.waitForFunction(()=>document.querySelector('#article .change-target')?.matches('table'));
   // gd: the first use of a term found with /.

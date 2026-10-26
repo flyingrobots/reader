@@ -125,7 +125,7 @@ export function installReading({scratchStatus, statusOverride, onStatus, mayCurl
   function revealLine(line,page=null){
     const target=lineTarget(line,page);if(!target)return null;
     let range=target;if(!(target instanceof Range)){range=document.createRange();range.selectNodeContents(target);}
-    if(!reveal(range,false)){const rect=(target instanceof Range?range:target).getBoundingClientRect();scrollToPosition(scrollY+rect.top-innerHeight*.3,false);}
+    if(!reveal(range,false)){const rect=(target instanceof Range?range:target).getBoundingClientRect();scrollToPosition(scrollY+rect.top-innerHeight*.3,false,target);}
     update();return range;
   }
   function capture(){
@@ -178,7 +178,7 @@ export function installReading({scratchStatus, statusOverride, onStatus, mayCurl
       if(book && mark.layout==='spread' && mark.spread_count===book.spreads)seek(mark.progress,false);
       else if(target){
         const range=document.createRange();range.selectNode(target);
-        if(!reveal(range,false)){const r=target.getBoundingClientRect();scrollToPosition(scrollY+r.top+r.height*(mark.block_fraction || 0)-innerHeight*.22,false);}
+        if(!reveal(range,false)){const r=target.getBoundingClientRect();scrollToPosition(scrollY+r.top+r.height*(mark.block_fraction || 0)-innerHeight*.22,false,target,mark.block_fraction || 0);}
       }else seek(mark.progress,false);
     }else if(mark)toast('This edition has changed. Starting at the beginning.');
     words=($('#article')?.textContent || '').split(/\s+/u).filter(Boolean).length;

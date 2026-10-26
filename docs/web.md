@@ -3251,8 +3251,41 @@ targets resolve through `/api/resolve-batch` (at most 64 targets and about
 painting and passage selection use is built on first need, not before display.
 Image loads trigger at most one scroll/pin reflow per animation frame. Mermaid diagrams are drawn and TeX is
 typeset after first paint (see Diagrams and Math below). A document is
-still sanitized and laid out in full before it is shown, so sanitizing plus the
-browser's layout and paint of the whole DOM remain proportional to its size.
+still sanitized in full before it is shown, so sanitizing remains proportional to its size.
+
+In continuous reading, top-level paragraphs, headings, code blocks, tables, rules,
+callouts, display formulas and diagrams carry `content-visibility: auto` (`style.css`), so
+the browser lays out and paints only those near the window. On the synthetic 2 MB
+benchmark a warm open is shown after about 0.6 s instead of 1.2 s. Lists, quotes, embeds and other
+blocks whose children's margins collapse through them are not contained, because containment
+would change their spacing. Margin pins, two-page columns (`body.two-page`) and PDF pages are
+never contained, so pagination, the page turn and PDF reading lay out as before.
+
+A skipped block counts as an estimated height until it is first laid out. Paragraphs and headings
+estimate theirs from their text length; other blocks count as 240 px.
+`contain-intrinsic-size: auto` then remembers each block's real height. `place.mjs` keeps what you
+see steady while estimates turn into real heights:
+
+- **Jumps hold their target.** A jump Reader makes in continuous reading (find, a heading link,
+  the outline, `]]`/`[[`, an opened passage, a bookmark, the jump list, `G`, VISUAL motions)
+  passes its element or range to `scrollToPosition`. A `ResizeObserver` on the top-level
+  blocks re-seeks after each height change, so the target lands on the line it was sent to. A
+  bookmark lands at its fraction of the block, measured on the block's settled height. The hold
+  ends when you wheel, touch, click or press a key, or scroll the page yourself (a scrollbar drag),
+  or when another jump or document replaces it.
+- **Smooth scrolling keeps the first block in view.** ScrollSmoother moves the article inside a
+  fixed wrapper, which the browser's scroll anchoring cannot see. There, when blocks above the
+  window change height, the view moves by the same amount, so scrolling up past blocks never laid
+  out keeps the text still. `drawLate()` leaves that case, and any held jump, to `place.mjs`.
+  Native scrolling relies on the browser's own scroll anchoring.
+- **Pins follow.** Margin pins are positioned again after every block height change, and the
+  progress pips shortly after.
+
+The scrollbar length and the position percentage are estimates until the blocks are laid out.
+`tests/web_content_visibility.cjs` checks the gain (at least 20% on warm opens) and the invariants
+in native and smooth scrolling. With and without the rule, it compares source coordinates, pins
+beside their passages, find, heading and outline jumps, the bookmark, the reading cursor's text,
+the spacing of every block type, and steady scrolling up.
 
 Find projects the article's visible text once (typed arrays of UTF-16 offsets, not
 per-character objects) and keeps that projection until the article's text changes: a

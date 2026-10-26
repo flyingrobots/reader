@@ -72,7 +72,8 @@ const FIRST_RENDER_MS=+(process.env.READER_PERF_FIRST_RENDER_MS||5000),FIND_MS=+
    assert.ok(timings.keystroke<KEYSTROKE_MS,`a find keystroke took ${timings.keystroke} ms at the median (limit ${KEYSTROKE_MS}); all: ${keys.times.map(Math.round).join(' ')}`);
    await page.keyboard.press('Enter');
    // Resume: the saved position returns to the same late section after reopening.
-   await page.evaluate(()=>{const h=[...document.querySelectorAll('#article h2')].find(h=>h.textContent==='Section 300');scrollTo(0,h.getBoundingClientRect().top+scrollY-innerHeight*.22+4);});
+   // Blocks far from the window have estimated heights (content-visibility), which settle once the scroll arrives; scroll again until it holds.
+   await page.evaluate(async()=>{const h=[...document.querySelectorAll('#article h2')].find(h=>h.textContent==='Section 300');for(let i=0;i<5;i++){scrollTo(0,h.getBoundingClientRect().top+scrollY-innerHeight*.22+4);await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(()=>setTimeout(resolve,100))));if(Math.abs(h.getBoundingClientRect().top-(innerHeight*.22-4))<2)break;}});
    await page.waitForResponse(r=>r.url().includes('/api/bookmark')&&r.request().method()==='POST',{timeout:5000});
    await page.reload();timings.reopen=Math.round(await visible(page));
    const top=await page.evaluate(()=>{const h=[...document.querySelectorAll('#article h2')].find(h=>h.textContent==='Section 300');return h.getBoundingClientRect().top;});

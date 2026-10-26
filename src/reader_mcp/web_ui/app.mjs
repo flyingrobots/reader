@@ -24,6 +24,7 @@ import {installSplit,installPane,cleanRoute} from './split.mjs';
 import {installScratch} from './scratch.mjs';
 import {createKeys,closest as keysClosest} from './keys.mjs';
 import {installVisual} from './visual.mjs';
+import {installPlace} from './place.mjs';
 import {installLists} from './lists.mjs';
 import {installStatusPriority} from './status-priority.mjs';
 
@@ -165,18 +166,27 @@ function resetScroll() {
   }
   requestAnimationFrame(refreshScroll);
 }
-function scrollToPosition(top, smooth=true) {
+/** Scroll continuous reading to `top`. A `target` (the element or range the jump is for, or the point `fraction`
+ *  of the way down it) stays where it lands while the blocks around it settle their heights. */
+function scrollToPosition(top, smooth=true, target=null, fraction=0) {
   const bounded = Math.max(0, Math.min(top, document.documentElement.scrollHeight - innerHeight));
   if (state.smoother) state.smoother.scrollTo(bounded, smooth && motion());
   else window.scrollTo({top:bounded, behavior:smooth && motion() ? 'smooth' : 'instant'});
+  if (target) placeKeeper.hold(target, bounded, smooth && motion(), fraction); else placeKeeper.release();
 }
+let placePips=0;
+const placeKeeper = installPlace({content:()=>$('#smooth-content'), smoother:()=>state.smoother,
+  scroll:(top,smooth)=>{const bounded=Math.max(0,Math.min(top,document.documentElement.scrollHeight-innerHeight));
+    // A correction replaces the smoother's glide toward the old line rather than racing it.
+    if(state.smoother){gsap.killTweensOf(state.smoother);state.smoother.scrollTo(bounded,smooth);}else window.scrollTo({top:bounded,behavior:smooth?'smooth':'instant'});},
+  onChange:()=>{positionPins();clearTimeout(placePips);placePips=setTimeout(()=>reading?.pips(),250);}});
 function moveToRange(range) {
   lateMoved?.(range);
   // A folded callout opens when find or a thread jumps into its body.
   for(let fold=range.startContainer.parentElement?.closest('details.callout-fold:not([open])');fold;fold=fold.parentElement?.closest('details.callout-fold:not([open])'))fold.open=true;
   if(reading?.reveal(range))return;
   const rect = range.getBoundingClientRect();
-  scrollToPosition(window.scrollY + rect.top - innerHeight * .36);
+  scrollToPosition(window.scrollY + rect.top - innerHeight * .36, true, range);
 }
 async function loadLibrary() {
   const profile = state.prefs.participant ? '?participant=' + param(state.prefs.participant) : '';
@@ -448,7 +458,7 @@ async function navigate(path,{thread=null,fragment='',record=true,commit=null,at
   if(record){state.visits=state.visits.slice(0,state.cursor+1);state.visits.push(path);state.cursor++;
     // A pane's pushed entry would join the window's session history, so browser Back would step a background pane.
     if(EMBEDDED)history.replaceState({reader:true,path},'',routeHash(path,at,fragment));else history.pushState({reader:true,path},'',routeHash(path,at,fragment));}
-  clearFind();prose?.detach();await state.pdf?.destroy();state.pdf=null;state.ranges=[];CSS.highlights?.delete('reader-own');CSS.highlights?.delete('reader-other');CSS.highlights?.delete('reader-warning');
+  clearFind();prose?.detach();await state.pdf?.destroy();state.pdf=null;state.ranges=[];placeKeeper.watch(null);CSS.highlights?.delete('reader-own');CSS.highlights?.delete('reader-other');CSS.highlights?.delete('reader-warning');
   const quick=isIssue(path)&&state.view==='issue'&&!!state.data;
   state.view=path===BACKSTAGE?'backstage':path===SEARCH?'search':path?.startsWith(SCRATCH)?'scratch':isIssue(path)?'issue':null;
   state.editions=null;state.versions=null;state.changes=null;versions?.reset();versions?.update();
@@ -513,7 +523,7 @@ async function navigate(path,{thread=null,fragment='',record=true,commit=null,at
     if(id!==state.routeId)return;
     const artFigure=artData?placeArticleArt(path,heroWanted()&&hasArt(artData)):null;
     mountEditions();wireChanges();
-    reading?.prepare();resetScroll();wireArticleLinks(article,path);await reading?.restore(doc);
+    reading?.prepare();resetScroll();placeKeeper.watch(reading?.hasBook()||state.pdf?null:article);wireArticleLinks(article,path);await reading?.restore(doc);
     rendered=true; // From here on, failures are secondary: keep the article and toast quietly instead.
     if(!inLayout)pending.then(late=>placeLateChip(late,doc,id));
     if(shapeFigure)paintArticleShape(shapeFigure,shape).catch(error=>console.warn('Article shape',error));
@@ -669,7 +679,9 @@ async function drawLate(article,id){
   const keep=()=>{
     if(id!==state.routeId||moved||!place?.block.isConnected)return;
     if(reading?.geometry()){reading.reflow();let range=place.range;if(!range){range=document.createRange();range.selectNodeContents(place.block);}reading.reveal(range,false);}
-    else{const shift=place.block.getBoundingClientRect().top-place.top;if(Math.abs(shift)>1)scrollTo(0,scrollY+shift);}
+    // A jump Reader made (a bookmark, a heading) is held by placeKeeper, as is the first block in view with smooth
+    // scrolling, which has no scroll anchoring.
+    else if(!state.smoother&&!placeKeeper.holding()){const shift=place.block.getBoundingClientRect().top-place.top;if(Math.abs(shift)>1)scrollTo(0,scrollY+shift);}
   };
   const events=['wheel','keydown','pointerdown','touchstart'];events.forEach(type=>addEventListener(type,stop,{capture:true,passive:true}));
   // A jump Reader makes becomes the place to keep in two-page mode (columns have no scroll anchoring); in
@@ -766,7 +778,7 @@ function imageLoaded(){if(imageLoaded.frame)return;imageLoaded.frame=requestAnim
 function showHeading(root,id){
   const target=id&&findFragment(root,id);if(!target)return false;lateMoved?.(target);
   const range=document.createRange();range.selectNode(target);
-  if(!reading?.reveal(range,false))scrollToPosition(scrollY+target.getBoundingClientRect().top-24,false);
+  if(!reading?.reveal(range,false))scrollToPosition(scrollY+target.getBoundingClientRect().top-24,false,target);
   return true;
 }
 function wireArticleLinks(root,path){
@@ -1271,7 +1283,7 @@ function restorePlace(spot){
   const blocks=spot.page?[...document.querySelectorAll(`#article [data-pdf-page="${spot.page}"]`)]:spot.offset!=null?[...document.querySelectorAll(`#article [data-source-start="${spot.offset}"]`)].filter(el=>!el.closest('.document-embed')).sort((a,b)=>size(a)-size(b)):[];
   const target=blocks[0];if(!target){reading.seek(spot.progress??0,false);return;}
   const range=document.createRange();range.selectNode(target);
-  if(!reading.reveal(range,false)){const r=target.getBoundingClientRect();scrollToPosition(scrollY+r.top+r.height*(spot.fraction||0)-innerHeight*.22,false);}
+  if(!reading.reveal(range,false)){const r=target.getBoundingClientRect();scrollToPosition(scrollY+r.top+r.height*(spot.fraction||0)-innerHeight*.22,false,target,spot.fraction||0);}
   reading.update();
 }
 async function goTo(spot){
@@ -1341,7 +1353,7 @@ function stepLink(delta,{count}){
   const next=stepThrough(list,delta,focusedLink(),count);if(!next){toast(delta>0?'No more links after this one.':'No links before this one.');return;}
   next.focus({preventScroll:true});const range=document.createRange();range.selectNodeContents(next);moveToRange(range);
 }
-function seekEdge(end){jumps.record();if(reading.hasBook())reading.seek(end?1:0);else scrollToPosition(end?document.documentElement.scrollHeight:0);}
+function seekEdge(end){jumps.record();if(reading.hasBook())reading.seek(end?1:0);else scrollToPosition(end?document.documentElement.scrollHeight:0,true,end?[...$('#article')?.children||[]].filter(el=>!el.classList.contains('annotation-pin')).at(-1):null);}
 const R='Reading',L='Leader: Space or comma',H='Homepage',S='Search page',M='Marks and jumps',Q='Lists',P='In panels',W='Split view: Ctrl w or Space W',X='Scratch pad';
 keys.group('<Space>,','more');
 keys.prefix('<C-w>',{label:'WINDOW',ms:1500});
