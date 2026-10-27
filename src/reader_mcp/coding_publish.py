@@ -159,7 +159,8 @@ class Job(Workflow):
     def matching(self, pulls, head):
         branch, base = self.run['git']['branch'], self.entry['base']
         return [p for p in pulls if p.get('head') == branch and (p.get('repository') or '').casefold() == self.repo.casefold()
-                and p.get('base') == base and p.get('head_sha') == head]
+                and (p.get('head_repository') or '').casefold() == self.repo.casefold()
+                and p.get('base') == base and p.get('head_sha') == head and p.get('state') == 'open' and not p.get('merged')]
 
     def open_pull_request(self, result, head):
         branch, issue = self.run['git']['branch'], self.run['issue']['number']

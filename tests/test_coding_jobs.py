@@ -221,3 +221,15 @@ def test_viewing_listing_and_streaming_never_start_anything(world):
     assert block['issue_url'] == 'https://github.com/acme/widget/issues/277' and block['runs'] == []
     assert w.jobs.store.runs() == [] and w.calls() == [] and w.github.calls == []
     assert not (w.vault / 'logs').exists()
+
+
+@pytest.mark.parametrize('change', [
+    {'state': 'closed', 'merged': False},          # closed straight after it was opened
+    {'head_repository': 'other/fork'},             # the same branch name and SHA from another repository
+])
+def test_a_pull_request_that_does_not_read_back_as_ours_and_open_is_not_reported_opened(world, monkeypatch, change):
+    w = world()
+    original = w.github.pull_request
+    monkeypatch.setattr(w.github, 'pull_request', lambda *a: dict(original(*a), **change))
+    run, _ = w.run()
+    assert run['outcome'] == 'needs_reconciliation', run['message']
