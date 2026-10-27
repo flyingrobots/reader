@@ -17,6 +17,8 @@ share a basename. No credential is stored here; GitHub access comes from the `gh
 `verify` is required: Reader runs exactly that argv (no shell) in the job's worktree as the final check, so
 it must be the project's guarded runner when the project requires one. With `lock`, the argv runs inside
 `git locks with` for those keys; without git-locks installed the job is blocked rather than run unguarded."""
+from contextlib import contextmanager
+import fcntl
 import json
 import os
 from pathlib import Path
@@ -207,12 +209,20 @@ class Registry:
         temporary.write_text(text)
         temporary.replace(self.file)
 
+    @contextmanager
+    def updating(self):
+        """One update at a time: this server's threads (lock) and other servers on the vault (flock)."""
+        self.file.parent.mkdir(parents=True, exist_ok=True)
+        with self.lock, self.file.with_name('repositories.lock').open('a') as handle:
+            fcntl.flock(handle, fcntl.LOCK_EX)
+            yield
+
     def register(self, repo, raw):
         entry = validate(repo, raw, self.root)
         problems = inspect(entry)
         if problems:
             raise RegistryError(' '.join(problems))
-        with self.lock:
+        with self.updating():
             repositories = self.raw()
             repositories = {k: v for k, v in repositories.items() if k.casefold() != repo.casefold()}
             repositories[repo] = {k: v for k, v in raw.items() if v is not None}
@@ -220,7 +230,7 @@ class Registry:
         return entry
 
     def remove(self, repo):
-        with self.lock:
+        with self.updating():
             repositories = self.raw()
             kept = {k: v for k, v in repositories.items() if k.casefold() != str(repo).casefold()}
             if len(kept) == len(repositories):

@@ -1,3 +1,5 @@
+import threading
+
 import pytest
 
 from coding_fixture import World
@@ -28,3 +30,27 @@ def test_a_registration_that_would_exceed_the_file_limit_is_refused_and_the_file
     with pytest.raises(repositories.RegistryError, match='256 KiB'):
         registry.register('acme/widget', dict(w.entry, verify={'argv': ['x' * 4096] * 64}))
     assert registry.file.read_bytes() == before
+
+
+def test_two_servers_registering_at_once_lose_neither_registration(w, monkeypatch):
+    monkeypatch.setattr(repositories, 'inspect', lambda entry: [])
+    first, second = repositories.Registry(w.vault), repositories.Registry(w.vault)
+    both_read, first_written, write = threading.Barrier(2), threading.Event(), repositories.Registry.write
+
+    def coordinated(self, rows):
+        try:
+            both_read.wait(timeout=0.5)  # Without a shared lock, both servers have read the file by now.
+        except threading.BrokenBarrierError:
+            pass
+        if self is second:
+            first_written.wait(timeout=5)
+        write(self, rows)
+        if self is first:
+            first_written.set()
+    monkeypatch.setattr(repositories.Registry, 'write', coordinated)
+    threads = [threading.Thread(target=r.register, args=(name, w.entry)) for r, name in ((first, 'acme/first'), (second, 'acme/second'))]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join(timeout=10)
+    assert {'acme/widget', 'acme/first', 'acme/second'} <= first.raw().keys()
