@@ -54,6 +54,9 @@
 .reader-progress [data-slot="progress-track"] { height: 3px; border-radius: 0; }
 .reader-progress [data-slot="progress-indicator"] { transition: none; }
 .theme-toggle { display: flex; align-items: center; gap: 7px; padding: 0 6px; font-size: 10px; cursor: pointer; }
+.quick-theme-controls { display: flex; align-items: center; gap: 4px; }
+#quick-theme { max-width: 190px; font-size: 11px; }
+#quick-theme [data-slot="select-value"] { overflow: hidden; text-overflow: ellipsis; }
 #statusline .status-button { font-size: 10px; }
 .page-turn-canvas { position: fixed; inset: 0; width: 100vw; height: 100vh; pointer-events: none; z-index: 6; }
 .page-turning .annotation-pin { visibility: hidden; }
@@ -88,6 +91,8 @@
 .reader-file-tree [data-doc-node][data-active] { background: var(--raised); }
 .file-results:focus-visible [data-doc-node][data-active] { outline: 1px solid var(--accent); outline-offset: -1px; }
 @media(max-width: 700px) {
+  #quick-theme { padding: 0 6px; gap: 2px; }
+  #quick-theme [data-slot="select-value"] { display: none; }
   #pagination-slot .page-neighbor { display: none; }
   .theme-toggle { padding: 0 3px; }
   .theme-toggle span { display: none; }

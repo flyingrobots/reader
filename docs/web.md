@@ -52,6 +52,7 @@ The web server does not rebuild indexes or download models at startup.
 | Space v | Versions: every edition and its git history as a timeline (`j`/`k` or arrows move, Enter opens, `c` on two items compares, Escape closes) |
 | Space d | What changed: since your receipt, else against the newer version, else against another reader's edition |
 | Space , t; F10 | Theme Editor (F10 also closes it; focus returns to where it was opened from) |
+| Space Shift+T; `:themes` | Quick theme picker in the footer; choose a theme to apply and save it immediately |
 | Space s, then a / f / s | Send to AI-TTS: whole article, from here, or the selection |
 | Space u; header Source | Open the raw source file (`/api/file`, front matter included) in a new tab; filed documents and inbox previews, not historical versions |
 | Space m | Chat with the voices about the open document |
@@ -87,7 +88,7 @@ a **Find a document** button, without an error toast; the API answers it with 40
 Commands yield to text fields, selects, composition and dialogs. Standard browser
 selection, copying and context menus remain available. The sticky footer reports
 the active interaction mode and its applicable shortcuts. It offers layout,
-light/dark theme controls, an **Outline** button when the document has an outline, the current section title, and a **Backstage** button that opens Reader Admin's Overview. In zen mode the chrome reappears on keyboard
+the quick theme picker and light/dark switch, an **Outline** button when the document has an outline, the current section title, and a **Backstage** button that opens Reader Admin's Overview. In zen mode the chrome reappears on keyboard
 focus or when the pointer reaches the lower-right corner.
 
 The mode corner has a distinct background for Normal, Browse, Search, Insert,
@@ -296,6 +297,14 @@ issue weeks, activity days) uses local days. The helpers live in
   newsletter-pick or near-pair signal, though it is listed in the local week.
 
 ### Themes and the Theme Editor
+
+The footer's palette button switches between built-in, famous and saved custom
+themes without leaving the current page. Selections apply immediately and persist
+on this device, with no Save step. The menu supports arrows, typeahead, Enter and
+Escape. Open it with **Space then Shift+T** or `:themes`; **Space t** still opens
+threads, and **F10** opens the Theme Editor. On narrow screens the palette icon
+stays visible while the theme's name is shown inside the menu. The adjacent Dark
+switch keeps the selected palette family.
 
 Besides Ink/Paper, Orchid and Harvest, Settings offers eight well-known open-source
 palettes as built-in pairs (light · dark): **Solarized** (Light · Dark), **Gruvbox**
