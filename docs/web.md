@@ -1442,8 +1442,7 @@ In the static demo these sections say they need Reader.
 
 ### Reader Admin: Local model (any OpenAI-compatible server)
 
-The **Local model** section, after Indexes (and the Inbox, when it is not first) and before Library,
-supervises a small work
+Reader Admin's **Models** page (`#admin/models`, after Voices) supervises a small work
 queue for a model you run yourself: LM Studio, Ollama, llama.cpp's `llama-server`, or
 any other server with an OpenAI-compatible API (vLLM, LocalAI, Jan and others). It suits bulk, private, judgment-light
 language tasks. Outputs are suggestions labelled with their model; filing, catalog
