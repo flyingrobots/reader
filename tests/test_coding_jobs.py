@@ -470,3 +470,24 @@ def test_a_remote_branch_created_between_the_lookup_and_the_push_is_kept(world, 
     monkeypatch.setattr(Job, 'git', race)
     run, _ = w.run()
     assert raced and w.remote_heads()[raced[0]] == w.base_sha and run['outcome'] == 'needs_reconciliation'
+
+
+def test_a_failed_request_receipt_leaves_no_orphan_run_and_a_retry_admits_one(world, monkeypatch):
+    w = world()
+    w.jobs.work = lambda: None
+    remember, failed = w.jobs.store.remember, []
+
+    def fail_once(*args):
+        if not failed:
+            failed.append(True)
+            raise OSError(5, 'synthetic receipt write failure')
+        return remember(*args)
+    monkeypatch.setattr(w.jobs.store, 'remember', fail_once)
+    request = w.request()
+    with pytest.raises(OSError, match='receipt write failure'):
+        w.jobs.submit(request)
+    retried = w.jobs.submit(request)
+    try:
+        assert [r['id'] for r in w.jobs.store.runs()] == [retried['id']] and list(w.jobs.queue) == [retried['id']]
+    finally:
+        w.jobs.stop(retried['id'])

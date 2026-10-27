@@ -88,6 +88,12 @@ class Store:
                 raise
             self.unsaved.pop(run['id'], None)
 
+    def discard(self, run_id):
+        """Remove a run record that was never admitted (its admission failed part-way)."""
+        with self.lock:
+            self.unsaved.pop(run_id, None)
+            (self.runtime / 'runs' / (run_id + '.json')).unlink(missing_ok=True)
+
     def retry(self):
         """Write the records that could not be written earlier; those that still fail stay in memory."""
         with self.lock:

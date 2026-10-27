@@ -217,7 +217,18 @@ class Runner:
             capture.write('prompt.txt', prompt)
             capture.event(run_id, 'phase', phase='queued', state='started', detail=f'{entry["repo"]} · {coding_agents.LABELS[request["agent"]]}')
             self.store.save(run)
-            self.store.remember(request['request_id'], run_id, print_)
+            try:
+                self.store.remember(request['request_id'], run_id, print_)
+            except BaseException:
+                # Without its receipt the run is not admitted: no record is left to wait unqueued, and a retry
+                # with the same request ID admits exactly one run. The archive keeps the attempt, sealed as failed.
+                self.store.discard(run_id)
+                capture.close()
+                try:
+                    log.finish('failed', message='Admission failed: the request receipt could not be saved.')
+                except (OSError, ValueError):
+                    pass
+                raise
             self.captures[run_id], self.logs[run_id] = capture, log
             self.queue.append(run_id)
             self.wake.set()
