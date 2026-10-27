@@ -85,6 +85,8 @@ class GhCli(GitHub):
                 raise Uncertain(f'GitHub gave no clear answer to {method} {route}: {message or "no output"}')
             raise GitHubError(f'GitHub refused {method} {route}: {message or "no output"}')
         if len(result.stdout) > MAX_RESPONSE:
+            if write:  # The write succeeded or may have; its answer is unreadable, so reconcile.
+                raise Uncertain(f'GitHub answered {method} {route} with more than 4 MiB; it may have taken effect')
             raise GitHubError('GitHub response exceeds 4 MiB')
         try:
             return json.loads(result.stdout or 'null')
