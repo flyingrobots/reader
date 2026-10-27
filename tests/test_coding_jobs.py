@@ -292,3 +292,16 @@ def test_a_finished_run_releases_its_live_event_buffer(world):
     assert run['id'] not in w.jobs.live.events
     page = w.jobs.events(run['id'], 0)
     assert page['source'] == 'archive' and page['done'] and page['events']
+
+
+def test_issue_and_pull_request_titles_hide_host_folders(world, monkeypatch):
+    from coding_fixture import article
+    from reader_mcp.coding_publish import Job
+    w = world()
+    (w.vault / w.doc).write_text(article(issue=None))
+    agent = Job.agent
+    monkeypatch.setattr(Job, 'agent', lambda self: dict(agent(self), issue_title=f'Fix {w.checkout}/src', pr_title=f'Fix {w.checkout}/src'))
+    run, _ = w.run()
+    assert run['outcome'] == 'pr_opened', run['message']
+    assert str(w.checkout) not in w.github.issues[run['issue']['number']]['title']
+    assert str(w.checkout) not in w.github.pulls[run['pr']['number']]['title']

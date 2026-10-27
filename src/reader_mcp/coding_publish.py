@@ -69,7 +69,7 @@ class Job(Workflow):
         if self.run.get('issue'):
             return
         marker = self.marker()
-        title = (result['issue_title'] or self.run['source']['title'])[:200]
+        title = self.private(result['issue_title'] or self.run['source']['title'])[:200]
         body = (self.private(result['issue_body'] or result['summary'])[:16000] +
                 f'\n\n---\nOpened by Reader for a coding job started from an article prompt.\n<!-- {marker} -->\n')
         self.run['issue_pending'] = {'marker': marker}
@@ -184,7 +184,7 @@ class Job(Workflow):
                 raise Stop('needs_reconciliation', f'{branch} already has pull requests that Reader did not open as expected.')
             created = ours[0]
         else:
-            title = (result['pr_title'] or self.run['source']['title'])[:200]
+            title = self.private(result['pr_title'] or self.run['source']['title'])[:200]
             body = (self.private(result['pr_body'] or result['summary'])[:32000] +
                     f'\n\nCloses #{issue}\n\n---\nOpened by Reader for a coding job; verified with the repository’s configured check before publishing.\n<!-- {self.marker()} -->\n')
             self.run['pr_pending'] = {'branch': branch}
