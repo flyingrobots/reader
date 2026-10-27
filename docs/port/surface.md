@@ -619,11 +619,11 @@ Lock file names: `.lock`, `.reader/gpu.lock`, `.reader/inbox-runner/run.lock`, `
 | `src/reader_mcp/chats.py:256` | run | `[git, 'log', '-1', '--format=%H', '--', relative, *logs]` | `10` |
 | `src/reader_mcp/chats.py:249` | run | `command` | `180` |
 | `src/reader_mcp/coding_agents.py:36` | run | `[path, '--version']` | `10` |
-| `src/reader_mcp/coding_workflow.py:125` | run | `command` | `GIT_TIMEOUT + 130` |
-| `src/reader_mcp/coding_workflow.py:321` | Popen | `command` | `—` |
-| `src/reader_mcp/coding_workflow.py:98` | run | `[self.git_exe, *args]` | `timeout` |
-| `src/reader_mcp/coding_workflow.py:50` | run | `['ps', '-o', 'lstart=', '-p', str(pid)]` | `5` |
-| `src/reader_mcp/coding_workflow.py:172` | run | `[self.git_exe, '--version']` | `10` |
+| `src/reader_mcp/coding_workflow.py:126` | run | `command` | `GIT_TIMEOUT + 130` |
+| `src/reader_mcp/coding_workflow.py:322` | Popen | `command` | `—` |
+| `src/reader_mcp/coding_workflow.py:99` | run | `[self.git_exe, *args]` | `timeout` |
+| `src/reader_mcp/coding_workflow.py:51` | run | `['ps', '-o', 'lstart=', '-p', str(pid)]` | `5` |
+| `src/reader_mcp/coding_workflow.py:173` | run | `[self.git_exe, '--version']` | `10` |
 | `src/reader_mcp/companions.py:551` | Popen | `argv` | `—` |
 | `src/reader_mcp/companions.py:245` | run | `[path, *argv]` | `5` |
 | `src/reader_mcp/companions.py:611` | run | `[git, '-C', str(source), 'remote', 'get-url', 'origin']` | `10` |
@@ -850,24 +850,24 @@ exercise modules through HTTP, so see the route table for those.
 | `src/reader_mcp/clock.py` | 31 | 27 | 1399 | 51 | 106 | 0.81 | 1 | 0 | 0 | 0 |
 | `src/reader_mcp/coding_agents.py` | 107 | 89 | 5925 | 65 | 299 | 0.70 | 5 | 0 | 0 | 0 |
 | `src/reader_mcp/coding_api.py` | 140 | 122 | 8330 | 65 | 151 | 0.86 | 10 | 1 | 0 | 0 |
-| `src/reader_mcp/coding_jobs.py` | 414 | 372 | 23811 | 60 | 160 | 0.84 | 18 | 3 | 2 | 32 |
-| `src/reader_mcp/coding_publish.py` | 221 | 202 | 13329 | 64 | 181 | 0.87 | 12 | 1 | 1 | 27 |
-| `src/reader_mcp/coding_store.py` | 273 | 233 | 11148 | 46 | 151 | 0.92 | 26 | 4 | 3 | 57 |
-| `src/reader_mcp/coding_workflow.py` | 393 | 359 | 22381 | 60 | 149 | 0.92 | 21 | 2 | 1 | 27 |
+| `src/reader_mcp/coding_jobs.py` | 429 | 385 | 24576 | 60 | 160 | 0.84 | 18 | 3 | 2 | 36 |
+| `src/reader_mcp/coding_publish.py` | 234 | 212 | 14075 | 64 | 181 | 0.87 | 13 | 1 | 1 | 30 |
+| `src/reader_mcp/coding_store.py` | 279 | 238 | 11419 | 46 | 151 | 0.92 | 27 | 4 | 3 | 61 |
+| `src/reader_mcp/coding_workflow.py` | 394 | 360 | 22457 | 60 | 149 | 0.92 | 21 | 2 | 1 | 28 |
 | `src/reader_mcp/companions.py` | 697 | 610 | 39499 | 62 | 222 | 0.82 | 43 | 1 | 2 | 27 |
 | `src/reader_mcp/curation.py` | 331 | 305 | 19068 | 60 | 130 | 0.83 | 10 | 1 | 1 | 16 |
 | `src/reader_mcp/display.py` | 56 | 45 | 2199 | 46 | 104 | 0.87 | 5 | 0 | 1 | 4 |
 | `src/reader_mcp/editions.py` | 359 | 325 | 16852 | 49 | 174 | 0.92 | 17 | 1 | 2 | 51 |
 | `src/reader_mcp/embeds.py` | 324 | 274 | 14375 | 50 | 133 | 0.89 | 19 | 1 | 1 | 9 |
 | `src/reader_mcp/engagement.py` | 159 | 137 | 8851 | 63 | 198 | 1.12 | 16 | 1 | 4 | 47 |
-| `src/reader_mcp/github.py` | 149 | 119 | 7615 | 63 | 143 | 0.93 | 24 | 4 | 2 | 30 |
+| `src/reader_mcp/github.py` | 149 | 119 | 7615 | 63 | 143 | 0.93 | 24 | 4 | 2 | 31 |
 | `src/reader_mcp/inbox_runner.py` | 252 | 232 | 15348 | 64 | 536 | 0.98 | 11 | 0 | 6 | 113 |
 | `src/reader_mcp/inbox_view.py` | 560 | 506 | 28351 | 53 | 162 | 0.87 | 27 | 2 | 1 | 21 |
 | `src/reader_mcp/junk.py` | 13 | 9 | 581 | 63 | 106 | 0.56 | 1 | 0 | 1 | 3 |
 | `src/reader_mcp/learning.py` | 39 | 31 | 2105 | 61 | 127 | 0.87 | 2 | 0 | 1 | 14 |
 | `src/reader_mcp/links.py` | 609 | 536 | 30975 | 55 | 173 | 0.88 | 31 | 3 | 2 | 20 |
-| `src/reader_mcp/llm_inventory.py` | 106 | 89 | 5522 | 58 | 138 | 0.85 | 6 | 0 | 2 | 31 |
-| `src/reader_mcp/llm_logs.py` | 278 | 240 | 12497 | 50 | 136 | 0.95 | 18 | 1 | 10 | 163 |
+| `src/reader_mcp/llm_inventory.py` | 106 | 89 | 5522 | 58 | 138 | 0.85 | 6 | 0 | 2 | 34 |
+| `src/reader_mcp/llm_logs.py` | 278 | 240 | 12497 | 50 | 136 | 0.95 | 18 | 1 | 10 | 167 |
 | `src/reader_mcp/local_model.py` | 1793 | 1573 | 90684 | 55 | 187 | 0.87 | 115 | 13 | 4 | 55 |
 | `src/reader_mcp/magazine.py` | 202 | 175 | 9086 | 49 | 138 | 0.94 | 10 | 1 | 0 | 0 |
 | `src/reader_mcp/maintenance.py` | 336 | 300 | 17937 | 57 | 170 | 0.77 | 20 | 1 | 4 | 32 |
@@ -890,10 +890,10 @@ exercise modules through HTTP, so see the route table for those.
 | `src/reader_mcp/store.py` | 225 | 197 | 10529 | 51 | 111 | 0.90 | 11 | 4 | 4 | 45 |
 | `src/reader_mcp/themes.py` | 338 | 307 | 17684 | 56 | 163 | 0.92 | 19 | 1 | 2 | 49 |
 | `src/reader_mcp/versions.py` | 307 | 284 | 14746 | 50 | 131 | 0.88 | 13 | 1 | 1 | 10 |
-| `src/reader_mcp/voice_runner.py` | 1526 | 1378 | 79782 | 54 | 181 | 0.90 | 86 | 5 | 4 | 106 |
+| `src/reader_mcp/voice_runner.py` | 1526 | 1378 | 79782 | 54 | 181 | 0.90 | 86 | 5 | 4 | 107 |
 | `src/reader_mcp/voice_tasks.py` | 288 | 263 | 15125 | 55 | 201 | 0.89 | 17 | 1 | 1 | 17 |
 | `src/reader_mcp/voices.py` | 364 | 308 | 19248 | 60 | 143 | 0.88 | 21 | 1 | 1 | 47 |
-| `src/reader_mcp/web.py` | 1754 | 1630 | 101684 | 60 | 258 | 0.90 | 85 | 5 | 23 | 346 |
+| `src/reader_mcp/web.py` | 1754 | 1630 | 101746 | 60 | 258 | 0.90 | 85 | 5 | 23 | 347 |
 | `src/reader_mcp/web_access.py` | 131 | 115 | 6496 | 54 | 129 | 0.83 | 6 | 1 | 0 | 0 |
 | `src/reader_mcp/writing.py` | 369 | 342 | 21207 | 60 | 237 | 0.91 | 18 | 2 | 1 | 7 |
 | `src/reader_mcp/demo/__init__.py` | 137 | 116 | 6014 | 50 | 149 | 0.89 | 9 | 0 | 0 | 0 |
@@ -908,10 +908,10 @@ exercise modules through HTTP, so see the route table for those.
 | `scripts/vendor_web.py` | 77 | 68 | 4132 | 58 | 186 | 0.88 | 2 | 0 | 0 | 0 |
 | `scripts/verify_installation.py` | 80 | 72 | 4428 | 60 | 264 | 0.92 | 1 | 0 | 0 | 0 |
 | `scripts/verify_search_installation.py` | 74 | 66 | 4190 | 59 | 138 | 0.82 | 1 | 0 | 0 | 0 |
-| **total** | 23516 | 20940 | 1248916 | | | | | | | |
+| **total** | 23551 | 20969 | 1250836 | | | | | | | |
 
 Language-neutral code that a port keeps as is: `src/reader_mcp/web_ui/` (41 hand-written JS/CSS/HTML files, 8340 lines, excluding vendor/) plus the built `web_ui/controls/` bundle from `web/`.
-Tests: 64 pytest files, 704 test functions; 72 browser suites; 18 node unit files.
+Tests: 64 pytest files, 709 test functions; 72 browser suites; 18 node unit files.
 
 ## Contract coverage
 
