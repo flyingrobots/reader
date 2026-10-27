@@ -22,7 +22,7 @@ or backend behavior changes.
 - A Docker Chromium regression against the original built controls counted two
   elapsed labels and failed at the intended assertion, expected one, observed two
   (`inbox-contrast-red`, 18.56 seconds).
-- Web typecheck and build passed (`inbox-contrast-build`, 12.59 seconds).
+- Web typecheck and build passed (`inbox-contrast-build`, 14.96 seconds; rebuilt after the timer review).
   The three changed controls artifacts were copied out of the bounded worker.
 - The Inbox and expired-token browser suites passed (`inbox-contrast-green`,
   47.2 seconds). The Inbox suite requires 4.5:1 for sampled prose, ordinary trace,
@@ -47,3 +47,21 @@ The generated port inventory remains current. All 94 controls source hashes and
 159 shipped output hashes match the rebuilt metadata. The final browser run used
 547644 KiB in the bounded work tmpfs; retained run logs stay within
 the declared cap. The reusable worker is stopped after exporting evidence.
+
+## Timer review follow-up
+
+CodeRabbit identified that counting the words “Elapsed” and “Running for” misses
+the live-usage header, where the clock is shown beside token totals. The counters
+now use semantic HTML `time` elements. The browser check counts their rendered
+locations and exercises both the no-usage and live-usage states. A fixture-only
+zero-usage event is emitted while the fake agent is paused, leaving its final
+token totals unchanged. No extra polling loop or timer is introduced.
+
+A separately delayed event-response check also passed with the published runtime;
+no extra runtime change was needed for that hypothesis. The failed first attempt
+was test-route cleanup, not a product regression, and remains recorded.
+
+The review follow-up web build and typecheck pass. The Inbox, coding-job and
+stale-token browser suites pass together with the semantic timer checks
+(`inbox-semantic-clock-verified`, 54.39 seconds), including the
+live zero-usage header. Both timer locations carry ISO duration metadata.

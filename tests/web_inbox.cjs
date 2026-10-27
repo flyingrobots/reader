@@ -47,8 +47,13 @@ const {chromium}=require(process.env.READER_PLAYWRIGHT||'playwright-core');
   const log=page.locator('#inbox .activity-log'),item=id=>log.locator(`[data-item-id="${id}"]`);
   await item('item_8').waitFor({timeout:10000});
   await page.screenshot({path:'.reader/web-dev/inbox-timer-and-colors.png'});
-  const elapsedLabels=(await page.locator('#inbox .inbox-run').innerText()).match(/\b(?:Running for|Elapsed)\b/g)||[];
-  assert.equal(elapsedLabels.length,1,'a running inbox has one elapsed-time counter, not one in each nested panel');
+  const elapsed=page.locator('#inbox .inbox-run > .backstage-message time, #inbox .activity-head [data-activity-context] time');
+  assert.equal(await elapsed.count(),1,'a running inbox has one elapsed-time counter, not one in each nested panel');
+  assert.match(await elapsed.getAttribute('datetime'),/^PT\d+S$/);
+  writeFileSync(join(root,'.fake-live-usage'),'');
+  await page.locator('#inbox .activity-head [data-activity-context]').filter({hasText:'0 in · 0 out'}).waitFor();
+  assert.equal(await elapsed.count(),1,'the timer remains singular when live usage replaces the Elapsed label');
+  assert.match(await elapsed.textContent(),/^\d+:\d{2}$/);
   const statusColors=await page.evaluate(()=>{
     const color=selector=>getComputedStyle(document.querySelector('#inbox '+selector)).color;
     return [color('.activity-meta [data-status=running]'),color('.activity-meta [data-filed] [data-slot=trace-icon]'),color('.activity-log [data-status=error]')];

@@ -158,7 +158,7 @@ const RUN_STATES:Record<string,{label:string;variant:'secondary'|'outline'|'dest
 export function size(bytes:number){return bytes<1024?bytes+' B':bytes<1024**2?(bytes/1024).toFixed(1)+' KB':(bytes/1024**2).toFixed(1)+' MB';}
 function Clock({since}:{since:string}){
   const [, tick]=useState(0);useEffect(()=>{const timer=setInterval(()=>tick(n=>n+1),1000);return ()=>clearInterval(timer);},[]);
-  const seconds=Math.max(0,Math.round((Date.now()-+new Date(since))/1000));return <>{Math.floor(seconds/60)}:{String(seconds%60).padStart(2,'0')}</>;
+  const seconds=Math.max(0,Math.round((Date.now()-+new Date(since))/1000));return <time dateTime={`PT${seconds}S`}>{Math.floor(seconds/60)}:{String(seconds%60).padStart(2,'0')}</time>;
 }
 function Report({markdown,html,onOpen}:{markdown:string;html:(text:string)=>string;onOpen:(path:string)=>void}){
   // Sanitized by DOMPurify; vault links open in the reader, others in a new tab.
