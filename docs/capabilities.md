@@ -161,6 +161,11 @@ participant's threads. Voices are the names the vault's `voices.json` lists; a v
 without one has no voices. Receipts for earlier members of the document's edition family
 (an original, or a lower version) count as earlier editions.
 
+**Source** (the button under a document's title, Space u, or the footer's Open original)
+opens the exact file bytes, front matter included, in a new tab: text as `text/plain`,
+PDFs and images with their own type. It covers filed documents and inbox previews; a
+historical version has no raw route, so it shows no Source button.
+
 **Send to AI-TTS** (Space s, the document footer or the selection toolbar's Speak)
 queues the whole article, the text from the reading position, or a selected passage
 with the local AI-TTS daemon, which owns playback, holds and voice assignment.

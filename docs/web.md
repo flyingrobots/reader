@@ -53,6 +53,7 @@ The web server does not rebuild indexes or download models at startup.
 | Space d | What changed: since your receipt, else against the newer version, else against another reader's edition |
 | Space , t; F10 | Theme Editor (F10 also closes it; focus returns to where it was opened from) |
 | Space s, then a / f / s | Send to AI-TTS: whole article, from here, or the selection |
+| Space u; header Source | Open the raw source file (`/api/file`, front matter included) in a new tab; filed documents and inbox previews, not historical versions |
 | Space m | Chat with the voices about the open document |
 | Space x | Take a source-anchored quiz on the open article |
 | Space a | Write about the article from a voice's question |
@@ -3852,6 +3853,7 @@ node tests/web_static_demo_ui.cjs
 node tests/web_static_chat.cjs
 node tests/web_controls.cjs
 node tests/web_documents.cjs
+node tests/web_source.cjs
 .venv/bin/python -m pytest -q tests/test_themes.py
 node tests/web_themes.cjs
 node tests/web_page_turn.cjs
