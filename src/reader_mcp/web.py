@@ -1191,7 +1191,9 @@ class WebServer(ThreadingHTTPServer):
             raise ValueError('Reader web binds to IPv4 loopback only')
         self.library = library
         self.participant = library.engagement.participant(participant)
-        self.token = secrets.token_urlsafe(32)
+        # Behind a trusted front, the front owns the write token so it survives a restart of this server.
+        _, front_token = library.access.front()
+        self.token = front_token or secrets.token_urlsafe(32)
         self.started_at = datetime.now(timezone.utc).isoformat(timespec='seconds')
         self.requests = threading.BoundedSemaphore(EXPENSIVE_LIMIT)
         self.reads = threading.BoundedSemaphore(READ_LIMIT)

@@ -56,6 +56,13 @@ describe('identity: Host, Origin and proxies', () => {
     // An identity header on a loopback Host never grants anything.
     refused(await server.raw('GET', '/api/service', {headers: {'Tailscale-User-Login': 'user@example.com'}}));
   });
+  test('client-sent front headers never grant an identity', async () => {
+    // Only the trusted front may set these; a front must replace them, and a server without one ignores them.
+    const claimed = JSON.stringify({via: 'tailscale', login: 'user@example.com', name: 'A Tester'});
+    const response = await server.raw('GET', '/api/service', {headers: {'X-Reader-Identity': claimed, 'X-Reader-Front-Secret': 'guess'}});
+    assert.equal(response.status, 200, response.text.slice(0, 200));
+    assert.deepEqual(response.json.identity, {via: 'local', login: null, name: null});
+  });
   test('with the tailscale proxy configured, only listed logins on listed hosts pass, never Funnel', async () => {
     mkdirSync(join(vault.root, '.reader'), {recursive: true});
     const config = join(vault.root, '.reader/web-config.json');

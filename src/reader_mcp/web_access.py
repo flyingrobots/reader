@@ -13,8 +13,17 @@ grant anything on a loopback Host.
 
 Configuration lives in `<vault>/.reader/web-config.json`, with READER_WEB_*
 environment overrides (comma-separated lists). It is re-read when the file
-changes, so `reader_service.py tailscale on|off` applies without a restart."""
+changes, so `reader_service.py tailscale on|off` applies without a restart.
+
+A trusted front (docs/port/plan.md, PR 1) is off by default. When
+READER_WEB_FRONT_SECRET is set, every request must carry that secret in
+X-Reader-Front-Secret (compared in constant time) and the front's verdict in
+X-Reader-Identity, or it is refused. The front then owns proxy recognition; this
+server re-checks the client's Host and Origin, which the front forwards
+unchanged, against the claimed identity and the same config. Without the secret
+both headers are ignored, so a client never gains an identity by sending them."""
 from email.header import decode_header, make_header
+import hmac
 import json
 import os
 from pathlib import Path
@@ -28,6 +37,9 @@ LISTS = ('allowed_hosts', 'allowed_origins', 'allowed_logins')
 PROXY_HEADERS = ('X-Forwarded-For', 'X-Forwarded-Host', 'X-Forwarded-Proto', 'Forwarded',
                  'Tailscale-User-Login', 'Tailscale-User-Name', 'Tailscale-User-Profile-Pic',
                  'Tailscale-Headers-Info', 'Tailscale-Funnel-Request')
+FRONT_SECRET, FRONT_IDENTITY = 'X-Reader-Front-Secret', 'X-Reader-Identity'
+MIN_FRONT_SECRET = 32  # characters, for the secret and for a front-supplied write token
+MAX_FRONT_IDENTITY = 2048
 
 
 def empty():
@@ -92,10 +104,30 @@ class WebAccess:
             self.cached = (identity, config)
         return config
 
+    def front(self):
+        """The trusted front's (secret, write token), or (None, None) when no front is configured.
+
+        Raises ValueError, without echoing either value, when a configured value is too short."""
+        secret = self.environ.get('READER_WEB_FRONT_SECRET') or None
+        if secret is None:
+            return None, None
+        token = self.environ.get('READER_WEB_FRONT_TOKEN') or None
+        if len(secret) < MIN_FRONT_SECRET:
+            raise ValueError(f'READER_WEB_FRONT_SECRET must be at least {MIN_FRONT_SECRET} characters')
+        if token is not None and len(token) < MIN_FRONT_SECRET:
+            raise ValueError(f'READER_WEB_FRONT_TOKEN must be at least {MIN_FRONT_SECRET} characters')
+        return secret, token
+
     def identify(self, headers, port):
         """Return the requester's identity or raise PermissionError."""
         host = headers.get('Host')
         origin = headers.get('Origin')
+        try:
+            secret, _ = self.front()
+        except ValueError as exc:
+            raise PermissionError(f'{exc}; requests are refused until it is fixed')
+        if secret is not None:
+            return self.identify_front(headers, secret, host, origin)
         if not any(headers.get(name) is not None for name in PROXY_HEADERS):
             if host not in (f'127.0.0.1:{port}', f'localhost:{port}'):
                 raise PermissionError('Unexpected Host')
@@ -114,11 +146,59 @@ class WebAccess:
             raise PermissionError('Unexpected Host')
         login = (headers.get('Tailscale-User-Login') or '').strip()
         login = decoded(login)
+        return self.tailnet(config, login, decoded(headers.get('Tailscale-User-Name') or '')[:200] or None, origin)
+
+    @staticmethod
+    def tailnet(config, login, name, origin):
         if not login or login.casefold() not in {l.casefold() for l in config['allowed_logins']}:
             raise PermissionError('Not allowed')
         if origin and origin not in config['allowed_origins']:
             raise PermissionError('Cross-origin requests are refused')
-        return {'via': 'tailscale', 'login': login, 'name': decoded(headers.get('Tailscale-User-Name') or '')[:200] or None}
+        return {'via': 'tailscale', 'login': login, 'name': name}
+
+    def identify_front(self, headers, secret, host, origin):
+        """A request through the trusted front: its secret, its identity, and the client's Host and Origin.
+
+        The front forwards the client's Host and Origin unchanged. It recognizes proxies itself, so forwarding
+        and Tailscale identity headers are not consulted here; a Funnel marker is still refused."""
+        offered = (headers.get(FRONT_SECRET) or '').encode('utf-8', 'surrogateescape')
+        if not hmac.compare_digest(offered, secret.encode('utf-8', 'surrogateescape')):
+            raise PermissionError('Requests must come through the Reader front')
+        identity = front_identity(headers.get(FRONT_IDENTITY))
+        if headers.get('Tailscale-Funnel-Request') is not None:
+            raise PermissionError('Public (Funnel) requests are refused')
+        if identity['via'] == 'local':
+            # The front's public port, not ours, is in Host; any loopback port keeps rebinding out.
+            hostname, _, port = (host or '').rpartition(':')
+            if hostname not in ('127.0.0.1', 'localhost') or not port.isdigit():
+                raise PermissionError('Unexpected Host')
+            if origin and origin != 'http://' + host:
+                raise PermissionError('Cross-origin requests are refused')
+            return identity
+        config = self.config()
+        if config['trusted_proxy'] != 'tailscale':
+            raise PermissionError('Proxied requests are refused; no trusted proxy is configured')
+        name = (host or '').removesuffix(':443').rstrip('.')
+        if not name or name.casefold() not in {h.casefold() for h in config['allowed_hosts']}:
+            raise PermissionError('Unexpected Host')
+        return self.tailnet(config, identity['login'], identity['name'], origin)
+
+
+def front_identity(raw):
+    """Parse X-Reader-Identity: {"via": "local", "login": null, "name": null} or a tailscale login and name."""
+    try:
+        identity = json.loads(raw) if raw and len(raw) <= MAX_FRONT_IDENTITY else None
+    except ValueError:
+        identity = None
+    if not isinstance(identity, dict) or set(identity) != {'via', 'login', 'name'}:
+        raise PermissionError('The Reader front sent no valid identity')
+    via, login, name = identity['via'], identity['login'], identity['name']
+    if via == 'local' and login is None and name is None:
+        return identity
+    if (via == 'tailscale' and isinstance(login, str) and 0 < len(login.strip()) <= 320
+            and (name is None or isinstance(name, str) and len(name) <= 200)):
+        return {'via': via, 'login': login.strip(), 'name': name or None}
+    raise PermissionError('The Reader front sent no valid identity')
 
 
 def decoded(value):

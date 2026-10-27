@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Server port, PR 1: the Python web server can sit behind a trusted front. With `READER_WEB_FRONT_SECRET` set (off by default), every request must prove that secret in `X-Reader-Front-Secret` (constant-time compare, else 403) and carry the front's `X-Reader-Identity`; the client's Host and Origin, forwarded unchanged, are re-checked against that identity and the web config, writes still need the token (`READER_WEB_FRONT_TOKEN` lets the front supply it) and JSON. Without the secret the headers are ignored and behaviour is unchanged; a new contract case checks that client-sent front headers grant nothing.
 - Document viewer: a **Source** button under the title (and `Space u`, listed in the key map) opens the raw source file in a new tab, for filed documents and inbox previews; the footer's Open original link stays. `tests/web_source.cjs` covers the link, the exact `text/plain` bytes, the shortcut, theme contrast and phone width.
 - Server port, phase 0 (D1): `docs/port/surface.md` inventories the Python surface mechanically (`scripts/port_inventory.py`, `--check` for staleness); `tests/contract/` is a language-neutral HTTP, SSE, CLI, MCP and vault-file conformance suite (`npm run test:contract`, under 20 s) that any implementation can be run against through `READER_SERVER_CMD`, `READER_CLI_CMD` and `READER_MCP_CMD`; `scripts/port_bench.mjs` times heavy routes on a large synthetic vault; `docs/port/plan.md` recommends the runtime, libraries, Rust boundary, strangler migration and the ordered port PRs.
 
