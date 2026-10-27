@@ -7,7 +7,7 @@ const {chromium}=require(process.env.READER_PLAYWRIGHT || 'playwright-core');
  const fixture=spawn(process.env.READER_PYTHON||'python3',['tests/quiz_fixture.py'],{stdio:['ignore','pipe','inherit']});let browser;
  try{
   const {url}=await new Promise((resolve,reject)=>{createInterface({input:fixture.stdout}).once('line',line=>resolve(JSON.parse(line)));fixture.once('exit',code=>reject(Error('Fixture exited '+code)));});
-  browser=await chromium.launch({headless:true,executablePath:process.env.READER_CHROME,args:['--no-sandbox','--disable-gpu','--disable-dev-shm-usage']});
+  browser=await chromium.launch({headless:true,executablePath:process.env.READER_CHROME||'/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',args:['--no-sandbox','--disable-gpu','--disable-dev-shm-usage']});
   const outcomes=[];
   for(const failure of ['blocked','quota']){
    const context=await browser.newContext({viewport:{width:1280,height:900},reducedMotion:'reduce'});

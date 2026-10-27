@@ -8,7 +8,7 @@ const {chromium}=require(process.env.READER_PLAYWRIGHT||'playwright-core');
  const fixture=spawn(process.env.READER_PYTHON||'python3',['tests/quiz_fixture.py'],{stdio:['ignore','pipe','inherit']});let browser;
  try{
   const {url,root}=await new Promise((resolve,reject)=>{createInterface({input:fixture.stdout}).once('line',line=>resolve(JSON.parse(line)));fixture.once('exit',code=>reject(Error('Fixture exited '+code)));});
-  browser=await chromium.launch({headless:true,executablePath:process.env.READER_CHROME,args:['--no-sandbox','--disable-gpu','--disable-dev-shm-usage','--disable-background-networking']});
+  browser=await chromium.launch({headless:true,executablePath:process.env.READER_CHROME||'/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',args:['--no-sandbox','--disable-gpu','--disable-dev-shm-usage','--disable-background-networking']});
   const context=await browser.newContext({viewport:{width:1280,height:900},reducedMotion:'reduce'}),page=await context.newPage(),errors=[];
   page.on('pageerror',error=>errors.push(error.message));
   await context.addInitScript(()=>localStorage.setItem('reader.preferences.v1',JSON.stringify({theme:'paper',smooth:false,art:false,shapes:false,nextReads:false,participant:'Browser tester'})));
