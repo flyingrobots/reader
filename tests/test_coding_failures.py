@@ -457,3 +457,26 @@ def test_a_failed_process_record_stops_the_process_it_started(world, monkeypatch
         for child in children:
             kill_group(child.pid)
             child.wait(timeout=5)
+
+
+def test_shutdown_keeps_job_ownership_until_the_worker_has_stopped(world, monkeypatch):
+    import threading
+    w = world()
+    entered, release = threading.Event(), threading.Event()
+    viewer = w.github.viewer
+
+    def blocked():
+        entered.set()
+        assert release.wait(30)
+        return viewer()
+    monkeypatch.setattr(w.github, 'viewer', blocked)
+    w.jobs.submit(w.request())
+    assert entered.wait(10)
+    other = w.make()
+    try:
+        w.jobs.close()  # The worker is still inside a GitHub call.
+        assert w.jobs.worker.is_alive() and not other.supervisor.acquire()
+    finally:
+        release.set()
+        w.jobs.worker.join(timeout=10)
+        other.close()

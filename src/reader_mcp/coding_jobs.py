@@ -124,6 +124,8 @@ class Runner:
         self.live.close()
         if self.worker:
             self.worker.join(timeout=10)
+            if self.worker.is_alive():
+                return  # Still inside a job step: the worker releases ownership when it exits, never before.
         self.supervisor.release()
 
     def scratch(self, run_id):
@@ -239,23 +241,27 @@ class Runner:
     # Running ---------------------------------------------------------------------------------------
 
     def work(self):
-        while not self.closed:
-            self.wake.wait(1)
-            self.wake.clear()
-            self.store.retry()
+        try:
             while not self.closed:
-                with self.lock:
-                    if not self.queue:
-                        break
-                    run_id = self.queue.popleft()
-                    run = self.store.load(run_id)
-                    self.active = run_id
-                try:
-                    if run and run.get('status') == 'queued':
-                        self.execute(run)
-                finally:
+                self.wake.wait(1)
+                self.wake.clear()
+                self.store.retry()
+                while not self.closed:
                     with self.lock:
-                        self.active = None
+                        if not self.queue:
+                            break
+                        run_id = self.queue.popleft()
+                        run = self.store.load(run_id)
+                        self.active = run_id
+                    try:
+                        if run and run.get('status') == 'queued':
+                            self.execute(run)
+                    finally:
+                        with self.lock:
+                            self.active = None
+        finally:
+            if self.closed:
+                self.supervisor.release()  # Ownership ends with the worker, so no other server takes over a live run.
 
     def execute(self, run):
         capture = self.captures[run['id']]
