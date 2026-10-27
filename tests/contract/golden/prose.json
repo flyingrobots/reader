@@ -1,0 +1,10 @@
+{
+ "object": {
+  "available": "boolean",
+  "install": "string",
+  "message": "string",
+  "origin": "null",
+  "path": "null",
+  "version": "null"
+ }
+}

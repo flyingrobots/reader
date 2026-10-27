@@ -1,0 +1,78 @@
+{
+ "object": {
+  "arrivals": {
+   "array": {
+    "object": {
+     "author": {
+      "anyOf": [
+       "null",
+       "string"
+      ]
+     },
+     "bundle": "boolean",
+     "bytes": "integer",
+     "document": "string",
+     "files": "integer",
+     "id": "string",
+     "integrity": {
+      "anyOf": [
+       "null",
+       "string"
+      ]
+     },
+     "path": "string",
+     "project": {
+      "anyOf": [
+       "null",
+       "string"
+      ]
+     },
+     "receipt_error": "null",
+     "received_at": "string:datetime",
+     "report_date": {
+      "anyOf": [
+       "null",
+       "string:date"
+      ]
+     },
+     "request_id": {
+      "anyOf": [
+       "null",
+       "string:uuid"
+      ]
+     },
+     "source": {
+      "anyOf": [
+       "null",
+       "string"
+      ]
+     },
+     "title": "string"
+    }
+   }
+  },
+  "blocked": {
+   "object": {
+    "message": "string",
+    "reason": "string"
+   }
+  },
+  "chat_turn": "boolean",
+  "claims_held": {
+   "array": "empty"
+  },
+  "codex": {
+   "object": {
+    "installed": "boolean",
+    "name": "string"
+   }
+  },
+  "errors": {
+   "array": "empty"
+  },
+  "runner": "null",
+  "sandbox_modes": {
+   "array": "string"
+  }
+ }
+}

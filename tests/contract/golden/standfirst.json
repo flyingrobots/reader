@@ -1,0 +1,7 @@
+{
+ "object": {
+  "path": "string",
+  "source": "string",
+  "standfirst": "string"
+ }
+}

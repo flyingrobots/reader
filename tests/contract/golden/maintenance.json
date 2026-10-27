@@ -1,0 +1,42 @@
+{
+ "object": {
+  "checking": "boolean",
+  "checks": {
+   "object": {}
+  },
+  "jobs": {
+   "array": "empty"
+  },
+  "kinds": {
+   "object": {
+    "browse": "string",
+    "catalog": "string",
+    "check": "string",
+    "install-colorful": "string",
+    "install-wide-md": "string",
+    "links": "string",
+    "remove-legacy-search": "string",
+    "search": "string",
+    "search-keyword": "string",
+    "start-ai-tts": "string",
+    "update-colorful": "string",
+    "update-wide-md": "string"
+   }
+  },
+  "local_model": {
+   "object": {
+    "labels": {
+     "object": {
+      "keyterms": "string",
+      "standfirst": "string"
+     }
+    },
+    "running": "boolean",
+    "runs": {
+     "array": "empty"
+    }
+   }
+  },
+  "running": "null"
+ }
+}

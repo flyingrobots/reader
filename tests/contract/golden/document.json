@@ -1,0 +1,51 @@
+{
+ "object": {
+  "bookmark": {
+   "object": {
+    "block_fraction": "integer",
+    "layout": "string",
+    "pdf_page": "null",
+    "progress": "number",
+    "source_offset": "null",
+    "source_sha256": "string:sha256",
+    "spread_count": "null",
+    "updated_at": "string:datetime"
+   }
+  },
+  "file_url": "string",
+  "item": {
+   "object": {
+    "key": "string",
+    "version": "string:sha256"
+   }
+  },
+  "kind": "string",
+  "metadata": {
+   "object": {
+    "added": "string:date",
+    "author": "string",
+    "document_id": "string:uuid",
+    "document_path": "string",
+    "document_revision": "integer",
+    "frontmatter_schema_version": "integer",
+    "metadata_created": "string:date",
+    "project": "string",
+    "published": "string",
+    "rights": "string",
+    "source": "string",
+    "source_url": "string",
+    "standfirst": "string",
+    "title": "string",
+    "topics": {
+     "array": "string"
+    },
+    "type": "string"
+   }
+  },
+  "path": "string",
+  "preview": "boolean",
+  "sha256": "string:sha256",
+  "text": "string",
+  "title": "string"
+ }
+}

@@ -1,0 +1,13 @@
+{
+ "object": {
+  "results": {
+   "array": {
+    "object": {
+     "error?": "string",
+     "fragment?": "string",
+     "path?": "string"
+    }
+   }
+  }
+ }
+}

@@ -1,0 +1,123 @@
+{
+ "object": {
+  "chat": {
+   "object": {
+    "created_at": "string:datetime",
+    "document_path": "string",
+    "document_sha256": "string:sha256",
+    "id": "string:uuid",
+    "messages": {
+     "array": {
+      "object": {
+       "author": "string",
+       "body": "string",
+       "chosen_by?": "string",
+       "created_at": "string:datetime",
+       "decided_at?": "string:datetime",
+       "decided_by?": "string",
+       "hand_id?": "string:uuid",
+       "id": "string:uuid",
+       "kind?": "string",
+       "mentions": {
+        "array": "string"
+       },
+       "reason?": "string",
+       "reply_to": {
+        "anyOf": [
+         "null",
+         "string:uuid"
+        ]
+       },
+       "root?": "string:uuid",
+       "routing?": {
+        "object": {
+         "chosen_by": "string",
+         "voices": {
+          "array": "string"
+         }
+        }
+       },
+       "runtime?": {
+        "anyOf": [
+         "null",
+         {
+          "object": {
+           "cli": "string",
+           "model": "string",
+           "session_id": "string",
+           "version": "string"
+          }
+         }
+        ]
+       },
+       "state?": "string",
+       "turn?": {
+        "object": {
+         "changed_paths": {
+          "array": "empty"
+         },
+         "changes_tracked": "boolean",
+         "commit": "null",
+         "commits": {
+          "array": "empty"
+         },
+         "exit_code": "integer",
+         "id": "string:uuid",
+         "seconds": "number",
+         "state": "string",
+         "timeout_seconds": "integer"
+        }
+       }
+      }
+     }
+    },
+    "revision": "integer",
+    "schema_version": "integer",
+    "started_by": "string",
+    "title": "string"
+   }
+  },
+  "commit": "null",
+  "configured": "boolean",
+  "last_event": "integer",
+  "llm_logs": {
+   "object": {
+    "bytes": "integer",
+    "path": "string",
+    "retention": "string",
+    "runs": "integer"
+   }
+  },
+  "owner": {
+   "object": {
+    "message": "null",
+    "owner": "boolean",
+    "writable": "boolean"
+   }
+  },
+  "pending": {
+   "array": "empty"
+  },
+  "timeout_seconds": "integer",
+  "voices": {
+   "array": {
+    "object": {
+     "available": "boolean",
+     "cli": {
+      "anyOf": [
+       "null",
+       "string"
+      ]
+     },
+     "enabled": "boolean",
+     "manual": "boolean",
+     "mention": {
+      "array": "string"
+     },
+     "name": "string",
+     "runnable": "boolean"
+    }
+   }
+  }
+ }
+}

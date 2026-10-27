@@ -1,0 +1,14 @@
+{
+ "object": {
+  "built_at": "string:datetime",
+  "counts": {
+   "map": {
+    "object": {
+     "inbound": "integer",
+     "outbound": "integer",
+     "sources": "integer"
+    }
+   }
+  }
+ }
+}

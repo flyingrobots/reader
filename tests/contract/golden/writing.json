@@ -1,0 +1,8 @@
+{
+ "object": {
+  "participant": "string",
+  "pieces": {
+   "array": "empty"
+  }
+ }
+}

@@ -1,0 +1,117 @@
+{
+ "object": {
+  "as_of": "string:date",
+  "discussion": {
+   "object": {
+    "comments": "integer",
+    "highlights": "integer",
+    "open": "integer",
+    "paths": {
+     "object": {
+      "open": {
+       "array": "string"
+      },
+      "resolved": {
+       "array": "empty"
+      }
+     }
+    },
+    "resolved": "integer",
+    "warnings": "integer"
+   }
+  },
+  "metrics": {
+   "object": {
+    "authors": "integer",
+    "read": "integer",
+    "threads": "integer",
+    "unread": "integer",
+    "works": "integer"
+   }
+  },
+  "participant": "string",
+  "participants": {
+   "array": "string"
+  },
+  "pending": {
+   "array": {
+    "object": {
+     "at": "string:datetime",
+     "comments": "integer",
+     "id": "string:uuid",
+     "owner": "string",
+     "path": "string",
+     "quote": "string"
+    }
+   }
+  },
+  "recent": {
+   "array": {
+    "object": {
+     "arrival_time": "null",
+     "authors": {
+      "array": "string"
+     },
+     "date": "string:date",
+     "date_basis": "string",
+     "id": "string",
+     "primary": "string",
+     "primary_bytes": "integer",
+     "primary_format": "string",
+     "projects": {
+      "array": "string"
+     },
+     "read": "boolean",
+     "read_at": "string:datetime",
+     "threads": "integer",
+     "title": "string",
+     "topics": {
+      "array": "string"
+     },
+     "types": {
+      "array": "string"
+     },
+     "voices": "integer"
+    }
+   }
+  },
+  "scope": "string",
+  "today": "string:date",
+  "token": "string",
+  "works": {
+   "array": {
+    "object": {
+     "arrival_time": "null",
+     "authors": {
+      "array": "string"
+     },
+     "date": "string:date",
+     "date_basis": "string",
+     "id": "string",
+     "primary": "string",
+     "primary_bytes": "integer",
+     "primary_format": "string",
+     "projects": {
+      "array": "string"
+     },
+     "read": "boolean",
+     "read_at": {
+      "anyOf": [
+       "null",
+       "string:datetime"
+      ]
+     },
+     "threads": "integer",
+     "title": "string",
+     "topics": {
+      "array": "string"
+     },
+     "types": {
+      "array": "string"
+     },
+     "voices": "integer"
+    }
+   }
+  }
+ }
+}

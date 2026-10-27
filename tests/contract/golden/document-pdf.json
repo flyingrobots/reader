@@ -1,0 +1,21 @@
+{
+ "object": {
+  "bookmark": "null",
+  "file_url": "string",
+  "item": {
+   "object": {
+    "key": "string",
+    "version": "string:sha256"
+   }
+  },
+  "kind": "string",
+  "metadata": {
+   "object": {}
+  },
+  "path": "string",
+  "preview": "boolean",
+  "sha256": "string:sha256",
+  "text": "null",
+  "title": "string"
+ }
+}

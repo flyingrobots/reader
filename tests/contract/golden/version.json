@@ -1,0 +1,37 @@
+{
+ "object": {
+  "author": "string",
+  "bookmark": "null",
+  "commit": "string:sha1",
+  "date": "string:datetime",
+  "file_url": "string",
+  "historical": "boolean",
+  "item": "null",
+  "kind": "string",
+  "metadata": {
+   "object": {
+    "added": "string:date",
+    "author": "string",
+    "document_id": "string:uuid",
+    "document_path": "string",
+    "document_revision": "integer",
+    "frontmatter_schema_version": "integer",
+    "metadata_created": "string:date",
+    "project": "string",
+    "rights": "string",
+    "standfirst": "string",
+    "title": "string",
+    "topics": {
+     "array": "string"
+    },
+    "type": "string"
+   }
+  },
+  "path": "string",
+  "sha256": "string:sha256",
+  "short": "string",
+  "subject": "string",
+  "text": "string",
+  "title": "string"
+ }
+}

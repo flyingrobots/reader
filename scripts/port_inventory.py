@@ -623,9 +623,10 @@ def contract_routes():
     covered = defaultdict(set)
     for file in sorted(CONTRACT.glob('*.test.mjs')) if CONTRACT.is_dir() else []:
         source = file.read_text()
-        for method, path in re.findall(r"\b(get|post|stream|fetchRaw|getRaw|postRaw)\(\s*[`'\"](/[^`'\"?$]*)", source):
-            verb = 'POST' if method.startswith('post') else 'GET'
-            covered[(verb, path)].add(file.name)
+        for method, path in re.findall(r"\b(get|post|stream)\(\s*[`'\"](/[^`'\"?$]*)", source):
+            covered[('POST' if method == 'post' else 'GET', path)].add(file.name)
+        for path in re.findall(r"\bshape\(\s*'[^']*',\s*[`'\"](/[^`'\"?$]*)", source):  # read.test.mjs: shape(name, path, ...)
+            covered[('GET', path)].add(file.name)
         for verb, path in re.findall(r"\braw\(\s*'(GET|POST|PUT|DELETE)'\s*,\s*[`'\"](/[^`'\"?$]*)", source):
             covered[(verb, path)].add(file.name)
         # An explicit tag for route variants a call cannot show: `// covers: GET /api/changes?a&b`

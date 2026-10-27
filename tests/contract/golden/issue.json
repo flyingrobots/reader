@@ -1,0 +1,25 @@
+{
+ "object": {
+  "candidates": "integer",
+  "compared": "integer",
+  "end": "string:date",
+  "near": {
+   "array": "empty"
+  },
+  "newsletters": {
+   "array": {
+    "object": {
+     "path": "string",
+     "title": "string",
+     "week_end": "string:date",
+     "week_start": "string:date"
+    }
+   }
+  },
+  "picks": {
+   "array": "string"
+  },
+  "scope": "string",
+  "start": "string:date"
+ }
+}

@@ -1,0 +1,7 @@
+{
+ "object": {
+  "log": "string",
+  "name": "string",
+  "truncated": "boolean"
+ }
+}

@@ -1,0 +1,14 @@
+{
+ "object": {
+  "authors": {
+   "array": "string"
+  },
+  "excerpt": "string",
+  "heading": "null",
+  "kind": "string",
+  "path": "string",
+  "project": "string",
+  "read": "boolean",
+  "title": "string"
+ }
+}

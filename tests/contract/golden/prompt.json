@@ -1,0 +1,44 @@
+{
+ "object": {
+  "configured": "boolean",
+  "default_voice": "string",
+  "llm_logs": {
+   "object": {
+    "bytes": "integer",
+    "path": "string",
+    "retention": "string",
+    "runs": "integer"
+   }
+  },
+  "owner": {
+   "object": {
+    "message": "null",
+    "owner": "boolean",
+    "writable": "boolean"
+   }
+  },
+  "prompt": "null",
+  "task": "null",
+  "timeout_seconds": "integer",
+  "voices": {
+   "array": {
+    "object": {
+     "available": "boolean",
+     "cli": {
+      "anyOf": [
+       "null",
+       "string"
+      ]
+     },
+     "enabled": "boolean",
+     "manual": "boolean",
+     "mention": {
+      "array": "string"
+     },
+     "name": "string",
+     "runnable": "boolean"
+    }
+   }
+  }
+ }
+}

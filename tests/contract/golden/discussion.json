@@ -1,0 +1,82 @@
+{
+ "object": {
+  "attention": {
+   "object": {
+    "items": {
+     "array": {
+      "object": {
+       "author?": "string",
+       "body?": "string",
+       "created_at?": "string:datetime",
+       "id?": "string:uuid",
+       "key": "string",
+       "kind": "string",
+       "path": "string",
+       "read": "boolean",
+       "reply_to?": "null",
+       "revision?": "integer",
+       "seen_by": {
+        "array": {
+         "object": {
+          "at": "string:datetime",
+          "participant": "string"
+         }
+        }
+       },
+       "thread_id?": "string:uuid",
+       "version": "string:sha256"
+      }
+     }
+    },
+    "participant": "string",
+    "path": "string"
+   }
+  },
+  "path": "string",
+  "source_sha256": "string:sha256",
+  "threads": {
+   "array": {
+    "object": {
+     "anchor": {
+      "object": {
+       "end": "integer",
+       "prefix": "string",
+       "quote": "string",
+       "source_sha256": "string:sha256",
+       "start": "integer",
+       "suffix": "string"
+      }
+     },
+     "comments": {
+      "array": {
+       "object": {
+        "author": "string",
+        "body": "string",
+        "created_at": "string:datetime",
+        "id": "string:uuid",
+        "reply_to": "null"
+       }
+      }
+     },
+     "created_at": "string:datetime",
+     "document_id": "string:uuid",
+     "document_path": "string",
+     "id": "string:uuid",
+     "initial_comment": "string",
+     "kind": "string",
+     "location": {
+      "object": {
+       "end": "integer",
+       "start": "integer",
+       "status": "string"
+      }
+     },
+     "owner": "string",
+     "resolved": "boolean",
+     "revision": "integer",
+     "schema_version": "integer"
+    }
+   }
+  }
+ }
+}

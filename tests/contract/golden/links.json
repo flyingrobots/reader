@@ -1,0 +1,23 @@
+{
+ "object": {
+  "built_at": "string:datetime",
+  "inbound": {
+   "array": {
+    "object": {
+     "count": "integer",
+     "fragment": "string",
+     "heading": "string",
+     "line": "integer",
+     "source": "string",
+     "title": "string"
+    }
+   }
+  },
+  "inbound_count": "integer",
+  "inbound_links": "integer",
+  "outbound_count": "integer",
+  "stale": "boolean",
+  "state": "string",
+  "unresolved_count": "integer"
+ }
+}

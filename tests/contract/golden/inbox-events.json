@@ -1,0 +1,17 @@
+{
+ "object": {
+  "arrivals": "null",
+  "done": "boolean",
+  "events": {
+   "array": "empty"
+  },
+  "finished_at": "null",
+  "next_offset": "integer",
+  "remaining": "null",
+  "reset": "boolean",
+  "run_id": "null",
+  "size": "integer",
+  "started_at": "null",
+  "status": "null"
+ }
+}

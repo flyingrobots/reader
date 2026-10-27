@@ -1,0 +1,66 @@
+{
+ "object": {
+  "complete": "boolean",
+  "editions": "string",
+  "indexed_at": "string:datetime",
+  "mode": "string",
+  "model": "null",
+  "query": "string",
+  "results": {
+   "array": {
+    "object": {
+     "content_status": "string",
+     "end_line": "integer",
+     "excerpt": "string",
+     "matched_by": {
+      "array": "string"
+     },
+     "metadata": {
+      "object": {
+       "added": "string:date",
+       "author": "string",
+       "document_id": "string:uuid",
+       "document_path": "string",
+       "document_revision": "integer",
+       "frontmatter_schema_version": "integer",
+       "metadata_created": "string:date",
+       "project": "string",
+       "published?": "string",
+       "rights": "string",
+       "source?": "string",
+       "source_url?": "string",
+       "tags?": {
+        "array": "string"
+       },
+       "title": "string",
+       "topics": {
+        "array": "string"
+       },
+       "translator?": "string",
+       "type": "string",
+       "writing_type?": "string"
+      }
+     },
+     "metadata_diagnostics": {
+      "array": "empty"
+     },
+     "metadata_profile": "string",
+     "metadata_status": "string",
+     "page": "null",
+     "path": "string",
+     "read": "boolean",
+     "score": "number",
+     "sha256": "string:sha256",
+     "similarity": {
+      "object": {}
+     },
+     "start_line": "integer"
+    }
+   }
+  },
+  "scope": "string",
+  "warnings": {
+   "array": "empty"
+  }
+ }
+}

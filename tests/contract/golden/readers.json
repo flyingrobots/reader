@@ -1,0 +1,28 @@
+{
+ "object": {
+  "folded": "integer",
+  "one_off_threshold": "integer",
+  "participant": "string",
+  "path": "string",
+  "quiz_results": {
+   "array": "empty"
+  },
+  "readers": {
+   "array": {
+    "object": {
+     "at": "string:datetime",
+     "folded": "boolean",
+     "group": "string",
+     "participant": "string",
+     "state": "string",
+     "threads": "integer",
+     "version": "string:sha256"
+    }
+   }
+  },
+  "version": "string:sha256",
+  "writing": {
+   "array": "empty"
+  }
+ }
+}
