@@ -399,3 +399,19 @@ def test_output_without_a_newline_still_counts_against_the_budget(world):
         assert time.monotonic() - started < 5, 'the budget stops the process, not the 10 s timeout'
     finally:
         capture.close()
+
+
+def test_restart_after_the_pull_request_was_saved_reconciles_it_as_opened(world):
+    w = world()
+    branch = 'reader/x-saved'
+    head = git('rev-parse', 'refs/heads/main', cwd=w.bare)
+    # The server stopped after publish() saved the pull request but before finish() recorded the outcome.
+    run = interrupted_run(w, phase='pull_request', pr_pending=None, push={'sha': head, 'sent': True, 'verified': True},
+                          git={'branch': branch, 'base': 'main', 'remote': 'origin'}, issue={'number': 277},
+                          pr={'number': 400, 'url': 'https://github.com/acme/widget/pull/400', 'state': 'open', 'head_sha': head, 'base': 'main'})
+    w.github.pulls[400] = {'number': 400, 'title': 'T', 'body': f'Closes #277\n<!-- reader-run:{run["id"]} -->', 'base': 'main', 'head': branch, 'head_sha': head}
+    outcome, _ = w.jobs.reconcile(run, w.jobs.registry.entry('acme/widget'), [])
+    assert outcome == 'pr_opened'
+    # A saved pull request that no longer reads back as the job's is not reported opened.
+    w.github.pulls[400]['body'] = 'edited'
+    assert w.jobs.reconcile(run, w.jobs.registry.entry('acme/widget'), [])[0] == 'needs_reconciliation'

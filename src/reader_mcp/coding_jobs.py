@@ -357,6 +357,13 @@ class Runner:
         """(outcome, detail) for an unfinished run's publication state."""
         repo, branch = run['source']['repo'], run['git']['branch']
         try:
+            if run.get('pr') and not run.get('pr_pending') and (run.get('push') or {}).get('verified'):
+                # publish() saved the pull request, then the server stopped before finish(): read it back once more.
+                pr = self.github.pull_request(repo, run['pr']['number'])
+                if ours(pr, repo, run['git']['base'], branch, run['push']['sha']) and closes(pr.get('body'), (run.get('issue') or {}).get('number'), run['id']):
+                    return 'pr_opened', None
+                notes.append(f'Pull request #{run["pr"]["number"]} no longer reads back as this job’s.')
+                return 'needs_reconciliation', None
             if run.get('pr_pending') and (run.get('push') or {}).get('verified'):
                 head = run['push']['sha']
                 pulls = [p for p in self.github.pull_requests(repo, branch)
