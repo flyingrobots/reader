@@ -426,3 +426,34 @@ def test_restart_writes_its_outcome_after_a_torn_final_event(world):
     done = w.jobs.store.load(run['id'])
     events = w.jobs.events(run['id'])['events']
     assert events[-1]['type'] == 'outcome' and events[-1]['seq'] == done['seq']
+
+
+def test_a_failed_process_record_stops_the_process_it_started(world, monkeypatch):
+    from reader_mcp import coding_workflow
+    from reader_mcp.voice_runner import kill_group
+    w = world()
+    w.jobs.work = lambda: None
+    admitted = w.jobs.submit(w.request())
+    run = w.jobs.store.load(admitted['id'])
+    workflow = coding_workflow.Workflow(w.jobs, run, w.jobs.registry.entry('acme/widget'), w.jobs.captures[run['id']], w.github, lambda: False)
+    children, popen, save = [], subprocess.Popen, w.jobs.store.save
+
+    def remember(*args, **kwargs):
+        children.append(popen(*args, **kwargs))
+        return children[-1]
+
+    def fail_process_record(record):
+        if record.get('process'):
+            raise OSError(5, 'synthetic process record write failure')
+        return save(record)
+    monkeypatch.setattr(coding_workflow.subprocess, 'Popen', remember)
+    monkeypatch.setattr(w.jobs.store, 'save', fail_process_record)
+    try:
+        with pytest.raises(OSError, match='process record'):
+            workflow.supervise([sys.executable, '-c', 'import time; time.sleep(30)'], w.checkout, subprocess.DEVNULL, workflow.env, 10,
+                               'stdout.jsonl', 'stderr.log')
+        assert children[0].poll() is not None, 'the started process was left running unsupervised'
+    finally:
+        for child in children:
+            kill_group(child.pid)
+            child.wait(timeout=5)

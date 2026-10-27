@@ -320,8 +320,17 @@ class Workflow:
         failure = {'error': None}
         worker = subprocess.Popen(command, cwd=cwd, stdin=stdin, stdout=subprocess.PIPE,
                                   stderr=subprocess.PIPE if err_name else subprocess.STDOUT, env=env, start_new_session=True)
-        self.run['process'] = {'group': worker.pid, 'started': process_started(worker.pid), 'host': self.jobs.host}
-        self.jobs.store.save(self.run)
+        try:
+            self.run['process'] = {'group': worker.pid, 'started': process_started(worker.pid), 'host': self.jobs.host}
+            self.jobs.store.save(self.run)
+        except BaseException:  # Not yet under the supervision below: stop the started process before the error leaves.
+            kill_group(worker.pid)
+            worker.wait()
+            for pipe in (worker.stdout, worker.stderr):
+                if pipe:
+                    pipe.close()
+            self.run['process'] = None
+            raise
 
         def pump(pipe, name, lines):
             # Chunks, not readline: an unterminated line would otherwise grow in memory before the budget sees it.
