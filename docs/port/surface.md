@@ -75,7 +75,7 @@ owning class. **Existing tests** counts browser suites (`tests/web_*.cjs`, `test
 | GET | `/api/next` | expensive (8, refuse 429) | path, participant | next_reads | — | 1 / 3 | read |
 | GET | `/api/standfirst` | reads (32, wait 5.0 s then 429) | path | magazine.standfirst (Magazine) | — | 1 / 2 | read |
 | GET | `/api/art` | reads (32, wait 5.0 s then 429) | path, edition, generation | art.art (Studio) | — | 5 / 2 | read, write |
-| GET | `/api/art/prompt` | reads (32, wait 5.0 s then 429) | path, edition, generation | art.prompts (Studio) | — | 0 / 2 | read |
+| GET | `/api/art/prompt` | reads (32, wait 5.0 s then 429) | path, edition, generation | art.prompts (Studio) | — | 1 / 2 | read |
 | GET | `/api/art/jobs` | reads (32, wait 5.0 s then 429) | — | art.status (Studio) | — | 3 / 2 | read |
 | GET | `/api/art/still` | reads (32, wait 5.0 s then 429) | path, edition, generation | send_file(raw), art.still_file (Studio) | — | 0 / 3 | read |
 | GET | `/api/jobs` | reads (32, wait 5.0 s then 429) | repo, state, path, block | jobs.runs (CodingJobs) | — | 1 / 2 | read |
@@ -917,8 +917,8 @@ exercise modules through HTTP, so see the route table for those.
 | `scripts/verify_search_installation.py` | 74 | 66 | 4190 | 59 | 138 | 0.82 | 1 | 0 | 0 | 0 |
 | **total** | 23642 | 21049 | 1256198 | | | | | | | |
 
-Language-neutral code that a port keeps as is: `src/reader_mcp/web_ui/` (42 hand-written JS/CSS/HTML files, 8375 lines, excluding vendor/) plus the built `web_ui/controls/` bundle from `web/`.
-Tests: 64 pytest files, 715 test functions; 75 browser suites; 18 node unit files.
+Language-neutral code that a port keeps as is: `src/reader_mcp/web_ui/` (42 hand-written JS/CSS/HTML files, 8378 lines, excluding vendor/) plus the built `web_ui/controls/` bundle from `web/`.
+Tests: 64 pytest files, 715 test functions; 76 browser suites; 18 node unit files.
 
 ## Contract coverage
 
