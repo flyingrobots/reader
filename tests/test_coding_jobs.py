@@ -451,6 +451,6 @@ def test_a_stop_while_publication_intent_is_saved_publishes_nothing(world, monke
     run, _ = w.run()
     assert stopped and run['outcome'] == 'cancelled', run['message']
     if effect == 'push':
-        assert 'refs/heads/' + run['git']['branch'] not in w.remote_heads()
+        assert 'refs/heads/' + run['git']['branch'] not in w.remote_heads() and run['push'] is None
     else:
-        assert 'create_pull_request' not in w.github.calls
+        assert 'create_pull_request' not in w.github.calls and run['pr_pending'] is None

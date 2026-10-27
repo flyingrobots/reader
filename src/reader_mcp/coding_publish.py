@@ -44,6 +44,15 @@ class Job(Workflow):
         self.publish(result, head)
         return 'pr_opened', f'Pull request #{self.run["pr"]["number"]} is open: {self.run["pr"]["url"]}'
 
+    def unsent(self, intent):
+        """Stop before acting on a just-saved intent, recording that nothing was sent."""
+        try:
+            self.check_cancel()
+        except Stop:
+            self.run[intent] = None
+            self.jobs.store.save(self.run)
+            raise
+
     def marker(self):
         return f'reader-run:{self.run["id"]}'
 
@@ -154,7 +163,7 @@ class Job(Workflow):
         if not existing:
             self.run['push'] = {'sha': head, 'sent': True, 'verified': False}
             self.jobs.store.save(self.run)
-            self.check_cancel()  # A Stop acknowledged while the intent was saved starts no push.
+            self.unsent('push')  # A Stop acknowledged while the intent was saved starts no push.
             # The verified commit itself, not the branch ref, which something could move after verification.
             self.git(['push', '--porcelain', '--', remote, f'{head}:refs/heads/{branch}'], title=f'Push {branch}',
                      timeout=PUSH_TIMEOUT, check=False)
@@ -195,7 +204,7 @@ class Job(Workflow):
             self.check_cancel()  # A Stop while the listing above was read opens no pull request.
             self.run['pr_pending'] = {'branch': branch}
             self.jobs.store.save(self.run)
-            self.check_cancel()  # Likewise for a Stop acknowledged while the pull request intent was saved.
+            self.unsent('pr_pending')  # Likewise for a Stop acknowledged while the pull request intent was saved.
             step = self.step(f'Open a pull request for {branch}')
             try:
                 created = self.github.create_pull_request(self.repo, self.entry['base'], branch, title, body)
