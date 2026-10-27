@@ -27,8 +27,9 @@ Mac (18 cores, 64 GiB) on 2026-10-26; they are indicative, not a benchmark suite
    process supervisor, which also resolves #16 in TypeScript. Host integrations, chat, the inbox runner, art,
    MCP and CLI adapters follow, and removing the Python child comes last. The plan lists 22 atomic PRs (0, 1, 1b
    and 2 to 20, then 21).
-6. **Storage stays Markdown plus SQLite** for the whole port. git-warp is considered only after Python is
-   removed, for marginalia alone, and only if spike S1 passes; see [Storage after the port](#storage-after-the-port).
+6. **Storage stays Markdown plus SQLite,** with marginalia in today's JSON-and-lock store, through and after the
+   port. No storage move is planned; a corrected git-warp spike (S1b) is running, see
+   [Storage after the port](#storage-after-the-port).
 7. **Install:** Reader installs through `npx`, an npm global install or a Homebrew formula that depends on
    `node`; CI installs the packed tarball outside the checkout. Correctness and a reliable install beat having
    zero native npm dependencies. A single-file binary built with `node --build-sea` can come later. Bringing
@@ -233,7 +234,7 @@ means the whole suite passes against both the front and Python, plus the tests n
 | 2 | TS front, pass-through: `server/` binds the port, implements identity, token, admission pools, body limits, headers, error mapping and SSE pass-through; it supervises the Python child (start, restart, stop with it) | 1 (without the identity handoff, tailnet users would look local, and companion path-setting would open up), 1b (the front ships in that package and uses its lock adapter) | full contract against the front; front tests: a child crash gives 503 and then recovers, and a client hang-up frees the slot at once |
 | 3 | Updater: the smoke step runs `tests/contract` read and security tests against the candidate's real entry point; `start_web.py --front` and `reader_service.py install --front` switch the LaunchAgent to the front (default off) | 2 (the front must exist to be smoked) | smoke passes in both modes; flipping the flag and kickstarting serves the same vault; rollback by flag |
 | 4 | Port static files, `/api/health`, `/api/file`, themes and fonts | 2 | read/security/theme tests; ranges, CSP and sandbox headers |
-| 5 | The operations layer and TS vault primitives (atomic replace with fsync and link-publish, symlink refusals, code-point offsets), plus the annotate, record-a-reading and bookmark operations with their stores: `POST /api/annotations`, `/api/seen`, `/api/bookmark`, `GET /api/discussion` | 2 | write tests; ok/refused/conflict cases with a stale basis; the flock coexistence test with a TS writer; the anchor cases (emoji, combining marks, repeated passages, transformed reading copies) |
+| 5 | The operations layer and TS vault primitives (atomic replace with fsync and link-publish, symlink refusals, code-point offsets), plus the annotate, record-a-reading and bookmark operations with their stores: `POST /api/annotations`, `/api/seen`, `/api/bookmark`, `GET /api/discussion` | 2 | write tests; ok/refused/conflict cases with a stale basis; the flock coexistence test with a TS writer; the anchor cases (emoji, combining marks, repeated passages, transformed reading copies); conflict cases (two replacements of one comment, an edit racing a delete) surface a conflict |
 | 6 | Works and documents: coverage and catalog reading, frontmatter (YAML parity corpus), `/api/library`, `/api/document`, `/api/preview`, `/api/readers`, `/api/standfirst`, `/api/issue`, `/api/editions*` | 5 (bootstrap and readers report receipts and threads) | read tests; a frontmatter parity corpus run through both implementations |
 | 7 | Queue, history and next (related works without vectors): `/api/queue`, `/api/history`, `/api/next` | 6 (rows are built from works) | read/write queue tests; value tests for the suggestion order |
 | 8 | Link graph: `links.sqlite3` read and refresh, `/api/links`, `/api/link-counts`, `/api/resolve*`, `/api/embeds` | 6 (resolution uses the works inventory) | read tests; the transclusion corpus `tests/fixtures/transclusion/corpus.json` |
@@ -270,17 +271,13 @@ means the whole suite passes against both the front and Python, plus the tests n
 Markdown in the git tree and SQLite indexes (rebuildable, stamped with the source revisions they reflect) stay
 throughout the port. Each item below is its own later decision:
 
-- **git-warp (PR 22+), only after Python is removed,** scoped to annotations, bookmarks and reading observations;
-  queues that launch jobs stay out. It is gated by spike S1, a throwaway that publishes numbers and its harness:
-  - speed: a highlight saved within 50 ms p95 warm, a document's margins opened within 100 ms p95, cold start
-    under 1 s, at 2,000 and 20,000 annotations;
-  - semantics: concurrent comments, two replacements of one comment, deletion racing an edit, duplicate delivery;
-    git-warp's conflicts and obstructions are shown to the user, never silently resolved;
-  - recovery: a restart after acknowledgement and a restore from backup;
-  - version fencing and transport: a version-mismatch refusal, and transfer of Reader's custom refs (plain
-    `git push` moves branches only).
-
-  Wesley, which git-warp's composition root already uses, is evaluated alongside S1.
+- **git-warp for marginalia: undecided, pending S1b.** The first spike (S1, 2026-10-27) is withdrawn: its
+  harness bypassed git-warp's documented application path (Wesley-generated intents and observers), imported
+  internal modules, deleted git-warp's own checkpoint refs and stored membership as growing JSON strings
+  instead of edges, so its numbers measured that mapping rather than git-warp. S1b reruns the same data and
+  tests through the public surface only. There is no PR 22 unless S1b supports one.
+- **Conflicts are shown, whatever the store:** two replacements of one comment and an edit racing a delete
+  must surface a conflict, never pick a winner silently. These are contract cases in PR 5.
 - **Before any storage move,** specify a Reader checkpoint (documents' tree or commit, marginalia history
   coordinate or writer heads, attachment roots, schema and interpreter versions) and two artifacts, each with a
   restore test into a fresh environment: a **portable export** of current records (today's JSON) and a
@@ -368,8 +365,8 @@ Approved by the user on 2026-10-27:
 4. **Minimum Node version:** Node 24 LTS stays supported if the lock adapter allows; otherwise Node 26 is the
    floor, with the reason recorded. Node 26's LTS status is checked at cutover.
 5. **One operations layer** that HTTP, MCP and the CLI adapt; PRs 19 and 20 are adapter work.
-6. **Storage:** Markdown plus SQLite through the port; git-warp only after it, for marginalia, behind S1 and a
-   specified checkpoint, export and recovery archive; git-cas deferred; the vault package held.
+6. **Storage:** Markdown plus SQLite, and the JSON-and-lock marginalia store, through and after the port;
+   git-warp undecided pending S1b (S1 withdrawn); git-cas deferred; the vault package held.
 7. **MCP schemas:** normalise incidental differences only; keep enums, bounds, unions, nullability,
    `additionalProperties` and refusal behaviour.
 
