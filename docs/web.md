@@ -735,6 +735,8 @@ searched, selected or rasterized); it stays open while the pointer is over the a
 the card and closes on Esc, a click elsewhere, or leaving both.
 Clicking or dragging the artwork cancels an automatic hover card; it does not
 interrupt manipulation of the expanded scene.
+On touch screens, a long press tolerates small finger jitter; moving more than
+10 CSS pixels from the initial touch cancels it, including during pointer capture.
 
 Cover previews and feature thumbnails do not open this card on hover or touch
 long-press. Expand the cover with **Focus** (or **Space G**) to inspect it on hover;
