@@ -187,7 +187,8 @@ export function Inbox({status,error=null,starting,onMail,onStop,onOpen,html,acti
         <p id="inbox-mail-note" className="inbox-mail-note">{active?'The librarian is reading the mail.':blocked?<span id="inbox-blocked" data-reason={blocked.reason} className={['interrupted','error','codex'].includes(blocked.reason)?'backstage-error':''}>{blocked.message}</span>:needsReader()?`Filing ${plural(arrivals.length,'arrival')} needs Reader on your computer, where a librarian voice reads the mail.`:`Ask the librarian to file ${plural(arrivals.length,'arrival')}.`}</p>
       </div>
       {active?<div className="inbox-run" aria-live="polite">
-        <p className="backstage-message">{starting&&!run?.started_at?'Starting the librarian…':<>Running for {run?.started_at?<Clock since={run.started_at}/>:'…'}{run?.arrivals?<> · {plural(run.arrivals,'arrival')}</>:null}{run?.sandbox_mode==='danger-full-access'?' · Host access':''}</>}</p>
+        {!transcript?<p className="backstage-message">{starting&&!run?.started_at?'Starting the librarian…':<>Running for {run?.started_at?<Clock since={run.started_at}/>:'…'}{run?.arrivals?<> · {plural(run.arrivals,'arrival')}</>:null}{run?.sandbox_mode==='danger-full-access'?' · Host access':''}</>}</p>
+          :run?.sandbox_mode==='danger-full-access'?<p className="backstage-message">Host access</p>:null}
         {transcript||(run?.event?<p className="inbox-event" title={run.event}>{run.event}</p>:null)}
         <Button id="inbox-stop" variant="outline" size="sm" disabled={starting&&!run?.started_at} onClick={onStop}><SquareIcon data-icon="inline-start" aria-hidden/>Stop</Button>
       </div>:run&&!ACTIVE_RUN.includes(run.status)?<div className="inbox-run" data-finished="">

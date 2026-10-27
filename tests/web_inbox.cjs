@@ -46,6 +46,17 @@ const {chromium}=require(process.env.READER_PLAYWRIGHT||'playwright-core');
   await page.locator('#inbox[data-run-state=running]').waitFor();assert.ok(await page.locator('#inbox-mail').isDisabled());
   const log=page.locator('#inbox .activity-log'),item=id=>log.locator(`[data-item-id="${id}"]`);
   await item('item_8').waitFor({timeout:10000});
+  await page.screenshot({path:'.reader/web-dev/inbox-timer-and-colors.png'});
+  const elapsedLabels=(await page.locator('#inbox .inbox-run').innerText()).match(/\b(?:Running for|Elapsed)\b/g)||[];
+  assert.equal(elapsedLabels.length,1,'a running inbox has one elapsed-time counter, not one in each nested panel');
+  const statusColors=await page.evaluate(()=>{
+    const color=selector=>getComputedStyle(document.querySelector('#inbox '+selector)).color;
+    return [color('.activity-meta [data-status=running]'),color('.activity-meta [data-filed] [data-slot=trace-icon]'),color('.activity-log [data-status=error]')];
+  });
+  assert.equal(new Set(statusColors).size,3,'running, filed and failed work have distinct colors as well as labels and icons');
+  await page.evaluate(()=>{document.documentElement.dataset.theme='ink';});await page.waitForTimeout(450);
+  await page.screenshot({path:'.reader/web-dev/inbox-running-ink.png'});
+  await page.evaluate(()=>{document.documentElement.dataset.theme='paper';});await page.waitForTimeout(450);
   assert.equal(await log.getAttribute('role'),'log');assert.equal(await log.getAttribute('aria-live'),'polite');
   assert.equal(await page.locator('#inbox .activity').getAttribute('data-reader-decoration'),'');
   assert.match(await item('item_0').textContent(),/I’ll file the three synthetic arrivals/);
@@ -125,7 +136,7 @@ const {chromium}=require(process.env.READER_PLAYWRIGHT||'playwright-core');
       const q=s=>document.querySelector('#inbox .activity-log '+s);
       return {theme,prose:ratio(q('.activity-prose')),line:ratio(q('[data-slot=trace-line]:not([data-status])')),error:ratio(q('[data-slot=trace-line][data-status=error]')),terminal:ratio(q('[data-activity-terminal] [data-slot=code-block-content]')),notice:ratio(q('[data-activity-notice]')),checkpoint:ratio(q('[data-activity-checkpoint] [data-slot=marker-content]'))};
     },theme);
-    for(const [key,value] of Object.entries(result))if(key!=='theme'&&value<(key==='prose'||key==='terminal'?4.5:3))lows.push(`${theme} ${key} ${value.toFixed(2)}`);
+    for(const [key,value] of Object.entries(result))if(key!=='theme'&&value<4.5)lows.push(`${theme} ${key} ${value.toFixed(2)}`);
     if(['ink','orchid-dark','harvest'].includes(theme)||theme===themes.at(-1))await log.screenshot({path:`.reader/web-dev/activity-${theme}.png`});
   }
   assert.deepEqual(lows,[],'transcript text keeps WCAG contrast in every theme');

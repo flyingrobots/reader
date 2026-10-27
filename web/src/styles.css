@@ -257,7 +257,19 @@
 .inbox-mail { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
 .inbox-mail-note { margin: 0; font-size: 13px; color: var(--muted); line-height: 1.45; flex: 1 1 220px; min-width: 0; overflow-wrap: anywhere; }
 .inbox-mail-note .backstage-error, .backstage-message.backstage-error { color: var(--warning); }
-.inbox-run { display: grid; gap: 8px; justify-items: start; padding: 12px 14px; border: 1px solid var(--line); border-radius: 10px; background: var(--raised); min-width: 0; }
+.inbox-card, .activity {
+  --activity-text: color-mix(in oklab, var(--muted) 25%, var(--ink));
+  --activity-secondary: color-mix(in oklab, var(--muted) 65%, var(--ink));
+  --activity-running: color-mix(in oklab, var(--mode-search) 70%, var(--ink));
+  --activity-done: color-mix(in oklab, var(--mode-thread) 70%, var(--ink));
+  --activity-error: color-mix(in oklab, var(--warning) 50%, var(--ink));
+  --activity-rule: color-mix(in oklab, var(--line) 75%, var(--ink));
+}
+.inbox-card:is([data-run-state=starting], [data-run-state=running]) [data-inbox-badge] { background: color-mix(in oklab, var(--activity-running) 12%, var(--surface)); color: var(--activity-running); border-color: color-mix(in oklab, var(--activity-running) 40%, var(--line)); }
+.inbox-card[data-run-state=finished] [data-inbox-badge] { background: color-mix(in oklab, var(--activity-done) 12%, var(--surface)); color: var(--activity-done); }
+.inbox-run { display: grid; gap: 10px; justify-items: start; padding: 14px; border: 1px solid var(--activity-rule); border-radius: 10px; background: var(--bg); min-width: 0; }
+.inbox-run:has(.activity) .activity { border-top: 0; padding-top: 0; }
+#inbox-stop { color: var(--activity-error); border-color: color-mix(in oklab, var(--activity-error) 55%, var(--line)); }
 .inbox-run > * { max-width: 100%; }
 .inbox-run small { color: var(--muted); }
 .inbox-event { margin: 0; font-family: var(--mono); font-size: 11px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; width: 100%; }
@@ -342,26 +354,30 @@
 /* Activity transcript (shadcn AI Elements on Trace, Message, Marker). Tokens only, so every theme reads. */
 .activity { position: relative; display: grid; gap: 10px; width: 100%; min-width: 0; padding-top: 10px; border-top: 1px solid var(--line); }
 .activity-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
-.activity-head h3 { margin: 0 auto 0 0; font: 650 12px var(--sans); letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+.activity-head h3 { margin: 0 auto 0 0; font: 650 12px var(--sans); letter-spacing: .06em; text-transform: uppercase; color: var(--activity-secondary); }
 .activity-meta { display: grid; gap: 4px; min-width: 0; }
 .activity-steps { gap: 6px; }
 .activity-dots { display: flex; gap: 4px; list-style: none; margin: 0 0 0 24px; padding: 0; }
-.activity-dots li { width: 22px; height: 3px; border-radius: 2px; background: var(--line); }
-.activity-dots li[data-step=done] { background: var(--accent); }
-.activity-dots li[data-step=running] { background: color-mix(in oklab, var(--accent) 55%, var(--line)); }
+.activity-dots li { width: 24px; height: 4px; border-radius: 2px; background: var(--line); }
+.activity-dots li[data-step=done] { background: var(--activity-done); }
+.activity-dots li[data-step=running] { background: var(--activity-running); box-shadow: 0 0 0 2px color-mix(in oklab, var(--activity-running) 25%, var(--bg)); }
+.activity-dots li[data-step=failed] { background: var(--activity-error); }
 .activity-log { display: grid; gap: 12px; align-content: start; max-height: min(64vh, 620px); overflow: auto; overscroll-behavior: contain; padding: 4px 4px 8px 2px; min-width: 0; border-radius: 8px; scroll-padding-block: 12px; }
 .activity-log:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .activity-item { min-width: 0; border-radius: 6px; }
 .activity-item:focus { outline: none; }
 .activity-item:focus-visible { box-shadow: 0 0 0 2px var(--accent); }
-.activity-item [data-slot=trace-line] { font-size: 13px; }
-/* Error lines lean toward ink so they stay legible where a theme's warning hue is light on its panel. */
-.activity-log { --activity-error: color-mix(in oklab, var(--warning) 72%, var(--ink)); }
-.activity-log [data-slot=trace-line][data-status=error], .activity-log [data-slot=trace-collapsible-trigger]:has([data-status=error]) { color: var(--activity-error); }
+.activity [data-slot=trace-line] { font-size: 13px; color: var(--activity-text); }
+.activity [data-slot=trace-description], .activity [data-slot=trace-collapsible-trigger] > [data-slot=trace-icon] { color: var(--activity-secondary); }
+.activity [data-slot=trace-line][data-status=pending] { color: var(--activity-secondary); opacity: 1; }
+.activity [data-slot=trace-line][data-status=running] { color: var(--activity-running); }
+.activity [data-slot=trace-line][data-status=running] [data-slot=trace-title] { animation: none; background: none; color: inherit; font-weight: 600; }
+.activity [data-slot=trace-line][data-status=error], .activity [data-slot=trace-collapsible-trigger]:has([data-status=error]) { color: var(--activity-error); }
+.activity [data-step=done] > [data-slot=trace-icon], .activity [data-filed] > [data-slot=trace-icon] { color: var(--activity-done); }
 .activity-item [data-slot=trace-title] code, .activity-checkpoint code { font-family: var(--mono); font-size: .9em; color: var(--ink); }
 .activity-item [data-slot=trace-line][data-status=running] [data-slot=trace-title] code { color: inherit; }
-.activity-message { padding: 2px 0; }
-.activity-message [data-slot=message-header] { font: 650 11px var(--sans); letter-spacing: .04em; color: var(--faint); }
+.activity-message { padding: 10px 12px; border: 1px solid var(--activity-rule); border-left: 2px solid var(--accent); border-radius: 8px; background: var(--surface); }
+.activity-message [data-slot=message-header] { font: 650 11px var(--sans); letter-spacing: .04em; color: var(--activity-secondary); }
 .activity-prose { font-family: var(--serif); font-size: 15px; line-height: 1.55; color: var(--ink); overflow-wrap: anywhere; max-width: 68ch; }
 .activity-prose > :first-child { margin-top: 0; } .activity-prose > :last-child { margin-bottom: 0; }
 .activity-prose p, .activity-prose ul, .activity-prose ol { margin: 6px 0; }
@@ -381,7 +397,7 @@
 .activity-output [data-slot=code-block-content] { font-family: var(--mono); font-size: 11.5px; line-height: 1.5; color: var(--ink); }
 .activity-output [data-variant=destructive] [data-slot=code-block-content] { color: var(--ink); }
 .activity-label { margin: 0; font: 650 10px var(--sans); letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
-.activity-quiet { margin: 0; font-size: 12px; color: var(--muted); }
+.activity-quiet { margin: 0; font-size: 12px; color: var(--activity-secondary); }
 .activity-tree { display: flex; flex-direction: column; min-width: 0; max-width: 520px; }
 .activity-file { gap: 6px; }
 .activity-file:disabled { opacity: 1; color: var(--muted); }
@@ -394,11 +410,11 @@
 .activity-stack { display: grid; gap: 6px; padding: 10px 12px; border-radius: 6px; background: var(--bg); font: 11.5px/1.5 var(--mono); color: var(--muted); overflow-wrap: anywhere; }
 .activity-stack ol { margin: 0; padding-left: 0; list-style: none; display: grid; gap: 2px; white-space: pre-wrap; color: var(--ink); }
 .activity-stack-error { margin: 0; color: var(--activity-error); font: 12px/1.5 var(--mono); overflow-wrap: anywhere; }
-.activity-checkpoint { color: var(--ink); font-size: 12px; }
+.activity-checkpoint { color: var(--activity-done); font-size: 12px; }
 .activity-checkpoint [data-slot=marker-content] { max-width: 80%; }
-.activity-context { font-variant-numeric: tabular-nums; }
+.activity-context { font-variant-numeric: tabular-nums; background: var(--surface); color: var(--activity-text); border-color: var(--activity-rule); }
 .activity-end [data-slot=marker] { color: var(--muted); }
-.activity-working { margin: 0; display: inline-flex; align-items: center; gap: 8px; font-size: 12px; color: var(--muted); }
+.activity-working { margin: 0; display: inline-flex; align-items: center; gap: 8px; font-size: 12px; color: var(--activity-running); }
 .activity-spinner { width: 11px; height: 11px; border-radius: 50%; border: 1.5px solid var(--line); border-top-color: var(--accent); animation: activity-spin .9s linear infinite; flex: none; }
 .activity-foot { display: flex; justify-content: flex-end; margin-top: -4px; }
 [data-activity-notice] { color: var(--muted); }
