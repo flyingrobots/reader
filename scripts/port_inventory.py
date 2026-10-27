@@ -661,7 +661,7 @@ def area(path):
              ('/api/resolve', 'links'), ('/api/links', 'links'), ('/api/link-counts', 'links'), ('/api/preview', 'links'), ('/api/embeds', 'links'),
              ('/api/standfirst', 'magazine'), ('/api/issue', 'magazine'), ('/api/shape', 'shape'), ('/api/prose', 'prose'),
              ('/api/quiz', 'quizzes'), ('/api/prompt', 'prompts'), ('/api/writing', 'writing'),
-             ('/api/service', 'service'), ('/api/health', 'service'), ('/api/maintenance', 'maintenance'),
+             ('/api/service', 'service'), ('/api/health', 'service'), ('/api/token', 'service'), ('/api/maintenance', 'maintenance'),
              ('/api/library', 'library'), ('/api/document', 'library'), ('/api/file', 'library'), ('/api/bookmark', 'library'),
              ('/assets/', 'static'), ('/', 'static')]
     return next(a for prefix, a in table if path == prefix or (prefix != '/' and path.startswith(prefix)))

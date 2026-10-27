@@ -77,7 +77,7 @@ def main():
                    'npm --prefix plugins/reader ci --cache /work/npm-cache && '
                    'npm --prefix plugins/reader run check && npm --prefix plugins/reader test && '
                    'npm --prefix plugins/reader run build && '
-                   'node --test tests/quiz_controller.cjs && '
+                   'node --test tests/quiz_controller.cjs tests/request_token.cjs && '
                    'npm --prefix server ci --cache /work/npm-cache && '
                    'npm --prefix server run check && npm --prefix server test')
             if kind=='formatter':

@@ -1,5 +1,6 @@
 import {bodyOf, codePointIndex, escapeHTML as esc, findFragment, formatDate, localizeLibrary, normalize, scopeOf, slugHeadings, occurrences, plainQuote, plural, projectSource, projectText, rawCodePoints, sourceRangeForQuote, visibleQuote} from './logic.mjs';
 import {installReading} from './reading.mjs';
+import {createTokenFetch} from './request.mjs';
 import {installLinks} from './links.mjs';
 import {mathPlugin,mathOptions} from './math.mjs';
 import {openPDF,pdfPage} from './pdf.mjs';
@@ -67,6 +68,7 @@ let reading,controls,links,outline,speech,versions,search,prose,queue,scratch,qu
 let saved = {};
 try { saved = JSON.parse(localStorage.getItem('reader.preferences.v1') || '{}'); } catch {}
 const state = {prefs:{...defaults,...saved}, data:null, doc:null, threads:[], attention:[], token:null, mode:'fuzzy', results:[], resultIndex:0, searchId:0, routeId:0, pdf:null, smoother:null, find:[], findIndex:-1, selected:null, activeThread:null, replyTo:null, visits:[null], cursor:0, ranges:[], leader:null,themeEditorOpen:false,view:null};
+const fetchRequest=createTokenFetch({getToken:()=>state.token,setToken:token=>{state.token=token;}});
 // Custom theme CSS is cached so a saved custom theme paints before /api/themes answers.
 let themeCache={css:'',links:[],ids:[]};
 try{const cached=JSON.parse(localStorage.getItem('reader.themes.v1')||'null');if(cached&&typeof cached.css==='string'&&Array.isArray(cached.ids)&&Array.isArray(cached.links))themeCache=cached;}catch{}
@@ -123,9 +125,9 @@ function reachable() {
 async function api(path, payload, extra={}) {
   const options = payload ? {method:'POST', headers:{'Content-Type':'application/json','X-Reader-Token':state.token}, body:JSON.stringify(payload)} : {};
   let response;
-  try { response = await fetch(path, {...options,...extra});
+  try { response = await fetchRequest(path, {...options,...extra});
     // Several panes load at once; a busy server's 429 on a read is retried once.
-    if (EMBEDDED && !payload && response.status === 429) { await new Promise(resolve => setTimeout(resolve, 400)); response = await fetch(path, {...options,...extra}); } }
+    if (EMBEDDED && !payload && response.status === 429) { await new Promise(resolve => setTimeout(resolve, 400)); response = await fetchRequest(path, {...options,...extra}); } }
   catch (cause) {
     if (cause?.name === 'AbortError') throw cause;
     unreachable(!!payload);

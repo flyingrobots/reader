@@ -12,7 +12,7 @@ Contents: [HTTP routes](#http-routes) · [POST actions](#post-actions) · [reque
 
 ## HTTP routes
 
-70 method+path routes in `src/reader_mcp/web.py` (`WebHandler.handle_request` and `stream_chat`). `*` marks a prefix
+71 method+path routes in `src/reader_mcp/web.py` (`WebHandler.handle_request` and `stream_chat`). `*` marks a prefix
 route. **Pool** is the admission gate (`WebHandler.admission`). **Handler** is the WebLibrary attribute it calls, with the
 owning class. **Existing tests** counts browser suites (`tests/web_*.cjs`, `tests/*.test.mjs`) and pytest files naming the path;
 **Contract** names the `tests/contract/` files that call it.
@@ -32,14 +32,15 @@ owning class. **Existing tests** counts browser suites (`tests/web_*.cjs`, `test
 | POST | `/api/history` | expensive (8, refuse 429) | action, participant, path, sha256 | digest, queue.opened (ReadingQueue), queue.hide (ReadingQueue) | — | 2 / 3 | write |
 | POST | `/api/maintenance` | expensive (8, refuse 429) | action, kind | maintenance.start (Maintenance) | — | 0 / 2 | write |
 | POST | `/api/companions` | expensive (8, refuse 429) | — | companions.dispatch (Companions) | — | 1 / 3 | write |
-| POST | `/api/inbox` | expensive (8, refuse 429) | action, sandbox_mode | inbox.start (InboxView), inbox.stop (InboxView) | — | 1 / 4 | write |
+| POST | `/api/inbox` | expensive (8, refuse 429) | action, sandbox_mode | inbox.start (InboxView), inbox.stop (InboxView) | — | 2 / 4 | write |
 | POST | `/api/local-model` | expensive (8, refuse 429) | — | local_model.dispatch (LocalModel) | — | 1 / 3 | write |
 | POST | `/api/art` | expensive (8, refuse 429) | participant | art.dispatch (Studio) | — | 5 / 2 | write |
 | POST | `/api/writing` | expensive (8, refuse 429) | participant | writing.dispatch (Writing) | — | 3 / 2 | write |
 | POST | `/api/quiz` | expensive (8, refuse 429) | participant | quizzes.dispatch (Quizzes) | — | 1 / 2 | write |
 | POST | `/api/prompt` | expensive (8, refuse 429) | participant | prompts.dispatch (Prompts) | — | 0 / 1 | write |
 | POST | `/api/service` | expensive (8, refuse 429) | action | service.act (Service) | — | 0 / 2 | write |
-| GET | `/api/library` | reads (32, wait 5.0 s then 429) | participant | bootstrap | — | 11 / 4 | read, security |
+| GET | `/api/library` | reads (32, wait 5.0 s then 429) | participant | bootstrap | — | 12 / 4 | read, security |
+| GET | `/api/token` | reads (32, wait 5.0 s then 429) | — | — | — | 1 / 1 | security |
 | GET | `/api/document` | reads (32, wait 5.0 s then 429) | path, participant | document | — | 10 / 4 | read, security, vault-files, write |
 | GET | `/api/search` | expensive (8, refuse 429) | q, mode, path_prefix, participant | search, search_read_status | — | 4 / 2 | read |
 | GET | `/api/search/page` | expensive (8, refuse 429) | project[], author[], type[], (other filter keys), q, mode, offset, limit, participant | search_page | — | 1 / 3 | read |
@@ -51,7 +52,7 @@ owning class. **Existing tests** counts browser suites (`tests/web_*.cjs`, `test
 | GET | `/api/maintenance` | reads (32, wait 5.0 s then 429) | — | maintenance.status (Maintenance), local_model.brief (LocalModel) | — | 0 / 2 | read, write |
 | GET | `/api/readers` | expensive (8, refuse 429) | path, participant | readers | — | 2 / 2 | read |
 | GET | `/api/speak/*` | reads (32, wait 5.0 s then 429) | — | speech.get (Speech) | — | 0 / 2 | read |
-| GET | `/api/inbox` | reads (32, wait 5.0 s then 429) | — | inbox.status (InboxView) | — | 1 / 4 | read |
+| GET | `/api/inbox` | reads (32, wait 5.0 s then 429) | — | inbox.status (InboxView) | — | 2 / 4 | read |
 | GET | `/api/links` | reads (32, wait 5.0 s then 429) | path | backlinks | — | 1 / 2 | read |
 | GET | `/api/preview` | reads (32, wait 5.0 s then 429) | path, fragment, participant | preview | — | 0 / 1 | read |
 | GET | `/api/link-counts` | reads (32, wait 5.0 s then 429) | — | link_counts | — | 0 / 1 | read |
@@ -799,7 +800,7 @@ exercise modules through HTTP, so see the route table for those.
 | `src/reader_mcp/annotations.py` | 160 | 142 | 9156 | 63 | 217 | 1.29 | 15 | 1 | 5 | 29 |
 | `src/reader_mcp/art.py` | 964 | 865 | 54690 | 60 | 215 | 0.89 | 54 | 4 | 4 | 53 |
 | `src/reader_mcp/art_scene.py` | 351 | 294 | 14728 | 49 | 134 | 1.01 | 34 | 2 | 4 | 53 |
-| `src/reader_mcp/bookmarks.py` | 75 | 68 | 4229 | 61 | 163 | 0.97 | 5 | 1 | 1 | 47 |
+| `src/reader_mcp/bookmarks.py` | 75 | 68 | 4229 | 61 | 163 | 0.97 | 5 | 1 | 1 | 49 |
 | `src/reader_mcp/browse.py` | 460 | 426 | 31971 | 73 | 545 | 1.03 | 22 | 1 | 2 | 16 |
 | `src/reader_mcp/catalog.py` | 392 | 354 | 20854 | 55 | 174 | 0.86 | 15 | 2 | 6 | 55 |
 | `src/reader_mcp/changes.py` | 292 | 261 | 13048 | 47 | 136 | 0.88 | 14 | 2 | 2 | 23 |
@@ -809,7 +810,7 @@ exercise modules through HTTP, so see the route table for those.
 | `src/reader_mcp/companions.py` | 697 | 610 | 39499 | 62 | 222 | 0.82 | 43 | 1 | 2 | 27 |
 | `src/reader_mcp/curation.py` | 331 | 305 | 19068 | 60 | 130 | 0.83 | 10 | 1 | 1 | 16 |
 | `src/reader_mcp/display.py` | 56 | 45 | 2199 | 46 | 104 | 0.87 | 5 | 0 | 1 | 4 |
-| `src/reader_mcp/editions.py` | 359 | 325 | 16852 | 49 | 174 | 0.92 | 17 | 1 | 2 | 55 |
+| `src/reader_mcp/editions.py` | 359 | 325 | 16852 | 49 | 174 | 0.92 | 17 | 1 | 2 | 57 |
 | `src/reader_mcp/embeds.py` | 324 | 274 | 14375 | 50 | 133 | 0.89 | 19 | 1 | 1 | 9 |
 | `src/reader_mcp/engagement.py` | 159 | 137 | 8851 | 63 | 198 | 1.12 | 16 | 1 | 4 | 47 |
 | `src/reader_mcp/inbox_runner.py` | 252 | 232 | 15348 | 64 | 536 | 0.98 | 11 | 0 | 6 | 113 |
@@ -836,18 +837,18 @@ exercise modules through HTTP, so see the route table for those.
 | `src/reader_mcp/shape.py` | 410 | 361 | 21084 | 55 | 158 | 0.87 | 21 | 1 | 1 | 11 |
 | `src/reader_mcp/speech.py` | 150 | 135 | 7983 | 58 | 140 | 0.87 | 9 | 2 | 2 | 30 |
 | `src/reader_mcp/store.py` | 225 | 197 | 10529 | 51 | 111 | 0.90 | 11 | 4 | 4 | 45 |
-| `src/reader_mcp/themes.py` | 338 | 307 | 17684 | 56 | 163 | 0.92 | 19 | 1 | 2 | 53 |
+| `src/reader_mcp/themes.py` | 338 | 307 | 17684 | 56 | 163 | 0.92 | 19 | 1 | 2 | 55 |
 | `src/reader_mcp/versions.py` | 307 | 284 | 14746 | 50 | 131 | 0.88 | 13 | 1 | 1 | 10 |
 | `src/reader_mcp/voice_runner.py` | 1526 | 1378 | 79782 | 54 | 181 | 0.90 | 86 | 5 | 3 | 79 |
 | `src/reader_mcp/voice_tasks.py` | 288 | 263 | 15125 | 55 | 201 | 0.89 | 17 | 1 | 1 | 17 |
 | `src/reader_mcp/voices.py` | 364 | 308 | 19248 | 60 | 143 | 0.88 | 21 | 1 | 1 | 47 |
-| `src/reader_mcp/web.py` | 1649 | 1530 | 95505 | 60 | 258 | 0.90 | 81 | 5 | 22 | 345 |
+| `src/reader_mcp/web.py` | 1656 | 1536 | 95921 | 60 | 258 | 0.90 | 81 | 5 | 22 | 347 |
 | `src/reader_mcp/web_access.py` | 211 | 186 | 11085 | 57 | 129 | 0.82 | 10 | 1 | 0 | 0 |
 | `src/reader_mcp/writing.py` | 369 | 342 | 21207 | 60 | 237 | 0.91 | 18 | 2 | 1 | 7 |
 | `src/reader_mcp/demo/__init__.py` | 137 | 116 | 6014 | 50 | 149 | 0.89 | 9 | 0 | 0 | 0 |
 | `src/reader_mcp/demo/build.py` | 718 | 625 | 49845 | 77 | 170 | 0.64 | 29 | 1 | 0 | 0 |
 | `src/reader_mcp/demo/static.py` | 379 | 335 | 20169 | 58 | 177 | 0.90 | 19 | 1 | 0 | 0 |
-| `scripts/check_container.py` | 139 | 124 | 8793 | 65 | 297 | 0.93 | 2 | 0 | 0 | 0 |
+| `scripts/check_container.py` | 139 | 124 | 8817 | 65 | 297 | 0.93 | 2 | 0 | 0 | 0 |
 | `scripts/install.py` | 78 | 73 | 3807 | 51 | 124 | 0.99 | 1 | 0 | 0 | 0 |
 | `scripts/install_wide_md.py` | 100 | 92 | 5327 | 57 | 140 | 0.91 | 5 | 0 | 0 | 0 |
 | `scripts/reader_paths.py` | 23 | 19 | 924 | 47 | 112 | 1.00 | 1 | 0 | 0 | 0 |
@@ -856,14 +857,14 @@ exercise modules through HTTP, so see the route table for those.
 | `scripts/vendor_web.py` | 77 | 68 | 4132 | 58 | 186 | 0.88 | 2 | 0 | 0 | 0 |
 | `scripts/verify_installation.py` | 80 | 72 | 4428 | 60 | 264 | 0.92 | 1 | 0 | 0 | 0 |
 | `scripts/verify_search_installation.py` | 74 | 66 | 4190 | 59 | 138 | 0.82 | 1 | 0 | 0 | 0 |
-| **total** | 21112 | 18822 | 1119364 | | | | | | | |
+| **total** | 21119 | 18828 | 1119804 | | | | | | | |
 
-Language-neutral code that a port keeps as is: `src/reader_mcp/web_ui/` (39 hand-written JS/CSS/HTML files, 8064 lines, excluding vendor/) plus the built `web_ui/controls/` bundle from `web/`.
-Tests: 55 pytest files, 623 test functions; 71 browser suites; 15 node unit files.
+Language-neutral code that a port keeps as is: `src/reader_mcp/web_ui/` (40 hand-written JS/CSS/HTML files, 8092 lines, excluding vendor/) plus the built `web_ui/controls/` bundle from `web/`.
+Tests: 55 pytest files, 625 test functions; 72 browser suites; 15 node unit files.
 
 ## Contract coverage
 
-**70 of 70 routes** have at least one test in `tests/contract/`.
+**71 of 71 routes** have at least one test in `tests/contract/`.
 
 A route counts as covered when at least one contract test requests it. Where success needs a real companion or would act
 on the host (speech, prose colouring, an inbox run, service actions, companion installs, local-model server control), the
@@ -887,7 +888,7 @@ suite checks validation and refusals only; `docs/port/plan.md` lists what each p
 | queue | 3/3 | 2/2 |
 | quizzes | 1/1 | 1/1 |
 | search | 2/2 | — |
-| service | 2/2 | 1/1 |
+| service | 3/3 | 1/1 |
 | shape | 1/1 | — |
 | speech | 1/1 | 2/2 |
 | static | 2/2 | — |
