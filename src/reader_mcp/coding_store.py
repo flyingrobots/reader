@@ -153,7 +153,7 @@ class Capture:
             seq = self.seq + 1
             event = {'run_id': run_id, 'seq': seq, 'at': stamp(), 'type': kind, **data}
             line = json.dumps(event, ensure_ascii=False)
-            if len(line) > MAX_EVENT:
+            if len(line.encode('utf-8', 'surrogatepass')) > MAX_EVENT:  # Bytes, as pages are bounded (MAX_PAGE_BYTES).
                 event = {'run_id': run_id, 'seq': seq, 'at': event['at'], 'type': kind, 'truncated': True,
                          **{k: v for k, v in data.items() if isinstance(v, (int, float, bool)) or v is None or (isinstance(v, str) and len(v) < 2048)}}
                 line = json.dumps(event, ensure_ascii=False)
