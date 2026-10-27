@@ -1355,7 +1355,7 @@ class WebHandler(BaseHTTPRequestHandler):
             args = {k: v[0] for k, v in parse_qs(urlsplit(self.path).query).items()}
             jobs = self.server.library.jobs
             run_id, after = args.get('id', ''), args.get('after', '0')
-            if not after.isdigit() or len(after) > 9:
+            if not re.fullmatch(r'[0-9]{1,9}', after):  # ASCII only: str.isdigit() takes '²', which int() refuses.
                 raise ValueError('Expected a non-negative event cursor')
             jobs.detail(run_id)
         except PermissionError as exc:

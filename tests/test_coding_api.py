@@ -159,3 +159,18 @@ def test_a_second_server_serves_jobs_read_only(site):
     with pytest.raises(JobsOwned):
         other.dispatch(world.request())
     assert other.actions(world.doc)['read_only']
+
+
+@pytest.mark.parametrize('after', ['%C2%B2', '%D9%A3', '-1', '1e3'])
+def test_the_job_stream_refuses_a_cursor_that_is_not_ascii_digits(site, after):
+    from http.client import HTTPConnection
+    w, server, request = site
+    run, _ = w.run()
+    connection = HTTPConnection('127.0.0.1', server.server_port, timeout=10)
+    try:
+        connection.request('GET', '/api/jobs/stream?id=' + run['id'] + '&after=' + after)
+        response = connection.getresponse()
+        response.read()
+        assert response.status == 400
+    finally:
+        connection.close()
