@@ -369,3 +369,15 @@ def test_finish_keeps_the_runner_alive_when_the_final_record_cannot_be_written(w
     monkeypatch.setattr(w.jobs.store, '_write', write)
     w.jobs.store.retry()
     assert json.loads((w.jobs.store.runtime / 'runs' / (run['id'] + '.json')).read_text())['status'] == 'finished'
+
+
+def test_stop_while_pull_requests_are_listed_opens_no_pull_request(world, monkeypatch):
+    w = world()
+    listing = w.github.pull_requests
+
+    def stop(repo, branch):
+        w.jobs.cancels.update(w.jobs.captures)  # Stop arrives while Reader waits for the listing.
+        return listing(repo, branch)
+    monkeypatch.setattr(w.github, 'pull_requests', stop)
+    run, _ = w.run()
+    assert run['outcome'] == 'cancelled' and 'create_pull_request' not in w.github.calls, run['message']

@@ -189,6 +189,7 @@ class Job(Workflow):
             title = self.private(result['pr_title'] or self.run['source']['title'])[:200]
             body = (self.private(result['pr_body'] or result['summary'])[:32000] +
                     f'\n\nCloses #{issue}\n\n---\nOpened by Reader for a coding job; verified with the repository’s configured check before publishing.\n<!-- {self.marker()} -->\n')
+            self.check_cancel()  # A Stop while the listing above was read opens no pull request.
             self.run['pr_pending'] = {'branch': branch}
             self.jobs.store.save(self.run)
             step = self.step(f'Open a pull request for {branch}')
