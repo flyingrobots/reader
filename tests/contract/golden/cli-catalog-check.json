@@ -1,0 +1,21 @@
+{
+ "object": {
+  "catalog_sql_version": "number",
+  "database": "string",
+  "direct": "number",
+  "documents": "number",
+  "files": "number",
+  "legacy_metadata": "number",
+  "limits": {
+   "object": {
+    "files": "number",
+    "source_bytes": "number"
+   }
+  },
+  "placeholders": "number",
+  "planned_writes": "number",
+  "schema_version": "number",
+  "source_bytes": "number",
+  "status": "string"
+ }
+}

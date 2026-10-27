@@ -1,0 +1,20 @@
+{
+ "object": {
+  "items": {
+   "map": {
+    "object": {
+     "block_fraction": "number",
+     "layout": "string",
+     "pdf_page": "null",
+     "progress": "number",
+     "source_offset": "null",
+     "source_sha256": "string:sha256",
+     "spread_count": "null",
+     "updated_at": "string:datetime"
+    }
+   }
+  },
+  "participant": "string",
+  "schema_version": "number"
+ }
+}

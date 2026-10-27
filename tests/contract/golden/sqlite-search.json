@@ -1,0 +1,40 @@
+{
+ "table chunks": [
+  "id INTEGER pk",
+  "path TEXT not null",
+  "page INTEGER",
+  "start_line INTEGER",
+  "end_line INTEGER",
+  "passage_id INTEGER"
+ ],
+ "index chunks_passage": "CREATE INDEX chunks_passage ON chunks(passage_id)",
+ "index chunks_path": "CREATE INDEX chunks_path ON chunks(path)",
+ "table docs": [
+  "id INTEGER pk",
+  "path TEXT not null",
+  "sha256 TEXT",
+  "metadata TEXT",
+  "status TEXT",
+  "size INTEGER",
+  "mtime INTEGER",
+  "frontmatter_schema_version INTEGER",
+  "document_revision INTEGER",
+  "metadata_status TEXT",
+  "metadata_profile TEXT",
+  "metadata_diagnostics TEXT"
+ ],
+ "table names": "CREATE VIRTUAL TABLE names USING fts5(path, tokenize='unicode61')",
+ "table passages": [
+  "id INTEGER pk",
+  "hash TEXT not null",
+  "text TEXT not null",
+  "vector BLOB",
+  "vector_path TEXT"
+ ],
+ "table settings": [
+  "key TEXT pk",
+  "value TEXT"
+ ],
+ "table terms": "CREATE VIRTUAL TABLE terms USING fts5(text, content='passages', content_rowid='id', tokenize='unicode61')",
+ "user_version": 0
+}

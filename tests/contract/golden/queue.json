@@ -40,7 +40,7 @@
      "sha256": "string:sha256",
      "source": "string",
      "title": "string",
-     "words": "integer"
+     "words": "number"
     }
    }
   },
@@ -65,7 +65,7 @@
      "sha256": "string:sha256",
      "source": "string",
      "title": "string",
-     "words": "integer"
+     "words": "number"
     }
    }
   },

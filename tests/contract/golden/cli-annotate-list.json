@@ -1,0 +1,50 @@
+{
+ "object": {
+  "path": "string",
+  "source_sha256": "string:sha256",
+  "threads": {
+   "array": {
+    "object": {
+     "anchor": {
+      "object": {
+       "end": "number",
+       "prefix": "string",
+       "quote": "string",
+       "source_sha256": "string:sha256",
+       "start": "number",
+       "suffix": "string"
+      }
+     },
+     "comments": {
+      "array": {
+       "object": {
+        "author": "string",
+        "body": "string",
+        "created_at": "string:datetime",
+        "id": "string:uuid",
+        "reply_to": "null"
+       }
+      }
+     },
+     "created_at": "string:datetime",
+     "document_id": "string:uuid",
+     "document_path": "string",
+     "id": "string:uuid",
+     "initial_comment": "string",
+     "kind": "string",
+     "location": {
+      "object": {
+       "end": "number",
+       "start": "number",
+       "status": "string"
+      }
+     },
+     "owner": "string",
+     "resolved": "boolean",
+     "revision": "number",
+     "schema_version": "number"
+    }
+   }
+  }
+ }
+}

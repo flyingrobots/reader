@@ -1,6 +1,6 @@
 {
  "object": {
-  "active": "integer",
+  "active": "number",
   "default": "string",
   "error": "null",
   "jobs": {

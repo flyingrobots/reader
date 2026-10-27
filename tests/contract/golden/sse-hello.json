@@ -1,0 +1,11 @@
+{
+ "object": {
+  "chat_id": "string:uuid",
+  "interval": "number",
+  "pending": {
+   "array": "empty"
+  },
+  "revision": "number",
+  "seq": "number"
+ }
+}

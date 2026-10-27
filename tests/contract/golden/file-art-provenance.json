@@ -1,0 +1,49 @@
+{
+ "object": {
+  "counts": {
+   "object": {
+    "animations": "number",
+    "instances": "number",
+    "nodes": "number",
+    "particles": "number",
+    "triangles": "number"
+   }
+  },
+  "created_at": "string:datetime",
+  "generation": "string",
+  "kind": "string",
+  "log": "null",
+  "note": "string",
+  "path": "string",
+  "producer": {
+   "object": {
+    "cli": "string",
+    "cli_version": "string",
+    "id": "string",
+    "kind": "string",
+    "label": "string",
+    "model": "string"
+   }
+  },
+  "prompts": {
+   "object": {
+    "brief": "string",
+    "dsl": "string",
+    "repair": "null",
+    "scene": "string"
+   }
+  },
+  "reader_version": "string",
+  "repaired": "boolean",
+  "requested": "string",
+  "scene_version": "number",
+  "schema_version": "number",
+  "seconds": "null",
+  "source_sha256": "string:sha256",
+  "stages": {
+   "array": "empty"
+  },
+  "title": "string",
+  "usage": "null"
+ }
+}

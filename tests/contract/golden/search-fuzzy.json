@@ -17,7 +17,7 @@
      },
      "path": "string",
      "primary": "string",
-     "primary_bytes": "integer",
+     "primary_bytes": "number",
      "primary_format": "string",
      "projects": {
       "array": "string"

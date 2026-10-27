@@ -19,47 +19,47 @@ owning class. **Existing tests** counts browser suites (`tests/web_*.cjs`, `test
 
 | Method | Path | Pool | Query params / body fields | Handler | Explicit status | Existing tests (browser / pytest) | Contract |
 | - | - | - | - | - | - | - | - |
-| GET | `/api/chat/stream` | streams (4, refuse 429) | id (SSE: hello, state, started, delta, posted, done, commit, ping) | conversations.chats.read, conversations.runner.wait | 400, 403, 429 | 0 / 3 | **gap** |
-| POST | `/api/annotations` | expensive (8, refuse 429) | — | annotations.dispatch (Annotations) | — | 4 / 1 | **gap** |
-| POST | `/api/seen` | expensive (8, refuse 429) | — | engagement.seen (Engagement) | — | 12 / 2 | security |
-| POST | `/api/bookmark` | expensive (8, refuse 429) | source_sha256, path | digest, bookmarks.save (Bookmarks) | — | 6 / 2 | **gap** |
-| POST | `/api/themes` | expensive (8, refuse 429) | — | themes.dispatch (Themes) | — | 1 / 3 | **gap** |
-| POST | `/api/speak` | expensive (8, refuse 429) | path, source_sha256, scope, start, end, page | speak | — | 0 / 2 | **gap** |
-| POST | `/api/speak/*` | expensive (8, refuse 429) | action | speech.control (Speech) | — | 0 / 2 | **gap** |
-| POST | `/api/chat` | expensive (8, refuse 429) | participant | conversations.dispatch (Conversations) | — | 2 / 5 | **gap** |
-| POST | `/api/prose` | expensive (8, refuse 429) | — | colorize | — | 1 / 4 | **gap** |
-| POST | `/api/queue` | expensive (8, refuse 429) | participant, action, path, index, request_id, added_by, reason, current | queue.change (ReadingQueue), queue_view | — | 3 / 3 | **gap** |
-| POST | `/api/history` | expensive (8, refuse 429) | action, participant, path, sha256 | digest, queue.opened (ReadingQueue), queue.hide (ReadingQueue) | — | 2 / 3 | **gap** |
-| POST | `/api/maintenance` | expensive (8, refuse 429) | action, kind | maintenance.start (Maintenance) | — | 0 / 2 | **gap** |
-| POST | `/api/companions` | expensive (8, refuse 429) | — | companions.dispatch (Companions) | — | 1 / 2 | **gap** |
-| POST | `/api/inbox` | expensive (8, refuse 429) | action, sandbox_mode | inbox.start (InboxView), inbox.stop (InboxView) | — | 1 / 4 | **gap** |
-| POST | `/api/local-model` | expensive (8, refuse 429) | — | local_model.dispatch (LocalModel) | — | 1 / 3 | **gap** |
-| POST | `/api/art` | expensive (8, refuse 429) | participant | art.dispatch (Studio) | — | 5 / 2 | **gap** |
-| POST | `/api/writing` | expensive (8, refuse 429) | participant | writing.dispatch (Writing) | — | 3 / 2 | **gap** |
-| POST | `/api/quiz` | expensive (8, refuse 429) | participant | quizzes.dispatch (Quizzes) | — | 1 / 2 | **gap** |
-| POST | `/api/prompt` | expensive (8, refuse 429) | participant | prompts.dispatch (Prompts) | — | 0 / 1 | **gap** |
-| POST | `/api/service` | expensive (8, refuse 429) | action | service.act (Service) | — | 0 / 2 | **gap** |
+| GET | `/api/chat/stream` | streams (4, refuse 429) | id (SSE: hello, state, started, delta, posted, done, commit, ping) | conversations.chats.read, conversations.runner.wait | 400, 403, 429 | 0 / 3 | chat-heartbeat, chat-stream |
+| POST | `/api/annotations` | expensive (8, refuse 429) | — | annotations.dispatch (Annotations) | — | 4 / 1 | vault-files, write |
+| POST | `/api/seen` | expensive (8, refuse 429) | — | engagement.seen (Engagement) | — | 12 / 2 | security, write |
+| POST | `/api/bookmark` | expensive (8, refuse 429) | source_sha256, path | digest, bookmarks.save (Bookmarks) | — | 6 / 2 | write |
+| POST | `/api/themes` | expensive (8, refuse 429) | — | themes.dispatch (Themes) | — | 1 / 3 | write |
+| POST | `/api/speak` | expensive (8, refuse 429) | path, source_sha256, scope, start, end, page | speak | — | 0 / 2 | write |
+| POST | `/api/speak/*` | expensive (8, refuse 429) | action | speech.control (Speech) | — | 0 / 2 | write |
+| POST | `/api/chat` | expensive (8, refuse 429) | participant | conversations.dispatch (Conversations) | — | 2 / 5 | chat-heartbeat, chat-stream, vault-files |
+| POST | `/api/prose` | expensive (8, refuse 429) | — | colorize | — | 1 / 4 | write |
+| POST | `/api/queue` | expensive (8, refuse 429) | participant, action, path, index, request_id, added_by, reason, current | queue.change (ReadingQueue), queue_view | — | 3 / 3 | write |
+| POST | `/api/history` | expensive (8, refuse 429) | action, participant, path, sha256 | digest, queue.opened (ReadingQueue), queue.hide (ReadingQueue) | — | 2 / 3 | write |
+| POST | `/api/maintenance` | expensive (8, refuse 429) | action, kind | maintenance.start (Maintenance) | — | 0 / 2 | write |
+| POST | `/api/companions` | expensive (8, refuse 429) | — | companions.dispatch (Companions) | — | 1 / 2 | write |
+| POST | `/api/inbox` | expensive (8, refuse 429) | action, sandbox_mode | inbox.start (InboxView), inbox.stop (InboxView) | — | 1 / 4 | write |
+| POST | `/api/local-model` | expensive (8, refuse 429) | — | local_model.dispatch (LocalModel) | — | 1 / 3 | write |
+| POST | `/api/art` | expensive (8, refuse 429) | participant | art.dispatch (Studio) | — | 5 / 2 | write |
+| POST | `/api/writing` | expensive (8, refuse 429) | participant | writing.dispatch (Writing) | — | 3 / 2 | write |
+| POST | `/api/quiz` | expensive (8, refuse 429) | participant | quizzes.dispatch (Quizzes) | — | 1 / 2 | write |
+| POST | `/api/prompt` | expensive (8, refuse 429) | participant | prompts.dispatch (Prompts) | — | 0 / 1 | write |
+| POST | `/api/service` | expensive (8, refuse 429) | action | service.act (Service) | — | 0 / 2 | write |
 | GET | `/api/library` | reads (32, wait 5.0 s then 429) | participant | bootstrap | — | 11 / 4 | read, security |
-| GET | `/api/document` | reads (32, wait 5.0 s then 429) | path, participant | document | — | 9 / 4 | read, security |
+| GET | `/api/document` | reads (32, wait 5.0 s then 429) | path, participant | document | — | 9 / 4 | read, security, vault-files, write |
 | GET | `/api/search` | expensive (8, refuse 429) | q, mode, path_prefix, participant | search, search_read_status | — | 4 / 2 | read |
 | GET | `/api/search/page` | expensive (8, refuse 429) | project[], author[], type[], (other filter keys), q, mode, offset, limit, participant | search_page | — | 1 / 3 | read |
 | GET | `/api/discussion` | reads (32, wait 5.0 s then 429) | path, participant | annotations.list (Annotations), engagement.attention (Engagement) | — | 5 / 2 | read |
 | GET | `/api/resolve-batch` | reads (32, wait 5.0 s then 429) | from | resolve_many | — | 1 / 2 | read |
 | GET | `/api/embeds` | reads (32, wait 5.0 s then 429) | depth, from, target[], ancestor[] | embeds | — | 1 / 3 | read |
 | GET | `/api/resolve` | reads (32, wait 5.0 s then 429) | from, target | resolve | — | 1 / 2 | read |
-| GET | `/api/themes` | reads (32, wait 5.0 s then 429) | — | themes.list (Themes) | — | 1 / 3 | read |
-| GET | `/api/maintenance` | reads (32, wait 5.0 s then 429) | — | maintenance.status (Maintenance), local_model.brief (LocalModel) | — | 0 / 2 | read |
+| GET | `/api/themes` | reads (32, wait 5.0 s then 429) | — | themes.list (Themes) | — | 1 / 3 | read, write |
+| GET | `/api/maintenance` | reads (32, wait 5.0 s then 429) | — | maintenance.status (Maintenance), local_model.brief (LocalModel) | — | 0 / 2 | read, write |
 | GET | `/api/readers` | expensive (8, refuse 429) | path, participant | readers | — | 2 / 2 | read |
 | GET | `/api/speak/*` | reads (32, wait 5.0 s then 429) | — | speech.get (Speech) | — | 0 / 2 | read |
 | GET | `/api/inbox` | reads (32, wait 5.0 s then 429) | — | inbox.status (InboxView) | — | 1 / 4 | read |
 | GET | `/api/links` | reads (32, wait 5.0 s then 429) | path | backlinks | — | 1 / 2 | read |
 | GET | `/api/preview` | reads (32, wait 5.0 s then 429) | path, fragment, participant | preview | — | 0 / 1 | read |
 | GET | `/api/link-counts` | reads (32, wait 5.0 s then 429) | — | link_counts | — | 0 / 1 | read |
-| GET | `/api/chats` | expensive (8, refuse 429) | path | conversations.list (Conversations) | — | 1 / 5 | read |
-| GET | `/api/chat` | expensive (8, refuse 429) | id | conversations.get (Conversations) | — | 2 / 5 | read |
+| GET | `/api/chats` | expensive (8, refuse 429) | path | conversations.list (Conversations) | — | 1 / 5 | read, vault-files |
+| GET | `/api/chat` | expensive (8, refuse 429) | id | conversations.get (Conversations) | — | 2 / 5 | chat-stream, read, vault-files |
 | GET | `/api/quiz` | expensive (8, refuse 429) | participant, path, task | quiz | — | 1 / 2 | read |
 | GET | `/api/prompt` | expensive (8, refuse 429) | participant, path, voice, task | prompt | — | 0 / 1 | read |
-| GET | `/api/writing` | expensive (8, refuse 429) | participant, responds_to | writing.list (Writing) | — | 3 / 2 | read |
+| GET | `/api/writing` | expensive (8, refuse 429) | participant, responds_to | writing.list (Writing) | — | 3 / 2 | read, write |
 | GET | `/api/local-model` | reads (32, wait 5.0 s then 429) | — | local_model.status (LocalModel) | — | 1 / 3 | read |
 | GET | `/api/inbox/events` | reads (32, wait 5.0 s then 429) | after | inbox.events (InboxView) | — | 1 / 3 | read |
 | GET | `/api/chat/raw` | expensive (8, refuse 429) | id, turn | conversations.raw (Conversations) | — | 0 / 3 | read |
@@ -70,7 +70,7 @@ owning class. **Existing tests** counts browser suites (`tests/web_*.cjs`, `test
 | GET | `/api/service` | expensive (8, refuse 429) | — | service.status (Service), service.health | — | 0 / 2 | read, security |
 | GET | `/api/next` | expensive (8, refuse 429) | path, participant | next_reads | — | 1 / 3 | read |
 | GET | `/api/standfirst` | reads (32, wait 5.0 s then 429) | path | magazine.standfirst (Magazine) | — | 1 / 2 | read |
-| GET | `/api/art` | reads (32, wait 5.0 s then 429) | path, edition, generation | art.art (Studio) | — | 5 / 2 | read |
+| GET | `/api/art` | reads (32, wait 5.0 s then 429) | path, edition, generation | art.art (Studio) | — | 5 / 2 | read, write |
 | GET | `/api/art/prompt` | reads (32, wait 5.0 s then 429) | path, edition, generation | art.prompts (Studio) | — | 0 / 2 | read |
 | GET | `/api/art/jobs` | reads (32, wait 5.0 s then 429) | — | art.status (Studio) | — | 3 / 2 | read |
 | GET | `/api/art/still` | reads (32, wait 5.0 s then 429) | path, edition, generation | send_file(raw), art.still_file (Studio) | — | 0 / 3 | read |
@@ -88,7 +88,7 @@ owning class. **Existing tests** counts browser suites (`tests/web_*.cjs`, `test
 | GET | `/fonts/*` | ungated | — — when `parsed.path.startswith('/fonts/') and parsed.path.count('/') == 3` | send_file, themes.font_file (Themes) | — | 1 / 2 | read, security |
 | GET | `/api/file` | reads (32, wait 5.0 s then 429) | path | path, send_file(raw) | — | 4 / 3 | read, security |
 | GET | `/` | ungated | — — when `parsed.path == '/' or parsed.path.startswith('/assets/')` | send_file | 404 | (page shell) | read, security |
-| GET | `/assets/*` | ungated | — — when `parsed.path == '/' or parsed.path.startswith('/assets/')` | send_file | 404 | 13 / 2 | read, security |
+| GET | `/assets/*` | ungated | — — when `parsed.path == '/' or parsed.path.startswith('/assets/')` | send_file | 404 | 13 / 2 | read, security, write |
 
 ## POST actions
 
@@ -857,54 +857,50 @@ Tests: 55 pytest files, 619 test functions; 70 browser suites; 15 node unit file
 
 ## Contract coverage
 
-**51 of 70 routes** have at least one test in `tests/contract/`.
+**70 of 70 routes** have at least one test in `tests/contract/`.
+
+A route counts as covered when at least one contract test requests it. Where success needs a real companion or would act
+on the host (speech, prose colouring, an inbox run, service actions, companion installs, local-model server control), the
+suite checks validation and refusals only; `docs/port/plan.md` lists what each port step must add.
 
 | Area | GET covered | POST covered |
 | - | - | - |
-| annotations | 1/1 | 0/1 |
-| art | 4/4 | 0/1 |
-| chat | 3/4 | 0/1 |
-| companions | 2/2 | 0/1 |
+| annotations | 1/1 | 1/1 |
+| art | 4/4 | 1/1 |
+| chat | 4/4 | 1/1 |
+| companions | 2/2 | 1/1 |
 | engagement | 1/1 | 1/1 |
-| inbox | 2/2 | 0/1 |
-| library | 3/3 | 0/1 |
+| inbox | 2/2 | 1/1 |
+| library | 3/3 | 1/1 |
 | links | 6/6 | — |
-| local model | 1/1 | 0/1 |
+| local model | 1/1 | 1/1 |
 | magazine | 2/2 | — |
-| maintenance | 1/1 | 0/1 |
-| prompts | 1/1 | 0/1 |
-| prose | 1/1 | 0/1 |
-| queue | 3/3 | 0/2 |
-| quizzes | 1/1 | 0/1 |
+| maintenance | 1/1 | 1/1 |
+| prompts | 1/1 | 1/1 |
+| prose | 1/1 | 1/1 |
+| queue | 3/3 | 2/2 |
+| quizzes | 1/1 | 1/1 |
 | search | 2/2 | — |
-| service | 2/2 | 0/1 |
+| service | 2/2 | 1/1 |
 | shape | 1/1 | — |
-| speech | 1/1 | 0/2 |
+| speech | 1/1 | 2/2 |
 | static | 2/2 | — |
-| themes | 3/3 | 0/1 |
+| themes | 3/3 | 1/1 |
 | versions | 6/6 | — |
-| writing | 1/1 | 0/1 |
+| writing | 1/1 | 1/1 |
 
-CLI subcommands with a contract test: 0 of 16 (none). MCP tools named in contract tests: 0 of 13.
+CLI subcommands with a contract test: 16 of 16 (annotate, browse, catalog, curation, demo, index, ingest, metadata-schema, queue, read, reading-copy, search, serve, status, validate-metadata, web). MCP tools named in contract tests: 13 of 13.
 
-Routes without a contract test (gaps):
+POST actions named anywhere in contract tests (a route can be covered while some of its actions are not):
 
-- `GET /api/chat/stream` (chat)
-- `POST /api/annotations` (annotations)
-- `POST /api/bookmark` (library)
-- `POST /api/themes` (themes)
-- `POST /api/speak` (speech)
-- `POST /api/speak/*` (speech)
-- `POST /api/chat` (chat)
-- `POST /api/prose` (prose)
-- `POST /api/queue` (queue)
-- `POST /api/history` (queue)
-- `POST /api/maintenance` (maintenance)
-- `POST /api/companions` (companions)
-- `POST /api/inbox` (inbox)
-- `POST /api/local-model` (local model)
-- `POST /api/art` (art)
-- `POST /api/writing` (writing)
-- `POST /api/quiz` (quizzes)
-- `POST /api/prompt` (prompts)
-- `POST /api/service` (service)
+| Class | Covered | Not yet covered |
+| - | - | - |
+| Annotations | 4/6 | `attention`, `seen` |
+| Companions | 4/5 | `update` |
+| Conversations | 4/8 | `paste`, `retry`, `hand`, `hush` |
+| LocalModel | 3/11 | `server-start`, `server-stop`, `load`, `unload`, `enqueue`, `run`, `clear`, `prune` |
+| Prompts | 1/1 | — |
+| Quizzes | 1/3 | `review`, `result` |
+| Studio | 3/5 | `commission`, `still` |
+| Themes | 2/3 | `install-font` |
+| Writing | 1/2 | `revise` |

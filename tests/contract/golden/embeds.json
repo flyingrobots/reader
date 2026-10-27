@@ -11,10 +11,10 @@
   },
   "limits": {
    "object": {
-    "depth": "integer",
-    "embed_chars": "integer",
-    "nodes": "integer",
-    "response_chars": "integer"
+    "depth": "number",
+    "embed_chars": "number",
+    "nodes": "number",
+    "response_chars": "number"
    }
   },
   "nodes": {
@@ -24,14 +24,14 @@
      "children": {
       "array": "empty"
      },
-     "end": "integer",
+     "end": "number",
      "fragment": "string",
      "height": "null",
      "kind": "string",
      "page": "null",
      "path": "string",
      "raw": "string",
-     "start": "integer",
+     "start": "number",
      "status": "string",
      "target": "string",
      "title": "string",

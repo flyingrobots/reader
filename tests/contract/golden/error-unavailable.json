@@ -1,0 +1,6 @@
+{
+ "object": {
+  "error": "string",
+  "unavailable": "boolean"
+ }
+}

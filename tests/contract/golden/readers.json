@@ -1,7 +1,7 @@
 {
  "object": {
-  "folded": "integer",
-  "one_off_threshold": "integer",
+  "folded": "number",
+  "one_off_threshold": "number",
   "participant": "string",
   "path": "string",
   "quiz_results": {
@@ -15,7 +15,7 @@
      "group": "string",
      "participant": "string",
      "state": "string",
-     "threads": "integer",
+     "threads": "number",
      "version": "string:sha256"
     }
    }

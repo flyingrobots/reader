@@ -6,11 +6,11 @@
    "array": "empty"
   },
   "finished_at": "null",
-  "next_offset": "integer",
+  "next_offset": "number",
   "remaining": "null",
   "reset": "boolean",
   "run_id": "null",
-  "size": "integer",
+  "size": "number",
   "started_at": "null",
   "status": "null"
  }

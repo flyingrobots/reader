@@ -1,0 +1,11 @@
+{
+ "object": {
+  "commit": "string:sha1",
+  "locked_by": "string",
+  "path": "string",
+  "previous_version": "null",
+  "revision": "number",
+  "sha256": "string:sha256",
+  "status": "string"
+ }
+}

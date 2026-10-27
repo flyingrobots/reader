@@ -1,0 +1,110 @@
+{
+ "object": {
+  "created_at": "string:datetime",
+  "dark": {
+   "object": {
+    "accent": "string",
+    "accent-ink": "string",
+    "bg": "string",
+    "chart-1": "string",
+    "chart-2": "string",
+    "chart-3": "string",
+    "chart-4": "string",
+    "chart-5": "string",
+    "chart-6": "string",
+    "chart-7": "string",
+    "chart-8": "string",
+    "chart-stroke": "string",
+    "faint": "string",
+    "ink": "string",
+    "line": "string",
+    "muted": "string",
+    "other": "string",
+    "own": "string",
+    "raised": "string",
+    "rust": "string",
+    "selection": "string",
+    "surface": "string",
+    "warning": "string"
+   }
+  },
+  "fonts": {
+   "object": {
+    "mono": "null",
+    "sans": "null",
+    "serif": "null"
+   }
+  },
+  "headings": {
+   "object": {
+    "h1": {
+     "object": {
+      "font": "null",
+      "size": "null"
+     }
+    },
+    "h2": {
+     "object": {
+      "font": "null",
+      "size": "null"
+     }
+    },
+    "h3": {
+     "object": {
+      "font": "null",
+      "size": "null"
+     }
+    },
+    "h4": {
+     "object": {
+      "font": "null",
+      "size": "null"
+     }
+    },
+    "h5": {
+     "object": {
+      "font": "null",
+      "size": "null"
+     }
+    },
+    "h6": {
+     "object": {
+      "font": "null",
+      "size": "null"
+     }
+    }
+   }
+  },
+  "id": "string",
+  "light": {
+   "object": {
+    "accent": "string",
+    "accent-ink": "string",
+    "bg": "string",
+    "chart-1": "string",
+    "chart-2": "string",
+    "chart-3": "string",
+    "chart-4": "string",
+    "chart-5": "string",
+    "chart-6": "string",
+    "chart-7": "string",
+    "chart-8": "string",
+    "chart-stroke": "string",
+    "faint": "string",
+    "ink": "string",
+    "line": "string",
+    "muted": "string",
+    "other": "string",
+    "own": "string",
+    "raised": "string",
+    "rust": "string",
+    "selection": "string",
+    "surface": "string",
+    "warning": "string"
+   }
+  },
+  "name": "string",
+  "schema_version": "number",
+  "updated_at": "string:datetime"
+ }
+}

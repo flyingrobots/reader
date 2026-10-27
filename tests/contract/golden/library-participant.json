@@ -3,9 +3,9 @@
   "as_of": "string:date",
   "discussion": {
    "object": {
-    "comments": "integer",
-    "highlights": "integer",
-    "open": "integer",
+    "comments": "number",
+    "highlights": "number",
+    "open": "number",
     "paths": {
      "object": {
       "open": {
@@ -16,17 +16,17 @@
       }
      }
     },
-    "resolved": "integer",
-    "warnings": "integer"
+    "resolved": "number",
+    "warnings": "number"
    }
   },
   "metrics": {
    "object": {
-    "authors": "integer",
-    "read": "integer",
-    "threads": "integer",
-    "unread": "integer",
-    "works": "integer"
+    "authors": "number",
+    "read": "number",
+    "threads": "number",
+    "unread": "number",
+    "works": "number"
    }
   },
   "participant": "string",
@@ -37,7 +37,7 @@
    "array": {
     "object": {
      "at": "string:datetime",
-     "comments": "integer",
+     "comments": "number",
      "id": "string:uuid",
      "owner": "string",
      "path": "string",
@@ -56,14 +56,14 @@
      "date_basis": "string",
      "id": "string",
      "primary": "string",
-     "primary_bytes": "integer",
+     "primary_bytes": "number",
      "primary_format": "string",
      "projects": {
       "array": "string"
      },
      "read": "boolean",
      "read_at": "string:datetime",
-     "threads": "integer",
+     "threads": "number",
      "title": "string",
      "topics": {
       "array": "string"
@@ -71,7 +71,7 @@
      "types": {
       "array": "string"
      },
-     "voices": "integer"
+     "voices": "number"
     }
    }
   },
@@ -89,7 +89,7 @@
      "date_basis": "string",
      "id": "string",
      "primary": "string",
-     "primary_bytes": "integer",
+     "primary_bytes": "number",
      "primary_format": "string",
      "projects": {
       "array": "string"
@@ -101,7 +101,7 @@
        "string:datetime"
       ]
      },
-     "threads": "integer",
+     "threads": "number",
      "title": "string",
      "topics": {
       "array": "string"
@@ -109,7 +109,7 @@
      "types": {
       "array": "string"
      },
-     "voices": "integer"
+     "voices": "number"
     }
    }
   }

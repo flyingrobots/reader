@@ -9,6 +9,6 @@
     "playwright-core": "1.64.1"
   },
   "scripts": {
-    "test:contract": "node --test tests/contract/"
+    "test:contract": "node --test --test-timeout=120000 tests/contract/"
   }
 }

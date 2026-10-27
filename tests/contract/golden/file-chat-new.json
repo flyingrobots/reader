@@ -1,0 +1,15 @@
+{
+ "object": {
+  "created_at": "string:datetime",
+  "document_path": "string",
+  "document_sha256": "string:sha256",
+  "id": "string:uuid",
+  "messages": {
+   "array": "empty"
+  },
+  "revision": "number",
+  "schema_version": "number",
+  "started_by": "string",
+  "title": "string"
+ }
+}

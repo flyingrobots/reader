@@ -1,0 +1,14 @@
+{
+ "object": {
+  "author_aliases": {
+   "object": {}
+  },
+  "navigation_author": "string",
+  "projects": {
+   "array": "empty"
+  },
+  "topics": {
+   "array": "empty"
+  }
+ }
+}

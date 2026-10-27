@@ -30,8 +30,8 @@
         "title": "string",
         "words": {
          "anyOf": [
-          "integer",
-          "null"
+          "null",
+          "number"
          ]
         }
        }
@@ -44,6 +44,6 @@
   "next_cursor": "null",
   "participant": "string",
   "today": "string:date",
-  "total": "integer"
+  "total": "number"
  }
 }

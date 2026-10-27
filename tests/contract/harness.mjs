@@ -336,7 +336,8 @@ export function shapeOf(value) {
     const format = FORMATS.find(([, re]) => re.test(value));
     return format ? 'string:' + format[0] : 'string';
   }
-  if (typeof value === 'number') return Number.isInteger(value) ? 'integer' : 'number';
+  // One number type: JSON cannot tell 3.0 from 3, so integer-ness would flap with the data.
+  if (typeof value === 'number') return 'number';
   return typeof value;
 }
 
@@ -345,7 +346,7 @@ function variants(s) {
 }
 
 function kind(s) {
-  if (typeof s === 'string') return s.startsWith('string') ? 'string' : s === 'integer' ? 'number' : s;
+  if (typeof s === 'string') return s.startsWith('string') ? 'string' : s;
   return Object.keys(s)[0];
 }
 
@@ -363,7 +364,7 @@ function merge(a, b) {
 
 function mergeSame(a, b) {
   if (JSON.stringify(a) === JSON.stringify(b)) return a;
-  if (typeof a === 'string') return kind(a) === 'number' ? 'number' : 'string';
+  if (typeof a === 'string') return 'string';  // two string formats merge to a plain string
   if (a.array !== undefined) return {array: a.array === 'empty' ? b.array : b.array === 'empty' ? a.array : merge(a.array, b.array)};
   if (a.map !== undefined) return {map: merge(a.map, b.map)};
   const keys = new Set([...Object.keys(a.object), ...Object.keys(b.object)].map(k => k.replace(/\?$/, '')));

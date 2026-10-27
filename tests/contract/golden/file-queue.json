@@ -1,0 +1,23 @@
+{
+ "object": {
+  "dismissed": {
+   "array": "empty"
+  },
+  "items": {
+   "array": {
+    "object": {
+     "added_at": "string:datetime",
+     "added_by": "string",
+     "path": "string",
+     "reason?": "string"
+    }
+   }
+  },
+  "participant": "string",
+  "requests": {
+   "array": "string:uuid"
+  },
+  "schema_version": "number",
+  "updated_at": "string:datetime"
+ }
+}

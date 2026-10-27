@@ -13,8 +13,8 @@
        "body": "string"
       }
      },
-     "messages": "integer",
-     "revision": "integer",
+     "messages": "number",
+     "revision": "number",
      "started_by": "string",
      "title": "string",
      "updated_at": "string:datetime"
@@ -24,10 +24,10 @@
   "configured": "boolean",
   "llm_logs": {
    "object": {
-    "bytes": "integer",
+    "bytes": "number",
     "path": "string",
     "retention": "string",
-    "runs": "integer"
+    "runs": "number"
    }
   },
   "owner": {
@@ -38,7 +38,7 @@
    }
   },
   "path": "string",
-  "timeout_seconds": "integer",
+  "timeout_seconds": "number",
   "voices": {
    "array": {
     "object": {

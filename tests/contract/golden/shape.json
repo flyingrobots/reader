@@ -1,6 +1,6 @@
 {
  "object": {
-  "count": "integer",
+  "count": "number",
   "current": "boolean",
   "excerpts": {
    "array": "string"
@@ -10,9 +10,9 @@
    "array": "empty"
   },
   "lines": {
-   "array": "integer"
+   "array": "number"
   },
-  "min_chunks": "integer",
+  "min_chunks": "number",
   "neighbours": {
    "array": "empty"
   },
@@ -25,18 +25,18 @@
   },
   "sampled": "boolean",
   "scope": "string",
-  "seed": "integer",
+  "seed": "number",
   "sha256": "string:sha256",
   "terms": {
    "array": {
     "object": {
-     "i": "integer",
+     "i": "number",
      "text": "string"
     }
    }
   },
   "threads": {
-   "array": "integer"
+   "array": "number"
   },
   "variance": "null",
   "weights": {

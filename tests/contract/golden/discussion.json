@@ -14,7 +14,7 @@
        "path": "string",
        "read": "boolean",
        "reply_to?": "null",
-       "revision?": "integer",
+       "revision?": "number",
        "seen_by": {
         "array": {
          "object": {
@@ -39,11 +39,11 @@
     "object": {
      "anchor": {
       "object": {
-       "end": "integer",
+       "end": "number",
        "prefix": "string",
        "quote": "string",
        "source_sha256": "string:sha256",
-       "start": "integer",
+       "start": "number",
        "suffix": "string"
       }
      },
@@ -66,15 +66,15 @@
      "kind": "string",
      "location": {
       "object": {
-       "end": "integer",
-       "start": "integer",
+       "end": "number",
+       "start": "number",
        "status": "string"
       }
      },
      "owner": "string",
      "resolved": "boolean",
-     "revision": "integer",
-     "schema_version": "integer"
+     "revision": "number",
+     "schema_version": "number"
     }
    }
   }

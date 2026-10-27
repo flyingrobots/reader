@@ -1,0 +1,8 @@
+{
+ "object": {
+  "chosen_at": "string:datetime",
+  "chosen_by": "string",
+  "edition": "string:sha256",
+  "generation": "string"
+ }
+}

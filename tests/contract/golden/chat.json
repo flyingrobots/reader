@@ -61,31 +61,31 @@
          "commits": {
           "array": "empty"
          },
-         "exit_code": "integer",
+         "exit_code": "number",
          "id": "string:uuid",
          "seconds": "number",
          "state": "string",
-         "timeout_seconds": "integer"
+         "timeout_seconds": "number"
         }
        }
       }
      }
     },
-    "revision": "integer",
-    "schema_version": "integer",
+    "revision": "number",
+    "schema_version": "number",
     "started_by": "string",
     "title": "string"
    }
   },
   "commit": "null",
   "configured": "boolean",
-  "last_event": "integer",
+  "last_event": "number",
   "llm_logs": {
    "object": {
-    "bytes": "integer",
+    "bytes": "number",
     "path": "string",
     "retention": "string",
-    "runs": "integer"
+    "runs": "number"
    }
   },
   "owner": {
@@ -98,7 +98,7 @@
   "pending": {
    "array": "empty"
   },
-  "timeout_seconds": "integer",
+  "timeout_seconds": "number",
   "voices": {
    "array": {
     "object": {

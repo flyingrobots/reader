@@ -1,0 +1,82 @@
+{
+ "object": {
+  "annotations": {
+   "object": {
+    "openWorldHint": "boolean",
+    "readOnlyHint": "boolean"
+   }
+  },
+  "input": {
+   "object": {
+    "properties": {
+     "object": {
+      "expected_snapshot": {
+       "object": {
+        "anyOf": {
+         "array": {
+          "object": {
+           "type": "string"
+          }
+         }
+        },
+        "default": "null",
+        "title": "string"
+       }
+      },
+      "key": {
+       "object": {
+        "anyOf": {
+         "array": {
+          "object": {
+           "type": "string"
+          }
+         }
+        },
+        "default": "null",
+        "title": "string"
+       }
+      },
+      "limit": {
+       "object": {
+        "default": "number",
+        "title": "string",
+        "type": "string"
+       }
+      },
+      "offset": {
+       "object": {
+        "default": "number",
+        "title": "string",
+        "type": "string"
+       }
+      },
+      "participant": {
+       "object": {
+        "title": "string",
+        "type": "string"
+       }
+      },
+      "since": {
+       "object": {
+        "anyOf": {
+         "array": {
+          "object": {
+           "type": "string"
+          }
+         }
+        },
+        "default": "null",
+        "title": "string"
+       }
+      }
+     }
+    },
+    "required": {
+     "array": "string"
+    },
+    "title": "string",
+    "type": "string"
+   }
+  }
+ }
+}

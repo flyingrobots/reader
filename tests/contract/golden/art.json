@@ -5,11 +5,11 @@
     "brief": "string",
     "counts": {
      "object": {
-      "animations": "integer",
-      "instances": "integer",
-      "nodes": "integer",
-      "particles": "integer",
-      "triangles": "integer"
+      "animations": "number",
+      "instances": "number",
+      "nodes": "number",
+      "particles": "number",
+      "triangles": "number"
      }
     },
     "current": "boolean",
@@ -21,11 +21,11 @@
      "object": {
       "counts": {
        "object": {
-        "animations": "integer",
-        "instances": "integer",
-        "nodes": "integer",
-        "particles": "integer",
-        "triangles": "integer"
+        "animations": "number",
+        "instances": "number",
+        "nodes": "number",
+        "particles": "number",
+        "triangles": "number"
        }
       },
       "created_at": "string:datetime",
@@ -55,8 +55,8 @@
       "reader_version": "string",
       "repaired": "boolean",
       "requested": "string",
-      "scene_version": "integer",
-      "schema_version": "integer",
+      "scene_version": "number",
+      "schema_version": "number",
       "seconds": "null",
       "source_sha256": "string:sha256",
       "stages": {
@@ -71,12 +71,12 @@
       "background": "string",
       "camera": {
        "object": {
-        "fov": "integer",
+        "fov": "number",
         "motion": {
          "object": {
           "amplitude": "number",
           "kind": "string",
-          "period": "integer"
+          "period": "number"
          }
         },
         "position": {
@@ -90,7 +90,7 @@
       "fog": {
        "object": {
         "color": "string",
-        "far": "integer",
+        "far": "number",
         "near": "number"
        }
       },
@@ -156,7 +156,7 @@
             "token": "string"
            }
           },
-          "metalness": "integer",
+          "metalness": "number",
           "roughness": "number",
           "type": "string"
          }
@@ -171,7 +171,7 @@
            "object": {
             "amplitude": "number",
             "kind": "string",
-            "period": "integer",
+            "period": "number",
             "property": "string"
            }
           }
@@ -185,7 +185,7 @@
               "object": {
                "amplitude": "number",
                "kind": "string",
-               "period": "integer",
+               "period": "number",
                "phase": "number",
                "property": "string"
               }
@@ -193,10 +193,10 @@
             },
             "geometry": {
              "object": {
-              "radialSegments": "integer",
+              "radialSegments": "number",
               "radius": "number",
               "tube": "number",
-              "tubularSegments": "integer",
+              "tubularSegments": "number",
               "type": "string"
              }
             },
@@ -212,30 +212,30 @@
            "token": "string"
           }
          },
-         "count?": "integer",
+         "count?": "number",
          "geometry?": {
           "object": {
            "height?": "number",
-           "heightSegments?": "integer",
-           "radialSegments?": "integer",
+           "heightSegments?": "number",
+           "radialSegments?": "number",
            "radius?": "number",
            "radiusBottom?": "number",
            "radiusTop?": "number",
            "segments?": {
-            "array": "integer"
+            "array": "number"
            },
            "size?": {
-            "array": "integer"
+            "array": "number"
            },
            "type": "string",
            "wave?": {
             "object": {
              "amplitude": "number",
-             "period": "integer",
+             "period": "number",
              "wavelength": "number"
             }
            },
-           "widthSegments?": "integer"
+           "widthSegments?": "number"
           }
          },
          "id?": "string",
@@ -254,7 +254,7 @@
           "object": {
            "amplitude?": "number",
            "kind": "string",
-           "period?": "integer",
+           "period?": "number",
            "speed?": "number"
           }
          },
@@ -267,7 +267,7 @@
          "rotation?": {
           "array": "number"
          },
-         "seed?": "integer",
+         "seed?": "number",
          "shape?": "string",
          "size?": {
           "array": "number"
@@ -276,11 +276,11 @@
         }
        }
       },
-      "reader_scene": "integer",
-      "seed": "integer",
+      "reader_scene": "number",
+      "seed": "number",
       "still": {
        "object": {
-        "at": "integer"
+        "at": "number"
        }
       },
       "title": "string"
@@ -290,7 +290,7 @@
     "title": "string"
    }
   },
-  "count": "integer",
+  "count": "number",
   "favorite": "null",
   "job": "null",
   "path": "string",

@@ -9,18 +9,18 @@
      "date": "string:date",
      "label": "string",
      "path": "string",
-     "revision": "integer",
+     "revision": "number",
      "role": "string",
      "title": "string"
     }
    }
   },
-  "more": "integer",
+  "more": "number",
   "newer": {
    "object": {
     "date": "string:date",
     "path": "string",
-    "revision": "integer",
+    "revision": "number",
     "title": "string"
    }
   },

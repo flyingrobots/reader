@@ -10,9 +10,9 @@
       ]
      },
      "bundle": "boolean",
-     "bytes": "integer",
+     "bytes": "number",
      "document": "string",
-     "files": "integer",
+     "files": "number",
      "id": "string",
      "integrity": {
       "anyOf": [

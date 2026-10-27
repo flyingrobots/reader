@@ -3,10 +3,10 @@
   "against": "null",
   "annotations": {
    "object": {
-    "ambiguous": "integer",
-    "exact": "integer",
-    "orphaned": "integer",
-    "relocated": "integer",
+    "ambiguous": "number",
+    "exact": "number",
+    "orphaned": "number",
+    "relocated": "number",
     "threads": {
      "array": {
       "object": {
@@ -23,13 +23,13 @@
   "hunks": {
    "array": {
     "object": {
-     "count?": "integer",
+     "count?": "number",
      "new?": "string",
-     "new_end": "integer",
-     "new_start": "integer",
+     "new_end": "number",
+     "new_start": "number",
      "old?": "string",
-     "old_end": "integer",
-     "old_start": "integer",
+     "old_end": "number",
+     "old_start": "number",
      "op": "string",
      "words?": {
       "array": {
@@ -59,10 +59,10 @@
   },
   "stats": {
    "object": {
-    "added": "integer",
-    "removed": "integer",
-    "reworded": "integer",
-    "unchanged": "integer"
+    "added": "number",
+    "removed": "number",
+    "reworded": "number",
+    "unchanged": "number"
    }
   },
   "status": "string",

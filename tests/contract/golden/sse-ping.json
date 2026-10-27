@@ -1,0 +1,9 @@
+{
+ "object": {
+  "interval": "number",
+  "pending": {
+   "array": "empty"
+  },
+  "revision": "number"
+ }
+}

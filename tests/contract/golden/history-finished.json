@@ -16,14 +16,14 @@
         "finished": "boolean",
         "opened_at": "string:datetime",
         "path": "string",
-        "progress": "integer",
+        "progress": "number",
         "projects": {
          "array": "string"
         },
         "read": "boolean",
         "sha256": "string:sha256",
         "title": "string",
-        "words": "integer"
+        "words": "number"
        }
       }
      }
@@ -34,6 +34,6 @@
   "next_cursor": "null",
   "participant": "string",
   "today": "string:date",
-  "total": "integer"
+  "total": "number"
  }
 }

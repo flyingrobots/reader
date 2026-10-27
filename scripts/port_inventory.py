@@ -627,6 +627,8 @@ def contract_routes():
             covered[('POST' if method == 'post' else 'GET', path)].add(file.name)
         for path in re.findall(r"\bshape\(\s*'[^']*',\s*[`'\"](/[^`'\"?$]*)", source):  # read.test.mjs: shape(name, path, ...)
             covered[('GET', path)].add(file.name)
+        for path in re.findall(r"\b(?:ok|refused)\(\s*(?:'[^']*',\s*)?'(/api/[^'?]*)", source):  # write.test.mjs helpers post
+            covered[('POST', path)].add(file.name)
         for verb, path in re.findall(r"\braw\(\s*'(GET|POST|PUT|DELETE)'\s*,\s*[`'\"](/[^`'\"?$]*)", source):
             covered[(verb, path)].add(file.name)
         # An explicit tag for route variants a call cannot show: `// covers: GET /api/changes?a&b`
@@ -638,9 +640,10 @@ def contract_routes():
 def contract_inventory():
     """What the contract suite claims beyond HTTP: CLI subcommands and MCP tools named in its tests."""
     cli, tools = set(), set()
-    for file in sorted(CONTRACT.glob('*.test.mjs')) if CONTRACT.is_dir() else []:
+    for file in sorted(CONTRACT.glob('*.mjs')) if CONTRACT.is_dir() else []:
         source = file.read_text()
-        cli |= set(re.findall(r"\bcli\(\s*\[\s*'([a-z-]+)'", source))
+        cli |= set(re.findall(r"\[\s*'([a-z-]+)'", source))  # argv arrays: ['ingest', '-'], ['--root', ..., 'web', ...]
+        cli |= set(re.findall(r"'(web|serve)'", source))  # the harness starts `web` and `serve`
         tools |= set(re.findall(r"\b(reader_[a-z_]+)\b", source))
     return cli, tools
 
@@ -1007,6 +1010,10 @@ def render(demo=True):
     total_hit = sum(v[0] for v in by_area.values())
     w(f'**{total_hit} of {len(routes)} routes** have at least one test in `tests/contract/`.')
     w('')
+    w('A route counts as covered when at least one contract test requests it. Where success needs a real companion or would act')
+    w('on the host (speech, prose colouring, an inbox run, service actions, companion installs, local-model server control), the')
+    w('suite checks validation and refusals only; `docs/port/plan.md` lists what each port step must add.')
+    w('')
     w('| Area | GET covered | POST covered |')
     w('| - | - | - |')
     for name in sorted({k[0] for k in by_area}):
@@ -1018,6 +1025,17 @@ def render(demo=True):
     w(f"CLI subcommands with a contract test: {len(set(commands) & cli_cov)} of {len(commands)} "
       f"({', '.join(sorted(set(commands) & cli_cov)) or 'none'}). MCP tools named in contract tests: "
       f"{len({t[0] for t in tools} & tool_cov)} of {len(tools)}.")
+    w('')
+    sources = '\n'.join(f.read_text() for f in sorted(CONTRACT.glob('*.test.mjs'))) if CONTRACT.is_dir() else ''
+    mentioned = set(re.findall(r"\b(?:action|operation): '([a-z-]+)'", sources))
+    w('POST actions named anywhere in contract tests (a route can be covered while some of its actions are not):')
+    w('')
+    w('| Class | Covered | Not yet covered |')
+    w('| - | - | - |')
+    for cls, (_, acts) in sorted(actions.items()):
+        names = list(acts)
+        hit = [a for a in names if a in mentioned]
+        w(f"| {cls} | {len(hit)}/{len(names)} | {', '.join(f'`{a}`' for a in names if a not in mentioned) or '—'} |")
     w('')
     if gaps:
         w('Routes without a contract test (gaps):')

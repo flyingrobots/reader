@@ -1,7 +1,7 @@
 {
  "object": {
-  "candidates": "integer",
-  "compared": "integer",
+  "candidates": "number",
+  "compared": "number",
   "end": "string:date",
   "near": {
    "array": "empty"

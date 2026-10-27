@@ -1,0 +1,30 @@
+{
+ "object": {
+  "next_offset": "number",
+  "participant": "string",
+  "pending": {
+   "array": {
+    "object": {
+     "catalog_path": "null",
+     "cataloged_on": "string:date",
+     "integrity": "string",
+     "key": "string",
+     "kind": "string",
+     "path": "string",
+     "received_at": "null",
+     "review": "null",
+     "source_count": "number",
+     "status": "string",
+     "title": "string",
+     "version": "string:sha256"
+    }
+   }
+  },
+  "snapshot_version": "string:sha256",
+  "total": "number",
+  "ungrouped_attachment_count": "number",
+  "ungrouped_attachments": {
+   "array": "empty"
+  }
+ }
+}

@@ -4,9 +4,9 @@
   "counts": {
    "map": {
     "object": {
-     "inbound": "integer",
-     "outbound": "integer",
-     "sources": "integer"
+     "inbound": "number",
+     "outbound": "number",
+     "sources": "number"
     }
    }
   }

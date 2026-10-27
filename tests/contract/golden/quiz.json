@@ -4,10 +4,10 @@
   "default_voice": "string",
   "llm_logs": {
    "object": {
-    "bytes": "integer",
+    "bytes": "number",
     "path": "string",
     "retention": "string",
-    "runs": "integer"
+    "runs": "number"
    }
   },
   "owner": {
@@ -19,7 +19,7 @@
   },
   "quiz": "null",
   "task": "null",
-  "timeout_seconds": "integer",
+  "timeout_seconds": "number",
   "voices": {
    "array": {
     "object": {

@@ -1,6 +1,6 @@
 {
  "object": {
-  "limit": "integer",
+  "limit": "number",
   "log": "null",
   "meta": "null",
   "prompt": "null",

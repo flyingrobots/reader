@@ -1,0 +1,30 @@
+{
+ "object": {
+  "ahead": "number",
+  "chain": "string:uuid",
+  "chat_id": "string:uuid",
+  "chosen_by": "string",
+  "error": "null",
+  "finished_at": "null",
+  "hand_id": "null",
+  "hop": "number",
+  "id": "string:uuid",
+  "kind": "string",
+  "log": "null",
+  "message": "string",
+  "process_group": "null",
+  "queued_at": "string:datetime",
+  "reason": "null",
+  "reply_to": "string:uuid",
+  "retry_of": "null",
+  "rev": "number",
+  "root": "string:uuid",
+  "started_at": "null",
+  "state": "string",
+  "stderr_tail": "null",
+  "task_id": "null",
+  "text": "string",
+  "timeout_seconds": "null",
+  "voice": "string"
+ }
+}

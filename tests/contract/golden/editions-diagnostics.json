@@ -3,13 +3,13 @@
   "stats": {
    "object": {
     "build_ms": "number",
-    "catalog_notes": "integer",
-    "families": "integer",
-    "files": "integer",
-    "header_bytes": "integer",
-    "library": "integer",
+    "catalog_notes": "number",
+    "families": "number",
+    "files": "number",
+    "header_bytes": "number",
+    "library": "number",
     "partial": "boolean",
-    "unresolved": "integer"
+    "unresolved": "number"
    }
   },
   "unresolved": {

@@ -13,8 +13,8 @@
      "readers": {
       "array": "string"
      },
-     "revision": "integer",
-     "revisions": "integer",
+     "revision": "number",
+     "revisions": "number",
      "role": "string",
      "title": "string",
      "uncommitted": "boolean"
@@ -47,18 +47,18 @@
   },
   "limits": {
    "object": {
-    "hash_bytes": "integer",
-    "per_path": "integer",
-    "seconds": "integer",
-    "total": "integer"
+    "hash_bytes": "number",
+    "per_path": "number",
+    "seconds": "number",
+    "total": "number"
    }
   },
-  "more": "integer",
+  "more": "number",
   "newer": {
    "object": {
     "date": "string:date",
     "path": "string",
-    "revision": "integer",
+    "revision": "number",
     "title": "string"
    }
   },
@@ -75,7 +75,7 @@
   },
   "stats": {
    "object": {
-    "commits": "integer",
+    "commits": "number",
     "seconds": "number"
    }
   }

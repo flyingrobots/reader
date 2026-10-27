@@ -2,7 +2,7 @@
  "object": {
   "bookmark": {
    "object": {
-    "block_fraction": "integer",
+    "block_fraction": "number",
     "layout": "string",
     "pdf_page": "null",
     "progress": "number",
@@ -26,8 +26,8 @@
     "author": "string",
     "document_id": "string:uuid",
     "document_path": "string",
-    "document_revision": "integer",
-    "frontmatter_schema_version": "integer",
+    "document_revision": "number",
+    "frontmatter_schema_version": "number",
     "metadata_created": "string:date",
     "project": "string",
     "published": "string",

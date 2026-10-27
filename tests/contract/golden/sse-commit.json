@@ -1,0 +1,9 @@
+{
+ "object": {
+  "at": "string:datetime",
+  "commit": "string:sha1",
+  "locked_by": "string",
+  "status": "string",
+  "subject": "string"
+ }
+}
