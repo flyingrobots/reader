@@ -661,10 +661,10 @@ Lock file names: `.lock`, `.reader/gpu.lock`, `.reader/inbox-runner/run.lock`, `
 | `src/reader_mcp/writing.py:361` | run | `command` | `180` |
 | `src/reader_mcp/writing.py:313` | run | `[git, 'config', 'user.name']` | `10` |
 | `src/reader_mcp/demo/build.py:225` | run | `['git', '-C', str(self.root), *args]` | `—` |
-| `scripts/check_container.py:32` | run | `['docker', *args]` | `—` |
-| `scripts/check_container.py:58` | run | `['docker', 'inspect', name]` | `—` |
-| `scripts/check_container.py:177` | run | `['docker', 'rm', '-f', name]` | `—` |
-| `scripts/check_container.py:119` | Popen | `['docker', 'exec', name, 'sh', '-c', cmd]` | `—` |
+| `scripts/check_container.py:44` | run | `['docker', *args]` | `—` |
+| `scripts/check_container.py:70` | run | `['docker', 'inspect', name]` | `—` |
+| `scripts/check_container.py:185` | run | `['docker', 'rm', '-f', name]` | `—` |
+| `scripts/check_container.py:131` | Popen | `['docker', 'exec', name, 'sh', '-c', cmd]` | `—` |
 | `scripts/install.py:39` | run | `[codex, 'mcp', 'get', 'reader', '--json']` | `—` |
 | `scripts/install.py:57` | run | `[codex, 'mcp', 'remove', 'reader']` | `—` |
 | `scripts/install.py:60` | run | `[codex, 'mcp', 'add', 'reader', '--', *command]` | `—` |
@@ -899,7 +899,7 @@ exercise modules through HTTP, so see the route table for those.
 | `src/reader_mcp/demo/__init__.py` | 137 | 116 | 6014 | 50 | 149 | 0.89 | 9 | 0 | 0 | 0 |
 | `src/reader_mcp/demo/build.py` | 718 | 625 | 49845 | 77 | 170 | 0.64 | 29 | 1 | 0 | 0 |
 | `src/reader_mcp/demo/static.py` | 379 | 335 | 20169 | 58 | 177 | 0.90 | 19 | 1 | 0 | 0 |
-| `scripts/check_container.py` | 180 | 161 | 11697 | 67 | 283 | 0.96 | 3 | 0 | 0 | 0 |
+| `scripts/check_container.py` | 188 | 167 | 11958 | 66 | 283 | 0.95 | 4 | 0 | 0 | 0 |
 | `scripts/install.py` | 78 | 73 | 3807 | 51 | 124 | 0.99 | 1 | 0 | 0 | 0 |
 | `scripts/install_wide_md.py` | 100 | 92 | 5327 | 57 | 140 | 0.91 | 5 | 0 | 0 | 0 |
 | `scripts/reader_paths.py` | 23 | 19 | 924 | 47 | 112 | 1.00 | 1 | 0 | 0 | 0 |
@@ -908,10 +908,10 @@ exercise modules through HTTP, so see the route table for those.
 | `scripts/vendor_web.py` | 77 | 68 | 4132 | 58 | 186 | 0.88 | 2 | 0 | 0 | 0 |
 | `scripts/verify_installation.py` | 80 | 72 | 4428 | 60 | 264 | 0.92 | 1 | 0 | 0 | 0 |
 | `scripts/verify_search_installation.py` | 74 | 66 | 4190 | 59 | 138 | 0.82 | 1 | 0 | 0 | 0 |
-| **total** | 23386 | 20824 | 1241730 | | | | | | | |
+| **total** | 23394 | 20830 | 1241991 | | | | | | | |
 
 Language-neutral code that a port keeps as is: `src/reader_mcp/web_ui/` (41 hand-written JS/CSS/HTML files, 8340 lines, excluding vendor/) plus the built `web_ui/controls/` bundle from `web/`.
-Tests: 64 pytest files, 679 test functions; 72 browser suites; 18 node unit files.
+Tests: 64 pytest files, 681 test functions; 72 browser suites; 18 node unit files.
 
 ## Contract coverage
 

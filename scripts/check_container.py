@@ -28,6 +28,18 @@ def worker_name(kind, root=ROOT):
     return 'reader-' + kind + '-checks-' + checkout[:64]
 
 
+def extract_controls(data, staging):
+    """Unpack the worker's built controls archive into `staging`: plain files and folders inside it only."""
+    with tarfile.open(fileobj=io.BytesIO(data)) as built:
+        for member in built.getmembers():
+            if not (member.isfile() or member.isdir()) or member.name.startswith('/') or '..' in member.name.split('/'):
+                raise RuntimeError('Unexpected entry in built controls: ' + member.name)
+        if hasattr(tarfile, 'data_filter'):  # Python 3.12+ warns without a filter; 3.9 has none (members checked above).
+            built.extractall(staging, filter='data')
+        else:
+            built.extractall(staging)
+
+
 def docker(*args, **kwargs):
     return subprocess.run(['docker', *args], check=True, **kwargs)
 
@@ -160,11 +172,7 @@ def main():
                 controls=ROOT/'src/reader_mcp/web_ui/controls'
                 staging=RUNTIME/'controls.next'
                 shutil.rmtree(staging,ignore_errors=True);staging.mkdir(parents=True)
-                with tarfile.open(fileobj=io.BytesIO(data)) as built:
-                    for member in built.getmembers():
-                        if not (member.isfile() or member.isdir()) or member.name.startswith('/') or '..' in member.name.split('/'):
-                            raise RuntimeError('Unexpected entry in built controls: '+member.name)
-                    built.extractall(staging)  # Members were checked above (Python 3.9 has no extraction filters).
+                extract_controls(data, staging)
                 shutil.rmtree(controls);(staging/'controls').replace(controls);shutil.rmtree(staging,ignore_errors=True)
             if kind=='node':
                 (ROOT/'plugins/reader/dist').mkdir(exist_ok=True)

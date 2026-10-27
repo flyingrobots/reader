@@ -1,5 +1,8 @@
 import importlib.util
+import io
 import sys
+import tarfile
+import warnings
 
 import pytest
 from pathlib import Path
@@ -38,3 +41,24 @@ def test_python_takes_a_k_expression(tmp_path, monkeypatch, argv):
     with pytest.raises(RuntimeError, match='stop after parsing'):
         check_container.main()
     assert seen
+
+
+def controls_archive(name='controls/reader-controls.js'):
+    buffer = io.BytesIO()
+    with tarfile.open(fileobj=buffer, mode='w') as archive:
+        info = tarfile.TarInfo(name)
+        info.size = 2
+        archive.addfile(info, io.BytesIO(b'//'))
+    return buffer.getvalue()
+
+
+def test_built_controls_extract_without_a_deprecation_warning(tmp_path):
+    with warnings.catch_warnings():
+        warnings.simplefilter('error', DeprecationWarning)
+        check_container.extract_controls(controls_archive(), tmp_path)
+    assert (tmp_path / 'controls/reader-controls.js').read_bytes() == b'//'
+
+
+def test_built_controls_refuse_entries_outside_the_folder(tmp_path):
+    with pytest.raises(RuntimeError, match='Unexpected entry'):
+        check_container.extract_controls(controls_archive('../escape.js'), tmp_path)
