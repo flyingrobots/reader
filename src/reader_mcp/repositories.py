@@ -200,8 +200,11 @@ class Registry:
         if len(repositories) > MAX_REPOSITORIES:
             raise RegistryError(f'repositories.json lists more than {MAX_REPOSITORIES} repositories')
         self.file.parent.mkdir(parents=True, exist_ok=True)
+        text = json.dumps({'schema_version': 1, 'repositories': repositories}, indent=2) + '\n'
+        if len(text.encode('utf-8')) > MAX_FILE:
+            raise RegistryError('repositories.json would exceed 256 KiB')
         temporary = self.file.with_name('.repositories.next')
-        temporary.write_text(json.dumps({'schema_version': 1, 'repositories': repositories}, indent=2) + '\n')
+        temporary.write_text(text)
         temporary.replace(self.file)
 
     def register(self, repo, raw):
