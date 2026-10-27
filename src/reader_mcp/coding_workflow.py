@@ -29,6 +29,8 @@ from .voice_runner import SHIM, kill_group, process_group_rss
 MAX_RSS = 4 * 1024**3
 CHECK_EVERY = 5
 TAIL = 64 * 1024
+CHUNK = 64 * 1024
+MAX_LINE = 4 * 1024**2  # Longest output line parsed for events; longer lines stay in the archive only.
 GIT_TIMEOUT = 120
 PUSH_TIMEOUT = 300
 
@@ -302,11 +304,20 @@ class Workflow:
         self.jobs.store.save(self.run)
 
         def pump(pipe, name, lines):
+            # Chunks, not readline: an unterminated line would otherwise grow in memory before the budget sees it.
+            pending = b''
             try:
-                for raw in iter(pipe.readline, b''):
+                for raw in iter(lambda: pipe.read1(CHUNK), b''):
                     self.capture.write(name, raw)
                     if lines:
-                        lines(raw.decode('utf-8', 'replace'))
+                        pending += raw
+                        while b'\n' in pending:
+                            line, pending = pending.split(b'\n', 1)
+                            lines((line + b'\n').decode('utf-8', 'replace'))
+                        if len(pending) > MAX_LINE:  # Archived in full above; too long to parse as one event line.
+                            pending = b''
+                if lines and pending:
+                    lines(pending.decode('utf-8', 'replace'))
             except CaptureFailed as exc:
                 failure['error'] = str(exc)
                 kill_group(worker.pid)

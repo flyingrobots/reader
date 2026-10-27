@@ -363,3 +363,20 @@ def test_an_archive_write_failure_stops_the_job_before_publication(world, monkey
     assert not alive(call['pid'])
     unpublished(w, run)
     assert run.get('archive_error'), 'the final event could not be written either, and that is recorded'
+
+
+def test_output_without_a_newline_still_counts_against_the_budget(world):
+    from reader_mcp import coding_workflow, llm_logs
+    w = world()
+    run = interrupted_run(w)
+    capture = coding_store.Capture(llm_logs.RunLog(w.vault, 'coding-job', 'no-newline', {}), budget=1024)
+    workflow = coding_workflow.Workflow(w.jobs, run, w.jobs.registry.entry('acme/widget'), capture, w.github, lambda: False)
+    try:
+        # 8 KiB on one unterminated line, then the process waits: the budget must stop it, not the timeout.
+        started = time.monotonic()
+        state, _, error = workflow.supervise([sys.executable, '-c', 'import os,time; os.write(1,b"x"*8192); time.sleep(20)'],
+                                             w.checkout, subprocess.DEVNULL, workflow.env, 10, 'stdout.jsonl', 'stderr.log')
+        assert state == 'failed' and 'budget' in error, error
+        assert time.monotonic() - started < 5, 'the budget stops the process, not the 10 s timeout'
+    finally:
+        capture.close()
