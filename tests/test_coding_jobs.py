@@ -283,3 +283,12 @@ def test_live_events_hide_host_folders_as_archived_events_do(world):
     page = w.jobs.events(run['id'], seq)
     assert page['source'] == 'live' and page['events'], page
     assert str(w.vault) not in json.dumps(page) and str(w.vault.parent) not in json.dumps(page['events'])
+
+
+def test_a_finished_run_releases_its_live_event_buffer(world):
+    w = world()
+    run, _ = w.run()
+    # Finished runs are read from the archive; their in-memory events would otherwise stay for the server's lifetime.
+    assert run['id'] not in w.jobs.live.events
+    page = w.jobs.events(run['id'], 0)
+    assert page['source'] == 'archive' and page['done'] and page['events']

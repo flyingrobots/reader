@@ -305,7 +305,7 @@ class Runner:
         self.cancels.discard(run['id'])
         self.store.save(run)
         llm_logs.forget_usage(self.root)
-        self.live.push({'run_id': run['id'], 'seq': run.get('seq') or 0, 'at': stamp(), 'type': 'sealed', 'internal': True})
+        self.live.release(run['id'])
         threading.Thread(target=self.commit_log, args=(run,), daemon=True).start()
 
     def commit_log(self, run):

@@ -179,11 +179,19 @@ class Live:
     def __init__(self):
         self.lock = threading.Condition()
         self.events = {}
+        self.sealed = deque(maxlen=1024)  # Recently finished runs, so their waiters wake at once.
         self.closed = False
 
     def push(self, event):
         with self.lock:
             self.events.setdefault(event['run_id'], deque(maxlen=LIVE_EVENTS)).append(event)
+            self.lock.notify_all()
+
+    def release(self, run_id):
+        """A run was sealed: drop its buffer (its events are read from the archive now) and wake its waiters."""
+        with self.lock:
+            self.events.pop(run_id, None)
+            self.sealed.append(run_id)
             self.lock.notify_all()
 
     def poke(self):
@@ -200,7 +208,7 @@ class Live:
 
     def wait(self, run_id, seq, timeout):
         with self.lock:
-            self.lock.wait_for(lambda: self.closed or any(e['seq'] > seq for e in self.events.get(run_id) or ()), timeout)
+            self.lock.wait_for(lambda: self.closed or run_id in self.sealed or any(e['seq'] > seq for e in self.events.get(run_id) or ()), timeout)
 
     def close(self):
         with self.lock:

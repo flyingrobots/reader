@@ -57,7 +57,7 @@ class CodingJobs(Runner):
         if run_id in self.captures:
             newer, contiguous = self.live.after(run_id, after)
             if contiguous:
-                rows = [e for e in newer if not e.get('internal')]
+                rows = newer
                 # Redacted as archived events are: agent commands and output may name host folders.
                 return {'run_id': run_id, 'events': shown(rows[:limit], self.root), 'more': len(rows) > limit, 'source': 'live',
                         'next': (rows[:limit][-1]['seq'] if rows else after), 'done': False, 'run': view}
