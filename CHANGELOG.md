@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Bounded validation names each Docker worker after its checkout (`reader-<kind>-checks-<checkout directory>`), so checks in separate worktrees no longer collide on one hard-coded `reader-<kind>-checks` container.
+
 - Server port, phase 0 (D1): `docs/port/surface.md` inventories the Python surface mechanically (`scripts/port_inventory.py`, `--check` for staleness); `tests/contract/` is a language-neutral HTTP, SSE, CLI, MCP and vault-file conformance suite (`npm run test:contract`, under 20 s) that any implementation can be run against through `READER_SERVER_CMD`, `READER_CLI_CMD` and `READER_MCP_CMD`; `scripts/port_bench.mjs` times heavy routes on a large synthetic vault; `docs/port/plan.md` recommends the runtime, libraries, Rust boundary, strangler migration and the ordered port PRs.
 
 - Writing prompts (RW-16): ask a configured voice an article question, answer in the existing Scratch editor, explicitly save a versioned notebook response with prompt provenance, and optionally start an article chat for a reply. Questions and earlier responses are preserved. Reading-log links, margin pins and Your writing on the homepage expose saved responses. Space a and :write-about leave Space w available for Scratch.
