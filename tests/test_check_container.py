@@ -8,9 +8,9 @@ spec.loader.exec_module(check_container)
 
 
 def test_worker_names_differ_per_checkout():
-    first = check_container.worker_name('python', Path('/src/reader-code-rw44'))
-    second = check_container.worker_name('python', Path('/src/reader-code-rw45'))
-    assert first == 'reader-python-checks-reader-code-rw44'
+    first = check_container.worker_name('python', Path('/src/alpha'))
+    second = check_container.worker_name('python', Path('/src/beta'))
+    assert first == 'reader-python-checks-alpha'
     assert first != second
 
 
