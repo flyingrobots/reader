@@ -167,6 +167,7 @@ class Job(Workflow):
         self.run['pr_pending'] = None
         self.jobs.store.save(self.run)
         self.emit('github', action='pull_request_opened', number=pr['number'], url=pr['url'], head_sha=pr['head_sha'])
+        self.emit('phase', phase='pull_request', state='completed', detail=f'#{pr["number"]}')
 
     def matching(self, pulls, head):
         return [p for p in pulls if ours(p, self.repo, self.entry['base'], self.run['git']['branch'], head)]

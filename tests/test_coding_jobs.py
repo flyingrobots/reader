@@ -242,3 +242,11 @@ def test_the_pull_request_must_close_exactly_the_jobs_issue(world, monkeypatch):
     monkeypatch.setattr(w.github, 'pull_request', lambda *a: (lambda pr: dict(pr, body=pr['body'].replace('Closes #277', 'Closes #2770')))(original(*a)))
     run, _ = w.run()
     assert run['outcome'] == 'needs_reconciliation', run['message']
+
+
+def test_a_published_run_completes_its_pull_request_phase(world):
+    w = world()
+    run, _ = w.run()
+    assert run['outcome'] == 'pr_opened'
+    phases = [(e['phase'], e['state']) for e in w.events(run['id']) if e['type'] == 'phase']
+    assert phases[-1] == ('pull_request', 'completed')
