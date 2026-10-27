@@ -95,6 +95,13 @@ class GhCli(GitHub):
                 raise Uncertain(f'GitHub answered {method} {route} with unreadable output')
             raise GitHubError(f'GitHub answered {method} {route} with unreadable output')
 
+    def created(self, route, body):
+        """POST a creation; an answer without a positive resource number may still have created it, so it is uncertain."""
+        data = self.call('POST', route, body, write=True)
+        if not isinstance(data, dict) or type(data.get('number')) is not int or data['number'] <= 0:
+            raise Uncertain(f'GitHub answered POST {route} without a resource number; it may have taken effect')
+        return data
+
     def version(self):
         if not self.executable:
             return None
@@ -117,7 +124,7 @@ class GhCli(GitHub):
         return issue_view(self.call('GET', f'repos/{repo}/issues/{int(number)}') or {}, repo)
 
     def create_issue(self, repo, title, body):
-        return issue_view(self.call('POST', f'repos/{repo}/issues', {'title': title, 'body': body}, write=True) or {}, repo)
+        return issue_view(self.created(f'repos/{repo}/issues', {'title': title, 'body': body}), repo)
 
     def find_issues(self, repo, marker):
         query = f'repo:{repo} in:body "{marker}"'
@@ -133,8 +140,8 @@ class GhCli(GitHub):
         return pull_view(self.call('GET', f'repos/{repo}/pulls/{int(number)}') or {})
 
     def create_pull_request(self, repo, base, branch, title, body):
-        return pull_view(self.call('POST', f'repos/{repo}/pulls', {'title': title, 'body': body, 'base': base, 'head': branch,
-                                                                    'maintainer_can_modify': False}, write=True) or {})
+        return pull_view(self.created(f'repos/{repo}/pulls', {'title': title, 'body': body, 'base': base, 'head': branch,
+                                                               'maintainer_can_modify': False}))
 
 
 def _quote(text):
