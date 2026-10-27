@@ -15,6 +15,18 @@ from .github import GitHubError, Uncertain
 PULL = re.compile(r'https://github\.com/([^/]+/[^/]+)/pull/(\d+)')
 
 
+def ours(pull, repo, base, branch, head):
+    """A pull request that reads back open, from this repository's `branch` at `head`, into `base`."""
+    return (pull.get('head') == branch and (pull.get('repository') or '').casefold() == repo.casefold()
+            and (pull.get('head_repository') or '').casefold() == repo.casefold()
+            and pull.get('base') == base and pull.get('head_sha') == head and pull.get('state') == 'open' and not pull.get('merged'))
+
+
+def closes(body, issue, run_id):
+    """The body Reader wrote: the exact 'Closes #<issue>' line (not '#2770' for 277) and the run's marker."""
+    return bool(issue) and bool(re.search(rf'(?m)^Closes #{issue}\r?$', body or '')) and f'reader-run:{run_id}' in (body or '')
+
+
 class Job(Workflow):
     def execute(self):
         self.preflight()
@@ -157,10 +169,7 @@ class Job(Workflow):
         self.emit('github', action='pull_request_opened', number=pr['number'], url=pr['url'], head_sha=pr['head_sha'])
 
     def matching(self, pulls, head):
-        branch, base = self.run['git']['branch'], self.entry['base']
-        return [p for p in pulls if p.get('head') == branch and (p.get('repository') or '').casefold() == self.repo.casefold()
-                and (p.get('head_repository') or '').casefold() == self.repo.casefold()
-                and p.get('base') == base and p.get('head_sha') == head and p.get('state') == 'open' and not p.get('merged')]
+        return [p for p in pulls if ours(p, self.repo, self.entry['base'], self.run['git']['branch'], head)]
 
     def open_pull_request(self, result, head):
         branch, issue = self.run['git']['branch'], self.run['issue']['number']
@@ -200,9 +209,7 @@ class Job(Workflow):
             pr = self.github.pull_request(self.repo, created['number'])
         except GitHubError as exc:
             raise Stop('needs_reconciliation', f'Pull request #{created.get("number")} could not be read back: {exc}')
-        # The exact line Reader wrote: a substring check would take "Closes #2770" for issue 277.
-        closes = re.search(rf'(?m)^Closes #{issue}\r?$', pr.get('body') or '')
-        if not self.matching([pr], head) or not closes or self.marker() not in (pr.get('body') or ''):
+        if not self.matching([pr], head) or not closes(pr.get('body'), issue, self.run['id']):
             raise Stop('needs_reconciliation', f'Pull request #{pr.get("number")} does not read back with this repository, base, '
                                                f'branch, head {head[:12]} and issue #{issue}.')
         return {'number': pr['number'], 'url': pr['url'], 'state': pr['state'], 'head_sha': pr['head_sha'], 'base': pr['base']}

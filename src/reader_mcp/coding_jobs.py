@@ -30,7 +30,7 @@ import traceback
 import uuid
 
 from . import coding_agents, llm_logs, prompt_blocks
-from .coding_publish import Job
+from .coding_publish import Job, closes, ours
 from .coding_store import CaptureFailed, Capture, Live, Store, archived_events, stamp, valid_id
 from .coding_workflow import Stop, process_started
 from .display import shown
@@ -362,8 +362,10 @@ class Runner:
                 pulls = [p for p in self.github.pull_requests(repo, branch)
                          if p.get('head') == branch and p.get('head_sha') == head and p.get('base') == run['git']['base']]
                 if len(pulls) == 1:
+                    # The same read-back a live publication requires (coding_publish.ours and closes).
                     pr = self.github.pull_request(repo, pulls[0]['number'])
-                    if pr.get('head_sha') == head and f'reader-run:{run["id"]}' in (pr.get('body') or ''):
+                    issue = (run.get('issue') or {}).get('number')
+                    if ours(pr, repo, run['git']['base'], branch, head) and closes(pr.get('body'), issue, run['id']):
                         run['pr'] = {'number': pr['number'], 'url': pr['url'], 'state': pr['state'], 'head_sha': head, 'base': pr['base']}
                         run['pr_pending'] = None
                         return 'pr_opened', None

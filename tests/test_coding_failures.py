@@ -303,8 +303,9 @@ def test_restart_reconciles_a_pending_pull_request(world):
     branch = 'reader/x-pending'
     head = git('rev-parse', 'refs/heads/main', cwd=w.bare)
     git('update-ref', f'refs/heads/{branch}', head, cwd=w.bare)
+    # A run reaches the pull request phase only with its issue linked.
     run = interrupted_run(w, phase='pull_request', pr_pending={'branch': branch}, push={'sha': head, 'sent': True, 'verified': True},
-                          git={'branch': branch, 'base': 'main', 'remote': 'origin'})
+                          git={'branch': branch, 'base': 'main', 'remote': 'origin'}, issue={'number': 277})
     w.github.pulls[400] = {'number': 400, 'title': 'T', 'body': f'Closes #277\n<!-- reader-run:{run["id"]} -->', 'base': 'main', 'head': branch, 'head_sha': head}
     w.jobs.close()
     restarted = w.make()
@@ -363,6 +364,24 @@ def test_an_archive_write_failure_stops_the_job_before_publication(world, monkey
     assert not alive(call['pid'])
     unpublished(w, run)
     assert run.get('archive_error'), 'the final event could not be written either, and that is recorded'
+
+
+@pytest.mark.parametrize('change', [{'repository': 'other/repo'}, {'base': 'release'}, {'head_repository': 'other/fork'},
+                                    {'state': 'closed'}, {'body': 'no issue link'}])
+def test_restart_recovery_accepts_only_a_pull_request_that_reads_back_as_the_jobs(world, monkeypatch, change):
+    w = world()
+    head = w.base_sha
+    run = interrupted_run(w, phase='pull_request', pr_pending={'branch': 'reader/pending'}, issue={'number': 277},
+                          push={'sha': head, 'sent': True, 'verified': True},
+                          git={'branch': 'reader/pending', 'base': 'main', 'remote': 'origin'})
+    w.github.pulls[400] = {'number': 400, 'title': 'T', 'body': f'Closes #277\n<!-- reader-run:{run["id"]} -->',
+                           'base': 'main', 'head': 'reader/pending', 'head_sha': head}
+    original = w.github.pull_request
+    body = change.get('body')
+    patched = {k: v for k, v in change.items() if k != 'body'}
+    monkeypatch.setattr(w.github, 'pull_request', lambda *a: dict(original(*a), **patched, **({'body': f'{body} <!-- reader-run:{run["id"]} -->'} if body else {})))
+    outcome, _ = w.jobs.reconcile(run, w.jobs.registry.entry('acme/widget'), [])
+    assert outcome == 'needs_reconciliation'
 
 
 def test_output_without_a_newline_still_counts_against_the_budget(world):
