@@ -1,6 +1,6 @@
 """A bounded, read-only inventory of the permanent LLM archive (`logs/llm/`), for Reader Admin's LLM logs.
 
-Pages walk the dated folders newest first and read each run's `meta.json` (at most 64 KiB) without
+Pages walk the dated folders newest first and read each run’s `meta.json` (at most 64 KiB), which orders a day by start, without
 decompressing anything. Artifact reads go through `llm_logs.read` with its bounds. Nothing here prunes,
 rewrites or recompresses: retention is forever, and a page is a view, not a cleanup tool."""
 import json
@@ -54,7 +54,8 @@ def page(root, kind=None, cursor=None, limit=PAGE):
     if not base.is_dir() or base.is_symlink():
         return {'runs': [], 'next': None, 'kinds': list(llm_logs.KINDS), 'retention': 'forever'}
     found = []
-    # Every kind's day folders, merged newest first; within a day, runs by folder mtime (newest first).
+    # Every kind's day folders, merged newest first; within a day, runs newest first by their recorded start. A folder's
+    # mtime is no order: a running log keeps writing, and the cursor row would move between pages.
     days = []
     for kind_dir in _dirs(base):
         if kind_dir.name not in llm_logs.KINDS or (kind and kind_dir.name != kind):
@@ -67,17 +68,17 @@ def page(root, kind=None, cursor=None, limit=PAGE):
     passed = cursor is None
     for date, name, day in days:
         try:
-            runs = sorted((p for p in day.iterdir() if p.is_dir() and not p.is_symlink()), key=lambda p: (p.stat().st_mtime_ns, p.name), reverse=True)
+            runs = [(folder, _meta(folder)) for folder in day.iterdir() if folder.is_dir() and not folder.is_symlink()]
         except OSError:
             continue
-        for folder in runs:
+        runs.sort(key=lambda pair: (str((pair[1] or {}).get('started_at') or ''), pair[0].name), reverse=True)
+        for folder, meta in runs:
             relative = f'{llm_logs.ROOT}/{name}/{date}/{folder.name}'
             if not passed:
                 passed = relative == cursor
                 continue
             if not llm_logs.RELATIVE.fullmatch(relative):
                 continue
-            meta = _meta(folder)
             found.append(row(root, relative, meta or {'kind': name, 'run_id': folder.name, 'status': 'unreadable'}))
             if len(found) > limit:
                 return {'runs': found[:limit], 'next': found[limit - 1]['path'], 'kinds': list(llm_logs.KINDS), 'retention': 'forever'}

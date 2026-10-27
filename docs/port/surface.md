@@ -660,10 +660,10 @@ Lock file names: `.lock`, `.reader/gpu.lock`, `.reader/inbox-runner/run.lock`, `
 | `src/reader_mcp/writing.py:361` | run | `command` | `180` |
 | `src/reader_mcp/writing.py:313` | run | `[git, 'config', 'user.name']` | `10` |
 | `src/reader_mcp/demo/build.py:225` | run | `['git', '-C', str(self.root), *args]` | `—` |
-| `scripts/check_container.py:26` | run | `['docker', *args]` | `—` |
-| `scripts/check_container.py:47` | run | `['docker', 'inspect', name]` | `—` |
-| `scripts/check_container.py:166` | run | `['docker', 'rm', '-f', name]` | `—` |
-| `scripts/check_container.py:108` | Popen | `['docker', 'exec', name, 'sh', '-c', cmd]` | `—` |
+| `scripts/check_container.py:32` | run | `['docker', *args]` | `—` |
+| `scripts/check_container.py:53` | run | `['docker', 'inspect', name]` | `—` |
+| `scripts/check_container.py:172` | run | `['docker', 'rm', '-f', name]` | `—` |
+| `scripts/check_container.py:114` | Popen | `['docker', 'exec', name, 'sh', '-c', cmd]` | `—` |
 | `scripts/install.py:39` | run | `[codex, 'mcp', 'get', 'reader', '--json']` | `—` |
 | `scripts/install.py:57` | run | `[codex, 'mcp', 'remove', 'reader']` | `—` |
 | `scripts/install.py:60` | run | `[codex, 'mcp', 'add', 'reader', '--', *command]` | `—` |
@@ -865,8 +865,8 @@ exercise modules through HTTP, so see the route table for those.
 | `src/reader_mcp/junk.py` | 13 | 9 | 581 | 63 | 106 | 0.56 | 1 | 0 | 1 | 3 |
 | `src/reader_mcp/learning.py` | 39 | 31 | 2105 | 61 | 127 | 0.87 | 2 | 0 | 1 | 14 |
 | `src/reader_mcp/links.py` | 609 | 536 | 30975 | 55 | 173 | 0.88 | 31 | 3 | 2 | 20 |
-| `src/reader_mcp/llm_inventory.py` | 101 | 85 | 5006 | 56 | 150 | 0.85 | 6 | 0 | 0 | 0 |
-| `src/reader_mcp/llm_logs.py` | 278 | 240 | 12497 | 50 | 136 | 0.95 | 18 | 1 | 8 | 133 |
+| `src/reader_mcp/llm_inventory.py` | 102 | 85 | 5205 | 57 | 138 | 0.85 | 6 | 0 | 1 | 3 |
+| `src/reader_mcp/llm_logs.py` | 278 | 240 | 12497 | 50 | 136 | 0.95 | 18 | 1 | 9 | 136 |
 | `src/reader_mcp/local_model.py` | 1793 | 1573 | 90684 | 55 | 187 | 0.87 | 115 | 13 | 4 | 55 |
 | `src/reader_mcp/magazine.py` | 202 | 175 | 9086 | 49 | 138 | 0.94 | 10 | 1 | 0 | 0 |
 | `src/reader_mcp/maintenance.py` | 336 | 300 | 17937 | 57 | 170 | 0.77 | 20 | 1 | 4 | 32 |
@@ -898,7 +898,7 @@ exercise modules through HTTP, so see the route table for those.
 | `src/reader_mcp/demo/__init__.py` | 137 | 116 | 6014 | 50 | 149 | 0.89 | 9 | 0 | 0 | 0 |
 | `src/reader_mcp/demo/build.py` | 718 | 625 | 49845 | 77 | 170 | 0.64 | 29 | 1 | 0 | 0 |
 | `src/reader_mcp/demo/static.py` | 379 | 335 | 20169 | 58 | 177 | 0.90 | 19 | 1 | 0 | 0 |
-| `scripts/check_container.py` | 169 | 152 | 11053 | 67 | 283 | 0.95 | 2 | 0 | 0 | 0 |
+| `scripts/check_container.py` | 175 | 156 | 11324 | 67 | 283 | 0.96 | 3 | 0 | 0 | 0 |
 | `scripts/install.py` | 78 | 73 | 3807 | 51 | 124 | 0.99 | 1 | 0 | 0 | 0 |
 | `scripts/install_wide_md.py` | 100 | 92 | 5327 | 57 | 140 | 0.91 | 5 | 0 | 0 | 0 |
 | `scripts/reader_paths.py` | 23 | 19 | 924 | 47 | 112 | 1.00 | 1 | 0 | 0 | 0 |
@@ -907,10 +907,10 @@ exercise modules through HTTP, so see the route table for those.
 | `scripts/vendor_web.py` | 77 | 68 | 4132 | 58 | 186 | 0.88 | 2 | 0 | 0 | 0 |
 | `scripts/verify_installation.py` | 80 | 72 | 4428 | 60 | 264 | 0.92 | 1 | 0 | 0 | 0 |
 | `scripts/verify_search_installation.py` | 74 | 66 | 4190 | 59 | 138 | 0.82 | 1 | 0 | 0 | 0 |
-| **total** | 23332 | 20781 | 1238027 | | | | | | | |
+| **total** | 23339 | 20785 | 1238497 | | | | | | | |
 
 Language-neutral code that a port keeps as is: `src/reader_mcp/web_ui/` (41 hand-written JS/CSS/HTML files, 8340 lines, excluding vendor/) plus the built `web_ui/controls/` bundle from `web/`.
-Tests: 59 pytest files, 661 test functions; 72 browser suites; 18 node unit files.
+Tests: 61 pytest files, 666 test functions; 72 browser suites; 18 node unit files.
 
 ## Contract coverage
 
