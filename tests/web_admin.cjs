@@ -103,29 +103,50 @@ const shots=process.env.READER_SHOTS||'.reader/web-dev';
   //    reading chrome, pagination or smoother (two-page reading, motion allowed so the smoother would run).
   await check('return-scroll',async()=>{const {page,context}=await open({layout:'scroll',smooth:true},{motion:'no-preference'});
    const marks=[];page.on('request',r=>{if(r.method()==='POST'&&new URL(r.url()).pathname==='/api/bookmark')marks.push(JSON.parse(r.postData()));});
+   // A fake page clock makes the smoother's glides and the save timers deterministic: once the document has settled the
+   // clock is paused, and every glide, save and render below runs for an explicit stretch of page time.
+   // Every block is laid out (no content-visibility estimates), so heights do not depend on which blocks Chrome
+   // happened to render during a glide; web_content_visibility.cjs covers that layout.
+   await context.clock.install();
+   await context.addInitScript(()=>document.addEventListener('DOMContentLoaded',()=>{const style=document.createElement('style');
+     style.textContent='#article>*{content-visibility:visible!important;contain-intrinsic-size:none!important}';document.head.append(style);}));
    await page.goto(url+'#read='+encodeURIComponent('library/thought.md'));await settled(page);
    assert.ok(await page.evaluate(()=>!!window.ScrollSmoother?.get()),'reading uses the smoother here');
-   await page.locator('#main').focus();for(let i=0;i<40;i++)await page.keyboard.press('j');await page.waitForTimeout(2500);
+   await page.clock.pauseAt(await page.evaluate(()=>Date.now())+100);
+   const pause=ms=>new Promise(resolve=>setTimeout(resolve,ms));
+   /** Advance page time in 50 ms steps until `cond` holds (real time passes too, for the server and the network). */
+   const advance=async(cond,arg,limit=200)=>{for(let i=0;i<limit;i++){if(await page.evaluate(cond,arg))return;await page.clock.runFor(50);await pause(10);}throw new Error('page time ran out waiting for '+cond);};
+   const posted=async count=>{for(let i=0;i<300&&marks.length<count;i++){await page.clock.runFor(50);await pause(10);}};
+   const onBlock=()=>page.evaluate(()=>{const line=innerHeight*.22;return [...document.querySelectorAll('#article [data-source-start]')].some(el=>{const r=el.getBoundingClientRect();return r.top<=line&&r.bottom>line;});});
+   await page.locator('#main').focus();for(let i=0;i<40;i++)await page.keyboard.press('j');
+   await page.clock.runFor(3000);await posted(1);
    // A place on a block (not between two), so the check below can find that block again.
-   for(let i=0;i<12&&marks.at(-1)?.source_offset==null;i++){await page.keyboard.press('j');await page.waitForTimeout(1500);}
-   assert.ok(marks.at(-1)?.source_offset!=null,'reading saved a place on a block');
+   for(let i=0;i<12&&!await onBlock();i++){await page.keyboard.press('j');await page.clock.runFor(2000);}
+   const settledMarks=marks.length;await page.clock.runFor(2000);await posted(settledMarks+1);
+   assert.ok(await onBlock()&&marks.at(-1)?.source_offset!=null,'reading saved a place on a block');
    const place=await page.locator('#status-position').textContent();assert.notEqual(place,'0%','a place part-way down');
    // Leaving the document saves its own place, as any navigation does; that is the place Back to Library restores.
-   await page.locator('#settings-open').click();await atSection(page,'overview','Overview');await page.waitForTimeout(300);
+   const leaving=marks.length;
+   await page.locator('#settings-open').click();
+   await advance(()=>document.querySelector('#admin-content')?.dataset.adminSection==='overview'&&document.activeElement?.id==='admin-title');
+   await posted(leaving+1);
    const saved=marks.at(-1),before=marks.length;
-   const chrome=await page.evaluate(()=>({smoother:!!window.ScrollSmoother?.get(),twoPage:document.body.classList.contains('two-page'),progress:document.querySelector('#reading-progress').hidden,pages:document.querySelector('#pagination-slot').children.length,footer:!!document.querySelector('.document-footer'),article:!!document.querySelector('#article'),transform:document.querySelector('#smooth-content').style.transform}));
+   assert.ok(saved.source_offset!=null,'leaving saved a place on a block: '+JSON.stringify([saved.source_offset,saved.block_fraction]));
+   const chrome=await page.evaluate(()=>({smoother:!!window.ScrollSmoother?.get(),twoPage:document.body.classList.contains('two-page'),progress:document.querySelector('#reading-progress').hidden,pages:document.querySelector('#pagination-slot').children.length,footer:!!document.querySelector('.document-footer'),article:!!document.querySelector('#article'),transform:document.querySelector('#smooth-content')?.style.transform||''}));
    assert.deepEqual(chrome,{smoother:false,twoPage:false,progress:true,pages:0,footer:false,article:false,transform:''},'no reading chrome or smoother in Admin');
    assert.equal(await page.locator('#status-position').textContent(),'','no reading position in the status line');
-   for(const id of ['library','indexes','settings']){await page.locator(`[data-admin-nav=${id}]`).click();await page.waitForFunction(id=>document.querySelector('#admin-content')?.dataset.adminSection===id,id);await page.evaluate(()=>scrollTo(0,document.documentElement.scrollHeight));await page.waitForTimeout(300);}
-   await page.waitForTimeout(800);assert.equal(marks.length,before,'Admin never saves a reading position');
-   await page.locator('#admin-back').click();await settled(page);
+   for(const id of ['library','indexes','settings']){await page.locator(`[data-admin-nav=${id}]`).click();await advance(id=>document.querySelector('#admin-content')?.dataset.adminSection===id,id);await page.evaluate(()=>scrollTo(0,document.documentElement.scrollHeight));await page.clock.runFor(300);}
+   await page.clock.runFor(2000);await pause(300);assert.equal(marks.length,before,'Admin never saves a reading position');
+   await page.locator('#admin-back').click();
+   await advance(()=>document.querySelector('.document-footer')&&!document.querySelector('.resume-pending')&&!document.querySelector('[data-skeleton]'));
    assert.equal(await hash(page),'#read=library/thought.md');
-   await page.waitForTimeout(800);
-   // The saved block is back in view (the percentage is an estimate while far blocks settle their heights).
-   const back=await page.evaluate(offset=>{const el=offset==null?null:document.querySelector(`#article [data-source-start="${offset}"]`);const r=el?.getBoundingClientRect();return r?{top:Math.round(r.top),bottom:Math.round(r.bottom),h:innerHeight}:null;},saved.source_offset);
-   assert.ok(back&&back.top<back.h*.6&&back.bottom>0,'the saved block is in view again: '+JSON.stringify({back,place,now:await page.locator('#status-position').textContent(),marks:marks.map(m=>[m.source_offset,Math.round(m.progress*100)])}));
-   const same=m=>m.source_offset===saved.source_offset&&Math.abs(m.progress-saved.progress)<0.03;
-   assert.ok(marks.slice(before).every(same),'returning does not move the bookmark: '+JSON.stringify({saved,after:marks.slice(before)}));
+   await page.clock.runFor(3000);await pause(300);
+   // The saved block is back at the reading line, at the depth it was saved (the percentage is an estimate while far
+   // blocks settle their heights, so it is not compared).
+   const back=await page.evaluate(offset=>{const el=document.querySelector(`#article [data-source-start="${offset}"]`);const r=el?.getBoundingClientRect();return r?{top:Math.round(r.top),bottom:Math.round(r.bottom),line:Math.round(innerHeight*.22),fraction:(innerHeight*.22-r.top)/r.height}:null;},saved.source_offset);
+   assert.ok(back&&Math.abs(back.fraction-saved.block_fraction)<0.05,'the saved block is back at its line: '+JSON.stringify({back,saved:saved.block_fraction}));
+   const same=m=>m.source_offset===saved.source_offset&&Math.abs(m.block_fraction-saved.block_fraction)<0.05;
+   assert.ok(marks.slice(before).every(same),'returning does not move the bookmark: '+JSON.stringify({saved:[saved.source_offset,saved.block_fraction],after:marks.slice(before).map(m=>[m.source_offset,m.block_fraction])}));
    assert.ok(await page.evaluate(()=>!!window.ScrollSmoother?.get()),'reading has its smoother again');
    await context.close();});
   await check('return-spread',async()=>{const {page,context}=await open({layout:'spread'});

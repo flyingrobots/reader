@@ -124,7 +124,7 @@ type Repository={repo:string;checkout?:string;remote?:string;base?:string;worktr
   verify?:{argv:string[];timeout_seconds:number;lock:{keys:string[]}|null};problems:string[]|null;error?:string};
 export function RepositoriesPanel({options}:AdminPanelProps){
   const [registry,reload]=useLoad<{configured:boolean;error:string|null;repositories:Repository[]}>(needsReader('jobs')?null:'/api/repositories?check=1',options.api);
-  const [form,setForm]=React.useState({repo:'',checkout:'',remote:'origin',base:'main',worktree_root:'',agents:['codex'] as string[],argv:'',timeout:'1800',store:'',keys:'host/heavy-work'});
+  const [form,setForm]=React.useState({repo:'',checkout:'',remote:'origin',base:'main',worktree_root:'',agents:['codex'] as string[],argv:'',timeout:'1800',store:'',keys:''});
   const [busy,setBusy]=React.useState(false),[message,setMessage]=React.useState<string|null>(null);
   if(registry.error||needsReader('jobs'))return <Unavailable what="Repository registration" error={registry.error}/>;
   const act=async(payload:Record<string,unknown>,done:string)=>{setBusy(true);setMessage(null);try{await options.api('/api/repositories',payload);setMessage(done);reload();}catch(error){setMessage(error instanceof Error?error.message:String(error));}finally{setBusy(false);}};
@@ -164,7 +164,7 @@ export function RepositoriesPanel({options}:AdminPanelProps){
           <FieldDescription>Run without a shell in the job’s worktree. Use the project’s guarded runner when it has one.</FieldDescription></Field>
         <Field><FieldLabel htmlFor="repo-timeout">Verification timeout (seconds)</FieldLabel><Input id="repo-timeout" inputMode="numeric" value={form.timeout} onChange={set('timeout')}/></Field>
         <Field><FieldLabel htmlFor="repo-store">git-locks store for verification (optional)</FieldLabel><Input id="repo-store" value={form.store} onChange={set('store')} placeholder="/path/to/git-locks-store.git"/></Field>
-        <Field><FieldLabel htmlFor="repo-keys">Lock keys</FieldLabel><Input id="repo-keys" value={form.keys} onChange={set('keys')}/></Field>
+        <Field><FieldLabel htmlFor="repo-keys">Lock keys</FieldLabel><Input id="repo-keys" value={form.keys} onChange={set('keys')} placeholder="host/docker/<project-worker>/"/></Field>
       </FieldGroup>
       <Button type="submit" disabled={busy}>{busy?<LoaderCircleIcon className="animate-spin"/>:null}Register</Button>
       <p role="status" aria-live="polite" className="job-quiet">{message}</p>

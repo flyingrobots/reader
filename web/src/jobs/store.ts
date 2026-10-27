@@ -3,7 +3,7 @@
    below the cursor are duplicates and ignored; a frame beyond cursor+1 is a gap, filled from the archive-backed
    events endpoint before continuing. A reload starts from the run's snapshot and catches up the same way. Nothing
    here starts a run: only submitJob() posts, and only after an explicit Run. */
-import {useSyncExternalStore} from 'react';
+import {useCallback, useSyncExternalStore} from 'react';
 import {applyFrames, emptyActivity, jobMapper, type Activity, type AgentEvent} from '../activity/reducer';
 
 export type JobRun={id:string;request_id:string;predecessor:string|null;created_at:string;started_at:string|null;finished_at:string|null;
@@ -81,7 +81,11 @@ export function subscribeJob(id:string,listener:()=>void){
 }
 const EMPTY:JobState={run:null,activity:emptyActivity(),seq:0,error:null,live:false};
 export function useJob(id:string|null):JobState{
-  return useSyncExternalStore(listener=>id?subscribeJob(id,listener):()=>{},()=>id?entry(id).state:EMPTY);
+  // Stable per run: a new subscribe function each render would resubscribe every render, and a loaded run's
+  // resubscription publishes at once (connect), so React would re-render without end (#185).
+  const subscribe=useCallback((listener:()=>void)=>id?subscribeJob(id,listener):()=>{},[id]);
+  const snapshot=useCallback(()=>id?entry(id).state:EMPTY,[id]);
+  return useSyncExternalStore(subscribe,snapshot);
 }
 /** Seed an entry with a run the server just returned (an admission), so its card shows it at once. */
 export function seedJob(run:JobRun){const item=entry(run.id);if(!item.state.run)publish(item,{run});}

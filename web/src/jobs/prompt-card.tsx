@@ -89,8 +89,9 @@ export function PromptCard({block,context}:{block:PromptBlock;context:PromptCont
       <InputGroup>
         <InputGroupTextarea ref={area} aria-label={`Prompt: ${block.title}`} value={text} rows={Math.min(14,Math.max(4,text.split('\n').length))} disabled={busy}
           onChange={event=>setText(event.target.value)} spellCheck={false} className="prompt-card-editor p-3" aria-invalid={tooLong||blank||undefined}/>
-        <InputGroupAddon align="block-end">
-          <InputGroupText className={tooLong?'text-destructive':undefined}>{edited?'Edited for this run':'As written'}{tooLong?' · over 32 KiB':''}</InputGroupText>
+        {/* Wraps at phone width instead of squeezing the label one letter per line. */}
+        <InputGroupAddon align="block-end" className="flex-wrap gap-y-1">
+          <InputGroupText className={tooLong?'whitespace-nowrap text-destructive':'whitespace-nowrap'}>{edited?'Edited for this run':'As written'}{tooLong?' · over 32 KiB':''}</InputGroupText>
           {edited?<InputGroupButton size="sm" variant="ghost" onClick={()=>setText(block.prompt)} aria-label="Restore the article’s prompt"><RotateCcwIcon/>Reset</InputGroupButton>:null}
           <InputGroupButton size="sm" variant="ghost" className="ml-auto" onClick={copy} data-prompt-copy=""><CopyIcon/>{copied?'Copied':'Copy'}</InputGroupButton>
           <DropdownMenu>

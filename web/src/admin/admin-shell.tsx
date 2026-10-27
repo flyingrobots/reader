@@ -18,7 +18,7 @@ const sheetFocus=()=>{if(!headingAfterSheet)return true;headingAfterSheet=false;
 
 function SectionNav({context,current}:{context:AdminContext;current:string}){
   const {isMobile,setOpenMobile}=useSidebar();
-  return <nav aria-label="Admin sections" id={NAV_ID}><SidebarGroup><SidebarGroupContent><SidebarMenu>
+  return <nav aria-label="Admin sections" id={NAV_ID}><SidebarGroup><SidebarGroupContent><SidebarMenu className="m-0 list-none p-0">
     {ADMIN_SECTIONS.map(section=>{const Icon=section.icon,active=section.id===current;
       return <SidebarMenuItem key={section.id}>
         <SidebarMenuButton isActive={active} aria-current={active?'page':undefined} data-admin-nav={section.id}
