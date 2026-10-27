@@ -196,6 +196,9 @@ class Registry:
         return None
 
     def write(self, repositories):
+        """Replace the file, refusing what raw() would refuse to read back."""
+        if len(repositories) > MAX_REPOSITORIES:
+            raise RegistryError(f'repositories.json lists more than {MAX_REPOSITORIES} repositories')
         self.file.parent.mkdir(parents=True, exist_ok=True)
         temporary = self.file.with_name('.repositories.next')
         temporary.write_text(json.dumps({'schema_version': 1, 'repositories': repositories}, indent=2) + '\n')
