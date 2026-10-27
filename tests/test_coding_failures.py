@@ -415,3 +415,14 @@ def test_restart_after_the_pull_request_was_saved_reconciles_it_as_opened(world)
     # A saved pull request that no longer reads back as the job's is not reported opened.
     w.github.pulls[400]['body'] = 'edited'
     assert w.jobs.reconcile(run, w.jobs.registry.entry('acme/widget'), [])[0] == 'needs_reconciliation'
+
+
+def test_restart_writes_its_outcome_after_a_torn_final_event(world):
+    w = world()
+    run = interrupted_run(w)
+    with (w.vault / run['log'] / 'events.jsonl.partial').open('ab') as out:
+        out.write(b'{"seq":2,"type":"agent"')  # The server stopped in the middle of writing an event.
+    w.jobs.recover()
+    done = w.jobs.store.load(run['id'])
+    events = w.jobs.events(run['id'])['events']
+    assert events[-1]['type'] == 'outcome' and events[-1]['seq'] == done['seq']

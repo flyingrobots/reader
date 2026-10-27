@@ -348,7 +348,12 @@ class Runner:
                     seq = max([e['seq'] for e in events] or [0]) + 1
                     folder = llm_logs.safe_dir(self.root, run['log'])
                     if (folder / 'events.jsonl.partial').is_file():
-                        with (folder / 'events.jsonl.partial').open('ab') as out:
+                        with (folder / 'events.jsonl.partial').open('ab+') as out:
+                            # A server that stopped mid-write leaves a torn last line: end it, or the outcome joins it.
+                            if out.seek(0, 2):
+                                out.seek(-1, 2)
+                                if out.read(1) != b'\n':
+                                    out.write(b'\n')
                             out.write((json.dumps({'run_id': run['id'], 'seq': seq, 'at': stamp(), 'type': 'outcome', 'outcome': outcome,
                                                    'message': message, 'phase': run.get('phase'), 'recovered': True}) + '\n').encode())
                         run['seq'] = seq
