@@ -200,7 +200,9 @@ class Job(Workflow):
             pr = self.github.pull_request(self.repo, created['number'])
         except GitHubError as exc:
             raise Stop('needs_reconciliation', f'Pull request #{created.get("number")} could not be read back: {exc}')
-        if not self.matching([pr], head) or f'#{issue}' not in (pr.get('body') or '') or self.marker() not in (pr.get('body') or ''):
+        # The exact line Reader wrote: a substring check would take "Closes #2770" for issue 277.
+        closes = re.search(rf'(?m)^Closes #{issue}\r?$', pr.get('body') or '')
+        if not self.matching([pr], head) or not closes or self.marker() not in (pr.get('body') or ''):
             raise Stop('needs_reconciliation', f'Pull request #{pr.get("number")} does not read back with this repository, base, '
                                                f'branch, head {head[:12]} and issue #{issue}.')
         return {'number': pr['number'], 'url': pr['url'], 'state': pr['state'], 'head_sha': pr['head_sha'], 'base': pr['base']}

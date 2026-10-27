@@ -233,3 +233,12 @@ def test_a_pull_request_that_does_not_read_back_as_ours_and_open_is_not_reported
     monkeypatch.setattr(w.github, 'pull_request', lambda *a: dict(original(*a), **change))
     run, _ = w.run()
     assert run['outcome'] == 'needs_reconciliation', run['message']
+
+
+def test_the_pull_request_must_close_exactly_the_jobs_issue(world, monkeypatch):
+    w = world()
+    original = w.github.pull_request
+    # For issue 277, "Closes #2770" contains "#277" but links another issue.
+    monkeypatch.setattr(w.github, 'pull_request', lambda *a: (lambda pr: dict(pr, body=pr['body'].replace('Closes #277', 'Closes #2770')))(original(*a)))
+    run, _ = w.run()
+    assert run['outcome'] == 'needs_reconciliation', run['message']
