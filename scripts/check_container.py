@@ -2,6 +2,7 @@
 """Run bounded copy-isolated checks using existing Python and Node Docker images."""
 import argparse
 import fcntl
+import hashlib
 import io
 import json
 import re
@@ -18,9 +19,11 @@ GIB = 1024**3
 
 
 def worker_name(kind, root=ROOT):
-    """Name the worker after its checkout, so validation in separate worktrees never collides."""
+    """Name the worker after its checkout, so validation in separate worktrees never collides: the folder name for
+    people, plus a digest of the resolved path for checkouts whose folders share a name."""
     checkout = re.sub(r'[^a-z0-9_.-]+', '-', root.name.lower()).strip('-._') or 'checkout'
-    return 'reader-' + kind + '-checks-' + checkout[:64]
+    digest = hashlib.sha256(str(root.resolve()).encode()).hexdigest()[:8]
+    return 'reader-' + kind + '-checks-' + checkout[:55] + '-' + digest
 
 
 def docker(*args, **kwargs):
