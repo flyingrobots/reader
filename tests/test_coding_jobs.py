@@ -269,3 +269,17 @@ def test_a_verification_command_that_is_not_installed_blocks_the_job(world):
     run, _ = w.run()
     assert run['outcome'] == 'blocked' and 'no-such-verifier' in run['message'], run['message']
     assert run['phase'] == 'preflight' and not w.calls(), 'blocked before the agent ran'
+
+
+def test_live_events_hide_host_folders_as_archived_events_do(world):
+    from types import SimpleNamespace
+    w = world()
+    run, _ = w.run()
+    seq = run['seq']
+    # As while the run is active: its capture is open and a live event names a vault file by its host path.
+    w.jobs.captures[run['id']] = SimpleNamespace(seq=seq + 1)
+    w.jobs.live.push({'run_id': run['id'], 'seq': seq + 1, 'at': 'now', 'type': 'agent', 'stream': 'codex',
+                      'event': {'command': f'cat {w.vault}/library/audit.md'}})
+    page = w.jobs.events(run['id'], seq)
+    assert page['source'] == 'live' and page['events'], page
+    assert str(w.vault) not in json.dumps(page) and str(w.vault.parent) not in json.dumps(page['events'])
