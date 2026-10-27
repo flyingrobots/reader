@@ -72,8 +72,10 @@ class Job(Workflow):
         title = self.private(result['issue_title'] or self.run['source']['title'])[:200]
         body = (self.private(result['issue_body'] or result['summary'])[:16000] +
                 f'\n\n---\nOpened by Reader for a coding job started from an article prompt.\n<!-- {marker} -->\n')
+        self.check_cancel()
         self.run['issue_pending'] = {'marker': marker}
         self.jobs.store.save(self.run)
+        self.check_cancel()  # A Stop acknowledged while the intent was saved creates no issue.
         step = self.step(f'Create an issue in {self.repo}')
         try:
             issue = self.github.create_issue(self.repo, title, body)

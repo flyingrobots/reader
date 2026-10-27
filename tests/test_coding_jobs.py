@@ -399,3 +399,37 @@ def test_a_failed_first_save_of_a_running_job_finishes_it_failed(world, monkeypa
     w.jobs.execute(run)  # Does not raise: the queue worker survives.
     done = w.jobs.store.load(run['id'])
     assert done['status'] == 'finished' and done['outcome'] == 'failed'
+
+
+def test_a_stop_while_the_issue_intent_is_saved_creates_no_issue(world, monkeypatch):
+    from coding_fixture import article
+    w = world()
+    (w.vault / w.doc).write_text(article(issue=None))
+    save, stopped = w.jobs.store.save, []
+
+    def stop_after_save(record):
+        save(record)
+        if record.get('issue_pending') and not stopped:
+            stopped.append(True)
+            assert w.jobs.stop(record['id'])['stopped']
+    monkeypatch.setattr(w.jobs.store, 'save', stop_after_save)
+    run, _ = w.run()
+    assert run['outcome'] == 'cancelled' and 'create_issue' not in w.github.calls
+
+
+def test_a_coding_job_with_hundreds_of_changed_files_stays_readable_in_the_log_inventory(world):
+    import sys
+    from pathlib import Path
+    from reader_mcp import llm_inventory
+    w = world()
+    fake = Path(__file__).with_name('fake_coding_cli.py')
+    w.agent.write_text(f'#!{sys.executable}\nimport pathlib,runpy,subprocess,sys\n'
+                       f'try: runpy.run_path({str(fake)!r},run_name="__main__")\n'
+                       'except SystemExit as exc: code=exc.code\n'
+                       'for i in range(800): pathlib.Path("src/"+str(i)+"-"+"x"*96).write_text("synthetic\\n")\n'
+                       'subprocess.run(["git","add","src"],check=True)\n'
+                       'subprocess.run(["git","commit","-qm","Synthetic broad change"],check=True)\n'
+                       'sys.exit(code)\n')
+    run, _ = w.run()
+    assert run['outcome'] == 'pr_opened', run['message']
+    assert llm_inventory.detail(w.vault, run['log'])['meta']['status'] == 'pr_opened'
