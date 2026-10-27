@@ -260,9 +260,9 @@ class Runner:
     def execute(self, run):
         capture = self.captures[run['id']]
         run.update(status='running', started_at=stamp(), message='Running')
-        self.store.save(run)
         outcome, message = 'failed', 'Reader stopped this job unexpectedly.'
         try:
+            self.store.save(run)  # Inside the handler: a failed write finishes the job, never the queue worker.
             entry = self.registry.entry(run['source']['repo'])
             if not entry:
                 raise Stop('blocked', f'{run["source"]["repo"]} is no longer registered.')

@@ -381,3 +381,21 @@ def test_stop_while_pull_requests_are_listed_opens_no_pull_request(world, monkey
     monkeypatch.setattr(w.github, 'pull_requests', stop)
     run, _ = w.run()
     assert run['outcome'] == 'cancelled' and 'create_pull_request' not in w.github.calls, run['message']
+
+
+def test_a_failed_first_save_of_a_running_job_finishes_it_failed(world, monkeypatch):
+    w = world()
+    w.jobs.work = lambda: None
+    admitted = w.jobs.submit(w.request())
+    run = w.jobs.store.load(admitted['id'])
+    save, failed = w.jobs.store.save, []
+
+    def fail_once(record):
+        if record['status'] == 'running' and not failed:
+            failed.append(True)
+            raise OSError(5, 'synthetic record write failure')
+        return save(record)
+    monkeypatch.setattr(w.jobs.store, 'save', fail_once)
+    w.jobs.execute(run)  # Does not raise: the queue worker survives.
+    done = w.jobs.store.load(run['id'])
+    assert done['status'] == 'finished' and done['outcome'] == 'failed'
