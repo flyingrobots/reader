@@ -242,6 +242,7 @@ class Runner:
         while not self.closed:
             self.wake.wait(1)
             self.wake.clear()
+            self.store.retry()
             while not self.closed:
                 with self.lock:
                     if not self.queue:
@@ -303,7 +304,10 @@ class Runner:
             except (OSError, ValueError) as exc:
                 run['archive_error'] = f'Sealing the run archive failed: {exc}'
         self.cancels.discard(run['id'])
-        self.store.save(run)
+        try:
+            self.store.save(run)
+        except OSError as exc:  # The store keeps the finished record in memory and retries; the runner carries on.
+            run['archive_error'] = f'Saving the finished run failed ({exc}); Reader keeps it in memory and retries.'
         llm_logs.forget_usage(self.root)
         self.live.release(run['id'])
         threading.Thread(target=self.commit_log, args=(run,), daemon=True).start()

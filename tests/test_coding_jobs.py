@@ -334,3 +334,23 @@ def test_stop_during_the_remote_lookup_starts_no_push(world, monkeypatch):
     monkeypatch.setattr(Job, 'remote_sha', stop)
     run, _ = w.run()
     assert run['outcome'] == 'cancelled' and 'refs/heads/' + run['git']['branch'] not in w.remote_heads()
+
+
+def test_finish_keeps_the_runner_alive_when_the_final_record_cannot_be_written(world, monkeypatch):
+    w = world()
+    w.jobs.work = lambda: None
+    run = w.jobs.submit(w.request())
+    record = w.jobs.store.load(run['id'])
+    write = w.jobs.store._write
+
+    def full(path, data):
+        if data.get('status') == 'finished':
+            raise OSError(28, 'synthetic full runtime disk')
+        write(path, data)
+    monkeypatch.setattr(w.jobs.store, '_write', full)
+    w.jobs.finish(record, 'failed', 'synthetic failure')  # Never raises.
+    # Reads see the finished run although its file could not be written; a later save retries it.
+    assert w.jobs.store.load(run['id'])['status'] == 'finished' and run['id'] not in w.jobs.live.events
+    monkeypatch.setattr(w.jobs.store, '_write', write)
+    w.jobs.store.retry()
+    assert json.loads((w.jobs.store.runtime / 'runs' / (run['id'] + '.json')).read_text())['status'] == 'finished'

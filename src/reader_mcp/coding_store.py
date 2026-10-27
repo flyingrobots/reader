@@ -49,6 +49,7 @@ class Store:
         self.root = Path(root).resolve()
         self.runtime = self.root / RUNTIME
         self.lock = threading.RLock()
+        self.unsaved = {}  # run id -> a record whose file could not be written; reads see it, retry() writes it.
 
     def folder(self, name):
         path = self.runtime / name
@@ -77,11 +78,28 @@ class Store:
     def save(self, run):
         with self.lock:
             run['updated_at'] = stamp()
-            self._write(self.folder('runs') / (run['id'] + '.json'), run)
+            try:
+                self._write(self.folder('runs') / (run['id'] + '.json'), run)
+            except OSError:
+                self.unsaved[run['id']] = json.loads(json.dumps(run))
+                raise
+            self.unsaved.pop(run['id'], None)
+
+    def retry(self):
+        """Write the records that could not be written earlier; those that still fail stay in memory."""
+        with self.lock:
+            for run in list(self.unsaved.values()):
+                try:
+                    self.save(run)
+                except OSError:
+                    pass
 
     def load(self, run_id):
         if not valid_id(run_id):
             raise ValueError('Expected a coding-job run ID')
+        with self.lock:
+            if run_id in self.unsaved:
+                return json.loads(json.dumps(self.unsaved[run_id]))
         return self._read(self.runtime / 'runs' / (run_id + '.json'))
 
     def runs(self):
@@ -99,6 +117,9 @@ class Store:
         for path in sorted(folder.glob('*.json'), key=written, reverse=True)[:MAX_RUNS]:
             if valid_id(path.stem) and (run := self._read(path)):
                 rows.append(run)
+        with self.lock:
+            unsaved = {run_id: json.loads(json.dumps(run)) for run_id, run in self.unsaved.items()}
+        rows = [unsaved.pop(run['id'], run) for run in rows] + list(unsaved.values())
         return sorted(rows, key=lambda run: run.get('created_at') or '', reverse=True)
 
     def request(self, request_id):
