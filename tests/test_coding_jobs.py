@@ -320,3 +320,17 @@ def test_the_push_sends_the_verified_commit_even_if_the_branch_moves(world, monk
     monkeypatch.setattr(Job, 'remote_sha', move)
     run, _ = w.run()
     assert w.remote_heads().get('refs/heads/' + run['git']['branch']) == run['git']['head_sha']
+
+
+def test_stop_during_the_remote_lookup_starts_no_push(world, monkeypatch):
+    from reader_mcp.coding_publish import Job
+    w = world()
+    remote = Job.remote_sha
+
+    def stop(self, ref):
+        if self.run['phase'] == 'push':
+            self.jobs.cancels.add(self.run['id'])
+        return remote(self, ref)
+    monkeypatch.setattr(Job, 'remote_sha', stop)
+    run, _ = w.run()
+    assert run['outcome'] == 'cancelled' and 'refs/heads/' + run['git']['branch'] not in w.remote_heads()

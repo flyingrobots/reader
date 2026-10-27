@@ -148,6 +148,7 @@ class Job(Workflow):
         existing = self.remote_sha('refs/heads/' + branch)
         if existing and existing != head:
             raise Stop('needs_reconciliation', f'{remote}/{branch} already exists at {existing[:12]}, not the verified head {head[:12]}.')
+        self.check_cancel()  # A Stop during the lookup above starts no push.
         if not existing:
             self.run['push'] = {'sha': head, 'sent': True, 'verified': False}
             self.jobs.store.save(self.run)
