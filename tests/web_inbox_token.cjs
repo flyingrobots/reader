@@ -24,7 +24,7 @@ const {chromium}=require(process.env.READER_PLAYWRIGHT || 'playwright-core');
    const response=await route.fetch(),data=await response.json();
    await route.fulfill({response,json:{...data,token:'previous-server-token'}});
   });
-  await page.goto(url+'#backstage');await page.locator('#inbox-mail').waitFor();await page.locator('#inbox-mail').click();
+  await page.goto(url+'#admin/inbox');await page.locator('#inbox-mail').waitFor();await page.locator('#inbox-mail').click();
   await page.waitForFunction(()=>inboxResponses.includes(200)||[...document.querySelectorAll('[data-sonner-toast]')].some(el=>el.textContent.includes('same-origin Reader token')));
   assert.equal(await page.locator('[data-sonner-toast]').filter({hasText:'A same-origin Reader token'}).count(),0,'a stale tab must refresh its token and start the inbox without a page reload');
   // A background write may refresh first; the user action must still start only one job.

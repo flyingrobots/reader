@@ -917,8 +917,8 @@ exercise modules through HTTP, so see the route table for those.
 | `scripts/verify_search_installation.py` | 74 | 66 | 4190 | 59 | 138 | 0.82 | 1 | 0 | 0 | 0 |
 | **total** | 23642 | 21049 | 1256198 | | | | | | | |
 
-Language-neutral code that a port keeps as is: `src/reader_mcp/web_ui/` (42 hand-written JS/CSS/HTML files, 8372 lines, excluding vendor/) plus the built `web_ui/controls/` bundle from `web/`.
-Tests: 64 pytest files, 715 test functions; 74 browser suites; 18 node unit files.
+Language-neutral code that a port keeps as is: `src/reader_mcp/web_ui/` (42 hand-written JS/CSS/HTML files, 8375 lines, excluding vendor/) plus the built `web_ui/controls/` bundle from `web/`.
+Tests: 64 pytest files, 715 test functions; 75 browser suites; 18 node unit files.
 
 ## Contract coverage
 
