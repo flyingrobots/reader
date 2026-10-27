@@ -22,6 +22,12 @@ RUNTIME = ROOT / '.reader/review'
 GIB = 1024**3
 
 
+def worker_name(kind, root=ROOT):
+    """Name the worker after its checkout, so validation in separate worktrees never collides."""
+    checkout = re.sub(r'[^a-z0-9_.-]+', '-', root.name.lower()).strip('-._') or 'checkout'
+    return 'reader-' + kind + '-checks-' + checkout[:64]
+
+
 def docker(*args, **kwargs):
     return subprocess.run(['docker', *args], check=True, **kwargs)
 
@@ -41,7 +47,7 @@ def main():
         if shutil.disk_usage(ROOT).free < 50 * GIB:
             raise RuntimeError('Host free space below 50 GiB')
         kind = args.kind
-        name = 'reader-' + kind + '-checks'
+        name = worker_name(kind)
         image = {'python':'python:3.12-bookworm','node':'node:24.18.0','formatter':'rust:1.96.0','web':'node:24.18.0'}[kind]
         docker('image', 'inspect', image, stdout=subprocess.DEVNULL)
         prior = subprocess.run(['docker', 'inspect', name], capture_output=True, text=True)
