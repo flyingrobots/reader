@@ -40,7 +40,7 @@ owning class. **Existing tests** counts browser suites (`tests/web_*.cjs`, `test
 | POST | `/api/prompt` | expensive (8, refuse 429) | participant | prompts.dispatch (Prompts) | — | 0 / 1 | write |
 | POST | `/api/service` | expensive (8, refuse 429) | action | service.act (Service) | — | 0 / 2 | write |
 | GET | `/api/library` | reads (32, wait 5.0 s then 429) | participant | bootstrap | — | 11 / 4 | read, security |
-| GET | `/api/document` | reads (32, wait 5.0 s then 429) | path, participant | document | — | 9 / 4 | read, security, vault-files, write |
+| GET | `/api/document` | reads (32, wait 5.0 s then 429) | path, participant | document | — | 10 / 4 | read, security, vault-files, write |
 | GET | `/api/search` | expensive (8, refuse 429) | q, mode, path_prefix, participant | search, search_read_status | — | 4 / 2 | read |
 | GET | `/api/search/page` | expensive (8, refuse 429) | project[], author[], type[], (other filter keys), q, mode, offset, limit, participant | search_page | — | 1 / 3 | read |
 | GET | `/api/discussion` | reads (32, wait 5.0 s then 429) | path, participant | annotations.list (Annotations), engagement.attention (Engagement) | — | 5 / 2 | read |
@@ -852,8 +852,8 @@ exercise modules through HTTP, so see the route table for those.
 | `scripts/verify_search_installation.py` | 74 | 66 | 4190 | 59 | 138 | 0.82 | 1 | 0 | 0 | 0 |
 | **total** | 21028 | 18748 | 1114442 | | | | | | | |
 
-Language-neutral code that a port keeps as is: `src/reader_mcp/web_ui/` (39 hand-written JS/CSS/HTML files, 8060 lines, excluding vendor/) plus the built `web_ui/controls/` bundle from `web/`.
-Tests: 55 pytest files, 619 test functions; 70 browser suites; 15 node unit files.
+Language-neutral code that a port keeps as is: `src/reader_mcp/web_ui/` (39 hand-written JS/CSS/HTML files, 8064 lines, excluding vendor/) plus the built `web_ui/controls/` bundle from `web/`.
+Tests: 55 pytest files, 619 test functions; 71 browser suites; 15 node unit files.
 
 ## Contract coverage
 
