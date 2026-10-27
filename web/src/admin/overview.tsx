@@ -81,4 +81,3 @@ export function Overview({context:c}:{context:AdminContext}){
     <p className="backstage-note admin-overview-note">Library holdings and reading statistics are in <AdminLink context={c} section="library">Library</AdminLink>.</p>
   </div>;
 }
-
