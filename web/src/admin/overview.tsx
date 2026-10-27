@@ -1,7 +1,8 @@
-/* Reader Admin › Overview: a read-only summary of the status Reader already polls (maintenance and inbox). It starts no
+/* Reader Admin › Overview: a read-only summary of the status Reader already polls (maintenance and inbox) and of active
+   coding jobs (read here every few seconds). It starts no
    check, rebuild, model or inbox run. Each tile says Loading, Unavailable (with the reason) or what is known; a status
    that could not be read is never shown as zero or as healthy. */
-import type {ReactNode} from 'react';
+import {useEffect, useState, type ReactNode} from 'react';
 import {Loader2Icon} from 'lucide-react';
 import {Badge} from '../components/ui/badge';
 import {Card, CardAction, CardContent, CardHeader, CardTitle} from '../components/ui/card';
@@ -9,6 +10,23 @@ import {AdminLink} from './link';
 import {checkState, INDEX_TITLES, jobOutcome, when} from '../backstage';
 import {plural} from '../plural';
 import type {AdminContext} from './sections';
+import {activeJobs, statusLabel, type JobRun} from '../jobs/store';
+import {needsReader} from '../static-demo';
+
+const JOBS_EVERY=5000;
+/** Active coding jobs, read every few seconds while the Overview is open (null until the first answer). */
+function useActiveJobs(){
+  const [jobs,setJobs]=useState<{runs:JobRun[]}|null>(null),[error,setError]=useState<string|null>(null);
+  useEffect(()=>{
+    if(needsReader('jobs'))return;
+    let live=true,timer:ReturnType<typeof setTimeout>|undefined;
+    const read=()=>activeJobs().then(result=>{if(live){setJobs(result);setError(null);}},(cause:unknown)=>{if(live)setError(cause instanceof Error?cause.message:String(cause));})
+      .finally(()=>{if(live)timer=setTimeout(read,JOBS_EVERY);});
+    read();
+    return ()=>{live=false;clearTimeout(timer);};
+  },[]);
+  return {jobs,error};
+}
 
 type TileState='loading'|'unavailable'|'ready';
 function Tile({id,title,state,badge,context,section,linkLabel,children}:{id:string;title:string;state:TileState;badge?:ReactNode;context:AdminContext;section:string;linkLabel:string;children:ReactNode}){
@@ -37,7 +55,7 @@ function attention(c:AdminContext){
 }
 
 export function Overview({context:c}:{context:AdminContext}){
-  const m=c.maintenance,inbox=c.inbox,lm=m?.local_model;
+  const m=c.maintenance,inbox=c.inbox,lm=m?.local_model,coding=useActiveJobs();
   const link=(section:string)=>({context:c,section});
   // Active work: maintenance jobs, the local model and the librarian, from the two status reads.
   const active:{key:string;text:ReactNode}[]=[];
@@ -46,6 +64,7 @@ export function Overview({context:c}:{context:AdminContext}){
   if(lm?.running)active.push({key:'local-model',text:'Local model working through its queue'});
   const run=inbox?.runner;
   if(c.inboxStarting||run&&['starting','running'].includes(run.status))active.push({key:'inbox',text:<>The librarian is filing the mail{run?.arrivals?<> · {plural(run.arrivals,'arrival')}</>:null}</>});
+  for(const job of coding.jobs?.runs||[])active.push({key:'coding-'+job.id,text:<><AdminLink context={c} section="jobs" params={[job.id]}>{job.source.title}</AdminLink> · {statusLabel(job)} in {job.source.repo}</>});
   // A tile is ready once both reads have answered (with status or an error); unavailable when neither has status.
   const known=!!(m||c.maintenanceError)&&!!(inbox||c.inboxError),combined:TileState=!known?'loading':!m&&!inbox?'unavailable':'ready';
   const activeState=combined,issues=attention(c),attentionState=combined;
@@ -56,9 +75,10 @@ export function Overview({context:c}:{context:AdminContext}){
         badge={active.length?<Badge className="backstage-badge"><Loader2Icon data-icon="inline-start" className="animate-spin" aria-hidden/>{active.length} running</Badge>:null}>
         {activeState==='loading'?<Loading/>:<>
           {active.length?<ul className="admin-list">{active.map(item=><li key={item.key}>{item.text}</li>)}</ul>
-            :m&&inbox?<p className="backstage-message">Nothing is running.</p>:null}
+            :m&&inbox&&(coding.jobs||needsReader('jobs'))&&!coding.error?<p className="backstage-message">Nothing is running.</p>:null}
           {!m&&c.maintenanceError?<Unavailable what="Index jobs" error={c.maintenanceError}/>:null}
-          {!inbox&&c.inboxError?<Unavailable what="Inbox runs" error={c.inboxError}/>:null}</>}
+          {!inbox&&c.inboxError?<Unavailable what="Inbox runs" error={c.inboxError}/>:null}
+          {coding.error?<Unavailable what="Coding jobs" error={coding.error}/>:null}</>}
       </Tile>
       <Tile id="inbox" title="Inbox" state={inbox?'ready':c.inboxError?'unavailable':'loading'} linkLabel="Open the inbox" {...link('inbox')}
         badge={inbox?<Badge variant={inbox.arrivals.length?'default':'secondary'} className="backstage-badge" data-arrivals={inbox.arrivals.length}>{inbox.arrivals.length?plural(inbox.arrivals.length,'arrival'):'Empty'}</Badge>:null}>

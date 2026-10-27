@@ -17,7 +17,7 @@
     "src/activity/transcript.tsx": "d7f7f6256f5a2cc10f3732be16174d3d1df5e9092eb705dbba4dc279d3976a18",
     "src/admin/admin-shell.tsx": "48b0a8d3a990c0225464fce0fc36bd7639c76e140110c8192e3968c91bf9a97f",
     "src/admin/link.tsx": "717f9b35be950c8623c6a0e3d822deb921ce681c493d273ae8562ca3f60cf027",
-    "src/admin/overview.tsx": "c3216d7cb86ea9db05a28bb72afe47ba784d38362b40c3e3bc7db08b917c5d10",
+    "src/admin/overview.tsx": "7a0b62d23f55319b897915ec25f7a739ff255c4b5f713176dd5324a28922d443",
     "src/admin/panels.tsx": "63bb07f043fdeb4ca168c4a8d39059fe434e1a4c97eb6c7fc14978190c0ffa06",
     "src/admin/sections.tsx": "feeaf9aeceb66444db5b04d493e399aa088e599a6985836206f2cbed75e23f8f",
     "src/art-regenerate.tsx": "8d0c621e0239e13fcf89a528747a15a0028e01722585b4156ba5db590fbcd7e9",
@@ -73,7 +73,7 @@
     "src/jobs/admin.tsx": "79bf0b00335a9107b2f247fbe89e989643c82d0d3d90ee51bda2cdaef0c5815e",
     "src/jobs/job-detail.tsx": "cc15b2046872163c75bb50cb688a941bf10785bc3b5fb24da3f4c633e8201988",
     "src/jobs/prompt-card.tsx": "b7cd5ebcad9c4d261c354a548b0e655848d187dc9a258298290df155f14cd82a",
-    "src/jobs/store.ts": "22278daebf26329cfb5804fab5d8ddeccde69bc645e3f9f60bd6db900eaf3c7b",
+    "src/jobs/store.ts": "c6d23eb529a7779c64705ba34c01feb372b6a6e6ae6b983ce3e1d01bd64bf758",
     "src/local-model.tsx": "1e833a07054251a762107dec44e55650138f0ba5ba935180806ee8fa1ba5a043",
     "src/log-block.tsx": "bc4bd556c2366d9578b40718911491290bc95ff67c2b3bc0cf124871aaa6105a",
     "src/markdown-editor.ts": "88b1c43e194e5efe4c0a87824ad238df80640f48fafa180a6349ec11752eb1da",
@@ -913,8 +913,8 @@
       "sha256": "825cd9722c2b5ee27ae4f089679d7094b0b82a2b8a222488f9fe6152c26d0913"
     },
     "reader-controls.js": {
-      "bytes": 1080515,
-      "sha256": "57bb4768a08207b5d3615fca2fdee88b9a400ff63c025461406d6e4b8c25a99a"
+      "bytes": 1081238,
+      "sha256": "53da3a2ed24f7bbb4b1ec4533b4a6b58b31b28ae0344da2191d7354a39d5103c"
     },
     "reader-controls.js.LEGAL.txt": {
       "bytes": 5935,

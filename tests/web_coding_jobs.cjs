@@ -135,6 +135,20 @@ async function fixture(flags){
    assert.deepEqual(errors,[]);
    await context.close();
   }
+  // Reader Admin's Overview lists a coding job while it runs (a slow fake agent keeps it running).
+  {const {child,url}=await fixture(['--coding-scenario',JSON.stringify({sleep:20})]);children.push(child);
+   const {context,page,errors}=await open(url);
+   await read(page,url);
+   await page.waitForFunction(()=>!document.querySelector('[data-prompt-run]')?.disabled,null,{timeout:10000});
+   await page.locator('[data-prompt-card="bound-parser-depth"] [data-prompt-run]').click();
+   await page.locator('.job-summary').waitFor();
+   await page.goto(url+'#admin');
+   await page.waitForFunction(()=>/Bound parser depth/.test(document.querySelector('[data-overview="active"]')?.textContent||''),null,{timeout:10000});
+   assert.doesNotMatch(await page.locator('[data-overview="active"]').textContent(),/Nothing is running/);
+   await shot(page,'admin-overview-active');
+   assert.deepEqual(errors,[]);
+   await context.close();
+  }
   console.log('web_coding_jobs: ok');
  }finally{
   await browser?.close();

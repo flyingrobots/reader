@@ -90,6 +90,9 @@ export function useJob(id:string|null):JobState{
 /** Seed an entry with a run the server just returned (an admission), so its card shows it at once. */
 export function seedJob(run:JobRun){const item=entry(run.id);if(!item.state.run)publish(item,{run});}
 
+/** Active coding jobs (queued or running), for Reader Admin's Overview. Read-only. */
+export function activeJobs():Promise<{runs:JobRun[]}>{return api('/api/jobs?state=active');}
+
 export async function submitJob(body:{request_id:string;path:string;sha256:string;block_id:string;prompt:string;agent:string;predecessor?:string|null}):Promise<JobRun>{
   const run=await api('/api/jobs',{action:'submit',...body,...(body.predecessor?{}:{predecessor:undefined})});
   seedJob(run);return run;
