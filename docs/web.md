@@ -3847,7 +3847,7 @@ synthetic fixture, walks every GET route the router names (read from `web.py`, s
 routes are covered) and fails if any answer contains the fixture vault, the home
 folder, the code checkout or the Python executable. A refused request gets 403: JSON
 for `/api/*`, a plain *Not allowed* page otherwise. Writes also require JSON plus a
-random session token, issued with `/api/library`; Reader sets no cookies. CSP limits scripts, workers and
+random session token, issued with `/api/library`; Reader sets no cookies. After a restart, an open tab refreshes its token through the small, uncached `GET /api/token` endpoint and retries its unchanged JSON request once. Refresh is triggered only by HTTP 403 with `code: reader_token_expired`, emitted before reading a request body or running an action. Concurrent writes in a tab share that refresh. Other permission errors, invalid content types, failed refreshes and uncertain network failures do not replay an action. The token endpoint retains the normal Host, Origin and proxy identity checks. CSP limits scripts, workers and
 connections to this origin; raw files are sandboxed. Library paths must be
 normalized, nonhidden and free of symlinks. Text documents are limited to 4 MiB,
 other originals to 256 MiB, inventories to 10,000 works and POST bodies to 128 KiB

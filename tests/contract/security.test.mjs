@@ -103,6 +103,21 @@ async function receipt() {
 }
 
 describe('writes: token, JSON and body limits', () => {
+  test('a token-only refresh keeps identity checks and marks only rejected preflights', async () => {
+    const fresh = await server.get('/api/token');
+    assert.equal(fresh.status, 200);
+    assert.equal(fresh.json.token, await server.ensureToken());
+    assert.equal(fresh.headers['cache-control'], 'no-store');
+    assertShape('token', fresh.json);
+    const expired = refused(await server.post('/api/seen', await receipt(), {token: 'previous-process'}));
+    assert.equal(expired.json.code, 'reader_token_expired');
+    assertShape('error-token', expired.json);
+    const origin = refused(await server.raw('GET', '/api/token', {headers: {Origin: 'https://untrusted.example'}}));
+    assert.equal(origin.json.token, undefined);
+    assert.equal(origin.json.code, undefined);
+    const media = refused(await server.post('/api/seen', await receipt(), {headers: {'Content-Type': 'text/plain'}}));
+    assert.equal(media.json.code, undefined);
+  });
   test('a write without the token, with a wrong token or not as JSON is refused', async () => {
     const body = await receipt();
     refused(await server.post('/api/seen', body, {token: null}));
