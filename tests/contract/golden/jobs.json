@@ -1,0 +1,12 @@
+{
+ "object": {
+  "configured": "boolean",
+  "next": "null",
+  "owner": "boolean",
+  "read_only": "boolean",
+  "runs": {
+   "array": "empty"
+  },
+  "total": "number"
+ }
+}

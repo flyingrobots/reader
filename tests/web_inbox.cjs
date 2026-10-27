@@ -1,4 +1,4 @@
-/* Inbox on Behind the scenes: arrivals, previews, You got mail, Stop, held claims. A fake Codex only. */
+/* Inbox on Reader Admin's Inbox page: arrivals, previews, You got mail, Stop, held claims. A fake Codex only. */
 const assert=require('node:assert/strict');
 const {spawn}=require('node:child_process');
 const {createInterface}=require('node:readline');
@@ -19,10 +19,10 @@ const {chromium}=require(process.env.READER_PLAYWRIGHT||'playwright-core');
   page.on('request',r=>{if(!r.url().startsWith(url))external.push(r.url());if(r.method()==='POST')writes.push(new URL(r.url()).pathname+' '+(r.postData()||''));});
   const toast=text=>page.locator('[data-sonner-toast]').filter({hasText:text});
   // The list, titles from receipts, and the footer count.
-  await page.goto(url+'#backstage');await page.locator('#inbox .inbox-arrival').first().waitFor();
+  await page.goto(url+'#admin/inbox');await page.locator('#inbox .inbox-arrival').first().waitFor();
   assert.equal(await page.locator('#settings-open span').textContent(),'Backstage · 3');
   assert.deepEqual(await page.locator('.inbox-arrival-title').allTextContents(),['Synthetic spec ninety','Synthetic spec ninety-one','A loose dropped note']);
-  assert.ok(await page.evaluate(()=>{const inbox=document.querySelector('#backstage-inbox'),indexes=document.querySelector('#indexes-title');return !!(inbox.compareDocumentPosition(indexes)&Node.DOCUMENT_POSITION_FOLLOWING);}),'the inbox comes first while mail waits');
+  assert.equal(await page.locator('#admin-title').textContent(),'Inbox','the inbox is its own page');
   assert.match(await page.locator('[data-arrival="11111111-1111-4111-8111-111111111111"]').textContent(),/Claude · Reader · 2026-10-24 via Synthetic courier/);
   assert.equal(await page.locator('[data-arrival="11111111-1111-4111-8111-111111111111"] [data-integrity]').getAttribute('data-integrity'),'intact');
   assert.equal(await page.locator('[data-arrival="loose-note.md"] [data-integrity]').textContent(),'No receipt');
@@ -143,11 +143,11 @@ const {chromium}=require(process.env.READER_PLAYWRIGHT||'playwright-core');
   // Stop during a slow run.
   writeFileSync(join(root,'.fake-slow'),'');
   mkdirSync(join(root,'inbox/33333333-3333-4333-8333-333333333333'));writeFileSync(join(root,'inbox/33333333-3333-4333-8333-333333333333/late.md'),'# A late arrival\n');
-  await page.goto(url+'#backstage');await page.reload();await page.locator('[data-arrival="33333333-3333-4333-8333-333333333333"]').waitFor();
+  await page.goto(url+'#admin/inbox');await page.reload();await page.locator('[data-arrival="33333333-3333-4333-8333-333333333333"]').waitFor();
   assert.equal(await page.locator('#settings-open span').textContent(),'Backstage · 1');
   // A second tab whose status is stale: its click is refused with 409 and it joins the run instead of erroring.
   const other=await context.newPage();other.on('pageerror',e=>errors.push(e.message));
-  await other.goto(url+'#backstage');await other.locator('#inbox-mail:not([disabled])').waitFor();
+  await other.goto(url+'#admin/inbox');await other.locator('#inbox-mail:not([disabled])').waitFor();
   await page.locator('#inbox-mail').click();await page.locator('#inbox-stop:not([disabled])').waitFor({timeout:8000});
   const refused=other.waitForResponse(r=>r.url().endsWith('/api/inbox')&&r.request().method()==='POST');
   await other.locator('#inbox-mail').click();
@@ -175,10 +175,12 @@ const {chromium}=require(process.env.READER_PLAYWRIGHT||'playwright-core');
   await page.reload();await page.locator('#inbox-blocked[data-reason=claims]').waitFor();
   assert.ok(await page.locator('#inbox-mail').isDisabled());assert.match(await page.locator('#inbox-blocked').textContent(),/Filing already assigned/);
   rmSync(join(root,'.reader/upkeep-claims.json'));
-  // Host access is an explicit setting, sent as the sandbox mode.
+  // Host access is an explicit setting (on Reader Admin's Settings page), sent as the sandbox mode.
+  await page.locator('[data-admin-nav=settings]').click();await page.locator('#preferences-form').waitFor();
   await page.locator('#inbox-sandbox').click();await page.getByRole('option',{name:'Host access',exact:true}).click();await page.locator('[data-slot=select-content][data-open]').waitFor({state:'hidden'});
   await page.locator('#preferences-form button[type=submit]').click();await toast('Preferences saved.').waitFor();
   assert.equal(await page.evaluate(()=>JSON.parse(localStorage.getItem('reader.preferences.v1')).inboxSandbox),'danger-full-access');
+  await page.locator('[data-admin-nav=inbox]').click();await page.locator('#inbox').waitFor();
   await page.setViewportSize({width:390,height:844});await page.locator('#inbox').scrollIntoViewIfNeeded();await page.waitForTimeout(200);
   assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),'no horizontal scroll at phone width');
   if(await page.locator('#inbox .activity-log').count()){

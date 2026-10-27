@@ -142,6 +142,28 @@ describe('chats, quizzes, prompts and writing', () => {
   test('GET /api/writing', () => shape('writing', '/api/writing'));
 });
 
+describe('coding jobs and LLM logs', () => {
+  test('GET /api/jobs (no runs yet)', async () => {
+    const body = await shape('jobs', '/api/jobs');
+    assert.deepEqual(body.runs, []);
+  });
+  test('GET /api/jobs/actions for an article without prompt blocks', () => shape('jobs-actions', '/api/jobs/actions', {path: ESSAY}));
+  test('GET /api/jobs/run, /events and /artifact refuse an unknown run', async () => {
+    await shape('error', '/api/jobs/run', {id: 'no-such-run'}, 400);
+    await shape('error', '/api/jobs/events', {id: 'no-such-run', after: 0}, 400);
+    await shape('error', '/api/jobs/artifact', {id: 'no-such-run', name: 'prompt.txt'}, 400);
+  });
+  test('GET /api/jobs/stream refuses an unknown run', () => shape('error', '/api/jobs/stream', {id: 'no-such-run', after: 0}, 400));
+  test('GET /api/repositories (none registered)', () => shape('repositories', '/api/repositories'));
+  test('GET /api/logs, and /api/logs/run and /artifact refuse paths outside the archive', async () => {
+    const page = await shape('logs', '/api/logs');
+    assert.ok(page.kinds.includes('coding-job'));
+    await shape('error', '/api/logs', {kind: 'no-such-kind'}, 400);
+    await shape('error', '/api/logs/run', {path: '../outside'}, 400);
+    await shape('error', '/api/logs/artifact', {path: '../outside', name: 'prompt.txt'}, 400);
+  });
+});
+
 describe('art, themes and fonts', () => {
   test('GET /api/art', () => shape('art', '/api/art', {path: ESSAY}));
   test('GET /api/art/prompt', () => shape('art-prompt', '/api/art/prompt', {path: ESSAY}));

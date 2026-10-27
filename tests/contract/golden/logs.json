@@ -1,0 +1,12 @@
+{
+ "object": {
+  "kinds": {
+   "array": "string"
+  },
+  "next": "null",
+  "retention": "string",
+  "runs": {
+   "array": "empty"
+  }
+ }
+}

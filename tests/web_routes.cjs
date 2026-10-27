@@ -36,9 +36,9 @@ const {chromium}=require(process.env.READER_PLAYWRIGHT||'playwright-core');
   await page.getByRole('link',{name:'the far section'}).click();await page.waitForFunction(()=>decodeURIComponent(location.hash).startsWith('#read=library/far.md'));await settled();
   await page.locator('#main').focus();await page.keyboard.press('h');assert.ok(await at('Linker'),'h goes back to the hash-arrived document');
   await page.locator('#main').focus();await page.keyboard.press('l');assert.ok(await at('Far document'));
-  // A fresh #read= landing, then Behind the scenes: h returns to the document.
+  // A fresh #read= landing, then Reader Admin (Settings): h returns to the document.
   await page.goto(url+'/?fresh=3#read='+encodeURIComponent('library/linker.md'));await settled();
-  await page.locator('#main').focus();await page.keyboard.press('Space');await page.keyboard.press('p');await page.waitForFunction(()=>location.hash==='#backstage');
+  await page.locator('#main').focus();await page.keyboard.press('Space');await page.keyboard.press('p');await page.waitForFunction(()=>location.hash==='#admin/settings');
   await page.locator('#main').focus();await page.keyboard.press('h');assert.ok(await at('Linker'),'h after landing and Space p');
   // #52: a missing document shows one clear message and no toast.
   await page.goto(url+'/?fresh=4#read='+encodeURIComponent('library/no-such-folder/missing.md'));

@@ -1,4 +1,4 @@
-/* Index budgets on the Behind the scenes cards, other inventories, and a rebuild stopped at its time limit. */
+/* Index budgets on Reader Admin's Indexes cards, other inventories, and a rebuild stopped at its time limit. */
 const assert=require('node:assert/strict');
 const {spawn}=require('node:child_process');
 const {createInterface}=require('node:readline');
@@ -14,7 +14,7 @@ const {chromium}=require(process.env.READER_PLAYWRIGHT||'playwright-core');
   const context=await browser.newContext({viewport:{width:1300,height:900},reducedMotion:'reduce'});
   await context.addInitScript(()=>{try{localStorage.setItem('reader.preferences.v1',JSON.stringify({smooth:false,theme:'paper'}));}catch{}});
   const page=await context.newPage();page.on('pageerror',e=>errors.push(e.message));page.on('console',m=>{if(m.type()==='error')errors.push(m.text());});page.on('request',r=>{if(!r.url().startsWith(url))external.push(r.url());});
-  await page.goto(url+'#backstage');await page.locator('#backstage').waitFor();
+  await page.goto(url+'#admin/indexes');await page.locator('#backstage-indexes').waitFor();
   const fact=(index,label)=>page.locator(`[data-index=${index}] [data-fact="${label}"] dd`);
   await page.locator('[data-index=search][data-state=partial]').waitFor({timeout:20000});
   assert.match(await fact('search','Passages').textContent(),/^\d+ of 1,000$/);

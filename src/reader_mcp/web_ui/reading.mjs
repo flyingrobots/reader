@@ -1,7 +1,7 @@
 /** Quiet reading chrome, real column pagination, and version-bound resume positions. */
 import {codePointOffset} from './logic.mjs';
 import {shownTop} from './place.mjs';
-export function installReading({scratchStatus, statusOverride, onStatus, mayCurl, controls, state, api, toast, openPreferences, openThread, revealRange, scrollToPosition, savePrefs, reloadDocument, positionPins, updateBreadcrumbs, keyStatus = () => null}) {
+export function installReading({scratchStatus, statusOverride, onStatus, mayCurl, controls, state, api, toast, openAdmin, openThread, revealRange, scrollToPosition, savePrefs, reloadDocument, positionPins, updateBreadcrumbs, keyStatus = () => null}) {
   const $ = selector => document.querySelector(selector);
   const clamp = n => Math.max(0, Math.min(1, n));
   let turner=null,turnerLoad=null,turnerModule=null;
@@ -47,12 +47,12 @@ export function installReading({scratchStatus, statusOverride, onStatus, mayCurl
     else if(state.view==='issue'&&!state.doc){keys='<kbd>j k</kbd> pieces <kbd>↵</kbd> open <kbd>g c</kbd> cover <kbd>[ ]</kbd> issues <kbd>Space e</kbd> files';}
     else if(state.view==='search'&&!active?.matches('input,textarea')){mode='SEARCH';keys='<kbd>j k</kbd> passages <kbd>J K</kbd> works <kbd>Enter</kbd> open <kbd>o</kbd> new tab <kbd>/</kbd> query <kbd>Esc</kbd> back';}
     else if(state.view==='search'){mode='SEARCH';keys='<kbd>↓</kbd> results <kbd>Enter</kbd> open <kbd>Esc</kbd> results';}
-    else if(state.view==='backstage'){mode='BACKSTAGE';keys='<kbd>Tab</kbd> move <kbd>h</kbd> back <kbd>Space h</kbd> home';}
+    else if(state.view==='admin'){mode='ADMIN';keys='<kbd>Tab</kbd> move <kbd>h</kbd> back <kbd>Space p</kbd> settings <kbd>Space h</kbd> home';}
     else if(book){keys='<kbd>j k</kbd> or wheel to turn <kbd>/</kbd> find <kbd>Space e</kbd> files';}
     // Mode changes are announced once, for screen readers; the label itself is not a live region.
     if($('#vim-mode').dataset.mode&&$('#vim-mode').dataset.mode!==mode&&$('#mode-live'))$('#mode-live').textContent=mode==='NORMAL'?'Normal mode':mode.charAt(0)+mode.slice(1).toLowerCase()+' mode';
     $('#vim-mode').textContent=mode;$('#vim-mode').dataset.mode=mode;$('#status-keys').innerHTML=keys;
-    updateBreadcrumbs(state.doc?.path || (state.view==='backstage'?':backstage':state.view==='search'?':search':null));
+    updateBreadcrumbs(state.doc?.path || (state.view==='admin'?state.adminPath:state.view==='search'?':search':null));
     $('#status-position').textContent=state.doc?Math.round(progress()*100)+'%':scratch?scratch.position:'';
     controls.update({value:clamp(progress()),words,pdfPages:state.doc?.kind==='.pdf'?(state.pdf?.count||0):null,pace:state.prefs.pace||220,spread:book?Math.round(book.viewport.scrollLeft/book.stride):0,spreads:book?.spreads||0,pages:book?.pages||0,columns:book?.columns||2,theme:state.prefs.theme});
 
@@ -203,7 +203,7 @@ export function installReading({scratchStatus, statusOverride, onStatus, mayCurl
     }
     controls.update({pips});update();
   }
-  $('#settings-open').onclick=openPreferences;
+  $('#settings-open').onclick=()=>openAdmin();  // The footer's Backstage: Reader Admin's Overview.
 
   $('#layout-swap').onclick=async()=>{await save();state.prefs.layout=state.prefs.layout==='spread'?'scroll':'spread';savePrefs();if(state.doc)await reloadDocument();else updateStatus();};
   document.addEventListener('keydown',event=>{if((event.metaKey||event.ctrlKey)&&event.key==='Enter'&&event.target.matches('textarea')){event.preventDefault();event.target.closest('form')?.requestSubmit();}queueMicrotask(updateStatus);});

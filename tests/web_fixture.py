@@ -727,7 +727,18 @@ def main():
                 {'id': 'art-ownedwait000', 'path': 'library/issue/keep.md', 'title': 'The owner queued this', 'sha256': '0' * 64, 'producer': 'voice:Painter',
                  'producer_label': 'Painter', 'model': 'fake-model-1', 'state': 'queued', 'stage': None, 'message': 'Waiting to start',
                  'queued_at': '2026-01-01T00:00:01+00:00', 'owner_pid': 999999, 'auto': True}]}, indent=1) + '\n')
-        library = WebLibrary(root, writing_options=writing_options, font_fetcher=fetcher, maintenance_runners=runners, inbox_environ=inbox_environ, chat_options=chat_options, local_model=local, prose=prose, service_runner=service, companions=companions, art_options=art_options)
+        coding_options, coding_world = None, None
+        if '--coding' in sys.argv:
+            # Coding jobs (RW-44): library/audit.md carries a prompt block for acme/widget, registered against a real local Git
+            # fixture (a bare "remote", a dirty checkout, a worktree folder) outside the vault, with a fake coding CLI and an
+            # in-process fake GitHub. `--coding-scenario JSON` sets the fake agent's behavior (tests/fake_coding_cli.py).
+            sys.path.insert(0, str(Path(__file__).resolve().parent))
+            from coding_fixture import World
+            scenario = json.loads(sys.argv[sys.argv.index('--coding-scenario') + 1]) if '--coding-scenario' in sys.argv else {}
+            coding_world = World(Path(tempfile.mkdtemp(prefix='reader-coding-fixture-')), vault=root, scenario=scenario,
+                                 verify_exit=1 if '--coding-verify-fails' in sys.argv else 0)
+            coding_options = coding_world.options()
+        library = WebLibrary(root, writing_options=writing_options, font_fetcher=fetcher, maintenance_runners=runners, inbox_environ=inbox_environ, chat_options=chat_options, local_model=local, prose=prose, service_runner=service, companions=companions, art_options=art_options, coding_options=coding_options)
         if art_options and '--art-none' not in sys.argv:
             from reader_mcp.art import PROMPT_VERSIONS
             from reader_mcp.art_scene import validate
@@ -763,6 +774,8 @@ def main():
                 fake.close()
             import shutil
             shutil.rmtree(speech_folder, ignore_errors=True)
+            if coding_world:
+                shutil.rmtree(coding_world.tmp, ignore_errors=True)
 
 
 class ConceptModel:

@@ -1,0 +1,589 @@
+[
+ {
+  "name": "authoring guide format",
+  "markdown": "<!-- reader:prompt {\"v\":1,\"id\":\"bound-parser-depth\",\"title\":\"Bound source parser nesting\",\"repo\":\"acme/widget\",\"issue\":277} -->\n\n```text\nCheck the current state of issue #277 and the parser before changing anything.\nA synthetic audit reports that deeply nested input aborts the compiler.\nIf the problem is already fixed, report the evidence and existing PR, then stop.\n\nOtherwise, reproduce it within the repository's resource limits and add a regression.\nFollow the repository's AGENTS.md and guarded validation workflow. Commit the verified change\non the assigned worktree branch. Reader will verify and publish the branch/PR.\n```\n\n<!-- /reader:prompt -->\n",
+  "blocks": [
+   "bound-parser-depth"
+  ],
+  "rejected": []
+ },
+ {
+  "name": "no blank lines between the parts",
+  "markdown": "<!-- reader:prompt {\"v\":1,\"id\":\"bound-parser-depth\",\"title\":\"Bound source parser nesting\",\"repo\":\"acme/widget\",\"issue\":277} -->\n```text\nCheck the current state of issue #277 and the parser before changing anything.\nA synthetic audit reports that deeply nested input aborts the compiler.\nIf the problem is already fixed, report the evidence and existing PR, then stop.\n\nOtherwise, reproduce it within the repository's resource limits and add a regression.\nFollow the repository's AGENTS.md and guarded validation workflow. Commit the verified change\non the assigned worktree branch. Reader will verify and publish the branch/PR.\n```\n<!-- /reader:prompt -->\n",
+  "blocks": [
+   "bound-parser-depth"
+  ],
+  "rejected": []
+ },
+ {
+  "name": "tilde fence and several blank lines",
+  "markdown": "<!-- reader:prompt {\"v\":1,\"id\":\"bound-parser-depth\",\"title\":\"Bound source parser nesting\",\"repo\":\"acme/widget\",\"issue\":277} -->\n\n\n\n~~~~text\nCheck the current state of issue #277 and the parser before changing anything.\nA synthetic audit reports that deeply nested input aborts the compiler.\nIf the problem is already fixed, report the evidence and existing PR, then stop.\n\nOtherwise, reproduce it within the repository's resource limits and add a regression.\nFollow the repository's AGENTS.md and guarded validation workflow. Commit the verified change\non the assigned worktree branch. Reader will verify and publish the branch/PR.\n~~~~\n\n\n\n<!-- /reader:prompt -->\n",
+  "blocks": [
+   "bound-parser-depth"
+  ],
+  "rejected": []
+ },
+ {
+  "name": "null issue asks Reader to create one",
+  "markdown": "<!-- reader:prompt {\"v\":1,\"id\":\"bound-parser-depth\",\"title\":\"Bound source parser nesting\",\"repo\":\"acme/widget\",\"issue\":null} -->\n\n```text\nCheck the current state of issue #277 and the parser before changing anything.\nA synthetic audit reports that deeply nested input aborts the compiler.\nIf the problem is already fixed, report the evidence and existing PR, then stop.\n\nOtherwise, reproduce it within the repository's resource limits and add a regression.\nFollow the repository's AGENTS.md and guarded validation workflow. Commit the verified change\non the assigned worktree branch. Reader will verify and publish the branch/PR.\n```\n\n<!-- /reader:prompt -->\n",
+  "blocks": [
+   "bound-parser-depth"
+  ],
+  "rejected": []
+ },
+ {
+  "name": "a paragraph directly before the opener",
+  "markdown": "Some prose.\n<!-- reader:prompt {\"v\":1,\"id\":\"bound-parser-depth\",\"title\":\"Bound source parser nesting\",\"repo\":\"acme/widget\",\"issue\":277} -->\n\n```text\nCheck the current state of issue #277 and the parser before changing anything.\nA synthetic audit reports that deeply nested input aborts the compiler.\nIf the problem is already fixed, report the evidence and existing PR, then stop.\n\nOtherwise, reproduce it within the repository's resource limits and add a regression.\nFollow the repository's AGENTS.md and guarded validation workflow. Commit the verified change\non the assigned worktree branch. Reader will verify and publish the branch/PR.\n```\n\n<!-- /reader:prompt -->\n",
+  "blocks": [
+   "bound-parser-depth"
+  ],
+  "rejected": []
+ },
+ {
+  "name": "CRLF line endings",
+  "markdown": "<!-- reader:prompt {\"v\":1,\"id\":\"bound-parser-depth\",\"title\":\"Bound source parser nesting\",\"repo\":\"acme/widget\",\"issue\":277} -->\r\n\r\n```text\r\nCheck the current state of issue #277 and the parser before changing anything.\r\nA synthetic audit reports that deeply nested input aborts the compiler.\r\nIf the problem is already fixed, report the evidence and existing PR, then stop.\r\n\r\nOtherwise, reproduce it within the repository's resource limits and add a regression.\r\nFollow the repository's AGENTS.md and guarded validation workflow. Commit the verified change\r\non the assigned worktree branch. Reader will verify and publish the branch/PR.\r\n```\r\n\r\n<!-- /reader:prompt -->\r\n",
+  "blocks": [
+   "bound-parser-depth"
+  ],
+  "rejected": []
+ },
+ {
+  "name": "two independent blocks",
+  "markdown": "<!-- reader:prompt {\"v\":1,\"id\":\"bound-parser-depth\",\"title\":\"Bound source parser nesting\",\"repo\":\"acme/widget\",\"issue\":277} -->\n\n```text\nCheck the current state of issue #277 and the parser before changing anything.\nA synthetic audit reports that deeply nested input aborts the compiler.\nIf the problem is already fixed, report the evidence and existing PR, then stop.\n\nOtherwise, reproduce it within the repository's resource limits and add a regression.\nFollow the repository's AGENTS.md and guarded validation workflow. Commit the verified change\non the assigned worktree branch. Reader will verify and publish the branch/PR.\n```\n\n<!-- /reader:prompt -->\n\n<!-- reader:prompt {\"v\":1,\"id\":\"second-task\",\"title\":\"Bound source parser nesting\",\"repo\":\"acme/widget\",\"issue\":12} -->\n\n```text\nCheck the current state of issue #277 and the parser before changing anything.\nA synthetic audit reports that deeply nested input aborts the compiler.\nIf the problem is already fixed, report the evidence and existing PR, then stop.\n\nOtherwise, reproduce it within the repository's resource limits and add a regression.\nFollow the repository's AGENTS.md and guarded validation workflow. Commit the verified change\non the assigned worktree branch. Reader will verify and publish the branch/PR.\n```\n\n<!-- /reader:prompt -->\n",
+  "blocks": [
+   "bound-parser-depth",
+   "second-task"
+  ],
+  "rejected": []
+ },
+ {
+  "name": "example inside a markdown fence",
+  "markdown": "````markdown\n<!-- reader:prompt {\"v\":1,\"id\":\"bound-parser-depth\",\"title\":\"Bound source parser nesting\",\"repo\":\"acme/widget\",\"issue\":277} -->\n\n```text\nCheck the current state of issue #277 and the parser before changing anything.\nA synthetic audit reports that deeply nested input aborts the compiler.\nIf the problem is already fixed, report the evidence and existing PR, then stop.\n\nOtherwise, reproduce it within the repository's resource limits and add a regression.\nFollow the repository's AGENTS.md and guarded validation workflow. Commit the verified change\non the assigned worktree branch. Reader will verify and publish the branch/PR.\n```\n\n<!-- /reader:prompt -->\n````\n",
+  "blocks": [],
+  "rejected": []
+ },
+ {
+  "name": "example inside a tilde fence",
+  "markdown": "~~~\n<!-- reader:prompt {\"v\":1,\"id\":\"bound-parser-depth\",\"title\":\"Bound source parser nesting\",\"repo\":\"acme/widget\",\"issue\":277} -->\n\n```text\nCheck the current state of issue #277 and the parser before changing anything.\nA synthetic audit reports that deeply nested input aborts the compiler.\nIf the problem is already fixed, report the evidence and existing PR, then stop.\n\nOtherwise, reproduce it within the repository's resource limits and add a regression.\nFollow the repository's AGENTS.md and guarded validation workflow. Commit the verified change\non the assigned worktree branch. Reader will verify and publish the branch/PR.\n```\n\n<!-- /reader:prompt -->\n~~~\n",
+  "blocks": [],
+  "rejected": []
+ },
+ {
+  "name": "inside a blockquote",
+  "markdown": "> <!-- reader:prompt {\"v\":1,\"id\":\"bound-parser-depth\",\"title\":\"Bound source parser nesting\",\"repo\":\"acme/widget\",\"issue\":277} -->\n> \n> ```text\n> Check the current state of issue #277 and the parser before changing anything.\n> A synthetic audit reports that deeply nested input aborts the compiler.\n> If the problem is already fixed, report the evidence and existing PR, then stop.\n> \n> Otherwise, reproduce it within the repository's resource limits and add a regression.\n> Follow the repository's AGENTS.md and guarded validation workflow. Commit the verified change\n> on the assigned worktree branch. Reader will verify and publish the branch/PR.\n> ```\n> \n> <!-- /reader:prompt -->\n",
+  "blocks": [],
+  "rejected": []
+ },
+ {
+  "name": "inside a list item",
+  "markdown": "- item\n\n  <!-- reader:prompt {\"v\":1,\"id\":\"bound-parser-depth\",\"title\":\"Bound source parser nesting\",\"repo\":\"acme/widget\",\"issue\":277} -->\n\n  ```text\n  Check the current state of issue #277 and the parser before changing anything.\n  A synthetic audit reports that deeply nested input aborts the compiler.\n  If the problem is already fixed, report the evidence and existing PR, then stop.\n\n  Otherwise, reproduce it within the repository's resource limits and add a regression.\n  Follow the repository's AGENTS.md and guarded validation workflow. Commit the verified change\n  on the assigned worktree branch. Reader will verify and publish the branch/PR.\n  ```\n\n  <!-- /reader:prompt -->\n",
+  "blocks": [],
+  "rejected": []
+ },
+ {
+  "name": "inside display math",
+  "markdown": "$$\n<!-- reader:prompt {\"v\":1,\"id\":\"bound-parser-depth\",\"title\":\"Bound source parser nesting\",\"repo\":\"acme/widget\",\"issue\":277} -->\n\n```text\nCheck the current state of issue #277 and the parser before changing anything.\nA synthetic audit reports that deeply nested input aborts the compiler.\nIf the problem is already fixed, report the evidence and existing PR, then stop.\n\nOtherwise, reproduce it within the repository's resource limits and add a regression.\nFollow the repository's AGENTS.md and guarded validation workflow. Commit the verified change\non the assigned worktree branch. Reader will verify and publish the branch/PR.\n```\n\n<!-- /reader:prompt -->\n$$\n",
+  "blocks": [],
+  "rejected": []
+ },
+ {
+  "name": "inside an HTML block",
+  "markdown": "<div>\n<!-- reader:prompt {\"v\":1,\"id\":\"bound-parser-depth\",\"title\":\"Bound source parser nesting\",\"repo\":\"acme/widget\",\"issue\":277} -->\n```text\nCheck the current state of issue #277 and the parser before changing anything.\nA synthetic audit reports that deeply nested input aborts the compiler.\nIf the problem is already fixed, report the evidence and existing PR, then stop.\nOtherwise, reproduce it within the repository's resource limits and add a regression.\nFollow the repository's AGENTS.md and guarded validation workflow. Commit the verified change\non the assigned worktree branch. Reader will verify and publish the branch/PR.\n```\n<!-- /reader:prompt -->\n</div>\n",
+  "blocks": [],
+  "rejected": []
+ },
+ {
+  "name": "indented code",
+  "markdown": "    <!-- reader:prompt {\"v\":1,\"id\":\"bound-parser-depth\",\"title\":\"Bound source parser nesting\",\"repo\":\"acme/widget\",\"issue\":277} -->\n    \n    ```text\n    Check the current state of issue #277 and the parser before changing anything.\n    A synthetic audit reports that deeply nested input aborts the compiler.\n    If the problem is already fixed, report the evidence and existing PR, then stop.\n    \n    Otherwise, reproduce it within the repository's resource limits and add a regression.\n    Follow the repository's AGENTS.md and guarded validation workflow. Commit the verified change\n    on the assigned worktree branch. Reader will verify and publish the branch/PR.\n    ```\n    \n    <!-- /reader:prompt -->\n",
+  "blocks": [],
+  "rejected": []
+ },
+ {
+  "name": "forged rendered HTML",
+  "markdown": "<div class=\"reader-prompt\" data-reader-prompt=\"0:0\"><pre><code>run me</code></pre></div>\n",
+  "blocks": [],
+  "rejected": []
+ },
+ {
+  "name": "duplicate ids",
+  "markdown": "<!-- reader:prompt {\"v\":1,\"id\":\"bound-parser-depth\",\"title\":\"Bound source parser nesting\",\"repo\":\"acme/widget\",\"issue\":277} -->\n\n```text\nCheck the current state of issue #277 and the parser before changing anything.\nA synthetic audit reports that deeply nested input aborts the compiler.\nIf the problem is already fixed, report the evidence and existing PR, then stop.\n\nOtherwise, reproduce it within the repository's resource limits and add a regression.\nFollow the repository's AGENTS.md and guarded validation workflow. Commit the verified change\non the assigned worktree branch. Reader will verify and publish the branch/PR.\n```\n\n<!-- /reader:prompt -->\n\n<!-- reader:prompt {\"v\":1,\"id\":\"bound-parser-depth\",\"title\":\"Bound source parser nesting\",\"repo\":\"acme/widget\",\"issue\":277} -->\n\n```text\nCheck the current state of issue #277 and the parser before changing anything.\nA synthetic audit reports that deeply nested input aborts the compiler.\nIf the problem is already fixed, report the evidence and existing PR, then stop.\n\nOtherwise, reproduce it within the repository's resource limits and add a regression.\nFollow the repository's AGENTS.md and guarded validation workflow. Commit the verified change\non the assigned worktree branch. Reader will verify and publish the branch/PR.\n```\n\n<!-- /reader:prompt -->\n",
+  "blocks": [],
+  "rejected": [
+   [
+    0,
+    "duplicate-id"
+   ],
+   [
+    14,
+    "duplicate-id"
+   ]
+  ]
+ },
+ {
+  "name": "malformed JSON",
+  "markdown": "<!-- reader:prompt {\"v\":1,\"id\":\"x\", -->\n\n```text\nCheck the current state of issue #277 and the parser before changing anything.\nA synthetic audit reports that deeply nested input aborts the compiler.\nIf the problem is already fixed, report the evidence and existing PR, then stop.\n\nOtherwise, reproduce it within the repository's resource limits and add a regression.\nFollow the repository's AGENTS.md and guarded validation workflow. Commit the verified change\non the assigned worktree branch. Reader will verify and publish the branch/PR.\n```\n\n<!-- /reader:prompt -->\n",
+  "blocks": [],
+  "rejected": [
+   [
+    0,
+    "metadata-json"
+   ]
+  ]
+ },
+ {
+  "name": "duplicate JSON key",
+  "markdown": "<!-- reader:prompt {\"v\":1,\"id\":\"a\",\"id\":\"b\",\"title\":\"T\",\"repo\":\"acme/widget\",\"issue\":null} -->\n\n```text\nCheck the current state of issue #277 and the parser before changing anything.\nA synthetic audit reports that deeply nested input aborts the compiler.\nIf the problem is already fixed, report the evidence and existing PR, then stop.\n\nOtherwise, reproduce it within the repository's resource limits and add a regression.\nFollow the repository's AGENTS.md and guarded validation workflow. Commit the verified change\non the assigned worktree branch. Reader will verify and publish the branch/PR.\n```\n\n<!-- /reader:prompt -->\n",
+  "blocks": [],
+  "rejected": [
+   [
+    0,
+    "metadata-json"
+   ]
+  ]
+ },
+ {
+  "name": "fractional issue",
+  "markdown": "<!-- reader:prompt {\"v\":1,\"id\":\"bound-parser-depth\",\"title\":\"Bound source parser nesting\",\"repo\":\"acme/widget\",\"issue\":277.0} -->\n\n```text\nCheck the current state of issue #277 and the parser before changing anything.\nA synthetic audit reports that deeply nested input aborts the compiler.\nIf the problem is already fixed, report the evidence and existing PR, then stop.\n\nOtherwise, reproduce it within the repository's resource limits and add a regression.\nFollow the repository's AGENTS.md and guarded validation workflow. Commit the verified change\non the assigned worktree branch. Reader will verify and publish the branch/PR.\n```\n\n<!-- /reader:prompt -->\n",
+  "blocks": [],
+  "rejected": [
+   [
+    0,
+    "metadata-json"
+   ]
+  ]
+ },
+ {
+  "name": "boolean value",
+  "markdown": "<!-- reader:prompt {\"v\":1,\"id\":\"bound-parser-depth\",\"title\":\"Bound source parser nesting\",\"repo\":\"acme/widget\",\"issue\":true} -->\n\n```text\nCheck the current state of issue #277 and the parser before changing anything.\nA synthetic audit reports that deeply nested input aborts the compiler.\nIf the problem is already fixed, report the evidence and existing PR, then stop.\n\nOtherwise, reproduce it within the repository's resource limits and add a regression.\nFollow the repository's AGENTS.md and guarded validation workflow. Commit the verified change\non the assigned worktree branch. Reader will verify and publish the branch/PR.\n```\n\n<!-- /reader:prompt -->\n",
+  "blocks": [],
+  "rejected": [
+   [
+    0,
+    "metadata-json"
+   ]
+  ]
+ },
+ {
+  "name": "nested object",
+  "markdown": "<!-- reader:prompt {\"v\":1,\"id\":\"bound-parser-depth\",\"title\":\"Bound source parser nesting\",\"repo\":\"acme/widget\",\"issue\":{\"n\":1}} -->\n\n```text\nCheck the current state of issue #277 and the parser before changing anything.\nA synthetic audit reports that deeply nested input aborts the compiler.\nIf the problem is already fixed, report the evidence and existing PR, then stop.\n\nOtherwise, reproduce it within the repository's resource limits and add a regression.\nFollow the repository's AGENTS.md and guarded validation workflow. Commit the verified change\non the assigned worktree branch. Reader will verify and publish the branch/PR.\n```\n\n<!-- /reader:prompt -->\n",
+  "blocks": [],
+  "rejected": [
+   [
+    0,
+    "metadata-json"
+   ]
+  ]
+ },
+ {
+  "name": "unknown version",
+  "markdown": "<!-- reader:prompt {\"v\":2,\"id\":\"bound-parser-depth\",\"title\":\"Bound source parser nesting\",\"repo\":\"acme/widget\",\"issue\":277} -->\n\n```text\nCheck the current state of issue #277 and the parser before changing anything.\nA synthetic audit reports that deeply nested input aborts the compiler.\nIf the problem is already fixed, report the evidence and existing PR, then stop.\n\nOtherwise, reproduce it within the repository's resource limits and add a regression.\nFollow the repository's AGENTS.md and guarded validation workflow. Commit the verified change\non the assigned worktree branch. Reader will verify and publish the branch/PR.\n```\n\n<!-- /reader:prompt -->\n",
+  "blocks": [],
+  "rejected": [
+   [
+    0,
+    "version"
+   ]
+  ]
+ },
+ {
+  "name": "missing version",
+  "markdown": "<!-- reader:prompt {\"id\":\"bound-parser-depth\",\"title\":\"Bound source parser nesting\",\"repo\":\"acme/widget\",\"issue\":277} -->\n\n```text\nCheck the current state of issue #277 and the parser before changing anything.\nA synthetic audit reports that deeply nested input aborts the compiler.\nIf the problem is already fixed, report the evidence and existing PR, then stop.\n\nOtherwise, reproduce it within the repository's resource limits and add a regression.\nFollow the repository's AGENTS.md and guarded validation workflow. Commit the verified change\non the assigned worktree branch. Reader will verify and publish the branch/PR.\n```\n\n<!-- /reader:prompt -->\n",
+  "blocks": [],
+  "rejected": [
+   [
+    0,
+    "metadata-fields"
+   ]
+  ]
+ },
+ {
+  "name": "unknown field",
+  "markdown": "<!-- reader:prompt {\"v\":1,\"id\":\"bound-parser-depth\",\"title\":\"Bound source parser nesting\",\"repo\":\"acme/widget\",\"issue\":277,\"command\":\"rm -rf /\"} -->\n\n```text\nCheck the current state of issue #277 and the parser before changing anything.\nA synthetic audit reports that deeply nested input aborts the compiler.\nIf the problem is already fixed, report the evidence and existing PR, then stop.\n\nOtherwise, reproduce it within the repository's resource limits and add a regression.\nFollow the repository's AGENTS.md and guarded validation workflow. Commit the verified change\non the assigned worktree branch. Reader will verify and publish the branch/PR.\n```\n\n<!-- /reader:prompt -->\n",
+  "blocks": [],
+  "rejected": [
+   [
+    0,
+    "metadata-fields"
+   ]
+  ]
+ },
+ {
+  "name": "path field is not an extension",
+  "markdown": "<!-- reader:prompt {\"v\":1,\"id\":\"bound-parser-depth\",\"title\":\"Bound source parser nesting\",\"repo\":\"acme/widget\",\"issue\":277,\"path\":\"/tmp/x\"} -->\n\n```text\nCheck the current state of issue #277 and the parser before changing anything.\nA synthetic audit reports that deeply nested input aborts the compiler.\nIf the problem is already fixed, report the evidence and existing PR, then stop.\n\nOtherwise, reproduce it within the repository's resource limits and add a regression.\nFollow the repository's AGENTS.md and guarded validation workflow. Commit the verified change\non the assigned worktree branch. Reader will verify and publish the branch/PR.\n```\n\n<!-- /reader:prompt -->\n",
+  "blocks": [],
+  "rejected": [
+   [
+    0,
+    "metadata-fields"
+   ]
+  ]
+ },
+ {
+  "name": "missing issue field",
+  "markdown": "<!-- reader:prompt {\"v\":1,\"id\":\"bound-parser-depth\",\"title\":\"Bound source parser nesting\",\"repo\":\"acme/widget\"} -->\n\n```text\nCheck the current state of issue #277 and the parser before changing anything.\nA synthetic audit reports that deeply nested input aborts the compiler.\nIf the problem is already fixed, report the evidence and existing PR, then stop.\n\nOtherwise, reproduce it within the repository's resource limits and add a regression.\nFollow the repository's AGENTS.md and guarded validation workflow. Commit the verified change\non the assigned worktree branch. Reader will verify and publish the branch/PR.\n```\n\n<!-- /reader:prompt -->\n",
+  "blocks": [],
+  "rejected": [
+   [
+    0,
+    "metadata-fields"
+   ]
+  ]
+ },
+ {
+  "name": "uppercase id",
+  "markdown": "<!-- reader:prompt {\"v\":1,\"id\":\"Bound\",\"title\":\"Bound source parser nesting\",\"repo\":\"acme/widget\",\"issue\":277} -->\n\n```text\nCheck the current state of issue #277 and the parser before changing anything.\nA synthetic audit reports that deeply nested input aborts the compiler.\nIf the problem is already fixed, report the evidence and existing PR, then stop.\n\nOtherwise, reproduce it within the repository's resource limits and add a regression.\nFollow the repository's AGENTS.md and guarded validation workflow. Commit the verified change\non the assigned worktree branch. Reader will verify and publish the branch/PR.\n```\n\n<!-- /reader:prompt -->\n",
+  "blocks": [],
+  "rejected": [
+   [
+    0,
+    "id"
+   ]
+  ]
+ },
+ {
+  "name": "id too long",
+  "markdown": "<!-- reader:prompt {\"v\":1,\"id\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"title\":\"Bound source parser nesting\",\"repo\":\"acme/widget\",\"issue\":277} -->\n\n```text\nCheck the current state of issue #277 and the parser before changing anything.\nA synthetic audit reports that deeply nested input aborts the compiler.\nIf the problem is already fixed, report the evidence and existing PR, then stop.\n\nOtherwise, reproduce it within the repository's resource limits and add a regression.\nFollow the repository's AGENTS.md and guarded validation workflow. Commit the verified change\non the assigned worktree branch. Reader will verify and publish the branch/PR.\n```\n\n<!-- /reader:prompt -->\n",
+  "blocks": [],
+  "rejected": [
+   [
+    0,
+    "id"
+   ]
+  ]
+ },
+ {
+  "name": "id at the limit",
+  "markdown": "<!-- reader:prompt {\"v\":1,\"id\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"title\":\"Bound source parser nesting\",\"repo\":\"acme/widget\",\"issue\":277} -->\n\n```text\nCheck the current state of issue #277 and the parser before changing anything.\nA synthetic audit reports that deeply nested input aborts the compiler.\nIf the problem is already fixed, report the evidence and existing PR, then stop.\n\nOtherwise, reproduce it within the repository's resource limits and add a regression.\nFollow the repository's AGENTS.md and guarded validation workflow. Commit the verified change\non the assigned worktree branch. Reader will verify and publish the branch/PR.\n```\n\n<!-- /reader:prompt -->\n",
+  "blocks": [
+   "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  ],
+  "rejected": []
+ },
+ {
+  "name": "title at 160 code points with emoji",
+  "markdown": "<!-- reader:prompt {\"v\":1,\"id\":\"bound-parser-depth\",\"title\":\"🐈🐈🐈🐈🐈🐈🐈🐈🐈🐈🐈🐈🐈🐈🐈🐈🐈🐈🐈🐈🐈🐈🐈🐈🐈🐈🐈🐈🐈🐈🐈🐈🐈🐈🐈🐈🐈🐈🐈🐈🐈🐈🐈🐈🐈🐈🐈🐈🐈🐈🐈🐈🐈🐈🐈🐈🐈🐈🐈🐈🐈🐈🐈🐈🐈🐈🐈🐈🐈🐈🐈🐈🐈🐈🐈🐈🐈🐈🐈🐈🐈🐈🐈🐈🐈🐈🐈🐈🐈🐈🐈🐈🐈🐈🐈🐈🐈🐈🐈🐈🐈🐈🐈🐈🐈🐈🐈🐈🐈🐈🐈🐈🐈🐈🐈🐈🐈🐈🐈🐈🐈🐈🐈🐈🐈🐈🐈🐈🐈🐈🐈🐈🐈🐈🐈🐈🐈🐈🐈🐈🐈🐈🐈🐈🐈🐈🐈🐈🐈🐈🐈🐈🐈🐈🐈🐈🐈🐈🐈🐈\",\"repo\":\"acme/widget\",\"issue\":277} -->\n\n```text\nCheck the current state of issue #277 and the parser before changing anything.\nA synthetic audit reports that deeply nested input aborts the compiler.\nIf the problem is already fixed, report the evidence and existing PR, then stop.\n\nOtherwise, reproduce it within the repository's resource limits and add a regression.\nFollow the repository's AGENTS.md and guarded validation workflow. Commit the verified change\non the assigned worktree branch. Reader will verify and publish the branch/PR.\n```\n\n<!-- /reader:prompt -->\n",
+  "blocks": [
+   "bound-parser-depth"
+  ],
+  "rejected": []
+ },
+ {
+  "name": "title over 160 code points",
+  "markdown": "<!-- reader:prompt {\"v\":1,\"id\":\"bound-parser-depth\",\"title\":\"ttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttt\",\"repo\":\"acme/widget\",\"issue\":277} -->\n\n```text\nCheck the current state of issue #277 and the parser before changing anything.\nA synthetic audit reports that deeply nested input aborts the compiler.\nIf the problem is already fixed, report the evidence and existing PR, then stop.\n\nOtherwise, reproduce it within the repository's resource limits and add a regression.\nFollow the repository's AGENTS.md and guarded validation workflow. Commit the verified change\non the assigned worktree branch. Reader will verify and publish the branch/PR.\n```\n\n<!-- /reader:prompt -->\n",
+  "blocks": [],
+  "rejected": [
+   [
+    0,
+    "title"
+   ]
+  ]
+ },
+ {
+  "name": "title with a newline escape",
+  "markdown": "<!-- reader:prompt {\"v\":1,\"id\":\"bound-parser-depth\",\"title\":\"a\\nb\",\"repo\":\"acme/widget\",\"issue\":277} -->\n\n```text\nCheck the current state of issue #277 and the parser before changing anything.\nA synthetic audit reports that deeply nested input aborts the compiler.\nIf the problem is already fixed, report the evidence and existing PR, then stop.\n\nOtherwise, reproduce it within the repository's resource limits and add a regression.\nFollow the repository's AGENTS.md and guarded validation workflow. Commit the verified change\non the assigned worktree branch. Reader will verify and publish the branch/PR.\n```\n\n<!-- /reader:prompt -->\n",
+  "blocks": [],
+  "rejected": [
+   [
+    0,
+    "title"
+   ]
+  ]
+ },
+ {
+  "name": "blank title",
+  "markdown": "<!-- reader:prompt {\"v\":1,\"id\":\"bound-parser-depth\",\"title\":\"　 \",\"repo\":\"acme/widget\",\"issue\":277} -->\n\n```text\nCheck the current state of issue #277 and the parser before changing anything.\nA synthetic audit reports that deeply nested input aborts the compiler.\nIf the problem is already fixed, report the evidence and existing PR, then stop.\n\nOtherwise, reproduce it within the repository's resource limits and add a regression.\nFollow the repository's AGENTS.md and guarded validation workflow. Commit the verified change\non the assigned worktree branch. Reader will verify and publish the branch/PR.\n```\n\n<!-- /reader:prompt -->\n",
+  "blocks": [],
+  "rejected": [
+   [
+    0,
+    "title"
+   ]
+  ]
+ },
+ {
+  "name": "title with a lone surrogate",
+  "markdown": "<!-- reader:prompt {\"v\":1,\"id\":\"bound-parser-depth\",\"title\":\"bad \\ud800\",\"repo\":\"acme/widget\",\"issue\":277} -->\n\n```text\nCheck the current state of issue #277 and the parser before changing anything.\nA synthetic audit reports that deeply nested input aborts the compiler.\nIf the problem is already fixed, report the evidence and existing PR, then stop.\n\nOtherwise, reproduce it within the repository's resource limits and add a regression.\nFollow the repository's AGENTS.md and guarded validation workflow. Commit the verified change\non the assigned worktree branch. Reader will verify and publish the branch/PR.\n```\n\n<!-- /reader:prompt -->\n",
+  "blocks": [],
+  "rejected": [
+   [
+    0,
+    "title"
+   ]
+  ]
+ },
+ {
+  "name": "repository traversal",
+  "markdown": "<!-- reader:prompt {\"v\":1,\"id\":\"bound-parser-depth\",\"title\":\"Bound source parser nesting\",\"repo\":\"../etc\",\"issue\":277} -->\n\n```text\nCheck the current state of issue #277 and the parser before changing anything.\nA synthetic audit reports that deeply nested input aborts the compiler.\nIf the problem is already fixed, report the evidence and existing PR, then stop.\n\nOtherwise, reproduce it within the repository's resource limits and add a regression.\nFollow the repository's AGENTS.md and guarded validation workflow. Commit the verified change\non the assigned worktree branch. Reader will verify and publish the branch/PR.\n```\n\n<!-- /reader:prompt -->\n",
+  "blocks": [],
+  "rejected": [
+   [
+    0,
+    "repo"
+   ]
+  ]
+ },
+ {
+  "name": "repository with a path",
+  "markdown": "<!-- reader:prompt {\"v\":1,\"id\":\"bound-parser-depth\",\"title\":\"Bound source parser nesting\",\"repo\":\"acme/widget/tree\",\"issue\":277} -->\n\n```text\nCheck the current state of issue #277 and the parser before changing anything.\nA synthetic audit reports that deeply nested input aborts the compiler.\nIf the problem is already fixed, report the evidence and existing PR, then stop.\n\nOtherwise, reproduce it within the repository's resource limits and add a regression.\nFollow the repository's AGENTS.md and guarded validation workflow. Commit the verified change\non the assigned worktree branch. Reader will verify and publish the branch/PR.\n```\n\n<!-- /reader:prompt -->\n",
+  "blocks": [],
+  "rejected": [
+   [
+    0,
+    "repo"
+   ]
+  ]
+ },
+ {
+  "name": "repository URL",
+  "markdown": "<!-- reader:prompt {\"v\":1,\"id\":\"bound-parser-depth\",\"title\":\"Bound source parser nesting\",\"repo\":\"https://github.com/acme/widget\",\"issue\":277} -->\n\n```text\nCheck the current state of issue #277 and the parser before changing anything.\nA synthetic audit reports that deeply nested input aborts the compiler.\nIf the problem is already fixed, report the evidence and existing PR, then stop.\n\nOtherwise, reproduce it within the repository's resource limits and add a regression.\nFollow the repository's AGENTS.md and guarded validation workflow. Commit the verified change\non the assigned worktree branch. Reader will verify and publish the branch/PR.\n```\n\n<!-- /reader:prompt -->\n",
+  "blocks": [],
+  "rejected": [
+   [
+    0,
+    "repo"
+   ]
+  ]
+ },
+ {
+  "name": "repository .git suffix",
+  "markdown": "<!-- reader:prompt {\"v\":1,\"id\":\"bound-parser-depth\",\"title\":\"Bound source parser nesting\",\"repo\":\"acme/widget.git\",\"issue\":277} -->\n\n```text\nCheck the current state of issue #277 and the parser before changing anything.\nA synthetic audit reports that deeply nested input aborts the compiler.\nIf the problem is already fixed, report the evidence and existing PR, then stop.\n\nOtherwise, reproduce it within the repository's resource limits and add a regression.\nFollow the repository's AGENTS.md and guarded validation workflow. Commit the verified change\non the assigned worktree branch. Reader will verify and publish the branch/PR.\n```\n\n<!-- /reader:prompt -->\n",
+  "blocks": [],
+  "rejected": [
+   [
+    0,
+    "repo"
+   ]
+  ]
+ },
+ {
+  "name": "issue zero",
+  "markdown": "<!-- reader:prompt {\"v\":1,\"id\":\"bound-parser-depth\",\"title\":\"Bound source parser nesting\",\"repo\":\"acme/widget\",\"issue\":0} -->\n\n```text\nCheck the current state of issue #277 and the parser before changing anything.\nA synthetic audit reports that deeply nested input aborts the compiler.\nIf the problem is already fixed, report the evidence and existing PR, then stop.\n\nOtherwise, reproduce it within the repository's resource limits and add a regression.\nFollow the repository's AGENTS.md and guarded validation workflow. Commit the verified change\non the assigned worktree branch. Reader will verify and publish the branch/PR.\n```\n\n<!-- /reader:prompt -->\n",
+  "blocks": [],
+  "rejected": [
+   [
+    0,
+    "issue"
+   ]
+  ]
+ },
+ {
+  "name": "issue as a string",
+  "markdown": "<!-- reader:prompt {\"v\":1,\"id\":\"bound-parser-depth\",\"title\":\"Bound source parser nesting\",\"repo\":\"acme/widget\",\"issue\":\"277\"} -->\n\n```text\nCheck the current state of issue #277 and the parser before changing anything.\nA synthetic audit reports that deeply nested input aborts the compiler.\nIf the problem is already fixed, report the evidence and existing PR, then stop.\n\nOtherwise, reproduce it within the repository's resource limits and add a regression.\nFollow the repository's AGENTS.md and guarded validation workflow. Commit the verified change\non the assigned worktree branch. Reader will verify and publish the branch/PR.\n```\n\n<!-- /reader:prompt -->\n",
+  "blocks": [],
+  "rejected": [
+   [
+    0,
+    "issue"
+   ]
+  ]
+ },
+ {
+  "name": "issue too large",
+  "markdown": "<!-- reader:prompt {\"v\":1,\"id\":\"bound-parser-depth\",\"title\":\"Bound source parser nesting\",\"repo\":\"acme/widget\",\"issue\":2147483648} -->\n\n```text\nCheck the current state of issue #277 and the parser before changing anything.\nA synthetic audit reports that deeply nested input aborts the compiler.\nIf the problem is already fixed, report the evidence and existing PR, then stop.\n\nOtherwise, reproduce it within the repository's resource limits and add a regression.\nFollow the repository's AGENTS.md and guarded validation workflow. Commit the verified change\non the assigned worktree branch. Reader will verify and publish the branch/PR.\n```\n\n<!-- /reader:prompt -->\n",
+  "blocks": [],
+  "rejected": [
+   [
+    0,
+    "issue"
+   ]
+  ]
+ },
+ {
+  "name": "metadata closes the comment",
+  "markdown": "<!-- reader:prompt {\"v\":1,\"id\":\"bound-parser-depth\",\"title\":\"a --> b\",\"repo\":\"acme/widget\",\"issue\":277} -->\n\n```text\nCheck the current state of issue #277 and the parser before changing anything.\nA synthetic audit reports that deeply nested input aborts the compiler.\nIf the problem is already fixed, report the evidence and existing PR, then stop.\n\nOtherwise, reproduce it within the repository's resource limits and add a regression.\nFollow the repository's AGENTS.md and guarded validation workflow. Commit the verified change\non the assigned worktree branch. Reader will verify and publish the branch/PR.\n```\n\n<!-- /reader:prompt -->\n",
+  "blocks": [],
+  "rejected": [
+   [
+    0,
+    "metadata-unsafe"
+   ]
+  ]
+ },
+ {
+  "name": "metadata over 2 KiB",
+  "markdown": "<!-- reader:prompt {\"v\":1,\"id\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"title\":\"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\",\"repo\":\"acme/wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww\",\"issue\":277,\"pad\":\"pppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppp\"} -->\n\n```text\nCheck the current state of issue #277 and the parser before changing anything.\nA synthetic audit reports that deeply nested input aborts the compiler.\nIf the problem is already fixed, report the evidence and existing PR, then stop.\n\nOtherwise, reproduce it within the repository's resource limits and add a regression.\nFollow the repository's AGENTS.md and guarded validation workflow. Commit the verified change\non the assigned worktree branch. Reader will verify and publish the branch/PR.\n```\n\n<!-- /reader:prompt -->\n",
+  "blocks": [],
+  "rejected": [
+   [
+    0,
+    "metadata-size"
+   ]
+  ]
+ },
+ {
+  "name": "missing close marker",
+  "markdown": "<!-- reader:prompt {\"v\":1,\"id\":\"bound-parser-depth\",\"title\":\"Bound source parser nesting\",\"repo\":\"acme/widget\",\"issue\":277} -->\n\n```text\nCheck the current state of issue #277 and the parser before changing anything.\nA synthetic audit reports that deeply nested input aborts the compiler.\nIf the problem is already fixed, report the evidence and existing PR, then stop.\n\nOtherwise, reproduce it within the repository's resource limits and add a regression.\nFollow the repository's AGENTS.md and guarded validation workflow. Commit the verified change\non the assigned worktree branch. Reader will verify and publish the branch/PR.\n```\n\n",
+  "blocks": [],
+  "rejected": [
+   [
+    0,
+    "structure"
+   ]
+  ]
+ },
+ {
+  "name": "unclosed fence swallows the close",
+  "markdown": "<!-- reader:prompt {\"v\":1,\"id\":\"bound-parser-depth\",\"title\":\"Bound source parser nesting\",\"repo\":\"acme/widget\",\"issue\":277} -->\n```text\nTask\n\n<!-- /reader:prompt -->\n",
+  "blocks": [],
+  "rejected": [
+   [
+    0,
+    "structure"
+   ]
+  ]
+ },
+ {
+  "name": "prose between opener and fence",
+  "markdown": "<!-- reader:prompt {\"v\":1,\"id\":\"bound-parser-depth\",\"title\":\"Bound source parser nesting\",\"repo\":\"acme/widget\",\"issue\":277} -->\nSome prose.\n\n```text\nCheck the current state of issue #277 and the parser before changing anything.\nA synthetic audit reports that deeply nested input aborts the compiler.\nIf the problem is already fixed, report the evidence and existing PR, then stop.\n\nOtherwise, reproduce it within the repository's resource limits and add a regression.\nFollow the repository's AGENTS.md and guarded validation workflow. Commit the verified change\non the assigned worktree branch. Reader will verify and publish the branch/PR.\n```\n\n<!-- /reader:prompt -->\n",
+  "blocks": [],
+  "rejected": [
+   [
+    0,
+    "structure"
+   ]
+  ]
+ },
+ {
+  "name": "two fences in one wrapper",
+  "markdown": "<!-- reader:prompt {\"v\":1,\"id\":\"bound-parser-depth\",\"title\":\"Bound source parser nesting\",\"repo\":\"acme/widget\",\"issue\":277} -->\n\n```text\nCheck the current state of issue #277 and the parser before changing anything.\nA synthetic audit reports that deeply nested input aborts the compiler.\nIf the problem is already fixed, report the evidence and existing PR, then stop.\n\nOtherwise, reproduce it within the repository's resource limits and add a regression.\nFollow the repository's AGENTS.md and guarded validation workflow. Commit the verified change\non the assigned worktree branch. Reader will verify and publish the branch/PR.\n```\n\n```text\nmore\n```\n\n<!-- /reader:prompt -->\n",
+  "blocks": [],
+  "rejected": [
+   [
+    0,
+    "structure"
+   ]
+  ]
+ },
+ {
+  "name": "nested wrappers",
+  "markdown": "<!-- reader:prompt {\"v\":1,\"id\":\"outer\",\"title\":\"Bound source parser nesting\",\"repo\":\"acme/widget\",\"issue\":277} -->\n\n<!-- reader:prompt {\"v\":1,\"id\":\"bound-parser-depth\",\"title\":\"Bound source parser nesting\",\"repo\":\"acme/widget\",\"issue\":277} -->\n\n```text\nCheck the current state of issue #277 and the parser before changing anything.\nA synthetic audit reports that deeply nested input aborts the compiler.\nIf the problem is already fixed, report the evidence and existing PR, then stop.\n\nOtherwise, reproduce it within the repository's resource limits and add a regression.\nFollow the repository's AGENTS.md and guarded validation workflow. Commit the verified change\non the assigned worktree branch. Reader will verify and publish the branch/PR.\n```\n\n<!-- /reader:prompt -->\n\n<!-- /reader:prompt -->\n",
+  "blocks": [],
+  "rejected": [
+   [
+    0,
+    "structure"
+   ],
+   [
+    2,
+    "nested"
+   ]
+  ]
+ },
+ {
+  "name": "an unclosed opener disables later blocks",
+  "markdown": "<!-- reader:prompt {\"v\":1,\"id\":\"lost\",\"title\":\"Bound source parser nesting\",\"repo\":\"acme/widget\",\"issue\":277} -->\n\nprose\n\n<!-- reader:prompt {\"v\":1,\"id\":\"bound-parser-depth\",\"title\":\"Bound source parser nesting\",\"repo\":\"acme/widget\",\"issue\":277} -->\n\n```text\nCheck the current state of issue #277 and the parser before changing anything.\nA synthetic audit reports that deeply nested input aborts the compiler.\nIf the problem is already fixed, report the evidence and existing PR, then stop.\n\nOtherwise, reproduce it within the repository's resource limits and add a regression.\nFollow the repository's AGENTS.md and guarded validation workflow. Commit the verified change\non the assigned worktree branch. Reader will verify and publish the branch/PR.\n```\n\n<!-- /reader:prompt -->\n",
+  "blocks": [],
+  "rejected": [
+   [
+    0,
+    "structure"
+   ],
+   [
+    4,
+    "nested"
+   ]
+  ]
+ },
+ {
+  "name": "stray close marker",
+  "markdown": "<!-- /reader:prompt -->\n\n<!-- reader:prompt {\"v\":1,\"id\":\"bound-parser-depth\",\"title\":\"Bound source parser nesting\",\"repo\":\"acme/widget\",\"issue\":277} -->\n\n```text\nCheck the current state of issue #277 and the parser before changing anything.\nA synthetic audit reports that deeply nested input aborts the compiler.\nIf the problem is already fixed, report the evidence and existing PR, then stop.\n\nOtherwise, reproduce it within the repository's resource limits and add a regression.\nFollow the repository's AGENTS.md and guarded validation workflow. Commit the verified change\non the assigned worktree branch. Reader will verify and publish the branch/PR.\n```\n\n<!-- /reader:prompt -->\n",
+  "blocks": [
+   "bound-parser-depth"
+  ],
+  "rejected": []
+ },
+ {
+  "name": "other fence language",
+  "markdown": "<!-- reader:prompt {\"v\":1,\"id\":\"bound-parser-depth\",\"title\":\"Bound source parser nesting\",\"repo\":\"acme/widget\",\"issue\":277} -->\n\n```python\nCheck the current state of issue #277 and the parser before changing anything.\nA synthetic audit reports that deeply nested input aborts the compiler.\nIf the problem is already fixed, report the evidence and existing PR, then stop.\n\nOtherwise, reproduce it within the repository's resource limits and add a regression.\nFollow the repository's AGENTS.md and guarded validation workflow. Commit the verified change\non the assigned worktree branch. Reader will verify and publish the branch/PR.\n```\n\n<!-- /reader:prompt -->\n",
+  "blocks": [],
+  "rejected": [
+   [
+    0,
+    "fence"
+   ]
+  ]
+ },
+ {
+  "name": "info with trailing text",
+  "markdown": "<!-- reader:prompt {\"v\":1,\"id\":\"bound-parser-depth\",\"title\":\"Bound source parser nesting\",\"repo\":\"acme/widget\",\"issue\":277} -->\n\n```text title\nCheck the current state of issue #277 and the parser before changing anything.\nA synthetic audit reports that deeply nested input aborts the compiler.\nIf the problem is already fixed, report the evidence and existing PR, then stop.\n\nOtherwise, reproduce it within the repository's resource limits and add a regression.\nFollow the repository's AGENTS.md and guarded validation workflow. Commit the verified change\non the assigned worktree branch. Reader will verify and publish the branch/PR.\n```\n\n<!-- /reader:prompt -->\n",
+  "blocks": [],
+  "rejected": [
+   [
+    0,
+    "fence"
+   ]
+  ]
+ },
+ {
+  "name": "indented fence",
+  "markdown": "<!-- reader:prompt {\"v\":1,\"id\":\"bound-parser-depth\",\"title\":\"Bound source parser nesting\",\"repo\":\"acme/widget\",\"issue\":277} -->\n\n  ```text\nCheck the current state of issue #277 and the parser before changing anything.\nA synthetic audit reports that deeply nested input aborts the compiler.\nIf the problem is already fixed, report the evidence and existing PR, then stop.\n\nOtherwise, reproduce it within the repository's resource limits and add a regression.\nFollow the repository's AGENTS.md and guarded validation workflow. Commit the verified change\non the assigned worktree branch. Reader will verify and publish the branch/PR.\n  ```\n\n<!-- /reader:prompt -->\n",
+  "blocks": [],
+  "rejected": [
+   [
+    0,
+    "fence"
+   ]
+  ]
+ },
+ {
+  "name": "indented opener",
+  "markdown": " <!-- reader:prompt {\"v\":1,\"id\":\"bound-parser-depth\",\"title\":\"Bound source parser nesting\",\"repo\":\"acme/widget\",\"issue\":277} -->\n\n```text\nCheck the current state of issue #277 and the parser before changing anything.\nA synthetic audit reports that deeply nested input aborts the compiler.\nIf the problem is already fixed, report the evidence and existing PR, then stop.\n\nOtherwise, reproduce it within the repository's resource limits and add a regression.\nFollow the repository's AGENTS.md and guarded validation workflow. Commit the verified change\non the assigned worktree branch. Reader will verify and publish the branch/PR.\n```\n\n<!-- /reader:prompt -->\n",
+  "blocks": [],
+  "rejected": [
+   [
+    0,
+    "marker"
+   ]
+  ]
+ },
+ {
+  "name": "opener with text after the comment",
+  "markdown": "<!-- reader:prompt {\"v\":1,\"id\":\"bound-parser-depth\",\"title\":\"Bound source parser nesting\",\"repo\":\"acme/widget\",\"issue\":277} --> run\n\n```text\nCheck the current state of issue #277 and the parser before changing anything.\nA synthetic audit reports that deeply nested input aborts the compiler.\nIf the problem is already fixed, report the evidence and existing PR, then stop.\n\nOtherwise, reproduce it within the repository's resource limits and add a regression.\nFollow the repository's AGENTS.md and guarded validation workflow. Commit the verified change\non the assigned worktree branch. Reader will verify and publish the branch/PR.\n```\n\n<!-- /reader:prompt -->\n",
+  "blocks": [],
+  "rejected": [
+   [
+    0,
+    "marker"
+   ]
+  ]
+ },
+ {
+  "name": "multi-line opener",
+  "markdown": "<!-- reader:prompt\n{\"v\":1,\"id\":\"bound-parser-depth\",\"title\":\"Bound source parser nesting\",\"repo\":\"acme/widget\",\"issue\":277} -->\n\n```text\nCheck the current state of issue #277 and the parser before changing anything.\nA synthetic audit reports that deeply nested input aborts the compiler.\nIf the problem is already fixed, report the evidence and existing PR, then stop.\n\nOtherwise, reproduce it within the repository's resource limits and add a regression.\nFollow the repository's AGENTS.md and guarded validation workflow. Commit the verified change\non the assigned worktree branch. Reader will verify and publish the branch/PR.\n```\n\n<!-- /reader:prompt -->\n",
+  "blocks": [],
+  "rejected": [
+   [
+    0,
+    "marker"
+   ]
+  ]
+ },
+ {
+  "name": "close marker with extra text",
+  "markdown": "<!-- reader:prompt {\"v\":1,\"id\":\"bound-parser-depth\",\"title\":\"Bound source parser nesting\",\"repo\":\"acme/widget\",\"issue\":277} -->\n\n```text\nCheck the current state of issue #277 and the parser before changing anything.\nA synthetic audit reports that deeply nested input aborts the compiler.\nIf the problem is already fixed, report the evidence and existing PR, then stop.\n\nOtherwise, reproduce it within the repository's resource limits and add a regression.\nFollow the repository's AGENTS.md and guarded validation workflow. Commit the verified change\non the assigned worktree branch. Reader will verify and publish the branch/PR.\n```\n\n<!-- /reader:prompt --> x\n",
+  "blocks": [],
+  "rejected": [
+   [
+    0,
+    "marker"
+   ]
+  ]
+ },
+ {
+  "name": "blank prompt",
+  "markdown": "<!-- reader:prompt {\"v\":1,\"id\":\"bound-parser-depth\",\"title\":\"Bound source parser nesting\",\"repo\":\"acme/widget\",\"issue\":277} -->\n\n```text\n   \n\n```\n\n<!-- /reader:prompt -->\n",
+  "blocks": [],
+  "rejected": [
+   [
+    0,
+    "prompt-empty"
+   ]
+  ]
+ },
+ {
+  "name": "marker inside an inline code span",
+  "markdown": "Use `<!-- reader:prompt {} -->` like this.\n",
+  "blocks": [],
+  "rejected": []
+ }
+]
