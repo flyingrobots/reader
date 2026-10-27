@@ -101,8 +101,9 @@ def test_events_are_sequenced_and_the_archive_is_sealed_with_hashes(world):
     assert request['original_prompt'] == request['submitted_prompt'] and request['block']['repo'] == REPO
     assert b'not json: a progress line' in gzip.decompress((folder / 'stdout.jsonl.gz').read_bytes())
     git_log = gzip.decompress((folder / 'git.log.gz').read_bytes()).decode()
-    assert '--force' not in git_log and ' -f ' not in git_log and 'reset' not in git_log
-    assert f'push --porcelain -- origin {run["git"]["head_sha"]}:refs/heads/reader/' in git_log and '+refs/heads/reader' not in git_log
+    # The only push is create-only (an empty lease); nothing forces, resets or overwrites.
+    assert '--force ' not in git_log and ' -f ' not in git_log and 'reset' not in git_log and '+refs/heads/reader' not in git_log
+    assert f'push --porcelain --force-with-lease=refs/heads/{run["git"]["branch"]}: -- origin {run["git"]["head_sha"]}:refs/heads/reader/' in git_log
 
 
 def test_an_edited_prompt_is_archived_beside_the_original_and_the_article_is_unchanged(world):
@@ -454,3 +455,18 @@ def test_a_stop_while_publication_intent_is_saved_publishes_nothing(world, monke
         assert 'refs/heads/' + run['git']['branch'] not in w.remote_heads() and run['push'] is None
     else:
         assert 'create_pull_request' not in w.github.calls and run['pr_pending'] is None
+
+
+def test_a_remote_branch_created_between_the_lookup_and_the_push_is_kept(world, monkeypatch):
+    from reader_mcp.coding_publish import Job
+    w = world()
+    invoke, raced = Job.git, []
+
+    def race(self, args, *rest, **options):
+        if args[0] == 'push' and not raced:  # Another writer creates the branch at an ancestor first.
+            raced.append('refs/heads/' + self.run['git']['branch'])
+            git('update-ref', raced[0], w.base_sha, cwd=w.bare)
+        return invoke(self, args, *rest, **options)
+    monkeypatch.setattr(Job, 'git', race)
+    run, _ = w.run()
+    assert raced and w.remote_heads()[raced[0]] == w.base_sha and run['outcome'] == 'needs_reconciliation'

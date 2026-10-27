@@ -4,7 +4,8 @@ Git administration and publication are deterministic operations Reader performs 
 agent only investigates, edits and commits in the job's worktree. Every phase records events and
 stops with an explicit outcome (`Stop`): `pr_opened` only after the pushed SHA and the pull request were
 read back from the remote; `already_fixed`, `blocked`, `failed`, `cancelled` and `needs_reconciliation`
-otherwise. Nothing here resets a branch, force-pushes, reuses an unknown worktree, merges, or deletes a
+otherwise. Nothing here resets a branch, overwrites a remote branch (the only push is create-only: an empty
+`--force-with-lease`), reuses an unknown worktree, merges, or deletes a
 worktree, branch or remote artifact: they are kept for inspection after success and failure alike.
 
 A worktree isolates Git changes, not the filesystem, build caches or credentials. The agent runs under

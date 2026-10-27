@@ -1379,7 +1379,8 @@ per vault, by the one Reader server that holds `.reader/coding-jobs/supervisor.l
    `reader-run:<run-id>` marker and reads back. No article text, vault path or archive goes to GitHub.
 6. *Verify.* The registry's command runs in the worktree, without a shell, under its git-locks keys when configured.
    A nonzero exit, a moved head or a dirty tree publishes nothing.
-7. *Publish.* A normal `git push <remote> refs/heads/<branch>:refs/heads/<branch>` (never forced), the remote
+7. *Publish.* A create-only `git push --force-with-lease=refs/heads/<branch>: <remote> <verified sha>:refs/heads/<branch>`
+   (the empty lease refuses a branch that already exists, so nothing is overwritten or fast-forwarded), the remote
    SHA read back, then a pull request with `Closes #N` and the marker, read back for repository, base, branch, head
    SHA and issue. Only then is the outcome **PR opened**. Nothing is merged.
 

@@ -165,7 +165,9 @@ class Job(Workflow):
             self.jobs.store.save(self.run)
             self.unsent('push')  # A Stop acknowledged while the intent was saved starts no push.
             # The verified commit itself, not the branch ref, which something could move after verification.
-            self.git(['push', '--porcelain', '--', remote, f'{head}:refs/heads/{branch}'], title=f'Push {branch}',
+            # A create-only push: the empty lease requires the branch to be absent, so a branch another writer created
+            # after the lookup above is refused, never fast-forwarded or overwritten.
+            self.git(['push', '--porcelain', f'--force-with-lease=refs/heads/{branch}:', '--', remote, f'{head}:refs/heads/{branch}'], title=f'Push {branch}',
                      timeout=PUSH_TIMEOUT, check=False)
             existing = self.remote_sha('refs/heads/' + branch)
         if existing != head:
