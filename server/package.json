@@ -1,0 +1,34 @@
+{
+  "name": "reader-library",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Reader's TypeScript server, in progress. Only the packaging skeleton and the vault lock adapter exist so far.",
+  "license": "Apache-2.0",
+  "type": "module",
+  "engines": {
+    "node": ">=24"
+  },
+  "bin": {
+    "reader-ts": "dist/cli.js"
+  },
+  "exports": {
+    "./lock": {
+      "types": "./dist/lock.d.ts",
+      "default": "./dist/lock.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist/"
+  ],
+  "scripts": {
+    "check": "tsc -p tsconfig.json --noEmit",
+    "build": "tsc -p tsconfig.json",
+    "prepack": "npm run build",
+    "test": "npm run build && node --test --test-timeout=120000 \"test/*.test.mjs\""
+  },
+  "devDependencies": {
+    "@types/node": "24.19.2",
+    "typescript": "7.0.2"
+  }
+}

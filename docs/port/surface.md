@@ -632,8 +632,8 @@ Lock file names: `.lock`, `.reader/gpu.lock`, `.reader/inbox-runner/run.lock`, `
 | `src/reader_mcp/demo/build.py:225` | run | `['git', '-C', str(self.root), *args]` | `—` |
 | `scripts/check_container.py:20` | run | `['docker', *args]` | `—` |
 | `scripts/check_container.py:36` | run | `['docker', 'inspect', name]` | `—` |
-| `scripts/check_container.py:134` | run | `['docker', 'rm', '-f', name]` | `—` |
-| `scripts/check_container.py:89` | Popen | `['docker', 'exec', name, 'sh', '-c', cmd]` | `—` |
+| `scripts/check_container.py:136` | run | `['docker', 'rm', '-f', name]` | `—` |
+| `scripts/check_container.py:91` | Popen | `['docker', 'exec', name, 'sh', '-c', cmd]` | `—` |
 | `scripts/install.py:39` | run | `[codex, 'mcp', 'get', 'reader', '--json']` | `—` |
 | `scripts/install.py:57` | run | `[codex, 'mcp', 'remove', 'reader']` | `—` |
 | `scripts/install.py:60` | run | `[codex, 'mcp', 'add', 'reader', '--', *command]` | `—` |
@@ -847,7 +847,7 @@ exercise modules through HTTP, so see the route table for those.
 | `src/reader_mcp/demo/__init__.py` | 137 | 116 | 6014 | 50 | 149 | 0.89 | 9 | 0 | 0 | 0 |
 | `src/reader_mcp/demo/build.py` | 718 | 625 | 49845 | 77 | 170 | 0.64 | 29 | 1 | 0 | 0 |
 | `src/reader_mcp/demo/static.py` | 379 | 335 | 20169 | 58 | 177 | 0.90 | 19 | 1 | 0 | 0 |
-| `scripts/check_container.py` | 137 | 122 | 8629 | 65 | 288 | 0.94 | 2 | 0 | 0 | 0 |
+| `scripts/check_container.py` | 139 | 124 | 8793 | 65 | 297 | 0.93 | 2 | 0 | 0 | 0 |
 | `scripts/install.py` | 78 | 73 | 3807 | 51 | 124 | 0.99 | 1 | 0 | 0 | 0 |
 | `scripts/install_wide_md.py` | 100 | 92 | 5327 | 57 | 140 | 0.91 | 5 | 0 | 0 | 0 |
 | `scripts/reader_paths.py` | 23 | 19 | 924 | 47 | 112 | 1.00 | 1 | 0 | 0 | 0 |
@@ -856,7 +856,7 @@ exercise modules through HTTP, so see the route table for those.
 | `scripts/vendor_web.py` | 77 | 68 | 4132 | 58 | 186 | 0.88 | 2 | 0 | 0 | 0 |
 | `scripts/verify_installation.py` | 80 | 72 | 4428 | 60 | 264 | 0.92 | 1 | 0 | 0 | 0 |
 | `scripts/verify_search_installation.py` | 74 | 66 | 4190 | 59 | 138 | 0.82 | 1 | 0 | 0 | 0 |
-| **total** | 21110 | 18820 | 1119200 | | | | | | | |
+| **total** | 21112 | 18822 | 1119364 | | | | | | | |
 
 Language-neutral code that a port keeps as is: `src/reader_mcp/web_ui/` (39 hand-written JS/CSS/HTML files, 8064 lines, excluding vendor/) plus the built `web_ui/controls/` bundle from `web/`.
 Tests: 55 pytest files, 623 test functions; 71 browser suites; 15 node unit files.

@@ -39,7 +39,7 @@ def main():
         # Only selected software paths. No host mount and no vault files enter the worker.
         stream = io.BytesIO()
         with tarfile.open(fileobj=stream, mode='w') as archive:
-            for top in ['src','tests','templates','scripts','skills','schemas','plugins','web','docs','activity','README.md','CHANGELOG.md','AGENTS.md','package.json','package-lock.json','pyproject.toml','uv.lock','LICENSE','.reader/tooling/bin/wide-md','.reader/tooling/installed.json']:
+            for top in ['src','tests','templates','scripts','skills','schemas','plugins','server','web','docs','activity','README.md','CHANGELOG.md','AGENTS.md','package.json','package-lock.json','pyproject.toml','uv.lock','LICENSE','.reader/tooling/bin/wide-md','.reader/tooling/installed.json']:
                 for path in ([ROOT/top] if (ROOT/top).is_file() else sorted((ROOT/top).rglob('*'))):
                     rel = path.relative_to(ROOT)
                     # Published screenshots are not executable test input. Keep the
@@ -77,7 +77,9 @@ def main():
                    'npm --prefix plugins/reader ci --cache /work/npm-cache && '
                    'npm --prefix plugins/reader run check && npm --prefix plugins/reader test && '
                    'npm --prefix plugins/reader run build && '
-                   'node --test tests/quiz_controller.cjs')
+                   'node --test tests/quiz_controller.cjs && '
+                   'npm --prefix server ci --cache /work/npm-cache && '
+                   'npm --prefix server run check && npm --prefix server test')
             if kind=='formatter':
                 cmd = ('git init /work/formatter && git -C /work/formatter fetch --depth=1 '
                        'https://github.com/flyingrobots/wide-md c167101b32bbe37954429e9de5db33efcdc0a16c && '

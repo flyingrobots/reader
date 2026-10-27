@@ -296,6 +296,7 @@ place.
 uv sync --locked
 uv run --locked pytest -q
 node --test tests/*.test.mjs
+npm run test:server    # the TypeScript port package in server/
 ```
 
 The browser suites (`tests/web_*.cjs`) drive a disposable fixture server with
@@ -311,7 +312,7 @@ Set `READER_CHROME` to another Chrome or Chromium executable (needed off macOS) 
 `READER_PLAYWRIGHT` to a different `playwright-core` path to override the defaults.
 
 The full list is in [Development and validation](docs/web.md#development-and-validation).
-CI runs the Python and plugin checks in bounded Docker workers through
+CI runs the Python, plugin and `server/` checks in bounded Docker workers through
 `scripts/check_container.py`, which you can run locally too
 ([bounded validation](docs/separate-vault.md#bounded-validation)).
 
