@@ -44,3 +44,9 @@ def test_page_refuses_unknown_kinds_and_cursors(tmp_path):
         llm_inventory.page(tmp_path, kind='no-such-kind')
     with pytest.raises(ValueError):
         llm_inventory.page(tmp_path, cursor='../outside')
+
+
+def test_a_day_lists_every_kinds_runs_newest_first(tmp_path):
+    for kind, name, hour in (('coding-job', 'older', 1), ('chat', 'newer', 2)):
+        RunLog(tmp_path, kind, name, {}, now=datetime(2026, 10, 21, hour, tzinfo=timezone.utc)).finish('done')
+    assert [r['run_id'] for r in llm_inventory.page(tmp_path)['runs']] == ['newer', 'older']

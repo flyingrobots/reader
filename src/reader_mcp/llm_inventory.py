@@ -64,15 +64,19 @@ def page(root, kind=None, cursor=None, limit=PAGE):
             for month in _dirs(year):
                 for day in _dirs(month):
                     days.append((f'{year.name}/{month.name}/{day.name}', kind_dir.name, day))
-    days.sort(key=lambda d: (d[0], d[1]), reverse=True)
-    passed = cursor is None
+    by_date = {}
     for date, name, day in days:
-        try:
-            runs = [(folder, _meta(folder)) for folder in day.iterdir() if folder.is_dir() and not folder.is_symlink()]
-        except OSError:
-            continue
-        runs.sort(key=lambda pair: (str((pair[1] or {}).get('started_at') or ''), pair[0].name), reverse=True)
-        for folder, meta in runs:
+        by_date.setdefault(date, []).append((name, day))
+    passed = cursor is None
+    for date in sorted(by_date, reverse=True):
+        runs = []
+        for name, day in by_date[date]:  # A day's runs of every kind together, so "newest first" holds across kinds.
+            try:
+                runs += [(folder, _meta(folder), name) for folder in day.iterdir() if folder.is_dir() and not folder.is_symlink()]
+            except OSError:
+                continue
+        runs.sort(key=lambda row: (str((row[1] or {}).get('started_at') or ''), row[2], row[0].name), reverse=True)
+        for folder, meta, name in runs:
             relative = f'{llm_logs.ROOT}/{name}/{date}/{folder.name}'
             if not passed:
                 passed = relative == cursor
