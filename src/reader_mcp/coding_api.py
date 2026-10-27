@@ -3,9 +3,11 @@
 Every answer is browser-safe: host folders appear as `<vault>/…` or `~/…` (#105), credentials never
 appear, and archive reads are bounded. GET requests never admit, run, recover or write anything; only
 POST `/api/jobs` submits or stops, and only POST `/api/repositories` (from this Mac) edits the registry."""
+import json
+
 from . import coding_agents, llm_logs, prompt_blocks
 from .coding_jobs import ARTIFACTS, MAX_ARTIFACT, JobsOwned, Runner
-from .coding_store import archived_events, valid_id
+from .coding_store import MAX_PAGE_BYTES, archived_events, valid_id
 from .display import shown
 from .repositories import RegistryError
 
@@ -57,10 +59,16 @@ class CodingJobs(Runner):
         if run_id in self.captures:
             newer, contiguous = self.live.after(run_id, after)
             if contiguous:
-                rows = newer
+                # The same bounds as archive pages: at most `limit` events and MAX_PAGE_BYTES of JSON lines.
+                rows, size = [], 0
+                for event in newer[:limit]:
+                    size += len(json.dumps(event, ensure_ascii=False).encode('utf-8', 'surrogatepass')) + 1
+                    if size > MAX_PAGE_BYTES:
+                        break
+                    rows.append(event)
                 # Redacted as archived events are: agent commands and output may name host folders.
-                return {'run_id': run_id, 'events': shown(rows[:limit], self.root), 'more': len(rows) > limit, 'source': 'live',
-                        'next': (rows[:limit][-1]['seq'] if rows else after), 'done': False, 'run': view}
+                return {'run_id': run_id, 'events': shown(rows, self.root), 'more': len(rows) < len(newer), 'source': 'live',
+                        'next': (rows[-1]['seq'] if rows else after), 'done': False, 'run': view}
         rows, more = archived_events(self.root, run['log'], after, limit) if run.get('log') else ([], False)
         last = rows[-1]['seq'] if rows else after
         return {'run_id': run_id, 'events': shown(rows, self.root), 'more': more, 'source': 'archive', 'next': last,

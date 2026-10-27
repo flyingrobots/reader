@@ -294,6 +294,21 @@ def test_a_finished_run_releases_its_live_event_buffer(world):
     assert page['source'] == 'archive' and page['done'] and page['events']
 
 
+def test_live_event_pages_keep_the_byte_cap(world):
+    from reader_mcp import coding_store
+    w = world()
+    w.jobs.work = lambda: None  # Admitted but not started, so the run's live capture stays open.
+    run = w.jobs.submit(w.request())
+    capture = w.jobs.captures[run['id']]
+    after = capture.seq
+    for _ in range(4):
+        capture.event(run['id'], 'agent', text='x' * 200_000)
+    page = w.jobs.events(run['id'], after)
+    assert sum(len(json.dumps(e, ensure_ascii=False).encode()) + 1 for e in page['events']) <= coding_store.MAX_PAGE_BYTES
+    assert page['events'] and page['more']
+    w.jobs.stop(run['id'])
+
+
 def test_issue_and_pull_request_titles_hide_host_folders(world, monkeypatch):
     from coding_fixture import article
     from reader_mcp.coding_publish import Job
