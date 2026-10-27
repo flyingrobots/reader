@@ -271,12 +271,12 @@ means the whole suite passes against both the front and Python, plus the tests n
 Markdown in the git tree and SQLite indexes (rebuildable, stamped with the source revisions they reflect) stay
 throughout the port. Each item below is its own later decision:
 
-- **git-warp fo- **git-warp for marginalia: undecided, pending S1b.** The first spike (S1, 2026-10-27) is withdrawn: its
+- **git-warp for marginalia: undecided, pending S1b.** The first spike (S1, 2026-10-27) is withdrawn: its
   harness bypassed git-warp's documented application path (Wesley-generated intents and observers), imported
   internal modules, deleted git-warp's own checkpoint refs and stored membership as growing JSON strings
   instead of edges, so its numbers measured that mapping rather than git-warp. S1b reruns the same data and
   tests through the public surface only. There is no PR 22 unless S1b supports one.
-re shown, whatever the store:** two replacements of one comment and an edit racing a delete
+- **Conflicts are shown, whatever the store:** two replacements of one comment and an edit racing a delete
   must surface a conflict, never pick a winner silently. These are contract cases in PR 5.
 - **Before any storage move,** specify a Reader checkpoint (documents' tree or commit, marginalia history
   coordinate or writer heads, attachment roots, schema and interpreter versions) and two artifacts, each with a
