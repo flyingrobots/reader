@@ -105,7 +105,11 @@ class Runner:
                 return True
             if not self.supervisor.acquire():
                 return False
-            self.recover()
+            try:
+                self.recover()
+            except BaseException:
+                self.supervisor.release()  # Never ownership without a worker: the next own() tries again.
+                raise
             self.worker = threading.Thread(target=self.work, name='reader-coding-jobs', daemon=True)
             self.worker.start()
             return True

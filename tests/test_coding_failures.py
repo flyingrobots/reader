@@ -480,3 +480,22 @@ def test_shutdown_keeps_job_ownership_until_the_worker_has_stopped(world, monkey
         release.set()
         w.jobs.worker.join(timeout=10)
         other.close()
+
+
+def test_a_failed_recovery_releases_ownership_so_the_next_owner_starts_a_worker(world, monkeypatch):
+    w = world()
+    w.jobs.close()
+    jobs = w.make()
+    w.jobs = jobs
+    interrupted_run(w)
+    save, failed = jobs.store.save, []
+
+    def fail_once(record):
+        if record.get('recovered') and not failed:
+            failed.append(True)
+            raise OSError(5, 'synthetic recovery write failure')
+        return save(record)
+    monkeypatch.setattr(jobs.store, 'save', fail_once)
+    with pytest.raises(OSError, match='recovery write failure'):
+        jobs.own()
+    assert jobs.own() and jobs.worker and jobs.worker.is_alive()
