@@ -54,3 +54,9 @@ def test_two_servers_registering_at_once_lose_neither_registration(w, monkeypatc
     for thread in threads:
         thread.join(timeout=10)
     assert {'acme/widget', 'acme/first', 'acme/second'} <= first.raw().keys()
+
+
+def test_a_malformed_agents_list_is_reported_on_its_entry(w):
+    w.jobs.registry.write({'acme/widget': dict(w.entry, agents=[{}])})
+    [row] = w.jobs.repositories()['repositories']
+    assert row['error'] and 'agents' in row['error']

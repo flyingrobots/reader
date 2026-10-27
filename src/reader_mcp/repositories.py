@@ -95,7 +95,8 @@ def validate(repo, raw, vault):
     if not isinstance(base, str) or not base or len(base) > 200 or git(['check-ref-format', '--branch', base], checkout).returncode:
         raise RegistryError(f'{repo}: base must be a branch name')
     agents = raw.get('agents')
-    if not isinstance(agents, list) or not agents or len(set(agents)) != len(agents) or not set(agents) <= set(AGENTS):
+    if (not isinstance(agents, list) or not agents or not all(isinstance(a, str) for a in agents)
+            or len(set(agents)) != len(agents) or not set(agents) <= set(AGENTS)):
         raise RegistryError(f'{repo}: agents must list one or more of ' + ', '.join(AGENTS))
     executables = raw.get('executables') or {}
     if not isinstance(executables, dict) or not set(executables) <= set(agents) or not all(
