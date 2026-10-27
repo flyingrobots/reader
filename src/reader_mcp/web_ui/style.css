@@ -108,6 +108,7 @@ body.two-page .article.pdf-document{column-gap:var(--book-gap)}body.two-page .pd
 .next-read-reasons span{font-size:10px;line-height:1.5;padding:0 7px;border:1px solid var(--line);border-radius:999px;color:var(--muted)}
 /* Reading log under the document meta. Its slot reserves one line before /api/readers answers. */
 .document-meta:has(+.reading-log){margin-bottom:14px}
+.document-meta{align-items:center}.document-meta .document-source{text-decoration:none;color:var(--ink)}
 .reading-log{font:11px/1.5 var(--sans);color:var(--muted);margin:0 0 64px;min-height:1.5em;max-width:100%;break-inside:avoid}
 .article .reading-log{font-family:var(--sans);font-size:11px;line-height:1.5}
 .reading-log summary{display:flex;align-items:baseline;gap:8px;cursor:pointer;list-style:none;border-radius:3px}

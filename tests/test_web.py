@@ -759,6 +759,97 @@ def test_web_config_environment_overrides_and_unsafe_files(web):
     assert request('/api/library', headers=tailnet())[0] == 403
 
 
+FRONT_SECRET = 'front-secret-' + 'x' * 40
+
+
+def front(identity=None, secret=FRONT_SECRET, **extra):
+    """Headers as the trusted front forwards them: the client's Host and Origin, the secret and identity."""
+    headers = {} if secret is None else {'X-Reader-Front-Secret': secret}
+    if identity is not None:
+        headers['X-Reader-Identity'] = identity if isinstance(identity, str) else json.dumps(identity)
+    return headers | extra
+
+
+LOCAL = {'via': 'local', 'login': None, 'name': None}
+PEER = {'via': 'tailscale', 'login': 'user@example.com', 'name': 'A Tester'}
+
+
+def test_front_headers_are_ignored_without_a_configured_secret(web):
+    root, library, server, request = web
+    # Off by default: a client-sent identity or secret neither elevates nor refuses a local request.
+    for headers in (front(PEER), front(PEER, secret='guess'), front('not json'), front(PEER, secret=None)):
+        status, body, _ = request('/api/service', headers=headers)
+        assert status == 200 and body['identity'] == LOCAL, headers
+    item = request('/api/document?path=library/thought.md', headers=front(PEER))[1]['item']
+    assert request('/api/seen', {'participant': 'Test reader', 'items': [item]}, front(PEER))[0] == 200
+    # And a forwarded request with front headers keeps today's proxy rules.
+    assert request('/api/library', headers=tailnet() | front(PEER))[0] == 403
+
+
+def test_a_configured_front_secret_admits_only_the_front(web):
+    root, library, server, request = web
+    library.access.environ = {'READER_WEB_FRONT_SECRET': FRONT_SECRET}
+    status, body, _ = request('/api/service', headers=front(LOCAL))
+    assert status == 200 and body['identity'] == LOCAL
+    # No secret, a wrong one, or a right one without identity is a 403, assets and pages included.
+    for headers in ({}, front(LOCAL, secret=None), front(LOCAL, secret='wrong'), front(LOCAL, secret=FRONT_SECRET[:-1]),
+                    front(LOCAL, secret=FRONT_SECRET + 'x'), front(None), front('not json'), front('[]'),
+                    front({'via': 'root', 'login': None, 'name': None}), front(LOCAL | {'extra': 1}),
+                    front({'via': 'local', 'login': 'user@example.com', 'name': None}),
+                    front({'via': 'tailscale', 'login': '', 'name': None})):
+        for path in ('/api/service', '/', '/assets/style.css'):
+            status, body, _ = request(path, headers=headers, raw=True)
+            assert status == 403, (headers, path)
+            assert FRONT_SECRET.encode() not in body
+    # A tailscale identity sent without the secret never elevates; it is refused like any other direct request.
+    configure(root)
+    assert request('/api/service', headers=tailnet() | front(PEER, secret=None))[0] == 403
+
+
+def test_front_identity_survives_the_hop_and_keeps_host_origin_and_token_checks(web):
+    root, library, server, request = web
+    library.access.environ = {'READER_WEB_FRONT_SECRET': FRONT_SECRET}
+    port = 8766  # The front's public port, not the child's: Host and Origin are the client's.
+    local = front(LOCAL, Host=f'127.0.0.1:{port}')
+    assert request('/api/service', headers=local)[1]['identity'] == LOCAL
+    assert request('/api/service', headers=front(LOCAL, Host=f'localhost:{port}', Origin=f'http://localhost:{port}'))[0] == 200
+    for bad in ({'Host': 'untrusted.example'}, {'Host': TAILNET}, {'Origin': 'http://evil.example'},
+                {'Origin': f'http://localhost:{port}'}):
+        assert request('/api/service', headers=local | bad)[0] == 403, bad
+    # A tailnet identity needs the same configuration as a direct tailscale request.
+    peer = front(PEER, Host=TAILNET)
+    assert request('/api/service', headers=peer)[0] == 403
+    configure(root)
+    status, body, _ = request('/api/service', headers=peer)
+    assert status == 200 and body['identity'] == PEER
+    for bad in ({'Host': 'other.example-tailnet.ts.net'}, {'Origin': 'https://evil.example'},
+                {'X-Reader-Identity': json.dumps(PEER | {'login': 'someone@example.net'})}, {'Tailscale-Funnel-Request': '?1'}):
+        assert request('/api/service', headers=peer | bad)[0] == 403, bad
+    # The identity reaches handlers: a tailnet peer still may not choose companion executables.
+    assert request('/api/companions', {'action': 'set-path', 'name': 'colorful', 'path': '/bin/true'}, peer)[0] == 403
+    # Writes still need the token and JSON.
+    seen = {'participant': 'Test reader', 'items': [request('/api/document?path=library/thought.md', headers=peer)[1]['item']]}
+    assert request('/api/seen', seen, peer | {'Origin': 'https://' + TAILNET})[0] == 200
+    assert request('/api/seen', seen, peer | {'X-Reader-Token': 'wrong'})[0] == 403
+    assert request('/api/seen', seen, local | {'Content-Type': 'text/plain'})[0] == 403
+
+
+def test_the_front_supplies_the_write_token_and_bad_settings_fail_closed(tmp_path):
+    library = WebLibrary(tmp_path, service_runner=lambda argv: {'installed': False})
+    token = 'front-token-' + 'y' * 40
+    library.access.environ = {'READER_WEB_FRONT_TOKEN': token}
+    assert WebServer(('127.0.0.1', 0), library).token != token, 'the front token needs the front secret'
+    library.access.environ = {'READER_WEB_FRONT_SECRET': FRONT_SECRET, 'READER_WEB_FRONT_TOKEN': token}
+    server = WebServer(('127.0.0.1', 0), library)
+    assert server.token == token
+    server.server_close()
+    for environ in ({'READER_WEB_FRONT_SECRET': 'tiny-value'}, {'READER_WEB_FRONT_SECRET': FRONT_SECRET, 'READER_WEB_FRONT_TOKEN': 'tiny-value'}):
+        library.access.environ = environ
+        with pytest.raises(ValueError) as error:
+            WebServer(('127.0.0.1', 0), library)
+        assert 'tiny-value' not in str(error.value) and FRONT_SECRET not in str(error.value)
+
+
 def test_health_and_service_routes(web):
     root, library, server, request = web
     status, body, _ = request('/api/health')

@@ -55,6 +55,8 @@ ENV_PURPOSE = {
     'READER_WEB_ALLOWED_HOSTS': 'Override web-config allowed_hosts (tailnet names).',
     'READER_WEB_ALLOWED_ORIGINS': 'Override web-config allowed_origins.',
     'READER_WEB_ALLOWED_LOGINS': 'Override web-config allowed_logins (Tailscale logins).',
+    'READER_WEB_FRONT_SECRET': 'Turn on the trusted front: requests must prove this secret (32+ characters).',
+    'READER_WEB_FRONT_TOKEN': 'With the front secret, the write token the front hands out (32+ characters).',
     'READER_WEB_TRUSTED_PROXY': 'Override web-config trusted_proxy (`tailscale` or empty).',
     'READER_SERVICE_LAUNCHCTL': 'reader_service.py: launchctl path (tests use fakes).',
     'READER_SERVICE_TAILSCALE': 'reader_service.py: tailscale path.',
@@ -765,6 +767,10 @@ def render(demo=True):
     w('  *proxied*, which needs `trusted_proxy: tailscale`, a configured host matching X-Forwarded-Host, an allowed')
     w('  Tailscale-User-Login, no Funnel header and an allowed Origin. Refusal: 403 JSON `{error}` under `/api/`, else a 403 HTML page.')
     w('  Config: `<vault>/.reader/web-config.json` (≤ 64 KiB, no symlink) with `READER_WEB_*` overrides, re-read on change.')
+    w('- **Trusted front (off by default):** with `READER_WEB_FRONT_SECRET` set, `identify` instead requires that secret in')
+    w('  `X-Reader-Front-Secret` (constant-time) and a JSON `X-Reader-Identity` (`via` local or tailscale), then re-checks the')
+    w('  forwarded Host/Origin against it and the config; anything else is a 403. Unset, both headers are ignored.')
+    w('  `READER_WEB_FRONT_TOKEN` then supplies the write token.')
     w('- **Writes (every POST):** header `X-Reader-Token` equal to the per-process token from `GET /api/library`, and')
     w('  `Content-Type: application/json`, else 403. Body must be a JSON object of 1 byte up to: ' + '; '.join(f'`{md(l)}`' for l in limits) + '.')
     w(f"- **Admission:** expensive pool {consts['EXPENSIVE_LIMIT']} slots (refuse 429 at once), read pool {consts['READ_LIMIT']} slots"

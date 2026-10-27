@@ -99,7 +99,11 @@ only to commits that pass a smoke test, with rollback when the restarted server 
 unhealthy and a wait while inbox runs or rebuilds are active. `tailscale on`
 publishes it on the user's own tailnet with `tailscale serve` (never Funnel); Reader
 still binds to loopback and admits proxied requests only for allow-listed
-Tailscale logins. No web API answer names a host folder: executables are reported as
+Tailscale logins. A trusted front (the TypeScript port's strangler front) is off by
+default: only with `READER_WEB_FRONT_SECRET` set does the server accept requests
+that prove that secret, take the participant identity from `X-Reader-Identity` and
+re-check the client's Host and Origin; it then refuses everything else, and without
+the secret those headers are ignored. No web API answer names a host folder: executables are reported as
 installed or not, and paths that must be shown use `<vault>` and `~`. The app ships a web app manifest and icons for Add to Home
 Screen. Linux service units and public exposure are not supported.
 
@@ -163,6 +167,11 @@ agents (fewer than 5 document receipts) into one entry, and links to each
 participant's threads. Voices are the names the vault's `voices.json` lists; a vault
 without one has no voices. Receipts for earlier members of the document's edition family
 (an original, or a lower version) count as earlier editions.
+
+**Source** (the button under a document's title, Space u, or the footer's Open original)
+opens the exact file bytes, front matter included, in a new tab: text as `text/plain`,
+PDFs and images with their own type. It covers filed documents and inbox previews; a
+historical version has no raw route, so it shows no Source button.
 
 **Send to AI-TTS** (Space s, the document footer or the selection toolbar's Speak)
 queues the whole article, the text from the reading position, or a selected passage

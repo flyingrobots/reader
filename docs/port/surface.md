@@ -32,7 +32,7 @@ owning class. **Existing tests** counts browser suites (`tests/web_*.cjs`, `test
 | POST | `/api/queue` | expensive (8, refuse 429) | participant, action, path, index, request_id, added_by, reason, current | queue.change (ReadingQueue), queue_view | — | 3 / 3 | write |
 | POST | `/api/history` | expensive (8, refuse 429) | action, participant, path, sha256 | digest, queue.opened (ReadingQueue), queue.hide (ReadingQueue) | — | 2 / 3 | write |
 | POST | `/api/maintenance` | expensive (8, refuse 429) | action, kind | maintenance.start (Maintenance) | — | 1 / 2 | write |
-| POST | `/api/companions` | expensive (8, refuse 429) | — | companions.dispatch (Companions) | — | 1 / 2 | write |
+| POST | `/api/companions` | expensive (8, refuse 429) | — | companions.dispatch (Companions) | — | 1 / 3 | write |
 | POST | `/api/inbox` | expensive (8, refuse 429) | action, sandbox_mode | inbox.start (InboxView), inbox.stop (InboxView) | — | 2 / 4 | write |
 | POST | `/api/local-model` | expensive (8, refuse 429) | — | local_model.dispatch (LocalModel) | — | 1 / 3 | write |
 | POST | `/api/art` | expensive (8, refuse 429) | participant | art.dispatch (Studio) | — | 5 / 2 | write |
@@ -43,7 +43,7 @@ owning class. **Existing tests** counts browser suites (`tests/web_*.cjs`, `test
 | POST | `/api/prompt` | expensive (8, refuse 429) | participant | prompts.dispatch (Prompts) | — | 0 / 1 | write |
 | POST | `/api/service` | expensive (8, refuse 429) | action | service.act (Service) | — | 0 / 2 | write |
 | GET | `/api/library` | reads (32, wait 5.0 s then 429) | participant | bootstrap | — | 11 / 4 | read, security |
-| GET | `/api/document` | reads (32, wait 5.0 s then 429) | path, participant | document | — | 9 / 4 | read, security, vault-files, write |
+| GET | `/api/document` | reads (32, wait 5.0 s then 429) | path, participant | document | — | 10 / 4 | read, security, vault-files, write |
 | GET | `/api/search` | expensive (8, refuse 429) | q, mode, path_prefix, participant | search, search_read_status | — | 4 / 2 | read |
 | GET | `/api/search/page` | expensive (8, refuse 429) | project[], author[], type[], (other filter keys), q, mode, offset, limit, participant | search_page | — | 1 / 3 | read |
 | GET | `/api/discussion` | reads (32, wait 5.0 s then 429) | path, participant | annotations.list (Annotations), engagement.attention (Engagement) | — | 5 / 2 | read |
@@ -67,7 +67,7 @@ owning class. **Existing tests** counts browser suites (`tests/web_*.cjs`, `test
 | GET | `/api/inbox/events` | reads (32, wait 5.0 s then 429) | after | inbox.events (InboxView) | — | 1 / 3 | read |
 | GET | `/api/chat/raw` | expensive (8, refuse 429) | id, turn | conversations.raw (Conversations) | — | 0 / 3 | read |
 | GET | `/api/prose` | expensive (8, refuse 429) | — | prose.status (Prose) | — | 1 / 4 | read |
-| GET | `/api/companions` | reads (32, wait 5.0 s then 429) | name | companions.status (Companions) | — | 1 / 2 | read |
+| GET | `/api/companions` | reads (32, wait 5.0 s then 429) | name | companions.status (Companions) | — | 1 / 3 | read |
 | GET | `/api/companions/log` | reads (32, wait 5.0 s then 429) | name | companions.log (Companions) | — | 0 / 2 | read |
 | GET | `/api/health` | ungated | — | service.health | — | 0 / 3 | read, security |
 | GET | `/api/service` | expensive (8, refuse 429) | — | service.status (Service), service.health | — | 0 / 2 | read, security |
@@ -128,6 +128,10 @@ the action accepts beyond `action`, where the code lists them.
   *proxied*, which needs `trusted_proxy: tailscale`, a configured host matching X-Forwarded-Host, an allowed
   Tailscale-User-Login, no Funnel header and an allowed Origin. Refusal: 403 JSON `{error}` under `/api/`, else a 403 HTML page.
   Config: `<vault>/.reader/web-config.json` (≤ 64 KiB, no symlink) with `READER_WEB_*` overrides, re-read on change.
+- **Trusted front (off by default):** with `READER_WEB_FRONT_SECRET` set, `identify` instead requires that secret in
+  `X-Reader-Front-Secret` (constant-time) and a JSON `X-Reader-Identity` (`via` local or tailscale), then re-checks the
+  forwarded Host/Origin against it and the config; anything else is a 403. Unset, both headers are ignored.
+  `READER_WEB_FRONT_TOKEN` then supplies the write token.
 - **Writes (every POST):** header `X-Reader-Token` equal to the per-process token from `GET /api/library`, and
   `Content-Type: application/json`, else 403. Body must be a JSON object of 1 byte up to: `1024 ** 2 if parsed.path == '/api/prose' else 3 * 1024 ** 2 if parsed.path == '/api/art' else 128 * 1024`.
 - **Admission:** expensive pool 8 slots (refuse 429 at once), read pool 32 slots (wait 5.0 s, then 429), SSE 4 streams (429), ungated: /, /api/health and /assets/, /fonts/.
@@ -663,8 +667,8 @@ Lock file names: `.lock`, `.reader/gpu.lock`, `.reader/inbox-runner/run.lock`, `
 | `src/reader_mcp/demo/build.py:225` | run | `['git', '-C', str(self.root), *args]` | `—` |
 | `scripts/check_container.py:47` | run | `['docker', *args]` | `—` |
 | `scripts/check_container.py:73` | run | `['docker', 'inspect', name]` | `—` |
-| `scripts/check_container.py:188` | run | `['docker', 'rm', '-f', name]` | `—` |
-| `scripts/check_container.py:134` | Popen | `['docker', 'exec', name, 'sh', '-c', cmd]` | `—` |
+| `scripts/check_container.py:190` | run | `['docker', 'rm', '-f', name]` | `—` |
+| `scripts/check_container.py:136` | Popen | `['docker', 'exec', name, 'sh', '-c', cmd]` | `—` |
 | `scripts/install.py:39` | run | `[codex, 'mcp', 'get', 'reader', '--json']` | `—` |
 | `scripts/install.py:57` | run | `[codex, 'mcp', 'remove', 'reader']` | `—` |
 | `scripts/install.py:60` | run | `[codex, 'mcp', 'add', 'reader', '--', *command]` | `—` |
@@ -798,6 +802,8 @@ Programs named as string literals per module:
 | `READER_WEB_ALLOWED_HOSTS` | web_access.py | Override web-config allowed_hosts (tailnet names). |
 | `READER_WEB_ALLOWED_LOGINS` | web_access.py | Override web-config allowed_logins (Tailscale logins). |
 | `READER_WEB_ALLOWED_ORIGINS` | web_access.py | Override web-config allowed_origins. |
+| `READER_WEB_FRONT_SECRET` | web_access.py | Turn on the trusted front: requests must prove this secret (32+ characters). |
+| `READER_WEB_FRONT_TOKEN` | web_access.py | With the front secret, the write token the front hands out (32+ characters). |
 | `READER_WEB_TRUSTED_PROXY` | web_access.py | Override web-config trusted_proxy (`tailscale` or empty). |
 | `READER_WORKSTATION_LOCK_STORE` | inbox_view.py | git-locks store for shared host resources during inbox runs. |
 | `TMPDIR` | art.py, inbox_runner.py, install_wide_md.py, reader_service.py, search_guard.py, voice_runner.py | Set for children to an owned, bounded temp folder. |
@@ -841,7 +847,7 @@ exercise modules through HTTP, so see the route table for those.
 | `src/reader_mcp/annotations.py` | 160 | 142 | 9156 | 63 | 217 | 1.29 | 15 | 1 | 5 | 29 |
 | `src/reader_mcp/art.py` | 964 | 865 | 54690 | 60 | 215 | 0.89 | 54 | 4 | 4 | 53 |
 | `src/reader_mcp/art_scene.py` | 351 | 294 | 14728 | 49 | 134 | 1.01 | 34 | 2 | 4 | 53 |
-| `src/reader_mcp/bookmarks.py` | 75 | 68 | 4229 | 61 | 163 | 0.97 | 5 | 1 | 1 | 43 |
+| `src/reader_mcp/bookmarks.py` | 75 | 68 | 4229 | 61 | 163 | 0.97 | 5 | 1 | 1 | 47 |
 | `src/reader_mcp/browse.py` | 460 | 426 | 31971 | 73 | 545 | 1.03 | 22 | 1 | 2 | 16 |
 | `src/reader_mcp/catalog.py` | 392 | 354 | 20854 | 55 | 174 | 0.86 | 15 | 2 | 6 | 55 |
 | `src/reader_mcp/changes.py` | 292 | 261 | 13048 | 47 | 136 | 0.88 | 14 | 2 | 2 | 23 |
@@ -857,7 +863,7 @@ exercise modules through HTTP, so see the route table for those.
 | `src/reader_mcp/companions.py` | 697 | 610 | 39499 | 62 | 222 | 0.82 | 43 | 1 | 2 | 27 |
 | `src/reader_mcp/curation.py` | 331 | 305 | 19068 | 60 | 130 | 0.83 | 10 | 1 | 1 | 16 |
 | `src/reader_mcp/display.py` | 56 | 45 | 2199 | 46 | 104 | 0.87 | 5 | 0 | 1 | 4 |
-| `src/reader_mcp/editions.py` | 359 | 325 | 16852 | 49 | 174 | 0.92 | 17 | 1 | 2 | 51 |
+| `src/reader_mcp/editions.py` | 359 | 325 | 16852 | 49 | 174 | 0.92 | 17 | 1 | 2 | 55 |
 | `src/reader_mcp/embeds.py` | 324 | 274 | 14375 | 50 | 133 | 0.89 | 19 | 1 | 1 | 9 |
 | `src/reader_mcp/engagement.py` | 159 | 137 | 8851 | 63 | 198 | 1.12 | 16 | 1 | 4 | 47 |
 | `src/reader_mcp/github.py` | 149 | 119 | 7615 | 63 | 143 | 0.93 | 24 | 4 | 2 | 31 |
@@ -888,18 +894,18 @@ exercise modules through HTTP, so see the route table for those.
 | `src/reader_mcp/shape.py` | 410 | 361 | 21084 | 55 | 158 | 0.87 | 21 | 1 | 1 | 11 |
 | `src/reader_mcp/speech.py` | 150 | 135 | 7983 | 58 | 140 | 0.87 | 9 | 2 | 2 | 30 |
 | `src/reader_mcp/store.py` | 225 | 197 | 10529 | 51 | 111 | 0.90 | 11 | 4 | 4 | 45 |
-| `src/reader_mcp/themes.py` | 338 | 307 | 17684 | 56 | 163 | 0.92 | 19 | 1 | 2 | 49 |
+| `src/reader_mcp/themes.py` | 338 | 307 | 17684 | 56 | 163 | 0.92 | 19 | 1 | 2 | 53 |
 | `src/reader_mcp/versions.py` | 307 | 284 | 14746 | 50 | 131 | 0.88 | 13 | 1 | 1 | 10 |
 | `src/reader_mcp/voice_runner.py` | 1526 | 1378 | 79782 | 54 | 181 | 0.90 | 86 | 5 | 4 | 107 |
 | `src/reader_mcp/voice_tasks.py` | 288 | 263 | 15125 | 55 | 201 | 0.89 | 17 | 1 | 1 | 17 |
 | `src/reader_mcp/voices.py` | 364 | 308 | 19248 | 60 | 143 | 0.88 | 21 | 1 | 1 | 47 |
-| `src/reader_mcp/web.py` | 1754 | 1630 | 101746 | 60 | 258 | 0.90 | 85 | 5 | 23 | 347 |
-| `src/reader_mcp/web_access.py` | 131 | 115 | 6496 | 54 | 129 | 0.83 | 6 | 1 | 0 | 0 |
+| `src/reader_mcp/web.py` | 1756 | 1631 | 101915 | 60 | 258 | 0.90 | 85 | 5 | 23 | 351 |
+| `src/reader_mcp/web_access.py` | 211 | 186 | 11085 | 57 | 129 | 0.82 | 10 | 1 | 0 | 0 |
 | `src/reader_mcp/writing.py` | 369 | 342 | 21207 | 60 | 237 | 0.91 | 18 | 2 | 1 | 7 |
 | `src/reader_mcp/demo/__init__.py` | 137 | 116 | 6014 | 50 | 149 | 0.89 | 9 | 0 | 0 | 0 |
 | `src/reader_mcp/demo/build.py` | 718 | 625 | 49845 | 77 | 170 | 0.64 | 29 | 1 | 0 | 0 |
 | `src/reader_mcp/demo/static.py` | 379 | 335 | 20169 | 58 | 177 | 0.90 | 19 | 1 | 0 | 0 |
-| `scripts/check_container.py` | 191 | 170 | 12171 | 66 | 283 | 0.95 | 4 | 0 | 0 | 0 |
+| `scripts/check_container.py` | 193 | 172 | 12335 | 66 | 292 | 0.94 | 4 | 0 | 0 | 0 |
 | `scripts/install.py` | 78 | 73 | 3807 | 51 | 124 | 0.99 | 1 | 0 | 0 | 0 |
 | `scripts/install_wide_md.py` | 100 | 92 | 5327 | 57 | 140 | 0.91 | 5 | 0 | 0 | 0 |
 | `scripts/reader_paths.py` | 23 | 19 | 924 | 47 | 112 | 1.00 | 1 | 0 | 0 | 0 |
@@ -908,10 +914,10 @@ exercise modules through HTTP, so see the route table for those.
 | `scripts/vendor_web.py` | 77 | 68 | 4132 | 58 | 186 | 0.88 | 2 | 0 | 0 | 0 |
 | `scripts/verify_installation.py` | 80 | 72 | 4428 | 60 | 264 | 0.92 | 1 | 0 | 0 | 0 |
 | `scripts/verify_search_installation.py` | 74 | 66 | 4190 | 59 | 138 | 0.82 | 1 | 0 | 0 | 0 |
-| **total** | 23551 | 20969 | 1250836 | | | | | | | |
+| **total** | 23635 | 21043 | 1255758 | | | | | | | |
 
-Language-neutral code that a port keeps as is: `src/reader_mcp/web_ui/` (41 hand-written JS/CSS/HTML files, 8340 lines, excluding vendor/) plus the built `web_ui/controls/` bundle from `web/`.
-Tests: 64 pytest files, 709 test functions; 72 browser suites; 18 node unit files.
+Language-neutral code that a port keeps as is: `src/reader_mcp/web_ui/` (41 hand-written JS/CSS/HTML files, 8344 lines, excluding vendor/) plus the built `web_ui/controls/` bundle from `web/`.
+Tests: 64 pytest files, 713 test functions; 73 browser suites; 18 node unit files.
 
 ## Contract coverage
 

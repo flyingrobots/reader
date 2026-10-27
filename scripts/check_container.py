@@ -76,7 +76,7 @@ def main():
         # Only selected software paths. No host mount and no vault files enter the worker.
         stream = io.BytesIO()
         with tarfile.open(fileobj=stream, mode='w') as archive:
-            tops = ['src','tests','templates','scripts','skills','schemas','plugins','web','docs','activity','README.md','CHANGELOG.md','AGENTS.md','package.json','package-lock.json','pyproject.toml','uv.lock','LICENSE','.reader/tooling/bin/wide-md','.reader/tooling/installed.json']
+            tops = ['src','tests','templates','scripts','skills','schemas','plugins','server','web','docs','activity','README.md','CHANGELOG.md','AGENTS.md','package.json','package-lock.json','pyproject.toml','uv.lock','LICENSE','.reader/tooling/bin/wide-md','.reader/tooling/installed.json']
             if kind == 'web':
                 tops = ['src','tests','web','package.json','package-lock.json','LICENSE']
             for top in tops:
@@ -119,7 +119,9 @@ def main():
                    'npm --prefix plugins/reader ci --cache /work/npm-cache && '
                    'npm --prefix plugins/reader run check && npm --prefix plugins/reader test && '
                    'npm --prefix plugins/reader run build && '
-                   'node --test tests/quiz_controller.cjs')
+                   'node --test tests/quiz_controller.cjs && '
+                   'npm --prefix server ci --cache /work/npm-cache && '
+                   'npm --prefix server run check && npm --prefix server test')
             if kind=='web':
                 cmd = ('node --test tests/*.test.mjs && cd web && npm ci --cache /work/npm-cache --no-audit --no-fund && '
                        'npm run check && npm run build')

@@ -53,6 +53,7 @@ The web server does not rebuild indexes or download models at startup.
 | Space d | What changed: since your receipt, else against the newer version, else against another reader's edition |
 | Space , t; F10 | Theme Editor (F10 also closes it; focus returns to where it was opened from) |
 | Space s, then a / f / s | Send to AI-TTS: whole article, from here, or the selection |
+| Space u; header Source | Open the raw source file (`/api/file`, front matter included) in a new tab; filed documents and inbox previews, not historical versions |
 | Space m | Chat with the voices about the open document |
 | Space x | Take a source-anchored quiz on the open article |
 | Space a | Write about the article from a voice's question |
@@ -3948,6 +3949,43 @@ refuses proxied requests and leaves local ones working. HTTPS needs MagicDNS and
 HTTPS certificates enabled for the tailnet; Tailscale prompts for that on first use.
 Identity headers are absent for tagged devices, which are therefore refused.
 
+**Trusted front (off by default).** For the TypeScript port's strangler front
+([plan](port/plan.md#migration-strategy-strangler-front)), the server can run behind
+a front that owns the public port. Set `READER_WEB_FRONT_SECRET` (at least 32
+characters) in the server's environment to turn it on; without it nothing below
+applies and the `X-Reader-Front-Secret` and `X-Reader-Identity` headers are ignored,
+so a client never gains an identity by sending them. With it set:
+
+- Every request, pages and assets included, must carry the secret in
+  `X-Reader-Front-Secret`, compared in constant time. A missing or wrong secret is
+  a 403 (`Requests must come through the Reader front`); the request is refused,
+  not served as local. The secret never appears in responses or logs.
+- `X-Reader-Identity` carries the front's verdict as JSON, either
+  `{"via": "local", "login": null, "name": null}` or
+  `{"via": "tailscale", "login": "user@example.com", "name": "A Tester"}` (name
+  optional). A missing, oversized or malformed identity is a 403. That identity is
+  what handlers see, so a tailnet user stays a tailnet user across the hop (for
+  example, still unable to set companion paths).
+- The front forwards the client's `Host` and `Origin` unchanged, and the server
+  re-checks them against the identity: a local identity needs a
+  `127.0.0.1:<port>` or `localhost:<port>` Host (the front's port) and, if Origin is
+  sent, `http://` plus that Host; a tailscale identity needs `trusted_proxy`
+  `tailscale`, a Host in `allowed_hosts`, a login in `allowed_logins` and an Origin
+  in `allowed_origins`, as for a direct proxied request. Forwarding and Tailscale
+  identity headers are the front's business and are not consulted, but a
+  `Tailscale-Funnel-Request` marker is still refused.
+- Writes still need `X-Reader-Token` and a JSON body. `READER_WEB_FRONT_TOKEN`
+  (at least 32 characters, honoured only with the secret) sets that token, so the
+  front can hand out one token that survives a restart of this server; without it
+  the server makes its own, as usual.
+- A secret or token shorter than 32 characters stops the server at start and
+  refuses every request if it changes later; the message names the variable, never
+  its value.
+
+The front must strip any client-sent `X-Reader-Front-Secret` and
+`X-Reader-Identity` before setting its own; `tests/contract/security.test.mjs`
+checks that a client sending them gains nothing.
+
 **Installable app.** `/assets/manifest.webmanifest` (standalone, `start_url` `/`),
 PNG icons in `web_ui/icons/` rendered from `mark.svg` by `scripts/render_icons.cjs`,
 an `apple-touch-icon`, and a `theme-color` meta tag that follows the theme's
@@ -4043,6 +4081,7 @@ node tests/web_static_demo_ui.cjs
 node tests/web_static_chat.cjs
 node tests/web_controls.cjs
 node tests/web_documents.cjs
+node tests/web_source.cjs
 .venv/bin/python -m pytest -q tests/test_themes.py
 node tests/web_themes.cjs
 node tests/web_page_turn.cjs
