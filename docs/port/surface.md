@@ -849,25 +849,25 @@ exercise modules through HTTP, so see the route table for those.
 | `src/reader_mcp/cli.py` | 169 | 163 | 9948 | 60 | 134 | 0.93 | 1 | 0 | 13 | 173 |
 | `src/reader_mcp/clock.py` | 31 | 27 | 1399 | 51 | 106 | 0.81 | 1 | 0 | 0 | 0 |
 | `src/reader_mcp/coding_agents.py` | 107 | 89 | 5925 | 65 | 299 | 0.70 | 5 | 0 | 0 | 0 |
-| `src/reader_mcp/coding_api.py` | 131 | 116 | 7850 | 67 | 151 | 0.85 | 10 | 1 | 0 | 0 |
-| `src/reader_mcp/coding_jobs.py` | 392 | 352 | 22157 | 60 | 155 | 0.84 | 18 | 3 | 2 | 21 |
+| `src/reader_mcp/coding_api.py` | 132 | 116 | 7930 | 66 | 151 | 0.85 | 10 | 1 | 0 | 0 |
+| `src/reader_mcp/coding_jobs.py` | 399 | 358 | 22726 | 60 | 160 | 0.84 | 18 | 3 | 2 | 23 |
 | `src/reader_mcp/coding_publish.py` | 216 | 198 | 12909 | 64 | 181 | 0.86 | 12 | 1 | 0 | 0 |
-| `src/reader_mcp/coding_store.py` | 241 | 203 | 9554 | 45 | 151 | 0.92 | 24 | 4 | 2 | 25 |
-| `src/reader_mcp/coding_workflow.py` | 376 | 343 | 21615 | 61 | 149 | 0.92 | 21 | 2 | 1 | 23 |
+| `src/reader_mcp/coding_store.py` | 249 | 210 | 9963 | 46 | 151 | 0.92 | 25 | 4 | 2 | 26 |
+| `src/reader_mcp/coding_workflow.py` | 376 | 343 | 21615 | 61 | 149 | 0.92 | 21 | 2 | 1 | 24 |
 | `src/reader_mcp/companions.py` | 697 | 610 | 39499 | 62 | 222 | 0.82 | 43 | 1 | 2 | 27 |
 | `src/reader_mcp/curation.py` | 331 | 305 | 19068 | 60 | 130 | 0.83 | 10 | 1 | 1 | 16 |
 | `src/reader_mcp/display.py` | 56 | 45 | 2199 | 46 | 104 | 0.87 | 5 | 0 | 1 | 4 |
 | `src/reader_mcp/editions.py` | 359 | 325 | 16852 | 49 | 174 | 0.92 | 17 | 1 | 2 | 51 |
 | `src/reader_mcp/embeds.py` | 324 | 274 | 14375 | 50 | 133 | 0.89 | 19 | 1 | 1 | 9 |
 | `src/reader_mcp/engagement.py` | 159 | 137 | 8851 | 63 | 198 | 1.12 | 16 | 1 | 4 | 47 |
-| `src/reader_mcp/github.py` | 142 | 113 | 7214 | 63 | 143 | 0.93 | 23 | 4 | 2 | 25 |
+| `src/reader_mcp/github.py` | 142 | 113 | 7214 | 63 | 143 | 0.93 | 23 | 4 | 2 | 26 |
 | `src/reader_mcp/inbox_runner.py` | 252 | 232 | 15348 | 64 | 536 | 0.98 | 11 | 0 | 6 | 113 |
 | `src/reader_mcp/inbox_view.py` | 560 | 506 | 28351 | 53 | 162 | 0.87 | 27 | 2 | 1 | 21 |
 | `src/reader_mcp/junk.py` | 13 | 9 | 581 | 63 | 106 | 0.56 | 1 | 0 | 1 | 3 |
 | `src/reader_mcp/learning.py` | 39 | 31 | 2105 | 61 | 127 | 0.87 | 2 | 0 | 1 | 14 |
 | `src/reader_mcp/links.py` | 609 | 536 | 30975 | 55 | 173 | 0.88 | 31 | 3 | 2 | 20 |
 | `src/reader_mcp/llm_inventory.py` | 102 | 85 | 5205 | 57 | 138 | 0.85 | 6 | 0 | 1 | 3 |
-| `src/reader_mcp/llm_logs.py` | 278 | 240 | 12497 | 50 | 136 | 0.95 | 18 | 1 | 10 | 146 |
+| `src/reader_mcp/llm_logs.py` | 278 | 240 | 12497 | 50 | 136 | 0.95 | 18 | 1 | 10 | 149 |
 | `src/reader_mcp/local_model.py` | 1793 | 1573 | 90684 | 55 | 187 | 0.87 | 115 | 13 | 4 | 55 |
 | `src/reader_mcp/magazine.py` | 202 | 175 | 9086 | 49 | 138 | 0.94 | 10 | 1 | 0 | 0 |
 | `src/reader_mcp/maintenance.py` | 336 | 300 | 17937 | 57 | 170 | 0.77 | 20 | 1 | 4 | 32 |
@@ -908,10 +908,10 @@ exercise modules through HTTP, so see the route table for those.
 | `scripts/vendor_web.py` | 77 | 68 | 4132 | 58 | 186 | 0.88 | 2 | 0 | 0 | 0 |
 | `scripts/verify_installation.py` | 80 | 72 | 4428 | 60 | 264 | 0.92 | 1 | 0 | 0 | 0 |
 | `scripts/verify_search_installation.py` | 74 | 66 | 4190 | 59 | 138 | 0.82 | 1 | 0 | 0 | 0 |
-| **total** | 23406 | 20841 | 1242586 | | | | | | | |
+| **total** | 23422 | 20854 | 1243644 | | | | | | | |
 
 Language-neutral code that a port keeps as is: `src/reader_mcp/web_ui/` (41 hand-written JS/CSS/HTML files, 8340 lines, excluding vendor/) plus the built `web_ui/controls/` bundle from `web/`.
-Tests: 64 pytest files, 683 test functions; 72 browser suites; 18 node unit files.
+Tests: 64 pytest files, 686 test functions; 72 browser suites; 18 node unit files.
 
 ## Contract coverage
 
