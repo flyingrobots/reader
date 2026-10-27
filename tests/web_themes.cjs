@@ -58,6 +58,11 @@ const {chromium}=require(process.env.READER_PLAYWRIGHT||'playwright-core');
   await page.locator('#theme-editor-foot, .theme-editor-foot').getByText('Saved in the vault').waitFor();
   mkdirSync('.reader/web-dev',{recursive:true});await page.screenshot({path:'.reader/web-dev/theme-editor.png'});
   await page.keyboard.press('Escape');await editor.waitFor({state:'hidden'});
+  // The footer lists newly saved custom themes alongside the built-ins, without visiting Settings.
+  await page.locator('#quick-theme').click();await page.getByRole('option',{name:'Paper',exact:true}).click();
+  await page.waitForFunction(()=>document.documentElement.dataset.theme==='paper');
+  await page.locator('#quick-theme').click();await page.getByRole('option',{name:'Dusk test · Light',exact:true}).click();
+  await page.waitForFunction(()=>document.documentElement.dataset.theme==='user-dusk-test');
   // The footer switch pairs custom variants; a reload paints from the cache.
   await page.goto(url);await page.locator('#home-title').waitFor();
   await page.getByRole('switch',{name:'Dark mode',exact:true}).click();assert.equal(await page.locator('html').getAttribute('data-theme'),'user-dusk-test-dark');

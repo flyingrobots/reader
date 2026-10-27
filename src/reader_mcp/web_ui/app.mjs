@@ -1350,7 +1350,7 @@ document.addEventListener('mousemove',event=>{
 // Keyboard ------------------------------------------------------------------------------------------
 // Every page key is a row in the keymap table (keys.mjs); the help dialog and the leader hints are generated from it.
 // A feature adds keys with keys.map({mode, keys, when, run, help, hint, group}) and commands with keys.command({...}).
-const typing=event=>state.themeEditorOpen||!!event.target.closest?.('input,textarea,select,[contenteditable="true"],dialog,[role=dialog],[role=listbox]:not(.queue-list),[data-slot=popover-content],[role=switch],[data-slot=pagination]');
+const typing=event=>state.themeEditorOpen||!!event.target.closest?.('input,textarea,select,[contenteditable="true"],dialog,[role=dialog],[role=listbox]:not(.queue-list),[data-slot=select-trigger],[data-slot=select-content],[data-slot=popover-content],[role=switch],[data-slot=pagination]');
 function pageEscape(event){
   if(event.target.closest?.('.cm-editor'))return;  // Vim's Escape stays in the scratch editor; Escape in normal mode leaves it.
   if(state.themeEditorOpen||event.target.closest('[data-slot=popover-content],[data-slot=select-content],[data-slot=sheet-content]')||document.querySelector('dialog[open]'))return;
@@ -1373,6 +1373,7 @@ const article=()=>$('#article');
 const inDoc=()=>!!state.doc&&!!article();
 const homepage=()=>state.view==='issue'&&!state.doc;
 const theme=()=>{closeContext();setThemeEditorOpen(true);};
+const quickTheme=()=>{const trigger=$('#quick-theme');trigger?.focus({preventScroll:true});trigger?.click();};
 const scrollBy=(lines,count)=>scrollToPosition(scrollY+lines*Math.max(1,count||1));
 /** The current place for marks and the jump list: the first block in view of the current edition. */
 function position(){
@@ -1473,6 +1474,7 @@ keys.map(
   {keys:'<Space>r',run:inShell('r',()=>queue.toggle()),hint:'queue',group:L,help:'Reading queue: Up next and History (`Tab` switches)'},
   {keys:'<Space>n',run:inShell('n',()=>queue.next()),hint:'next',group:L,help:'Open the next document in your queue'},
   {keys:'<Space>t',run:()=>openThreadList(),hint:'threads',group:L,help:'Open passage discussions'},
+  {keys:'<Space>T',run:quickTheme,hint:'themes',group:L,display:'Space Shift+T',help:'Switch themes from the footer; changes apply and save immediately'},
   {keys:'<Space>c',run:()=>prose.press(),hint:'colors',group:L,help:'Prose colors: Off, Subtle, Clear, Vivid, in turn, for this document'},
   {keys:'<Space>x',run:()=>quiz.open(),hint:'quiz',group:L,help:'Test yourself on this article; every question links to its evidence'},
   {keys:'<Space>a',run:()=>writingPrompts.open(),hint:'write about',group:L,help:'A voice asks a question; answer in Scratch'},
@@ -1654,6 +1656,7 @@ keys.command({name:'set',args:'[scrollbind|noscrollbind]',help:'`:set scrollbind
 keys.command({name:'theme',aliases:['colorscheme'],args:'<id>',help:'Switch the theme, for example `:theme paper`',
   complete:typed=>prefixed([...new Set([...THEMES,...themeCache.ids])].sort(),typed),
   run(id){if(!id){toast('The theme is '+state.prefs.theme+'.');return;}if(!knownTheme(id)){const near=keysClosest(id,[...THEMES,...themeCache.ids]);toast(`No theme called ${id}.`+(near?` Did you mean ${near}?`:''));return;}useTheme(id);}});
+keys.command({name:'themes',help:'Open the quick theme picker',run:quickTheme});
 keys.command({name:'layout',args:'scroll|spread',help:'Continuous or two-page reading',complete:typed=>prefixed(['scroll','spread'],typed),
   run(mode){if(!['scroll','spread'].includes(mode)){toast('Use :layout scroll or :layout spread.');return;}if(state.prefs.layout!==mode)$('#layout-swap').click();}});
 keys.command({name:'speak',args:'[article|here|selection]',help:'Send to AI-TTS: the whole article, from here, or the selection; without a scope, the menu',complete:typed=>prefixed(['article','here','selection'],typed),

@@ -6,6 +6,7 @@ import {Popover, PopoverTrigger, PopoverContent, PopoverTitle, PopoverDescriptio
 import {Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationPrevious, PaginationNext, PaginationEllipsis} from './components/ui/pagination';
 import {Select, SelectTrigger, SelectValue, SelectContent, SelectGroup, SelectItem} from './components/ui/select';
 import {Switch} from './components/ui/switch';
+import {PaletteIcon} from 'lucide-react';
 import {Skeleton} from './components/ui/skeleton';
 import {Field, FieldGroup, FieldLabel, FieldDescription} from './components/ui/field';
 import {Input} from './components/ui/input';
@@ -66,6 +67,24 @@ type Actions={seek:(fraction:number)=>void;spread:(index:number)=>void;thread:(i
 const dark=(theme:string)=>theme==='ink'||theme.endsWith('-dark');
 const clamp=(value:number)=>Math.max(0,Math.min(1,value));
 const builtInThemes=[{value:'ink',label:'Ink'},{value:'paper',label:'Paper'},{value:'orchid',label:'Orchid · Light'},{value:'orchid-dark',label:'Orchid · Dark'},{value:'harvest',label:'Harvest · Light'},{value:'harvest-dark',label:'Harvest · Dark'},...FAMOUS.flatMap(t=>(['light','dark'] as const).map(v=>({value:famousId(t.id,v),label:`${t.name} · ${t.labels[v]}`})))];
+const themeChoices=(themes:Theme[])=>[...builtInThemes,...themes.flatMap(t=>[{value:themeId(t,'light'),label:t.name+' · Light'},{value:themeId(t,'dark'),label:t.name+' · Dark'}])];
+
+function QuickThemePicker({model,actions}:{model:Model;actions:Actions}){
+  const items=themeChoices(model.customThemes);
+  // A saved custom theme can paint from the local cache before its metadata arrives.
+  if(!items.some(item=>item.value===model.theme))items.push({value:model.theme,label:'Saved theme'});
+  return <div className="quick-theme-controls">
+    <Select items={items} value={model.theme} onValueChange={value=>{if(value!==null)actions.useTheme(value);}}>
+      <SelectTrigger id="quick-theme" size="sm" aria-label="Switch theme" title="Switch theme · Space Shift+T">
+        <PaletteIcon aria-hidden="true"/><SelectValue/>
+      </SelectTrigger>
+      <SelectContent side="top" align="end" alignItemWithTrigger={false} className="min-w-56">
+        <SelectGroup>{items.map(item=><SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>)}</SelectGroup>
+      </SelectContent>
+    </Select>
+    <label className="theme-toggle"><Switch id="theme-swap" size="sm" aria-label="Dark mode" checked={dark(model.theme)} onCheckedChange={checked=>{if(checked!==dark(model.theme))actions.theme();}}/><span>Dark</span></label>
+  </div>;
+}
 
 function Choice({id,label,value,items,onChange}:{id:string;label:string;value:string;items:{label:string;value:string}[];onChange:(value:string)=>void}){
   return <Field><FieldLabel htmlFor={id}>{label}</FieldLabel><Select items={items} value={value} onValueChange={v=>{if(v!==null)onChange(v);}}><SelectTrigger id={id} className="w-full"><SelectValue/></SelectTrigger><SelectContent alignItemWithTrigger={false}><SelectGroup>{items.map(item=><SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>)}</SelectGroup></SelectContent></Select></Field>;
@@ -80,7 +99,7 @@ function SettingsForm({model,actions}:{model:Model;actions:Actions}){
     <p className="backstage-message">Your reading preferences, saved on this device.</p>
     <FieldGroup>
       <Field><FieldLabel htmlFor="profile-name">Reading as</FieldLabel><Input id="profile-name" name="participant" value={draft.participant} required maxLength={100} list="participant-list" onChange={event=>set('participant',event.target.value)}/><datalist id="participant-list">{model.participants.map(name=><option key={name} value={name}/>)}</datalist><FieldDescription>Names identify local reading receipts. They are not authenticated accounts.</FieldDescription></Field>
-      <Choice id="theme-choice" label="Palette" value={draft.theme} items={[...builtInThemes,...model.customThemes.flatMap(t=>[{value:themeId(t,'light'),label:t.name+' · Light'},{value:themeId(t,'dark'),label:t.name+' · Dark'}])]} onChange={value=>set('theme',value)}/>
+      <Choice id="theme-choice" label="Palette" value={draft.theme} items={themeChoices(model.customThemes)} onChange={value=>set('theme',value)}/>
       <FieldDescription>Create, edit or delete your own light/dark themes with the Theme Editor: <kbd>Space</kbd> <kbd>,</kbd> <kbd>t</kbd> or <kbd>F10</kbd>.</FieldDescription>
       <Choice id="recent-count" label="Recent files" value={String(draft.recent)} items={[10,20,30,50].map(n=>({value:String(n),label:String(n)}))} onChange={value=>set('recent',+value)}/>
       <Choice id="reading-mode" label="Reading layout" value={draft.layout} items={[{value:'scroll',label:'Continuous'},{value:'spread',label:'Two pages'}]} onChange={value=>set('layout',value)}/>
@@ -300,7 +319,7 @@ export async function stopInbox(){
 export function installControls(actions:Actions,prefs:Preferences){
   controlActions=actions;setSpeechApi(actions.api);setJobsApi(actions.api);
   model={value:0,words:0,pdfPages:null,pace:220,spread:0,spreads:0,pages:0,columns:2,theme:prefs.theme,pips:[],prefs,participants:[],themeEditorOpen:false,customThemes:[],fonts:[],maintenance:null,prose:null,chat:{open:false,path:null,title:'',participant:''},outline:{mode:null,open:false,title:'',entries:[],folded:false,railOpen:false},outlineActive:-1,inbox:null,inboxStarting:false,activity:newActivity(),localModel:null,companions:null,admin:null,maintenanceError:null,inboxError:null,localModelError:null,companionsError:null};
-  function View(){const current=useSyncExternalStore(subscribe,snapshot);return <>{createPortal(<ReadingProgress model={current} actions={actions}/>,document.getElementById('progress-controls-slot')!)}{createPortal(<Pages model={current} actions={actions}/>,document.getElementById('pagination-slot')!)}{createPortal(<OutlineControl outline={current.outline} active={current.outlineActive} actions={actions}/>,document.getElementById('outline-slot')!)}{createPortal(<SpeechControl/>,document.getElementById('speech-slot')!)}{createPortal(<label className="theme-toggle"><Switch id="theme-swap" size="sm" aria-label="Dark mode" checked={dark(current.theme)} onCheckedChange={checked=>{if(checked!==dark(current.theme))actions.theme();}}/><span>Dark</span></label>,document.getElementById('theme-switch-slot')!)}<ThemeEditor open={current.themeEditorOpen} onOpenChange={actions.themeEditor} onClosed={actions.themeEditorClosed} themes={current.customThemes} fonts={current.fonts} current={current.theme} api={actions.api} onChanged={actions.themesChanged} onUse={actions.useTheme} onPreviewFont={actions.previewFont} error={actions.error}/><ChatPanel open={current.chat.open} path={current.chat.path} title={current.chat.title} participant={current.chat.participant} initialId={current.chat.initialId} api={actions.api} markdown={actions.chatMarkdown} openPath={actions.openPath} onClose={()=>closeChat()} notify={notify}/><Toaster theme={dark(current.theme)?'dark':'light'} position="bottom-center" offset={{bottom:44}} mobileOffset={{bottom:56}}/></>;}
+  function View(){const current=useSyncExternalStore(subscribe,snapshot);return <>{createPortal(<ReadingProgress model={current} actions={actions}/>,document.getElementById('progress-controls-slot')!)}{createPortal(<Pages model={current} actions={actions}/>,document.getElementById('pagination-slot')!)}{createPortal(<OutlineControl outline={current.outline} active={current.outlineActive} actions={actions}/>,document.getElementById('outline-slot')!)}{createPortal(<SpeechControl/>,document.getElementById('speech-slot')!)}{createPortal(<QuickThemePicker model={current} actions={actions}/>,document.getElementById('theme-switch-slot')!)}<ThemeEditor open={current.themeEditorOpen} onOpenChange={actions.themeEditor} onClosed={actions.themeEditorClosed} themes={current.customThemes} fonts={current.fonts} current={current.theme} api={actions.api} onChanged={actions.themesChanged} onUse={actions.useTheme} onPreviewFont={actions.previewFont} error={actions.error}/><ChatPanel open={current.chat.open} path={current.chat.path} title={current.chat.title} participant={current.chat.participant} initialId={current.chat.initialId} api={actions.api} markdown={actions.chatMarkdown} openPath={actions.openPath} onClose={()=>closeChat()} notify={notify}/><Toaster theme={dark(current.theme)?'dark':'light'} position="bottom-center" offset={{bottom:44}} mobileOffset={{bottom:56}}/></>;}
   ensureProseTokens();new MutationObserver(()=>ensureProseTokens()).observe(document.documentElement,{attributes:true,attributeFilter:['data-theme']});
   observeButtons();installCodeCopy();
   const root=createRoot(document.getElementById('reader-controls-root')!);flushSync(()=>root.render(<View/>));
