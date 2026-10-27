@@ -24,7 +24,7 @@ import time
 import uuid
 
 ROOT = 'logs/llm'
-KINDS = ('chat', 'listen', 'inbox', 'local-model', 'art', 'coding-job')
+KINDS = ('chat', 'listen', 'inbox', 'local-model', 'art', 'quiz', 'quiz-review', 'prompt', 'coding-job')
 META = 'meta.json'
 RUN_ID = re.compile(r'[A-Za-z0-9][A-Za-z0-9._-]{0,79}')
 RELATIVE = re.compile(r'logs/llm/(' + '|'.join(KINDS) + r')/\d{4}/\d{2}/\d{2}/([A-Za-z0-9][A-Za-z0-9._-]{0,79})')

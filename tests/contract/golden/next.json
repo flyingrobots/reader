@@ -1,0 +1,26 @@
+{
+ "object": {
+  "embedded": "boolean",
+  "items": {
+   "array": {
+    "object": {
+     "authors": {
+      "array": "string"
+     },
+     "date": "string:date",
+     "primary": "string",
+     "projects": {
+      "array": "string"
+     },
+     "read": "boolean",
+     "reasons": {
+      "array": "string"
+     },
+     "score": "number",
+     "title": "string"
+    }
+   }
+  },
+  "scope": "string"
+ }
+}

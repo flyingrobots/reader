@@ -1,0 +1,39 @@
+{
+ "object": {
+  "metadata": {
+   "object": {
+    "added": "string:date",
+    "author": "string",
+    "document_id": "string:uuid",
+    "document_path": "string",
+    "document_revision": "number",
+    "frontmatter_schema_version": "number",
+    "metadata_created": "string:date",
+    "project": "string",
+    "rights": "string",
+    "tags": {
+     "array": "string"
+    },
+    "title": "string",
+    "topics": {
+     "array": "string"
+    },
+    "type": "string",
+    "writing_type": "string"
+   }
+  },
+  "metadata_diagnostics": {
+   "array": "empty"
+  },
+  "metadata_profile": "string",
+  "metadata_status": "string",
+  "next_line": "number",
+  "page": "null",
+  "path": "string",
+  "sha256": "string:sha256",
+  "start_line": "number",
+  "text": "string",
+  "total_lines": "number",
+  "truncated": "boolean"
+ }
+}

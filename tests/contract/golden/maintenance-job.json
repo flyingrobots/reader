@@ -1,0 +1,15 @@
+{
+ "object": {
+  "elapsed_seconds": "null",
+  "error": "null",
+  "finished_at": "null",
+  "id": "string",
+  "kind": "string",
+  "label": "string",
+  "progress": "null",
+  "quiet": "boolean",
+  "result": "null",
+  "started_at": "string:datetime",
+  "state": "string"
+ }
+}

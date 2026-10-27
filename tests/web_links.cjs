@@ -4,6 +4,7 @@ const {spawn}=require('node:child_process');
 const {createInterface}=require('node:readline');
 const {mkdirSync}=require('node:fs');
 const {chromium}=require(process.env.READER_PLAYWRIGHT||'playwright-core');
+const {sanitizerReport}=require('./web_wait.cjs');  // #151
 (async()=>{
  const fixture=spawn(process.env.READER_PYTHON||'.venv/bin/python',['tests/web_fixture.py','--links'],{stdio:['ignore','pipe','inherit']});let browser;
  try{
@@ -12,7 +13,7 @@ const {chromium}=require(process.env.READER_PLAYWRIGHT||'playwright-core');
   mkdirSync('.reader/web-dev',{recursive:true});
   const errors=[],external=[];
   const open=async(prefs,viewport={width:1300,height:900})=>{const context=await browser.newContext({viewport,reducedMotion:'reduce'});await context.addInitScript(value=>{try{localStorage.setItem('reader.preferences.v1',value);}catch{}},JSON.stringify({smooth:false,theme:'paper',nextReads:false,...prefs}));
-    const page=await context.newPage();page.on('pageerror',e=>errors.push(e.message));page.on('console',m=>{if(m.type()==='error'&&!/status of 400/.test(m.text()))errors.push(m.text());});page.on('request',r=>{if(!r.url().startsWith(url))external.push(r.url());});return {page,context};};
+    const page=await context.newPage();page.on('pageerror',e=>errors.push(e.message));page.on('console',m=>{if(m.type()==='error'&&!/status of 400/.test(m.text())&&!sanitizerReport(m))errors.push(m.text());});page.on('request',r=>{if(!r.url().startsWith(url))external.push(r.url());});return {page,context};};
   const doc=path=>url+'#read='+encodeURIComponent(path);
   const preview=page=>page.locator('#link-preview');
   // The first document opened builds the graph quietly; Linked from says so, then fills in.

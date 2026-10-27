@@ -1,0 +1,56 @@
+{
+ "object": {
+  "annotations": {
+   "object": {
+    "openWorldHint": "boolean",
+    "readOnlyHint": "boolean"
+   }
+  },
+  "input": {
+   "object": {
+    "properties": {
+     "object": {
+      "limit": {
+       "object": {
+        "default": "number",
+        "title": "string",
+        "type": "string"
+       }
+      },
+      "offset": {
+       "object": {
+        "default": "number",
+        "title": "string",
+        "type": "string"
+       }
+      },
+      "participant": {
+       "object": {
+        "title": "string",
+        "type": "string"
+       }
+      },
+      "path": {
+       "object": {
+        "anyOf": {
+         "array": {
+          "object": {
+           "type": "string"
+          }
+         }
+        },
+        "default": "null",
+        "title": "string"
+       }
+      }
+     }
+    },
+    "required": {
+     "array": "string"
+    },
+    "title": "string",
+    "type": "string"
+   }
+  }
+ }
+}

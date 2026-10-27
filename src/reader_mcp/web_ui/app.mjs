@@ -18,17 +18,20 @@ import {calloutPlugin} from './callouts.mjs';
 import {drawable,fetchShape,paintShape} from './shapes.mjs';
 import {artJobs,fetchArt,focusArt,forgetArt,hasArt,paintArt,paintArtThumb,paintPlaceholder} from './art.mjs';
 import {closeArtFocus,focusOpen} from './art-focus.mjs';
-import {applyThemes,installControls,mountSkeleton,mountCodeBlocks,decorateCodeBlocks,clearControlsWithin,mountDocumentTree,visibleDocumentNodes,revealDocumentRow,mountAdmin,setAdminRoute,mountChangesPanel,mountArtRegenerate,notify as shellNotify,openChat,closeChat,chatOpen,trackSpeech,renderQueuePanel,mountCallouts,startJob,promptCompanion,needsReader,NEEDS_READER,mountPromptCards} from './controls/reader-controls.js';
+import {applyThemes,installControls,mountSkeleton,mountCodeBlocks,decorateCodeBlocks,clearControlsWithin,mountDocumentTree,visibleDocumentNodes,revealDocumentRow,mountAdmin,setAdminRoute,mountChangesPanel,mountArtRegenerate,notify as shellNotify,openChat,closeChat,chatOpen,trackSpeech,renderQueuePanel,mountCallouts,mountQuiz,mountWritingPrompt,startJob,promptCompanion,needsReader,NEEDS_READER,mountPromptCards} from './controls/reader-controls.js';
 import {promptPlugin,promptMounts} from './prompt-blocks.mjs';
 import {installVersions,chipMarkup,historicalMarkup,splitRef,compareLabel} from './versions.mjs';
 import {installSplit,installPane,cleanRoute} from './split.mjs';
 import {installScratch} from './scratch.mjs';
+import {installQuiz} from './quiz.mjs';
+import {installWritingPrompts} from './writing-prompt.mjs';
 import {createKeys,closest as keysClosest} from './keys.mjs';
 import {installVisual} from './visual.mjs';
-import {installPlace} from './place.mjs';
+import {installPlace,shownTop} from './place.mjs';
 import {installLists} from './lists.mjs';
 import {installStatusPriority} from './status-priority.mjs';
 import {SETTINGS,adminHash,adminPath,adminPathFromHash,adminRoute,isAdminPath,libraryReturn} from './admin-routes.mjs';
+import {installDock,pageWidth} from './dock.mjs';
 
 const $ = selector => document.querySelector(selector);
 // Split view: a pane is this app in an embedded same-origin iframe (/?pane=1#…); the top document is the shell.
@@ -63,7 +66,7 @@ function passageFromHash(){
     return {line:Number.isInteger(at.line)&&at.line>0?at.line:1,page:Number.isInteger(at.page)&&at.page>0?at.page:null,terms:Array.isArray(at.terms)?at.terms.filter(t=>typeof t==='string'&&t.length<=200).slice(0,32):[],query:typeof at.query==='string'?at.query.slice(0,1000):''};}
   catch{return null;}
 }
-let reading,controls,links,outline,speech,versions,search,prose,queue,scratch,keys,visual,registers,quickfix,marks,jumps,panels;
+let reading,controls,links,outline,speech,versions,search,prose,queue,scratch,quiz,writingPrompts,keys,visual,registers,quickfix,marks,jumps,panels;
 let saved = {};
 try { saved = JSON.parse(localStorage.getItem('reader.preferences.v1') || '{}'); } catch {}
 const state = {prefs:{...defaults,...saved}, data:null, doc:null, threads:[], attention:[], token:null, mode:'fuzzy', results:[], resultIndex:0, searchId:0, routeId:0, pdf:null, smoother:null, find:[], findIndex:-1, selected:null, activeThread:null, replyTo:null, visits:[null], cursor:0, ranges:[], leader:null,themeEditorOpen:false,view:null};
@@ -156,6 +159,7 @@ async function secondary(label, work) {
   try { return await work(); }
   catch (error) { console.warn(label, error); if (!error?.offline && error?.status !== 404) notify(`${label} could not load: ${error.message || error}`); return undefined; }
 }
+const shown = () => shownTop(state.smoother);
 function motion() { return !reduced.matches && state.prefs.smooth; }
 function refreshScroll() {
   if (state.smoother) window.ScrollTrigger?.refresh();
@@ -171,11 +175,20 @@ function resetScroll() {
   }
   requestAnimationFrame(refreshScroll);
 }
+/** ScrollSmoother maps the scroll position onto the page height it measured when it last refreshed, and refreshes
+ *  only once the article has stopped changing height. Far blocks laid out taller than their estimates move a jump's
+ *  target past that measure: the page would glide to the old end and, if the refresh came after the glide, stay there,
+ *  short of the scroll position, until the next scroll (#156). So measure again before scrolling past it. */
+function smoothTo(top, smooth) {
+  const trigger = state.smoother.scrollTrigger;
+  if (trigger && top > trigger.end - 1) trigger.refresh();
+  state.smoother.scrollTo(top, smooth);
+}
 /** Scroll continuous reading to `top`. A `target` (the element or range the jump is for, or the point `fraction`
  *  of the way down it) stays where it lands while the blocks around it settle their heights. */
 function scrollToPosition(top, smooth=true, target=null, fraction=0) {
   const bounded = Math.max(0, Math.min(top, document.documentElement.scrollHeight - innerHeight));
-  if (state.smoother) state.smoother.scrollTo(bounded, smooth && motion());
+  if (state.smoother) smoothTo(bounded, smooth && motion());
   else window.scrollTo({top:bounded, behavior:smooth && motion() ? 'smooth' : 'instant'});
   if (target) placeKeeper.hold(target, bounded, smooth && motion(), fraction); else placeKeeper.release();
 }
@@ -183,7 +196,7 @@ let placePips=0;
 const placeKeeper = installPlace({content:()=>$('#smooth-content'), smoother:()=>state.smoother,
   scroll:(top,smooth)=>{const bounded=Math.max(0,Math.min(top,document.documentElement.scrollHeight-innerHeight));
     // A correction replaces the smoother's glide toward the old line rather than racing it.
-    if(state.smoother){gsap.killTweensOf(state.smoother);state.smoother.scrollTo(bounded,smooth);}else window.scrollTo({top:bounded,behavior:smooth?'smooth':'instant'});},
+    if(state.smoother){gsap.killTweensOf(state.smoother);smoothTo(bounded,smooth);}else window.scrollTo({top:bounded,behavior:smooth?'smooth':'instant'});},
   onChange:()=>{positionPins();clearTimeout(placePips);placePips=setTimeout(()=>reading?.pips(),250);}});
 function moveToRange(range) {
   lateMoved?.(range);
@@ -191,7 +204,7 @@ function moveToRange(range) {
   for(let fold=range.startContainer.parentElement?.closest('details.callout-fold:not([open])');fold;fold=fold.parentElement?.closest('details.callout-fold:not([open])'))fold.open=true;
   if(reading?.reveal(range))return;
   const rect = range.getBoundingClientRect();
-  scrollToPosition(window.scrollY + rect.top - innerHeight * .36, true, range);
+  scrollToPosition(shown() + rect.top - innerHeight * .36, true, range);
 }
 async function loadLibrary() {
   const profile = state.prefs.participant ? '?participant=' + param(state.prefs.participant) : '';
@@ -223,6 +236,7 @@ async function renderHome(path=null,id=state.routeId) {
     button.onclick=event=>{event.preventDefault();button.disabled=true;button.textContent='Making art…';commissionArt(button.dataset.artGenerate);};});
   $('#issue-backstage').onclick=()=>openAdmin('library');
   $('#main').querySelectorAll('.issue [data-queue-add]').forEach(button=>{if(needsReader()){localOnly(button);return;}button.onclick=event=>{event.preventDefault();queue.add(button.dataset.queueAdd);};});
+  if(!needsReader())api('/api/writing?participant='+param(state.prefs.participant)).then(data=>{if(id!==state.routeId||!data.pieces?.length)return;const section=document.createElement('section');section.className='your-writing';section.dataset.readerDecoration='';section.innerHTML='<h2>Your writing</h2><ul>'+data.pieces.slice(0,10).map(piece=>`<li><a href="#read=${param(piece.path)}" data-path="${esc(piece.path)}">${esc(piece.title)}</a><time>${esc(formatDate(piece.date))}</time></li>`).join('')+'</ul>';$('#main').append(section);wireDocumentLinks(section);}).catch(error=>console.warn('Your writing',error));
   resetScroll();reading?.updateStatus();
   paintIssueArt(artwork,id).catch(error=>console.warn('Article art',error));
   autoCommission(issue,artwork);
@@ -347,7 +361,7 @@ function heroOptions(figure){
   const book=!!reading?.hasBook(),text=selector=>$('#article '+selector)?.textContent.trim()||'';
   return {book,kicker:text('.document-kicker'),title:text('.document-title'),byline:text('.document-meta .by'),
     standfirst:book?api('/api/standfirst?path='+param(figure.dataset.art)).then(d=>['frontmatter','local-model'].includes(d.source)?d.standfirst:null).catch(()=>null):null,
-    go(){if(book){reading.seekSpread(1);$('#main').focus({preventScroll:true});return;}const kicker=$('#article .document-kicker')||$('#article .document-title');if(kicker)scrollToPosition(scrollY+kicker.getBoundingClientRect().top-32);}};
+    go(){if(book){reading.seekSpread(1);$('#main').focus({preventScroll:true});return;}const kicker=$('#article .document-kicker')||$('#article .document-title');if(kicker)scrollToPosition(shown()+kicker.getBoundingClientRect().top-32);}};
 }
 function paintArticleArt(figure,data){
   figure.classList.add('article-art');
@@ -418,10 +432,10 @@ function movePiece(delta){
   const pieces=state.magazine?.pieces()||[];if(!pieces.length)return;
   const index=pieces.indexOf(document.activeElement),next=pieces[index<0?(delta>0?0:pieces.length-1):Math.max(0,Math.min(pieces.length-1,index+delta))];
   next.focus({preventScroll:true});const rect=next.getBoundingClientRect();
-  if(rect.top<70||rect.bottom>innerHeight-70)scrollToPosition(scrollY+rect.top-innerHeight*.3);
+  if(rect.top<70||rect.bottom>innerHeight-70)scrollToPosition(shown()+rect.top-innerHeight*.3);
 }
 function mountLibrary(container){
-  mountDashboard({root:container,data:state.data,prefs:state.prefs,embedded:true,workRows,wireDocumentLinks,openPicker,openPreferences:openSettings,navigate,showTooltip:showChartTooltip,hideTooltip:hideChartTooltip,seek:element=>scrollToPosition(scrollY+element.getBoundingClientRect().top-50)});
+  mountDashboard({root:container,data:state.data,prefs:state.prefs,embedded:true,workRows,wireDocumentLinks,openPicker,openPreferences:openSettings,navigate,showTooltip:showChartTooltip,hideTooltip:hideChartTooltip,seek:element=>scrollToPosition(shown()+element.getBoundingClientRect().top-50)});
 }
 function showChartTooltip(event,title,detail='') {
   const tip=$('#chart-tooltip'); tip.replaceChildren();
@@ -442,6 +456,7 @@ function wireDocumentLinks(root) {
 function closeDialog(id) { const el=$('#'+id);if(el.open)el.close();state.smoother?.paused(false); }
 function openDialog(id) { const el=$('#'+id); if(!el.open)el.showModal();state.smoother?.paused(true); }
 function closeContext() {
+  quiz?.close();writingPrompts?.close();
   if(visual?.active())visual.exit();panels?.close(false);keys?.closeLine(false);
   closeChat();links?.hide();hideChartTooltip();$('#passage-tooltip').classList.remove('visible');$('#selection-tools').hidden=true;$('#thread-panel').hidden=true;$('#find-bar').hidden=true;versions?.close();
   for(const dialog of document.querySelectorAll('dialog[open]'))dialog.close();
@@ -468,7 +483,7 @@ async function navigate(path,{thread=null,fragment='',record=true,commit=null,at
   if(record){state.visits=state.visits.slice(0,state.cursor+1);state.visits.push(path);state.cursor++;
     // A pane's pushed entry would join the window's session history, so browser Back would step a background pane.
     if(EMBEDDED)history.replaceState({reader:true,path},'',routeHash(path,at,fragment));else history.pushState({reader:true,path},'',routeHash(path,at,fragment));}
-  clearFind();prose?.detach();await state.pdf?.destroy();state.pdf=null;state.ranges=[];placeKeeper.watch(null);CSS.highlights?.delete('reader-own');CSS.highlights?.delete('reader-other');CSS.highlights?.delete('reader-warning');
+  clearFind();prose?.detach();await state.pdf?.destroy();state.pdf=null;state.ranges=[];state.writingRecords=[];placeKeeper.watch(null);CSS.highlights?.delete('reader-own');CSS.highlights?.delete('reader-other');CSS.highlights?.delete('reader-warning');CSS.highlights?.delete('reader-quiz');
   const quick=isIssue(path)&&state.view==='issue'&&!!state.data,inAdmin=state.view==='admin';
   state.view=isAdminPath(path)?'admin':path===SEARCH?'search':path?.startsWith(SCRATCH)?'scratch':isIssue(path)?'issue':null;
   state.editions=null;state.versions=null;state.changes=null;versions?.reset();versions?.update();
@@ -552,7 +567,7 @@ async function navigate(path,{thread=null,fragment='',record=true,commit=null,at
     if(thread)openThread(thread);
     focusMain();
     // Historical versions are read-only views of the past: no Read next or Linked from for them.
-    if(!historical){showNextReads(path,id).catch(error=>console.warn('Read next',error));links?.backlinks(path,id)?.catch(error=>console.warn('Linked from',error));}
+    if(!historical){placeQuizControl();showNextReads(path,id).catch(error=>console.warn('Read next',error));links?.backlinks(path,id)?.catch(error=>console.warn('Linked from',error));}
   } catch(error){if(id!==state.routeId)return;if(rendered&&state.doc?.path===path){console.warn(error);notify(error.message || String(error));return;}outline?.clear();clearControlsWithin($('#main'));
     // A missing document gets one clear message on the page, with a way to look for it, instead of a toast.
     if(error.status===404&&!state.doc){$('#main').innerHTML=`<div class="loading-state"><h2>Link target not found</h2><p>No document at <code>${esc(path)}</code>. It may have moved or been renamed.</p><p><button type="button" data-button="outline sm" id="missing-find">Find a document</button></p></div>`;$('#missing-find').onclick=()=>openPicker('all');console.warn(error.message);return;}
@@ -798,7 +813,7 @@ function imageLoaded(){if(imageLoaded.frame)return;imageLoaded.frame=requestAnim
 function showHeading(root,id){
   const target=id&&findFragment(root,id);if(!target)return false;lateMoved?.(target);
   const range=document.createRange();range.selectNode(target);
-  if(!reading?.reveal(range,false))scrollToPosition(scrollY+target.getBoundingClientRect().top-24,false,target);
+  if(!reading?.reveal(range,false))scrollToPosition(shown()+target.getBoundingClientRect().top-24,false,target);
   return true;
 }
 function wireArticleLinks(root,path){
@@ -819,6 +834,10 @@ function wireArticleLinks(root,path){
 // with the discussion; it never delays the article. The line reserves its height first.
 const readingLogs=new Map();
 function readingLogKey(doc){return doc.path+'\n'+doc.sha256+'\n'+state.prefs.participant;}
+function refreshReadingLog(){
+  if(!state.doc)return;
+  readingLogs.delete(readingLogKey(state.doc));loadReadingLog(state.doc,state.routeId);
+}
 function loadReadingLog(doc,id){
   const key=readingLogKey(doc);
   if(!readingLogs.has(key))readingLogs.set(key,api('/api/readers?path='+param(doc.path)+'&participant='+param(state.prefs.participant)).catch(error=>{readingLogs.delete(key);throw error;}));
@@ -834,7 +853,7 @@ function youReadNow(doc,id){
 function paintReadingLog(data,id){
   const slot=$('#main .reading-log');if(id!==state.routeId||!slot||state.doc?.path!==data.path)return;
   const open=slot.querySelector('.reading-log-details')?.open,agents=slot.querySelector('.reading-log-agents')?.open;
-  slot.innerHTML=readingLogHTML(data);slot.dataset.ready='true';
+  slot.innerHTML=readingLogHTML(data);slot.dataset.ready='true';state.writingRecords=data.writing||[];wireDocumentLinks(slot);
   const details=slot.querySelector('.reading-log-details');
   if(details){details.open=!!open;const nested=slot.querySelector('.reading-log-agents');if(nested)nested.open=!!agents;}
   slot.querySelectorAll('details').forEach(el=>el.addEventListener('toggle',()=>{refreshScroll();positionPins();}));
@@ -857,6 +876,41 @@ async function showNextReads(path,id){
   aside.querySelectorAll('[data-queue-add]').forEach(button=>button.onclick=event=>{event.preventDefault();queue.add(button.dataset.queueAdd);});
   if(!reading?.placeAtEnd(aside))return;
   positionPins();
+}
+function placeQuizControl(){
+  if(!state.doc||!['.md','.markdown','.txt'].includes(state.doc.kind)||$('#article-quiz'))return;
+  const aside=document.createElement('aside');aside.className='article-learning';aside.dataset.readerDecoration='';aside.dataset.endOrder='3';
+  const button=document.createElement('button');button.id='article-quiz';button.type='button';button.dataset.button='outline sm';
+  button.textContent='Test yourself';button.title='Take an article quiz · Space x';button.onclick=()=>quiz.open();aside.append(button);
+  if(needsReader()){button.disabled=true;button.title=NEEDS_READER;button.dataset.needsReader='';}
+  const writing=document.createElement('button');writing.id='article-writing-prompt';writing.type='button';writing.dataset.button='outline sm';writing.textContent='Write about this';writing.title='A question from a voice · Space a';writing.onclick=()=>writingPrompts.open();if(needsReader()){writing.disabled=true;writing.title=NEEDS_READER;}aside.append(writing);
+  reading.placeAtEnd(aside);
+}
+function showQuizEvidence(anchor){
+  const range=learningEvidenceRange(anchor);
+  if(!range){toast('This passage could not be mapped safely to the current article. Open the original to inspect it.');return;}
+  if(window.Highlight&&CSS.highlights)CSS.highlights.set('reader-quiz',new Highlight(range));
+  moveToRange(range);
+}
+function learningEvidenceRange(anchor){
+  const doc=state.doc;if(!doc||!anchor||doc.sha256!==anchor.source_sha256)return null;
+  let range=null;
+  if(doc.kind==='.txt'){
+    const node=$('#article pre')?.firstChild;if(node?.nodeType===Node.TEXT_NODE){
+      range=document.createRange();range.setStart(node,rawCodePoints(doc.text,0,anchor.start).length);range.setEnd(node,rawCodePoints(doc.text,0,anchor.end).length);
+    }
+  }else{
+    const root=sourceBlock(anchor.start,anchor.end),dom=domProjection(root),projected=projection(doc),quote=visibleQuote(projected,anchor.start,anchor.end);
+    const hits=occurrences(dom.text,quote);let hit=hits.length===1?hits[0]:null;
+    if(!hit&&quote){
+      const from=Number(root.dataset.sourceStart||0),to=Number(root.dataset.sourceEnd||Number.MAX_SAFE_INTEGER);
+      const sources=occurrences(projected.text,quote).map(m=>({start:projected.starts[m.start],end:projected.ends[m.end-1]})).filter(m=>m.start>=from&&m.end<=to);
+      const matches=sources.map((m,i)=>({m,i})).filter(({m})=>m.start>=anchor.start&&m.end<=anchor.end);
+      if(matches.length===1&&sources.length===hits.length)hit=hits[matches[0].i];
+    }
+    if(hit)range=dom.range(hit.start,hit.end);
+  }
+  return range;
 }
 /** Visible text of root, for anchoring (its own text: embedded documents excluded) or for find (`embeds`: included).
  *  Exclusions count only inside root, so an embedded fragment projects its own text. */
@@ -957,8 +1011,8 @@ function spreadPinPlacer(article){
   const gap=parseFloat(style.columnGap)||40,columns=parseInt(style.columnCount)||1,width=(viewport.width-gap*(columns-1))/columns,stacks=[];
   return (rect,pin)=>{
     const column=Math.max(0,Math.min(columns-1,Math.floor((rect.left-viewport.left+gap/2)/(width+gap)))),right=viewport.left+column*(width+gap)+width;
-    const size=pin.offsetWidth||28,room=column<columns-1?gap:innerWidth-right,top=Math.max((stacks[column]??-Infinity)+size+3,rect.top+rect.height/2);stacks[column]=top;
-    return {left:Math.min(innerWidth-size-2,right+Math.max(2,(room-size)/2)),top};
+    const size=pin.offsetWidth||28,room=column<columns-1?gap:pageWidth()-right,top=Math.max((stacks[column]??-Infinity)+size+3,rect.top+rect.height/2);stacks[column]=top;
+    return {left:Math.min(pageWidth()-size-2,right+Math.max(2,(room-size)/2)),top};
   };
 }
 function positionPins(){
@@ -969,8 +1023,9 @@ function positionPins(){
   // Pins stack down each margin, so place them in reading order (threads arrive in id order).
   const placed=[];
   for(const {thread,range} of state.ranges){const rects=[...range.getClientRects()];const rect=spread?rects.find(r=>r.width>0&&r.right>spread.left+1&&r.left<spread.right-1):reading?.hasBook()?null:rects.at(-1);const pin=article.querySelector(`[data-thread="${CSS.escape(thread.id)}"]`);if(!pin)continue;pin.hidden=!rect;if(rect)placed.push({pin,rect});}
+  for(const piece of state.writingRecords||[]){const range=learningEvidenceRange(piece.evidence||piece.prompt?.evidence);if(!range)continue;let pin=article.querySelector(`[data-writing-pin="${CSS.escape(piece.path)}"]`);if(!pin){pin=document.createElement('button');pin.className='annotation-pin writing-pin';pin.dataset.readerDecoration='';pin.dataset.writingPin=piece.path;pin.type='button';pin.textContent='✎';pin.title='Your writing: '+piece.title;pin.setAttribute('aria-label',pin.title);pin.onclick=()=>navigate(piece.path);article.append(pin);}const rects=[...range.getClientRects()],rect=spread?rects.find(r=>r.width>0&&r.right>spread.left+1&&r.left<spread.right-1):reading?.hasBook()?null:rects.at(-1);pin.hidden=!rect;if(rect)placed.push({pin,rect});}
   placed.sort((a,b)=>a.rect.top-b.rect.top||a.rect.left-b.rect.left);
-  for(const {pin,rect} of placed){if(place){const at=place(rect,pin);pin.style.left=at.left+'px';pin.style.top=at.top+'px';}else if(reading?.hasBook()){pin.style.left=Math.min(innerWidth-25,rect.right+9)+'px';pin.style.top=rect.bottom-5+'px';}else{pin.style.left='';const top=Math.max(previous+27,rect.bottom-box.top-5);pin.style.top=top+'px';previous=top;}}
+  for(const {pin,rect} of placed){if(place){const at=place(rect,pin);pin.style.left=at.left+'px';pin.style.top=at.top+'px';}else if(reading?.hasBook()){pin.style.left=Math.min(pageWidth()-25,rect.right+9)+'px';pin.style.top=rect.bottom-5+'px';}else{pin.style.left='';const top=Math.max(previous+27,rect.bottom-box.top-5);pin.style.top=top+'px';previous=top;}}
 }
 function threadUnread(id){return state.attention.find(i=>i.key==='thread:'+id)?.read!==true;}
 function seenLabel(key){const item=state.attention.find(i=>i.key===key);return item?.seen_by?.length?'Seen by '+item.seen_by.map(r=>r.participant).join(', '):'Not yet seen by another reader';}
@@ -1059,7 +1114,7 @@ function captureSelection(given=null){
     state.selected={...coords,path:doc.path,sha256:doc.sha256,quote:rawCodePoints(doc.text,coords.start,coords.end),requests:{}};
     state.lastQuote={quote:plainQuote(state.selected.quote),path:doc.path,title:String(doc.metadata?.title||doc.title||doc.path)};  // :cite in the scratch pad
     const rect=[...range.getClientRects()].at(-1) || range.getBoundingClientRect(),tools=$('#selection-tools');
-    tools.hidden=false;tools.style.left=Math.max(130,Math.min(innerWidth-130,rect.right))+'px';tools.style.top=Math.max(60,rect.top-10)+'px';
+    tools.hidden=false;tools.style.left=Math.max(130,Math.min(pageWidth()-130,rect.right))+'px';tools.style.top=Math.max(60,rect.top-10)+'px';
     // Touch browsers draw their own selection menu above the passage, so the toolbar goes below it there.
     if(matchMedia('(pointer: coarse)').matches)tools.style.top=Math.min(innerHeight-20,range.getBoundingClientRect().bottom+tools.offsetHeight+28)+'px';
   }catch(error){state.selected=null;$('#selection-tools').hidden=true;if(!error.offline&&captureSelection.failed!==quote)toast(error.message);captureSelection.failed=quote;}
@@ -1230,8 +1285,12 @@ function backToLibrary(){
 function setThemeEditorOpen(open){
   if(open&&!state.themeEditorOpen)state.themeEditorOpener=document.activeElement;
   state.themeEditorOpen=open;controls.update({themeEditorOpen:open});state.smoother?.paused(open);reading?.updateStatus();
-  // Closing returns focus to where the editor was opened from (after the sheet's own focus handling), or the page.
-  if(!open)setTimeout(()=>{const opener=state.themeEditorOpener;state.themeEditorOpener=null;if(state.themeEditorOpen)return;(opener?.isConnected&&opener!==document.body&&!opener.closest('#theme-editor')?opener:$('#main')).focus({preventScroll:true});reading?.updateStatus();},0);
+}
+/** The sheet calls this once its close has finished and it has unmounted (it moves no focus itself), so nothing races the
+    return: focus goes back to where the editor was opened from, or the page (#124). */
+function themeEditorClosed(){
+  const opener=state.themeEditorOpener;state.themeEditorOpener=null;if(state.themeEditorOpen)return;
+  (opener?.isConnected&&opener!==document.body&&!opener.closest('#theme-editor')?opener:$('#main')).focus({preventScroll:true});reading?.updateStatus();
 }
 function useTheme(theme){state.prefs.theme=theme;document.documentElement.dataset.theme=theme;savePrefs();controls.update({theme,prefs:{...state.prefs}});reading?.updateStatus();}
 function themesChanged(themes,fonts){
@@ -1282,7 +1341,7 @@ document.addEventListener('selectionchange',()=>{
 });
 let hoverFrame;
 document.addEventListener('mousemove',event=>{
-  document.body.classList.toggle('reveal-controls',event.clientX>innerWidth-75&&event.clientY>innerHeight-80);
+  document.body.classList.toggle('reveal-controls',event.clientX>pageWidth()-75&&event.clientX<pageWidth()&&event.clientY>innerHeight-80);
   if(hoverFrame)return;
   hoverFrame=requestAnimationFrame(()=>{hoverFrame=null;const spread=reading?.geometry()?.viewport.getBoundingClientRect(),inside=!spread||event.clientX>=spread.left&&event.clientX<=spread.right&&event.clientY>=spread.top&&event.clientY<=spread.bottom;const hit=inside&&state.ranges.find(({range})=>[...range.getClientRects()].some(r=>event.clientX>=r.left&&event.clientX<=r.right&&event.clientY>=r.top&&event.clientY<=r.bottom));const tip=$('#passage-tooltip');if(hit){tip.textContent=`${hit.thread.owner} · ${plural(hit.thread.comments.length,'comment')}`;tip.style.left=Math.max(10,Math.min(innerWidth-260,event.clientX+12))+'px';tip.style.top=event.clientY+20+'px';tip.classList.add('visible');}else tip.classList.remove('visible');});
 });
@@ -1323,7 +1382,7 @@ function restorePlace(spot){
   const blocks=spot.page?[...document.querySelectorAll(`#article [data-pdf-page="${spot.page}"]`)]:spot.offset!=null?[...document.querySelectorAll(`#article [data-source-start="${spot.offset}"]`)].filter(el=>!el.closest('.document-embed')).sort((a,b)=>size(a)-size(b)):[];
   const target=blocks[0];if(!target){reading.seek(spot.progress??0,false);return;}
   const range=document.createRange();range.selectNode(target);
-  if(!reading.reveal(range,false)){const r=target.getBoundingClientRect();scrollToPosition(scrollY+r.top+r.height*(spot.fraction||0)-innerHeight*.22,false,target,spot.fraction||0);}
+  if(!reading.reveal(range,false)){const r=target.getBoundingClientRect();scrollToPosition(shown()+r.top+r.height*(spot.fraction||0)-innerHeight*.22,false,target,spot.fraction||0);}
   reading.update();
 }
 async function goTo(spot){
@@ -1393,7 +1452,7 @@ function stepLink(delta,{count}){
   const next=stepThrough(list,delta,focusedLink(),count);if(!next){toast(delta>0?'No more links after this one.':'No links before this one.');return;}
   next.focus({preventScroll:true});const range=document.createRange();range.selectNodeContents(next);moveToRange(range);
 }
-function seekEdge(end){jumps.record();if(reading.hasBook())reading.seek(end?1:0);else scrollToPosition(end?document.documentElement.scrollHeight:0,true,end?[...$('#article')?.children||[]].filter(el=>!el.classList.contains('annotation-pin')).at(-1):null);}
+function seekEdge(end){jumps.record();if(reading.hasBook()){reading.seek(end?1:0);return;}scrollToPosition(end?document.documentElement.scrollHeight:0);placeKeeper.edge(end,motion());}
 const R='Reading',L='Leader: Space or comma',H='Homepage',S='Search page',M='Marks and jumps',Q='Lists',P='In panels',W='Split view: Ctrl w or Space W',X='Scratch pad';
 keys.group('<Space>,','more');
 keys.prefix('<C-w>',{label:'WINDOW',ms:1500});
@@ -1411,6 +1470,8 @@ keys.map(
   {keys:'<Space>n',run:inShell('n',()=>queue.next()),hint:'next',group:L,help:'Open the next document in your queue'},
   {keys:'<Space>t',run:()=>openThreadList(),hint:'threads',group:L,help:'Open passage discussions'},
   {keys:'<Space>c',run:()=>prose.press(),hint:'colors',group:L,help:'Prose colors: Off, Subtle, Clear, Vivid, in turn, for this document'},
+  {keys:'<Space>x',run:()=>quiz.open(),hint:'quiz',group:L,help:'Test yourself on this article; every question links to its evidence'},
+  {keys:'<Space>a',run:()=>writingPrompts.open(),hint:'write about',group:L,help:'A voice asks a question; answer in Scratch'},
   {keys:'<Space>m',run:inShell('m',()=>toggleChat()),hint:'chat',group:L,help:'Chat with the voices about this document; `@` chooses who answers, `r` on a focused voice message replies to it, `Ctrl r` `a` pastes register a'},
   {keys:'<Space>o',run:()=>outline.toggle(),hint:'outline',group:L,help:'Show or hide the document outline'},
   {keys:'<Space>s',run:()=>speech.openMenu(),hint:'speak',group:L,help:'Send to AI-TTS: the whole article, from here, or the selection'},
@@ -1561,6 +1622,8 @@ keys.command({name:'shape',help:'Data view: show or hide the open article’s sh
 keys.command({name:'art',help:'Show or hide the open article’s art, as `Space g`',run:()=>toggleArt()});
 keys.command({name:'art-focus',help:'Focus on the art full screen (Esc returns), as `Space G`',run:()=>focusShownArt()});
 keys.command({name:'generate-art',help:'Commission new art for the open article (a background job; the current art is kept)',run:()=>{if(state.doc&&TEXTUAL.test(state.doc.path)&&!state.doc.preview)commissionArt(state.doc.path);else toast('Open a Markdown or text article to make art for it.');}});
+keys.command({name:'write-about',help:'Ask for a writing prompt about this article',run:()=>writingPrompts.open()});
+keys.command({name:'quiz',help:'Take a source-anchored quiz on this article',run:()=>quiz.open()});
 keys.command({name:'enew',help:'A new scratch pad buffer',run:()=>navigate(SCRATCH+'='+crypto.randomUUID())});
 const SPLIT_DIRS={vsplit:['row','v'],split:['col','s']};
 for(const [name,[dir,key]] of Object.entries(SPLIT_DIRS))keys.command({name,aliases:name==='vsplit'?['vs','vsp']:['sp'],args:'[document]',
@@ -1720,7 +1783,7 @@ reduced.addEventListener('change',resetScroll);
 search=installSearch({api,state,navigate,back:goBack,backstage:()=>openAdmin('indexes'),notify,queue:path=>queue.add(path)});
 installStatusPriority($('#statusline'));
 const breadcrumbs=installBreadcrumbs({container:$('#status-location'),home:()=>navigate(null),openFolder:folder=>openPicker('all',folder),onChange:()=>reading?.updateStatus()});
-controls=installControls({seek:fraction=>reading.seek(fraction),spread:index=>reading.seekSpread(index),thread:id=>{const hit=state.ranges.find(entry=>entry.thread.id===id);if(hit)moveToRange(hit.range);openThread(id);},theme:()=>{state.prefs.theme=oppositeTheme(state.prefs.theme);document.documentElement.dataset.theme=state.prefs.theme;savePrefs();reading.updateStatus();},save:applyPreferences,error:report,outlineToggle:()=>outline.toggle(),outlineOpen:open=>outline.setOpen(open),outlineGo:index=>outline.go(index),themeEditor:setThemeEditorOpen,api,themesChanged,useTheme,previewFont,chatMarkdown,openPath:path=>navigate(path),chatChanged:()=>reading?.updateStatus(),
+controls=installControls({seek:fraction=>reading.seek(fraction),spread:index=>reading.seekSpread(index),thread:id=>{const hit=state.ranges.find(entry=>entry.thread.id===id);if(hit)moveToRange(hit.range);openThread(id);},theme:()=>{state.prefs.theme=oppositeTheme(state.prefs.theme);document.documentElement.dataset.theme=state.prefs.theme;savePrefs();reading.updateStatus();},save:applyPreferences,error:report,outlineToggle:()=>outline.toggle(),outlineOpen:open=>outline.setOpen(open),outlineGo:index=>outline.go(index),themeEditor:setThemeEditorOpen,themeEditorClosed,api,themesChanged,useTheme,previewFont,chatMarkdown,openPath:path=>navigate(path),chatChanged:()=>reading?.updateStatus(),
   open:path=>navigate(path),libraryChanged:async()=>{await loadLibrary();if(!state.doc&&state.view!=='admin')renderHome();},
   adminHref:(section,...params)=>adminHash(adminPath(section,...params)),adminGo:(section,...params)=>openAdmin(section,...params),backToLibrary,
   markdown:text=>{const template=document.createElement('template');template.innerHTML=DOMPurify.sanitize(window.markdownit({html:false,linkify:true}).render(text),{USE_PROFILES:{html:true}});decorateCodeBlocks(template.content,{wrap:true,lineNumbers:false});return template.innerHTML;}},state.prefs);
@@ -1731,9 +1794,15 @@ queue.setCloseOthers(()=>{$('#thread-panel').hidden=true;state.activeThread=null
 reading=installReading({statusOverride:()=>{const on=!!split?.active();if(!on)$('#split-indicator').hidden=true;return on&&paintSplitStatus();},onStatus:()=>pane&&paneStatus(),mayCurl:()=>!pane||pane.focused(),scratchStatus:()=>state.view==='scratch'?scratch?.status():null,controls,updateBreadcrumbs:path=>breadcrumbs.update(path),state,api,toast,openAdmin:()=>openAdmin(),openThread,revealRange:moveToRange,scrollToPosition,savePrefs,reloadDocument:()=>navigate(state.doc.path,{record:false}),positionPins,keyStatus:()=>keys.status()});
 outline=installOutline({state,reading,$,controls,scrollToPosition,savePrefs,notify});
 links=installLinks({state,api,reading,navigate,openBackstage:()=>openAdmin('indexes')});
-scratch=installScratch({state,api,notify,navigate,focusMain:()=>$('#main').focus({preventScroll:true}),updateStatus:()=>reading?.updateStatus(),openChat,registers:()=>registers,
+scratch=installScratch({state,api,notify,navigate,focusMain:()=>$('#main').focus({preventScroll:true}),updateStatus:()=>reading?.updateStatus(),openChat,savedChanged:()=>readingLogs.clear(),registers:()=>registers,
   // A draft has no file yet: its links resolve from the notebook folder it saves into (the server accepts a folder source).
   renderMarkdown:(container,text)=>renderMarkdown(container,text,'library/notebook/',0)});
+quiz=installQuiz({api,document:()=>state.doc,participant:()=>state.prefs.participant,mount:mountQuiz,showEvidence:showQuizEvidence,changed:refreshReadingLog,available:()=>needsReader()?NEEDS_READER:null,toast,mode:open=>{if(open)keys.enter('quiz');else{keys.leave('quiz');focusMain();}reading?.updateStatus();}});
+keys.defineMode('quiz',{label:()=> 'QUIZ',hints:()=>'<kbd>Tab</kbd> move <kbd>Enter</kbd> choose <kbd>Esc</kbd> return',escape:()=>quiz.close()});
+writingPrompts=installWritingPrompts({api,document:()=>state.doc,participant:()=>state.prefs.participant,mount:mountWritingPrompt,write:prompt=>scratch.forPrompt(prompt),showEvidence:showQuizEvidence,available:()=>needsReader()?NEEDS_READER:null,toast,mode:open=>{if(open)keys.enter('writing-prompt');else{keys.leave('writing-prompt');focusMain();}reading?.updateStatus();}});
+keys.defineMode('writing-prompt',{label:()=> 'WRITE ABOUT',hints:()=>'<kbd>Tab</kbd> move <kbd>Enter</kbd> choose <kbd>Esc</kbd> return',escape:()=>writingPrompts.close()});
+$('#quiz-open').onclick=()=>quiz.open();
+if(needsReader()){$('#quiz-open').disabled=true;$('#quiz-open').title=NEEDS_READER;}
 versions=installVersions({state,api,navigate:ref=>navigate(ref),openCompare:openComparison,openSideBySide:(older,newer)=>{if(pane)pane.post({type:'open-in-split',compare:{a:older,b:newer}});else split.compare(older,newer,cleanRoute(location.hash)).catch(report);},notify,param,onChange:()=>reading?.updateStatus()});
 if(EMBEDDED)pane=installPane({open:openRoute,save:()=>reading.save(),onFocus:paneFocus,
   reveal:element=>{if(!reading.hasBook())return false;const range=document.createRange();range.selectNodeContents(element);return reading.reveal(range,false);},
@@ -1756,6 +1825,19 @@ function prefsFromStorage(){
 }
 window.addEventListener('storage',event=>{if(event.key==='reader.preferences.v1')prefsFromStorage();else if(event.key==='reader.themes.v1')loadThemes();});
 window.addEventListener('reader:prefs',prefsFromStorage);
+// A docked panel narrows continuous reading: keep the line at the reading line (22% down) in view.
+installDock({
+  before(){
+    const article=$('#article');if(!article||reading?.hasBook()||split?.active())return null;
+    const list=[...article.children].filter(el=>!el.classList.contains('annotation-pin')),line=innerHeight*.22;
+    let lo=0,hi=list.length-1;if(hi<0)return null;
+    while(lo<hi){const mid=(lo+hi)>>1;if(list[mid].getBoundingClientRect().bottom>line)hi=mid;else lo=mid+1;}
+    const rect=list[lo].getBoundingClientRect();return {el:list[lo],line,fraction:rect.height?Math.max(0,Math.min(1,(line-rect.top)/rect.height)):0};
+  },
+  after(kept){
+    if(!kept?.el.isConnected)return;const rect=kept.el.getBoundingClientRect(),shift=rect.top+rect.height*kept.fraction-kept.line;
+    if(Math.abs(shift)>1)scrollToPosition(scrollY+shift,false,kept.el,kept.fraction);
+  }});
 mountSkeleton($('#main'),'library');
 loadThemes();
 try{await loadLibrary();

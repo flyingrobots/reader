@@ -1,0 +1,33 @@
+{
+ "object": {
+  "catalog": "null",
+  "family": {
+   "array": {
+    "object": {
+     "author": "string",
+     "current?": "boolean",
+     "date": "string:date",
+     "label": "string",
+     "path": "string",
+     "revision": "number",
+     "role": "string",
+     "title": "string"
+    }
+   }
+  },
+  "more": "number",
+  "newer": {
+   "object": {
+    "date": "string:date",
+    "path": "string",
+    "revision": "number",
+    "title": "string"
+   }
+  },
+  "path": "string",
+  "scope": "string",
+  "unresolved": {
+   "array": "empty"
+  }
+ }
+}

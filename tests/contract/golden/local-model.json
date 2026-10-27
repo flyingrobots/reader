@@ -1,0 +1,271 @@
+{
+ "object": {
+  "active": {
+   "array": "empty"
+  },
+  "gpu": {
+   "object": {
+    "label": "string",
+    "message": "string",
+    "mode": "string",
+    "store": "null"
+   }
+  },
+  "labels": {
+   "object": {
+    "keyterms": "string",
+    "standfirst": "string"
+   }
+  },
+  "limits": {
+   "object": {
+    "batch": "number",
+    "cache_bytes": "number",
+    "item_seconds": "number",
+    "output_tokens": "number",
+    "queue": "number",
+    "source_tokens": "number"
+   }
+  },
+  "now": "null",
+  "outputs": {
+   "object": {
+    "bytes": "number",
+    "limit_bytes": "number",
+    "tasks": {
+     "object": {
+      "keyterms": {
+       "object": {
+        "cached": "number",
+        "current": "number",
+        "label": "string",
+        "samples": {
+         "array": "empty"
+        },
+        "stale": "number"
+       }
+      },
+      "standfirst": {
+       "object": {
+        "cached": "number",
+        "current": "number",
+        "label": "string",
+        "samples": {
+         "array": "empty"
+        },
+        "stale": "number"
+       }
+      }
+     }
+    }
+   }
+  },
+  "provider": {
+   "object": {
+    "allow_remote": "boolean",
+    "api_key": {
+     "object": {
+      "env": "string",
+      "set": "boolean",
+      "source": "null"
+     }
+    },
+    "base_url": "string",
+    "hint": "string",
+    "host": "string",
+    "label": "string",
+    "loopback": "boolean",
+    "model": "string",
+    "preset": "string",
+    "presets": {
+     "object": {
+      "custom": {
+       "object": {
+        "base_url": "null",
+        "label": "string"
+       }
+      },
+      "llamacpp": {
+       "object": {
+        "base_url": "string",
+        "label": "string"
+       }
+      },
+      "lmstudio": {
+       "object": {
+        "base_url": "string",
+        "label": "string"
+       }
+      },
+      "ollama": {
+       "object": {
+        "base_url": "string",
+        "label": "string"
+       }
+      }
+     }
+    },
+    "remote_notice": "null",
+    "saved_base_url": "string",
+    "start": "null"
+   }
+  },
+  "queue": {
+   "object": {
+    "keyterms": {
+     "object": {
+      "active": "boolean",
+      "label": "string",
+      "next": {
+       "array": "empty"
+      },
+      "running": "boolean",
+      "waiting": "number"
+     }
+    },
+    "standfirst": {
+     "object": {
+      "active": "boolean",
+      "label": "string",
+      "next": {
+       "array": "empty"
+      },
+      "running": "boolean",
+      "waiting": "number"
+     }
+    }
+   }
+  },
+  "recent": {
+   "array": "empty"
+  },
+  "running": "boolean",
+  "runs": {
+   "array": "empty"
+  },
+  "server": {
+   "object": {
+    "available": {
+     "array": "empty"
+    },
+    "available_error": "null",
+    "cli": {
+     "object": {
+      "installed": "boolean",
+      "name": "string"
+     }
+    },
+    "control": "null",
+    "error": "null",
+    "label": "string",
+    "lms": "boolean",
+    "loaded": {
+     "array": "empty"
+    },
+    "port": "number",
+    "provider": {
+     "object": {
+      "allow_remote": "boolean",
+      "api_key": {
+       "object": {
+        "env": "string",
+        "set": "boolean",
+        "source": "null"
+       }
+      },
+      "base_url": "string",
+      "hint": "string",
+      "host": "string",
+      "label": "string",
+      "loopback": "boolean",
+      "model": "string",
+      "preset": "string",
+      "presets": {
+       "object": {
+        "custom": {
+         "object": {
+          "base_url": "null",
+          "label": "string"
+         }
+        },
+        "llamacpp": {
+         "object": {
+          "base_url": "string",
+          "label": "string"
+         }
+        },
+        "lmstudio": {
+         "object": {
+          "base_url": "string",
+          "label": "string"
+         }
+        },
+        "ollama": {
+         "object": {
+          "base_url": "string",
+          "label": "string"
+         }
+        }
+       }
+      },
+      "remote_notice": "null",
+      "saved_base_url": "string",
+      "start": "null"
+     }
+    },
+    "running": "boolean",
+    "state": "string",
+    "url": "string"
+   }
+  },
+  "settings": {
+   "object": {
+    "embedding_backend": "string",
+    "provider": {
+     "object": {
+      "allow_remote": "boolean",
+      "base_url": "string",
+      "model": "string",
+      "preset": "string"
+     }
+    },
+    "tasks": {
+     "object": {
+      "keyterms": {
+       "object": {
+        "enabled": "boolean",
+        "model": "string",
+        "trigger": "string"
+       }
+      },
+      "standfirst": {
+       "object": {
+        "enabled": "boolean",
+        "model": "string",
+        "trigger": "string"
+       }
+      }
+     }
+    }
+   }
+  },
+  "tasks": {
+   "object": {
+    "keyterms": {
+     "object": {
+      "label": "string",
+      "noun": "string",
+      "prompt_version": "string"
+     }
+    },
+    "standfirst": {
+     "object": {
+      "label": "string",
+      "noun": "string",
+      "prompt_version": "string"
+     }
+    }
+   }
+  }
+ }
+}

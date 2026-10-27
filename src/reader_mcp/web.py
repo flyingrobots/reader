@@ -10,6 +10,8 @@ import posixpath
 import re
 import numpy as np
 import secrets
+import select
+import socket
 import sqlite3
 import threading
 import time
@@ -17,6 +19,7 @@ from urllib.parse import parse_qs, quote, urlsplit
 
 from rapidfuzz import fuzz, process
 
+from . import clock
 from .annotations import Annotations
 from .art import ArtMissing, ArtOwned, Studio
 from .browse import Browse
@@ -47,6 +50,9 @@ from .service import Service, health
 from .web_access import WebAccess
 from .themes import Themes
 from .voice_runner import ChatOwned, Conversations
+from .voice_tasks import VoiceTasks
+from .quizzes import Quizzes
+from .prompts import Prompts
 from .versions import Versions, split_ref
 
 STATIC = Path(__file__).with_name('web_ui')
@@ -203,8 +209,13 @@ class WebLibrary:
         self.embed_texts = embed_tree.Texts()
         self.magazine = Magazine(self)
         self.shapes = Shapes(self)
-        self.conversations = Conversations(self.root, self.chat_document, **(chat_options or {}))
-        self.writing = Writing(self.root, self.path, self.digest, **(writing_options or {}))
+        self.quizzes = Quizzes(self.root, self.chat_document, self.engagement)
+        self.prompts = Prompts(self.root, self.chat_document, self.annotations)
+        self.voice_tasks = VoiceTasks(self.root, self.chat_document, {'quiz': self.quizzes, 'quiz-review': self.quizzes, 'prompt': self.prompts})
+        self.quizzes.tasks = self.voice_tasks
+        self.prompts.tasks = self.voice_tasks
+        self.conversations = Conversations(self.root, self.chat_document, tasks=self.voice_tasks, **(chat_options or {}))
+        self.writing = Writing(self.root, self.path, self.digest, prompts=self.prompts, conversations=self.conversations, **(writing_options or {}))
         self.companions = Companions(self.root, prose=self.prose, speech=self.speech, maintenance=self.maintenance,
                                      local_model=self.local_model, **(companions or {}))
         self.maintenance.runners.update(self.companions.runners())
@@ -282,6 +293,51 @@ class WebLibrary:
         doc = self.document(path)
         return {'path': path, 'title': str(doc['title'])[:500], 'sha256': doc['sha256'], 'text': doc['text'] if inline else None}
 
+    def quiz(self, path, participant, task_id=None):
+        quiz = self.quizzes.get(path)
+        task = None
+        if task_id:
+            job = self.voice_tasks.read(task_id)
+            if job['path'] != path or job['participant'] != participant or not job['kind'].startswith('quiz'):
+                raise ValueError('Task belongs to another document or participant')
+            task = self.voice_tasks.public(job)
+            if job['kind'] == 'quiz-review':
+                reviewed = self.quizzes.read(job['payload']['edition'], job['payload']['quiz_id'])
+                if reviewed['document_path'] != path:
+                    raise ValueError('Reviewed quiz belongs to another document')
+                quiz = self.quizzes.view(reviewed, self.chat_document(path, True))
+        else:
+            task = self.voice_tasks.latest(path, participant, self.digest(path))
+        try:
+            default_voice = self.voice_tasks.choose(path, None)
+        except ValueError:
+            default_voice = None
+        return {'quiz': quiz, 'task': task, 'default_voice': default_voice} | self.conversations.voices()
+
+    def prompt(self, path, participant, voice=None, task_id=None):
+        document = self.chat_document(path, True)
+        if task_id:
+            job = self.voice_tasks.read(task_id)
+            if (job['kind'], job['path'], job['participant']) != ('prompt', path, participant):
+                raise ValueError('Prompt task belongs to another document or participant')
+            task = self.voice_tasks.public(job)
+            voice = job['voice']
+        else:
+            task = self.voice_tasks.latest(path, participant, document['sha256'], 'prompt')
+            if voice and task and task['voice'] != voice:
+                task = None
+            if not voice and task:
+                voice = task['voice']
+        try:
+            chosen = self.voice_tasks.choose(path, voice)
+        except ValueError:
+            if voice is None:
+                chosen = None
+            else:
+                chosen = voice  # Saved questions remain readable when their CLI is disabled.
+        saved = self.prompts.get(path, chosen) if chosen else None
+        return {'prompt': self.prompts.view(saved), 'task': task, 'default_voice': chosen} | self.conversations.voices()
+
     def close(self):
         self.jobs.close()
         self.art.close()
@@ -299,7 +355,7 @@ class WebLibrary:
         else:
             browse = Browse(self.root)
             works = browse.inventory(browse.settings())
-            as_of = datetime.now(timezone.utc).date().isoformat()
+            as_of = clock.now().date().isoformat()
         if not isinstance(works, list) or len(works) > 10000:
             raise ValueError('Work inventory exceeds 10,000 works')
         return works, as_of
@@ -344,7 +400,7 @@ class WebLibrary:
                                 'at': thread['comments'][-1]['created_at'] if thread['comments'] else thread['created_at']})
         for row in rows:
             row['threads'] = open_threads[row['primary']]
-        today = datetime.now(timezone.utc).date()
+        today = clock.now().date()
         read = sum(w['read'] for w in rows)
         return {'participant': participant, 'participants': [r['participant'] for r in receipts], 'works': rows,
                 'as_of': as_of, 'today': today.isoformat(),
@@ -738,7 +794,11 @@ class WebLibrary:
         rank = {'voice': 0, 'you': 1, 'agent': 2}
         readers.sort(key=lambda r: r['at'], reverse=True)
         readers.sort(key=lambda r: (r['folded'], rank[r['group']]))
-        return {'path': path, 'version': current, 'participant': you, 'readers': readers,
+        quiz_results = [dict(result, group=self.engagement.group(result['participant'], you, voices),
+                             state='current' if result['document_sha256'] == current else 'earlier')
+                        for result in self.engagement.quiz_results(path)]
+        return {'path': path, 'version': current, 'participant': you, 'readers': readers, 'quiz_results': quiz_results,
+                'writing': self.writing.list(you, path),
                 'folded': sum(r['folded'] for r in readers), 'one_off_threshold': ONE_OFF_RECEIPTS}
 
     def family(self, path):
@@ -966,7 +1026,7 @@ class WebLibrary:
             days[-1]['items'].append(row)
         return {'participant': participant, 'days': days, 'total': len(items), 'filter': 'finished' if finished else 'all',
                 'next_cursor': cursor + HISTORY_PAGE if cursor + HISTORY_PAGE < len(items) else None,
-                'today': (datetime.now(timezone.utc) + offset).date().isoformat()}
+                'today': (clock.now() + offset).date().isoformat()}
 
     def queue_view(self, participant, current=None):
         participant = self.engagement.participant(participant)
@@ -1131,7 +1191,7 @@ class WebLibrary:
 # admission and limited only by its own four-stream semaphore, so it never holds a slot.
 STATIC_PREFIXES = ('/assets/', '/fonts/')
 UNGATED = frozenset({'/', '/api/health'})  # The page itself and the cheap liveness probe.
-EXPENSIVE_GETS = frozenset({'/api/search', '/api/search/page', '/api/next', '/api/prose', '/api/service', '/api/shape'})
+EXPENSIVE_GETS = frozenset({'/api/search', '/api/search/page', '/api/next', '/api/prose', '/api/service', '/api/shape', '/api/quiz', '/api/prompt', '/api/writing', '/api/readers'})
 EXPENSIVE_GET_PREFIXES = ('/api/chat',)  # /api/chat, /api/chats, /api/chat/raw
 EXPENSIVE_LIMIT, READ_LIMIT, READ_WAIT = 8, 32, 5.0
 
@@ -1152,6 +1212,7 @@ class WebServer(ThreadingHTTPServer):
         self.reads = threading.BoundedSemaphore(READ_LIMIT)
         self.streams = threading.BoundedSemaphore(4)  # SSE streams: outside both pools
         self.chat_heartbeat = 15  # Seconds between `ping` events on an idle chat stream.
+        self.chat_hangup_check = 0.25  # Seconds between checks for a chat stream's client hanging up (#152).
         super().__init__(address, WebHandler)
 
 
@@ -1248,12 +1309,19 @@ class WebHandler(BaseHTTPRequestHandler):
             snapshot()
             self.wfile.flush()
             deadline = datetime.now(timezone.utc) + timedelta(hours=1)
+            quiet_since = time.monotonic()
             while not runner.closed and datetime.now(timezone.utc) < deadline:
-                rows, latest, gap = runner.wait(chat['id'], after, interval)
+                # Wait in short slices so a closed EventSource frees its slot at once, not at the next ping (#152).
+                rows, latest, gap = runner.wait(chat['id'], after, min(interval, self.server.chat_hangup_check))
+                if self.hung_up():
+                    break
                 if gap:
                     snapshot()
                 if not rows:
+                    if time.monotonic() - quiet_since < interval:
+                        continue
                     send('ping', ping())
+                quiet_since = time.monotonic()
                 for seq, kind, data in rows:
                     send(kind, data, seq)
                 after = max([after, *[seq for seq, _, _ in rows]]) if rows else latest
@@ -1262,6 +1330,20 @@ class WebHandler(BaseHTTPRequestHandler):
             pass
         finally:
             self.server.streams.release()
+
+    def hung_up(self):
+        """True once a stream's client has closed its connection.
+
+        A stream request sends nothing after its headers, so a readable socket means EOF (or a reset);
+        any unexpected bytes are left unread and the stream continues."""
+        try:
+            if not select.select([self.connection], [], [], 0)[0]:
+                return False
+            return self.connection.recv(1, socket.MSG_PEEK) == b''
+        except (BlockingIOError, InterruptedError):
+            return False
+        except OSError:
+            return True
 
     def stream_job(self):
         """Server-Sent Events for one coding job: `hello` (the run), `event` frames with `id: <seq>`, `ping`, and `end`.
@@ -1295,6 +1377,7 @@ class WebHandler(BaseHTTPRequestHandler):
             send('hello', {'run': jobs.detail(run_id), 'after': cursor})
             self.wfile.flush()
             deadline = datetime.now(timezone.utc) + timedelta(hours=1)
+            quiet_since = time.monotonic()
             while not jobs.live.closed and datetime.now(timezone.utc) < deadline:
                 page = jobs.events(run_id, cursor, 500)
                 for event in page['events']:
@@ -1304,11 +1387,17 @@ class WebHandler(BaseHTTPRequestHandler):
                     send('end', {'run': page['run']})
                     self.wfile.flush()
                     break
-                if not page['events']:
+                if page['events']:
+                    quiet_since = time.monotonic()
+                elif time.monotonic() - quiet_since >= self.server.chat_heartbeat:
                     send('ping', {'seq': cursor, 'status': page['run']['status'], 'phase': page['run']['phase']})
+                    quiet_since = time.monotonic()
                 self.wfile.flush()
                 if not page['more']:
-                    jobs.live.wait(run_id, cursor, self.server.chat_heartbeat)
+                    # Short slices free a closed panel's stream slot at once, as chat streams do (#152).
+                    jobs.live.wait(run_id, cursor, min(self.server.chat_heartbeat, self.server.chat_hangup_check))
+                    if self.hung_up():
+                        break
         except (BrokenPipeError, ConnectionResetError, TimeoutError, OSError):
             pass
         finally:
@@ -1419,6 +1508,12 @@ class WebHandler(BaseHTTPRequestHandler):
                     self.json(library.jobs.dispatch(request))
                 elif parsed.path == '/api/repositories':
                     self.json(library.jobs.configure(request, self.identity))
+                elif parsed.path == '/api/quiz':
+                    participant = library.engagement.participant(request.pop('participant', self.server.participant))
+                    self.json(library.quizzes.dispatch(request, participant))
+                elif parsed.path == '/api/prompt':
+                    participant = library.engagement.participant(request.pop('participant', self.server.participant))
+                    self.json(library.prompts.dispatch(request, participant))
                 elif parsed.path == '/api/service':
                     if set(request) != {'action'}:
                         raise ValueError('Expected {"action": "update" | "restart" | "pause" | "resume"}')
@@ -1477,6 +1572,15 @@ class WebHandler(BaseHTTPRequestHandler):
                 self.json(library.conversations.list(args.get('path', '')))
             elif parsed.path == '/api/chat':
                 self.json(library.conversations.get(args.get('id', '')))
+            elif parsed.path == '/api/quiz':
+                participant = library.engagement.participant(args.get('participant', self.server.participant))
+                self.json(library.quiz(args.get('path', ''), participant, args.get('task')))
+            elif parsed.path == '/api/prompt':
+                participant = library.engagement.participant(args.get('participant', self.server.participant))
+                self.json(library.prompt(args.get('path', ''), participant, args.get('voice'), args.get('task')))
+            elif parsed.path == '/api/writing':
+                participant = library.engagement.participant(args.get('participant', self.server.participant))
+                self.json({'participant': participant, 'pieces': library.writing.list(participant, args.get('responds_to'))})
             elif parsed.path == '/api/local-model':
                 self.json(library.local_model.status())
             elif parsed.path == '/api/inbox/events':

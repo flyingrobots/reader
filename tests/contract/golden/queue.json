@@ -1,0 +1,74 @@
+{
+ "object": {
+  "now": {
+   "object": {
+    "authors": {
+     "array": "string"
+    },
+    "date": "string:date",
+    "finished": "boolean",
+    "opened_at": "string:datetime",
+    "path": "string",
+    "progress": "null",
+    "projects": {
+     "array": "string"
+    },
+    "read": "boolean",
+    "resume": "boolean",
+    "sha256": "string:sha256",
+    "title": "string",
+    "words": "null"
+   }
+  },
+  "participant": "string",
+  "queued": {
+   "array": {
+    "object": {
+     "added_at": "string:datetime",
+     "added_by": "string",
+     "authors": {
+      "array": "string"
+     },
+     "date": "string:date",
+     "finished": "boolean",
+     "path": "string",
+     "progress": "null",
+     "projects": {
+      "array": "string"
+     },
+     "read": "boolean",
+     "sha256": "string:sha256",
+     "source": "string",
+     "title": "string",
+     "words": "number"
+    }
+   }
+  },
+  "scope": "string",
+  "suggested": {
+   "array": {
+    "object": {
+     "added_at?": "string:datetime",
+     "added_by?": "string",
+     "authors": {
+      "array": "string"
+     },
+     "date": "string:date",
+     "finished": "boolean",
+     "path": "string",
+     "progress": "null",
+     "projects": {
+      "array": "string"
+     },
+     "read": "boolean",
+     "reason": "string",
+     "sha256": "string:sha256",
+     "source": "string",
+     "title": "string",
+     "words": "number"
+    }
+   }
+  },
+  "updated_at": "string:datetime"
+ }
+}

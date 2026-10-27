@@ -54,6 +54,8 @@ The web server does not rebuild indexes or download models at startup.
 | Space , t; F10 | Theme Editor (F10 also closes it; focus returns to where it was opened from) |
 | Space s, then a / f / s | Send to AI-TTS: whole article, from here, or the selection |
 | Space m | Chat with the voices about the open document |
+| Space x | Take a source-anchored quiz on the open article |
+| Space a | Write about the article from a voice's question |
 | Space z | Hide or reveal reading chrome |
 | Tab to a diagram, Enter (or click) | Open the diagram full size; Escape closes it |
 | ? / Escape | Help / close the current interface |
@@ -327,7 +329,10 @@ Tailwind semantic colors (`--color-primary` and so on) map onto the same tokens.
 A dark variant is any `data-theme` that is `ink` or ends in `-dark`.
 
 Open the Theme Editor with Space , t (leader, comma, t), F10, or **Theme Editor…**
-in Settings. It edits one theme at a time, with Light and Dark variants:
+in Settings. Closing it (F10, Esc or the close button) returns focus to where it was
+opened from, or the page, once the sheet's close has finished; the sheet itself moves
+no focus, so a slow close cannot leave focus on the first control behind it. It edits
+one theme at a time, with Light and Dark variants:
 
 - **Create.** Choose *New theme from a seed color*, then **Generate both variants**.
   Neutrals are tinted toward the seed hue. Each role keeps a fixed OKLCH lightness and
@@ -1884,6 +1889,45 @@ limit; the message suggests From here or a selection), one request line of at mo
 text JSON-escaped), a 5-second socket timeout, and PDFs of at most 64 MiB and 5,000
 pages. Document text is only spoken, never executed or followed as instructions.
 
+### Docked side panels
+
+The right-hand panels — In the margins (and Linked from), Versions, the Locations,
+Registers and Marks lists, the reading queue, Chat and What changed — dock beside
+the page when the window is wide enough to keep a comfortable reading column beside
+them. An open panel becomes a column
+at the right edge, the full height of the window, with no shadow or backdrop. The
+page gives up that width: the article recenters in what is left, and the status line,
+the summon button, the smooth-scrolling and two-page wrappers, split view, the art hero
+and margin pins stop at the column's edge, and the find bar centres on the page. The page stays
+interactive: it scrolls, selects and opens links while the panel is open, and a click
+on the page leaves a docked What changed open.
+
+`web_ui/dock.mjs` is the one mechanism. It watches the panels' `hidden` attributes
+(and the What changed Sheet's `data-side`), and while one is open it sets
+`data-dock="right"` and `--dock-width` on the root; the layout rules in `style.css`
+and `web/src/styles.css` consume them. Each panel declares its width as
+`--panel-width` (410 px for the margins, Versions and lists, 420 px for the queue,
+440 px for Chat, 520 px for What changed). Panels open together share the column: the
+widest sets its width, every docked panel takes it, and the one opened last is on top.
+Code that clamps to the window uses `pageWidth()` (the window less the dock).
+
+A dock change keeps the reader's place. In continuous reading the block at the reading
+line (22% down the window) is measured before the column narrows and scrolled back to
+the same line after, as a jump held by `place.mjs`. The dock then sends a `resize`, so
+two-page reading repaginates from its first visible character, and pins, the outline
+rail and split panes lay out again (a rail that no longer fits left of the narrower page
+gives way to the Outline button's popover until the dock closes). When less than 900 px remains beside the dock,
+two-page reading shows one page, as a window that narrow would (`data-dock-narrow`).
+The page moves in one step rather than animating, so the reflow measures the final width.
+
+A panel docks when at least 690 px of window remains beside it (`DOCK_ROOM`): the
+article column is 773 px (65ch at 21 px) inside 40 px gutters, and 690 px keeps a
+610 px column, about 55 characters a line. That is from 1100 px for the 410 px panels,
+1130 px for Chat and 1210 px for What changed; from about 1280 px the column keeps its
+full width. Narrower windows keep the overlay: the panel covers the right of the page
+with a shadow, and becomes a bottom sheet at phone width, as before. The Theme Editor
+is a full-width modal editor and never docks.
+
 ### Document outline
 
 Long documents show their headings beside the text. The outline is built in the
@@ -3313,7 +3357,9 @@ is taken as the query itself; a malformed escape is read literally.
   `o` opens it in a new browser tab and keeps you on Search, `/` returns to the
   field, `h` goes back and Esc returns to where you were. Esc on any other page
   control (a mode button, facet or filter) moves to the results, or the field when
-  there are none; a second Esc goes back.
+  there are none; a second Esc goes back. If that query is still running, focus
+  lands on the results it brings once they render (the field when there are none),
+  unless you have moved elsewhere meanwhile.
 - **Opening a passage.** The document opens at the indexed line: Markdown scrolls to
   (or, in two-page mode, turns to the spread of) the smallest block containing that
   line; plain text uses the line itself; PDFs go to the page. Every whole-word
@@ -3456,12 +3502,26 @@ estimate theirs from their text length; other blocks count as 240 px.
 see steady while estimates turn into real heights:
 
 - **Jumps hold their target.** A jump Reader makes in continuous reading (find, a heading link,
-  the outline, `]]`/`[[`, an opened passage, a bookmark, the jump list, `G`, VISUAL motions)
+  the outline, `]]`/`[[`, an opened passage, a bookmark, the jump list, VISUAL motions)
   passes its element or range to `scrollToPosition`. A `ResizeObserver` on the top-level
   blocks re-seeks after each height change, so the target lands on the line it was sent to. A
   bookmark lands at its fraction of the block, measured on the block's settled height. The hold
   ends when you wheel, touch, click or press a key, or scroll the page yourself (a scrollbar drag),
   or when another jump or document replaces it.
+- **`gg` and `G` hold the page's start and end.** They hold the edge itself, not a block, so `gg`
+  ends at the top while the blocks it glides over settle (smooth scrolling has no scroll anchoring
+  to keep its destination), and `G` follows the end as Read next and other end blocks arrive after
+  it and lengthen the page.
+- **Jumps measure what is shown.** With smooth scrolling the article glides behind the scroll
+  position, so a jump computed from a block's on-screen position adds the shown offset
+  (`shownTop()` in `place.mjs`, the content wrapper's offset), not `scrollY`. A find hit or
+  heading taken mid-glide then lands at its line instead of off by the distance left to glide.
+- **The smoother measures before a jump past its end.** ScrollSmoother maps the scroll position
+  onto the page height it measured at its last refresh, and refreshes only once the article stops
+  changing height. A jump whose target lies past that measure (blocks laid out taller than their
+  estimates) refreshes the smoother's ScrollTrigger first (`smoothTo()` in `app.mjs`); otherwise
+  the page glides to the old end and, if the refresh lands after the glide, waits there until the
+  next scroll.
 - **Smooth scrolling keeps the first block in view.** ScrollSmoother moves the article inside a
   fixed wrapper, which the browser's scroll anchoring cannot see. There, when blocks above the
   window change height, the view moves by the same amount, so scrolling up past blocks never laid
@@ -3667,7 +3727,9 @@ events for one chat.
 the IDs of its queued and running turns, and the heartbeat in seconds. An idle
 stream sends `ping` every 15 seconds (`WebServer.chat_heartbeat`; the browser
 fixture's `--chat-heartbeat N` shortens it). At most four streams may be open, they use
-neither request pool, and each closes after an hour (the browser reconnects).
+neither request pool, and each closes after an hour (the browser reconnects). A stream
+checks its connection every `WebServer.chat_hangup_check` seconds (0.25) and frees its
+slot as soon as the client hangs up, rather than at the next failed `ping`.
 POST `/api/chat` takes `{"action": "create"|"send"|"paste"|"cancel"|"retry"|"hand"|"settings"|"hush", …}`
 and an optional `participant`. `send` accepts `reply_to` (a message id in the same
 chat, otherwise 400); `paste` takes `body` and an optional `voice`, which must name a
@@ -4052,6 +4114,59 @@ node tests/web_spread_pins.cjs
 node tests/web_companions.cjs
 ```
 
+### Browser flakes: condition waits and the stress loop
+
+Browser suites wait on conditions, not fixed sleeps, before they assert state.
+`tests/web_wait.cjs` provides `waitFor(page, label, condition, {timeout, arg})`: the
+condition runs in the page (or a frame) and returns named values, and the wait ends
+when all are truthy (names starting with `_` are only reported). On timeout it throws
+with the label, every value, the focused element, the route and the 429/5xx responses
+the page's context received (`watch(page)` records them). `settled(page)` waits until
+the page height and scroll position hold still for two frames. The condition is sent
+as a function, never as a string, because Reader's CSP has no `unsafe-eval`.
+
+Suites never depend on when they run. `reader_mcp/clock.py` is the clock behind
+Reader's calendar answers (the library's and history's `today`, the inventory date,
+read and comment timestamps); `READER_TEST_CLOCK` (an ISO instant with an offset,
+set only by tests) starts it at that instant and lets it advance in real time.
+Timeouts and durations keep the real clocks. The `--magazine` fixture pins it to
+Wednesday 2026-10-21 12:00 UTC, dates the issue's pieces from it and reports it as
+`now` on its first line; the suites that show the issue (`web_magazine`, `web_art`,
+`web_art_owner`, `web_art_prompt`, `web_shape`) pass that to `pinDate(context, now)`
+from `tests/web_clock.cjs`, which starts the page's `Date` at the same instant. It
+changes only `Date`: Playwright's clock also replaces timers, `requestAnimationFrame`
+and `performance.now` with timer-driven fakes, which changes what frame-rate,
+transition and hover-delay checks measure. Suites that need to step timers use
+`page.clock` directly (`web_dates`).
+
+Chrome 156 and later report a CSP violation when any parser in the page, inert
+ones included, meets an inline event handler, so DOMPurify parsing a fixture's
+untrusted `<img onerror>` logs one although nothing runs. `sanitizerReport(message)`
+in `tests/web_wait.cjs` is true for that report only (raised from
+`/assets/vendor/purify.min.js`); suites whose documents contain such markup skip it
+in their console-error checks and still fail on every other console error.
+
+`scripts/browser-stress.mjs` repeats named suites, optionally under CPU load, to
+measure flakes:
+
+```sh
+node scripts/browser-stress.mjs --iterations 10 --burners 16 web_page_turn
+```
+
+Each iteration runs every named suite once, in order, each as its own process group.
+`--burners N` starts N busy-loop worker threads for the run (default: CPU count − 2;
+`0` for none). `--timeout` caps each suite run (240 s; SIGTERM, then SIGKILL),
+`--deadline` stops starting suites after that many minutes (5: ten repeats of one
+suite tell more than a long campaign, and a short run does not hold up other work),
+and logs are capped at 2 MiB per run and `--log-budget` MiB in total (128); passing
+logs are deleted unless `--keep-passing`. Suites get an owned `TMPDIR` under `--out`
+(default `$TMPDIR/browser-stress-<time>`), and leftover `reader-web-fixture-*` folders there
+are counted and removed. `scripts/browser-stress-track.cjs` is preloaded to count
+429 and 5xx responses per run without changing what the suite does. The summary
+(per suite: runs, failures, the failing line and message, 429s; fixture counts; log
+bytes) is printed and written to `summary.json`; the exit status is 1 when any run
+failed.
+
 `tests/test_companions.py` and `web_companions.cjs` use `tests/fake_toolchain.py`:
 fake `git`, `cargo`, `git-locks` and `launchctl` that record their argv. The fake
 `cargo build` writes a `colorful` that runs `fake_colorful.py`, so prose colors work
@@ -4300,3 +4415,7 @@ The browser harness launches a disposable synthetic server on an ephemeral port,
 closes its browser and server at completion, and writes screenshots under ignored
 `.reader/web-dev/`. Respect the project's shared-resource locks and storage/runtime
 guards when running campaigns. The fixture never loads the configured private vault.
+
+### Article quizzes
+
+**Test yourself**, the margins’ **Quiz** button, **Space x** and `:quiz` open a quiz for the current article. Generation uses configured voices; multiple choice is graded locally and optional short answers can be reviewed by a voice. Results appear in the reading log without changing read status. See [the complete quiz contract](quizzes.md) for source verification, edition behavior, storage, API, limits and recovery.

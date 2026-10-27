@@ -1,0 +1,43 @@
+{
+ "object": {
+  "documents": {
+   "map": {
+    "object": {
+     "sha256": "string:sha256",
+     "text": "string",
+     "title": "string"
+    }
+   }
+  },
+  "limits": {
+   "object": {
+    "depth": "number",
+    "embed_chars": "number",
+    "nodes": "number",
+    "response_chars": "number"
+   }
+  },
+  "nodes": {
+   "array": {
+    "object": {
+     "alias": "string",
+     "children": {
+      "array": "empty"
+     },
+     "end": "number",
+     "fragment": "string",
+     "height": "null",
+     "kind": "string",
+     "page": "null",
+     "path": "string",
+     "raw": "string",
+     "start": "number",
+     "status": "string",
+     "target": "string",
+     "title": "string",
+     "width": "null"
+    }
+   }
+  }
+ }
+}

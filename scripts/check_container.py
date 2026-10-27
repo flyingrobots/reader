@@ -13,6 +13,7 @@ import json
 from pathlib import Path
 import shutil
 import subprocess
+import sys
 import tarfile
 import time
 
@@ -49,7 +50,7 @@ def main():
         # Only selected software paths. No host mount and no vault files enter the worker.
         stream = io.BytesIO()
         with tarfile.open(fileobj=stream, mode='w') as archive:
-            tops = ['src','tests','scripts','skills','schemas','plugins','pyproject.toml','uv.lock','LICENSE','.reader/tooling/bin/wide-md','.reader/tooling/installed.json']
+            tops = ['src','tests','templates','scripts','skills','schemas','plugins','web','docs','activity','README.md','CHANGELOG.md','AGENTS.md','package.json','package-lock.json','pyproject.toml','uv.lock','LICENSE','.reader/tooling/bin/wide-md','.reader/tooling/installed.json']
             if kind == 'web':
                 tops = ['src','tests','web','package.json','package-lock.json','LICENSE']
             for top in tops:
@@ -57,6 +58,10 @@ def main():
                     continue
                 for path in ([ROOT/top] if (ROOT/top).is_file() else sorted((ROOT/top).rglob('*'))):
                     rel = path.relative_to(ROOT)
+                    # Published screenshots are not executable test input. Keep the
+                    # existing archive cap for source, fixtures and the Linux formatter.
+                    if rel.parts[:2] == ('docs', 'images'):
+                        continue
                     if path.is_file() and not path.is_symlink() and not any(p in ('node_modules','dist','__pycache__') for p in rel.parts):
                         archive.add(path, arcname=str(rel), recursive=False)
         if stream.tell() > 24 * 1024**2:
@@ -77,12 +82,18 @@ def main():
                 raise RuntimeError('Docker VM free space below 50 GiB')
             (RUNTIME/(kind+'-contract.json')).write_text(json.dumps(contract, indent=2))
             docker('exec','-i',name,'tar','xf','-','-C','/work',input=stream.getvalue())
+            if kind == 'python':
+                # Source-policy tests inspect tracked source names. Give the isolated
+                # copy its own index; no host repository metadata or history is copied.
+                docker('exec',name,'git','init','-q','-b','snapshot','/work')
+                docker('exec',name,'git','-C','/work','add','-A','--','.', ':(exclude).reader/')
             cmd = ('python -m pip install --disable-pip-version-check --no-cache-dir --target /work/tools uv && '
                    'PYTHONPATH=/work/tools UV_CACHE_DIR=/work/cache python -m uv sync --locked && '
                    '.venv/bin/python -m pytest -q' + ''.join(' ' + shlex.quote(a) for a in args.pytest_args)) if kind == 'python' else (
                    'npm --prefix plugins/reader ci --cache /work/npm-cache && '
                    'npm --prefix plugins/reader run check && npm --prefix plugins/reader test && '
-                   'npm --prefix plugins/reader run build')
+                   'npm --prefix plugins/reader run build && '
+                   'node --test tests/quiz_controller.cjs')
             if kind=='web':
                 cmd = ('node --test tests/*.test.mjs && cd web && npm ci --cache /work/npm-cache --no-audit --no-fund && '
                        'npm run check && npm run build')
@@ -110,7 +121,13 @@ def main():
                             if size>4*1024**2:raise RuntimeError('Validation log limit reached')
                             output.write(chunk);output.flush()
                         elif process.poll() is not None:break
-                    if process.wait(timeout=10):raise RuntimeError('Validation failed; inspect '+str(log))
+                    if process.wait(timeout=10):
+                        # CI otherwise loses the file with its disposable runner.
+                        # Export a bounded tail while retaining the failure signal.
+                        with log.open('rb') as evidence:
+                            evidence.seek(max(0, log.stat().st_size - 64 * 1024))
+                            print(evidence.read().decode('utf-8', errors='replace'), file=sys.stderr)
+                        raise RuntimeError('Validation failed; inspect '+str(log))
                 finally:
                     selector.close()
                     if process.poll() is None:process.kill();process.wait()

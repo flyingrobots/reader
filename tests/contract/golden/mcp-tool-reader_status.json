@@ -1,0 +1,29 @@
+{
+ "object": {
+  "annotations": {
+   "object": {
+    "openWorldHint": "boolean",
+    "readOnlyHint": "boolean"
+   }
+  },
+  "input": {
+   "object": {
+    "properties": {
+     "object": {
+      "request_id": {
+       "object": {
+        "title": "string",
+        "type": "string"
+       }
+      }
+     }
+    },
+    "required": {
+     "array": "string"
+    },
+    "title": "string",
+    "type": "string"
+   }
+  }
+ }
+}

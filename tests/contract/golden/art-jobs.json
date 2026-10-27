@@ -1,0 +1,36 @@
+{
+ "object": {
+  "active": "number",
+  "default": "string",
+  "error": "null",
+  "jobs": {
+   "array": "empty"
+  },
+  "ownership": {
+   "object": {
+    "message": "null",
+    "owner": "boolean",
+    "writable": "boolean"
+   }
+  },
+  "producers": {
+   "array": {
+    "object": {
+     "available": "boolean",
+     "cli": {
+      "anyOf": [
+       "null",
+       "string"
+      ]
+     },
+     "estimate_seconds": "null",
+     "id": "string",
+     "kind": "string",
+     "label": "string",
+     "model": "string",
+     "provider?": "string"
+    }
+   }
+  }
+ }
+}

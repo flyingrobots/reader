@@ -1,0 +1,32 @@
+{
+ "object": {
+  "created_at": "string:datetime",
+  "direction": "null",
+  "edition": "string:sha256",
+  "generation": "string",
+  "handcrafted": "boolean",
+  "log": "null",
+  "message": "string",
+  "path": "string",
+  "producer": {
+   "object": {
+    "kind": "string",
+    "label": "string",
+    "model": "string"
+   }
+  },
+  "prompts": {
+   "object": {
+    "brief": "string",
+    "dsl": "string",
+    "repair": "null",
+    "scene": "string"
+   }
+  },
+  "recorded": "boolean",
+  "stages": {
+   "array": "empty"
+  },
+  "title": "string"
+ }
+}

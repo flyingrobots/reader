@@ -1,0 +1,17 @@
+{
+ "object": {
+  "agents": {
+   "array": {
+    "object": {
+     "label": "string",
+     "name": "string"
+    }
+   }
+  },
+  "configured": "boolean",
+  "error": "null",
+  "repositories": {
+   "array": "empty"
+  }
+ }
+}

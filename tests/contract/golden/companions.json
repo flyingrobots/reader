@@ -1,0 +1,103 @@
+{
+ "object": {
+  "checked_at": "string:datetime",
+  "cli": {
+   "array": {
+    "object": {
+     "link": {
+      "anyOf": [
+       "null",
+       "string"
+      ]
+     },
+     "name": "string",
+     "path": "null",
+     "state": "string",
+     "title": "string",
+     "voices": {
+      "array": "empty"
+     }
+    }
+   }
+  },
+  "companions": {
+   "array": {
+    "object": {
+     "actions": {
+      "array": "string"
+     },
+     "coordination?": {
+      "object": {
+       "executable": "null",
+       "label": "string",
+       "message": "string",
+       "mode": "string",
+       "store": "null",
+       "store_origin": "null"
+      }
+     },
+     "enables": "string",
+     "facts": {
+      "array": {
+       "array": "string"
+      }
+     },
+     "feature": "string",
+     "guide": {
+      "object": {
+       "commands": {
+        "array": "string"
+       },
+       "note": "string"
+      }
+     },
+     "install": {
+      "anyOf": [
+       "null",
+       {
+        "object": {
+         "available": "boolean",
+         "changes": {
+          "array": "string"
+         },
+         "help": "string",
+         "pinned": "string",
+         "reason": "string"
+        }
+       }
+      ]
+     },
+     "job": "null",
+     "keys": {
+      "anyOf": [
+       "null",
+       "string"
+      ]
+     },
+     "label": "string",
+     "message": "string",
+     "name": "string",
+     "path": "null",
+     "repo": "string",
+     "state": "string",
+     "title": "string",
+     "version": "null"
+    }
+   }
+  },
+  "local_model": {
+   "object": {
+    "base_url": "string",
+    "gpu": {
+     "object": {
+      "label": "string",
+      "message": "string",
+      "mode": "string",
+      "store": "null"
+     }
+    },
+    "preset": "string"
+   }
+  }
+ }
+}

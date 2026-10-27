@@ -1,0 +1,199 @@
+{
+ "object": {
+  "annotations": {
+   "object": {
+    "destructiveHint": "boolean",
+    "idempotentHint": "boolean",
+    "openWorldHint": "boolean",
+    "readOnlyHint": "boolean"
+   }
+  },
+  "input": {
+   "object": {
+    "$defs": {
+     "map": {
+      "object": {
+       "additionalProperties": "boolean",
+       "properties": {
+        "object": {
+         "attachments?": {
+          "object": {
+           "items": {
+            "object": {
+             "$ref": "string"
+            }
+           },
+           "maxItems": "number",
+           "title": "string",
+           "type": "string"
+          }
+         },
+         "author?": {
+          "object": {
+           "anyOf": {
+            "array": {
+             "object": {
+              "maxLength?": "number",
+              "type": "string"
+             }
+            }
+           },
+           "default": "null",
+           "title": "string"
+          }
+         },
+         "commit?": {
+          "object": {
+           "anyOf": {
+            "array": {
+             "object": {
+              "maxLength?": "number",
+              "type": "string"
+             }
+            }
+           },
+           "default": "null",
+           "title": "string"
+          }
+         },
+         "document_path?": {
+          "object": {
+           "anyOf": {
+            "array": {
+             "object": {
+              "type": "string"
+             }
+            }
+           },
+           "default": "null",
+           "description": "string",
+           "title": "string"
+          }
+         },
+         "filename?": {
+          "object": {
+           "default": "string",
+           "description": "string",
+           "title": "string",
+           "type": "string"
+          }
+         },
+         "markdown?": {
+          "object": {
+           "anyOf": {
+            "array": {
+             "object": {
+              "maxLength?": "number",
+              "type": "string"
+             }
+            }
+           },
+           "default": "null",
+           "title": "string"
+          }
+         },
+         "path?": {
+          "object": {
+           "description": "string",
+           "title": "string",
+           "type": "string"
+          }
+         },
+         "project?": {
+          "object": {
+           "anyOf": {
+            "array": {
+             "object": {
+              "maxLength?": "number",
+              "type": "string"
+             }
+            }
+           },
+           "default": "null",
+           "title": "string"
+          }
+         },
+         "provenance?": {
+          "object": {
+           "$ref": "string"
+          }
+         },
+         "report_date?": {
+          "object": {
+           "anyOf": {
+            "array": {
+             "object": {
+              "maxLength?": "number",
+              "type": "string"
+             }
+            }
+           },
+           "default": "null",
+           "title": "string"
+          }
+         },
+         "request_id?": {
+          "object": {
+           "description": "string",
+           "format": "string",
+           "title": "string",
+           "type": "string"
+          }
+         },
+         "source?": {
+          "object": {
+           "anyOf": {
+            "array": {
+             "object": {
+              "maxLength?": "number",
+              "type": "string"
+             }
+            }
+           },
+           "default": "null",
+           "title": "string"
+          }
+         },
+         "source_path?": {
+          "object": {
+           "description": "string",
+           "title": "string",
+           "type": "string"
+          }
+         },
+         "title?": {
+          "object": {
+           "maxLength": "number",
+           "minLength": "number",
+           "title": "string",
+           "type": "string"
+          }
+         }
+        }
+       },
+       "required?": {
+        "array": "string"
+       },
+       "title": "string",
+       "type": "string"
+      }
+     }
+    },
+    "properties": {
+     "object": {
+      "submission": {
+       "object": {
+        "$ref": "string"
+       }
+      }
+     }
+    },
+    "required": {
+     "array": "string"
+    },
+    "title": "string",
+    "type": "string"
+   }
+  }
+ }
+}

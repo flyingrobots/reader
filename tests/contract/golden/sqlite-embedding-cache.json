@@ -1,0 +1,7 @@
+{
+ "table vectors": [
+  "key TEXT pk",
+  "vector BLOB"
+ ],
+ "user_version": 0
+}

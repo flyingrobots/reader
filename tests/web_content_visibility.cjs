@@ -7,6 +7,7 @@ const assert=require('node:assert/strict');
 const {spawn}=require('node:child_process');
 const {createInterface}=require('node:readline');
 const {chromium}=require(process.env.READER_PLAYWRIGHT||'playwright-core');
+const {sanitizerReport,waitFor,settled}=require('./web_wait.cjs');  // #151
 // Lays every block out, as before the rule: the baseline each check compares against.
 const LAID_OUT='#article>*{content-visibility:visible!important;contain-intrinsic-size:none!important}';
 const PATH='library/large.md';
@@ -20,7 +21,7 @@ const PATH='library/large.md';
     await context.addInitScript(([value,laidOut,css])=>{try{localStorage.setItem('reader.preferences.v1',value);}catch{}
       if(laidOut)document.addEventListener('DOMContentLoaded',()=>{const style=document.createElement('style');style.textContent=css;document.head.append(style);});},[JSON.stringify(prefs),laidOut,LAID_OUT]);
     const page=await context.newPage(),errors=[];
-    page.on('pageerror',e=>errors.push(e.message));page.on('console',m=>{if(m.type()==='error')errors.push(m.text());});
+    page.on('pageerror',e=>errors.push(e.message));page.on('console',m=>{if(m.type()==='error'&&!sanitizerReport(m))errors.push(m.text());});
     await page.goto(url+'#read='+encodeURIComponent(path)+suffix);
     await page.waitForFunction(()=>document.querySelector('#article')&&!document.querySelector('.resume-pending'),null,{timeout:60000,polling:50});
     return {context,page,errors};
@@ -70,6 +71,37 @@ const PATH='library/large.md';
    const shown=rows.skipped.findIndex(row=>+row.split(' ')[1]>=820);
    assert.ok(shown>=9,'the synthetic blocks are laid out: '+shown);
    assert.deepEqual(rows.skipped.slice(0,shown),rows.laidOut.slice(0,shown),'blocks near the window have the same top and height with and without the rule');
+   assert.deepEqual(errors,[]);await context.close();}
+  // Smooth scrolling shows the page a little behind its scroll position while it glides (#156). A jump made then
+  // measures what is shown, so it lands at its line however far the glide still has to go. GSAP's ticker is put
+  // to sleep to hold the glide still: the shown page stays where it is while the scroll position moves 3000 px.
+  {const {context,page,errors}=await open({layout:'scroll',smooth:true});
+   await page.waitForFunction(()=>document.querySelectorAll('.annotation-pin').length===1,null,{timeout:10000});
+   const hit=()=>{const current=CSS.highlights.get('reader-current');return current?.size?Math.round([...current][0].getBoundingClientRect().top):null;};
+   await find(page,'distinct observation for section 390');await steady(page,hit);
+   // Start at rest: the shown page has caught up with the scroll position, and late layout has settled.
+   const caughtUp=()=>{const content=document.querySelector('#smooth-content').getBoundingClientRect();return {shown:Math.abs(content.top+scrollY)<1,_y:scrollY,_shown:-content.top,_content:content.height,_page:document.documentElement.scrollHeight,_window:innerHeight};};
+   await waitFor(page,'the glide has arrived',caughtUp);await settled(page,'find hit settled');await waitFor(page,'still arrived',caughtUp);const line=await page.evaluate(hit);
+   const lag=await page.evaluate(()=>{const content=document.querySelector('#smooth-content'),shown=()=>-content.getBoundingClientRect().top;
+     gsap.ticker.sleep();const before=shown();scrollTo(0,scrollY-3000);return Math.round(scrollY-before);});
+   assert.ok(Math.abs(lag+3000)<=2,'the shown page lags the scroll position by 3000 px: '+lag);
+   await page.locator('#main').focus();await page.keyboard.press('n');await page.evaluate(()=>gsap.ticker.wake());
+   const landed=await steady(page,hit);
+   assert.ok(Math.abs(landed-line)<=8,`smooth scrolling: the next find hit, taken mid-glide, lands at ${landed}, not its line ${line}`);
+   assert.deepEqual(errors,[]);await context.close();}
+  // ScrollSmoother maps the scroll position onto the page height it last measured, and measures again only once the
+  // article stops changing height. Here the article grows by 30000 px and keeps changing for 2.5 s after G, as far
+  // blocks do while they are laid out during a long glide, so the smoother measures again only after its glide has
+  // ended. The page must still arrive where it is scrolled to, not wait at the old end (#156).
+  {const {context,page,errors}=await open({layout:'scroll',smooth:true},{path:'library/other.md'});
+   const caughtUp=()=>{const content=document.querySelector('#smooth-content').getBoundingClientRect();return {shown:Math.abs(content.top+scrollY)<1,_y:scrollY,_shown:-content.top,_page:document.documentElement.scrollHeight,_window:innerHeight};};
+   await waitFor(page,'the smoother is at rest',caughtUp);await settled(page,'opened');
+   await page.evaluate(()=>{const tall=document.createElement('div');tall.id='late-growth';tall.style.height='30000px';document.querySelector('#article').append(tall);
+     const until=performance.now()+2500;const wobble=()=>{tall.style.height=(tall.style.height==='30000px'?30001:30000)+'px';if(performance.now()<until)requestAnimationFrame(wobble);else tall.dataset.done='';};requestAnimationFrame(wobble);});
+   await page.locator('#main').focus();await page.keyboard.press('G');
+   await page.locator('#late-growth[data-done]').waitFor({state:'attached'});
+   await waitFor(page,'the page arrives at the end it was sent to',()=>{const content=document.querySelector('#smooth-content').getBoundingClientRect(),end=document.documentElement.scrollHeight-innerHeight;
+     return {end:Math.abs(scrollY-end)<2,shown:Math.abs(content.top+scrollY)<1,_y:scrollY,_shown:-content.top,_end:end};},{timeout:10000});
    assert.deepEqual(errors,[]);await context.close();}
   // What the reader sees, with the rule and with every block laid out, in native and smooth scrolling.
   const facts=async(smooth,laidOut)=>{

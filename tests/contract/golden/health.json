@@ -1,0 +1,13 @@
+{
+ "object": {
+  "busy": {
+   "array": "empty"
+  },
+  "commit": "string:sha1",
+  "now": "string:datetime",
+  "pid": "number",
+  "started_at": "string:datetime",
+  "status": "string",
+  "version": "string"
+ }
+}

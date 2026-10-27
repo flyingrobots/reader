@@ -1,0 +1,34 @@
+{
+ "object": {
+  "bundle_path": "string",
+  "document": "string",
+  "document_path": "string",
+  "files": {
+   "array": {
+    "object": {
+     "bytes": "number",
+     "path": "string",
+     "sha256": "string:sha256"
+    }
+   }
+  },
+  "fingerprint": "string:sha256",
+  "id": "string:uuid",
+  "integrity": "string",
+  "issues": {
+   "array": "empty"
+  },
+  "provenance": {
+   "object": {
+    "author": "string",
+    "project": "string",
+    "report_date": "string:date",
+    "source": "string"
+   }
+  },
+  "reader_receipt": "number",
+  "received_at": "string:datetime",
+  "status": "string",
+  "title": "string"
+ }
+}

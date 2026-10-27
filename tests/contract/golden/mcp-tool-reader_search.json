@@ -1,0 +1,53 @@
+{
+ "object": {
+  "annotations": {
+   "object": {
+    "openWorldHint": "boolean",
+    "readOnlyHint": "boolean"
+   }
+  },
+  "input": {
+   "object": {
+    "properties": {
+     "object": {
+      "limit": {
+       "object": {
+        "default": "number",
+        "title": "string",
+        "type": "string"
+       }
+      },
+      "mode": {
+       "object": {
+        "default": "string",
+        "enum": {
+         "array": "string"
+        },
+        "title": "string",
+        "type": "string"
+       }
+      },
+      "path_prefix": {
+       "object": {
+        "default": "string",
+        "title": "string",
+        "type": "string"
+       }
+      },
+      "query": {
+       "object": {
+        "title": "string",
+        "type": "string"
+       }
+      }
+     }
+    },
+    "required": {
+     "array": "string"
+    },
+    "title": "string",
+    "type": "string"
+   }
+  }
+ }
+}

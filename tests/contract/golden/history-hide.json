@@ -1,0 +1,6 @@
+{
+ "object": {
+  "hidden": "boolean",
+  "path": "string"
+ }
+}

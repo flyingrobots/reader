@@ -1,0 +1,41 @@
+{
+ "object": {
+  "documents": {
+   "array": {
+    "object": {
+     "metadata": {
+      "object": {
+       "added": "string:date",
+       "author": "string",
+       "document_id": "string:uuid",
+       "document_path": "string",
+       "document_revision": "number",
+       "frontmatter_schema_version": "number",
+       "metadata_created": "string:date",
+       "project": "string",
+       "published": "string",
+       "rights": "string",
+       "source": "string",
+       "source_url": "string",
+       "title": "string",
+       "topics": {
+        "array": "string"
+       },
+       "type": "string"
+      }
+     },
+     "metadata_diagnostics": {
+      "array": "empty"
+     },
+     "metadata_profile": "string",
+     "metadata_status": "string",
+     "path": "string",
+     "valid": "boolean"
+    }
+   }
+  },
+  "examined": "number",
+  "invalid": "number",
+  "valid": "boolean"
+ }
+}

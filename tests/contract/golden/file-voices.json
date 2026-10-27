@@ -1,0 +1,35 @@
+{
+ "object": {
+  "schema_version": "number",
+  "timeout_seconds": "number",
+  "voices": {
+   "array": {
+    "object": {
+     "argv?": {
+      "array": "string"
+     },
+     "cli": {
+      "anyOf": [
+       "null",
+       "string"
+      ]
+     },
+     "manual?": "boolean",
+     "mention": {
+      "array": "string"
+     },
+     "model?": "string",
+     "name": "string",
+     "persona?": {
+      "object": {
+       "agents_md_section": {
+        "array": "string"
+       }
+      }
+     },
+     "stream?": "string"
+    }
+   }
+  }
+ }
+}

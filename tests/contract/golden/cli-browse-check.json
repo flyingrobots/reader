@@ -1,0 +1,14 @@
+{
+ "object": {
+  "changed": {
+   "array": "empty"
+  },
+  "diagnostics": {
+   "array": "empty"
+  },
+  "generation": "string:sha256",
+  "metadata_bytes_read": "number",
+  "status": "string",
+  "work_entries": "number"
+ }
+}

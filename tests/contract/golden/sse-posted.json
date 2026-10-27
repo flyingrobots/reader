@@ -1,0 +1,26 @@
+{
+ "object": {
+  "message": {
+   "object": {
+    "author": "string",
+    "body": "string",
+    "created_at": "string:datetime",
+    "id": "string:uuid",
+    "mentions": {
+     "array": "string"
+    },
+    "reply_to": "null",
+    "routing": {
+     "object": {
+      "chosen_by": "string",
+      "voices": {
+       "array": "string"
+      }
+     }
+    },
+    "runtime": "null"
+   }
+  },
+  "revision": "number"
+ }
+}

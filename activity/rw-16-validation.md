@@ -1,0 +1,53 @@
+# Writing-prompt validation
+
+The RW-16 change reuses Scratch, the voice queue and notebook versioning rather than adding a separate editor. It uses Space a because Space w already belongs to Scratch. Source reading, prompt generation and saving remain separate actions; a provider receives the draft answer only after an explicit reply request.
+
+## Checks on 2026-10-26
+
+The focused prompt, notebook and shared quiz-queue suite passed 33 tests in copy-isolated Docker. Coverage includes immutable question alternatives, per-voice/edition caching, invalid quote handling, fenced discussion, valid response metadata, preserved revisions, scoped commits, saved request replay across restart, interrupted-publication recovery and chat handoff. A new legacy-notebook discovery check initially failed because strict metadata interpretation hid older Scratch files; discovery now reads preserved source fields without rewriting those files, and the regression passed.
+
+TypeScript checking and the production web build passed. The browser test passed source highlighting, Scratch draft reload, explicit save, reading-log/home links, a margin pin, a preserved second version, reply chat and phone-width layout. The material and voice outputs were synthetic. No real prompt-quality claim follows from these fixtures.
+
+The checks used the existing bounded Reader Node worker: read-only root, no host mounts, 3 GiB and 512 MiB tmpfs filesystems, four CPUs, 6 GiB memory and a 600-second watchdog. The first passing browser flow used about 670 MiB in `/work`; the latest focused backend run used about 191 MiB. Host and Docker backing storage remained above 500 GiB free.
+
+## Remaining gates
+
+These checks precede final integration of the quiz PR and current main. Complete-suite and integrated browser validation, current-head CI and an independent Code Lawyer review remain required. This is a development checkpoint, not a merge announcement.
+
+## Shared review corrections
+
+The quiz branch's published review fixes were merged normally into this separate worktree. A matching prompt-store regression showed that OS/editor dotfiles disabled prompt discovery; ignoring hidden entries without altering their bytes made all 12 prompt tests pass (`prompt-dotfiles-red` / `prompt-dotfiles-green`, bounded Docker).
+
+A public prompt-runtime regression reproduced a host path in the voice version. The existing display redaction now applies to the public runtime copy, while the immutable archive remains byte-identical. All 13 prompt tests passed (`prompt-runtime-red` / `prompt-runtime-green`).
+
+The prompt and notebook GET routes now share expensive-request admission because each scans its bounded inventory. The route regression was RED before classification; the refusal and ordinary-read availability checks both passed afterward (`prompt-admission-red` / `prompt-admission-green`).
+
+A failed reply handoff also exposed a host path in its successful-save response. Fresh, recovered and replayed public save results now use display redaction; the notebook and internal diagnostic journal remain unchanged. The new failure-path regression and the prompt/notebook suites passed all 21 tests (`prompt-save-privacy-red` / `prompt-save-privacy-green`).
+
+## Integrated validation checkpoint
+
+At `7d121b1`, both web/plugin TypeScript checks and production builds, 24 plugin tests, five inherited quiz-controller tests and the complete writing-prompt browser flow passed. Rebuilt assets matched tracked bytes. The browser worker used approximately 820 MiB in `/work` and 9 MiB in `/tmp`, within its existing limits.
+
+An earlier complete Python run at `0d3016b` reported 803 passed, two skipped and one failure in the existing chat commit-trailer assertion. That test passed in isolation without a code change. Its original log is retained as `prompt-full-failed`; the cause is unconfirmed. A complete rerun after the final public-error fix remains required. A passing isolated check is not a fix or a substitute for that rerun.
+
+The complete rerun at `7d121b1` passed 805 tests with two optional skips in 249.59 seconds. Subsequent merge `cc2b8c4` brought in current main's scrolling changes and the quiz accepted-task fix without changing Python source. The writing-prompt browser flow passed again on that merged tree (`prompt-integrated-browser`). The earlier chat failure remains retained and unexplained. Current-head CI and independent PR review remain required before merge.
+
+A stronger keyboard handoff check reproduced the question dialog's closing focus return stealing focus from the response editor. The close-complete callback now focuses an active Scratch editor, otherwise the reading page. With a deliberately slow 700 ms close, the browser flow passed without clicking the editor before typing (`prompt-focus-check` RED / `prompt-focus-green` GREEN). TypeScript checks, both production builds, 24 plugin tests and nine inherited quiz-controller tests also passed; the generated controls were exported.
+
+## PR review corrections
+
+CodeRabbit found that plain-text generation entered Markdown-only annotation discovery before invoking the voice. The actual queued `.txt` task failed in the RED regression. Plain-text tasks now omit annotation context; all 15 prompt tests passed (`prompt-txt-red` / `prompt-txt-green`).
+
+Five notebook-discovery cases cover oversized files, malformed YAML, invalid UTF-8, symlinks and directories. Four failed before the fix; the invalid UTF-8 case already remained undiscoverable. Individual unreadable entries are now skipped without modification, while root-folder and total-inventory refusal remain outside the per-file handler. All 27 prompt/notebook tests passed (`prompt-notebook-red` / `prompt-notebook-green`).
+
+The reading-log route now uses expensive-request admission too, because it also scans notebook entries. Its classification assertion was RED; both refusal and ordinary-read availability checks passed after classification (`prompt-readers-admission-red` / `prompt-readers-admission-green`).
+
+Three lookup regressions reproduced unrelated corrupt prompt payloads aborting a lookup. Filename and edition filters now run before JSON decoding; matching records retain schema validation. The fixtures separately cover edition, voice and UUID filtering. All 30 prompt/notebook tests passed (`prompt-lookup-red` / `prompt-lookup-green`). No timing speedup is claimed.
+
+The complete backend suite after those fixes passed 814 tests with two optional skips in 250.76 seconds. The normal writing-prompt browser flow passed on the same head (`post-review-python` / `prompt-review-final-browser`).
+
+A later Codex finding reproduced prompted writing failing when IndexedDB is blocked or writes exceed quota. An initial browser harness timed out before generation; the corrected RED run reached the intended assertion and reported both editors unopened. A transient handoff now preserves the prompt and active draft while navigating into Scratch, with guarded storage reads/writes and the existing unsaved warning. Both storage-failure cases and the normal writing flow passed, including reopening the current answer and explicitly saving it with provenance (`prompt-storage-red-r2` / `prompt-storage-green`). Memory-only editing does not survive a page reload.
+
+Both CI runs at `e4576ca` failed their Python phase, but their public logs contained only the runner's generic exception and had no artifacts. The test assertion and cause were not recoverable from those runs. A controlled Docker probe reproduced that missing-diagnostic behavior. The runner now exports the last 64 KiB of captured output before raising the same failure; the probe verifies the sentinel is visible, output is bounded, the full local log remains and validation still fails (`runner-tail-red` / `runner-tail-green`). This is an observability correction, not evidence that the unknown CI failure is fixed. A fresh complete run is required.
+
+The complete Docker run at `acce6db` exposed one tooling failure: the new storage browser regression omitted the existing `READER_PLAYWRIGHT` dependency override (813 passed, two skipped, one failed in 248.48 seconds). Its loader now uses the established default-with-override form. All four development-tooling tests passed, and the storage browser regression passed again for both blocked IndexedDB and quota failure (`prompt-loader-green` / `prompt-loader-browser`). No application source changed in this correction. Earlier opaque CI runs still lack recoverable assertions; this local diagnosis does not establish their exact causes.

@@ -1,0 +1,49 @@
+{
+ "object": {
+  "days": {
+   "array": {
+    "object": {
+     "date": "string:date",
+     "items": {
+      "array": {
+       "object": {
+        "authors": {
+         "array": "string"
+        },
+        "changed": "boolean",
+        "date": "string:date",
+        "day": "string:date",
+        "finished": "boolean",
+        "opened_at": "string:datetime",
+        "path": "string",
+        "progress": {
+         "anyOf": [
+          "null",
+          "number"
+         ]
+        },
+        "projects": {
+         "array": "string"
+        },
+        "read": "boolean",
+        "sha256": "string:sha256",
+        "title": "string",
+        "words": {
+         "anyOf": [
+          "null",
+          "number"
+         ]
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "filter": "string",
+  "next_cursor": "null",
+  "participant": "string",
+  "today": "string:date",
+  "total": "number"
+ }
+}

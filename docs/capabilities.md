@@ -89,8 +89,8 @@ formula copies its TeX.
 Markdown rendering scales linearly with document size, and local images resolve in
 batched requests. In continuous reading the browser lays out only blocks near the window
 (`content-visibility`): long documents show sooner, and jumps, bookmarks, pins and smooth
-scrolling hold their place while far blocks settle. The scrollbar length is an estimate until
-then.
+scrolling hold their place while far blocks settle; `gg` and `G` hold the page's start and end,
+including end blocks that arrive late. The scrollbar length is an estimate until then.
 See [web operation, privacy, limits and recovery](web.md).
 
 `scripts/reader_service.py` runs the web reader as a macOS LaunchAgent from a
@@ -291,6 +291,12 @@ commands with Copy. It never uses sudo or a user-supplied source; paths to an
 executable can be set only from a browser on the Mac itself. Without git-locks, chat
 and scratch pad commits, the local model's GPU lock, the inbox runner and the service
 script fall back to locks that coordinate only Reader's own processes.
+
+On wide windows (from 1100 px for the margins panel, 1210 px for What changed) the
+right-hand panels (margins, Versions, lists, the reading queue, Chat and What changed)
+dock as a column beside the page instead of covering it, and the page keeps its reading
+position; narrower windows keep the overlay.
+The Theme Editor stays a modal.
 
 The reading queue (Space r) is a per-participant play queue in the side panel.
 **Up next** shows Now reading, the documents you queued (in your order, reorderable)

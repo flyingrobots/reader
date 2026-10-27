@@ -1,0 +1,46 @@
+{
+ "object": {
+  "count": "number",
+  "current": "boolean",
+  "excerpts": {
+   "array": "string"
+  },
+  "form": "string",
+  "headings": {
+   "array": "empty"
+  },
+  "lines": {
+   "array": "number"
+  },
+  "min_chunks": "number",
+  "neighbours": {
+   "array": "empty"
+  },
+  "note": "string",
+  "path": "string",
+  "points": {
+   "array": {
+    "array": "number"
+   }
+  },
+  "sampled": "boolean",
+  "scope": "string",
+  "seed": "number",
+  "sha256": "string:sha256",
+  "terms": {
+   "array": {
+    "object": {
+     "i": "number",
+     "text": "string"
+    }
+   }
+  },
+  "threads": {
+   "array": "number"
+  },
+  "variance": "null",
+  "weights": {
+   "array": "number"
+  }
+ }
+}

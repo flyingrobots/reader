@@ -1,0 +1,69 @@
+{
+ "object": {
+  "annotations": {
+   "object": {
+    "openWorldHint": "boolean",
+    "readOnlyHint": "boolean"
+   }
+  },
+  "input": {
+   "object": {
+    "properties": {
+     "object": {
+      "expected_sha256": {
+       "object": {
+        "anyOf": {
+         "array": {
+          "object": {
+           "type": "string"
+          }
+         }
+        },
+        "default": "null",
+        "title": "string"
+       }
+      },
+      "limit": {
+       "object": {
+        "default": "number",
+        "title": "string",
+        "type": "string"
+       }
+      },
+      "page": {
+       "object": {
+        "anyOf": {
+         "array": {
+          "object": {
+           "type": "string"
+          }
+         }
+        },
+        "default": "null",
+        "title": "string"
+       }
+      },
+      "path": {
+       "object": {
+        "title": "string",
+        "type": "string"
+       }
+      },
+      "start_line": {
+       "object": {
+        "default": "number",
+        "title": "string",
+        "type": "string"
+       }
+      }
+     }
+    },
+    "required": {
+     "array": "string"
+    },
+    "title": "string",
+    "type": "string"
+   }
+  }
+ }
+}

@@ -1,0 +1,7 @@
+{
+ "object": {
+  "participant": "string",
+  "read": "boolean",
+  "updated": "number"
+ }
+}

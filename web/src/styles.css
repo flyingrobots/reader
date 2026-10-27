@@ -480,6 +480,10 @@ body.two-page .reader-math-block { max-height: 60vh; overflow-y: auto; }
 .change-hunk del { color: var(--muted); text-decoration: line-through; text-decoration-color: var(--warning); }
 .change-hunk ins { text-decoration: none; color: var(--ink); background: color-mix(in oklab, var(--accent) 22%, transparent); border-radius: 2px; }
 body:has(#changes-panel[data-side=right]) [data-slot=sheet-overlay] { display: none; }
+/* Docked beside the page on wide screens (dock.mjs in web_ui): one column width, no shadow. */
+#changes-panel { --panel-width: 520px; }
+.chat-panel { --panel-width: 440px; }
+:root[data-dock] #changes-panel[data-side=right], :root[data-dock] .chat-panel { top: 0; bottom: 0; width: var(--dock-width); max-width: none; box-shadow: none; }
 
 /* Chat with the voices: a right-side panel, a bottom sheet on phones. */
 .chat-panel { position: fixed; top: 0; right: 0; bottom: 32px; z-index: 31; width: min(440px, 100vw); display: flex; flex-direction: column; gap: 10px; padding: 20px 20px 12px; background: var(--surface); color: var(--ink); border-left: 1px solid var(--line); box-shadow: -20px 0 90px #0003; font-family: var(--sans); }

@@ -1,0 +1,15 @@
+{
+ "object": {
+  "families": {
+   "array": {
+    "object": {
+     "category": "string",
+     "family": "string"
+    }
+   }
+  },
+  "installed": {
+   "array": "empty"
+  }
+ }
+}

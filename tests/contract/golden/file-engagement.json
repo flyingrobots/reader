@@ -1,0 +1,14 @@
+{
+ "object": {
+  "items": {
+   "map": {
+    "object": {
+     "at": "string:datetime",
+     "version": "string:sha256"
+    }
+   }
+  },
+  "participant": "string",
+  "schema_version": "number"
+ }
+}

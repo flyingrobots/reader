@@ -1,0 +1,313 @@
+{
+ "object": {
+  "art": {
+   "object": {
+    "brief": "string",
+    "counts": {
+     "object": {
+      "animations": "number",
+      "instances": "number",
+      "nodes": "number",
+      "particles": "number",
+      "triangles": "number"
+     }
+    },
+    "current": "boolean",
+    "edition": "string:sha256",
+    "favorite": "boolean",
+    "folder": "string",
+    "generation": "string",
+    "provenance": {
+     "object": {
+      "counts": {
+       "object": {
+        "animations": "number",
+        "instances": "number",
+        "nodes": "number",
+        "particles": "number",
+        "triangles": "number"
+       }
+      },
+      "created_at": "string:datetime",
+      "generation": "string",
+      "kind": "string",
+      "log": "null",
+      "note": "string",
+      "path": "string",
+      "producer": {
+       "object": {
+        "cli": "string",
+        "cli_version": "string",
+        "id": "string",
+        "kind": "string",
+        "label": "string",
+        "model": "string"
+       }
+      },
+      "prompts": {
+       "object": {
+        "brief": "string",
+        "dsl": "string",
+        "repair": "null",
+        "scene": "string"
+       }
+      },
+      "reader_version": "string",
+      "repaired": "boolean",
+      "requested": "string",
+      "scene_version": "number",
+      "schema_version": "number",
+      "seconds": "null",
+      "source_sha256": "string:sha256",
+      "stages": {
+       "array": "empty"
+      },
+      "title": "string",
+      "usage": "null"
+     }
+    },
+    "scene": {
+     "object": {
+      "background": "string",
+      "camera": {
+       "object": {
+        "fov": "number",
+        "motion": {
+         "object": {
+          "amplitude": "number",
+          "kind": "string",
+          "period": "number"
+         }
+        },
+        "position": {
+         "array": "number"
+        },
+        "target": {
+         "array": "number"
+        }
+       }
+      },
+      "fog": {
+       "object": {
+        "color": "string",
+        "far": "number",
+        "near": "number"
+       }
+      },
+      "lights": {
+       "array": {
+        "object": {
+         "color": {
+          "anyOf": [
+           "string",
+           {
+            "object": {
+             "amount": "number",
+             "mix": "string",
+             "token": "string"
+            }
+           }
+          ]
+         },
+         "ground?": "string",
+         "intensity": "number",
+         "position?": {
+          "array": "number"
+         },
+         "type": "string"
+        }
+       }
+      },
+      "materials": {
+       "object": {
+        "reed": {
+         "object": {
+          "color": {
+           "object": {
+            "amount": "number",
+            "mix": "string",
+            "token": "string"
+           }
+          },
+          "roughness": "number",
+          "type": "string"
+         }
+        },
+        "ripple": {
+         "object": {
+          "color": {
+           "object": {
+            "amount": "number",
+            "mix": "string",
+            "token": "string"
+           }
+          },
+          "opacity": "number",
+          "type": "string"
+         }
+        },
+        "water": {
+         "object": {
+          "clearcoat": "number",
+          "color": {
+           "object": {
+            "amount": "number",
+            "mix": "string",
+            "token": "string"
+           }
+          },
+          "metalness": "number",
+          "roughness": "number",
+          "type": "string"
+         }
+        }
+       }
+      },
+      "objects": {
+       "array": {
+        "object": {
+         "animate?": {
+          "array": {
+           "object": {
+            "amplitude": "number",
+            "kind": "string",
+            "period": "number",
+            "property": "string"
+           }
+          }
+         },
+         "blending?": "string",
+         "children?": {
+          "array": {
+           "object": {
+            "animate": {
+             "array": {
+              "object": {
+               "amplitude": "number",
+               "kind": "string",
+               "period": "number",
+               "phase": "number",
+               "property": "string"
+              }
+             }
+            },
+            "geometry": {
+             "object": {
+              "radialSegments": "number",
+              "radius": "number",
+              "tube": "number",
+              "tubularSegments": "number",
+              "type": "string"
+             }
+            },
+            "material": "string",
+            "type": "string"
+           }
+          }
+         },
+         "color?": {
+          "object": {
+           "amount": "number",
+           "mix": "string",
+           "token": "string"
+          }
+         },
+         "count?": "number",
+         "geometry?": {
+          "object": {
+           "height?": "number",
+           "heightSegments?": "number",
+           "radialSegments?": "number",
+           "radius?": "number",
+           "radiusBottom?": "number",
+           "radiusTop?": "number",
+           "segments?": {
+            "array": "number"
+           },
+           "size?": {
+            "array": "number"
+           },
+           "type": "string",
+           "wave?": {
+            "object": {
+             "amplitude": "number",
+             "period": "number",
+             "wavelength": "number"
+            }
+           },
+           "widthSegments?": "number"
+          }
+         },
+         "id?": "string",
+         "material?": {
+          "anyOf": [
+           "string",
+           {
+            "object": {
+             "color": "string",
+             "type": "string"
+            }
+           }
+          ]
+         },
+         "motion?": {
+          "object": {
+           "amplitude?": "number",
+           "kind": "string",
+           "period?": "number",
+           "speed?": "number"
+          }
+         },
+         "opacity?": "number",
+         "pointSize?": "number",
+         "position?": {
+          "array": "number"
+         },
+         "radius?": "number",
+         "rotation?": {
+          "array": "number"
+         },
+         "seed?": "number",
+         "shape?": "string",
+         "size?": {
+          "array": "number"
+         },
+         "type": "string"
+        }
+       }
+      },
+      "reader_scene": "number",
+      "seed": "number",
+      "still": {
+       "object": {
+        "at": "number"
+       }
+      },
+      "title": "string"
+     }
+    },
+    "still": "null",
+    "title": "string"
+   }
+  },
+  "count": "number",
+  "favorite": "null",
+  "job": "null",
+  "path": "string",
+  "sha256": "string:sha256",
+  "versions": {
+   "array": {
+    "object": {
+     "created_at": "string:datetime",
+     "edition": "string:sha256",
+     "folder": "string",
+     "generation": "string",
+     "model": "string",
+     "producer": "string",
+     "still": "null",
+     "title": "string"
+    }
+   }
+  }
+ }
+}

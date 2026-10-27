@@ -3,6 +3,7 @@
  * The shell (the top document) owns the layout tree, the status bar and the shared panels; each pane keeps
  * its own state, #article, highlight registry, reading controller and key target. Pure layout and scroll-map
  * helpers are exported for tests; `installSplit` runs in the shell and `installPane` inside a pane. */
+import {pageWidth} from './dock.mjs';
 
 export const MAX_PANES=4,MIN_WIDTH=320,MIN_HEIGHT=200,DIVIDER=6,NARROW=700,MESSAGE_LIMIT=64*1024,STAGGER=250;
 const DIRS=['row','col'];  // row: side by side (Ctrl-w v); col: stacked (Ctrl-w s)
@@ -183,7 +184,7 @@ export function installSplit({notify,suspend,resume,paint,api,param,refocus,open
   const active=()=>!!tree;
   const order=()=>tree?leaves(tree):[];
   const statusHeight=()=>document.querySelector('#statusline')?.getBoundingClientRect().height||32;
-  const box=()=>({x:0,y:0,w:innerWidth,h:Math.max(0,innerHeight-statusHeight())});
+  const box=()=>({x:0,y:0,w:pageWidth(),h:Math.max(0,innerHeight-statusHeight())});
   const narrow=()=>innerWidth<NARROW;
   const hashNow=()=>encodeLayout(tree,focus,bind);
   const remember=()=>{if(tree)history.replaceState({reader:true,split:true},'',location.pathname+location.search+hashNow());};

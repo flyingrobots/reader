@@ -7,21 +7,22 @@ const {spawn}=require('node:child_process');
 const {createInterface}=require('node:readline');
 const {mkdirSync}=require('node:fs');
 const {chromium}=require(process.env.READER_PLAYWRIGHT||'playwright-core');
+const {pinDate}=require('./web_clock.cjs');  // the fixture's pinned clock (#131)
 const start=async args=>{
   const fixture=spawn(process.env.READER_PYTHON||'.venv/bin/python',['tests/web_fixture.py','--magazine','--art',...args],{stdio:['ignore','pipe','inherit']});
-  const {url}=await new Promise((resolve,reject)=>{createInterface({input:fixture.stdout}).once('line',line=>resolve(JSON.parse(line)));fixture.once('exit',code=>reject(new Error('Fixture exited '+code)));});
-  return {fixture,url};
+  const {url,now}=await new Promise((resolve,reject)=>{createInterface({input:fixture.stdout}).once('line',line=>resolve(JSON.parse(line)));fixture.once('exit',code=>reject(new Error('Fixture exited '+code)));});
+  return {fixture,url,now};
 };
 const stop=async fixture=>{if(fixture&&fixture.exitCode===null&&fixture.signalCode===null){fixture.kill('SIGTERM');await new Promise(resolve=>fixture.once('exit',resolve));}};
 const median=values=>{const s=[...values].sort((a,b)=>a-b);return s.length?s[s.length>>1]:NaN;};
 (async()=>{
  let browser,fixture,auto;
  try{
-  const first=await start([]);fixture=first.fixture;const url=first.url;
+  const first=await start([]);fixture=first.fixture;const url=first.url,now=first.now;
   browser=await chromium.launch({headless:true,executablePath:process.env.READER_CHROME||'/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',args:['--use-angle=swiftshader','--enable-unsafe-swiftshader','--disable-background-networking','--disable-breakpad','--disable-crash-reporter','--disk-cache-size=10485760']});
   mkdirSync('.reader/web-dev',{recursive:true});
   const open=async({motion='reduce',prefs={},viewport={width:1300,height:900},webgl=true,base=url}={})=>{
-    const context=await browser.newContext({viewport,reducedMotion:motion});
+    const context=await browser.newContext({viewport,reducedMotion:motion});await pinDate(context,now);
     await context.addInitScript(value=>{try{localStorage.setItem('reader.preferences.v1',value);}catch{}},JSON.stringify({smooth:false,theme:'paper',...prefs}));
     if(!webgl)await context.addInitScript(()=>{const original=HTMLCanvasElement.prototype.getContext;HTMLCanvasElement.prototype.getContext=function(kind,...rest){return /webgl/.test(kind)?null:original.call(this,kind,...rest);};});
     const page=await context.newPage(),errors=[],external=[];

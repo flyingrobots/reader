@@ -1,0 +1,71 @@
+{
+ "object": {
+  "against": "null",
+  "annotations": {
+   "object": {
+    "ambiguous": "number",
+    "exact": "number",
+    "orphaned": "number",
+    "relocated": "number",
+    "threads": {
+     "array": {
+      "object": {
+       "kind": "string",
+       "owner": "string",
+       "quote": "string",
+       "status": "string"
+      }
+     }
+    }
+   }
+  },
+  "current_version": "string:sha256",
+  "hunks": {
+   "array": {
+    "object": {
+     "count?": "number",
+     "new?": "string",
+     "new_end": "number",
+     "new_start": "number",
+     "old?": "string",
+     "old_end": "number",
+     "old_start": "number",
+     "op": "string",
+     "words?": {
+      "array": {
+       "array": "string"
+      }
+     }
+    }
+   }
+  },
+  "others": {
+   "array": {
+    "object": {
+     "participant": "string",
+     "read_at": "string:datetime"
+    }
+   }
+  },
+  "participant": "string",
+  "path": "string",
+  "prose_changed": "boolean",
+  "read_at": "string:datetime",
+  "read_version": "string:sha256",
+  "recovery": {
+   "object": {
+    "cached": "boolean"
+   }
+  },
+  "stats": {
+   "object": {
+    "added": "number",
+    "removed": "number",
+    "reworded": "number",
+    "unchanged": "number"
+   }
+  },
+  "status": "string",
+  "truncated": "boolean"
+ }
+}

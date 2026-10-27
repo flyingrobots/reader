@@ -1,0 +1,63 @@
+{
+ "object": {
+  "chats": {
+   "array": {
+    "object": {
+     "created_at": "string:datetime",
+     "document_path": "string",
+     "document_sha256": "string:sha256",
+     "id": "string:uuid",
+     "last": {
+      "object": {
+       "author": "string",
+       "body": "string"
+      }
+     },
+     "messages": "number",
+     "revision": "number",
+     "started_by": "string",
+     "title": "string",
+     "updated_at": "string:datetime"
+    }
+   }
+  },
+  "configured": "boolean",
+  "llm_logs": {
+   "object": {
+    "bytes": "number",
+    "path": "string",
+    "retention": "string",
+    "runs": "number"
+   }
+  },
+  "owner": {
+   "object": {
+    "message": "null",
+    "owner": "boolean",
+    "writable": "boolean"
+   }
+  },
+  "path": "string",
+  "timeout_seconds": "number",
+  "voices": {
+   "array": {
+    "object": {
+     "available": "boolean",
+     "cli": {
+      "anyOf": [
+       "null",
+       "string"
+      ]
+     },
+     "enabled": "boolean",
+     "manual": "boolean",
+     "mention": {
+      "array": "string"
+     },
+     "name": "string",
+     "runnable": "boolean"
+    }
+   }
+  }
+ }
+}

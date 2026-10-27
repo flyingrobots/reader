@@ -1,0 +1,67 @@
+{
+ "object": {
+  "a": {
+   "object": {
+    "commit": "string:sha1",
+    "date": "string:datetime",
+    "path": "string",
+    "ref": "string",
+    "short": "string"
+   }
+  },
+  "annotations": {
+   "object": {
+    "ambiguous": "number",
+    "exact": "number",
+    "orphaned": "number",
+    "relocated": "number",
+    "threads": {
+     "array": {
+      "object": {
+       "kind": "string",
+       "owner": "string",
+       "quote": "string",
+       "status": "string"
+      }
+     }
+    }
+   }
+  },
+  "b": {
+   "object": {
+    "path": "string",
+    "ref": "string"
+   }
+  },
+  "hunks": {
+   "array": {
+    "object": {
+     "count?": "number",
+     "new?": "string",
+     "new_end": "number",
+     "new_start": "number",
+     "old?": "string",
+     "old_end": "number",
+     "old_start": "number",
+     "op": "string",
+     "words?": {
+      "array": {
+       "array": "string"
+      }
+     }
+    }
+   }
+  },
+  "prose_changed": "boolean",
+  "stats": {
+   "object": {
+    "added": "number",
+    "removed": "number",
+    "reworded": "number",
+    "unchanged": "number"
+   }
+  },
+  "status": "string",
+  "truncated": "boolean"
+ }
+}

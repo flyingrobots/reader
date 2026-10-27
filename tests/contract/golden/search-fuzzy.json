@@ -1,0 +1,46 @@
+{
+ "object": {
+  "indexed_at": "string:date",
+  "mode": "string",
+  "results": {
+   "array": {
+    "object": {
+     "arrival_time": "null",
+     "authors": {
+      "array": "string"
+     },
+     "date": "string:date",
+     "date_basis": "string",
+     "id": "string",
+     "matched_by": {
+      "array": "string"
+     },
+     "path": "string",
+     "primary": "string",
+     "primary_bytes": "number",
+     "primary_format": "string",
+     "projects": {
+      "array": "string"
+     },
+     "read": "boolean",
+     "score": "number",
+     "source_authors": {
+      "array": "string"
+     },
+     "title": "string",
+     "topics": {
+      "array": "string"
+     },
+     "types": {
+      "array": "string"
+     },
+     "week": "string"
+    }
+   }
+  },
+  "scope": "string",
+  "warnings": {
+   "array": "empty"
+  }
+ }
+}

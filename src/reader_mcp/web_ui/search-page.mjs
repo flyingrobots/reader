@@ -35,6 +35,7 @@ export function installSearch({api, state, navigate, back, backstage, notify, qu
   const remembered = read(sessionStorage, SESSION, null);
   let params = remembered ? decodeSearch(remembered) : {query:'', mode:'best', filters:{...BLANK}};
   let island = null, model = null, timer = 0, request = 0, controller = null;
+  let resultsFocus = false; // focus went to the results while a query was running; its results replace those nodes (#84)
   const hash = () => '#search=' + encodeURIComponent(encodeSearch(params));
   // A hand-typed `#search=receipts` (no `=` inside) is the query itself; a malformed escape is read literally.
   const fromHash = value => {
@@ -81,11 +82,13 @@ export function installSearch({api, state, navigate, back, backstage, notify, qu
       result.works.forEach(w => { if (w.arrival_time) w.date = workDay(w); });
       const works = offset ? [...model.works, ...result.works.filter(w => !model.works.some(o => o.id === w.id))] : result.works;
       set({status:'ready', result, works, loadingMore:false, active:offset ? model.active : 0, terms:result.terms});
+      restoreResults();
     } catch (error) {
       if (id !== request || error.name === 'AbortError') return;
       // A 429 (another search running, or the server's busy gate) retries like the picker; it never reads as "nothing matched" (#57).
       if (error.status === 429 && attempt < RETRIES) { timer = setTimeout(() => { if (id === request) run(offset, attempt + 1); }, 500 * 2 ** attempt); return; }
       set({status:'error', error:error.message, loadingMore:false});
+      restoreResults();
     }
   }
   function schedule() { clearTimeout(timer); request++; controller?.abort(); remember(); timer = setTimeout(run, params.mode === 'meaning' ? 450 : 200); }
@@ -119,7 +122,16 @@ export function installSearch({api, state, navigate, back, backstage, notify, qu
     select(list.findIndex(entry => entry.w === target));
   }
   const focusField = () => { const field = document.getElementById('search-query'); field?.focus(); field?.select(); };
-  const focusResults = () => document.querySelector(`.search-results [data-passage="${model.active}"]`)?.focus();
+  const focusResults = () => { document.querySelector(`.search-results [data-passage="${model.active}"]`)?.focus(); if (model.status === 'loading') resultsFocus = true; };
+  /** After a query renders, put focus back on the results if it was there and the re-render dropped it (it is on <body>). */
+  function restoreResults() {
+    if (!resultsFocus) return; resultsFocus = false;
+    requestAnimationFrame(() => {
+      const active = document.activeElement;
+      if (state.view !== 'search' || active && active !== document.body && active.isConnected && !active.closest('.search-results')) return; // the reader moved on
+      if (passages().length) focusResults(); else focusField();
+    });
+  }
   const actions = {
     query(q) { update({query:q.slice(0, 1000)}); schedule(); },
     mode(m) { update({mode:m}); remember(); run(); },
@@ -136,7 +148,7 @@ export function installSearch({api, state, navigate, back, backstage, notify, qu
     view: 'search', hash,
     render(container, routeHash) {
       if (routeHash?.startsWith('#search')) params = fromHash(routeHash);
-      clearControlsWithin(container);
+      clearControlsWithin(container); resultsFocus = false;
       model = {query:params.query, mode:params.mode, filters:params.filters, status:'idle', error:null, result:null, works:[], active:0,
         recent:read(localStorage, RECENT, []), suggestions:suggestions(), loadingMore:false, terms:null, today:todayLocal()};
       island = mountSearchPage(container, model, actions);

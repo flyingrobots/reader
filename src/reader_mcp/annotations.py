@@ -1,6 +1,5 @@
 """Durable shared Markdown annotations; source bytes are never rewritten."""
 from contextlib import contextmanager
-from datetime import datetime, timezone
 import fcntl
 import hashlib
 import json
@@ -9,12 +8,13 @@ from pathlib import Path
 import tempfile
 from uuid import UUID, uuid4
 
+from . import clock
 from .metadata import FrontmatterError, source_frontmatter
 
 MAX_THREADS = 5000
 
 
-def now(): return datetime.now(timezone.utc).isoformat()
+def now(): return clock.now().isoformat()
 def sha(data): return hashlib.sha256(data).hexdigest()
 
 

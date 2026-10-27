@@ -1,0 +1,29 @@
+{
+ "object": {
+  "health": {
+   "object": {
+    "busy": {
+     "array": "empty"
+    },
+    "commit": "string:sha1",
+    "now": "string:datetime",
+    "pid": "number",
+    "started_at": "string:datetime",
+    "status": "string",
+    "version": "string"
+   }
+  },
+  "identity": {
+   "object": {
+    "login": "null",
+    "name": "null",
+    "via": "string"
+   }
+  },
+  "service": {
+   "object": {
+    "installed": "boolean"
+   }
+  }
+ }
+}

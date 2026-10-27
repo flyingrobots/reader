@@ -1,0 +1,13 @@
+{
+ "object": {
+  "limit": "number",
+  "log": "null",
+  "meta": "null",
+  "prompt": "null",
+  "running": "boolean",
+  "stderr": "null",
+  "stdout": "null",
+  "system": "null",
+  "turn_id": "string:uuid"
+ }
+}

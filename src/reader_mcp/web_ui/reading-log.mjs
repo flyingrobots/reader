@@ -36,8 +36,13 @@ function row(r,now){
   const against=r.state==='earlier'&&r.version?` data-against="${esc(r.version)}"`:'';
   return `<li class="reading-log-row" data-state="${r.state}" data-group="${r.group}"${against}><span class="reading-log-mark" aria-hidden="true">${MARK[r.state]}</span><span class="reading-log-name">${esc(label(r))}</span><time datetime="${esc(r.at)}" title="${esc(stamp(r))}">${esc(readWhen(r.at,now))}</time>${threads}</li>`;
 }
+function quizLogHTML(data,now){
+  const results=data.quiz_results||[];if(!results.length)return '';
+  return '<ul class="reading-log-quizzes">'+results.map(r=>`<li>${esc(r.group==='you'?'You':r.participant)} took the quiz · ${esc(r.score)}/${esc(r.total)} · ${esc(readWhen(r.at,now))}${r.state==='earlier'?' · earlier edition':''}</li>`).join('')+'</ul>';
+}
 export function readingLogHTML(data,now=new Date()){
-  if(!data.readers.length)return '<p class="reading-log-empty">Not yet read by anyone. You’ll be first.</p>';
+  const quizzes=quizLogHTML(data,now)+(data.writing?.length?'<ul class="reading-log-writing">'+data.writing.map(piece=>`<li><a href="#read=${encodeURIComponent(piece.path)}" data-path="${esc(piece.path)}">You wrote about this · ${esc(formatDate(piece.date))}</a></li>`).join('')+'</ul>':'');
+  if(!data.readers.length)return '<p class="reading-log-empty">Not yet read by anyone. You’ll be first.</p>'+quizzes;
   const entries=logEntries(data),visible=entries.slice(0,LOG_NAMES),rest=entries.slice(LOG_NAMES);
   const more=rest.reduce((n,e)=>n+(e.folded?e.folded.length:1),0);
   const word=n=>n===1?'task agent':'task agents';
@@ -47,5 +52,5 @@ export function readingLogHTML(data,now=new Date()){
   const groups=['current','earlier'].map(state=>{const list=newest(data.readers.filter(r=>!r.folded&&r.state===state));return list.length?`<section class="reading-log-group" data-group-state="${state}"><div class="eyebrow" role="heading" aria-level="3">${STATE[state]}</div><ul>${list.map(r=>row(r,now)).join('')}</ul></section>`:'';}).join('');
   const folded=data.readers.filter(r=>r.folded);
   const agents=folded.length?`<details class="reading-log-agents"><summary>${folded.length} ${word(folded.length)} <span class="reading-log-hint">fewer than ${data.one_off_threshold} documents read</span></summary><ul>${newest(folded).map(r=>row(r,now)).join('')}</ul></details>`:'';
-  return `<details class="reading-log-details"><summary aria-label="Reading log: ${esc(visible.map(e=>e.folded?e.folded.length+' '+word(e.folded.length):label(e.reader)+(e.reader.state==='earlier'?', earlier edition':'')).join(', '))}${more?esc(`, and ${more} more`):''}"><span class="reading-log-line">${line}${more?`<span class="reading-log-dot" aria-hidden="true"> · </span><span class="reading-log-more">+${more} more</span>`:''}</span><span class="reading-log-caret" aria-hidden="true">▾</span></summary><div class="reading-log-body">${groups}${agents}</div></details>`;
+  return `<details class="reading-log-details"><summary aria-label="Reading log: ${esc(visible.map(e=>e.folded?e.folded.length+' '+word(e.folded.length):label(e.reader)+(e.reader.state==='earlier'?', earlier edition':'')).join(', '))}${more?esc(`, and ${more} more`):''}"><span class="reading-log-line">${line}${more?`<span class="reading-log-dot" aria-hidden="true"> · </span><span class="reading-log-more">+${more} more</span>`:''}</span><span class="reading-log-caret" aria-hidden="true">▾</span></summary><div class="reading-log-body">${groups}${agents}</div></details>`+quizzes;
 }

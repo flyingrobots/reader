@@ -1,0 +1,41 @@
+{
+ "table files": [
+  "path TEXT pk",
+  "size INTEGER",
+  "mtime INTEGER",
+  "sha256 TEXT",
+  "title TEXT",
+  "scanned_at TEXT",
+  "status TEXT"
+ ],
+ "table links": [
+  "source TEXT",
+  "target TEXT",
+  "kind TEXT",
+  "fragment TEXT",
+  "heading TEXT",
+  "line INTEGER",
+  "label TEXT",
+  "raw TEXT",
+  "method TEXT",
+  "anchor TEXT"
+ ],
+ "index links_source": "CREATE INDEX links_source ON links(source)",
+ "index links_target": "CREATE INDEX links_target ON links(target)",
+ "table settings": [
+  "key TEXT pk",
+  "value TEXT"
+ ],
+ "table unresolved": [
+  "source TEXT",
+  "raw TEXT",
+  "kind TEXT",
+  "line INTEGER",
+  "reason TEXT",
+  "heading TEXT",
+  "label TEXT",
+  "anchor TEXT"
+ ],
+ "index unresolved_source": "CREATE INDEX unresolved_source ON unresolved(source)",
+ "user_version": 0
+}

@@ -1,0 +1,35 @@
+{
+ "object": {
+  "settings": {
+   "object": {
+    "embedding_backend": "string",
+    "provider": {
+     "object": {
+      "allow_remote": "boolean",
+      "base_url": "string",
+      "model": "string",
+      "preset": "string"
+     }
+    },
+    "tasks": {
+     "object": {
+      "keyterms": {
+       "object": {
+        "enabled": "boolean",
+        "model": "string",
+        "trigger": "string"
+       }
+      },
+      "standfirst": {
+       "object": {
+        "enabled": "boolean",
+        "model": "string",
+        "trigger": "string"
+       }
+      }
+     }
+    }
+   }
+  }
+ }
+}

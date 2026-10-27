@@ -1,0 +1,24 @@
+{
+ "table documents": [
+  "schema_version INTEGER",
+  "document_id TEXT pk",
+  "document_path TEXT not null",
+  "title TEXT not null",
+  "type TEXT not null",
+  "added TEXT",
+  "metadata_created TEXT not null",
+  "author TEXT",
+  "source TEXT",
+  "created TEXT",
+  "updated TEXT",
+  "kind TEXT",
+  "tags TEXT not null",
+  "frontmatter_schema_version INTEGER",
+  "document_revision INTEGER",
+  "frontmatter_json TEXT not null",
+  "metadata_path TEXT not null",
+  "source_sha256 TEXT not null",
+  "metadata_sha256 TEXT not null"
+ ],
+ "user_version": 2
+}

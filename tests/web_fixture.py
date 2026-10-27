@@ -6,6 +6,7 @@ import tempfile
 import sys
 from uuid import uuid4
 
+from reader_mcp import clock
 from reader_mcp.annotations import Annotations
 from reader_mcp.web import WebLibrary, WebServer
 
@@ -141,8 +142,12 @@ def main():
                 works.append(dict(id=path, title=title, primary=path, authors=['Bo'], topics=['Ideas'] if read_project == 'Synthetic' else ['Ledgers'], projects=[read_project], date=day, primary_format='.md', primary_bytes=40))
         magazine_reads = []
         if '--magazine' in sys.argv:
-            from datetime import datetime, timedelta, timezone
-            today = datetime.now(timezone.utc).date()
+            from datetime import timedelta
+            # The issue is "this week's", so pin the clock (#131): the server starts at a fixed Wednesday noon UTC and the
+            # suite starts the browser's Date at the same instant (the `now` below), so the week, and every
+            # piece's place in it, never depends on when or in which time zone the suite runs.
+            os.environ.setdefault(clock.ENV, '2026-10-21T12:00:00Z')
+            today = clock.now().astimezone().date()  # the browser's local day for that instant
             monday = today - timedelta(days=today.weekday())
             body = 'The opening paragraph explains why this piece matters to a reader arriving this week, in plain prose. ' * 3
             pieces = [  # name, title, project, type, days before today, bytes
@@ -758,7 +763,7 @@ def main():
         server = WebServer(('127.0.0.1', 0), library, 'Browser tester')
         if '--chat-heartbeat' in sys.argv:
             server.chat_heartbeat = float(sys.argv[sys.argv.index('--chat-heartbeat') + 1])
-        print(json.dumps({'url':f'http://127.0.0.1:{server.server_port}', 'speech':speech_folder, 'root': str(root), 'providers': providers}), flush=True)
+        print(json.dumps({'url':f'http://127.0.0.1:{server.server_port}', 'speech':speech_folder, 'root': str(root), 'providers': providers, 'now': os.environ.get(clock.ENV)}), flush=True)
         try:
             server.serve_forever()
         finally:

@@ -1,0 +1,19 @@
+{
+ "object": {
+  "stats": {
+   "object": {
+    "build_ms": "number",
+    "catalog_notes": "number",
+    "families": "number",
+    "files": "number",
+    "header_bytes": "number",
+    "library": "number",
+    "partial": "boolean",
+    "unresolved": "number"
+   }
+  },
+  "unresolved": {
+   "array": "empty"
+  }
+ }
+}

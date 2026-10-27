@@ -1,0 +1,7 @@
+{
+ "object": {
+  "offset": "number",
+  "text": "string",
+  "turn_id": "string:uuid"
+ }
+}

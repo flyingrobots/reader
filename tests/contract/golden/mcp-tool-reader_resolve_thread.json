@@ -1,0 +1,49 @@
+{
+ "object": {
+  "annotations": {
+   "object": {
+    "destructiveHint": "boolean",
+    "openWorldHint": "boolean",
+    "readOnlyHint": "boolean"
+   }
+  },
+  "input": {
+   "object": {
+    "properties": {
+     "object": {
+      "expected_revision": {
+       "object": {
+        "anyOf": {
+         "array": {
+          "object": {
+           "type": "string"
+          }
+         }
+        },
+        "default": "null",
+        "title": "string"
+       }
+      },
+      "resolved": {
+       "object": {
+        "title": "string",
+        "type": "string"
+       }
+      },
+      "thread_id": {
+       "object": {
+        "title": "string",
+        "type": "string"
+       }
+      }
+     }
+    },
+    "required": {
+     "array": "string"
+    },
+    "title": "string",
+    "type": "string"
+   }
+  }
+ }
+}

@@ -1,0 +1,101 @@
+{
+ "object": {
+  "complete": "boolean",
+  "facet_scope": "string",
+  "facets": {
+   "object": {
+    "author": {
+     "map": "number"
+    },
+    "folder": {
+     "map": "number"
+    },
+    "project": {
+     "map": "number"
+    },
+    "type": {
+     "map": "number"
+    }
+   }
+  },
+  "filters": {
+   "object": {
+    "author": {
+     "array": "empty"
+    },
+    "folder": "null",
+    "from": "null",
+    "from_at": "null",
+    "machine": "boolean",
+    "project": {
+     "array": "empty"
+    },
+    "read": "string",
+    "to": "null",
+    "to_at": "null",
+    "type": {
+     "array": "empty"
+    }
+   }
+  },
+  "indexed_at": "string:datetime",
+  "limit": "number",
+  "mode": "string",
+  "offset": "number",
+  "pool": "number",
+  "query": "string",
+  "scope": "string",
+  "semantic": "null",
+  "terms": {
+   "array": "string"
+  },
+  "total": "number",
+  "warnings": {
+   "array": "empty"
+  },
+  "works": {
+   "array": {
+    "object": {
+     "arrival_time": "null",
+     "authors": {
+      "array": "string"
+     },
+     "date": "string:date",
+     "id": "string",
+     "passages": {
+      "array": {
+       "object": {
+        "end_line": "number",
+        "excerpt": "string",
+        "line": "number",
+        "literal": "boolean",
+        "matched_by": {
+         "array": "string"
+        },
+        "page": "null",
+        "path": "string",
+        "spans": {
+         "array": {
+          "array": "number"
+         }
+        },
+        "start_line": "number"
+       }
+      }
+     },
+     "primary": "string",
+     "primary_format": "string",
+     "projects": {
+      "array": "string"
+     },
+     "read": "boolean",
+     "score": "number",
+     "title": "string",
+     "types": {
+      "array": "string"
+     }
+    }
+   }
+  }
+ }
+}

@@ -1,0 +1,48 @@
+{
+ "object": {
+  "checked_at": "string:datetime",
+  "companions": {
+   "array": {
+    "object": {
+     "actions": {
+      "array": "string"
+     },
+     "enables": "string",
+     "facts": {
+      "array": "empty"
+     },
+     "feature": "string",
+     "guide": {
+      "object": {
+       "commands": {
+        "array": "string"
+       },
+       "note": "string"
+      }
+     },
+     "install": {
+      "object": {
+       "available": "boolean",
+       "changes": {
+        "array": "string"
+       },
+       "help": "string",
+       "pinned": "string",
+       "reason": "string"
+      }
+     },
+     "job": "null",
+     "keys": "null",
+     "label": "string",
+     "message": "string",
+     "name": "string",
+     "path": "null",
+     "repo": "string",
+     "state": "string",
+     "title": "string",
+     "version": "null"
+    }
+   }
+  }
+ }
+}

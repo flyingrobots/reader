@@ -1,0 +1,81 @@
+{
+ "object": {
+  "annotations": {
+   "object": {
+    "destructiveHint": "boolean",
+    "openWorldHint": "boolean",
+    "readOnlyHint": "boolean"
+   }
+  },
+  "input": {
+   "object": {
+    "properties": {
+     "object": {
+      "comment": {
+       "object": {
+        "default": "string",
+        "title": "string",
+        "type": "string"
+       }
+      },
+      "end": {
+       "object": {
+        "title": "string",
+        "type": "string"
+       }
+      },
+      "expected_sha256": {
+       "object": {
+        "anyOf": {
+         "array": {
+          "object": {
+           "type": "string"
+          }
+         }
+        },
+        "default": "null",
+        "title": "string"
+       }
+      },
+      "owner": {
+       "object": {
+        "title": "string",
+        "type": "string"
+       }
+      },
+      "path": {
+       "object": {
+        "title": "string",
+        "type": "string"
+       }
+      },
+      "request_id": {
+       "object": {
+        "anyOf": {
+         "array": {
+          "object": {
+           "type": "string"
+          }
+         }
+        },
+        "default": "null",
+        "title": "string"
+       }
+      },
+      "start": {
+       "object": {
+        "title": "string",
+        "type": "string"
+       }
+      }
+     }
+    },
+    "required": {
+     "array": "string"
+    },
+    "title": "string",
+    "type": "string"
+   }
+  }
+ }
+}

@@ -1,0 +1,83 @@
+{
+ "object": {
+  "catalog": "null",
+  "family": {
+   "array": {
+    "object": {
+     "author": "string",
+     "current?": "boolean",
+     "date": "string:date",
+     "history": "string",
+     "label": "string",
+     "path": "string",
+     "readers": {
+      "array": "string"
+     },
+     "revision": "number",
+     "revisions": "number",
+     "role": "string",
+     "title": "string",
+     "uncommitted": "boolean"
+    }
+   }
+  },
+  "git": "boolean",
+  "hashes": "boolean",
+  "hashes_partial": "boolean",
+  "history": {
+   "map": {
+    "array": {
+     "object": {
+      "at": "string",
+      "author": "string",
+      "blob": "string:sha1",
+      "commit": "string:sha1",
+      "date": "string:datetime",
+      "from?": "string",
+      "matches_current?": "boolean",
+      "short": "string",
+      "status": "string",
+      "subject": "string"
+     }
+    }
+   }
+  },
+  "history_status": {
+   "map": "string"
+  },
+  "limits": {
+   "object": {
+    "hash_bytes": "number",
+    "per_path": "number",
+    "seconds": "number",
+    "total": "number"
+   }
+  },
+  "more": "number",
+  "newer": {
+   "object": {
+    "date": "string:date",
+    "path": "string",
+    "revision": "number",
+    "title": "string"
+   }
+  },
+  "path": "string",
+  "read": {
+   "object": {
+    "at": "string:datetime",
+    "label": "string",
+    "participant": "string",
+    "path": "string",
+    "version": "string:sha256",
+    "where": "string"
+   }
+  },
+  "stats": {
+   "object": {
+    "commits": "number",
+    "seconds": "number"
+   }
+  }
+ }
+}

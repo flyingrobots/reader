@@ -1,0 +1,54 @@
+{
+ "object": {
+  "llm_logs": {
+   "object": {
+    "bytes": "number",
+    "path": "string",
+    "retention": "string",
+    "runs": "number"
+   }
+  },
+  "message": {
+   "object": {
+    "author": "string",
+    "body": "string",
+    "chosen_by": "string",
+    "id": "string:uuid",
+    "mentions": {
+     "array": "empty"
+    },
+    "reply_to": "string:uuid",
+    "root": "string:uuid",
+    "runtime": {
+     "object": {
+      "cli": "string",
+      "model": "string",
+      "session_id": "string",
+      "version": "string"
+     }
+    },
+    "turn": {
+     "object": {
+      "changed_paths": {
+       "array": "empty"
+      },
+      "changes_tracked": "boolean",
+      "commit": "null",
+      "commits": {
+       "array": "empty"
+      },
+      "exit_code": "number",
+      "id": "string:uuid",
+      "log": "string",
+      "seconds": "number",
+      "state": "string",
+      "timeout_seconds": "number"
+     }
+    }
+   }
+  },
+  "revision": "number",
+  "state": "string",
+  "turn_id": "string:uuid"
+ }
+}

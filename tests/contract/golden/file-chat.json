@@ -1,0 +1,94 @@
+{
+ "object": {
+  "created_at": "string:datetime",
+  "document_path": "string",
+  "document_sha256": "string:sha256",
+  "id": "string:uuid",
+  "messages": {
+   "array": {
+    "object": {
+     "author": "string",
+     "body": "string",
+     "chosen_by?": "string",
+     "created_at": "string:datetime",
+     "id": "string:uuid",
+     "listening?": {
+      "object": {
+       "runs": {
+        "array": {
+         "object": {
+          "failure": "null",
+          "log": "string",
+          "outcome": "string",
+          "state": "string",
+          "turn_id": "string:uuid",
+          "voice": "string"
+         }
+        }
+       },
+       "voices": {
+        "array": "string"
+       },
+       "warnings": {
+        "array": "empty"
+       }
+      }
+     },
+     "mentions": {
+      "array": "string"
+     },
+     "reply_to": {
+      "anyOf": [
+       "null",
+       "string:uuid"
+      ]
+     },
+     "root?": "string:uuid",
+     "routing?": {
+      "object": {
+       "chosen_by": "string",
+       "voices": {
+        "array": "string"
+       }
+      }
+     },
+     "runtime": {
+      "anyOf": [
+       "null",
+       {
+        "object": {
+         "cli": "string",
+         "model": "string",
+         "session_id": "string",
+         "version": "string"
+        }
+       }
+      ]
+     },
+     "turn?": {
+      "object": {
+       "changed_paths": {
+        "array": "empty"
+       },
+       "changes_tracked": "boolean",
+       "commit": "null",
+       "commits": {
+        "array": "empty"
+       },
+       "exit_code": "number",
+       "id": "string:uuid",
+       "log": "string",
+       "seconds": "number",
+       "state": "string",
+       "timeout_seconds": "number"
+      }
+     }
+    }
+   }
+  },
+  "revision": "number",
+  "schema_version": "number",
+  "started_by": "string",
+  "title": "string"
+ }
+}

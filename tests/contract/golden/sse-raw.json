@@ -1,0 +1,9 @@
+{
+ "object": {
+  "cut": "boolean",
+  "n": "number",
+  "stream": "string",
+  "text": "string",
+  "turn_id": "string:uuid"
+ }
+}
