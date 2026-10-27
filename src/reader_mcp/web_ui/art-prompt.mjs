@@ -92,11 +92,11 @@ export function wireArtPrompt(anchor,{api,path,art,button=null,hover=true}){
   const target={anchor,api,path,art,button};anchor.artPrompt=target;
   if(button){button.setAttribute('aria-haspopup','dialog');button.setAttribute('aria-expanded','false');button.setAttribute('aria-controls','art-prompt-card');
     button.addEventListener('click',event=>{event.preventDefault();if(current===target&&!card.hidden&&pinned)hide(true);else{pinned=true;show(target,{focus:true});}});}
-  if(!hover)return;  // the focus view: its Prompt button only, so resting the pointer on the art never covers it
+  if(!hover)return;  // Cover previews keep the explicit Prompt button without an automatic hover/long-press card.
   anchor.addEventListener('pointerenter',event=>{if(event.pointerType==='touch')return;clearTimeout(hideTimer);if(current===target&&!card?.hidden)return;clearTimeout(showTimer);showTimer=setTimeout(()=>show(target),HOVER);});
   anchor.addEventListener('pointerleave',event=>{if(event.pointerType==='touch')return;clearTimeout(showTimer);if(current===target&&!pinned)scheduleHide();});
   let press=0,pressed=false;
-  anchor.addEventListener('pointerdown',event=>{if(event.pointerType!=='touch')return;pressed=false;clearTimeout(press);press=setTimeout(()=>{pressed=true;pinned=true;show(target);},PRESS);});
+  anchor.addEventListener('pointerdown',event=>{if(event.pointerType!=='touch'){clearTimeout(showTimer);if(current===target&&!pinned)hide();return;}pressed=false;clearTimeout(press);press=setTimeout(()=>{pressed=true;pinned=true;show(target);},PRESS);});
   for(const type of ['pointerup','pointercancel','pointerleave'])anchor.addEventListener(type,()=>clearTimeout(press));
   anchor.addEventListener('contextmenu',event=>{if(pressed)event.preventDefault();});
   anchor.addEventListener('click',event=>{if(pressed){event.preventDefault();pressed=false;}},true);

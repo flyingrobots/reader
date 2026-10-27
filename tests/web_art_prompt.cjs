@@ -1,4 +1,4 @@
-/* How this art was made (#146): hovering art (the article hero, the cover, a feature thumbnail, the Space g view),
+/* How this art was made (#146): hovering expanded art (article hero, Focus or Space g),
    focusing its Prompt button or long-pressing it shows a card with the Artist's note, the producer, prompt versions
    and date, and each stage's archived prompt: instructions first, the quoted article and the scene-language
    reference collapsed, with Copy. A version without a run log says the prompt was not recorded; handcrafted art
@@ -73,16 +73,39 @@ const {pinDate}=require('./web_clock.cjs');  // the fixture's pinned clock (#131
    assert.equal(await button.getAttribute('aria-expanded'),'false');
    assert.deepEqual(errors,[]);assert.deepEqual(external,[]);await context.close();}
 
-  // The cover and a feature thumbnail: a version stored without a run log says the prompt was not recorded.
+  // Cover/thumbnail previews stay quiet; the cover's Prompt button and expanded Focus view still work.
   {const {context,page,errors}=await open();
    await page.goto(url);await page.locator('.issue-cover').waitFor();await settled(page,'.cover-art');
-   await page.locator('.cover-art .art-surface').hover();await ready(page);
+   const hidden=()=>page.locator('#art-prompt-card:visible').count();
+   let promptReads=0;page.on('request',request=>{if(request.url().includes('/api/art/prompt?'))promptReads++;});
+   await page.locator('.cover-art .art-surface').hover();await page.waitForTimeout(600);
+   assert.equal(await hidden(),0,'cover preview hover does not open a card');assert.equal(promptReads,0,'preview hover does not fetch a prompt');
+   const button=page.locator('.cover-art .art-prompt-toggle');await button.click();await ready(page);
    assert.equal(await card(page).getAttribute('data-state'),'unrecorded');
    assert.match(await card(page).textContent(),/Notes at the back[\s\S]*Prompt not recorded for this version\./);
-   await away(page);
+   await page.keyboard.press('Escape');assert.equal(await button.getAttribute('aria-expanded'),'false');
+   await page.locator('.cover-art .art-focus-toggle').click();
+   await settled(page,'.art-focus');await page.locator('.art-focus-stage').hover();await ready(page);
+   assert.match(await card(page).textContent(),/Notes at the back/,'expanded cover hover opens its prompt');
+   await page.keyboard.press('Escape');assert.ok(await page.locator('.art-focus').isVisible(),'first Escape closes only the prompt');
+   assert.ok(await page.evaluate(()=>document.querySelector('.art-focus').contains(document.activeElement)),'dismissing a hover card keeps keyboard focus inside Focus');
+   await page.keyboard.press('Escape');await page.locator('.art-focus').waitFor({state:'detached'});await settled(page,'.cover-art');
+   await page.locator('.cover-art .art-surface').hover();await page.waitForTimeout(600);
+   assert.equal(await hidden(),0,'closing Focus leaves cover preview hover disabled');
+   // A theme repaint replaces the surface. Its new listeners must keep the same preview rule.
+   await page.evaluate(()=>{window.oldCoverSurface=document.querySelector('.cover-art .art-surface');});
+   await page.locator('#main').focus();await page.keyboard.press(':');await page.locator('#command-input').fill('theme ink');await page.keyboard.press('Enter');
+   await page.waitForFunction(()=>document.querySelector('.cover-art .art-surface')!==window.oldCoverSurface);await settled(page,'.cover-art');
+   await page.locator('.cover-art .art-surface').hover();await page.waitForTimeout(600);
+   assert.equal(await hidden(),0,'repainted cover preview still does not open a card');
+   await page.locator('.cover-art .art-surface').dispatchEvent('pointerdown',{pointerType:'touch',bubbles:true});await page.waitForTimeout(700);
+   await page.locator('.cover-art .art-surface').dispatchEvent('pointerup',{pointerType:'touch',bubbles:true});
+   assert.equal(await hidden(),0,'cover preview long-press stays quiet');
    const thumb=page.locator('[data-art-thumb="library/issue/keep.md"]');await page.waitForFunction(()=>document.querySelector('[data-art-thumb="library/issue/keep.md"][data-state=still]'));
-   await thumb.scrollIntoViewIfNeeded();await thumb.hover();await ready(page);
-   assert.match(await card(page).textContent(),/Algebraic patterns/);
+   await thumb.scrollIntoViewIfNeeded();await thumb.hover();await page.waitForTimeout(600);
+   assert.equal(await hidden(),0,'feature thumbnail hover does not open a card');
+   await thumb.dispatchEvent('pointerdown',{pointerType:'touch',bubbles:true});await page.waitForTimeout(700);await thumb.dispatchEvent('pointerup',{pointerType:'touch',bubbles:true});
+   assert.equal(await hidden(),0,'feature thumbnail long-press stays quiet');
    assert.deepEqual(errors,[]);await context.close();}
 
   // The Space g view (hero off), and handcrafted art (the demo's) says so instead of showing a prompt.
@@ -105,6 +128,6 @@ const {pinDate}=require('./web_clock.cjs');  // the fixture's pinned clock (#131
    assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),'no horizontal scroll');
    await page.screenshot({path:'.reader/web-dev/art-prompt-phone.png'});
    assert.deepEqual(errors,[]);await context.close();}
-  console.log('Art prompt card passed: hover on the hero with the archived prompts (instructions first, article and reference collapsed, Copy), keyboard open and Esc, cover and thumbnail with no recorded prompt, the Space g view, handcrafted art, touch long-press at 390px.');
+  console.log('Art prompt card passed: hero prompts and Copy, keyboard and Esc, quiet cover/thumbnail hover and long-press, cover Prompt button, expanded Focus hover, quiet preview after Focus and theme repaint, Space g, handcrafted art, touch at 390px.');
  }finally{await browser?.close();if(fixture&&fixture.exitCode===null){fixture.kill('SIGTERM');await new Promise(resolve=>fixture.once('exit',resolve));}}
 })().catch(error=>{console.error(error);process.exitCode=1;});

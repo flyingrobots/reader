@@ -700,7 +700,7 @@ cover's, on the magazine) full screen, as a modal dialog. Where motion is allowe
 scene is live and can be turned: drag, or the arrow keys on the focused art; the wheel
 or + and − zoom; 0 resets. Otherwise it is the still image (the stored still without
 WebGL, else the note). Its **Artist's note** and **Prompt** card open over it (the card
-opens only from its button here, never on hover). **Esc** or **Close** returns to the
+opens on hover, touch long-press or its Prompt button). **Esc** or **Close** returns to the
 same place in the article, in either layout, with focus back on the button that opened
 it; the page's own keys do not act behind the view. **Regenerate this** opens a Prompt
 Input (the shadcn AI Elements recipe: an Input Group with a textarea, a character count
@@ -718,8 +718,8 @@ scene prompts by the versioned template `art_prompts/direction.v1.md` (recorded 
 log's `meta.json` and the version's `provenance.json` as `direction`. The prompt card
 shows it as its own part; `/api/art/prompt` returns it as `direction`.
 
-**How it was made (the prompt card, #146).** Hovering a piece of art (the article
-hero, the cover, a feature thumbnail, the Space g view) for a moment, pressing the
+**How it was made (the prompt card, #146).** Hovering expanded art (the article
+hero, the full-screen Focus view or the Space g view) for a moment, pressing the
 caption's **Prompt** button (keyboard: it opens the card and moves focus into it;
 Esc closes it and returns focus), or long-pressing it on a touch screen shows a card:
 *How this art was made*, the artwork's title, *Made by <producer> (<model>) · date ·
@@ -733,6 +733,13 @@ run.*; a version without a run log says *Prompt not recorded for this version.* 
 card is one fixed element outside the article (`data-reader-decoration`, never
 searched, selected or rasterized); it stays open while the pointer is over the art or
 the card and closes on Esc, a click elsewhere, or leaving both.
+Clicking or dragging the artwork cancels an automatic hover card; it does not
+interrupt manipulation of the expanded scene.
+
+Cover previews and feature thumbnails do not open this card on hover or touch
+long-press. Expand the cover with **Focus** (or **Space G**) to inspect it on hover;
+the cover's explicit **Prompt** button also remains available. Closing Focus,
+switching art versions and repainting the cover keep preview hover disabled.
 
 **Which version is shown:** the favorite, if one was kept; else the newest version
 for the current edition; else the newest for any earlier edition (labelled *for an

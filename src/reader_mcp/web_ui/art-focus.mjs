@@ -32,7 +32,7 @@ export function openArtFocus(data,{api,stage,palette,motion,stillUrl,restore,reg
     if(motion){live=stage.mount(host,scene,palette,{interactive:true,onStill:url=>image(url,'still'),onLost:fallback});view.artView=live;if(!live.still)view.dataset.state='live';}
     else image(stage.still(scene,palette,Math.max(320,Math.round(host.clientWidth)),Math.max(200,Math.round(host.clientHeight))),'still');
   }catch(error){console.warn('Article art',error);fallback();}
-  wireArtPrompt(host,{api,path:data.path,art,button:view.querySelector('[data-focus-prompt]'),hover:false});
+  wireArtPrompt(host,{api,path:data.path,art,button:view.querySelector('[data-focus-prompt]')});
   noteButton.onclick=()=>{note.hidden=!note.hidden;noteButton.setAttribute('aria-expanded',String(!note.hidden));};
   const regen=view.querySelector('[data-focus-regenerate]');
   if(regenerate?.disabled){regen.disabled=true;regen.title=regenerate.disabled;regen.dataset.needsReader='';}
@@ -48,7 +48,7 @@ export function openArtFocus(data,{api,stage,palette,motion,stillUrl,restore,reg
   function closePanel(){island?.unmount();island=null;panel.hidden=true;panel.replaceChildren();regen.setAttribute('aria-expanded','false');regen.focus({preventScroll:true});}
   view.querySelector('[data-focus-close]').onclick=()=>closeArtFocus();
   view.addEventListener('keydown',event=>{
-    if(event.key==='Escape'){if(event.artPromptClosed||event.artFormClosed)return;event.preventDefault();if(!panel.hidden)closePanel();else closeArtFocus();}
+    if(event.key==='Escape'){if(event.artPromptClosed||event.artFormClosed){event.stopPropagation();return;}event.preventDefault();if(!panel.hidden)closePanel();else closeArtFocus();}
     else if(event.key==='Tab'){const items=[...view.querySelectorAll('button:not([disabled]),textarea,[tabindex="0"]')].filter(el=>el.offsetParent||el===host);if(!items.length)return;
       const first=items[0],last=items.at(-1);if(event.shiftKey&&document.activeElement===first){event.preventDefault();last.focus();}else if(!event.shiftKey&&document.activeElement===last){event.preventDefault();first.focus();}}
     event.stopPropagation();  // the reader's keys stay with the page behind

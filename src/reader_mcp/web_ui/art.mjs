@@ -58,6 +58,7 @@ export function provenanceLine(art){
     spread), with the still image kept under the live canvas so the page turn can paint it. */
 export async function paintArt(figure,data,{live=false,motion=true,api,actions={},compact=false,hero=null}={}){
   const art=data.art,path=data.path,title=art.title||'Untitled';
+  const promptHover=!compact&&!figure.classList.contains('cover-art');
   figure.artView?.destroy();figure.artView=null;
   figure.classList.remove('art-empty','art-unavailable','art-error');figure.classList.add('art-figure');
   figure.dataset.readerDecoration='';figure.dataset.art=path;figure.dataset.generation=art.generation;delete figure.dataset.frames;figure.artData=data;
@@ -72,7 +73,7 @@ export async function paintArt(figure,data,{live=false,motion=true,api,actions={
   if(data.count>1&&!art.favorite&&actions.favorite)button('Keep this one',()=>actions.favorite(path,art),'Show this version from now on');
   if(!buttons.children.length)buttons.remove();
   const caption=document.createElement('figcaption');caption.className='art-caption';
-  caption.innerHTML=`<button type="button" class="art-note-toggle" data-button="ghost xs" aria-expanded="false" aria-controls="${id}">Artist’s note</button><button type="button" class="art-prompt-toggle" data-button="ghost xs" title="The prompts that made this art (or hover over it)">Prompt</button>${actions.focus?'<button type="button" class="art-focus-toggle" data-button="ghost xs" title="Show the art full screen (or double-click it) · Space G">Focus</button>':''}<span class="art-credit">${esc(art.provenance?.producer?.label||'')}${art.current?'':' · earlier edition'}</span>`;
+  caption.innerHTML=`<button type="button" class="art-note-toggle" data-button="ghost xs" aria-expanded="false" aria-controls="${id}">Artist’s note</button><button type="button" class="art-prompt-toggle" data-button="ghost xs" title="The prompts that made this art${promptHover?' (or hover over it)':''}">Prompt</button>${actions.focus?'<button type="button" class="art-focus-toggle" data-button="ghost xs" title="Show the art full screen (or double-click it) · Space G">Focus</button>':''}<span class="art-credit">${esc(art.provenance?.producer?.label||'')}${art.current?'':' · earlier edition'}</span>`;
   const toggle=caption.querySelector('button');toggle.onclick=event=>{event.preventDefault();note.hidden=!note.hidden;toggle.setAttribute('aria-expanded',String(!note.hidden));};
   const extra=[];
   if(hero){
@@ -83,7 +84,7 @@ export async function paintArt(figure,data,{live=false,motion=true,api,actions={
     go.innerHTML=hero.book?'Turn the page <span aria-hidden="true">→</span>':'Begin reading <span aria-hidden="true">↓</span>';go.onclick=event=>{event.preventDefault();hero.go?.();};extra.push(go);
   }
   figure.replaceChildren(surface,...extra,caption,note);figure.classList.toggle('art-compact',compact);
-  wireArtPrompt(surface,{api,path,art,button:caption.querySelector('.art-prompt-toggle')});
+  wireArtPrompt(surface,{api,path,art,button:caption.querySelector('.art-prompt-toggle'),hover:promptHover});
   if(actions.focus){caption.querySelector('.art-focus-toggle').onclick=event=>{event.preventDefault();actions.focus(figure,data);};
     surface.addEventListener('dblclick',event=>{event.preventDefault();actions.focus(figure,data);});}
   const image=(src,state)=>{const img=new Image();img.className='art-still';img.alt='';img.src=src;surface.replaceChildren(img);figure.dataset.state=state;};
@@ -134,7 +135,7 @@ export async function paintArtThumb(slot,data,api=null){
     url??=stillUrl(data.path,art);}
   if(!url){slot.remove();return;}
   const img=new Image();img.className='art-thumb-image';img.alt='';img.src=url;img.width=THUMB.width;img.height=THUMB.height;slot.replaceChildren(img);slot.dataset.state='still';
-  wireArtPrompt(slot,{api,path:data.path,art});
+  // A thumbnail is a navigation target; inspecting its prompt belongs in the expanded artwork.
 }
 
 /** The calm placeholder for a piece without art: what would make it, and a button to ask (or the running job). */

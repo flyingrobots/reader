@@ -26,7 +26,12 @@ const {chromium}=require(process.env.READER_PLAYWRIGHT||'playwright-core');
   const read=async(page,path)=>{await page.goto(url+'#read='+encodeURIComponent(path));await shown(page,path);};
   const settled=(page,selector='#article .art-hero')=>page.waitForFunction(s=>['live','still','image','unavailable','error'].includes(document.querySelector(s)?.dataset.state),selector,{timeout:20000});
   const focusView=page=>page.locator('.art-focus');
-  const opened=page=>page.waitForFunction(()=>['live','still','image','unavailable'].includes(document.querySelector('.art-focus')?.dataset.state),null,{timeout:15000});
+  const opened=async page=>{
+   await page.waitForFunction(()=>['live','still','image','unavailable'].includes(document.querySelector('.art-focus')?.dataset.state),null,{timeout:15000});
+   // These cases exercise the view and its controls. Hover-card/Escape layering is covered by web_art_prompt.cjs.
+   await page.locator('.art-focus-heading').hover();
+   await page.waitForFunction(()=>!document.querySelector('#art-prompt-card')||document.querySelector('#art-prompt-card').hidden);
+  };
   const closed=page=>page.waitForFunction(()=>!document.querySelector('.art-focus'));
 
   // Continuous reading: Focus, Esc back to the same place; a double click and Close; Space G; the page's keys stay put.
@@ -73,6 +78,7 @@ const {chromium}=require(process.env.READER_PLAYWRIGHT||'playwright-core');
      assert.equal(await yaw(),0);
      await page.mouse.move(650,450);await page.mouse.down();await page.mouse.move(520,430,{steps:6});await page.mouse.up();
      const dragged=await yaw();assert.ok(Math.abs(dragged)>.2,`dragging turns the view (${dragged})`);
+     assert.equal(await page.locator('#art-prompt-card:visible').count(),0,'dragging the artwork does not open a hover card');
      await page.locator('.art-focus-stage').focus();await page.keyboard.press('ArrowLeft');assert.ok(await yaw()>dragged,'arrow keys turn it');
      await page.keyboard.press('-');assert.ok(await page.evaluate(()=>document.querySelector('.art-focus').artView.view.zoom)>1,'− zooms out');
      await page.keyboard.press('0');assert.equal(await yaw(),0,'0 resets');
