@@ -28,7 +28,7 @@ Mac (18 cores, 64 GiB) on 2026-10-26; they are indicative, not a benchmark suite
    MCP and CLI adapters follow, and removing the Python child comes last. The plan lists 22 atomic PRs (0, 1, 1b
    and 2 to 20, then 21).
 6. **Storage stays Markdown plus SQLite,** with marginalia in today's JSON-and-lock store, through and after the
-   port. No storage move is planned; a corrected git-warp spike (S1b) is running, see
+   port. Spike S1b measured git-warp for marginalia and it failed, so no storage move is planned; see
    [Storage after the port](#storage-after-the-port).
 7. **Install:** Reader installs through `npx`, an npm global install or a Homebrew formula that depends on
    `node`; CI installs the packed tarball outside the checkout. Correctness and a reliable install beat having
@@ -271,11 +271,17 @@ means the whole suite passes against both the front and Python, plus the tests n
 Markdown in the git tree and SQLite indexes (rebuildable, stamped with the source revisions they reflect) stay
 throughout the port. Each item below is its own later decision:
 
-- **git-warp for marginalia: undecided, pending S1b.** The first spike (S1, 2026-10-27) is withdrawn: its
-  harness bypassed git-warp's documented application path (Wesley-generated intents and observers), imported
-  internal modules, deleted git-warp's own checkpoint refs and stored membership as growing JSON strings
-  instead of edges, so its numbers measured that mapping rather than git-warp. S1b reruns the same data and
-  tests through the public surface only. There is no PR 22 unless S1b supports one.
+- **git-warp for marginalia: not adopted.** Spike S1b (2026-10-27, git-warp `main` at `6ba2e7eca`, synthetic
+  data) used git-warp as documented: `Runtime`, a Wesley-generated domain SDK with edges for documents, threads
+  and comments, and checkpoints only through `git warp repair`. (The earlier S1 harness misused git-warp and is
+  withdrawn.) A one-patch save took 152 ms p50 at 2,000 annotations (target 50 ms); one document's margins took
+  3.9 s p50 right after a checkpoint (target 100 ms) and 16–306 s with uncheckpointed writes, while documents
+  those writes touched could not be read at all until the next checkpoint; cold open took 4.6 s (target 1 s). A
+  second checkpoint fails once the state passes 5 MiB, about 800 annotations (git-warp #1034), and at 20,000
+  annotations the first checkpoint did not finish in 29 minutes. Concurrent replacements and edit-versus-delete
+  converge silently. The export round trip was byte-identical, and kill-after-acknowledgement, duplicate
+  delivery and the documented sync refspecs behaved. There is no PR 22. Reconsider only if a rerun of the kept
+  S1b harness meets the targets after git-warp #961, #962 and #1034–#1036 are fixed.
 - **Conflicts are shown, whatever the store:** two replacements of one comment and an edit racing a delete
   must surface a conflict, never pick a winner silently. These are contract cases in PR 5.
 - **Before any storage move,** specify a Reader checkpoint (documents' tree or commit, marginalia history
@@ -366,7 +372,7 @@ Approved by the user on 2026-10-27:
    floor, with the reason recorded. Node 26's LTS status is checked at cutover.
 5. **One operations layer** that HTTP, MCP and the CLI adapt; PRs 19 and 20 are adapter work.
 6. **Storage:** Markdown plus SQLite, and the JSON-and-lock marginalia store, through and after the port;
-   git-warp undecided pending S1b (S1 withdrawn); git-cas deferred; the vault package held.
+   git-warp was measured in S1b and not adopted; git-cas deferred; the vault package held.
 7. **MCP schemas:** normalise incidental differences only; keep enums, bounds, unions, nullability,
    `additionalProperties` and refusal behaviour.
 
