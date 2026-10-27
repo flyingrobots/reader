@@ -433,3 +433,24 @@ def test_a_coding_job_with_hundreds_of_changed_files_stays_readable_in_the_log_i
     run, _ = w.run()
     assert run['outcome'] == 'pr_opened', run['message']
     assert llm_inventory.detail(w.vault, run['log'])['meta']['status'] == 'pr_opened'
+
+
+@pytest.mark.parametrize('effect', ['push', 'pull_request'])
+def test_a_stop_while_publication_intent_is_saved_publishes_nothing(world, monkeypatch, effect):
+    w = world()
+    save, stopped = w.jobs.store.save, []
+
+    def stop_after_save(record):
+        save(record)
+        push = record.get('push') or {}
+        pending = push.get('sent') and not push.get('verified') if effect == 'push' else record.get('pr_pending')
+        if pending and not stopped:
+            stopped.append(True)
+            assert w.jobs.stop(record['id'])['stopped']
+    monkeypatch.setattr(w.jobs.store, 'save', stop_after_save)
+    run, _ = w.run()
+    assert stopped and run['outcome'] == 'cancelled', run['message']
+    if effect == 'push':
+        assert 'refs/heads/' + run['git']['branch'] not in w.remote_heads()
+    else:
+        assert 'create_pull_request' not in w.github.calls
