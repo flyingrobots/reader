@@ -171,6 +171,20 @@ def test_a_rerun_gets_a_new_run_linked_to_its_predecessor_and_reuses_its_issue(w
     assert second['outcome'] == 'pr_opened' and second['git']['branch'] != first['git']['branch']
 
 
+@pytest.mark.parametrize('field,value', [('block_id', 'another-block'), ('path', 'library/another.md')])
+def test_a_rerun_refuses_a_predecessor_from_another_prompt_block(world, field, value):
+    from reader_mcp.coding_jobs import JobConflict
+    w = world(issue=None)
+    first, _ = w.run()
+    # A finished run of a different block or article is not this block's predecessor, so its issue is not inherited.
+    record = w.jobs.store.load(first['id'])
+    record['source'][field] = value
+    w.jobs.store.save(record)
+    with pytest.raises(JobConflict) as refused:
+        w.jobs.dispatch(w.request(predecessor=first['id']))
+    assert refused.value.code == 'predecessor' and len(w.jobs.store.runs()) == 1
+
+
 @pytest.mark.parametrize('change,code', [
     ('stale', 'stale'), ('missing', 'missing-block'), ('example', 'missing-block'), ('unregistered', 'unregistered'), ('agent', 'agent')])
 def test_admission_refuses_stale_forged_and_unregistered_requests(world, change, code):

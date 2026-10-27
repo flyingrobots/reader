@@ -180,7 +180,11 @@ class Runner:
                 predecessor = self.store.load(request['predecessor'])
                 if not predecessor or predecessor.get('status') != 'finished':
                     raise JobConflict('The run this reruns is unknown or still active.', 'predecessor')
-                if issue is None and (predecessor.get('issue') or {}).get('number') and predecessor['source']['repo'] == block['repo']:
+                # A rerun follows a run of this article's same block; only then does it inherit that run's issue.
+                source = predecessor.get('source') or {}
+                if source.get('path') != request['path'] or source.get('block_id') != block['id']:
+                    raise JobConflict('The run this reruns started from a different prompt block.', 'predecessor')
+                if issue is None and (predecessor.get('issue') or {}).get('number') and source.get('repo') == block['repo']:
                     issue = predecessor['issue']['number']
             run_id = str(uuid.uuid4())
             branch = f'reader/{block["id"][:40]}-{run_id[:8]}'

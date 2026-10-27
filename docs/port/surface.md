@@ -849,7 +849,7 @@ exercise modules through HTTP, so see the route table for those.
 | `src/reader_mcp/clock.py` | 31 | 27 | 1399 | 51 | 106 | 0.81 | 1 | 0 | 0 | 0 |
 | `src/reader_mcp/coding_agents.py` | 107 | 89 | 5925 | 65 | 299 | 0.70 | 5 | 0 | 0 | 0 |
 | `src/reader_mcp/coding_api.py` | 131 | 116 | 7850 | 67 | 151 | 0.85 | 10 | 1 | 0 | 0 |
-| `src/reader_mcp/coding_jobs.py` | 386 | 348 | 21588 | 59 | 155 | 0.84 | 18 | 3 | 2 | 15 |
+| `src/reader_mcp/coding_jobs.py` | 390 | 351 | 21962 | 60 | 155 | 0.84 | 18 | 3 | 2 | 16 |
 | `src/reader_mcp/coding_publish.py` | 205 | 191 | 12275 | 63 | 181 | 0.86 | 10 | 1 | 0 | 0 |
 | `src/reader_mcp/coding_store.py` | 235 | 198 | 9189 | 45 | 151 | 0.92 | 23 | 4 | 1 | 21 |
 | `src/reader_mcp/coding_workflow.py` | 353 | 322 | 20315 | 61 | 149 | 0.91 | 20 | 2 | 1 | 21 |
@@ -866,7 +866,7 @@ exercise modules through HTTP, so see the route table for those.
 | `src/reader_mcp/learning.py` | 39 | 31 | 2105 | 61 | 127 | 0.87 | 2 | 0 | 1 | 14 |
 | `src/reader_mcp/links.py` | 609 | 536 | 30975 | 55 | 173 | 0.88 | 31 | 3 | 2 | 20 |
 | `src/reader_mcp/llm_inventory.py` | 102 | 85 | 5205 | 57 | 138 | 0.85 | 6 | 0 | 1 | 3 |
-| `src/reader_mcp/llm_logs.py` | 278 | 240 | 12497 | 50 | 136 | 0.95 | 18 | 1 | 9 | 136 |
+| `src/reader_mcp/llm_logs.py` | 278 | 240 | 12497 | 50 | 136 | 0.95 | 18 | 1 | 9 | 137 |
 | `src/reader_mcp/local_model.py` | 1793 | 1573 | 90684 | 55 | 187 | 0.87 | 115 | 13 | 4 | 55 |
 | `src/reader_mcp/magazine.py` | 202 | 175 | 9086 | 49 | 138 | 0.94 | 10 | 1 | 0 | 0 |
 | `src/reader_mcp/maintenance.py` | 336 | 300 | 17937 | 57 | 170 | 0.77 | 20 | 1 | 4 | 32 |
@@ -907,10 +907,10 @@ exercise modules through HTTP, so see the route table for those.
 | `scripts/vendor_web.py` | 77 | 68 | 4132 | 58 | 186 | 0.88 | 2 | 0 | 0 | 0 |
 | `scripts/verify_installation.py` | 80 | 72 | 4428 | 60 | 264 | 0.92 | 1 | 0 | 0 | 0 |
 | `scripts/verify_search_installation.py` | 74 | 66 | 4190 | 59 | 138 | 0.82 | 1 | 0 | 0 | 0 |
-| **total** | 23339 | 20785 | 1238497 | | | | | | | |
+| **total** | 23343 | 20788 | 1238871 | | | | | | | |
 
 Language-neutral code that a port keeps as is: `src/reader_mcp/web_ui/` (41 hand-written JS/CSS/HTML files, 8340 lines, excluding vendor/) plus the built `web_ui/controls/` bundle from `web/`.
-Tests: 61 pytest files, 666 test functions; 72 browser suites; 18 node unit files.
+Tests: 61 pytest files, 667 test functions; 72 browser suites; 18 node unit files.
 
 ## Contract coverage
 

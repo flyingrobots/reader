@@ -1359,7 +1359,8 @@ per vault, by the one Reader server that holds `.reader/coding-jobs/supervisor.l
    Reader re-reads the article, checks its SHA-256 (a changed article is refused as `stale`), parses it, finds the
    block and its registered repository, and archives the exact original and submitted prompts before any work.
    The same request UUID with the same input returns the same run (`duplicate: true`); with different input it is
-   a 409 conflict, never an edit or a rerun. A rerun names its `predecessor` and reuses its verified issue.
+   a 409 conflict, never an edit or a rerun. A rerun names its `predecessor`, a finished run of the same article and block
+   (another is a 409), and reuses its verified issue.
 2. *Preflight.* Registry identity (the checkout's remote and any push URL must be `github.com/owner/name`), the
    agent executable, the verification guard, free space for the archive and the worktree folder, GitHub login
    and push access through `gh`, the supplied issue (it must be an issue, not a pull request, in that repository),
