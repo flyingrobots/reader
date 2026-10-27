@@ -338,7 +338,8 @@ def test_sends_are_idempotent(vault):
 
 def test_changed_paths_commits_and_chat_commit_trailers(tmp_path):
     voices = default_voices(tmp_path / 'v', {'Agy': ['--write', 'library/perspectives/chat-note.md', '--commit'],
-                                             'Claude': ['--write', 'notes/draft.md']})
+                                             # After Agy's reply is committed, so the two replies never share a commit.
+                                             'Claude': ['--write', 'notes/draft.md', '--wait-for-commit', 'Chat: thought — Agy replied']})
     root = make_vault(tmp_path / 'v', voices)
     log = tmp_path / 'locks.jsonl'
     conversations = service(root, git_locks=str(git_locks_shim(tmp_path, log)))

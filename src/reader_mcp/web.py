@@ -26,6 +26,9 @@ from .browse import Browse
 from .bookmarks import Bookmarks
 from .display import shown
 from .companions import Companions, load_settings as companion_settings
+from .coding_api import CodingJobs
+from .coding_jobs import JobConflict, JobsOwned
+from . import llm_inventory
 from .changes import MAX_BLOB, SHA, TEXT_TYPES, Changes, Unavailable, bounded, diff, prose
 from .editions import Editions
 from . import embeds as embed_tree
@@ -180,7 +183,7 @@ class MissingDocument(ValueError, FileNotFoundError):
 
 
 class WebLibrary:
-    def __init__(self, root, font_fetcher=None, maintenance_runners=None, inbox_environ=None, chat_options=None, local_model=None, prose=None, service_runner=None, environ=None, writing_options=None, companions=None, art_options=None):
+    def __init__(self, root, font_fetcher=None, maintenance_runners=None, inbox_environ=None, chat_options=None, local_model=None, prose=None, service_runner=None, environ=None, writing_options=None, companions=None, art_options=None, coding_options=None):
         self.root = Path(root).expanduser().resolve(strict=True)
         self.access = WebAccess(self.root, environ)
         self.service = Service(service_runner)
@@ -220,6 +223,9 @@ class WebLibrary:
         tooled = self.root / '.reader/tooling/bin/colorful'
         self.prose.configured = lambda: [(o, p) for o, p in (('settings', companion_settings(self.root).get('colorful')), ('reader-tooling', str(tooled))) if p]
         self.art = Studio(self.root, self, **(art_options or {}))
+        # Coding jobs (RW-44): article prompts run in registered repositories; see coding_jobs.py.
+        self.jobs = CodingJobs(self.root, self.article_source, **(coding_options or {}))
+        self.jobs.start()
 
     def path(self, value, preview=False):
         """A library file; with `preview`, also an inbox arrival file (read-only views only)."""
@@ -273,6 +279,14 @@ class WebLibrary:
         self.hashes[path] = (identity, digest)
         return digest
 
+    def article_source(self, path):
+        """(text, SHA-256) of a current library Markdown document, read once, for coding-job admission."""
+        file = self.path(path)
+        if file.suffix.lower() not in ('.md', '.markdown') or file.stat().st_size > MAX_DOCUMENT:
+            raise ValueError('Coding jobs start only from library Markdown documents of at most 4 MiB')
+        data = file.read_bytes()
+        return data.decode('utf-8'), hashlib.sha256(data).hexdigest()
+
     def chat_document(self, path, inline=False):
         """Identity of a chat's document; its text only for a voice that cannot read files."""
         self.path(path)  # library documents only: unfiled inbox previews are never chat subjects
@@ -325,6 +339,7 @@ class WebLibrary:
         return {'prompt': self.prompts.view(saved), 'task': task, 'default_voice': chosen} | self.conversations.voices()
 
     def close(self):
+        self.jobs.close()
         self.art.close()
         self.conversations.close()
         self.local_model.close()
@@ -1250,6 +1265,8 @@ class WebHandler(BaseHTTPRequestHandler):
     def do_GET(self):
         if urlsplit(self.path).path == '/api/chat/stream':
             self.stream_chat()
+        elif urlsplit(self.path).path == '/api/jobs/stream':
+            self.stream_job()
         else:
             self.handle_request(False)
 
@@ -1329,6 +1346,64 @@ class WebHandler(BaseHTTPRequestHandler):
             return False
         except OSError:
             return True
+
+    def stream_job(self):
+        """Server-Sent Events for one coding job: `hello` (the run), `event` frames with `id: <seq>`, `ping`, and `end`.
+
+        `after` is the last sequence the client has; events after it come from memory or, after a gap, from the
+        run archive, so a reload or a missed frame resynchronizes. Clients ignore frames at or below their cursor."""
+        try:
+            self.allowed()
+            args = {k: v[0] for k, v in parse_qs(urlsplit(self.path).query).items()}
+            jobs = self.server.library.jobs
+            run_id, after = args.get('id', ''), args.get('after', '0')
+            if not re.fullmatch(r'[0-9]{1,9}', after):  # ASCII only: str.isdigit() takes '²', which int() refuses.
+                raise ValueError('Expected a non-negative event cursor')
+            jobs.detail(run_id)
+        except PermissionError as exc:
+            self.json({'error': str(exc)}, 403); return
+        except (ValueError, TypeError, OSError) as exc:
+            self.json({'error': str(exc)}, 400); return
+        if not self.server.streams.acquire(blocking=False):
+            self.json({'error': 'At most 4 live streams may be open; close another panel'}, 429); return
+        try:
+            self.send_response(200)
+            self.send_header('Content-Type', 'text/event-stream; charset=utf-8')
+            self.send_header('Cache-Control', 'no-store')
+            self.send_header('X-Content-Type-Options', 'nosniff')
+            self.end_headers()
+            self.close_connection = True
+            def send(kind, data, seq=None):
+                self.wfile.write(((f'id: {seq}\n' if seq else '') + f'event: {kind}\ndata: ' + json.dumps(data, ensure_ascii=False) + '\n\n').encode())
+            cursor = int(after)
+            send('hello', {'run': jobs.detail(run_id), 'after': cursor})
+            self.wfile.flush()
+            deadline = datetime.now(timezone.utc) + timedelta(hours=1)
+            quiet_since = time.monotonic()
+            while not jobs.live.closed and datetime.now(timezone.utc) < deadline:
+                page = jobs.events(run_id, cursor, 500)
+                for event in page['events']:
+                    send('event', event, event['seq'])
+                cursor = page['next']
+                if page['done'] and not page['more']:
+                    send('end', {'run': page['run']})
+                    self.wfile.flush()
+                    break
+                if page['events']:
+                    quiet_since = time.monotonic()
+                elif time.monotonic() - quiet_since >= self.server.chat_heartbeat:
+                    send('ping', {'seq': cursor, 'status': page['run']['status'], 'phase': page['run']['phase']})
+                    quiet_since = time.monotonic()
+                self.wfile.flush()
+                if not page['more']:
+                    # Short slices free a closed panel's stream slot at once, as chat streams do (#152).
+                    jobs.live.wait(run_id, cursor, min(self.server.chat_heartbeat, self.server.chat_hangup_check))
+                    if self.hung_up():
+                        break
+        except (BrokenPipeError, ConnectionResetError, TimeoutError, OSError):
+            pass
+        finally:
+            self.server.streams.release()
 
     def do_POST(self):
         self.handle_request(True)
@@ -1436,6 +1511,10 @@ class WebHandler(BaseHTTPRequestHandler):
                 elif parsed.path == '/api/writing':
                     participant = library.engagement.participant(request.pop('participant', self.server.participant))
                     self.json(library.writing.dispatch(request, participant))
+                elif parsed.path == '/api/jobs':
+                    self.json(library.jobs.dispatch(request))
+                elif parsed.path == '/api/repositories':
+                    self.json(library.jobs.configure(request, self.identity))
                 elif parsed.path == '/api/quiz':
                     participant = library.engagement.participant(request.pop('participant', self.server.participant))
                     self.json(library.quizzes.dispatch(request, participant))
@@ -1545,6 +1624,25 @@ class WebHandler(BaseHTTPRequestHandler):
                 self.json(library.art.status())
             elif parsed.path == '/api/art/still':
                 self.send_file(library.art.still_file(args.get('path', ''), args.get('edition', ''), args.get('generation', '')), raw=True)
+            elif parsed.path == '/api/jobs':
+                self.json(library.jobs.runs(args.get('repo') or None, args.get('state') or None, args.get('path') or None,
+                                            args.get('block') or None, self.number(args, 'cursor', 0), self.number(args, 'limit', 50)))
+            elif parsed.path == '/api/jobs/actions':
+                self.json(library.jobs.actions(args.get('path', '')))
+            elif parsed.path == '/api/jobs/run':
+                self.json(library.jobs.detail(args.get('id', '')))
+            elif parsed.path == '/api/jobs/events':
+                self.json(library.jobs.events(args.get('id', ''), self.number(args, 'after', 0), self.number(args, 'limit', 500)))
+            elif parsed.path == '/api/jobs/artifact':
+                self.json(library.jobs.artifact(args.get('id', ''), args.get('name', ''), self.number(args, 'limit', 256 * 1024)))
+            elif parsed.path == '/api/repositories':
+                self.json(library.jobs.repositories(args.get('check') == '1'))
+            elif parsed.path == '/api/logs':
+                self.json(llm_inventory.page(library.root, args.get('kind') or None, args.get('cursor') or None, self.number(args, 'limit', 50)))
+            elif parsed.path == '/api/logs/run':
+                self.json(llm_inventory.detail(library.root, args.get('path', '')))
+            elif parsed.path == '/api/logs/artifact':
+                self.json(llm_inventory.artifact(library.root, args.get('path', ''), args.get('name', ''), self.number(args, 'limit', 256 * 1024)))
             elif parsed.path == '/api/shape':
                 self.json(library.shapes.shape(args.get('path', '')))
             elif parsed.path == '/api/issue':
@@ -1592,8 +1690,10 @@ class WebHandler(BaseHTTPRequestHandler):
             self.json({'error': str(exc)}, 403)
         except ProseUnavailable as exc:
             self.json({'error': str(exc), 'unavailable': True}, 409)
-        except (RunConflict, ChatOwned, ArtOwned) as exc:
+        except (RunConflict, ChatOwned, ArtOwned, JobsOwned) as exc:
             self.json({'error': str(exc)}, 409)
+        except JobConflict as exc:
+            self.json({'error': str(exc), 'code': exc.code}, 409)
         except WritingConflict as exc:
             self.json({'error': str(exc)} | exc.extra, 409)
         except BlockingIOError as exc:
@@ -1609,6 +1709,13 @@ class WebHandler(BaseHTTPRequestHandler):
         finally:
             if gate is not None:
                 gate.release()
+
+    @staticmethod
+    def number(args, name, default):
+        value = args.get(name, str(default))
+        if not value.isdigit() or len(value) > 9:
+            raise ValueError(f'Expected {name} as a non-negative whole number')
+        return int(value)
 
     def send_file(self, file, raw=False):
         size = file.stat().st_size

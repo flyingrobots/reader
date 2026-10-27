@@ -1,0 +1,15 @@
+{
+ "object": {
+  "blocks": {
+   "array": "empty"
+  },
+  "configured": "boolean",
+  "enabled": "boolean",
+  "path": "string",
+  "read_only": "boolean",
+  "rejected": {
+   "array": "empty"
+  },
+  "sha256": "string:sha256"
+ }
+}

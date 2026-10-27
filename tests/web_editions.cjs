@@ -76,9 +76,9 @@ const essay='library/essays/tidal/';
    await page.waitForTimeout(400);await page.screenshot({path:'.reader/web-dev/editions-sheet.png'});
    await page.keyboard.press('Escape');await sheet.waitFor({state:'hidden'});
    await context.close();}
-  // Behind the scenes lists edition-link diagnostics.
+  // Reader Admin's Indexes page lists edition-link diagnostics.
   {const {page,context}=await open({});
-   await page.goto(url+'#backstage');const card=page.locator('#edition-links[data-state=current]');await card.waitFor();
+   await page.goto(url+'#admin/indexes');const card=page.locator('#edition-links[data-state=current]');await card.waitFor();
    assert.match(await card.textContent(),/All resolved/);assert.match(await card.textContent(),/Families1/);
    await context.close();}
   assert.deepEqual(external,[]);assert.deepEqual(errors,[]);

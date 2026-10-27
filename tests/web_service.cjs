@@ -1,4 +1,4 @@
-/* The Server card on Behind the scenes: commit, source, Tailscale address, identity, and the Update now / Pause toasts. */
+/* The Server card on Reader Admin's Service & tools page: commit, source, Tailscale address, identity, and the Update now / Pause toasts. */
 const assert=require('node:assert/strict');
 const {spawn}=require('node:child_process');
 const {createInterface}=require('node:readline');
@@ -23,7 +23,7 @@ const {chromium}=require(process.env.READER_PLAYWRIGHT||'playwright-core');
   for(const icon of [...manifest.body.icons.map(i=>i.src),await page.locator('link[rel=apple-touch-icon]').getAttribute('href')])assert.equal((await page.request.get(url+icon)).status(),200,icon);
   await page.waitForFunction(()=>document.querySelector('meta[name=theme-color]').content===getComputedStyle(document.documentElement).getPropertyValue('--bg').trim());
   // The card.
-  await page.goto(url+'#backstage');await card.waitFor();
+  await page.goto(url+'#admin/service');await card.waitFor();
   await card.locator('[data-fact=commit]').waitFor();
   assert.match(await card.locator('[data-fact=commit] dd').textContent(),/^1f2e3d4 · /);
   assert.equal(await card.locator('[data-fact=source] dd').textContent(),'preview/integration');

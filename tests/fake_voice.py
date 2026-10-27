@@ -3,7 +3,8 @@
 Options (from the registry argv): --style claude|codex|agy|text|garbage, --reply TEXT,
 --chunks N, --delay SECONDS, --sleep SECONDS (before replying), --hang, --exit CODE,
 --write PATH (vault-relative file to create), --commit (commit that file),
---log DIR (record argv, stdin and cwd), --child (spawn a sleeping grandchild first).
+--log DIR (record argv, stdin and cwd), --child (spawn a sleeping grandchild first),
+--wait-for-commit SUBJECT (reply only once the vault's Git history has a commit with that subject, at most 30 s).
 
 Listening checks (a prompt containing "Reader listening check") answer --listen TEXT
 (default PASS) at once, so --hang/--sleep/--write apply only to ordinary turns;
@@ -41,6 +42,7 @@ parser.add_argument('--write')
 parser.add_argument('--commit', action='store_true')
 parser.add_argument('--log')
 parser.add_argument('--child', action='store_true')
+parser.add_argument('--wait-for-commit')
 parser.add_argument('--prompt')
 parser.add_argument('--persona')
 parser.add_argument('--listen', default='PASS')
@@ -96,6 +98,13 @@ if args.child:
         (Path(args.log) / 'child.pid').write_text(str(child.pid))
 if args.sleep:
     time.sleep(args.sleep)
+if args.wait_for_commit and kind == 'turn':
+    # Orders this reply after another voice's commit, so a test never depends on which reply finishes first.
+    deadline = time.monotonic() + 30
+    while args.wait_for_commit not in subprocess.run(['git', 'log', '--format=%s'], capture_output=True, text=True).stdout:
+        if time.monotonic() > deadline:
+            sys.exit('fake voice: no commit "' + args.wait_for_commit + '" within 30 s')
+        time.sleep(.05)
 if args.hang:
     print(json.dumps({'type': 'system', 'subtype': 'init', 'model': 'fake-model'}), flush=True)
     time.sleep(3600)

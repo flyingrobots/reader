@@ -32,6 +32,8 @@ const opening=text=>new RegExp(text.replace(/\*\*/g,'').split(/\s+/).slice(0,4).
   const requests=[];context.on('request',r=>requests.push([r.method(),r.url(),r.resourceType()]));
   await context.route('**/*',route=>route.request().url().startsWith(origin+'/')?route.continue():route.abort());
   await context.addInitScript(()=>{try{localStorage.setItem('reader.preferences.v1',JSON.stringify({smooth:false,theme:'paper',layout:'scroll'}));}catch{}});
+  // An unaddressed message goes to a voice chosen at random: a fixed seed makes that choice the same on every run.
+  await context.addInitScript(()=>{let seed=0x2f6e2b1;Math.random=()=>{seed=(seed+0x6d2b79f5)|0;let t=Math.imul(seed^(seed>>>15),1|seed);t=(t+Math.imul(t^(t>>>7),61|t))^t;return ((t^(t>>>14))>>>0)/4294967296;};});
   // The chat panel's stream events as the page's EventSource dispatches them, in order.
   await context.addInitScript(()=>{window.__events=[];addEventListener('DOMContentLoaded',()=>{const ES=window.EventSource,real=EventTarget.prototype.dispatchEvent;
     ES.prototype.dispatchEvent=function(event){if(event.type!=='ping')window.__events.push([event.type,event.data?JSON.parse(event.data):null]);return real.call(this,event);};});});
@@ -98,7 +100,11 @@ const opening=text=>new RegExp(text.replace(/\*\*/g,'').split(/\s+/).slice(0,4).
   await page.locator('#chat-panel [data-chat-turn] [data-chat-cancel]').click();
   const cancelled=page.locator('#chat-panel [data-chat-message][data-author="Architect"][data-chat-state="cancelled"]');await cancelled.waitFor();
   await cancelled.locator('[data-chat-retry]').click();
-  await page.locator('#chat-panel [data-chat-message][data-author="Architect"][data-chat-state="done"]').filter({hasText:'re-anchoring hit rate'}).waitFor({timeout:10000});
+  // The retried reply is the message after the cancelled one (an earlier Architect reply may have the same text).
+  await page.waitForFunction(()=>{const all=[...document.querySelectorAll('#chat-panel [data-chat-message]')],at=all.findIndex(m=>m.dataset.author==='Architect'&&m.dataset.chatState==='cancelled');
+    const next=all.slice(at+1).find(m=>m.dataset.author==='Architect');return at>=0&&next?.dataset.chatState==='done'&&/re-anchoring hit rate/.test(next.textContent);},null,{timeout:10000});
+  // The cancelled message re-renders just after the new reply appears: wait for its Retry to go, then check.
+  await cancelled.locator('[data-chat-retry]').waitFor({state:'detached',timeout:5000}).catch(()=>{});
   assert.equal(await cancelled.locator('[data-chat-retry]').count(),0,'a retried reply offers no second retry');
   const count=await page.locator('#chat-panel [data-chat-message]').count();
   await page.locator('#chat-close').click();

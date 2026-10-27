@@ -221,6 +221,18 @@ describe('speech, prose, quizzes and prompts without their companions', () => {
   });
 });
 
+describe('coding jobs refuse what they cannot run', () => {
+  test('POST /api/jobs refuses unknown actions and malformed stops', async () => {
+    await refused('/api/jobs', {action: 'nope'});
+    await refused('/api/jobs', {action: 'stop'});
+    await refused('/api/jobs', {action: 'stop', id: 'no-such-run', extra: 1});
+  });
+  test('POST /api/repositories refuses unknown actions and malformed registrations', async () => {
+    await refused('/api/repositories', {action: 'nope'});
+    await refused('/api/repositories', {action: 'register', repo: 'example/reader'});
+  });
+});
+
 describe('no stray files', () => {
   test('new durable files appear only in the folders their routes own', () => {
     const created = files(vault.root).filter(p => !initial.has(p) && !p.startsWith('.reader/'));

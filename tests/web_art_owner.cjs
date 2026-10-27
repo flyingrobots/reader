@@ -20,8 +20,8 @@ const OWNED='Another Reader server owns art for this vault';
   await context.addInitScript(()=>{try{localStorage.setItem('reader.preferences.v1',JSON.stringify({smooth:false,theme:'paper',layout:'scroll'}));}catch{}});
   const page=await context.newPage();page.on('pageerror',e=>errors.push(e.message));
   page.on('response',r=>{if(r.request().method()==='POST'&&new URL(r.url()).pathname==='/api/art')posts.push(r.status());});
-  // Behind the scenes: the owner's commissions are listed read-only, with no Cancel, and the card says why.
-  await page.goto(url+'#backstage');await page.locator('#backstage-art').waitFor();
+  // Reader Admin, Artwork: the owner's commissions are listed read-only, with no Cancel, and the card says why.
+  await page.goto(url+'#admin/artwork');await page.locator('#backstage-art').waitFor();
   const note=page.locator('#backstage-art [data-art-read-only]');await note.waitFor();
   assert.match(await note.textContent(),new RegExp('^'+OWNED+'; art is read-only here\\.'));
   assert.equal(await page.locator('#backstage-art [data-art-job=art-ownedrun0000]').getAttribute('data-job-state'),'running');

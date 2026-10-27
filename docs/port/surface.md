@@ -12,7 +12,7 @@ Contents: [HTTP routes](#http-routes) · [POST actions](#post-actions) · [reque
 
 ## HTTP routes
 
-71 method+path routes in `src/reader_mcp/web.py` (`WebHandler.handle_request` and `stream_chat`). `*` marks a prefix
+83 method+path routes in `src/reader_mcp/web.py` (`WebHandler.handle_request` and its stream methods). `*` marks a prefix
 route. **Pool** is the admission gate (`WebHandler.admission`). **Handler** is the WebLibrary attribute it calls, with the
 owning class. **Existing tests** counts browser suites (`tests/web_*.cjs`, `tests/*.test.mjs`) and pytest files naming the path;
 **Contract** names the `tests/contract/` files that call it.
@@ -20,9 +20,10 @@ owning class. **Existing tests** counts browser suites (`tests/web_*.cjs`, `test
 | Method | Path | Pool | Query params / body fields | Handler | Explicit status | Existing tests (browser / pytest) | Contract |
 | - | - | - | - | - | - | - | - |
 | GET | `/api/chat/stream` | streams (4, refuse 429) | id (SSE: hello, state, started, delta, posted, done, commit, ping) | conversations.chats.read, conversations.runner.wait | 400, 403, 429 | 0 / 3 | chat-heartbeat, chat-stream |
+| GET | `/api/jobs/stream` | streams (4, refuse 429) | id, after (SSE: hello, event, ping, end) | jobs.detail, jobs.events, jobs.live.wait | 400, 403, 429 | 0 / 1 | read |
 | POST | `/api/annotations` | expensive (8, refuse 429) | — | annotations.dispatch (Annotations) | — | 4 / 1 | vault-files, write |
 | POST | `/api/seen` | expensive (8, refuse 429) | — | engagement.seen (Engagement) | — | 12 / 2 | security, write |
-| POST | `/api/bookmark` | expensive (8, refuse 429) | source_sha256, path | digest, bookmarks.save (Bookmarks) | — | 6 / 2 | write |
+| POST | `/api/bookmark` | expensive (8, refuse 429) | source_sha256, path | digest, bookmarks.save (Bookmarks) | — | 7 / 2 | write |
 | POST | `/api/themes` | expensive (8, refuse 429) | — | themes.dispatch (Themes) | — | 1 / 3 | write |
 | POST | `/api/speak` | expensive (8, refuse 429) | path, source_sha256, scope, start, end, page | speak | — | 0 / 2 | write |
 | POST | `/api/speak/*` | expensive (8, refuse 429) | action | speech.control (Speech) | — | 0 / 2 | write |
@@ -30,12 +31,14 @@ owning class. **Existing tests** counts browser suites (`tests/web_*.cjs`, `test
 | POST | `/api/prose` | expensive (8, refuse 429) | — | colorize | — | 1 / 4 | write |
 | POST | `/api/queue` | expensive (8, refuse 429) | participant, action, path, index, request_id, added_by, reason, current | queue.change (ReadingQueue), queue_view | — | 3 / 3 | write |
 | POST | `/api/history` | expensive (8, refuse 429) | action, participant, path, sha256 | digest, queue.opened (ReadingQueue), queue.hide (ReadingQueue) | — | 2 / 3 | write |
-| POST | `/api/maintenance` | expensive (8, refuse 429) | action, kind | maintenance.start (Maintenance) | — | 0 / 2 | write |
+| POST | `/api/maintenance` | expensive (8, refuse 429) | action, kind | maintenance.start (Maintenance) | — | 1 / 2 | write |
 | POST | `/api/companions` | expensive (8, refuse 429) | — | companions.dispatch (Companions) | — | 1 / 3 | write |
-| POST | `/api/inbox` | expensive (8, refuse 429) | action, sandbox_mode | inbox.start (InboxView), inbox.stop (InboxView) | — | 2 / 4 | write |
+| POST | `/api/inbox` | expensive (8, refuse 429) | action, sandbox_mode | inbox.start (InboxView), inbox.stop (InboxView) | — | 3 / 4 | write |
 | POST | `/api/local-model` | expensive (8, refuse 429) | — | local_model.dispatch (LocalModel) | — | 1 / 3 | write |
 | POST | `/api/art` | expensive (8, refuse 429) | participant | art.dispatch (Studio) | — | 5 / 2 | write |
 | POST | `/api/writing` | expensive (8, refuse 429) | participant | writing.dispatch (Writing) | — | 3 / 2 | write |
+| POST | `/api/jobs` | expensive (8, refuse 429) | — | jobs.dispatch (CodingJobs) | — | 1 / 2 | write |
+| POST | `/api/repositories` | expensive (8, refuse 429) | — | jobs.configure (CodingJobs) | — | 0 / 2 | write |
 | POST | `/api/quiz` | expensive (8, refuse 429) | participant | quizzes.dispatch (Quizzes) | — | 1 / 2 | write |
 | POST | `/api/prompt` | expensive (8, refuse 429) | participant | prompts.dispatch (Prompts) | — | 0 / 1 | write |
 | POST | `/api/service` | expensive (8, refuse 429) | action | service.act (Service) | — | 0 / 2 | write |
@@ -49,10 +52,10 @@ owning class. **Existing tests** counts browser suites (`tests/web_*.cjs`, `test
 | GET | `/api/embeds` | reads (32, wait 5.0 s then 429) | depth, from, target[], ancestor[] | embeds | — | 1 / 3 | read |
 | GET | `/api/resolve` | reads (32, wait 5.0 s then 429) | from, target | resolve | — | 1 / 2 | read |
 | GET | `/api/themes` | reads (32, wait 5.0 s then 429) | — | themes.list (Themes) | — | 1 / 3 | read, write |
-| GET | `/api/maintenance` | reads (32, wait 5.0 s then 429) | — | maintenance.status (Maintenance), local_model.brief (LocalModel) | — | 0 / 2 | read, write |
+| GET | `/api/maintenance` | reads (32, wait 5.0 s then 429) | — | maintenance.status (Maintenance), local_model.brief (LocalModel) | — | 1 / 2 | read, write |
 | GET | `/api/readers` | expensive (8, refuse 429) | path, participant | readers | — | 2 / 2 | read |
 | GET | `/api/speak/*` | reads (32, wait 5.0 s then 429) | — | speech.get (Speech) | — | 0 / 2 | read |
-| GET | `/api/inbox` | reads (32, wait 5.0 s then 429) | — | inbox.status (InboxView) | — | 2 / 4 | read |
+| GET | `/api/inbox` | reads (32, wait 5.0 s then 429) | — | inbox.status (InboxView) | — | 3 / 4 | read |
 | GET | `/api/links` | reads (32, wait 5.0 s then 429) | path | backlinks | — | 1 / 2 | read |
 | GET | `/api/preview` | reads (32, wait 5.0 s then 429) | path, fragment, participant | preview | — | 0 / 1 | read |
 | GET | `/api/link-counts` | reads (32, wait 5.0 s then 429) | — | link_counts | — | 0 / 1 | read |
@@ -75,6 +78,15 @@ owning class. **Existing tests** counts browser suites (`tests/web_*.cjs`, `test
 | GET | `/api/art/prompt` | reads (32, wait 5.0 s then 429) | path, edition, generation | art.prompts (Studio) | — | 0 / 2 | read |
 | GET | `/api/art/jobs` | reads (32, wait 5.0 s then 429) | — | art.status (Studio) | — | 3 / 2 | read |
 | GET | `/api/art/still` | reads (32, wait 5.0 s then 429) | path, edition, generation | send_file(raw), art.still_file (Studio) | — | 0 / 3 | read |
+| GET | `/api/jobs` | reads (32, wait 5.0 s then 429) | repo, state, path, block | jobs.runs (CodingJobs) | — | 1 / 2 | read |
+| GET | `/api/jobs/actions` | reads (32, wait 5.0 s then 429) | path | jobs.actions (CodingJobs) | — | 0 / 1 | read |
+| GET | `/api/jobs/run` | reads (32, wait 5.0 s then 429) | id | jobs.detail (CodingJobs) | — | 1 / 1 | read |
+| GET | `/api/jobs/events` | reads (32, wait 5.0 s then 429) | id | jobs.events (CodingJobs) | — | 0 / 1 | read |
+| GET | `/api/jobs/artifact` | reads (32, wait 5.0 s then 429) | id, name | jobs.artifact (CodingJobs) | — | 1 / 1 | read |
+| GET | `/api/repositories` | reads (32, wait 5.0 s then 429) | check | jobs.repositories (CodingJobs) | — | 0 / 2 | read |
+| GET | `/api/logs` | reads (32, wait 5.0 s then 429) | kind, cursor | — | — | 0 / 2 | read |
+| GET | `/api/logs/run` | reads (32, wait 5.0 s then 429) | path | — | — | 0 / 1 | read |
+| GET | `/api/logs/artifact` | reads (32, wait 5.0 s then 429) | path, name | — | — | 0 / 1 | read |
 | GET | `/api/shape` | expensive (8, refuse 429) | path | shapes.shape (Shapes) | — | 0 / 1 | read |
 | GET | `/api/issue` | reads (32, wait 5.0 s then 429) | start, end | magazine.issue (Magazine) | — | 0 / 3 | read |
 | GET | `/api/editions` | reads (32, wait 5.0 s then 429) | path | family | — | 0 / 2 | read |
@@ -99,6 +111,7 @@ the action accepts beyond `action`, where the code lists them.
 | Class (module) | Action: accepted fields |
 | - | - |
 | Annotations (`src/reader_mcp/annotations.py`) | `attention`; `seen`; `list`; `create`; `reply`; `resolve` |
+| CodingJobs (`src/reader_mcp/coding_api.py`) | `submit`; `stop` |
 | Companions (`src/reader_mcp/companions.py`) | `check`: name; `install`: name; `update`: name; `start`: name; `set-path`: name, path |
 | Conversations (`src/reader_mcp/voice_runner.py`) | `create`; `send`; `paste`; `cancel`; `retry`; `hand`; `settings`; `hush` |
 | LocalModel (`src/reader_mcp/local_model.py`) | `server-start`; `server-stop`; `load`: model; `unload`: model; `enqueue`: path, scope, task; `run`: task; `pause`: task; `cancel`: id; `clear`: task; `prune`: task; `settings`: settings |
@@ -134,7 +147,8 @@ the action accepts beyond `action`, where the code lists them.
 | `MissingDocument` | 404 |
 | `PermissionError` | 403 |
 | `ProseUnavailable` | 409 |
-| `(RunConflict, ChatOwned, ArtOwned)` | 409 |
+| `(RunConflict, ChatOwned, ArtOwned, JobsOwned)` | 409 |
+| `JobConflict` | 409 |
 | `WritingConflict` | 409 |
 | `BlockingIOError` | 429 |
 | `SpeechUnavailable` | 503 |
@@ -316,7 +330,9 @@ on stdout; errors print `Reader: <message>` on stderr and exit 1 (`browse --chec
 
 | Command | Option | Details |
 | - | - | - |
-| (top) | `kind` | choices=['python', 'node', 'formatter'] |
+| (top) | `kind` | choices=['python', 'node', 'formatter', 'web'] |
+| (top) | `pytest_args` | nargs='*' |
+| (top) | `-k` |  |
 
 ### Other clients of the surface in this repository
 
@@ -369,6 +385,10 @@ String literals joined with `/` or shaped like vault paths. A starting point for
 | `src/reader_mcp/catalog.py` | `.reader`, `.reader/catalog-migration-backup/`, `catalog`, `catalog.lock`, `catalog.sqlite3`, `catalog/`, `catalog/index.md`, `catalog/metadata`, `catalog/metadata/`, `index.md`, `library`, `library/`, `library/connections/`, `library/reactions/`, `library/reflections/`, `preservation.json`, `reading-record.md`, `receipt.json` |
 | `src/reader_mcp/chats.py` | `*.json`, `.reader`, `chat-commit.lock`, `chats`, `chats.lock`, `chats/`, `voice-runner` |
 | `src/reader_mcp/cli.py` | `catalog`, `curation`, `library/` |
+| `src/reader_mcp/coding_jobs.py` | `.reader/coding-jobs`, `admit.lock`, `events.jsonl`, `events.jsonl.partial`, `git.log`, `last-message.md`, `meta.json`, `prompt.txt`, `request.json`, `result.json`, `stderr.log`, `stdout.jsonl`, `system.txt`, `verify.log` |
+| `src/reader_mcp/coding_publish.py` | `verify.log` |
+| `src/reader_mcp/coding_store.py` | `*.json`, `.reader/coding-jobs`, `events.jsonl`, `events.jsonl.gz`, `events.jsonl.partial`, `requests`, `runs` |
+| `src/reader_mcp/coding_workflow.py` | `git.log`, `last-message.md`, `stderr.log`, `stdin.txt`, `stdout.jsonl`, `system.txt` |
 | `src/reader_mcp/companions.py` | `.cargo/bin/cargo`, `.local/bin/ai-tts`, `.reader`, `.reader/companions.json`, `.reader/tooling`, `HEAD`, `Library/LaunchAgents`, `bin`, `bin/colorful`, `bin/wide-md`, `colorful-language`, `colorful-target`, `colorful.json`, `companions.json`, `companions.lock`, `git-locks`, `installed.json`, `logs`, `objects`, `release/colorful`, `scripts/install_wide_md.py`, `setup.lock` |
 | `src/reader_mcp/curation.py` | `*.json`, `.reader`, `curation`, `curation.lock`, `index.md`, `intake-inspection.json`, `intake-inspection.md`, `intake-record.md`, `library/`, `preservation.json`, `reading-copy-outcomes.json`, `reading-copy-results.json`, `reading-record.md`, `receipt.json` |
 | `src/reader_mcp/editions.py` | `catalog`, `catalog/metadata`, `catalog/metadata/`, `library`, `library/` |
@@ -388,6 +408,7 @@ String literals joined with `/` or shaped like vault paths. A starting point for
 | `src/reader_mcp/reading.py` | `.reader/reading-runtime`, `.reader/tooling/bin/wide-md`, `.reader/tooling/installed.json`, `.wide-md.toml`, `library/`, `stderr`, `stdout` |
 | `src/reader_mcp/reading_queue.py` | `history`, `library/`, `queues` |
 | `src/reader_mcp/related.py` | `.reader`, `search.v2.sqlite3` |
+| `src/reader_mcp/repositories.py` | `.reader/repositories.json`, `HEAD`, `objects`, `repositories.lock` |
 | `src/reader_mcp/search.py` | `.reader`, `embedding-cache.sqlite3`, `indexes/settings.json`, `library`, `library/`, `models`, `receipt.json`, `search.lock`, `search.sqlite3`, `search.v2.sqlite3` |
 | `src/reader_mcp/search_guard.py` | `.reader`, `.venv`, `launch.json`, `result.json`, `search-run.lock`, `search-runtime`, `search.v2.sqlite3`, `stderr.log` |
 | `src/reader_mcp/server.py` | `library/` |
@@ -406,7 +427,7 @@ String literals joined with `/` or shaped like vault paths. A starting point for
 | `src/reader_mcp/demo/__init__.py` | `vault`, `voices.json` |
 | `src/reader_mcp/demo/build.py` | `*.json`, `*.jsonl`, `.gitignore`, `.reader/ .DS_Store `, `.reader/demo-staging`, `.reader/models`, `AGENTS.md`, `NOTICE.md`, `README.md`, `analytical-engine/babbage-analytical-engine.md`, `analytical-engine/lovelace-note-g.md`, `analytical-engine/lovelace-note-g.reading.md`, `analytical-engine/reading-note-g.md`, `annotations`, `art`, `assets/darwin-diagram.png`, `assets/lantern-0.9-field-report.pdf`, `bin/art.json`, `bin/demo-voice`, `bin/demo-voice.py`, `bin/replies.json`, `catalog`, `catalog/metadata`, `catch-up-benchmark.md`, `catch-up.csv`, `content`, `engagement`, `essayists/bacon/of-studies.md`, `essayists/bacon/of-truth.md`, `essayists/montaigne/of-books.md`, `essayists/montaigne/of-idleness.md`, `essayists/montaigne/of-solitude.md`, `essayists/woolf/modern-fiction.md`, `essayists/woolf/montaigne.md`, `essayists/woolf/the-common-reader.md`, `essayists/woolf/the-modern-essay.md`, `history`, `inbox`, `inbox/README.md`, `inbox/autumn-reading-list.md`, `indexes`, `indexes/settings.json`, `lantern/decisions/adr-007.md`, `lantern/design/sync-design.md`, `lantern/design/sync-design.v1a.md`, `lantern/design/sync-design.v2.md`, `lantern/guides/keyboard-reading.md`, `lantern/journal/week.md`, `lantern/logs/sync-dry-run.log`, `lantern/research/spaced-rereading.md`, `library`, `library/`, `library/analytical-engine/babbage-analytical-engine.md`, `library/analytical-engine/lovelace-note-g.md`, `library/analytical-engine/lovelace-note-g.reading.md`, `library/analytical-engine/reading-note-g.md`, `library/essayists/bacon/of-truth.md`, `library/essayists/montaigne/of-books.md`, `library/essayists/montaigne/of-idleness.md`, `library/essayists/montaigne/of-solitude.md`, `library/essayists/woolf/modern-fiction.md`, `library/essayists/woolf/montaigne.md`, `library/essayists/woolf/the-common-reader.md`, `library/essayists/woolf/the-modern-essay.md`, `library/lantern/decisions/adr-007.md`, `library/lantern/design/sync-design.md`, `library/lantern/design/sync-design.v2.md`, `library/lantern/guides/keyboard-reading.md`, `library/lantern/journal/week-`, `library/lantern/reports/lantern-0.9-field-report.pdf`, `library/lantern/research/spaced-rereading.md`, `library/natural-history/darwin/darwin-diagram.png`, `library/natural-history/darwin/recapitulation.md`, `library/natural-history/darwin/struggle-for-existence.md`, `library/natural-history/darwin/the-only-figure.md`, `library/reading-room/on-keeping-the-margins.md`, `library/reading-room/solitude-twice.md`, `library/reading-room/the-engine-and-the-essay.md`, `library/reading-room/what-note-g-costs.md`, `library/walden/emerson/circles.md`, `library/walden/emerson/self-reliance.md`, `library/walden/thoreau/reading.md`, `library/walden/thoreau/solitude.md`, `library/walden/thoreau/where-i-lived.md`, `natural-history/darwin/darwin-diagram.png`, `natural-history/darwin/recapitulation.md`, `natural-history/darwin/struggle-for-existence.md`, `natural-history/darwin/the-only-figure.md`, `natural-history/the-only-figure.md`, `newsletters/weekly.md`, `of-gardens.md`, `prompts`, `reading-room/on-keeping-the-margins.md`, `reading-room/solitude-twice.md`, `reading-room/the-engine-and-the-essay.md`, `reading-room/what-note-g-costs.md`, `texts`, `texts/bacon-of-gardens.md`, `voice/demo-voice.py`, `voice/replies.json`, `voices.json`, `walden/emerson/circles.md`, `walden/emerson/self-reliance.md`, `walden/thoreau/reading.md`, `walden/thoreau/solitude.md`, `walden/thoreau/where-i-lived.md` |
 | `src/reader_mcp/demo/static.py` | `.nojekyll`, `.reader`, `art`, `assets`, `bin`, `chat.json`, `chats`, `data`, `files`, `history`, `inbox`, `index.html`, `library`, `manifest.json`, `manifest.webmanifest`, `paths.json`, `r`, `replies.json`, `resolve.json`, `robots.txt`, `search.json`, `search.v2.sqlite3`, `web_ui` |
-| `scripts/check_container.py` | `.reader/review`, `.reader/tooling/bin/wide-md`, `.reader/tooling/installed.json`, `AGENTS.md`, `CHANGELOG.md`, `README.md`, `manifest.json`, `package-lock.json`, `package.json`, `plugins/reader/dist`, `uv.lock`, `validation.lock` |
+| `scripts/check_container.py` | `.reader/review`, `.reader/tooling/bin/wide-md`, `.reader/tooling/installed.json`, `AGENTS.md`, `CHANGELOG.md`, `README.md`, `controls`, `controls.next`, `manifest.json`, `package-lock.json`, `package.json`, `plugins/reader/dist`, `src/reader_mcp/web_ui/controls`, `uv.lock`, `validation.lock` |
 | `scripts/install.py` | `.codex`, `.reader`, `.venv/bin/python`, `config.json`, `inbox`, `library`, `skills` |
 | `scripts/install_wide_md.py` | `.cargo`, `.reader`, `.reader/tooling`, `.venv`, `bin/wide-md`, `git`, `installed.json`, `launch.json`, `plugins/reader/node_modules`, `registry`, `release/wide-md`, `setup.lock`, `setup.log` |
 | `scripts/reader_paths.py` | `.reader/config.json`, `inbox`, `library` |
@@ -539,6 +560,11 @@ Occurrences per module of each durability/concurrency mechanism (regex counts ov
 | `src/reader_mcp/changes.py` |  |  |  |  |  |  |  | 2 |  |
 | `src/reader_mcp/chats.py` | 2 | 1 | 1 | 2 |  | 4 |  |  | 13 |
 | `src/reader_mcp/clock.py` |  |  |  |  |  |  |  | 1 |  |
+| `src/reader_mcp/coding_agents.py` |  |  |  |  |  |  |  |  | 1 |
+| `src/reader_mcp/coding_jobs.py` | 1 |  |  |  |  |  |  | 1 | 12 |
+| `src/reader_mcp/coding_publish.py` |  |  |  |  |  |  |  |  | 1 |
+| `src/reader_mcp/coding_store.py` |  |  | 1 |  |  | 4 |  | 4 |  |
+| `src/reader_mcp/coding_workflow.py` |  |  |  |  |  | 1 |  |  | 5 |
 | `src/reader_mcp/companions.py` | 2 | 2 |  | 1 |  | 7 |  | 1 | 39 |
 | `src/reader_mcp/curation.py` | 1 | 1 | 1 | 1 |  | 4 |  |  |  |
 | `src/reader_mcp/editions.py` |  |  |  |  |  | 1 |  | 1 |  |
@@ -547,6 +573,7 @@ Occurrences per module of each durability/concurrency mechanism (regex counts ov
 | `src/reader_mcp/inbox_runner.py` | 4 |  |  |  |  | 4 |  |  | 6 |
 | `src/reader_mcp/inbox_view.py` |  |  |  |  | 3 | 2 |  | 1 |  |
 | `src/reader_mcp/links.py` |  |  |  |  | 1 | 3 | 1 | 1 |  |
+| `src/reader_mcp/llm_inventory.py` |  |  |  |  |  | 5 |  |  |  |
 | `src/reader_mcp/llm_logs.py` | 1 |  | 1 | 1 |  | 7 |  | 1 | 8 |
 | `src/reader_mcp/local_model.py` | 2 | 3 | 1 |  | 1 | 6 |  | 2 | 15 |
 | `src/reader_mcp/magazine.py` |  |  |  |  |  | 1 |  | 1 |  |
@@ -558,6 +585,7 @@ Occurrences per module of each durability/concurrency mechanism (regex counts ov
 | `src/reader_mcp/reading.py` |  |  | 1 | 2 | 1 | 3 |  |  |  |
 | `src/reader_mcp/reading_queue.py` |  | 2 | 3 | 2 |  | 2 |  |  |  |
 | `src/reader_mcp/related.py` |  |  |  |  |  |  |  | 1 |  |
+| `src/reader_mcp/repositories.py` | 1 |  |  |  |  | 1 |  | 1 | 4 |
 | `src/reader_mcp/search.py` | 1 |  |  |  |  | 4 | 1 |  |  |
 | `src/reader_mcp/search_guard.py` | 1 |  |  |  |  | 1 |  |  |  |
 | `src/reader_mcp/service.py` | 2 |  |  |  |  | 1 |  |  |  |
@@ -582,7 +610,7 @@ Occurrences per module of each durability/concurrency mechanism (regex counts ov
 | `scripts/verify_installation.py` |  |  |  | 1 |  |  |  |  |  |
 | `scripts/verify_search_installation.py` |  |  |  | 2 |  |  |  |  |  |
 
-Lock file names: `.lock`, `.reader/gpu.lock`, `.reader/inbox-runner/run.lock`, `.reader/prompts.lock`, `.reader/upkeep.lock`, `.reader/voice-runner/run.lock`, `annotations.lock`, `browse.lock`, `catalog.lock`, `chat-commit.lock`, `chats.lock`, `companions.lock`, `curation.lock`, `git.lock`, `ingest.lock`, `quizzes.lock`, `run.lock`, `search-run.lock`, `search.lock`, `setup.lock`, `supervisor.lock`, `tasks.lock`, `themes.lock`, `update.lock`, `upkeep.lock`, `uv.lock`, `validation.lock`, `writing.lock`.
+Lock file names: `.lock`, `.reader/gpu.lock`, `.reader/inbox-runner/run.lock`, `.reader/prompts.lock`, `.reader/upkeep.lock`, `.reader/voice-runner/run.lock`, `admit.lock`, `annotations.lock`, `browse.lock`, `catalog.lock`, `chat-commit.lock`, `chats.lock`, `companions.lock`, `curation.lock`, `git.lock`, `ingest.lock`, `quizzes.lock`, `repositories.lock`, `run.lock`, `search-run.lock`, `search.lock`, `setup.lock`, `supervisor.lock`, `tasks.lock`, `themes.lock`, `update.lock`, `upkeep.lock`, `uv.lock`, `validation.lock`, `writing.lock`.
 
 ## Subprocesses and external programs
 
@@ -595,6 +623,12 @@ Lock file names: `.lock`, `.reader/gpu.lock`, `.reader/inbox-runner/run.lock`, `
 | `src/reader_mcp/chats.py:226` | run | `[git, 'rev-parse', '--show-toplevel']` | `10` |
 | `src/reader_mcp/chats.py:256` | run | `[git, 'log', '-1', '--format=%H', '--', relative, *logs]` | `10` |
 | `src/reader_mcp/chats.py:249` | run | `command` | `180` |
+| `src/reader_mcp/coding_agents.py:36` | run | `[path, '--version']` | `10` |
+| `src/reader_mcp/coding_workflow.py:126` | run | `command` | `GIT_TIMEOUT + 130` |
+| `src/reader_mcp/coding_workflow.py:322` | Popen | `command` | `—` |
+| `src/reader_mcp/coding_workflow.py:99` | run | `[self.git_exe, *args]` | `timeout` |
+| `src/reader_mcp/coding_workflow.py:51` | run | `['ps', '-o', 'lstart=', '-p', str(pid)]` | `5` |
+| `src/reader_mcp/coding_workflow.py:173` | run | `[self.git_exe, '--version']` | `10` |
 | `src/reader_mcp/companions.py:551` | Popen | `argv` | `—` |
 | `src/reader_mcp/companions.py:245` | run | `[path, *argv]` | `5` |
 | `src/reader_mcp/companions.py:611` | run | `[git, '-C', str(source), 'remote', 'get-url', 'origin']` | `10` |
@@ -615,6 +649,7 @@ Lock file names: `.lock`, `.reader/gpu.lock`, `.reader/inbox-runner/run.lock`, `
 | `src/reader_mcp/prose.py:425` | Popen | `[binary, 'ir', '-']` | `—` |
 | `src/reader_mcp/prose.py:340` | run | `[str(path), '--version']` | `5` |
 | `src/reader_mcp/reading.py:46` | run | `[str(tool)]` | `15` |
+| `src/reader_mcp/repositories.py:57` | run | `[shutil.which('git') or 'git', *args]` | `timeout` |
 | `src/reader_mcp/search_guard.py:116` | Popen | `cmd` | `—` |
 | `src/reader_mcp/search_guard.py:124` | check_output | `['ps', '-axo', 'pgid=,rss=']` | `5` |
 | `src/reader_mcp/service.py:82` | run | `[self.python, str(self.script), *argv]` | `timeout` |
@@ -631,10 +666,10 @@ Lock file names: `.lock`, `.reader/gpu.lock`, `.reader/inbox-runner/run.lock`, `
 | `src/reader_mcp/writing.py:361` | run | `command` | `180` |
 | `src/reader_mcp/writing.py:313` | run | `[git, 'config', 'user.name']` | `10` |
 | `src/reader_mcp/demo/build.py:225` | run | `['git', '-C', str(self.root), *args]` | `—` |
-| `scripts/check_container.py:20` | run | `['docker', *args]` | `—` |
-| `scripts/check_container.py:36` | run | `['docker', 'inspect', name]` | `—` |
-| `scripts/check_container.py:136` | run | `['docker', 'rm', '-f', name]` | `—` |
-| `scripts/check_container.py:91` | Popen | `['docker', 'exec', name, 'sh', '-c', cmd]` | `—` |
+| `scripts/check_container.py:47` | run | `['docker', *args]` | `—` |
+| `scripts/check_container.py:73` | run | `['docker', 'inspect', name]` | `—` |
+| `scripts/check_container.py:190` | run | `['docker', 'rm', '-f', name]` | `—` |
+| `scripts/check_container.py:136` | Popen | `['docker', 'exec', name, 'sh', '-c', cmd]` | `—` |
 | `scripts/install.py:39` | run | `[codex, 'mcp', 'get', 'reader', '--json']` | `—` |
 | `scripts/install.py:57` | run | `[codex, 'mcp', 'remove', 'reader']` | `—` |
 | `scripts/install.py:60` | run | `[codex, 'mcp', 'add', 'reader', '--', *command]` | `—` |
@@ -661,13 +696,20 @@ Programs named as string literals per module:
 | `src/reader_mcp/art.py` | git |
 | `src/reader_mcp/changes.py` | git |
 | `src/reader_mcp/chats.py` | git, git-locks |
+| `src/reader_mcp/coding_agents.py` | codex, claude |
+| `src/reader_mcp/coding_api.py` | git |
+| `src/reader_mcp/coding_jobs.py` | git |
+| `src/reader_mcp/coding_publish.py` | git, open |
+| `src/reader_mcp/coding_workflow.py` | git, claude, ps |
 | `src/reader_mcp/companions.py` | git, git-locks, launchctl, tailscale, codex, claude, agy, wide-md, colorful, ai-tts, cargo |
 | `src/reader_mcp/inbox_runner.py` | git, codex, ps |
 | `src/reader_mcp/inbox_view.py` | git, codex |
 | `src/reader_mcp/llm_logs.py` | git |
 | `src/reader_mcp/local_model.py` | git, git-locks, lms, ollama, ps |
+| `src/reader_mcp/prompt_blocks.py` | open |
 | `src/reader_mcp/prose.py` | colorful, cargo |
 | `src/reader_mcp/reading.py` | wide-md |
+| `src/reader_mcp/repositories.py` | git, codex, claude, python3 |
 | `src/reader_mcp/search_guard.py` | ps |
 | `src/reader_mcp/speech.py` | ai-tts |
 | `src/reader_mcp/versions.py` | git |
@@ -691,7 +733,11 @@ Programs named as string literals per module:
 | Module | Calls / URLs |
 | - | - |
 | `src/reader_mcp/browse.py` | `http://www.w3.org/2000/svg` |
+| `src/reader_mcp/coding_agents.py` | `https://github` |
+| `src/reader_mcp/coding_api.py` | `https://github.com/` |
+| `src/reader_mcp/coding_publish.py` | `https://github` |
 | `src/reader_mcp/companions.py` | `https://docs.anthropic.com/en/docs/claude-code`, `https://github.com/flyingrobots/AI-TTS`, `https://github.com/flyingrobots/AI-TTS.git`, `https://github.com/flyingrobots/colorful-language`, `https://github.com/flyingrobots/colorful-language.git`, `https://github.com/flyingrobots/wide-md`, `https://github.com/git-stunts/locks`, `https://github.com/git-stunts/locks.git`, `https://github.com/openai/codex`, `https://rustup.rs` |
+| `src/reader_mcp/github.py` | `https://github` |
 | `src/reader_mcp/local_model.py` | `HTTPConnection`, `HTTPSConnection`, `http://127.0.0.1:`, `http://127.0.0.1:11434/v1`, `http://127.0.0.1:1234/v1`, `http://127.0.0.1:8080/v1` |
 | `src/reader_mcp/speech.py` | `AF_UNIX` |
 | `src/reader_mcp/themes.py` | `https://fonts`, `https://fonts.google.com/metadata/fonts`, `https://fonts.googleapis.com/css2`, `https://raw.githubusercontent.com/google/fonts/main/`, `urlopen` |
@@ -719,8 +765,8 @@ Programs named as string literals per module:
 | `CODEX_HOME` | install.py, verify_installation.py, verify_search_installation.py | Where install scripts register the MCP server/skills for Codex. |
 | `GIT_CONFIG_GLOBAL` | demo/build.py | Isolates git from the user's global config for vault commits/demo builds. |
 | `GIT_CONFIG_NOSYSTEM` | demo/build.py | Isolates git from the system config. |
-| `GIT_LOCKS_STORE` | companions.py, local_model.py | Passed through to git-locks for shared-resource locks. |
-| `GIT_TERMINAL_PROMPT` | demo/build.py | Never lets git prompt for credentials. |
+| `GIT_LOCKS_STORE` | coding_publish.py, companions.py, local_model.py | Passed through to git-locks for shared-resource locks. |
+| `GIT_TERMINAL_PROMPT` | coding_workflow.py, demo/build.py | Never lets git prompt for credentials. |
 | `HF_HOME` | search_guard.py | Set by search_guard to the index worker's own runtime folder. |
 | `HF_HUB_DISABLE_TELEMETRY` | search_guard.py | Set by search_guard: no Hugging Face telemetry from the index worker. |
 | `HF_HUB_DISABLE_XET` | search_guard.py | Set by search_guard: plain HTTP downloads for the embedding model. |
@@ -776,6 +822,8 @@ companions.py), `<vault>/indexes/settings.json` (browse), `<code>/.reader/config
 | - | - | - | - |
 | `fastembed` | yes | search.py | ONNX text embeddings (BAAI/bge-small-en-v1.5) for semantic search, related works, shapes; optional at runtime. |
 | `fonttools` | yes | — | Declared, but no module imports it (theme fonts are served as downloaded woff2 files). |
+| `markdown-it-py` | yes | — | undocumented |
+| `markdown_it` | no (transitive) | prompt_blocks.py | undocumented |
 | `mcp` | yes | server.py, verify_installation.py, verify_search_installation.py | FastMCP stdio server (reader serve) and the install verifiers' MCP client. |
 | `numpy` | no (transitive) | magazine.py, related.py, search.py, shape.py, web.py | Imported directly but not declared (it arrives through fastembed). Vector maths over embeddings: float16 pack/unpack of stored vectors, cosine similarity, SVD/PCA for document shapes, mean vectors for related/magazine diversity. |
 | `PIL` | no (transitive) | art.py | Same as pillow (import name). |
@@ -807,28 +855,38 @@ exercise modules through HTTP, so see the route table for those.
 | `src/reader_mcp/chats.py` | 257 | 225 | 12698 | 53 | 153 | 0.94 | 18 | 1 | 3 | 76 |
 | `src/reader_mcp/cli.py` | 169 | 163 | 9948 | 60 | 134 | 0.93 | 1 | 0 | 13 | 173 |
 | `src/reader_mcp/clock.py` | 31 | 27 | 1399 | 51 | 106 | 0.81 | 1 | 0 | 0 | 0 |
+| `src/reader_mcp/coding_agents.py` | 107 | 89 | 5925 | 65 | 299 | 0.70 | 5 | 0 | 0 | 0 |
+| `src/reader_mcp/coding_api.py` | 140 | 122 | 8330 | 65 | 151 | 0.86 | 10 | 1 | 0 | 0 |
+| `src/reader_mcp/coding_jobs.py` | 429 | 385 | 24576 | 60 | 160 | 0.84 | 18 | 3 | 2 | 36 |
+| `src/reader_mcp/coding_publish.py` | 234 | 212 | 14075 | 64 | 181 | 0.87 | 13 | 1 | 1 | 30 |
+| `src/reader_mcp/coding_store.py` | 279 | 238 | 11419 | 46 | 151 | 0.92 | 27 | 4 | 3 | 61 |
+| `src/reader_mcp/coding_workflow.py` | 394 | 360 | 22457 | 60 | 149 | 0.92 | 21 | 2 | 1 | 28 |
 | `src/reader_mcp/companions.py` | 697 | 610 | 39499 | 62 | 222 | 0.82 | 43 | 1 | 2 | 27 |
 | `src/reader_mcp/curation.py` | 331 | 305 | 19068 | 60 | 130 | 0.83 | 10 | 1 | 1 | 16 |
 | `src/reader_mcp/display.py` | 56 | 45 | 2199 | 46 | 104 | 0.87 | 5 | 0 | 1 | 4 |
 | `src/reader_mcp/editions.py` | 359 | 325 | 16852 | 49 | 174 | 0.92 | 17 | 1 | 2 | 57 |
 | `src/reader_mcp/embeds.py` | 324 | 274 | 14375 | 50 | 133 | 0.89 | 19 | 1 | 1 | 9 |
 | `src/reader_mcp/engagement.py` | 159 | 137 | 8851 | 63 | 198 | 1.12 | 16 | 1 | 4 | 47 |
+| `src/reader_mcp/github.py` | 149 | 119 | 7615 | 63 | 143 | 0.93 | 24 | 4 | 2 | 31 |
 | `src/reader_mcp/inbox_runner.py` | 252 | 232 | 15348 | 64 | 536 | 0.98 | 11 | 0 | 6 | 113 |
 | `src/reader_mcp/inbox_view.py` | 560 | 506 | 28351 | 53 | 162 | 0.87 | 27 | 2 | 1 | 21 |
 | `src/reader_mcp/junk.py` | 13 | 9 | 581 | 63 | 106 | 0.56 | 1 | 0 | 1 | 3 |
 | `src/reader_mcp/learning.py` | 39 | 31 | 2105 | 61 | 127 | 0.87 | 2 | 0 | 1 | 14 |
 | `src/reader_mcp/links.py` | 609 | 536 | 30975 | 55 | 173 | 0.88 | 31 | 3 | 2 | 20 |
-| `src/reader_mcp/llm_logs.py` | 278 | 240 | 12483 | 50 | 136 | 0.95 | 18 | 1 | 6 | 102 |
+| `src/reader_mcp/llm_inventory.py` | 106 | 89 | 5522 | 58 | 138 | 0.85 | 6 | 0 | 2 | 34 |
+| `src/reader_mcp/llm_logs.py` | 278 | 240 | 12497 | 50 | 136 | 0.95 | 18 | 1 | 10 | 167 |
 | `src/reader_mcp/local_model.py` | 1793 | 1573 | 90684 | 55 | 187 | 0.87 | 115 | 13 | 4 | 55 |
 | `src/reader_mcp/magazine.py` | 202 | 175 | 9086 | 49 | 138 | 0.94 | 10 | 1 | 0 | 0 |
 | `src/reader_mcp/maintenance.py` | 336 | 300 | 17937 | 57 | 170 | 0.77 | 20 | 1 | 4 | 32 |
 | `src/reader_mcp/metadata.py` | 384 | 329 | 16405 | 48 | 127 | 0.88 | 24 | 6 | 4 | 48 |
+| `src/reader_mcp/prompt_blocks.py` | 265 | 229 | 11760 | 49 | 134 | 0.87 | 11 | 0 | 1 | 6 |
 | `src/reader_mcp/prompts.py` | 165 | 151 | 8521 | 55 | 183 | 0.92 | 10 | 1 | 0 | 0 |
 | `src/reader_mcp/prose.py` | 479 | 433 | 23571 | 52 | 160 | 0.93 | 20 | 3 | 2 | 32 |
 | `src/reader_mcp/quizzes.py` | 326 | 302 | 18613 | 60 | 172 | 0.90 | 16 | 2 | 1 | 14 |
 | `src/reader_mcp/reading.py` | 144 | 133 | 7849 | 57 | 144 | 0.93 | 4 | 0 | 2 | 29 |
 | `src/reader_mcp/reading_queue.py` | 225 | 208 | 11301 | 52 | 158 | 0.94 | 11 | 1 | 1 | 11 |
 | `src/reader_mcp/related.py` | 154 | 137 | 7858 | 56 | 137 | 0.87 | 6 | 1 | 2 | 16 |
+| `src/reader_mcp/repositories.py` | 259 | 229 | 14749 | 63 | 170 | 0.86 | 16 | 2 | 1 | 4 |
 | `src/reader_mcp/resources.py` | 28 | 22 | 1065 | 43 | 97 | 1.00 | 2 | 0 | 0 | 0 |
 | `src/reader_mcp/search.py` | 1076 | 983 | 60068 | 58 | 242 | 0.84 | 46 | 2 | 12 | 124 |
 | `src/reader_mcp/search_guard.py` | 158 | 141 | 7571 | 50 | 123 | 0.82 | 6 | 0 | 3 | 34 |
@@ -839,16 +897,16 @@ exercise modules through HTTP, so see the route table for those.
 | `src/reader_mcp/store.py` | 225 | 197 | 10529 | 51 | 111 | 0.90 | 11 | 4 | 4 | 45 |
 | `src/reader_mcp/themes.py` | 338 | 307 | 17684 | 56 | 163 | 0.92 | 19 | 1 | 2 | 55 |
 | `src/reader_mcp/versions.py` | 307 | 284 | 14746 | 50 | 131 | 0.88 | 13 | 1 | 1 | 10 |
-| `src/reader_mcp/voice_runner.py` | 1526 | 1378 | 79782 | 54 | 181 | 0.90 | 86 | 5 | 3 | 79 |
+| `src/reader_mcp/voice_runner.py` | 1526 | 1378 | 79782 | 54 | 181 | 0.90 | 86 | 5 | 4 | 107 |
 | `src/reader_mcp/voice_tasks.py` | 288 | 263 | 15125 | 55 | 201 | 0.89 | 17 | 1 | 1 | 17 |
 | `src/reader_mcp/voices.py` | 364 | 308 | 19248 | 60 | 143 | 0.88 | 21 | 1 | 1 | 47 |
-| `src/reader_mcp/web.py` | 1656 | 1536 | 95921 | 60 | 258 | 0.90 | 81 | 5 | 22 | 347 |
+| `src/reader_mcp/web.py` | 1763 | 1637 | 102331 | 60 | 258 | 0.90 | 85 | 5 | 23 | 353 |
 | `src/reader_mcp/web_access.py` | 211 | 186 | 11085 | 57 | 129 | 0.82 | 10 | 1 | 0 | 0 |
 | `src/reader_mcp/writing.py` | 369 | 342 | 21207 | 60 | 237 | 0.91 | 18 | 2 | 1 | 7 |
 | `src/reader_mcp/demo/__init__.py` | 137 | 116 | 6014 | 50 | 149 | 0.89 | 9 | 0 | 0 | 0 |
 | `src/reader_mcp/demo/build.py` | 718 | 625 | 49845 | 77 | 170 | 0.64 | 29 | 1 | 0 | 0 |
 | `src/reader_mcp/demo/static.py` | 379 | 335 | 20169 | 58 | 177 | 0.90 | 19 | 1 | 0 | 0 |
-| `scripts/check_container.py` | 139 | 124 | 8817 | 65 | 297 | 0.93 | 2 | 0 | 0 | 0 |
+| `scripts/check_container.py` | 193 | 172 | 12359 | 66 | 292 | 0.94 | 4 | 0 | 0 | 0 |
 | `scripts/install.py` | 78 | 73 | 3807 | 51 | 124 | 0.99 | 1 | 0 | 0 | 0 |
 | `scripts/install_wide_md.py` | 100 | 92 | 5327 | 57 | 140 | 0.91 | 5 | 0 | 0 | 0 |
 | `scripts/reader_paths.py` | 23 | 19 | 924 | 47 | 112 | 1.00 | 1 | 0 | 0 | 0 |
@@ -857,14 +915,14 @@ exercise modules through HTTP, so see the route table for those.
 | `scripts/vendor_web.py` | 77 | 68 | 4132 | 58 | 186 | 0.88 | 2 | 0 | 0 | 0 |
 | `scripts/verify_installation.py` | 80 | 72 | 4428 | 60 | 264 | 0.92 | 1 | 0 | 0 | 0 |
 | `scripts/verify_search_installation.py` | 74 | 66 | 4190 | 59 | 138 | 0.82 | 1 | 0 | 0 | 0 |
-| **total** | 21119 | 18828 | 1119804 | | | | | | | |
+| **total** | 23642 | 21049 | 1256198 | | | | | | | |
 
-Language-neutral code that a port keeps as is: `src/reader_mcp/web_ui/` (40 hand-written JS/CSS/HTML files, 8092 lines, excluding vendor/) plus the built `web_ui/controls/` bundle from `web/`.
-Tests: 55 pytest files, 625 test functions; 72 browser suites; 15 node unit files.
+Language-neutral code that a port keeps as is: `src/reader_mcp/web_ui/` (42 hand-written JS/CSS/HTML files, 8372 lines, excluding vendor/) plus the built `web_ui/controls/` bundle from `web/`.
+Tests: 64 pytest files, 715 test functions; 74 browser suites; 18 node unit files.
 
 ## Contract coverage
 
-**71 of 71 routes** have at least one test in `tests/contract/`.
+**83 of 83 routes** have at least one test in `tests/contract/`.
 
 A route counts as covered when at least one contract test requests it. Where success needs a real companion or would act
 on the host (speech, prose colouring, an inbox run, service actions, companion installs, local-model server control), the
@@ -875,11 +933,13 @@ suite checks validation and refusals only; `docs/port/plan.md` lists what each p
 | annotations | 1/1 | 1/1 |
 | art | 4/4 | 1/1 |
 | chat | 4/4 | 1/1 |
+| coding jobs | 7/7 | 2/2 |
 | companions | 2/2 | 1/1 |
 | engagement | 1/1 | 1/1 |
 | inbox | 2/2 | 1/1 |
 | library | 3/3 | 1/1 |
 | links | 6/6 | — |
+| llm logs | 3/3 | — |
 | local model | 1/1 | 1/1 |
 | magazine | 2/2 | — |
 | maintenance | 1/1 | 1/1 |
@@ -903,6 +963,7 @@ POST actions named anywhere in contract tests (a route can be covered while some
 | Class | Covered | Not yet covered |
 | - | - | - |
 | Annotations | 4/6 | `attention`, `seen` |
+| CodingJobs | 1/2 | `submit` |
 | Companions | 4/5 | `update` |
 | Conversations | 4/8 | `paste`, `retry`, `hand`, `hush` |
 | LocalModel | 3/11 | `server-start`, `server-stop`, `load`, `unload`, `enqueue`, `run`, `clear`, `prune` |

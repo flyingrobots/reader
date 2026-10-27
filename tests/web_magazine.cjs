@@ -64,9 +64,9 @@ const THEMES=['ink','paper','orchid','orchid-dark','harvest','harvest-dark',...r
   await page.reload();await page.locator('.issue-cover').waitFor();assert.equal(await page.locator('#issue').getAttribute('data-week'),previous,'past issues are addressable');
   await page.locator('#main').focus();await page.keyboard.press(']');await page.waitForFunction(w=>document.querySelector('#issue')?.dataset.week===w,week);assert.equal(new URL(page.url()).hash,'');
   await page.locator('.issue-archive summary').click();assert.ok(await page.locator('.issue-archive li').count()>=2);await page.keyboard.press('Escape');
-  // The dashboard moved to Behind the scenes.
+  // The dashboard is Reader Admin's Library page.
   await page.locator('#issue-backstage').click();await page.locator('#backstage-library .statistics-grid').waitFor();
-  assert.equal(await page.locator('#backstage-library .stat-panel').count(),12);assert.equal(await page.locator('#backstage h1').count(),1,'one page heading');
+  assert.equal(await page.locator('#backstage-library .stat-panel').count(),12);assert.equal(await page.locator('#reader-admin h1').count(),1,'one page heading');assert.equal(new URL(page.url()).hash,'#admin/library');
   await page.goto(url);await page.locator('.issue-cover').waitFor();
   // Every theme: the issue's own text against the page.
   await page.addStyleTag({content:'*,*::before,*::after{transition:none!important;animation:none!important}'});
@@ -126,6 +126,6 @@ const THEMES=['ink','paper','orchid','orchid-dark','harvest','harvest-dark',...r
   const box=await page.locator('.issue-cover').boundingBox();assert.ok(box.x>=15&&box.x+box.width<=390-15,'16px gutters');
   await page.screenshot({path:'.reader/web-dev/magazine-mobile.png',fullPage:true});
   assert.deepEqual(external,[]);assert.deepEqual(errors,[]);
-  console.log(`Magazine passed: masthead, cover, ${features.length} features from distinct projects, standfirst, contents with read dimmed, j/k/g c/Enter, q and + Queue (Space q unbound), [ ] issues and URLs, dashboard on Behind the scenes, ${THEMES.length} theme contrasts, 1920/2560 full-width spread with rail, bounded measures and ${wide.map(w=>w.columns).join('/')} contents columns, phone width, local-only requests.`);
+  console.log(`Magazine passed: masthead, cover, ${features.length} features from distinct projects, standfirst, contents with read dimmed, j/k/g c/Enter, q and + Queue (Space q unbound), [ ] issues and URLs, dashboard on Reader Admin's Library page, ${THEMES.length} theme contrasts, 1920/2560 full-width spread with rail, bounded measures and ${wide.map(w=>w.columns).join('/')} contents columns, phone width, local-only requests.`);
  }finally{await browser?.close();if(fixture.exitCode===null&&fixture.signalCode===null){fixture.kill('SIGTERM');await new Promise(resolve=>fixture.once('exit',resolve));}}
 })().catch(error=>{console.error(error);process.exitCode=1;});

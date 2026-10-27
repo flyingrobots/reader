@@ -258,12 +258,22 @@ def http_routes():
     for inner in try_body.body:
         if isinstance(inner, ast.If) and route_tests(inner.test) and ast.unparse(inner.test) != 'write':
             walk_chain(inner, 'GET', routes)
-    stream = find_func(tree, 'WebHandler', 'stream_chat')
-    params, fields, calls, statuses, _ = collect_fields(stream.body)
-    statuses = sorted({n.args[1].value for n in ast.walk(stream) if isinstance(n, ast.Call) and ast.unparse(n.func) == 'self.json'
-                       and len(n.args) > 1 and isinstance(n.args[1], ast.Constant)})
-    routes.insert(0, {'method': 'GET', 'path': '/api/chat/stream', 'kind': '==', 'line': stream.lineno, 'params': ['id'], 'fields': [],
-                      'calls': ['conversations.chats.read', 'conversations.runner.wait'], 'statuses': statuses, 'condition': '', 'sse': True})
+    # SSE routes are the ones do_GET hands to their own stream method instead of handle_request.
+    # Event names are listed by hand: chat relays its runner's rows under their own kinds.
+    stream_calls = {'stream_chat': (['id'], ['conversations.chats.read', 'conversations.runner.wait'],
+                                    'hello, state, started, delta, posted, done, commit, ping'),
+                    'stream_job': (['id', 'after'], ['jobs.detail', 'jobs.events', 'jobs.live.wait'], 'hello, event, ping, end')}
+    for at, test in enumerate(n for n in ast.walk(find_func(tree, 'WebHandler', 'do_GET')) if isinstance(n, ast.If)):
+        target = test.body[0].value.func.attr if isinstance(test.body[0], ast.Expr) else None
+        path = next((c.value for c in ast.walk(test.test) if isinstance(c, ast.Constant) and isinstance(c.value, str)), None)
+        if not path or target not in stream_calls:
+            continue
+        stream = find_func(tree, 'WebHandler', target)
+        statuses = sorted({n.args[1].value for n in ast.walk(stream) if isinstance(n, ast.Call) and ast.unparse(n.func) == 'self.json'
+                           and len(n.args) > 1 and isinstance(n.args[1], ast.Constant)})
+        stream_params, stream_called, events = stream_calls[target]
+        routes.insert(at, {'method': 'GET', 'path': path, 'kind': '==', 'line': stream.lineno, 'params': stream_params, 'fields': [],
+                           'calls': stream_called, 'statuses': statuses, 'condition': '', 'sse': events})
     errors = []
     for handler in try_body.handlers:
         names = ast.unparse(handler.type) if handler.type else 'Exception'
@@ -661,6 +671,7 @@ def area(path):
              ('/api/resolve', 'links'), ('/api/links', 'links'), ('/api/link-counts', 'links'), ('/api/preview', 'links'), ('/api/embeds', 'links'),
              ('/api/standfirst', 'magazine'), ('/api/issue', 'magazine'), ('/api/shape', 'shape'), ('/api/prose', 'prose'),
              ('/api/quiz', 'quizzes'), ('/api/prompt', 'prompts'), ('/api/writing', 'writing'),
+             ('/api/jobs', 'coding jobs'), ('/api/repositories', 'coding jobs'), ('/api/logs', 'llm logs'),
              ('/api/service', 'service'), ('/api/health', 'service'), ('/api/token', 'service'), ('/api/maintenance', 'maintenance'),
              ('/api/library', 'library'), ('/api/document', 'library'), ('/api/file', 'library'), ('/api/bookmark', 'library'),
              ('/assets/', 'static'), ('/', 'static')]
@@ -710,7 +721,7 @@ def render(demo=True):
     covered = contract_routes()
     w('## HTTP routes')
     w('')
-    w(f'{len(routes)} method+path routes in `src/reader_mcp/web.py` (`WebHandler.handle_request` and `stream_chat`). `*` marks a prefix')
+    w(f'{len(routes)} method+path routes in `src/reader_mcp/web.py` (`WebHandler.handle_request` and its stream methods). `*` marks a prefix')
     w('route. **Pool** is the admission gate (`WebHandler.admission`). **Handler** is the WebLibrary attribute it calls, with the')
     w('owning class. **Existing tests** counts browser suites (`tests/web_*.cjs`, `tests/*.test.mjs`) and pytest files naming the path;')
     w('**Contract** names the `tests/contract/` files that call it.')
@@ -727,7 +738,7 @@ def render(demo=True):
                 handler.append(call.removeprefix('library.'))
         fields = ', '.join(r['params'] if r['method'] == 'GET' else r['fields']) or '—'
         if r.get('sse'):
-            fields += ' (SSE: hello, state, started, delta, posted, done, commit, ping)'
+            fields += f" (SSE: {r['sse']})"
         if r['condition']:
             fields += f" — when `{md(r['condition'])}`"
         key = (r['method'], r['path'].rstrip('*'))

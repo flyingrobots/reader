@@ -107,12 +107,13 @@ export function neighbor(rects,id,key){
 }
 
 // Routes and the #split= hash --------------------------------------------------------------------
-/** A pane route keeps a path, never text: `#read=<path>` (a heading id survives), the homepage, an issue, Search,
- *  Backstage or a scratch pad (`#scratch`, the latest draft, or `#scratch=<id>`, as app.mjs routes it). */
+/** A pane route keeps a path, never text: `#read=<path>` (a heading id survives), the homepage, an issue, Search
+ *  or a scratch pad (`#scratch`, the latest draft, or `#scratch=<id>`, as app.mjs routes it). Reader Admin (and legacy
+ *  `#backstage`) is the window's own layout, never a pane's: those routes become the homepage. */
 export function cleanRoute(hash){
   hash=String(hash||'');
   if(hash.startsWith('#read=')){const [value,...rest]=hash.slice(6).split('&');const heading=rest.find(p=>p.startsWith('h='));return value?'#read='+value+(heading&&heading.length<=200?'&'+heading:''):'';}
-  if(hash==='#backstage'||/^#scratch(=[0-9a-f-]{36})?$/.test(hash))return hash;
+  if(/^#scratch(=[0-9a-f-]{36})?$/.test(hash))return hash;
   if(hash.startsWith('#search'))return '#search';
   if(/^#issue=[0-9]{4}-W[0-9]{2}$/.test(decodeSafe(hash)))return hash;
   return '';
@@ -172,12 +173,12 @@ export function headingKey(headings,index){
 
 // Messages -----------------------------------------------------------------------------------------
 const sized=data=>{try{return JSON.stringify(data).length<=MESSAGE_LIMIT;}catch{return false;}};
-const SHELL_TYPES=new Set(['status','toast','focus-request','window-key','open-in-split','scroll','doc','saved']);
+const SHELL_TYPES=new Set(['status','toast','focus-request','window-key','open-in-split','open-admin','scroll','doc','saved']);
 const PANE_TYPES=new Set(['focus','blur','open','scroll-to','prefs-changed','save']);
 
 // The shell ----------------------------------------------------------------------------------------
 /** Shell side. `suspend()` empties the single-pane view before a split appears; `resume(route)` navigates to the last pane's route. */
-export function installSplit({notify,suspend,resume,paint,api,param,refocus}){
+export function installSplit({notify,suspend,resume,paint,api,param,refocus,openAdmin}){
   const panes=new Map();  // id -> {frame, box, status, doc}
   let tree=null,focus=null,bind=null,hunks=null,root=null,nextId=1,frame=0,drag=null;
   const active=()=>!!tree;
@@ -295,6 +296,9 @@ export function installSplit({notify,suspend,resume,paint,api,param,refocus}){
     root?.remove();root=null;panes.clear();tree=null;bind=null;hunks=null;focus=null;document.body.classList.remove('split-active');
     await resume(cleanRoute(route));
   }
+  /** Every pane saves its place, then the panes close without navigating: Reader Admin replaces the layout, and Back
+   *  (or Back to Library) restores it from its #split= entry. */
+  async function detach(){if(!tree)return;await Promise.all([...panes.keys()].map(save));dismiss();}
   /** Tear down without navigating (browser Back left the split). */
   function dismiss(){if(!tree)return;root?.remove();root=null;panes.clear();tree=null;bind=null;hunks=null;focus=null;document.body.classList.remove('split-active');}
   // Ask a pane to save its place before it goes; it answers `saved`, or the shell moves on after 600 ms.
@@ -347,6 +351,7 @@ export function installSplit({notify,suspend,resume,paint,api,param,refocus}){
     else if(data.type==='toast')notify(String(data.message||'').slice(0,2000),typeof data.kind==='string'?data.kind:undefined,data.options&&typeof data.options==='object'?{id:typeof data.options.id==='string'?data.options.id:undefined,duration:typeof data.options.duration==='number'?data.options.duration:undefined}:undefined);
     else if(data.type==='focus-request'){if(id!==focus)setFocus(id,{move:false});}
     else if(data.type==='window-key')command(String(data.key||''),{shell:!!data.shell,route:typeof data.route==='string'?cleanRoute(data.route.slice(0,4096)):null});
+    else if(data.type==='open-admin'&&typeof data.route==='string')openAdmin?.(data.route.slice(0,512));  // The shell validates the route.
     else if(data.type==='open-in-split'){if(data.compare&&typeof data.compare.a==='string'&&typeof data.compare.b==='string')compare(data.compare.a,data.compare.b);else openInSplit(cleanRoute(data.route));}
     else if(data.type==='scroll')onScroll(id,data);
     else if(data.type==='saved')waiting.get(id)?.();
@@ -375,7 +380,7 @@ export function installSplit({notify,suspend,resume,paint,api,param,refocus}){
     const actions={v:()=>split('row',open),s:()=>split('col',open),scrollbind:()=>scrollbind(true),noscrollbind:()=>scrollbind(false),'scrollbind!':()=>scrollbind('toggle'),w:()=>cycle(1),W:()=>cycle(-1),h:()=>move('h'),j:()=>move('j'),k:()=>move('k'),l:()=>move('l'),x:swap,'=':equal,o:()=>collapse(focus),q:()=>close(focus)};
     if(actions[key])actions[key]();
   }
-  return {active,start,restore,split,close,collapse,dismiss,command,openInSplit,openInFocused,compare,
+  return {active,start,restore,split,close,collapse,dismiss,detach,hash:()=>tree?hashNow():null,command,openInSplit,openInFocused,compare,
     setShellCommands(map){shellCommands=map;},
     refocus(){if(tree&&focus!=null)setFocus(focus);},
     broadcast(data){for(const id of panes.keys())post(id,data);},
