@@ -150,7 +150,8 @@ export {notify};
 const message=(error:unknown)=>error instanceof Error?error.message:String(error);
 
 // Maintenance jobs: poll fast while one runs, slowly otherwise, and toast each transition.
-let pollTimer:ReturnType<typeof setTimeout>|undefined,polled=false;const started=new Set<string>(),finished=new Set<string>();
+let pollTimer:ReturnType<typeof setTimeout>|undefined,polled=false;const started=new Set<string>(),finished=new Set<string>(),dismissed=new Set<string>();
+const dismissAction=(id:string)=>({label:'Dismiss',onClick:()=>dismissed.add(id)});
 function jobSummary(job:Job){const r=job.result||{};
   if((job.kind==='search'||job.kind==='search-keyword')&&r.complete===false&&r.message)return String(r.message);
   if(job.kind==='search'||job.kind==='search-keyword')return `${r.changed} changed, ${r.removed} removed, ${plural(r.documents,'document')} indexed.`;
@@ -163,11 +164,11 @@ function jobSummary(job:Job){const r=job.result||{};
 const progressShown=new Map<string,string>();
 function announce(status:MaintenanceStatus){
   const run=status.running;
-  if(run&&run.kind!=='check'&&!run.quiet&&!started.has(run.id)){started.add(run.id);toast.loading(`${run.label} running…`,{id:run.id,description:'You can keep reading. This updates when it finishes.',duration:Infinity});}
+  if(run&&run.kind!=='check'&&!run.quiet&&!started.has(run.id)){started.add(run.id);if(!dismissed.has(run.id))toast.loading(`${run.label} running…`,{id:run.id,description:'You can keep reading. This updates when it finishes.',duration:Infinity,cancel:dismissAction(run.id)});}
   // Companion installs report each step; the loading toast follows them.
-  if(run?.progress&&started.has(run.id)&&progressShown.get(run.id)!==run.progress){progressShown.set(run.id,run.progress);toast.loading(`${run.label} running…`,{id:run.id,description:run.progress,duration:Infinity});}
+  if(run?.progress&&started.has(run.id)&&progressShown.get(run.id)!==run.progress){progressShown.set(run.id,run.progress);if(!dismissed.has(run.id))toast.loading(`${run.label} running…`,{id:run.id,description:run.progress,duration:Infinity,cancel:dismissAction(run.id)});}
   for(const job of status.jobs){
-    if(finished.has(job.id))continue;finished.add(job.id);
+    if(finished.has(job.id))continue;finished.add(job.id);dismissed.delete(job.id);
     if(COMPANION_JOBS.has(job.kind))refreshCompanions();
     if(!polled||job.kind==='check'||job.quiet)continue;
     if(job.state==='succeeded')toast.success(`${job.label} finished`,{id:job.id,description:jobSummary(job),duration:6000});
@@ -183,7 +184,8 @@ function announceRuns(runs:Run[],labels:Record<string,string>){
     const before=runsSeen.get(run.id);if(before===run.state)continue;runsSeen.set(run.id,run.state);
     if(!runsPolled&&run.state!=='running')continue;
     const id='local-model-'+run.id;
-    if(run.state==='running'){toast.loading('Local model running…',{id,description:'Reader Admin, Models, shows the live output. You can keep reading.',duration:Infinity});continue;}
+    if(run.state==='running'){if(!dismissed.has(id))toast.loading('Local model running…',{id,description:'Reader Admin, Models, shows the live output. You can keep reading.',duration:Infinity,cancel:dismissAction(id)});continue;}
+    dismissed.delete(id);
     if(run.warning==='server-stopped')toast.warning('LM Studio stopped while the queue was running',{id,description:runSummary(run,labels)+'. The queue is paused; start the server and press Run to continue.',duration:15000});
     else if(run.state==='failed')toast.error('Local model run failed',{id,description:(run.error||'')+(Object.keys(run.counts).length?' · '+runSummary(run,labels):''),duration:12000});
     else toast.success(run.state==='finished'?'Local model finished':'Local model paused',{id,description:runSummary(run,labels),duration:8000});
@@ -200,7 +202,7 @@ export async function startJob(kind:string){
   if(needsReader())return;   // The web demo has no server to run a job; its controls say so.
   try{const job:Job=await controlActions.api('/api/maintenance',{action:'start',kind});
     update({maintenance:model.maintenance?{...model.maintenance,running:job}:model.maintenance});
-    if(job.kind!=='check'){started.add(job.id);toast.loading(`${job.label} running…`,{id:job.id,description:'You can keep reading. This updates when it finishes.',duration:Infinity});}
+    if(job.kind!=='check'){started.add(job.id);dismissed.delete(job.id);toast.loading(`${job.label} running…`,{id:job.id,description:'You can keep reading. This updates when it finishes.',duration:Infinity,cancel:dismissAction(job.id)});}
   }catch(error){if(!(error as {offline?:boolean})?.offline)toast.error('Couldn’t start that job',{description:error instanceof Error?error.message:String(error),duration:8000});}
   pollMaintenance();
 }
@@ -218,7 +220,7 @@ function mergeCompanion(result:CompanionsStatus){
 export async function companionAction(name:string,action:string,extra:Record<string,unknown>={}){
   const result=await controlActions.api('/api/companions',{action,name,...extra});
   if(result?.kind&&result?.id){
-    started.add(result.id);toast.loading(`${result.label} running…`,{id:result.id,description:'Progress and the log are in Reader Admin, Service & tools.',duration:Infinity});
+    started.add(result.id);dismissed.delete(result.id);toast.loading(`${result.label} running…`,{id:result.id,description:'Progress and the log are in Reader Admin, Service & tools.',duration:Infinity,cancel:dismissAction(result.id)});
     update({maintenance:model.maintenance?{...model.maintenance,running:result}:model.maintenance});pollMaintenance();refreshCompanions();
   }else{mergeCompanion(result);if(action==='set-path')toast.success(extra.path?'Path saved.':'Path cleared.');}
   return result;
@@ -254,8 +256,9 @@ function announceInbox(status:InboxStatus){
   if(run?.run_id){
     const previous=runSeen.get(run.run_id),id='inbox-'+run.run_id;runSeen.set(run.run_id,run.status);
     if(previous!==run.status){
-      if(ACTIVE.includes(run.status)){if(!previous)toast.loading('The librarian is reading the mail…',{id,description:run.arrivals?`${run.arrivals} arrival${run.arrivals===1?'':'s'}. You can keep reading.`:'You can keep reading.',duration:Infinity});}
+      if(ACTIVE.includes(run.status)){if(!previous&&!dismissed.has(id))toast.loading('The librarian is reading the mail…',{id,description:run.arrivals?`${run.arrivals} arrival${run.arrivals===1?'':'s'}. You can keep reading.`:'You can keep reading.',duration:Infinity,cancel:dismissAction(id)});}
       else if(previous&&ACTIVE.includes(previous)||ownRuns.has(run.run_id)||inboxPolled&&!previous){
+        dismissed.delete(id);
         const filed=Math.max(0,(run.arrivals||0)-(run.remaining||0)),report={label:'Report',onClick:()=>controlActions.adminGo('inbox')};
         if(run.status==='finished')toast.success(`Mail filed: ${filed} arrival${filed===1?'':'s'}`,{id,description:run.commit?`Commit ${run.commit.short}. ${run.message}`:run.message,duration:12000,action:report});
         else if(run.status==='stopped'||run.status==='empty')toast(run.status==='stopped'?'Inbox run stopped':'Nothing to file',{id,description:run.message,duration:8000});
@@ -302,7 +305,8 @@ export async function startInbox(){
   if(model.inboxStarting||needsReader())return;update({inboxStarting:true});
   try{const result=await controlActions.api('/api/inbox',{action:'start',sandbox_mode:model.prefs.inboxSandbox==='danger-full-access'?'danger-full-access':'workspace-write'});
     ownRuns.add(result.run_id);
-    if(!result.state||ACTIVE.includes(result.state.status))toast.loading('The librarian is reading the mail…',{id:'inbox-'+result.run_id,description:'You can keep reading. This updates when the librarian finishes.',duration:Infinity});
+    const id='inbox-'+result.run_id;dismissed.delete(id);
+    if(!result.state||ACTIVE.includes(result.state.status))toast.loading('The librarian is reading the mail…',{id,description:'You can keep reading. This updates when the librarian finishes.',duration:Infinity,cancel:dismissAction(id)});
   }catch(error){
     // Another tab or client may have started a run since our last poll (a 409): show that run instead of an error.
     const status:InboxStatus|null=await controlActions.api('/api/inbox').catch(()=>null);
