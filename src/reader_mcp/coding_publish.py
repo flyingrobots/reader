@@ -151,7 +151,8 @@ class Job(Workflow):
         if not existing:
             self.run['push'] = {'sha': head, 'sent': True, 'verified': False}
             self.jobs.store.save(self.run)
-            self.git(['push', '--porcelain', '--', remote, f'refs/heads/{branch}:refs/heads/{branch}'], title=f'Push {branch}',
+            # The verified commit itself, not the branch ref, which something could move after verification.
+            self.git(['push', '--porcelain', '--', remote, f'{head}:refs/heads/{branch}'], title=f'Push {branch}',
                      timeout=PUSH_TIMEOUT, check=False)
             existing = self.remote_sha('refs/heads/' + branch)
         if existing != head:

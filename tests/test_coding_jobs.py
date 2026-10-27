@@ -102,7 +102,7 @@ def test_events_are_sequenced_and_the_archive_is_sealed_with_hashes(world):
     assert b'not json: a progress line' in gzip.decompress((folder / 'stdout.jsonl.gz').read_bytes())
     git_log = gzip.decompress((folder / 'git.log.gz').read_bytes()).decode()
     assert '--force' not in git_log and ' -f ' not in git_log and 'reset' not in git_log
-    assert 'push --porcelain -- origin refs/heads/' in git_log and ':refs/heads/' in git_log and '+refs/heads/reader' not in git_log
+    assert f'push --porcelain -- origin {run["git"]["head_sha"]}:refs/heads/reader/' in git_log and '+refs/heads/reader' not in git_log
 
 
 def test_an_edited_prompt_is_archived_beside_the_original_and_the_article_is_unchanged(world):
@@ -305,3 +305,18 @@ def test_issue_and_pull_request_titles_hide_host_folders(world, monkeypatch):
     assert run['outcome'] == 'pr_opened', run['message']
     assert str(w.checkout) not in w.github.issues[run['issue']['number']]['title']
     assert str(w.checkout) not in w.github.pulls[run['pr']['number']]['title']
+
+
+def test_the_push_sends_the_verified_commit_even_if_the_branch_moves(world, monkeypatch):
+    from reader_mcp.coding_publish import Job
+    w = world()
+    remote, moved = Job.remote_sha, []
+
+    def move(self, ref):
+        if self.run['phase'] == 'push' and not moved:
+            moved.append(True)  # Something commits on the job's branch after verification.
+            git('commit', '-q', '--allow-empty', '-m', 'unverified', cwd=self.run['git']['worktree'])
+        return remote(self, ref)
+    monkeypatch.setattr(Job, 'remote_sha', move)
+    run, _ = w.run()
+    assert w.remote_heads().get('refs/heads/' + run['git']['branch']) == run['git']['head_sha']
