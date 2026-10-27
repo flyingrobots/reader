@@ -851,7 +851,7 @@ exercise modules through HTTP, so see the route table for those.
 | `src/reader_mcp/coding_api.py` | 131 | 116 | 7850 | 67 | 151 | 0.85 | 10 | 1 | 0 | 0 |
 | `src/reader_mcp/coding_jobs.py` | 390 | 351 | 21962 | 60 | 155 | 0.84 | 18 | 3 | 2 | 16 |
 | `src/reader_mcp/coding_publish.py` | 205 | 191 | 12275 | 63 | 181 | 0.86 | 10 | 1 | 0 | 0 |
-| `src/reader_mcp/coding_store.py` | 235 | 198 | 9189 | 45 | 151 | 0.92 | 23 | 4 | 1 | 21 |
+| `src/reader_mcp/coding_store.py` | 241 | 203 | 9472 | 45 | 151 | 0.92 | 24 | 4 | 2 | 22 |
 | `src/reader_mcp/coding_workflow.py` | 353 | 322 | 20315 | 61 | 149 | 0.91 | 20 | 2 | 1 | 21 |
 | `src/reader_mcp/companions.py` | 697 | 610 | 39499 | 62 | 222 | 0.82 | 43 | 1 | 2 | 27 |
 | `src/reader_mcp/curation.py` | 331 | 305 | 19068 | 60 | 130 | 0.83 | 10 | 1 | 1 | 16 |
@@ -907,10 +907,10 @@ exercise modules through HTTP, so see the route table for those.
 | `scripts/vendor_web.py` | 77 | 68 | 4132 | 58 | 186 | 0.88 | 2 | 0 | 0 | 0 |
 | `scripts/verify_installation.py` | 80 | 72 | 4428 | 60 | 264 | 0.92 | 1 | 0 | 0 | 0 |
 | `scripts/verify_search_installation.py` | 74 | 66 | 4190 | 59 | 138 | 0.82 | 1 | 0 | 0 | 0 |
-| **total** | 23343 | 20788 | 1238871 | | | | | | | |
+| **total** | 23349 | 20793 | 1239154 | | | | | | | |
 
 Language-neutral code that a port keeps as is: `src/reader_mcp/web_ui/` (41 hand-written JS/CSS/HTML files, 8340 lines, excluding vendor/) plus the built `web_ui/controls/` bundle from `web/`.
-Tests: 61 pytest files, 667 test functions; 72 browser suites; 18 node unit files.
+Tests: 62 pytest files, 668 test functions; 72 browser suites; 18 node unit files.
 
 ## Contract coverage
 

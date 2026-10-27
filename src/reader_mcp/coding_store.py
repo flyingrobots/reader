@@ -89,8 +89,14 @@ class Store:
         folder = self.runtime / 'runs'
         if not folder.is_dir() or folder.is_symlink():
             return []
+        def written(path):
+            try:
+                return path.stat().st_mtime_ns
+            except OSError:
+                return 0
         rows = []
-        for path in sorted(folder.glob('*.json'))[:MAX_RUNS]:
+        # Past the cap, the most recently written records are read (file names are random UUIDs, not an order).
+        for path in sorted(folder.glob('*.json'), key=written, reverse=True)[:MAX_RUNS]:
             if valid_id(path.stem) and (run := self._read(path)):
                 rows.append(run)
         return sorted(rows, key=lambda run: run.get('created_at') or '', reverse=True)
