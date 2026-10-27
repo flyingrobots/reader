@@ -35,12 +35,17 @@ def docker(*args, **kwargs):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('kind', choices=['python', 'node', 'formatter', 'web'])
-    parser.add_argument('pytest_args', nargs='*', help='python only: test paths, node IDs or -k EXPRESSION')
+    parser.add_argument('pytest_args', nargs='*', help='python only: test paths or node IDs')
+    parser.add_argument('-k', dest='expression', help='python only: select tests by a pytest -k expression')
     args = parser.parse_args()
-    if args.pytest_args and args.kind != 'python':
+    if (args.pytest_args or args.expression is not None) and args.kind != 'python':
         parser.error('Only the python kind takes test arguments')
     if any(not re.fullmatch(r'[A-Za-z0-9_./:\[\]= -]{1,300}', a) for a in args.pytest_args):
-        parser.error('Test arguments may name tests/ paths, node IDs or -k expressions only')
+        parser.error('Test arguments may name tests/ paths or node IDs only')
+    if args.expression is not None:
+        if not re.fullmatch(r'[A-Za-z0-9_.()\[\] -]{1,300}', args.expression):
+            parser.error('A -k expression uses test names, and, or, not and parentheses only')
+        args.pytest_args += ['-k', args.expression]
     RUNTIME.mkdir(parents=True, exist_ok=True)
     with (RUNTIME / 'validation.lock').open('w') as lock:
         fcntl.flock(lock, fcntl.LOCK_EX)
