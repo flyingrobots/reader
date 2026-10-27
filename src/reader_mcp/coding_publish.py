@@ -110,7 +110,7 @@ class Job(Workflow):
         """The repository's configured final check, in the worktree, under its lock when one is configured."""
         self.phase('verify')
         verify = self.entry['verify']
-        argv, env = list(verify['argv']), dict(self.env)
+        argv, env = self.verify_argv(), dict(self.env)
         lock = verify['lock']
         if lock:
             argv = [self.jobs.git_locks(), 'with', '--job', f'reader-coding-{self.run["id"]}', '--holder', 'reader-coding-job',

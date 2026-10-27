@@ -250,3 +250,22 @@ def test_a_published_run_completes_its_pull_request_phase(world):
     assert run['outcome'] == 'pr_opened'
     phases = [(e['phase'], e['state']) for e in w.events(run['id']) if e['type'] == 'phase']
     assert phases[-1] == ('pull_request', 'completed')
+
+
+def test_a_verification_command_named_without_a_path_is_found_on_path(world):
+    w = world()
+    # The documented form: a command name such as python3, not an absolute path.
+    w.entry['verify']['argv'][0] = 'python3'
+    (w.vault / '.reader/repositories.json').write_text(json.dumps({'schema_version': 1, 'repositories': {REPO: w.entry}}))
+    run, _ = w.run()
+    assert run['outcome'] == 'pr_opened', run['message']
+    assert run['verification']['exit_code'] == 0
+
+
+def test_a_verification_command_that_is_not_installed_blocks_the_job(world):
+    w = world()
+    w.entry['verify']['argv'][0] = 'no-such-verifier'
+    (w.vault / '.reader/repositories.json').write_text(json.dumps({'schema_version': 1, 'repositories': {REPO: w.entry}}))
+    run, _ = w.run()
+    assert run['outcome'] == 'blocked' and 'no-such-verifier' in run['message'], run['message']
+    assert run['phase'] == 'preflight' and not w.calls(), 'blocked before the agent ran'

@@ -1362,7 +1362,8 @@ per vault, by the one Reader server that holds `.reader/coding-jobs/supervisor.l
    a 409 conflict, never an edit or a rerun. A rerun names its `predecessor`, a finished run of the same article and block
    (another is a 409), and reuses its verified issue.
 2. *Preflight.* Registry identity (the checkout's remote and any push URL must be `github.com/owner/name`), the
-   agent executable, the verification guard, free space for the archive and the worktree folder, GitHub login
+   agent executable, the verification command (a bare name such as `python3` is resolved on Reader's `PATH`),
+   the verification guard, free space for the archive and the worktree folder, GitHub login
    and push access through `gh`, the supplied issue (it must be an issue, not a pull request, in that repository),
    the base branch on the remote, and that the job's branch exists nowhere. Any refusal ends the run `blocked`.
 3. *Isolate.* Fetch the base, pin its SHA and `git worktree add -b reader/<id>-<run> <root>/reader-<run-id> <sha>`

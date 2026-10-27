@@ -13,6 +13,7 @@ the configured verification command remain the resource and quality policy."""
 import json
 import os
 from pathlib import Path
+import shutil
 import subprocess
 import sys
 import threading
@@ -136,6 +137,16 @@ class Workflow:
         rows = [line.split('\t') for line in result.stdout.splitlines() if '\t' in line]
         return next((sha for sha, name in rows if name == ref), None)
 
+    def verify_argv(self):
+        """The verification argv with its command resolved: the supervising shim execs without a PATH search."""
+        argv = list(self.entry['verify']['argv'])
+        if '/' not in argv[0]:
+            found = shutil.which(argv[0], path=self.env.get('PATH'))
+            if not found:
+                raise Stop('blocked', f'The verification command {argv[0]} is not installed on Reader’s PATH.')
+            argv[0] = found
+        return argv
+
     # Phases -----------------------------------------------------------------------------------------
 
     def preflight(self):
@@ -150,6 +161,7 @@ class Workflow:
         if not path:
             raise Stop('blocked', f'{coding_agents.LABELS[agent]} is not installed where Reader can find it.')
         self.agent_path = path
+        self.verify_argv()  # Before any work: a job whose final check cannot run never starts its agent.
         lock = self.entry['verify']['lock']
         if lock and not self.jobs.git_locks():
             raise Stop('blocked', 'Verification is configured to run under git-locks, which is not installed; Reader will not run it unguarded.')
