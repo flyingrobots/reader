@@ -1,6 +1,6 @@
 """A bounded, read-only inventory of the permanent LLM archive (`logs/llm/`), for Reader Admin's LLM logs.
 
-Pages walk the dated folders newest first and read each run’s `meta.json` (at most 64 KiB), which orders a day by start, without
+Pages walk the dated folders newest first and read each run’s `meta.json` (at most 1 MiB), which orders a day by start, without
 decompressing anything. Artifact reads go through `llm_logs.read` with its bounds. Nothing here prunes,
 rewrites or recompresses: retention is forever, and a page is a view, not a cleanup tool."""
 import json
@@ -9,7 +9,7 @@ from pathlib import Path
 from . import llm_logs
 from .display import shown
 
-MAX_META = 64 * 1024
+MAX_META = 1024**2  # Above a coding job's metadata: at most 256 KiB of changed paths plus its commits.
 PAGE = 50
 
 
