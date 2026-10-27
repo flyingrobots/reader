@@ -2,7 +2,7 @@
    and outcome. The compact form (in an article) is a status line, the deterministic phases, Stop and the result;
    its full trace opens on request, and on its own when a check failed. The full form (Admin) adds branch/head
    details and the run's archived artifacts with bounded previews. */
-import {useEffect, useState, type ReactNode} from 'react';
+import {useEffect, useRef, useState, type ReactNode} from 'react';
 import {ArrowUpRightIcon, CopyIcon, DownloadIcon, GitBranchIcon, LoaderCircleIcon, SquareIcon} from 'lucide-react';
 import {ActivityTranscript, type Labels, type RunInfo} from '../activity/transcript';
 import {steps} from '../activity/reducer';
@@ -71,8 +71,13 @@ export function JobSummary({id,options,onAdmin}:{id:string;options:JobViewOption
 
 function Artifact({run,name,api}:{run:JobRun;name:string;api:JobViewOptions['api']}){
   const [data,setData]=useState<{text:string|null;bytes:number|null;truncated:boolean;limit:number;available:boolean}|null>(null),[error,setError]=useState<string|null>(null);
-  const load=(limit:number)=>api(`/api/jobs/artifact?id=${encodeURIComponent(run.id)}&name=${encodeURIComponent(name)}&limit=${limit}`).then(setData,(e:unknown)=>setError(String(e instanceof Error?e.message:e)));
-  useEffect(()=>{load(256*1024);},[run.id,name,run.seq]);
+  // Only the latest request may answer: a slow one for the artifact shown before never replaces the one chosen since.
+  const latest=useRef(0);
+  const load=(limit:number)=>{const request=++latest.current;setError(null);
+    return api(`/api/jobs/artifact?id=${encodeURIComponent(run.id)}&name=${encodeURIComponent(name)}&limit=${limit}`).then(
+      value=>{if(request===latest.current)setData(value);},(e:unknown)=>{if(request===latest.current)setError(String(e instanceof Error?e.message:e));});};
+  useEffect(()=>{setData(null);},[run.id,name]);
+  useEffect(()=>{load(256*1024);return ()=>{latest.current++;};},[run.id,name,run.seq]);
   if(error)return <p className="job-quiet">{error}</p>;
   if(!data)return <p className="job-quiet">Loading {name}…</p>;
   if(!data.available)return <p className="job-quiet">This run has no {name}.</p>;

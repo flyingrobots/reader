@@ -93,6 +93,16 @@ async function fixture(flags){
    await shot(page,'admin-jobs');
    await page.goto(url+'#admin/jobs/'+id);await page.waitForFunction(id=>document.querySelector(`.job-detail[data-job-id="${id}"]`),id,{timeout:10000});
    await shot(page,'admin-job',{fullPage:true});
+   // A slow answer for the artifact shown before never replaces the one chosen since.
+   let release,held;const arrived=new Promise(resolve=>held=resolve),hold=new Promise(resolve=>release=resolve);
+   await page.route('**/api/jobs/artifact?**',async route=>{if(new URL(route.request().url()).searchParams.get('name')==='stdout.jsonl'){held();await hold;}await route.continue();});
+   await page.getByRole('tab',{name:'stdout.jsonl',exact:true}).click();await arrived;
+   await page.getByRole('tab',{name:'prompt.txt',exact:true}).click();
+   await page.waitForFunction(()=>/Check issue #277/.test(document.querySelector('[data-job-artifact="prompt.txt"]')?.textContent||''),null,{timeout:10000});
+   release();await page.waitForResponse(r=>r.url().includes('name=stdout.jsonl'));await page.waitForTimeout(300);
+   assert.match(await page.locator('.job-artifact').textContent(),/Check issue #277/,'the chosen artifact stays shown');
+   assert.equal(await page.locator('[data-job-artifact="prompt.txt"]').count(),1);
+   await page.unroute('**/api/jobs/artifact?**');
    await page.goto(url+'#admin/logs');await panel('logs','[data-log-row]');
    assert.ok(await page.locator('[data-log-row]').filter({hasText:'coding-job'}).count()>=1,'the run is archived as a coding-job LLM log');
    await shot(page,'admin-logs');
