@@ -30,6 +30,8 @@
 
 - Plugin live inbox check (fixes #100): `plugins/reader/tests/live/inbox.py` claims and releases through this checkout's `skills/upkeep/scripts/check.py` instead of whatever Upkeep copy is installed in the Codex home; `--installed-skill` tests the installed copy on purpose.
 
+- Open tabs recover their write token after a Reader restart, including through Tailscale. A token-only endpoint and explicit preflight refusal let the browser refresh once and retry the unchanged JSON request before any action has run. Host/Origin checks, JSON-only writes and token validation remain required; other permission errors and uncertain network failures never trigger an automatic replay.
+
 - Upkeep worker recommendation (fixes #3): the check reports `recommended_intake_workers`, documented as a recommended delegation count rather than a live worker count; `intake_workers` stays as a deprecated alias with the same value and is named under `deprecated`.
 
 - Article shape stars (fixes #81): long documents keep their neighbour stars. A neighbour is dropped only when its projection has no meaningful direction (within 0.05 of the centre), not when it lies within 0.15 of any passage, a test that erased every star once the ribbon filled the sphere; the browser already draws stars at a fixed radius along their direction.

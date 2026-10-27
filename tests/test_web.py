@@ -44,6 +44,28 @@ def web(tmp_path):
     thread.join(timeout=5)
 
 
+def test_expired_token_is_rejected_before_inbox_dispatch_and_can_be_refreshed(web, monkeypatch):
+    _, library, server, request = web
+    calls = []
+    monkeypatch.setattr(library.inbox, 'start', lambda mode: calls.append(mode) or {'started': True})
+    previous = request('/api/library')[1]['token']
+    server.token = 'rotated-server-token'
+    status, refusal, _ = request('/api/inbox', {'action': 'start'}, {'X-Reader-Token': previous})
+    assert status == 403 and refusal['code'] == 'reader_token_expired' and calls == []
+    status, fresh, headers = request('/api/token')
+    assert status == 200 and fresh == {'token': server.token} and headers['Cache-Control'] == 'no-store'
+    assert request('/api/inbox', {'action': 'start'}, {'X-Reader-Token': fresh['token']})[1] == {'started': True}
+    assert calls == ['workspace-write']
+
+
+def test_token_refresh_preserves_origin_and_json_refusals(web):
+    _, _, _, request = web
+    status, body, _ = request('/api/token', headers={'Origin': 'https://untrusted.example'})
+    assert status == 403 and 'token' not in body and 'code' not in body
+    status, body, _ = request('/api/inbox', {'action': 'start'}, {'Content-Type': 'text/plain'})
+    assert status == 403 and 'code' not in body
+
+
 def test_open_get_is_read_only_and_read_marks_reject_new_editions(web):
     root, library, server, request = web
     _, doc, _ = request('/api/document?path=library/thought.md')

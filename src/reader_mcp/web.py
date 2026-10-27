@@ -1432,8 +1432,13 @@ class WebHandler(BaseHTTPRequestHandler):
             args = {k: v[0] for k, v in parse_qs(parsed.query).items()}
             library = self.server.library
             if write:
-                if self.headers.get('X-Reader-Token') != self.server.token or self.headers.get_content_type() != 'application/json':
+                if self.headers.get_content_type() != 'application/json':
                     raise PermissionError('A same-origin Reader token and JSON request are required')
+                if self.headers.get('X-Reader-Token') != self.server.token:
+                    # No body or action has been processed: a tab may safely refresh and retry once.
+                    self.json({'error': 'A same-origin Reader token and JSON request are required',
+                               'code': 'reader_token_expired'}, 403)
+                    return
                 length = int(self.headers.get('Content-Length', '0'))
                 # Prose batches carry up to 512 KiB of text; an art still image is a data URL of at most 2 MiB.
                 limit = 1024**2 if parsed.path == '/api/prose' else 3 * 1024**2 if parsed.path == '/api/art' else 128 * 1024
@@ -1525,6 +1530,8 @@ class WebHandler(BaseHTTPRequestHandler):
                 return
             if parsed.path == '/api/library':
                 self.json(library.bootstrap(args.get('participant', self.server.participant)) | {'token': self.server.token})
+            elif parsed.path == '/api/token':
+                self.json({'token': self.server.token})
             elif parsed.path == '/api/document':
                 self.json(library.document(args.get('path', ''), args.get('participant', self.server.participant)))
             elif parsed.path == '/api/search':
