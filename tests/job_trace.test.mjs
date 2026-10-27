@@ -85,3 +85,11 @@ test('Claude Code stream-json becomes messages, tool rows completed by their res
   assert.deepEqual(activity.usage,{input:10,cached:4,output:5,reasoning:0,turns:1});
   assert.ok(map({type:'assistant',message:{content:[{type:'tool_use',id:'x',name:'Bash',input:{command:'ls'}}]}})[0].kind==='command');
 });
+
+
+test('Claude thinking blocks of different messages are both kept, even at the same index and length',()=>{
+  const events=['First','Other'].map((thinking,i)=>({run_id:run,seq:i+1,at:'2026-10-26T00:00:00Z',type:'agent',stream:'claude',
+    event:{type:'assistant',message:{id:'m'+i,content:[{type:'thinking',thinking}]}}}));
+  const activity=reduceJob(emptyActivity(),events,jobMapper());
+  assert.deepEqual(activity.items.filter(i=>i.kind==='reasoning').map(i=>i.text),['First','Other']);
+});

@@ -247,7 +247,7 @@ export function claudeMapper(){
     const out:AgentEvent[]=[];
     content.forEach((block:any,index:number)=>{
       if(type==='assistant'&&block?.type==='text'&&str(block.text).trim())out.push({kind:'message',id:'claude-text-'+str(event.message?.id||'')+'-'+index+'-'+str(block.text).length,text:str(block.text),role:'assistant'});
-      else if(type==='assistant'&&block?.type==='thinking'&&str(block.thinking))out.push({kind:'reasoning',id:'claude-thinking-'+index+'-'+str(block.thinking).length,phase:'completed',text:str(block.thinking)});
+      else if(type==='assistant'&&block?.type==='thinking'&&str(block.thinking))out.push({kind:'reasoning',id:'claude-thinking-'+str(event.message?.id||'')+'-'+index+'-'+str(block.thinking).length,phase:'completed',text:str(block.thinking)});
       else if(type==='assistant'&&block?.type==='tool_use'){
         const input=block.input||{},title=str(input.command)||(str(block.name)+(input.file_path?' '+str(input.file_path):''));
         calls.set(str(block.id),title);
