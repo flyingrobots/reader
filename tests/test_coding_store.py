@@ -1,5 +1,7 @@
 import os
 
+import pytest
+
 from reader_mcp import coding_store, llm_logs
 from reader_mcp.coding_store import Store
 
@@ -23,3 +25,11 @@ def test_an_event_larger_than_a_page_in_bytes_is_truncated_so_paging_advances(tm
     capture.close()
     rows, more = coding_store.archived_events(tmp_path, log.relative, 0)
     assert rows and rows[0]['truncated'] and not more
+
+
+def test_a_record_too_large_to_read_back_is_refused_not_written(tmp_path):
+    store = Store(tmp_path)
+    run = {'id': '11111111-1111-4111-8111-111111111111', 'git': {'changed_paths': ['a' * 600 + str(i) for i in range(2000)]}}
+    with pytest.raises(ValueError):
+        store.save(run)
+    assert not (store.runtime / 'runs' / (run['id'] + '.json')).exists()

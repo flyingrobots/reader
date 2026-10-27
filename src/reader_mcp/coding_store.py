@@ -59,9 +59,12 @@ class Store:
         return path
 
     def _write(self, path, data):
+        text = json.dumps(data, ensure_ascii=False, indent=1) + '\n'
+        if len(text.encode('utf-8', 'surrogatepass')) > MAX_RECORD:  # _read() would refuse it: never write one.
+            raise ValueError(f'A coding-job record would exceed {MAX_RECORD // 1024**2} MiB')
         temporary = path.with_name('.' + path.name + '.next')
         with temporary.open('w') as out:
-            out.write(json.dumps(data, ensure_ascii=False, indent=1) + '\n')
+            out.write(text)
             out.flush()
             os.fsync(out.fileno())
         temporary.replace(path)

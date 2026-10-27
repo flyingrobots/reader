@@ -31,6 +31,7 @@ MAX_RSS = 4 * 1024**3
 CHECK_EVERY = 5
 TAIL = 64 * 1024
 CHUNK = 64 * 1024
+CHANGED_BYTES = 256 * 1024
 MAX_LINE = 4 * 1024**2  # Longest output line parsed for events; longer lines stay in the archive only.
 GIT_TIMEOUT = 120
 PUSH_TIMEOUT = 300
@@ -291,7 +292,14 @@ class Workflow:
         for line in self.git(['diff', '--name-status', '--no-renames', f'{base_sha}..{head}'], worktree).stdout.splitlines()[:2000]:
             status, _, path = line.partition('\t')
             changes.append({'path': path, 'kind': 'add' if status == 'A' else 'delete' if status == 'D' else 'update'})
-        self.run['git'].update(head_sha=head, commits=commits, changed_paths=[c['path'] for c in changes])
+        # The run record keeps at most CHANGED_BYTES of paths (the archive's git.log has every one), so it stays readable.
+        paths, size = [], 0
+        for change in changes:
+            size += len(change['path'].encode('utf-8', 'surrogateescape')) + 8
+            if size > CHANGED_BYTES:
+                break
+            paths.append(change['path'])
+        self.run['git'].update(head_sha=head, commits=commits, changed_paths=paths, changed_count=len(changes))
         self.jobs.store.save(self.run)
         if changes:
             self.emit('files', changes=changes)
