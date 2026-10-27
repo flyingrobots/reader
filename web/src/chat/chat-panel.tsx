@@ -49,7 +49,7 @@ const handOpen=(m:ChatMessage)=>m.state==='raised'&&Date.now()-Date.parse(m.crea
 const handLabel:Record<string,string>={accepted:'spoke',declined:'not now',expired:'expired',raised:'expired'};
 type Summary={id:string;created_at:string;updated_at:string;messages:number;last:{author:string;body:string}|null};
 type Commit={status:string;commit:string|null;error?:string};
-export type ChatProps={open:boolean;path:string|null;title:string;participant:string;api:(path:string,payload?:unknown)=>Promise<any>;
+export type ChatProps={open:boolean;path:string|null;title:string;participant:string;initialId?:string;api:(path:string,payload?:unknown)=>Promise<any>;
   markdown:(text:string)=>string;openPath:(path:string)=>void;onClose:()=>void;notify:(message:string,type?:'info'|'success'|'error')=>void};
 
 const uuid=()=>crypto.randomUUID();
@@ -111,7 +111,7 @@ function Footer({message,retried,onRetry,onReply,openPath,raw}:{message:ChatMess
 }
 
 export function ChatPanel(props:ChatProps){
-  const {open,path,title,participant,api,markdown,openPath,onClose,notify}=props;
+  const {open,path,title,participant,initialId,api,markdown,openPath,onClose,notify}=props;
   const [voices,setVoices]=useState<Voice[]>([]),[configured,setConfigured]=useState(true);
   const [history,setHistory]=useState<Summary[]>([]),[chat,setChat]=useState<Chat|null>(null);
   const [turns,setTurns]=useState<Record<string,Turn>>({}),[commit,setCommit]=useState<Commit|null>(null);
@@ -149,11 +149,11 @@ export function ChatPanel(props:ChatProps){
   // History for this document; the newest chat reopens.
   useEffect(()=>{
     if(!open||!path)return;
-    if(chatRef.current&&chatRef.current.document_path===path)return;
+    if(chatRef.current&&chatRef.current.document_path===path&&(!initialId||chatRef.current.id===initialId))return;
     let live=true;setChat(null);setTurns({});setHistory([]);fresh.current=false;
-    (async()=>{try{const data=await api('/api/chats?path='+encodeURIComponent(path));if(!live)return;setHistory(data.chats);setVoices(data.voices);setConfigured(data.configured);setLogs(data.llm_logs||null);owned(data);if(data.chats[0])await load(data.chats[0].id);}catch(error){fail(error);}})();
+    (async()=>{try{const data=await api('/api/chats?path='+encodeURIComponent(path));if(!live)return;setHistory(data.chats);setVoices(data.voices);setConfigured(data.configured);setLogs(data.llm_logs||null);owned(data);if(initialId){if(!data.chats.some((c:Summary)=>c.id===initialId))throw Error("The requested chat does not belong to this article.");await load(initialId);}else if(data.chats[0])await load(data.chats[0].id);}catch(error){fail(error);}})();
     return ()=>{live=false;};
-  },[open,path,api,load,fail]);
+  },[open,path,initialId,api,load,fail]);
   // Keep the history label of the open chat current.
   useEffect(()=>{if(chat)setHistory(old=>old.map(c=>c.id===chat.id?{...c,messages:chat.messages.length}:c));},[chat]);
   const pending=Object.values(turns).filter(t=>!TERMINAL.has(t.state));

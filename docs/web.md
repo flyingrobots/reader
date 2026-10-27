@@ -55,6 +55,7 @@ The web server does not rebuild indexes or download models at startup.
 | Space s, then a / f / s | Send to AI-TTS: whole article, from here, or the selection |
 | Space m | Chat with the voices about the open document |
 | Space x | Take a source-anchored quiz on the open article |
+| Space a | Write about the article from a voice's question |
 | Space z | Hide or reveal reading chrome |
 | Tab to a diagram, Enter (or click) | Open the diagram full size; Escape closes it |
 | ? / Escape | Help / close the current interface |

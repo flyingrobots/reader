@@ -18,11 +18,12 @@ import {calloutPlugin} from './callouts.mjs';
 import {drawable,fetchShape,paintShape} from './shapes.mjs';
 import {artJobs,fetchArt,focusArt,forgetArt,hasArt,paintArt,paintArtThumb,paintPlaceholder} from './art.mjs';
 import {closeArtFocus,focusOpen} from './art-focus.mjs';
-import {applyThemes,installControls,mountSkeleton,mountCodeBlocks,decorateCodeBlocks,clearControlsWithin,mountDocumentTree,visibleDocumentNodes,revealDocumentRow,mountBackstage,mountChangesPanel,mountArtRegenerate,notify as shellNotify,openChat,closeChat,chatOpen,trackSpeech,renderQueuePanel,mountCallouts,mountQuiz,startJob,promptCompanion,needsReader,NEEDS_READER} from './controls/reader-controls.js';
+import {applyThemes,installControls,mountSkeleton,mountCodeBlocks,decorateCodeBlocks,clearControlsWithin,mountDocumentTree,visibleDocumentNodes,revealDocumentRow,mountBackstage,mountChangesPanel,mountArtRegenerate,notify as shellNotify,openChat,closeChat,chatOpen,trackSpeech,renderQueuePanel,mountCallouts,mountQuiz,mountWritingPrompt,startJob,promptCompanion,needsReader,NEEDS_READER} from './controls/reader-controls.js';
 import {installVersions,chipMarkup,historicalMarkup,splitRef,compareLabel} from './versions.mjs';
 import {installSplit,installPane,cleanRoute} from './split.mjs';
 import {installScratch} from './scratch.mjs';
 import {installQuiz} from './quiz.mjs';
+import {installWritingPrompts} from './writing-prompt.mjs';
 import {createKeys,closest as keysClosest} from './keys.mjs';
 import {installVisual} from './visual.mjs';
 import {installPlace,shownTop} from './place.mjs';
@@ -62,7 +63,7 @@ function passageFromHash(){
     return {line:Number.isInteger(at.line)&&at.line>0?at.line:1,page:Number.isInteger(at.page)&&at.page>0?at.page:null,terms:Array.isArray(at.terms)?at.terms.filter(t=>typeof t==='string'&&t.length<=200).slice(0,32):[],query:typeof at.query==='string'?at.query.slice(0,1000):''};}
   catch{return null;}
 }
-let reading,controls,links,outline,speech,versions,search,prose,queue,scratch,quiz,keys,visual,registers,quickfix,marks,jumps,panels;
+let reading,controls,links,outline,speech,versions,search,prose,queue,scratch,quiz,writingPrompts,keys,visual,registers,quickfix,marks,jumps,panels;
 let saved = {};
 try { saved = JSON.parse(localStorage.getItem('reader.preferences.v1') || '{}'); } catch {}
 const state = {prefs:{...defaults,...saved}, data:null, doc:null, threads:[], attention:[], token:null, mode:'fuzzy', results:[], resultIndex:0, searchId:0, routeId:0, pdf:null, smoother:null, find:[], findIndex:-1, selected:null, activeThread:null, replyTo:null, visits:[null], cursor:0, ranges:[], leader:null,themeEditorOpen:false,view:null};
@@ -230,6 +231,7 @@ async function renderHome(path=null,id=state.routeId) {
     button.onclick=event=>{event.preventDefault();button.disabled=true;button.textContent='Making art…';commissionArt(button.dataset.artGenerate);};});
   $('#issue-backstage').onclick=()=>navigate(BACKSTAGE);
   $('#main').querySelectorAll('.issue [data-queue-add]').forEach(button=>{if(needsReader()){localOnly(button);return;}button.onclick=event=>{event.preventDefault();queue.add(button.dataset.queueAdd);};});
+  if(!needsReader())api('/api/writing?participant='+param(state.prefs.participant)).then(data=>{if(id!==state.routeId||!data.pieces?.length)return;const section=document.createElement('section');section.className='your-writing';section.dataset.readerDecoration='';section.innerHTML='<h2>Your writing</h2><ul>'+data.pieces.slice(0,10).map(piece=>`<li><a href="#read=${param(piece.path)}" data-path="${esc(piece.path)}">${esc(piece.title)}</a><time>${esc(formatDate(piece.date))}</time></li>`).join('')+'</ul>';$('#main').append(section);wireDocumentLinks(section);}).catch(error=>console.warn('Your writing',error));
   resetScroll();reading?.updateStatus();
   paintIssueArt(artwork,id).catch(error=>console.warn('Article art',error));
   autoCommission(issue,artwork);
@@ -452,7 +454,7 @@ function wireDocumentLinks(root) {
 function closeDialog(id) { const el=$('#'+id);if(el.open)el.close();state.smoother?.paused(false); }
 function openDialog(id) { const el=$('#'+id); if(!el.open)el.showModal();state.smoother?.paused(true); }
 function closeContext() {
-  quiz?.close();
+  quiz?.close();writingPrompts?.close();
   if(visual?.active())visual.exit();panels?.close(false);keys?.closeLine(false);
   closeChat();links?.hide();hideChartTooltip();$('#passage-tooltip').classList.remove('visible');$('#selection-tools').hidden=true;$('#thread-panel').hidden=true;$('#find-bar').hidden=true;versions?.close();
   for(const dialog of document.querySelectorAll('dialog[open]'))dialog.close();
@@ -471,7 +473,7 @@ async function navigate(path,{thread=null,fragment='',record=true,commit=null,at
   if(record){state.visits=state.visits.slice(0,state.cursor+1);state.visits.push(path);state.cursor++;
     // A pane's pushed entry would join the window's session history, so browser Back would step a background pane.
     if(EMBEDDED)history.replaceState({reader:true,path},'',routeHash(path,at,fragment));else history.pushState({reader:true,path},'',routeHash(path,at,fragment));}
-  clearFind();prose?.detach();await state.pdf?.destroy();state.pdf=null;state.ranges=[];placeKeeper.watch(null);CSS.highlights?.delete('reader-own');CSS.highlights?.delete('reader-other');CSS.highlights?.delete('reader-warning');CSS.highlights?.delete('reader-quiz');
+  clearFind();prose?.detach();await state.pdf?.destroy();state.pdf=null;state.ranges=[];state.writingRecords=[];placeKeeper.watch(null);CSS.highlights?.delete('reader-own');CSS.highlights?.delete('reader-other');CSS.highlights?.delete('reader-warning');CSS.highlights?.delete('reader-quiz');
   const quick=isIssue(path)&&state.view==='issue'&&!!state.data;
   state.view=path===BACKSTAGE?'backstage':path===SEARCH?'search':path?.startsWith(SCRATCH)?'scratch':isIssue(path)?'issue':null;
   state.editions=null;state.versions=null;state.changes=null;versions?.reset();versions?.update();
@@ -831,7 +833,7 @@ function youReadNow(doc,id){
 function paintReadingLog(data,id){
   const slot=$('#main .reading-log');if(id!==state.routeId||!slot||state.doc?.path!==data.path)return;
   const open=slot.querySelector('.reading-log-details')?.open,agents=slot.querySelector('.reading-log-agents')?.open;
-  slot.innerHTML=readingLogHTML(data);slot.dataset.ready='true';
+  slot.innerHTML=readingLogHTML(data);slot.dataset.ready='true';state.writingRecords=data.writing||[];wireDocumentLinks(slot);
   const details=slot.querySelector('.reading-log-details');
   if(details){details.open=!!open;const nested=slot.querySelector('.reading-log-agents');if(nested)nested.open=!!agents;}
   slot.querySelectorAll('details').forEach(el=>el.addEventListener('toggle',()=>{refreshScroll();positionPins();}));
@@ -861,10 +863,17 @@ function placeQuizControl(){
   const button=document.createElement('button');button.id='article-quiz';button.type='button';button.dataset.button='outline sm';
   button.textContent='Test yourself';button.title='Take an article quiz · Space x';button.onclick=()=>quiz.open();aside.append(button);
   if(needsReader()){button.disabled=true;button.title=NEEDS_READER;button.dataset.needsReader='';}
+  const writing=document.createElement('button');writing.id='article-writing-prompt';writing.type='button';writing.dataset.button='outline sm';writing.textContent='Write about this';writing.title='A question from a voice · Space a';writing.onclick=()=>writingPrompts.open();if(needsReader()){writing.disabled=true;writing.title=NEEDS_READER;}aside.append(writing);
   reading.placeAtEnd(aside);
 }
 function showQuizEvidence(anchor){
-  const doc=state.doc;if(!doc||doc.sha256!==anchor.source_sha256){toast('The article edition changed. Reopen the quiz.');return;}
+  const range=learningEvidenceRange(anchor);
+  if(!range){toast('This passage could not be mapped safely to the current article. Open the original to inspect it.');return;}
+  if(window.Highlight&&CSS.highlights)CSS.highlights.set('reader-quiz',new Highlight(range));
+  moveToRange(range);
+}
+function learningEvidenceRange(anchor){
+  const doc=state.doc;if(!doc||!anchor||doc.sha256!==anchor.source_sha256)return null;
   let range=null;
   if(doc.kind==='.txt'){
     const node=$('#article pre')?.firstChild;if(node?.nodeType===Node.TEXT_NODE){
@@ -881,9 +890,7 @@ function showQuizEvidence(anchor){
     }
     if(hit)range=dom.range(hit.start,hit.end);
   }
-  if(!range){toast('This passage could not be mapped safely to the rendered article. Open the original to inspect it.');return;}
-  if(window.Highlight&&CSS.highlights)CSS.highlights.set('reader-quiz',new Highlight(range));
-  moveToRange(range);
+  return range;
 }
 /** Visible text of root, for anchoring (its own text: embedded documents excluded) or for find (`embeds`: included).
  *  Exclusions count only inside root, so an embedded fragment projects its own text. */
@@ -996,6 +1003,7 @@ function positionPins(){
   // Pins stack down each margin, so place them in reading order (threads arrive in id order).
   const placed=[];
   for(const {thread,range} of state.ranges){const rects=[...range.getClientRects()];const rect=spread?rects.find(r=>r.width>0&&r.right>spread.left+1&&r.left<spread.right-1):reading?.hasBook()?null:rects.at(-1);const pin=article.querySelector(`[data-thread="${CSS.escape(thread.id)}"]`);if(!pin)continue;pin.hidden=!rect;if(rect)placed.push({pin,rect});}
+  for(const piece of state.writingRecords||[]){const range=learningEvidenceRange(piece.evidence||piece.prompt?.evidence);if(!range)continue;let pin=article.querySelector(`[data-writing-pin="${CSS.escape(piece.path)}"]`);if(!pin){pin=document.createElement('button');pin.className='annotation-pin writing-pin';pin.dataset.readerDecoration='';pin.dataset.writingPin=piece.path;pin.type='button';pin.textContent='✎';pin.title='Your writing: '+piece.title;pin.setAttribute('aria-label',pin.title);pin.onclick=()=>navigate(piece.path);article.append(pin);}const rects=[...range.getClientRects()],rect=spread?rects.find(r=>r.width>0&&r.right>spread.left+1&&r.left<spread.right-1):reading?.hasBook()?null:rects.at(-1);pin.hidden=!rect;if(rect)placed.push({pin,rect});}
   placed.sort((a,b)=>a.rect.top-b.rect.top||a.rect.left-b.rect.left);
   for(const {pin,rect} of placed){if(place){const at=place(rect,pin);pin.style.left=at.left+'px';pin.style.top=at.top+'px';}else if(reading?.hasBook()){pin.style.left=Math.min(pageWidth()-25,rect.right+9)+'px';pin.style.top=rect.bottom-5+'px';}else{pin.style.left='';const top=Math.max(previous+27,rect.bottom-box.top-5);pin.style.top=top+'px';previous=top;}}
 }
@@ -1423,6 +1431,7 @@ keys.map(
   {keys:'<Space>t',run:()=>openThreadList(),hint:'threads',group:L,help:'Open passage discussions'},
   {keys:'<Space>c',run:()=>prose.press(),hint:'colors',group:L,help:'Prose colors: Off, Subtle, Clear, Vivid, in turn, for this document'},
   {keys:'<Space>x',run:()=>quiz.open(),hint:'quiz',group:L,help:'Test yourself on this article; every question links to its evidence'},
+  {keys:'<Space>a',run:()=>writingPrompts.open(),hint:'write about',group:L,help:'A voice asks a question; answer in Scratch'},
   {keys:'<Space>m',run:inShell('m',()=>toggleChat()),hint:'chat',group:L,help:'Chat with the voices about this document; `@` chooses who answers, `r` on a focused voice message replies to it, `Ctrl r` `a` pastes register a'},
   {keys:'<Space>o',run:()=>outline.toggle(),hint:'outline',group:L,help:'Show or hide the document outline'},
   {keys:'<Space>s',run:()=>speech.openMenu(),hint:'speak',group:L,help:'Send to AI-TTS: the whole article, from here, or the selection'},
@@ -1569,6 +1578,7 @@ keys.command({name:'shape',help:'Data view: show or hide the open article’s sh
 keys.command({name:'art',help:'Show or hide the open article’s art, as `Space g`',run:()=>toggleArt()});
 keys.command({name:'art-focus',help:'Focus on the art full screen (Esc returns), as `Space G`',run:()=>focusShownArt()});
 keys.command({name:'generate-art',help:'Commission new art for the open article (a background job; the current art is kept)',run:()=>{if(state.doc&&TEXTUAL.test(state.doc.path)&&!state.doc.preview)commissionArt(state.doc.path);else toast('Open a Markdown or text article to make art for it.');}});
+keys.command({name:'write-about',help:'Ask for a writing prompt about this article',run:()=>writingPrompts.open()});
 keys.command({name:'quiz',help:'Take a source-anchored quiz on this article',run:()=>quiz.open()});
 keys.command({name:'enew',help:'A new scratch pad buffer',run:()=>navigate(SCRATCH+'='+crypto.randomUUID())});
 const SPLIT_DIRS={vsplit:['row','v'],split:['col','s']};
@@ -1732,11 +1742,13 @@ queue.setCloseOthers(()=>{$('#thread-panel').hidden=true;state.activeThread=null
 reading=installReading({statusOverride:()=>{const on=!!split?.active();if(!on)$('#split-indicator').hidden=true;return on&&paintSplitStatus();},onStatus:()=>pane&&paneStatus(),mayCurl:()=>!pane||pane.focused(),scratchStatus:()=>state.view==='scratch'?scratch?.status():null,controls,updateBreadcrumbs:path=>breadcrumbs.update(path),state,api,toast,openPreferences,openThread,revealRange:moveToRange,scrollToPosition,savePrefs,reloadDocument:()=>navigate(state.doc.path,{record:false}),positionPins,keyStatus:()=>keys.status()});
 outline=installOutline({state,reading,$,controls,scrollToPosition,savePrefs,notify});
 links=installLinks({state,api,reading,navigate,openBackstage:()=>navigate(BACKSTAGE)});
-scratch=installScratch({state,api,notify,navigate,focusMain:()=>$('#main').focus({preventScroll:true}),updateStatus:()=>reading?.updateStatus(),openChat,registers:()=>registers,
+scratch=installScratch({state,api,notify,navigate,focusMain:()=>$('#main').focus({preventScroll:true}),updateStatus:()=>reading?.updateStatus(),openChat,savedChanged:()=>readingLogs.clear(),registers:()=>registers,
   // A draft has no file yet: its links resolve from the notebook folder it saves into (the server accepts a folder source).
   renderMarkdown:(container,text)=>renderMarkdown(container,text,'library/notebook/',0)});
 quiz=installQuiz({api,document:()=>state.doc,participant:()=>state.prefs.participant,mount:mountQuiz,showEvidence:showQuizEvidence,changed:refreshReadingLog,available:()=>needsReader()?NEEDS_READER:null,toast,mode:open=>{if(open)keys.enter('quiz');else{keys.leave('quiz');focusMain();}reading?.updateStatus();}});
 keys.defineMode('quiz',{label:()=> 'QUIZ',hints:()=>'<kbd>Tab</kbd> move <kbd>Enter</kbd> choose <kbd>Esc</kbd> return',escape:()=>quiz.close()});
+writingPrompts=installWritingPrompts({api,document:()=>state.doc,participant:()=>state.prefs.participant,mount:mountWritingPrompt,write:prompt=>scratch.forPrompt(prompt),showEvidence:showQuizEvidence,available:()=>needsReader()?NEEDS_READER:null,toast,mode:open=>{if(open)keys.enter('writing-prompt');else{keys.leave('writing-prompt');focusMain();}reading?.updateStatus();}});
+keys.defineMode('writing-prompt',{label:()=> 'WRITE ABOUT',hints:()=>'<kbd>Tab</kbd> move <kbd>Enter</kbd> choose <kbd>Esc</kbd> return',escape:()=>writingPrompts.close()});
 $('#quiz-open').onclick=()=>quiz.open();
 if(needsReader()){$('#quiz-open').disabled=true;$('#quiz-open').title=NEEDS_READER;}
 versions=installVersions({state,api,navigate:ref=>navigate(ref),openCompare:openComparison,openSideBySide:(older,newer)=>{if(pane)pane.post({type:'open-in-split',compare:{a:older,b:newer}});else split.compare(older,newer,cleanRoute(location.hash)).catch(report);},notify,param,onChange:()=>reading?.updateStatus()});

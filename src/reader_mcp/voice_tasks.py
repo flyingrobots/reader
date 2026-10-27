@@ -121,14 +121,14 @@ class VoiceTasks:
         # Registry order is the vault's configuration, never a shipped deployment roster.
         return next(iter(available))
 
-    def latest(self, path, participant, source_sha256):
+    def latest(self, path, participant, source_sha256, kind='quiz'):
         """Resume a generation after a page reload without creating a second job."""
         latest = None
         for count, file in enumerate(self.folder.glob('*.json'), 1):
             if count > MAX_JOBS:
                 raise ValueError('Task inventory exceeds 5,000 jobs')
             job = self.read(file.stem)
-            if (job['kind'], job['path'], job['participant'], job['source_sha256']) == ('quiz', path, participant, source_sha256):
+            if (job['kind'], job['path'], job['participant'], job['source_sha256']) == (kind, path, participant, source_sha256):
                 if latest is None or job['created_at'] > latest['created_at']:
                     latest = job
         return self.public(latest) if latest else None
@@ -152,9 +152,9 @@ class VoiceTasks:
                         raise ValueError('Task request ID already exists with different input')
                     return self.public(job)
                 chosen = self.choose(path, voice)
-                if kind == 'quiz' and not payload.get('regenerate'):
+                if kind in ('quiz', 'prompt') and not payload.get('regenerate'):
                     for turn in self.runner.turns.values():
-                        if turn.get('kind') != 'quiz' or not turn.get('task_id'):
+                        if turn.get('kind') != kind or not turn.get('task_id'):
                             continue
                         pending = self.read(turn['task_id'])
                         if (pending['path'], pending['source_sha256'], pending['voice'], pending['participant']) == (path, document['sha256'], chosen, participant) and pending['state'] not in TERMINAL:

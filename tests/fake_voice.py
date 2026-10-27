@@ -59,6 +59,7 @@ parser.add_argument('--art-usage', action='store_true')
 parser.add_argument('--quiz-json')
 parser.add_argument('--quiz-first')
 parser.add_argument('--quiz-review-json')
+parser.add_argument('--writing-prompt-json')
 args, rest = parser.parse_known_args()
 prompt = args.prompt if args.prompt is not None else sys.stdin.read()
 seen = prompt + '\n' + (args.persona or '')
@@ -69,6 +70,8 @@ if 'Generate 5–8 independent questions' in prompt and args.quiz_json:
     marker.touch()
 elif 'Review this answer against the saved rubric' in prompt and args.quiz_review_json:
     args.reply = args.quiz_review_json
+elif 'Reader writing prompt:' in prompt and args.writing_prompt_json:
+    args.reply = args.writing_prompt_json
 kind = 'listen' if 'Reader listening check' in seen else 'chime_in' if 'You are chiming in' in seen else 'turn'
 if 'Reader art brief' in prompt:
     args.reply = args.art_brief
