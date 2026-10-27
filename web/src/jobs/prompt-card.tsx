@@ -13,7 +13,7 @@ import {ArrowUpRightIcon, ChevronDownIcon, CopyIcon, GitPullRequestArrowIcon, Lo
 import {DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuLabel, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuTrigger} from '../components/ui/dropdown-menu';
 import {InputGroup, InputGroupAddon, InputGroupButton, InputGroupText, InputGroupTextarea} from '../components/ui/input-group';
 import {Button} from '../components/ui/button';
-import {articleActions, statusLabel, submitJob, type ArticleActions, type BlockInfo} from './store';
+import {articleActions, statusLabel, submitJob, useJob, type ArticleActions, type BlockInfo} from './store';
 import {JobSummary, type JobViewOptions} from './job-detail';
 
 export type PromptBlock={id:string;title:string;repo:string;issue:number|null;prompt:string;line:number};
@@ -29,6 +29,14 @@ export function PromptCard({block,context}:{block:PromptBlock;context:PromptCont
   const [agent,setAgent]=React.useState<string|null>(null);
   const [busy,setBusy]=React.useState(false),[error,setError]=React.useState<string|null>(null),[copied,setCopied]=React.useState(false);
   const [current,setCurrent]=React.useState<string|null>(null);
+  // The current run as the job store follows it live; the admission-time list would still call it active.
+  const live=useJob(current).run;
+  React.useEffect(()=>{
+    if(!live||live.active||context.blocked)return;
+    let fresh=true;
+    articleActions(context.path,context.sha256,true).then(result=>{if(fresh)setServer(result);},cause=>{if(fresh)setLoadError(cause instanceof Error?cause.message:String(cause));});
+    return ()=>{fresh=false;};
+  },[live?.id,live?.active,context.path,context.sha256,context.blocked]);
   const request=React.useRef<{id:string;key:string}|null>(null);
   const area=React.useRef<HTMLTextAreaElement>(null),card=React.useRef<HTMLElement>(null);
   const titleId=React.useId(),planId=React.useId();
@@ -50,7 +58,8 @@ export function PromptCard({block,context}:{block:PromptBlock;context:PromptCont
     ||(server&&!info?'Reader’s copy of this article has no matching prompt. Reload the article.':null)
     ||(info&&!info.registered?`${block.repo} isn’t set up in Reader yet.`:null)
     ||(info&&info.registered&&!agents.length?'None of this repository’s coding agents is installed where Reader can find it.':null);
-  const latest=info?.runs[0];
+  const listed=info?.runs[0];
+  const latest=listed&&live&&listed.id===live.id?live:listed;
   const canRun=!reason&&!!server&&!!agent&&!busy&&!tooLong&&!blank&&!(latest?.active&&latest.id===current);
   const chosen=agents.find(a=>a.name===agent);
 

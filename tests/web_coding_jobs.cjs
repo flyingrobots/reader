@@ -71,6 +71,9 @@ async function fixture(flags){
    assert.equal(posts.length,1);assert.equal(posts[0].action,'submit');assert.match(posts[0].request_id,/^[0-9a-f-]{36}$/);
    await page.waitForFunction(()=>document.querySelector('.job-summary')?.dataset.jobStatus==='pr_opened',null,{timeout:60000});
    assert.match(await card.locator('.job-links').textContent(),/Pull request #\d+/);
+   // The finished run frees the card: Run is available again without a reload.
+   await page.waitForFunction(()=>!document.querySelector('[data-prompt-run]')?.disabled,null,{timeout:5000}).catch(()=>{});
+   assert.equal(await card.locator('[data-prompt-run]').isEnabled(),true,'Run is enabled again once the job finishes');
    await card.getByRole('button',{name:'Show trace'}).click();
    const trace=card.locator('.activity');await trace.waitFor();
    assert.ok(await trace.locator('[data-activity-github]').count()>=2,'GitHub rows for the issue, the push and the pull request');
