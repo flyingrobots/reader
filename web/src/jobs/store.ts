@@ -110,6 +110,9 @@ export function articleActions(path:string,sha256:string,refresh=false):Promise<
   return actionsCache.get(key)!;
 }
 
+/** Drop every cached article view, after the registry changes (a card then reads its repository's new state). */
+export function forgetArticleActions(){actionsCache.clear();}
+
 export const OUTCOME_LABELS:Record<string,string>={pr_opened:'PR opened',already_fixed:'Already fixed',blocked:'Blocked',failed:'Failed',cancelled:'Stopped',
   interrupted:'Interrupted',needs_reconciliation:'Needs reconciliation'};
 export function statusLabel(run:JobRun){return run.outcome?OUTCOME_LABELS[run.outcome]||run.outcome:run.status==='queued'?'Queued':'Running';}

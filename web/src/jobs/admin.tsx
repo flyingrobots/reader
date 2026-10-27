@@ -13,7 +13,7 @@ import {Input} from '../components/ui/input';
 import {Textarea} from '../components/ui/textarea';
 import {Checkbox} from '../components/ui/checkbox';
 import {JobDetail, OutcomeBadge, type JobViewOptions} from './job-detail';
-import {OUTCOME_LABELS, type JobRun} from './store';
+import {OUTCOME_LABELS, forgetArticleActions, type JobRun} from './store';
 import {needsReader, NEEDS_READER} from '../static-demo';
 
 /** `go`/`href` are the admin shell's section navigation; `open` opens a library document. */
@@ -127,7 +127,7 @@ export function RepositoriesPanel({options}:AdminPanelProps){
   const [form,setForm]=React.useState({repo:'',checkout:'',remote:'origin',base:'main',worktree_root:'',agents:['codex'] as string[],argv:'',timeout:'1800',store:'',keys:''});
   const [busy,setBusy]=React.useState(false),[message,setMessage]=React.useState<string|null>(null);
   if(registry.error||needsReader('jobs'))return <Unavailable what="Repository registration" error={registry.error}/>;
-  const act=async(payload:Record<string,unknown>,done:string)=>{setBusy(true);setMessage(null);try{await options.api('/api/repositories',payload);setMessage(done);reload();}catch(error){setMessage(error instanceof Error?error.message:String(error));}finally{setBusy(false);}};
+  const act=async(payload:Record<string,unknown>,done:string)=>{setBusy(true);setMessage(null);try{await options.api('/api/repositories',payload);forgetArticleActions();setMessage(done);reload();}catch(error){setMessage(error instanceof Error?error.message:String(error));}finally{setBusy(false);}};
   const register=(event:React.FormEvent)=>{event.preventDefault();
     const entry:Record<string,unknown>={checkout:form.checkout.trim(),remote:form.remote.trim(),base:form.base.trim(),worktree_root:form.worktree_root.trim(),agents:form.agents,
       verify:{argv:form.argv.split('\n').map(a=>a.trim()).filter(Boolean),timeout_seconds:Number(form.timeout),

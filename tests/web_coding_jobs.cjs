@@ -135,6 +135,22 @@ async function fixture(flags){
    assert.deepEqual(errors,[]);
    await context.close();
   }
+  // A registry change in Reader Admin reaches a card with no runs yet without a reload (its cached actions are dropped).
+  {const {child,url}=await fixture([]);children.push(child);
+   const {context,page,errors}=await open(url);
+   await read(page,url);
+   const card=page.locator('[data-prompt-card="bound-parser-depth"]');
+   await page.waitForFunction(()=>!document.querySelector('[data-prompt-run]')?.disabled,null,{timeout:10000});
+   await page.goto(url+'#admin/repositories');
+   await page.waitForFunction(()=>document.querySelector('[data-repository="acme/widget"]'),null,{timeout:10000});
+   page.once('dialog',dialog=>dialog.accept());
+   await page.locator('[data-repository="acme/widget"]').getByRole('button',{name:/Remove/}).click();
+   await page.waitForFunction(()=>!document.querySelector('[data-repository="acme/widget"]'),null,{timeout:10000});
+   await page.goto(url+'#read='+encodeURIComponent(DOC));await card.waitFor();
+   await page.waitForFunction(()=>/isn’t set up in Reader yet/.test(document.querySelector('[data-prompt-card="bound-parser-depth"]')?.textContent||''),null,{timeout:10000});
+   assert.deepEqual(errors,[]);
+   await context.close();
+  }
   // Reader Admin's Overview lists a coding job while it runs (a slow fake agent keeps it running).
   {const {child,url}=await fixture(['--coding-scenario',JSON.stringify({sleep:20})]);children.push(child);
    const {context,page,errors}=await open(url);
