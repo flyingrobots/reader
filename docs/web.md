@@ -3314,7 +3314,10 @@ protected or unsupported files can be opened through the original-file link.
 PDF passage annotations are not implemented.
 
 The reader saves each participant's position after a short pause in scrolling,
-before navigation and when the browser page becomes hidden. It restores a matching
+once the smooth renderer has caught up with the native scroll position. This
+keeps an intermediate animation frame from replacing a restored bookmark.
+Navigation and hiding the browser page still save the currently visible place
+immediately. It restores a matching
 source edition before revealing the document. Text positions include a source
 block offset and relative position, with a normalized progress fallback. PDF
 positions include an explicit page number. A saved spread index is reused when

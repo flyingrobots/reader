@@ -152,7 +152,12 @@ export function installReading({scratchStatus, statusOverride, onStatus, mayCurl
     saveQueue=saveQueue.catch(()=>{}).then(()=>api('/api/bookmark',snapshot,{keepalive})).catch(error=>{if(lastSaved===key)lastSaved='';if(!error.offline)toast('Couldn’t save your place: '+error.message);});
     return saveQueue;
   }
-  function scheduleSave(){if(!ready)return;clearTimeout(saveTimer);saveTimer=setTimeout(()=>save(),450);}
+  function saveWhenSettled(){
+    // Native scroll events precede the smooth renderer. Saving mid-glide can replace a restored
+    // bookmark with a transient block fraction; wait for the page the reader actually sees.
+    if(state.smoother&&Math.abs(scrollY-shownTop(state.smoother))>1)scheduleSave();else save();
+  }
+  function scheduleSave(){if(!ready)return;clearTimeout(saveTimer);saveTimer=setTimeout(saveWhenSettled,450);}
   async function leave(){turner?.finish();clearTimeout(saveTimer);clearTimeout(dwellTimer);await save();ready=false;book?.observer?.disconnect();book=null;}
   function prepare(){
     controls.update({pips:[]});
@@ -184,7 +189,7 @@ export function installReading({scratchStatus, statusOverride, onStatus, mayCurl
     }else if(mark)toast('This edition has changed. Starting at the beginning.');
     words=($('#article')?.textContent || '').split(/\s+/u).filter(Boolean).length;
     ready=true;update();$('#main .resume-pending')?.classList.remove('resume-pending');
-    openedAt=performance.now();clearTimeout(dwellTimer);dwellTimer=setTimeout(()=>{if(ready&&endVisible())save();},DWELL+50);
+    openedAt=performance.now();clearTimeout(dwellTimer);dwellTimer=setTimeout(()=>{if(ready&&endVisible())saveWhenSettled();},DWELL+50);
   }
   function update(){
     if(frame)return;frame=requestAnimationFrame(()=>{frame=0;updateStatus();if(book)positionPins();state.pdf?.reflow();

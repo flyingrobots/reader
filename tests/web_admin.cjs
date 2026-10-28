@@ -141,12 +141,44 @@ const shots=process.env.READER_SHOTS||'.reader/web-dev';
    await advance(()=>document.querySelector('.document-footer')&&!document.querySelector('.resume-pending')&&!document.querySelector('[data-skeleton]'));
    assert.equal(await hash(page),'#read=library/thought.md');
    await page.clock.runFor(3000);await pause(300);
+   // Native scroll events can arrive before the smooth renderer has caught up. Hold its ticker to model a
+   // delayed frame, briefly move the native offset, then restore it without changing the visible passage.
+   // An autosave during that gap must not replace the bookmark with an intermediate visual position.
+   const beforeLag=marks.length;
+   const gap=await page.evaluate(()=>{
+     window.__resumeWake=gsap.ticker.wake;window.__resumeY=scrollY;
+     gsap.ticker.sleep();gsap.ticker.wake=()=>{};
+     scrollTo(0,scrollY+60);
+     return Math.abs(scrollY+document.querySelector('#smooth-content').getBoundingClientRect().top);
+   });
+   assert.ok(gap>30,'the native and visible scroll positions differ during the delayed frame: '+gap);
+   await page.clock.runFor(1000);await pause(100);
+   assert.equal(marks.length,beforeLag,'no automatic bookmark is saved while the smooth renderer lags');
+   await page.evaluate(()=>{scrollTo(0,window.__resumeY);gsap.ticker.wake=window.__resumeWake;delete window.__resumeWake;gsap.ticker.wake();});
+   await page.clock.runFor(3000);await pause(100);
    // The saved block is back at the reading line, at the depth it was saved (the percentage is an estimate while far
    // blocks settle their heights, so it is not compared).
    const back=await page.evaluate(offset=>{const el=document.querySelector(`#article [data-source-start="${offset}"]`);const r=el?.getBoundingClientRect();return r?{top:Math.round(r.top),bottom:Math.round(r.bottom),line:Math.round(innerHeight*.22),fraction:(innerHeight*.22-r.top)/r.height}:null;},saved.source_offset);
    assert.ok(back&&Math.abs(back.fraction-saved.block_fraction)<0.05,'the saved block is back at its line: '+JSON.stringify({back,saved:saved.block_fraction}));
    const same=m=>m.source_offset===saved.source_offset&&Math.abs(m.block_fraction-saved.block_fraction)<0.05;
    assert.ok(marks.slice(before).every(same),'returning does not move the bookmark: '+JSON.stringify({saved:[saved.source_offset,saved.block_fraction],after:marks.slice(before).map(m=>[m.source_offset,m.block_fraction])}));
+   // A genuinely new place must be saved after the delayed renderer catches up, without another scroll event.
+   const beforeResume=marks.length;
+   await page.evaluate(offset=>{
+     const r=document.querySelector(`#article [data-source-start="${offset}"]`).getBoundingClientRect();
+     const fraction=(innerHeight*.22-r.top)/r.height;
+     window.__resumeWake=gsap.ticker.wake;gsap.ticker.sleep();gsap.ticker.wake=()=>{};
+     scrollTo(0,scrollY+r.height*(fraction>.5?-.25:.25));
+   },saved.source_offset);
+   await page.clock.runFor(1000);await pause(100);
+   assert.equal(marks.length,beforeResume,'the second delayed frame also defers saving');
+   await page.evaluate(()=>{gsap.ticker.wake=window.__resumeWake;delete window.__resumeWake;gsap.ticker.wake();});
+   await advance(()=>Math.abs(scrollY+document.querySelector('#smooth-content').getBoundingClientRect().top)<1);
+   await posted(beforeResume+1);
+   assert.ok(marks.length>beforeResume,'a new bookmark is posted after the renderer settles');
+   const resumed=marks.at(-1),visible=await page.evaluate(offset=>{const r=document.querySelector(`#article [data-source-start="${offset}"]`)?.getBoundingClientRect();return r?(innerHeight*.22-r.top)/r.height:null;},saved.source_offset);
+   assert.equal(resumed.source_offset,saved.source_offset,'the new position is within the same source block');
+   assert.ok(visible!==null&&Math.abs(resumed.block_fraction-visible)<.05&&Math.abs(resumed.block_fraction-saved.block_fraction)>.15,'the saved fraction matches the new settled place');
    assert.ok(await page.evaluate(()=>!!window.ScrollSmoother?.get()),'reading has its smoother again');
    await context.close();});
   await check('return-spread',async()=>{const {page,context}=await open({layout:'spread'});
