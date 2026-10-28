@@ -40,6 +40,10 @@ for line in script:
     if item.get('id') == 'item_8' and event['type'] == 'item.completed':
         deadline = time.time() + 30
         while pathlib.Path('.fake-pause').exists() and time.time() < deadline:
+            usage = pathlib.Path('.fake-live-usage')
+            if usage.exists():
+                print(json.dumps({'type': 'turn.completed', 'usage': {'input_tokens': 0, 'cached_input_tokens': 0, 'output_tokens': 0}}), flush=True)
+                usage.unlink()
             time.sleep(0.1)
 file_mail()
 pathlib.Path(args[args.index('--output-last-message') + 1]).write_text(

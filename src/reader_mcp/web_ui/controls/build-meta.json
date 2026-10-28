@@ -14,7 +14,7 @@
     "licenses.mjs": "6d68777363b8fa9c496a32b60fab061ea62145c1a0f033014607a9ace9aa45da",
     "package-lock.json": "a216a7ad0e13d0dead70179f3aad332c0e10c9fa861b4ec651b1359fe8d3baf8",
     "src/activity/reducer.ts": "4446276ef350a166028c02b3dbdcb1add0bc8b251efcf90f67b399c181beecf9",
-    "src/activity/transcript.tsx": "d7f7f6256f5a2cc10f3732be16174d3d1df5e9092eb705dbba4dc279d3976a18",
+    "src/activity/transcript.tsx": "eed63085db7d3f013732f6b6ab8defce02c8db2431389bfe07c40b3e25468966",
     "src/admin/admin-shell.tsx": "48b0a8d3a990c0225464fce0fc36bd7639c76e140110c8192e3968c91bf9a97f",
     "src/admin/link.tsx": "717f9b35be950c8623c6a0e3d822deb921ce681c493d273ae8562ca3f60cf027",
     "src/admin/overview.tsx": "7a0b62d23f55319b897915ec25f7a739ff255c4b5f713176dd5324a28922d443",
@@ -23,7 +23,7 @@
     "src/art-regenerate.tsx": "8d0c621e0239e13fcf89a528747a15a0028e01722585b4156ba5db590fbcd7e9",
     "src/art-studio.tsx": "f03b80591a1593d82c990f930a9ef49fc5e6d77d641569c93820140641e789ec",
     "src/art/art.ts": "cd1242a47eda6306459ef1906116ada99778ea58660ca54e252aecd1106375a2",
-    "src/backstage.tsx": "1c35aee3b6d886348c718ddd98b60448f0714790b3d65dce05cb4f4dba426889",
+    "src/backstage.tsx": "bec8b06401c3f40343f14ddeac9b0ba39dab7f442eae993bdeeec64e0d84034a",
     "src/callouts.tsx": "fccf6b854b5c95a48ef40d206edfe927718f2ad9e8b59f3b5005548819172584",
     "src/changes-panel.tsx": "11941b33dc0809a4536108411d6910da883706f3a4e8cfad9d5db341cfd36a73",
     "src/chat/chat-panel.tsx": "1254b58827cbb57206ddc8949a295ed7c2644054b862b53eca2f8b41a9d853ff",
@@ -92,7 +92,7 @@
     "src/shape/shape.ts": "9fe4b2b1dd21a2869130afa25aed34e2ea482fc8fe05aa2609193aa24c04b50c",
     "src/speech-control.tsx": "45a7efd449606ea196c7adef281ddadb2bd89dab1b5c9a945f56897cadbb4e0c",
     "src/static-demo.ts": "036a0b4413452d2ec8f7a51248157340082f3c030fc51d3237275021340e8810",
-    "src/styles.css": "44e94bdaa1dfdd0c54d7d76ed99bdead45e068e47ac22b0e5c67b09f00d64f45",
+    "src/styles.css": "da73c7e95392352ab421940c819620913191a002014d8aa263a8b7f380f91e64",
     "src/theme/color.ts": "6537487f39aba3a1381baf01ec22fe458ae3e547b2ae0ffbbc5852c82b671746",
     "src/theme/famous-build.ts": "2cd184dabb7dae2e46f936e2c1aea0ff5a4696ca1e1a35eccc78439877af4b12",
     "src/theme/famous.ts": "de4969de8a1c4a4d2d3017a9d9f7a6745868f1828d677c4ab6f3f45096318101",
@@ -909,12 +909,12 @@
       "sha256": "cb2ee2554fd41ac9f8e2e69c350365f0e1cf9732d27ad161c9c97b20945bbe4c"
     },
     "reader-controls.css": {
-      "bytes": 170361,
-      "sha256": "6e74d7b8610e03bae06650b535766331a0f9fc3b209e12b112f9a8e547f5e061"
+      "bytes": 173695,
+      "sha256": "07a2c8eaccf20b8bbdca06102a9a7f4567dfd124341c3ad4431c220a2a5f3628"
     },
     "reader-controls.js": {
-      "bytes": 1082472,
-      "sha256": "c05e3bfe0320cd58975c568775bbc1f38674ee4918d943e79eacfcbff80ac4c1"
+      "bytes": 1082687,
+      "sha256": "ab59879616ee0234749056d776689f859cde975aa071047545a4b3bdf863f19a"
     },
     "reader-controls.js.LEGAL.txt": {
       "bytes": 5975,

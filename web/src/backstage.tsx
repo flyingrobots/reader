@@ -158,7 +158,7 @@ const RUN_STATES:Record<string,{label:string;variant:'secondary'|'outline'|'dest
 export function size(bytes:number){return bytes<1024?bytes+' B':bytes<1024**2?(bytes/1024).toFixed(1)+' KB':(bytes/1024**2).toFixed(1)+' MB';}
 function Clock({since}:{since:string}){
   const [, tick]=useState(0);useEffect(()=>{const timer=setInterval(()=>tick(n=>n+1),1000);return ()=>clearInterval(timer);},[]);
-  const seconds=Math.max(0,Math.round((Date.now()-+new Date(since))/1000));return <>{Math.floor(seconds/60)}:{String(seconds%60).padStart(2,'0')}</>;
+  const seconds=Math.max(0,Math.round((Date.now()-+new Date(since))/1000));return <time dateTime={`PT${seconds}S`}>{Math.floor(seconds/60)}:{String(seconds%60).padStart(2,'0')}</time>;
 }
 function Report({markdown,html,onOpen}:{markdown:string;html:(text:string)=>string;onOpen:(path:string)=>void}){
   // Sanitized by DOMPurify; vault links open in the reader, others in a new tab.
@@ -187,7 +187,8 @@ export function Inbox({status,error=null,starting,onMail,onStop,onOpen,html,acti
         <p id="inbox-mail-note" className="inbox-mail-note">{active?'The librarian is reading the mail.':blocked?<span id="inbox-blocked" data-reason={blocked.reason} className={['interrupted','error','codex'].includes(blocked.reason)?'backstage-error':''}>{blocked.message}</span>:needsReader()?`Filing ${plural(arrivals.length,'arrival')} needs Reader on your computer, where a librarian voice reads the mail.`:`Ask the librarian to file ${plural(arrivals.length,'arrival')}.`}</p>
       </div>
       {active?<div className="inbox-run" aria-live="polite">
-        <p className="backstage-message">{starting&&!run?.started_at?'Starting the librarian…':<>Running for {run?.started_at?<Clock since={run.started_at}/>:'…'}{run?.arrivals?<> · {plural(run.arrivals,'arrival')}</>:null}{run?.sandbox_mode==='danger-full-access'?' · Host access':''}</>}</p>
+        {!transcript?<p className="backstage-message">{starting&&!run?.started_at?'Starting the librarian…':<>Running for {run?.started_at?<Clock since={run.started_at}/>:'…'}{run?.arrivals?<> · {plural(run.arrivals,'arrival')}</>:null}{run?.sandbox_mode==='danger-full-access'?' · Host access':''}</>}</p>
+          :run?.sandbox_mode==='danger-full-access'?<p className="backstage-message">Host access</p>:null}
         {transcript||(run?.event?<p className="inbox-event" title={run.event}>{run.event}</p>:null)}
         <Button id="inbox-stop" variant="outline" size="sm" disabled={starting&&!run?.started_at} onClick={onStop}><SquareIcon data-icon="inline-start" aria-hidden/>Stop</Button>
       </div>:run&&!ACTIVE_RUN.includes(run.status)?<div className="inbox-run" data-finished="">

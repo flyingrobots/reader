@@ -1244,7 +1244,7 @@ The button is disabled, with the reason beside it, when:
 - coordination files cannot be read, or Codex is not found.
 
 While a run is active, a loading toast reads "The librarian is reading the mail…".
-The card shows elapsed time, the **Activity** transcript (below), and **Stop**. Stop writes `.reader/inbox-runner/cancel` ("Stop
+The card shows the **Activity** transcript (below) and **Stop**. Elapsed time appears once in the transcript header; a fallback counter appears only until the transcript is available. Activity uses distinct blue running indicators, green completion indicators and red failure indicators, derived from the active theme. Commands use stronger text, and librarian messages have a separate surface. Labels and icons retain the state information without relying on color. Stop writes `.reader/inbox-runner/cancel` ("Stop
 requested by the Reader web user."), as the plugin does, and the supervisor stops
 the process group within a second. When the run ends, the same toast becomes
 "Mail filed: N arrivals" (with a **Report** action), "Inbox run stopped", or an

@@ -249,7 +249,7 @@ function Context({usage,elapsed,tool}:{usage:Usage|null;elapsed:number|null;tool
   const rows=usage?[['Input',usage.input],['Cached input',usage.cached],['Output',usage.output],['Reasoning',usage.reasoning]] as const:[];
   return <HoverCard>
     <HoverCardTrigger delay={10} closeDelay={100} render={<Button variant="outline" size="xs" className="activity-context" data-activity-context=""/>}>
-      <GaugeIcon/>{usage?`${tokens(usage.input)} in · ${tokens(usage.output)} out`:'Elapsed'}{elapsed!==null?` · ${clock(elapsed)}`:''}
+      <GaugeIcon/>{usage?`${tokens(usage.input)} in · ${tokens(usage.output)} out`:'Elapsed'}{elapsed!==null?<> · <time dateTime={`PT${elapsed}S`}>{clock(elapsed)}</time></>:null}
     </HoverCardTrigger>
     <HoverCardContent className="flex w-64 flex-col gap-3" data-reader-decoration="">
       <div className="flex items-center justify-between gap-3 text-sm"><span className="font-medium">Context</span>{elapsed!==null?<span className="text-muted-foreground">{clock(elapsed)}</span>:null}</div>
