@@ -141,6 +141,21 @@ const shots=process.env.READER_SHOTS||'.reader/web-dev';
    await advance(()=>document.querySelector('.document-footer')&&!document.querySelector('.resume-pending')&&!document.querySelector('[data-skeleton]'));
    assert.equal(await hash(page),'#read=library/thought.md');
    await page.clock.runFor(3000);await pause(300);
+   // Native scroll events can arrive before the smooth renderer has caught up. Hold its ticker to model a
+   // delayed frame, briefly move the native offset, then restore it without changing the visible passage.
+   // An autosave during that gap must not replace the bookmark with an intermediate visual position.
+   const beforeLag=marks.length;
+   const gap=await page.evaluate(()=>{
+     window.__resumeWake=gsap.ticker.wake;window.__resumeY=scrollY;
+     gsap.ticker.sleep();gsap.ticker.wake=()=>{};
+     scrollTo(0,scrollY+60);
+     return Math.abs(scrollY+document.querySelector('#smooth-content').getBoundingClientRect().top);
+   });
+   assert.ok(gap>30,'the native and visible scroll positions differ during the delayed frame: '+gap);
+   await page.clock.runFor(1000);await pause(100);
+   assert.equal(marks.length,beforeLag,'no automatic bookmark is saved while the smooth renderer lags');
+   await page.evaluate(()=>{scrollTo(0,window.__resumeY);gsap.ticker.wake=window.__resumeWake;delete window.__resumeWake;gsap.ticker.wake();});
+   await page.clock.runFor(3000);await pause(100);
    // The saved block is back at the reading line, at the depth it was saved (the percentage is an estimate while far
    // blocks settle their heights, so it is not compared).
    const back=await page.evaluate(offset=>{const el=document.querySelector(`#article [data-source-start="${offset}"]`);const r=el?.getBoundingClientRect();return r?{top:Math.round(r.top),bottom:Math.round(r.bottom),line:Math.round(innerHeight*.22),fraction:(innerHeight*.22-r.top)/r.height}:null;},saved.source_offset);
