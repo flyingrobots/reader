@@ -44,3 +44,19 @@ Validation reuses the isolated Node 24 worker with a read-only root, no mounts,
 600-second watchdog and an 8 MiB per-run log cap. The first GREEN used
 546012 KiB of work tmpfs and 2604 KiB of temporary tmpfs; logs and receipts
 remain local. Reviewer approval and current-head CI remain separate merge gates.
+
+## Review follow-up
+
+The final Admin and content-visibility suites passed together
+(`admin-bookmark-final`, 120.11 seconds). The larger-document suite verifies
+bookmark lines in native and smooth scrolling, find, heading/outline jumps,
+source coordinates and two-page layout.
+
+CodeRabbit noted that the no-overwrite assertion could pass without proving
+a deferred save ever resumes. A separate case now leaves the new native
+position in place, wakes the renderer without another scroll event, requires
+a new bookmark request and checks its source block and changed fraction
+against the settled viewport. All eight Admin checks pass with that addition
+(`admin-bookmark-resume-verified`, 54.88 seconds). The runtime module is unchanged
+from the combined Admin/content-visibility run; this follow-up changes only
+the test and this record.
