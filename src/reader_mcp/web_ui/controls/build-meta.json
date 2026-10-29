@@ -98,7 +98,7 @@
     "src/theme/color.ts": "fb380aa96f2f32a6916b7ddc7a803aca907101fb55de9eaff6e0c7c52c10449b",
     "src/theme/famous-build.ts": "ce051d3b22b78051f49a010396b367df1749fd08411a3f2779f47585b004c654",
     "src/theme/famous.ts": "b63ea13dd519d5c3e364d3c71161b86cf838b403c648cd01c95fe8a36780d690",
-    "src/theme/theme-css.ts": "7a982542199671fd8cc90c49fde51c9968d1c872d66f2436c3f2e421700ea6a0",
+    "src/theme/theme-css.ts": "6aab8d2a4cf6e70d088d194ccd139fe57dd0dc5cfec9ff7c834d3d68e958906c",
     "src/theme/theme-editor.tsx": "8be687dc741271f1238a5b04065feba2f02bb0dfc492e78aeb82e6d1615fb8cd",
     "src/vanilla-buttons.ts": "f54cd8c9ffec8fb89fb410301462a3b4da10fd1d449063a7ac5de71c0166c24b",
     "src/writing-prompt.tsx": "29a6bfa3b6ee5d9f9c19d2faf6d0571e0727e8b3ef0706628827933859d3d4e4"
@@ -536,7 +536,7 @@
     },
     "famous-themes.css": {
       "bytes": 26783,
-      "sha256": "c13f92d04bd1957e572a28bc630e5716354f1314fef176db8d3dd8830a63ce91"
+      "sha256": "fbbf4a4d1a4815963773b5fab950d54135531a787db24f51b541297d603c8fac"
     },
     "highlight/c-J74LTKHT.js": {
       "bytes": 72111,
@@ -915,8 +915,8 @@
       "sha256": "d9dd1fca236a8ef068b56bf1ee26b60a8157c5f3d1449eab92fbf40d93ccc82b"
     },
     "reader-controls.js": {
-      "bytes": 1125928,
-      "sha256": "6428a6ffbb69ba9fae200e9fb8a91f8b74915781ec065a0ddfd3ee57783a7504"
+      "bytes": 1126329,
+      "sha256": "4ff669500f302a2d5530ea84b9a926e0da005feb505d971df35d72708afb02a8"
     },
     "reader-controls.js.LEGAL.txt": {
       "bytes": 6018,

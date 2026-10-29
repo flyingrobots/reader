@@ -164,3 +164,10 @@ def test_monocolor_shipped_tokens_preserve_palette_and_contrast(variant):
     assert ratio('accent-ink', 'accent') >= 4.5
     for highlight in ('selection', 'own', 'other'):
         assert ratio('ink', highlight) >= 4.5
+
+    prose_roles = [t['name'] for t in module.TOKENS['prose']]
+    assert len({props['--' + role] for role in prose_roles}) >= (4 if variant == 'light' else 5)
+    for role in prose_roles:
+        assert ratio(role, 'bg') >= 4.5
+        assert ratio(role, 'prose-wash') >= 4.5
+    assert ratio('prose-recede', 'bg') >= 3

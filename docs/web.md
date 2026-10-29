@@ -130,7 +130,10 @@ Monocolor uses ten swatches sampled from the supplied LINX SUPPLY grayscale phot
 including its slight photographic tints. Its surfaces, text, highlights, chart colors,
 prose roles and mode indicators use only those swatches, without contrast recoloring
 or synthesized prose hues. Preview with `/?theme=monocolor` or `/?theme=monocolor-dark`.
-Warning icons, labels and underline styles retain their meaning without color.
+Colorful Language assigns four readable grayscale shades in light mode and five
+in dark mode across its prose roles. Clear mode uses a softer gray for structural
+words; quoted passages use a contrasting surface swatch. Warning icons, labels
+and underline styles retain their meaning without color.
 Copying Monocolor into an editable user theme restores the editor’s normal color derivation.
 
 ### Modal keyboard: VISUAL, the command line, registers and lists

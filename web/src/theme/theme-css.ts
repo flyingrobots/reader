@@ -1,4 +1,4 @@
-import {COLOR_TOKENS, FONT_ROLES, HEADINGS, BUNDLED_FONTS, hex, lightness, proseColors, PROSE_TOKENS, withAlpha, type Theme, type Tokens, type Variant} from './color';
+import {COLOR_TOKENS, FONT_ROLES, HEADINGS, BUNDLED_FONTS, hex, lightness, contrast, proseColors, PROSE_TOKENS, withAlpha, type Theme, type Tokens, type Variant} from './color';
 
 export type InstalledFont={family:string;slug:string;category:string;license:string|null;stylesheet:string};
 export const themeId=(theme:Theme,variant:Variant)=>'user-'+theme.id+(variant==='dark'?'-dark':'');
@@ -28,11 +28,20 @@ export function variantProperties(tokens:Tokens,fonts:Theme['fonts'],variant:Var
 /** Palette-only built-ins keep prose and modal signals inside their supplied swatches.
  * Labels, warning icons and underline styles continue to convey meaning without hue. */
 export function paletteOnlyProperties(tokens:Tokens):Record<string,string>{
-  const prose={...Object.fromEntries(PROSE_TOKENS.map(t=>['--'+t.name,tokens.ink])),
-    '--prose-punct':tokens.muted,'--prose-recede':tokens.muted,'--prose-content':tokens.ink,
-    '--prose-subtle-function':tokens.muted,'--prose-subtle-proper':tokens.ink,
-    '--prose-subtle-number':tokens.ink,'--prose-subtle-quote':tokens.ink,
-    '--prose-wash':tokens.bg,'--prose-underline':tokens.accent};
+  // Use every readable swatch, ordered from strongest to softest. Never synthesize a hue.
+  const palette=[...new Set(Object.values(tokens))].filter(value=>/^#[0-9a-f]{6}$/.test(value));
+  const readable=palette.filter(value=>contrast(value,tokens.bg)>=4.5&&contrast(value,tokens.surface)>=4.5)
+    .sort((a,b)=>contrast(b,tokens.bg)-contrast(a,tokens.bg));
+  const shade=(rank:number)=>readable[Math.min(rank,readable.length-1)]||tokens.ink;
+  const recede=palette.filter(value=>contrast(value,tokens.bg)>=3)
+    .sort((a,b)=>contrast(a,tokens.bg)-contrast(b,tokens.bg))[0]||tokens.muted;
+  const roles:Record<string,string>={function:shade(readable.length-1),proper:shade(1),quote:shade(3),
+    number:shade(2),noun:shade(0),verb:shade(2),adjective:shade(1),adverb:shade(3)};
+  const prose={...Object.fromEntries(PROSE_TOKENS.map(t=>['--'+t.name,roles[t.name.slice(6)]])),
+    '--prose-punct':shade(readable.length-1),'--prose-recede':recede,'--prose-content':tokens.ink,
+    '--prose-subtle-function':shade(readable.length-1),'--prose-subtle-proper':shade(1),
+    '--prose-subtle-number':shade(2),'--prose-subtle-quote':shade(3),
+    '--prose-wash':tokens.surface,'--prose-underline':shade(1)};
   return {...prose,...Object.fromEntries(['browse','search','insert','leader','settings','help','thread'].map(mode=>['--mode-'+mode,tokens.accent])),
     '--shadow':'none'};
 }

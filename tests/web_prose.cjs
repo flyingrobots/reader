@@ -115,6 +115,21 @@ const covered=page=>page.evaluate(()=>Object.fromEntries([...CSS.highlights].fil
    await page.screenshot({path:'.reader/web-dev/prose-two-page.png'});
    assert.deepEqual(errors,[]);await context.close();}
 
+  // Monocolor paints real Colorful Language ranges with multiple supplied shades.
+  for(const theme of ['monocolor','monocolor-dark']){
+   const {page,context,errors}=await open({theme,proseColors:'vivid'});await settled(page);
+   const paint=await page.evaluate(()=>{
+    const body=getComputedStyle(document.body),roles=['function','proper','quote','number','noun','verb','adjective','adverb'];
+    return Object.fromEntries(roles.map(role=>[role,body.getPropertyValue('--prose-'+role).trim()]));
+   });
+   const palette=new Set(Object.values(require('../src/reader_mcp/web_ui/famous-themes.json').themes.find(t=>t.id==='monocolor').palette));
+   for(const value of Object.values(paint))assert.ok(palette.has(value));
+   assert.ok(new Set(Object.values(paint)).size>=(theme.endsWith('-dark')?5:4),theme+' uses a grayscale range');
+   assert.ok((await covered(page)).proper.includes('Ada'),'Colorful ranges are active');
+   await page.screenshot({path:'.reader/web-dev/prose-'+theme+'.png'});
+   assert.deepEqual(errors,[]);await context.close();
+  }
+
   // 5. Every theme, light and dark, at every intensity. Subtle: every role 4.5:1. Clear: function
   //    words and punctuation recede to 3:1 (and no further than 3.3:1), content words hold 7:1, names,
   //    numbers and quotes 4.5:1 with names ≥ 0.12 ΔE_OK from the content ink. Vivid: every role 4.5:1,
