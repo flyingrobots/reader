@@ -59,7 +59,7 @@ const THEMES=['ink','paper','orchid','orchid-dark','harvest','harvest-dark',...r
        const mark=ratio(getComputedStyle(document.querySelector('[data-state=current] .reading-log-mark')).color,bg);
        rows.push({theme,text:Math.min(...text),mark,height:document.querySelector('.reading-log').getBoundingClientRect().height});}
      html.dataset.theme=original;freeze.remove();return rows;},THEMES);
-   assert.equal(contrast.length,22);
+   assert.equal(contrast.length,6+2*require('../src/reader_mcp/web_ui/famous-themes.json').themes.length);
    for(const row of contrast){assert.ok(row.text>=4.5&&row.mark>=3&&row.height>0,JSON.stringify(row));}
    await context.close();}
   // Empty state before your receipt lands, on a PDF, then "You just now" without a reload.

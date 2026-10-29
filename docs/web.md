@@ -116,7 +116,7 @@ including fuzzy, content and semantic search results and nonprimary attachments.
 A changed source returns to unread styling. Browsing, collapsing folders and
 searching do not mark documents read; opening a document does.
 
-Settings offers three paired palettes: **Ink / Paper**, **Orchid · Light / Dark**,
+Settings offers paired palettes including **Monocolor · Light / Dark**, **Ink / Paper**, **Orchid · Light / Dark**,
 and **Harvest · Light / Dark**. The footer's light/dark control preserves the
 chosen palette family. Orchid uses the eight colors from the supplied reference,
 with lighter accents over plum surfaces at night. Harvest preserves all 66 supplied
@@ -125,6 +125,13 @@ chart colors. CSS performs display-gamut mapping. Preview a palette with
 `/?theme=orchid`, `/?theme=orchid-dark`, `/?theme=harvest` or
 `/?theme=harvest-dark`; an explicit theme selection clears a conflicting preview
 parameter and saves the preference. Theme previews do not change participant data.
+
+Monocolor uses ten swatches sampled from the supplied LINX SUPPLY grayscale photograph,
+including its slight photographic tints. Its surfaces, text, highlights, chart colors,
+prose roles and mode indicators use only those swatches, without contrast recoloring
+or synthesized prose hues. Preview with `/?theme=monocolor` or `/?theme=monocolor-dark`.
+Warning icons, labels and underline styles retain their meaning without color.
+Copying Monocolor into an editable user theme restores the editor’s normal color derivation.
 
 ### Modal keyboard: VISUAL, the command line, registers and lists
 

@@ -75,7 +75,7 @@ const PATH='library/callouts.md';
       for(const aside of document.querySelectorAll('aside.callout')){const bg=rgb(page,getComputedStyle(aside).backgroundColor),title=getComputedStyle(aside.querySelector('.callout-title')).color,body=aside.querySelector(':scope .callout-content > p');
         result.push({theme,type:aside.dataset.callout,title:ratio(rgb(page,getComputedStyle(aside).backgroundColor,title),bg),body:ratio(rgb(page,getComputedStyle(aside).backgroundColor,getComputedStyle(body).color),bg)});}}
     return result;},THEMES);
-   assert.equal(new Set(rows.map(r=>r.theme)).size,22);
+   assert.equal(new Set(rows.map(r=>r.theme)).size,6+2*require('../src/reader_mcp/web_ui/famous-themes.json').themes.length);
    const failing=rows.filter(r=>r.title<4.5||r.body<4.5);assert.deepEqual(failing,[],'callout text meets 4.5:1');
    console.log('Lowest callout contrast: title '+Math.min(...rows.map(r=>r.title)).toFixed(2)+', body '+Math.min(...rows.map(r=>r.body)).toFixed(2));
    await context.close();}

@@ -134,7 +134,10 @@ const covered=page=>page.evaluate(()=>Object.fromEntries([...CSS.highlights].fil
      const still=document.createElement('style');still.textContent='*{transition:none!important}';document.head.append(still);
      const paragraph=document.querySelector('#article p');const failures=[],min={subtle:9,clearRecede:9,clearRecedeMax:0,clearRole:9,content:99,vivid:9,distinct:9,wash:9,names:9};
      const roles=['function','proper','quote','number','punct','noun','verb','adjective','adverb'];
-     for(const theme of THEMES){document.documentElement.dataset.theme=theme;await new Promise(r=>setTimeout(r,0));
+     for(const theme of THEMES){
+       // Palette-only Monocolor intentionally has no hue separation; covered by web_theme_picker.
+       if(theme==='monocolor'||theme==='monocolor-dark')continue;
+       document.documentElement.dataset.theme=theme;await new Promise(r=>setTimeout(r,0));
        const root=getComputedStyle(document.documentElement),bg=rgb(root.getPropertyValue('--bg').trim()),muted=rgb(root.getPropertyValue('--muted').trim());
        const fail=(what,value)=>failures.push(`${theme} ${what} ${typeof value==='number'?value.toFixed(3):value}`);
        for(const level of ['subtle','clear','vivid']){document.body.classList.remove('prose-subtle','prose-clear','prose-vivid');document.body.classList.add('prose-'+level);
@@ -153,7 +156,7 @@ const covered=page=>page.evaluate(()=>Object.fromEntries([...CSS.highlights].fil
            const wash=getComputedStyle(document.body).getPropertyValue('--prose-bg-quoted').trim();probe.style.color=wash;const parts=getComputedStyle(probe).color.match(/[\d.]+/g).map(Number);
            const washed=over(parts.slice(0,3),parts[3]??1,bg);for(const value of [ink,...colored.map(r=>paint[r])]){const r=ratio(value,washed);min.wash=Math.min(min.wash,r);if(r<4.5)fail('vivid over wash',r);}}}}
      probe.remove();still.remove();return {themes:THEMES.length,failures,min};});
-   assert.equal(report.themes,22);assert.deepEqual(report.failures,[]);
+   assert.equal(report.themes,6+2*require('../src/reader_mcp/web_ui/famous-themes.json').themes.length);assert.deepEqual(report.failures,[]);
    const m=report.min;console.log(`  prose contrast, 22 themes: Subtle ≥ ${m.subtle.toFixed(2)}:1; Clear skeleton ${m.clearRecede.toFixed(2)}–${m.clearRecedeMax.toFixed(2)}:1, content ≥ ${m.content.toFixed(2)}:1, roles ≥ ${m.clearRole.toFixed(2)}:1, names ΔE_OK ≥ ${m.names.toFixed(3)} from ink; Vivid ≥ ${m.vivid.toFixed(2)}:1, roles ΔE_OK ≥ ${m.distinct.toFixed(3)}, over wash ≥ ${m.wash.toFixed(2)}:1`);
    assert.deepEqual(errors,[]);await context.close();}
 

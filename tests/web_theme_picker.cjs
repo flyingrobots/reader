@@ -35,6 +35,28 @@ const {chromium}=require(process.env.READER_PLAYWRIGHT||'playwright-core');
   await trigger.press('ArrowDown');await popup.waitFor();
   await page.getByRole('option',{name:'Solarized · Dark',exact:true}).click();
   await page.waitForFunction(()=>document.documentElement.dataset.theme==='solarized-dark');
+  // Monocolor is paired, persists, and keeps all generated theme paint in the supplied palette.
+  const palette=new Set(Object.values(require('../src/reader_mcp/web_ui/famous-themes.json').themes.find(t=>t.id==='monocolor').palette));
+  await trigger.click();await page.getByRole('option',{name:'Monocolor · Light',exact:true}).click();
+  await page.waitForFunction(()=>document.documentElement.dataset.theme==='monocolor');
+  for(const theme of ['monocolor','monocolor-dark']){
+   if(theme.endsWith('-dark'))await page.getByRole('switch',{name:'Dark mode',exact:true}).click();
+   await page.waitForFunction(theme=>document.documentElement.dataset.theme===theme,theme);
+   const tokens=await page.evaluate(()=>{
+    const s=getComputedStyle(document.documentElement),names=['bg','surface','raised','line','ink','muted','faint','accent','accent-ink','warning','rust','selection','own','other',...Array.from({length:8},(_,i)=>'chart-'+(i+1)),'chart-stroke',
+     ...['function','proper','quote','number','noun','verb','adjective','adverb','punct','recede','content','subtle-function','subtle-proper','subtle-number','subtle-quote','wash','underline'].map(n=>'prose-'+n),
+     ...['browse','search','insert','leader','settings','help','thread'].map(n=>'mode-'+n)];
+    return Object.fromEntries(names.map(n=>[n,s.getPropertyValue('--'+n).trim()]));
+   });
+   for(const [name,value] of Object.entries(tokens))assert.ok(palette.has(value),`${theme} ${name}: ${value}`);
+   const shots=process.env.READER_SHOTS||'.reader/web-dev';mkdirSync(shots,{recursive:true});
+   await page.waitForTimeout(400); // Let the theme view transition finish before capturing pixels.
+   await page.screenshot({path:shots+'/'+theme+'.png'});
+  }
+  await page.reload();await page.locator('#home-title').waitFor();
+  assert.equal(await page.locator('html').getAttribute('data-theme'),'monocolor-dark');
+  await page.getByRole('switch',{name:'Dark mode',exact:true}).click();
+  await page.waitForFunction(()=>document.documentElement.dataset.theme==='monocolor');
   // On a narrow screen the picker stays visible, including with an article breadcrumb and progress controls.
   await page.goto(url+'#read=library/thought.md');await page.locator('#article').waitFor();await page.waitForFunction(()=>!document.querySelector('.resume-pending'));
   for(const width of [390,320]){

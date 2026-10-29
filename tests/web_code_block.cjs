@@ -95,7 +95,7 @@ const {chromium}=require(process.env.READER_PLAYWRIGHT||'playwright-core');
        for(const role of roles){probe.style.color=`var(--code-${role})`;check(role,getComputedStyle(probe).color);}
        check('code',getComputedStyle(code).color);check('title',getComputedStyle(title).color);check('gutter',getComputedStyle(gutter).color);}
      probe.remove();still.remove();return {themes:THEMES.length,failures,min};});
-   assert.equal(report.themes,22);assert.deepEqual(report.failures,[]);
+   assert.equal(report.themes,6+2*require('../src/reader_mcp/web_ui/famous-themes.json').themes.length);assert.deepEqual(report.failures,[]);
    console.log(`  code contrast, 22 themes: every syntax role, code, label and line numbers ≥ ${report.min.toFixed(2)}:1`);
    assert.deepEqual(errors,[]);assert.deepEqual(external,[]);await context.close();}
 

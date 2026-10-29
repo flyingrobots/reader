@@ -1,4 +1,4 @@
-import {COLOR_TOKENS, FONT_ROLES, HEADINGS, BUNDLED_FONTS, hex, lightness, proseColors, withAlpha, type Theme, type Tokens, type Variant} from './color';
+import {COLOR_TOKENS, FONT_ROLES, HEADINGS, BUNDLED_FONTS, hex, lightness, proseColors, PROSE_TOKENS, withAlpha, type Theme, type Tokens, type Variant} from './color';
 
 export type InstalledFont={family:string;slug:string;category:string;license:string|null;stylesheet:string};
 export const themeId=(theme:Theme,variant:Variant)=>'user-'+theme.id+(variant==='dark'?'-dark':'');
@@ -25,10 +25,22 @@ export function variantProperties(tokens:Tokens,fonts:Theme['fonts'],variant:Var
     '--shadow':`0 32px 120px ${shadow}`,'color-scheme':variant};
 }
 
-/** Stylesheet for every custom theme. Values are validated hex and family names, so nothing here can escape a declaration. */
+/** Palette-only built-ins keep prose and modal signals inside their supplied swatches.
+ * Labels, warning icons and underline styles continue to convey meaning without hue. */
+export function paletteOnlyProperties(tokens:Tokens):Record<string,string>{
+  const prose={...Object.fromEntries(PROSE_TOKENS.map(t=>['--'+t.name,tokens.ink])),
+    '--prose-punct':tokens.muted,'--prose-recede':tokens.muted,'--prose-content':tokens.ink,
+    '--prose-subtle-function':tokens.muted,'--prose-subtle-proper':tokens.ink,
+    '--prose-subtle-number':tokens.ink,'--prose-subtle-quote':tokens.ink,
+    '--prose-wash':tokens.bg,'--prose-underline':tokens.accent};
+  return {...prose,...Object.fromEntries(['browse','search','insert','leader','settings','help','thread'].map(mode=>['--mode-'+mode,tokens.accent])),
+    '--shadow':'none'};
+}
+
+/** Stylesheet for built-in and custom themes, using validated tokens and font names. */
 export function themeStylesheet(themes:Theme[],idOf:(theme:Theme,variant:Variant)=>string=themeId){
   return themes.flatMap(theme=>(['light','dark'] as Variant[]).map(variant=>{
-    const id=idOf(theme,variant),props=variantProperties(theme[variant],theme.fonts,variant,theme.headings);
+    const id=idOf(theme,variant),props={...variantProperties(theme[variant],theme.fonts,variant,theme.headings),...(theme.paletteOnly?paletteOnlyProperties(theme[variant]):{})};
     return `:root[data-theme="${id}"]{${Object.entries(props).map(([k,v])=>`${k}:${v}`).join(';')}}\n`+
       `:root[data-theme="${id}"] .chart-mount path[role=button],:root[data-theme="${id}"] .chart-bar-row rect:not([fill=transparent]),:root[data-theme="${id}"] .chart-mount>svg>rect{stroke:var(--chart-stroke);stroke-width:1}\n`+
       `:root[data-theme="${id}"] .chart-legend i{outline:1px solid var(--chart-stroke)}\n`;

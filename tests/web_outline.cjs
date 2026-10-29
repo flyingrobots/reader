@@ -86,7 +86,7 @@ const THEMES=['ink','paper','orchid','orchid-dark','harvest','harvest-dark',...r
     const ratio=(a,b)=>{const [lo,hi]=[lum(rgb(a)),lum(rgb(b))].sort((x,y)=>x-y);return (hi+.05)/(lo+.05);};
     const rows=themes.map(theme=>{html.dataset.theme=theme;const s=getComputedStyle(html),v=n=>s.getPropertyValue(n).trim();return {theme,muted:ratio(v('--muted'),v('--bg')),ink:ratio(v('--ink'),v('--bg')),accent:ratio(v('--accent'),v('--bg'))};});
     html.dataset.theme=original;return rows;},THEMES);
-   assert.equal(contrast.length,22);for(const row of contrast){assert.ok(row.muted>=4.5&&row.ink>=4.5,JSON.stringify(row));assert.ok(row.accent>=3,'active marker: '+JSON.stringify(row));}
+   assert.equal(contrast.length,6+2*require('../src/reader_mcp/web_ui/famous-themes.json').themes.length);for(const row of contrast){assert.ok(row.muted>=4.5&&row.ink>=4.5,JSON.stringify(row));assert.ok(row.accent>=3,'active marker: '+JSON.stringify(row));}
    await ctx.close();}
 
   // Two-page reading: a popover with page labels; choosing an entry turns to its spread.

@@ -124,3 +124,43 @@ def test_default_fetcher_refuses_non_google_hosts():
     for url in ('http://fonts.googleapis.com/css2', 'https://example.com/font.woff2', 'file:///etc/passwd'):
         with pytest.raises(ValueError):
             fetch(url, 10)
+
+
+@pytest.mark.parametrize('variant', ['light', 'dark'])
+def test_monocolor_shipped_tokens_preserve_palette_and_contrast(variant):
+    """Test the shipped CSS, including derived prose and mode colors, not just its inputs."""
+    import re
+    from reader_mcp.themes import FAMOUS
+    from pathlib import Path
+    import reader_mcp.themes as module
+
+    theme = next(t for t in FAMOUS['themes'] if t['id'] == 'monocolor')
+    palette = set(theme['palette'].values())
+    assert len(palette) == 10
+    css = (Path(module.__file__).parent / 'web_ui/controls/famous-themes.css').read_text()
+    identifier = 'monocolor' + ('-dark' if variant == 'dark' else '')
+    block = re.search(r':root\[data-theme="' + identifier + r'"\]\{([^}]+)\}', css)[1]
+    props = dict(item.split(':', 1) for item in block.split(';'))
+    names = COLOR_TOKENS + module.TOKENS['prose_derived'] + [t['name'] for t in module.TOKENS['prose']]
+    names += [n for n in module.TOKENS['derived'] if n.startswith('mode-')]
+    for name in names:
+        assert props['--' + name] in palette, (name, props['--' + name])
+    assert props['color-scheme'] == variant
+    assert props['--shadow'] == 'none'
+
+    def luminance(value):
+        rgb = [int(value[i:i+2], 16) / 255 for i in (1, 3, 5)]
+        return sum((v / 12.92 if v <= .04045 else ((v + .055) / 1.055) ** 2.4) * w
+                   for v, w in zip(rgb, [.2126, .7152, .0722]))
+
+    def ratio(a, b):
+        low, high = sorted([luminance(props['--' + a]), luminance(props['--' + b])])
+        return (high + .05) / (low + .05)
+
+    for surface in ('bg', 'surface', 'raised'):
+        for ink in ('ink', 'muted', 'faint', 'accent', 'rust', 'warning'):
+            assert ratio(ink, surface) >= 4.5, (variant, ink, surface)
+    assert ratio('ink', 'bg') >= 7
+    assert ratio('accent-ink', 'accent') >= 4.5
+    for highlight in ('selection', 'own', 'other'):
+        assert ratio('ink', highlight) >= 4.5

@@ -70,7 +70,7 @@ const {sanitizerReport}=require('./web_wait.cjs');  // #151
       return {theme,minimum:Math.min(...rows.map(r=>r[1])),worst:rows.sort((a,b)=>a[1]-b[1])[0][0]};});
   });
   await page.evaluate(()=>document.documentElement.dataset.theme='paper');
-  assert.equal(contrast.length,22);
+  assert.equal(contrast.length,6+2*require('../src/reader_mcp/web_ui/famous-themes.json').themes.length);
   for(const row of contrast)assert.ok(row.minimum>=4.5,JSON.stringify(row));
   // J/K reorder, persisted across reload.
   assert.equal(await page.evaluate(()=>document.activeElement.id),'queue-list-next','the list has focus');
