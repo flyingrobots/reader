@@ -3427,14 +3427,28 @@ The Library section of Reader Admin is a grid of up to twelve interactive D3 sta
 summary totals above and an editions list below. Panels cover recorded arrivals
 over twelve weeks, reading marks over 28 local days, read/unread status, first
 topic, primary format, first document type, authors, first project, primary-source
-byte sizes, unread topics, discussion state and the optional topic atlas.
+byte sizes, reading status by topic, discussion state and the optional shelf atlas.
 The activity and atlas settings control their corresponding panels.
 
 Select a chart segment, bar or legend item to browse the works behind it; the
 summary totals continue to describe the entire current catalog. Clear selection
-restores the latest additions. Author bars credit each distinct coauthor, while
-topic/project/type charts use one label per work. The atlas groups by first topic,
-with one dot per work; hover inspects it and clicking opens the source. Discussion
+restores the latest additions. **Show more works** reveals the next eight matching
+works until the complete selection is visible. Author bars credit each distinct coauthor,
+while topic/project/type charts use one label per work. **Calendar** switches the
+arrivals panel from weekly bars to selectable days in the same twelve calendar
+weeks, through today. Reading by topic stacks Read and Unread counts; select a
+segment for that topic and status, or its label for the complete topic.
+
+The optional atlas is a zoomable icicle: first topic → first project → work, with
+cell area proportional to grouped work count. Select a shelf to drill in, use its
+breadcrumbs to go back, or **Reset** to return to all shelves. Selecting a work opens
+its primary source. The **Open a shelf or work** picker exposes every immediate
+child, including cells too small to label. **Browse … works on this shelf** lists
+all descendants using the editions list. Settings → **Library atlas** controls this
+view. The [library chart guide](library-charts.md) explains the encodings and choices.
+
+Summary read counts and charts use the same current in-session work records, so
+opening a document updates the entire dashboard consistently. Discussion
 totals count actual threads, warning/highlight kinds, comments and resolved state.
 Discussion selections list matching catalog primaries; source attachments can
 have threads without appearing as an independent catalog work.
@@ -4097,6 +4111,8 @@ node tests/web_breadcrumbs.cjs
 node tests/web_search_retry.cjs
 node --test tests/dashboard.test.mjs tests/magazine.test.mjs
 node tests/web_dashboard.cjs
+node --test tests/library-charts.test.mjs
+node tests/web_library_charts.cjs
 node tests/web_magazine.cjs
 .venv/bin/python -m pytest -q tests/test_demo.py
 node tests/web_demo.cjs
