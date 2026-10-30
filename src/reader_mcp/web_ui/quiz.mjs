@@ -1,12 +1,12 @@
 /** Article quizzes: edition-bound controller; the UI is a shadcn/Base UI island. */
 export function installQuiz({api,document:currentDocument,participant:currentParticipant,mount,showEvidence,changed,mode,available,toast}){
-  const empty=()=>({open:false,loading:false,busy:false,error:'',quiz:null,task:null,voices:[],voice:'',index:0,answers:{},short:{},reviews:{},result:null});
+  const empty=()=>({open:false,loading:false,busy:false,error:'',quiz:null,task:null,voices:[],voice:'',difficulty:3,setup:false,index:0,answers:{},short:{},reviews:{},result:null});
   let state=empty(),context=null,sequence=0,submission=0,timer=null;const listeners=new Set();
   const getSnapshot=()=>state,subscribe=listener=>{listeners.add(listener);return()=>listeners.delete(listener);};
   function update(patch){const before=state.open;state={...state,...patch};if(before!==state.open)mode?.(state.open);for(const listener of listeners)listener();}
   const params=()=>new URLSearchParams({path:context.path,participant:context.participant});
   function post(request){return api('/api/quiz',{...request,path:context.path,participant:context.participant});}
-  function resetQuestions(quiz){return {quiz,index:0,answers:{},short:{},reviews:{},result:null,task:null};}
+  function resetQuestions(quiz){return {quiz,setup:false,index:0,answers:{},short:{},reviews:{},result:null,task:null};}
   function close(){sequence++;clearTimeout(timer);update({open:false,loading:false,busy:false});}
   function adopt(data){
     const voices=(data.voices||[]).filter(v=>v.runnable);
@@ -62,7 +62,7 @@ export function installQuiz({api,document:currentDocument,participant:currentPar
   async function generate(regenerate=false){
     if(state.busy)return;const token=++sequence,owner=context,request=++submission;clearTimeout(timer);update({busy:true,error:'',result:null});
     try{
-      const data=await post({action:'generate',voice:state.voice||undefined,request_id:crypto.randomUUID(),regenerate});
+      const data=await post({action:'generate',voice:state.voice||undefined,difficulty:state.difficulty,request_id:crypto.randomUUID(),regenerate});
       await acceptResponse(data,owner,request);
     }catch(error){failure(error,token);}
   }
@@ -92,7 +92,7 @@ export function installQuiz({api,document:currentDocument,participant:currentPar
   }
   function evidence(question){const anchor=question.evidence;close();requestAnimationFrame(()=>showEvidence(anchor));}
   const actions={close,generate,choose,shortAnswer,review,next,evidence,
-    voice:value=>update({voice:value}),back:()=>update({index:Math.max(0,state.index-1)}),retake:()=>update(resetQuestions(state.quiz))};
+    voice:value=>update({voice:value}),difficulty:value=>update({difficulty:value}),setup:value=>update({setup:value,error:''}),back:()=>update({index:Math.max(0,state.index-1)}),go:index=>{if(!state.busy&&state.quiz&&index>=0&&index<state.quiz.questions.length)update({index,error:''});},retake:()=>update(resetQuestions(state.quiz))};
   const island=mount({getSnapshot,subscribe,actions});
   return {open,close,isOpen:()=>state.open,destroy(){close();island.destroy();listeners.clear();}};
 }

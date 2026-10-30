@@ -1,4 +1,5 @@
 """Article tasks use the real supervised queue, with synthetic voice CLI output."""
+import gzip
 import hashlib
 from http.client import HTTPConnection
 import json
@@ -67,6 +68,26 @@ def test_generation_uses_shared_runner_and_commits_only_quiz_and_logs(library):
     assert 'Reader-Quiz: ' + job['id'] in message and 'Reader-Voice: Claude' in message
     assert not list((root / 'chats').glob('*.json'))
     assert library.quizzes.dispatch(dict(action='generate', path=PATH), 'Reader')['quiz']['id'] == quiz['id']
+
+
+def test_difficulty_steers_the_prompt_and_is_saved_with_the_quiz(library):
+    job = settle(library, generate(library, difficulty=4))
+    assert job['state'] == 'done', job
+    quiz = library.quizzes.get(PATH)
+    assert quiz['difficulty'] == 4
+    prompts = [gzip.decompress(p.read_bytes()).decode() for p in (library.root / 'logs/llm/quiz').rglob('prompt.txt.gz')]
+    assert prompts and all('Difficulty 4 of 5. Analyze:' in prompt for prompt in prompts)
+
+
+@pytest.mark.parametrize('value', [0, 6, '3', 2.5, True, None])
+def test_difficulty_must_be_an_integer_from_one_to_five(library, value):
+    with pytest.raises(ValueError, match='difficulty must be an integer from 1 to 5'):
+        generate(library, difficulty=value)
+
+
+def test_quiz_without_difficulty_keeps_the_earlier_shape(library):
+    assert settle(library, generate(library))['state'] == 'done'
+    assert 'difficulty' not in library.quizzes.get(PATH)
 
 
 def test_plain_text_voice_preserves_compact_json_generation_and_review(library):

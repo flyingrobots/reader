@@ -2,11 +2,11 @@
 
 Reader can generate an edition-bound quiz for a Markdown or plain-text article using an enabled voice from the vault’s `voices.json`. Open **Test yourself** at the end of the article, **Quiz** in the margins panel, **Space x**, or `:quiz`. Historical views, inbox previews and PDFs are excluded. The static web demo requires a running Reader for this feature.
 
-The quiz opens in a shadcn/Base UI dialog. Choose the voice before generating. The default is the last runnable voice that spoke in the article’s chat, then the first runnable voice in registry order. No deployment’s participant roster is built into the software.
+The quiz opens in a shadcn/Base UI dialog. A setup step comes first: choose the voice and a difficulty from 1 to 5 (Recall, Understand, Connect, Analyze, Challenge; default 3), then generate. Once a quiz exists, its voice and difficulty are shown, not editable; **Generate a new quiz** returns to setup. Difficulty adds level guidance to the generation prompt and is saved as `difficulty` on the quiz; it never relaxes quotation or schema validation. A progress bar follows the question count. The default voice is the last runnable voice that spoke in the article’s chat, then the first runnable voice in registry order. No deployment’s participant roster is built into the software.
 
 Closing the dialog does not cancel a server-side voice job. Reopening reads its current state; an obsolete local save request cannot keep the dialog disabled.
 
-Each multiple-choice answer is graded immediately in the browser against the saved answer key. The explanation and **Show me in the text** control expose the supporting passage. A short-answer question is optional: ask a voice to review the answer, or skip it. A reviewed answer receives `right`, `partly`, or `not yet`. The result counts a partly correct short answer as half a point; skipped short answers do not enter the total.
+Each multiple-choice answer is graded immediately in the browser against the saved answer key: the saved answer turns green and is labeled **Correct answer**, a wrong choice is labeled **Your answer** in the theme’s warning color, and every other choice is struck through. The explanation follows under **Why**. A running score beside the progress counts the questions graded so far, the same way the saved result does. The explanation and **Show me in the text** control expose the supporting passage. A short-answer question is optional: ask a voice to review the answer, or skip it. A reviewed answer receives `right`, `partly`, or `not yet`. The result counts a partly correct short answer as half a point; skipped short answers do not enter the total.
 
 The result is saved under the requesting participant and appears in the reading log. It never marks an article or discussion read. A retake uses the same questions; generating a new quiz preserves the earlier one. A pending short-answer review stays attached to the saved quiz being answered when another tab regenerates. Opening a document still has its ordinary read-status behavior, independently of the quiz.
 
@@ -52,7 +52,7 @@ Quiz GETs use the expensive-request pool because they inspect source evidence an
 | --- | --- |
 | `GET /api/quiz?path=&participant=` | Current quiz, or the latest earlier one with relocated evidence; runnable voices and the latest generation job |
 | `GET /api/quiz?path=&participant=&task=` | The quiz plus the selected participant-owned task outcome and pending state |
-| `POST /api/quiz`, `action: generate` | `path`, optional `voice`, UUID `request_id`, optional boolean `regenerate`; returns a cached current quiz or queues generation |
+| `POST /api/quiz`, `action: generate` | `path`, optional `voice`, UUID `request_id`, optional boolean `regenerate`, optional integer `difficulty` 1–5; returns a cached current quiz or queues generation |
 | `POST /api/quiz`, `action: review` | `path`, `edition`, `quiz_id`, `question_id`, `answer`, optional `voice`, UUID `request_id`; queues a short-answer review |
 | `POST /api/quiz`, `action: result` | `path`, `edition`, `quiz_id`, `expected_sha256`, complete multiple-choice `answers` map and optional question-to-review-UUID `reviews` map |
 
@@ -64,10 +64,10 @@ A voice configured with the `text` stream returns literal text, including a comp
 
 ## Verification
 
-Run the Python quiz, queue, receipt and chat tests in a bounded copy-isolated Docker worker. `tests/test_quizzes.py` covers quote validation, immutable storage, editions and scores; `tests/test_quiz_runner.py` covers fake CLI generation, retries, logs, commits, reviews, HTTP access and queue integration. `tests/web_quiz.cjs` drives generation, local grading, passage highlighting in both reading layouts, short-answer review, results, retakes and a 390-pixel viewport against `tests/quiz_fixture.py`. These fixtures contain synthetic material and never contact a provider.
+Run the Python quiz, queue, receipt and chat tests in a bounded copy-isolated Docker worker. `tests/test_quizzes.py` covers quote validation, immutable storage, editions and scores; `tests/test_quiz_runner.py` covers fake CLI generation, retries, logs, commits, reviews, HTTP access and queue integration. `tests/web_quiz.cjs` drives generation, local grading with correct/struck-through choice marking and the running score, passage highlighting in both reading layouts, short-answer review, results, retakes and a 390-pixel viewport against `tests/quiz_fixture.py`. These fixtures contain synthetic material and never contact a provider.
 
 Typecheck and build the web controls in Docker before browser verification. Do not replace browser evidence with source inspection of the highlight map. A separate live provider check is needed to assess a real generated quiz’s questions and explanations; fake-CLI tests establish plumbing and refusal behavior.
 
 The container Node check also runs `node --test tests/quiz_controller.cjs` to exercise asynchronous controller transitions independently of browser timing.
 
-UI components: [shadcn Dialog](https://ui.shadcn.com/docs/components/base/dialog) and [Radio Group](https://ui.shadcn.com/docs/components/base/radio-group), using the repository’s existing Base UI preset and semantic theme tokens.
+UI components: [shadcn Dialog](https://ui.shadcn.com/docs/components/base/dialog) and [Questionnaire](https://ui.shadcn.com/docs/components/base/questionnaire) (letter shortcuts A–D pick a choice; arrow keys move between questions), using the repository’s existing Base UI preset and semantic theme tokens.

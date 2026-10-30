@@ -17,11 +17,30 @@ const {chromium}=require(process.env.READER_PLAYWRIGHT||'playwright-core');
   await page.locator('#main').focus();await page.keyboard.press('Space');await page.keyboard.press('x');
   const modal=page.locator('[data-reader-quiz]');await modal.waitFor();
   assert.equal(await page.locator('#vim-mode').textContent(),'QUIZ');
+  // Setup: voice and difficulty are chosen before generation, then locked in for that quiz.
+  const slider=modal.getByRole('slider',{name:'Difficulty'});
+  assert.equal(await slider.getAttribute('aria-valuenow'),'3');
+  await slider.focus();await page.keyboard.press('ArrowRight');
+  await modal.getByText('4 · Analyze',{exact:true}).waitFor();
+  const generated=page.waitForRequest(request=>request.url().includes('/api/quiz')&&request.method()==='POST');
   await modal.getByRole('button',{name:'Generate a quiz',exact:true}).click();
+  assert.equal((await generated).postDataJSON().difficulty,4);
   await modal.getByText('Question 1 of 5',{exact:true}).waitFor({timeout:15000});
+  assert.equal(await modal.locator('#quiz-voice').count(),0);
+  assert.equal(await modal.getByRole('slider').count(),0);
+  await modal.getByText(/^Quiz by /).waitFor();
+  assert.equal(await modal.locator('.reader-quiz-bar [data-slot=progress-indicator]').evaluate(e=>Math.round(parseFloat(e.style.width||getComputedStyle(e).width))),20);
+  assert.equal(await modal.locator('[data-slot=dialog-title]').evaluate(e=>parseFloat(getComputedStyle(e).fontSize)>=24),true);
   // Grading is immediate in the browser; the first deliberately wrong choice shows the reference answer.
   await modal.getByRole('radio').nth(1).click();
   await modal.getByText('The saved answer is red.',{exact:true}).waitFor();
+  // Grading marks the saved answer green, crosses out the others, explains why and keeps a running score.
+  assert.deepEqual(await modal.locator('[data-slot=questionnaire-choice]:visible').evaluateAll(choices=>choices.map(c=>c.dataset.quizResult)),['correct','chosen-wrong','wrong','wrong']);
+  assert.equal(await modal.locator('[data-quiz-result=correct] .reader-quiz-mark').textContent(),'Correct answer');
+  assert.equal(await modal.locator('[data-quiz-result=wrong] .reader-quiz-option').first().evaluate(e=>getComputedStyle(e).textDecorationLine),'line-through');
+  const green=await modal.locator('[data-quiz-result=correct]').evaluate(e=>getComputedStyle(e).borderTopColor);assert.match(green,/oklab|rgb/);
+  await modal.getByText('Why:',{exact:false}).first().waitFor();
+  assert.equal(await modal.locator('.reader-quiz-running').textContent(),'Score 0 of 1');
   await modal.getByRole('button',{name:'Show me in the text',exact:true}).click();
   await modal.waitFor({state:'hidden'});
   await page.waitForFunction(()=>CSS.highlights.get('reader-quiz')?.size===1);
@@ -38,6 +57,7 @@ const {chromium}=require(process.env.READER_PLAYWRIGHT||'playwright-core');
   await modal.getByLabel('Your answer',{exact:true}).fill('Purple.');
   await modal.getByRole('button',{name:'Ask for a review',exact:true}).click();
   await modal.getByText('The fifth sentence names purple.',{exact:true}).waitFor({timeout:15000});
+  assert.equal(await modal.locator('.reader-quiz-running').textContent(),'Score 4 of 5');
   await modal.getByRole('button',{name:'Save results',exact:true}).click();
   await modal.getByText('4 of 5',{exact:true}).waitFor();
   await page.locator('.reading-log-quizzes',{hasText:'You took the quiz · 4/5'}).waitFor();
