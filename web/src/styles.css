@@ -677,12 +677,6 @@ body:has(#changes-panel[data-side=right]) [data-slot=sheet-overlay] { display: n
 .companion-path-row input { flex: 1 1 200px; font-family: var(--mono); }
 .companion-log summary { cursor: pointer; font-size: 12px; color: var(--muted); }
 .companion-log pre { max-height: 220px; overflow: auto; margin: 6px 0 0; padding: 8px 10px; font-family: var(--mono); font-size: 11px; background: var(--raised); border: 1px solid var(--line); border-radius: 6px; white-space: pre-wrap; overflow-wrap: anywhere; }
-.companion-cli-list { list-style: none; margin: 0; padding: 0; display: grid; }
-.companion-cli-list li { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px 12px; padding: 8px 0; border-top: 1px solid var(--line); font-size: 13px; }
-.companion-cli-list li:first-child { border-top: 0; }
-.companion-cli-list code { font-family: var(--mono); font-size: 11px; overflow-wrap: anywhere; }
-.companion-cli-list small { color: var(--muted); }
-.companion-cli-list li[data-state=missing] > span:last-child { color: var(--muted); }
 .companion-prompt { width: min(var(--width, 356px), calc(100vw - 32px)); box-sizing: border-box; display: grid; gap: 8px; padding: 14px 16px; background: var(--raised); color: var(--ink); border: 1px solid var(--line); border-radius: 10px; box-shadow: var(--shadow); font-family: var(--sans); }
 .companion-prompt-title { margin: 0; font-weight: 650; font-size: 14px; }
 .companion-prompt-body { margin: 0; font-size: 12px; line-height: 1.5; color: var(--muted); }

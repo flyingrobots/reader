@@ -115,20 +115,6 @@ export function CompanionsSection({api,act,status,busy,onRefresh}:{api:Api;act:C
   </section>;
 }
 
-/** Reader Admin › Voices: the agent command lines chat voices and the librarian run, and GPU coordination for the local
- *  model. Reader only finds them; it never installs or signs in. An unchecked or unreadable status says so. */
-export function AgentsCard({status,error=null}:{status:CompanionsStatus|null;error?:string|null}){
-  const gpu=status?.local_model?.gpu;
-  if(!status)return <p className="backstage-message" id="companion-cli-pending" data-state={error?'unavailable':'loading'}>{error?'Couldn’t look for agent command lines: '+error:'Looking for agent command lines…'}</p>;
-  if(!status.cli&&!gpu)return <p className="backstage-message" id="companion-cli-none">This Reader reports no agent command lines.</p>;
-  return <Card size="sm" className="backstage-card companion-cli" id="companion-cli">
-      <CardHeader><CardTitle>Agents and models</CardTitle><CardDescription>Chat voices and the inbox librarian run these command lines with your own account; Reader only finds them. Install and sign in yourself.</CardDescription></CardHeader>
-      <CardContent><ul className="companion-cli-list">{(status?.cli||[]).map(cli=><li key={cli.name} data-cli={cli.name} data-state={cli.state}>
-        <span><strong>{cli.title}</strong> <code>{cli.name}</code>{cli.voices.length?<small> · used by {cli.voices.join(', ')}</small>:null}</span>
-        <span>{cli.path?<code>{cli.path}</code>:<>Not found{cli.link?<> · <a href={cli.link} target="_blank" rel="noreferrer">setup</a></>:null}</>}</span></li>)}</ul>
-        {gpu?<p className="backstage-message" data-gpu={gpu.mode} id="companion-gpu"><strong>GPU coordination: {gpu.label}.</strong> {gpu.message}</p>:null}</CardContent></Card>;
-}
-
 /** The non-blocking prompt a missing feature shows: what is missing, what it adds, its repo, Install when safe, and Don't show again. */
 export function CompanionPrompt({item,id,onInstall,onSetup}:{item:Companion;id:string|number;onInstall:()=>void;onSetup:(panel:string)=>void}){
   const install=item.actions.includes('install')||item.actions.includes('update')?item.actions.includes('install')?'install':'update':null;

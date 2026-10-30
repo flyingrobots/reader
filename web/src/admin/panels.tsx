@@ -6,7 +6,8 @@ import {Card} from '../components/ui/card';
 import {EditionLinks, IndexesPage} from './pages/indexes';
 import {InboxPage} from './pages/inbox';
 import {LocalModelSection} from '../local-model';
-import {CompanionsSection, AgentsCard} from '../companions';
+import {CompanionsSection} from '../companions';
+import {VoicesPage} from './pages/voices';
 import {ServerCard} from '../server-card';
 import {ArtStudio} from '../art-studio';
 import type {AdminContext} from './sections';
@@ -58,7 +59,7 @@ export function ServicePanel({context:c}:Props){
 
 export function VoicesPanel({context:c}:Props){
   useEffect(()=>{if(!c.local)c.refreshCompanions();},[]);
-  return <section className="backstage-section" id="backstage-voices" aria-label="Agents and models"><AgentsCard status={c.companions} error={c.companionsError}/></section>;
+  return <section id="backstage-voices" aria-label="Agents and models"><VoicesPage status={c.companions} error={c.companionsError}/></section>;
 }
 
 export function ModelsPanel({context:c}:Props){
