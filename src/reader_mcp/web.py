@@ -953,9 +953,16 @@ class WebLibrary:
         return self.related.suggest(path, works, lambda work: read(work['primary']))
 
     def colorize(self, request):
-        """Prose roles for visible text of the open, current edition only."""
+        """Prose roles for visible text of the open, current edition only, or of the home issue.
+
+        The home issue is assembled from many works, so it has no single edition: its standfirsts
+        are colored under the issue's ISO week, with the same per-text cache and size limits."""
+        if isinstance(request, dict) and set(request) == {'issue', 'segments'}:
+            if not isinstance(request['issue'], str) or not ISSUE_WEEK.fullmatch(request['issue']):
+                raise ValueError('issue must be an ISO week such as 2026-W44')
+            return self.prose.colorize(('issue', request['issue']), request['segments'])
         if not isinstance(request, dict) or set(request) != {'path', 'sha256', 'segments'}:
-            raise ValueError('Expected {"path", "sha256", "segments"}')
+            raise ValueError('Expected {"path", "sha256", "segments"} or {"issue", "segments"}')
         path = request['path']
         if self.digest(path) != request['sha256']:
             raise ValueError('Source changed; reopen before coloring prose')
@@ -1191,6 +1198,7 @@ class WebLibrary:
 # admission and limited only by its own four-stream semaphore, so it never holds a slot.
 STATIC_PREFIXES = ('/assets/', '/fonts/')
 UNGATED = frozenset({'/', '/api/health'})  # The page itself and the cheap liveness probe.
+ISSUE_WEEK = re.compile(r'\d{4}-W(0[1-9]|[1-4]\d|5[0-3])')
 EXPENSIVE_GETS = frozenset({'/api/search', '/api/search/page', '/api/next', '/api/prose', '/api/service', '/api/shape', '/api/quiz', '/api/prompt', '/api/writing', '/api/readers'})
 EXPENSIVE_GET_PREFIXES = ('/api/chat',)  # /api/chat, /api/chats, /api/chat/raw
 EXPENSIVE_LIMIT, READ_LIMIT, READ_WAIT = 8, 32, 5.0

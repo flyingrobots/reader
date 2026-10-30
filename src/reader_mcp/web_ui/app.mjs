@@ -234,6 +234,7 @@ async function renderHome(path=null,id=state.routeId) {
   const artwork=await issueArt(issue);if(id!==state.routeId)return;
   clearControlsWithin($('#main'));
   state.magazine=mountMagazine({root:$('#main'),issue,weeks:issueWeeks(works,{exclude:options.exclude,through:isoWeek(state.data.today).end}),signals,prefs:state.prefs,api,wireDocumentLinks,openIssue,motion:()=>!reduced.matches,art:artwork,artMake:state.prefs.art!==false&&!!artProducer()});
+  prose?.attach($('#main'),{kind:'issue',issue:issue.id});  // Space c colors the issue's standfirsts and note.
   $('#main').querySelectorAll('.issue [data-art-generate]').forEach(button=>{if(needsReader('art')){localOnly(button);return;}
     button.onclick=event=>{event.preventDefault();button.disabled=true;button.textContent='Making art…';commissionArt(button.dataset.artGenerate);};});
   $('#issue-backstage').onclick=()=>openAdmin('library');

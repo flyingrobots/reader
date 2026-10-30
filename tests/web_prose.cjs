@@ -169,6 +169,21 @@ const covered=page=>page.evaluate(()=>Object.fromEntries([...CSS.highlights].fil
    const words=await covered(page);assert.ok(words.adjective.includes('precise')||words.noun.includes('observation'),'PDF words carry roles');
    assert.ok(await page.evaluate(()=>[...CSS.highlights.get('reader-prose-function')].every(r=>r.startContainer.parentElement.closest('.textLayer'))));
    assert.deepEqual(errors,[]);await context.close();}
+  // 8. The home issue: Space c colors its standfirsts and note under the issue's week, never titles or controls.
+  {const context=await browser.newContext({viewport:{width:1200,height:900},reducedMotion:'reduce'});
+   await context.addInitScript(value=>{try{localStorage.setItem('reader.preferences.v1',value);}catch{}},JSON.stringify({smooth:false,theme:'paper',art:false,proseColors:'off'}));
+   const page=await context.newPage(),errors=[],posts=[];page.on('pageerror',e=>errors.push(e.message));
+   page.on('request',r=>{if(r.method()==='POST'&&r.url().endsWith('/api/prose'))posts.push(r.postDataJSON());});
+   await page.goto(url+'#');await page.locator('.issue').waitFor();
+   await page.waitForFunction(()=>[...document.querySelectorAll('.cover-standfirst,.feature-standfirst,.issue-note')].some(e=>e.textContent.trim()),null,{timeout:8000});
+   assert.deepEqual(await covered(page),{},'the issue starts uncolored');
+   await leader(page,'c');await settled(page);
+   assert.ok(posts.length&&posts.every(p=>/^\d{4}-W\d{2}$/.test(p.issue)&&!('path' in p)),'issue requests carry the week: '+JSON.stringify(posts.map(p=>Object.keys(p))));
+   assert.ok(await page.evaluate(()=>[...CSS.highlights].filter(([n])=>n.startsWith('reader-prose-')).every(([,set])=>[...set].every(r=>r.startContainer.parentElement.closest('.cover-standfirst,.feature-standfirst,.issue-note')))),'only issue prose is colored');
+   assert.equal(await page.locator('#prose-chip').isVisible(),true);
+   await leader(page,'c');await leader(page,'c');await leader(page,'c');
+   await page.waitForFunction(()=>!CSS.highlights.has('reader-prose-function'));
+   assert.deepEqual(errors,[]);await context.close();}
   console.log('Prose colors passed: missing-binary explanation (quiet default), Space c Off/Subtle/Clear/Vivid, legacy settings, quoted passages, role words, code/math/diagram exclusion, visible-first batches, style switch without requests, find, annotations and selection, two-page textures, 22-theme floors per intensity, phone width, PDF text layers, local-only requests.');
  }finally{await browser?.close();await stop(fixture);}
 })().catch(error=>{console.error(error);process.exitCode=1;});

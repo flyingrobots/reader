@@ -274,7 +274,7 @@ batch of local-model work is archived permanently under `logs/llm/local-model/`
 host and model, never its API key), committed on its own, and no batch starts below
 the 50 GiB free-disk reserve. Embedding requests are not archived.
 
-**Space c** highlights the grammar of Markdown prose and PDF text with the optional
+**Space c** highlights the grammar of Markdown prose, PDF text and the home issue's standfirsts and note with the optional
 local [Colorful Language](https://github.com/flyingrobots/colorful-language) CLI
 (0.4.0 or newer, found through `READER_COLORFUL`, a path set in Reader Admin, Reader's own build, `PATH` or `~/.cargo/bin`). Three
 intensities: Subtle fades function words a little; Clear (the default) recedes function

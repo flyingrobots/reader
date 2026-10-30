@@ -2625,12 +2625,13 @@ own commits keep their usual attribution.
 
 ### Prose colors (Colorful Language)
 
-**Space c** paints the grammar of the open document's prose with
+**Space c** paints the grammar of the open document's prose, or of the home issue, with
 [Colorful Language](https://github.com/flyingrobots/colorful-language), "IDE-grade
 syntax highlighting for English prose". Colorful is an optional, local,
 deterministic Rust CLI (a closed-class lexicon, a proper-noun heuristic and a small
 contextual disambiguator; no model, nothing leaves the machine). Reader neither
 vendors nor builds it.
+On the home issue, only its prose is colored: the cover and feature standfirsts (each again as its text arrives) and the issue note, never titles, kickers, numbers or controls. The issue's intensity is remembered apart from documents' and starts from the Settings default, as a document does.
 Colors apply to the current edition only: a historical version (`path@commit`) and an
 inbox preview are never colored, and Space c says so. Callout titles, like every
 `data-reader-decoration` element, are never colored.
@@ -2754,10 +2755,13 @@ prompt](#reader-admin-companions) with Install. The page renders normally.
 
 **Server route.** `GET /api/prose` reports discovery: `available`, `version`,
 `path`, `origin` and a `message` when unavailable. `POST /api/prose` takes exactly
-`{"path", "sha256", "segments": [{"id", "text"}]}`:
+`{"path", "sha256", "segments": [{"id", "text"}]}` for a document, or
+`{"issue", "segments": [{"id", "text"}]}` for the home issue:
 
 1. The path must pass the usual library path checks, and `sha256` must be its
-   current digest.
+   current digest. The home issue is assembled from many works and has no single
+   edition, so `issue` is its ISO week (`YYYY-Www`, weeks 01–53) instead; the
+   week takes the place of the edition in the per-text budget below.
 2. There are 1–2,000 segments with unique ids (`[A-Za-z0-9_-]{1,40}`). Each is at
    most 128 KiB of UTF-8, and a request at most 512 KiB (the body limit for this
    route is 1 MiB). An edition gets at most 4 MiB of uncached text per server
@@ -3806,7 +3810,7 @@ run's stream. An offset past the end means a newer run cleared it (`reset`).
 Failed, interrupted and stopped runs add the runner message and the last 8 KiB of
 `stderr.log`. The route refuses symlinked `.reader/`, runtime directories and
 event files. POST `/api/prose` colors visible prose of
-the current edition (see Prose colors). POST `/api/queue` takes
+the current edition, or the home issue's prose by ISO week (see Prose colors). POST `/api/queue` takes
 `{participant, action: add|remove|move|pin|clear, path, index?, request_id, added_by?, reason?, current?}`
 and returns the queue view. POST `/api/history` takes `{participant, action: "open", path, sha256}`
 (the digest must match the current source) or `{participant, action: "hide", path}`. POST `/api/writing` takes

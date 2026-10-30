@@ -179,6 +179,12 @@ def test_prose_route_requires_current_edition_and_reports_unavailable(tmp_path):
         assert status == 200 and body['segments']['p'][0] == [0, 3, 'function']
         assert call(good, '/api/prose', {'path': 'library/a.md', 'sha256': '0' * 64, 'segments': [{'id': 'p', 'text': 'x'}]})[0] == 400
         assert call(good, '/api/prose', {'path': '../a.md', 'sha256': sha, 'segments': [{'id': 'p', 'text': 'x'}]})[0] == 400
+        # The home issue has no single edition: its prose is colored under the issue's ISO week.
+        status, body = call(good, '/api/prose', {'issue': '2026-W44', 'segments': [{'id': 's', 'text': 'The quiet library.'}]})
+        assert status == 200 and body['segments']['s'][0] == [0, 3, 'function']
+        for week in ('2026-W54', '2026-W00', '26-W44', '2026-W44/../x', 44):
+            assert call(good, '/api/prose', {'issue': week, 'segments': [{'id': 's', 'text': 'x'}]})[0] == 400
+        assert call(good, '/api/prose', {'issue': '2026-W44', 'path': 'library/a.md', 'segments': [{'id': 's', 'text': 'x'}]})[0] == 400
         # Prose batches may exceed the 128 KiB body cap of other routes (up to 1 MiB).
         status, body = call(good, '/api/prose', body=b'{"path":"' + b'x' * (900 * 1024) + b'"}')
         assert status == 400 and 'Expected {"path"' in body['error']

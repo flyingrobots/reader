@@ -24,6 +24,8 @@ const BLOCKS='p,li,blockquote,h1,h2,h3,h4,h5,h6,td,th,dt,dd,figcaption';
 // Never colored: code, math, diagrams and every non-source decoration (embed headers and notes included).
 // Embedded documents are prose on the page and are colored like the document around them.
 const EXCLUDED='pre,code,kbd,samp,var,math,.reader-math,svg,.callout-title,.katex,.MathJax,mjx-container,.mermaid,.reader-code-block,[data-reader-decoration],.annotation-pin,.next-reads,script,style,textarea';
+// On the home issue, only its prose: the cover and feature standfirsts and the issue note, never titles or controls.
+const ISSUE_PROSE='.cover-standfirst,.feature-standfirst,.issue-note';
 const BATCH_BYTES=96*1024,BATCH_SEGMENTS=400,SEGMENT_BYTES=128*1024;
 const encoder=new TextEncoder();
 
@@ -53,10 +55,12 @@ export function installProseColors({state,api,notify,companion=null,onChange=()=
   const highlights=Object.fromEntries(PAINTED.map(role=>[role,window.Highlight?new Highlight():null]));
   for(const h of Object.values(highlights))if(h)h.priority=-1; // find, annotations and selection paint over prose
   const cache=new Map();let cachedUnits=0;
-  let style='off',doc=null,article=null,generation=0,status=null,statusAt=0,observer=null,running=false,stopped=false;
+  let style='off',doc=null,article=null,generation=0,status=null,statusAt=0,observer=null,mutations=null,running=false,stopped=false;
   let blocks=new Map(),urgent=new Set(),pending=[],done=new WeakSet(),pageRanges=new Map(),nextId=0;
-  // The server colors only the open, current edition: never a historical version or an inbox preview.
-  const supported=d=>!!d&&!d.historical&&!d.preview&&['.md','.markdown','.pdf'].includes(d.kind);
+  // The server colors only the open, current edition (never a historical version or an inbox preview),
+  // or the home issue, which is keyed by its ISO week.
+  const supported=d=>!!d&&(d.kind==='issue'?!!d.issue:!d.historical&&!d.preview&&['.md','.markdown','.pdf'].includes(d.kind));
+  const key=d=>d.kind==='issue'?'#issue':d.path;
   const on=()=>style!=='off';
 
   async function probe(force=false){
@@ -80,6 +84,7 @@ export function installProseColors({state,api,notify,companion=null,onChange=()=
   function scan(){
     if(!article)return;
     if(doc.kind==='.pdf'){for(const layer of article.querySelectorAll('.textLayer'))textLayer(layer);return;}
+    if(doc.kind==='issue'){for(const block of article.querySelectorAll(ISSUE_PROSE))if(!block.closest(EXCLUDED))register(block);return;}
     for(const block of article.querySelectorAll(BLOCKS))if(!block.closest(EXCLUDED))register(block);
   }
   function textLayer(layer){
@@ -126,7 +131,8 @@ export function installProseColors({state,api,notify,companion=null,onChange=()=
         pending=pending.filter(block=>!done.has(block)&&blocks.has(block));
         if(!batch.length)continue;
         let result;
-        try{result=await api('/api/prose',{path:doc.path,sha256:doc.sha256,segments:batch.map(item=>({id:item.info.id,text:item.text}))});}
+        const segments=batch.map(item=>({id:item.info.id,text:item.text}));
+        try{result=await api('/api/prose',doc.kind==='issue'?{issue:doc.issue,segments}:{path:doc.path,sha256:doc.sha256,segments});}
         catch(error){
           if(id!==generation)return;
           if(/busy/i.test(error.message)){await new Promise(resolve=>setTimeout(resolve,800));continue;}
@@ -155,21 +161,26 @@ export function installProseColors({state,api,notify,companion=null,onChange=()=
       const root=article.closest('.book-viewport');
       observer=window.IntersectionObserver?new IntersectionObserver(entries=>{let any=false;for(const entry of entries)if(entry.isIntersecting&&!done.has(entry.target)){urgent.add(entry.target);any=true;}if(any)pump();},{root,rootMargin:root?'0px 100% 0px 100%':'600px 0px'}):null;
       article.addEventListener('reader-textlayer',onLayer);
-      const initial=state.proseStyles?.get(doc.path)??intensityOf(state.prefs.proseColors);
+      // Issue standfirsts arrive after the page renders: color each one again when its text changes.
+      if(doc.kind==='issue'&&window.MutationObserver){mutations=new MutationObserver(records=>{
+        const changed=new Set(records.map(r=>(r.target.nodeType===1?r.target:r.target.parentElement)?.closest(ISSUE_PROSE)).filter(Boolean));
+        for(const block of changed){blocks.delete(block);done.delete(block);register(block);}
+        if(changed.size&&on())pump();});mutations.observe(article,{childList:true,characterData:true,subtree:true});}
+      const initial=state.proseStyles?.get(key(doc))??intensityOf(state.prefs.proseColors);
       style='off';if(initial!=='off')enable(initial,true);else paint();
     },
     detach(){
-      generation++;running=false;observer?.disconnect();observer=null;article?.removeEventListener('reader-textlayer',onLayer);
+      generation++;running=false;observer?.disconnect();observer=null;mutations?.disconnect();mutations=null;article?.removeEventListener('reader-textlayer',onLayer);
       for(const h of Object.values(highlights))h?.clear();
       blocks=new Map();urgent=new Set();pending=[];done=new WeakSet();pageRanges=new Map();article=null;doc=null;paint();
     },
     /** Embeds that loaded after the document joined the page: color their blocks too. */
     rescan(){if(!article||!on()||doc?.kind==='.pdf')return;scan();pump();},
-    /** Space c: step Off → Subtle → Clear → Vivid → Off for this document. */
+    /** Space c: step Off → Subtle → Clear → Vivid → Off for this document or the home issue. */
     async press(){
-      if(!supported(doc)){notify(state.doc?.historical?'Prose colors work on the current edition, not a past version.':'Prose colors work in Markdown documents and PDF text.');return;}
+      if(!supported(doc)){notify(state.doc?.historical?'Prose colors work on the current edition, not a past version.':'Prose colors work in Markdown documents, PDF text and the home issue.');return;}
       const next=INTENSITIES[(INTENSITIES.indexOf(style)+1)%INTENSITIES.length];
-      (state.proseStyles??=new Map()).set(doc.path,next);
+      (state.proseStyles??=new Map()).set(key(doc),next);
       if(next==='off'){style='off';paint();notify('Prose colors off.');return;}
       if(on()){style=next;paint();notify(`Prose colors: ${LABELS[next]}.`);return;}
       if(await enable(next))notify(`Prose colors: ${LABELS[next]}.`);
