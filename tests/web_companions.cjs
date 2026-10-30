@@ -112,7 +112,7 @@ const shots=process.env.READER_SHOTS||'.reader/web-dev';
 
   // git-locks absent: a local-model run takes Reader's own GPU lock.
   await page.locator('[data-admin-nav=models]').click();await page.locator('#lm-gpu').filter({hasText:'This Reader only'}).waitFor();
-  await page.locator('#lm-server-start').click();await page.locator('.lm-server[data-server-state=ready]').waitFor({timeout:15000});
+  await page.locator('#lm-server-start').click();await page.locator('[data-lm=server][data-server-state=ready]').waitFor({timeout:15000});
   await page.locator('[data-enqueue=standfirst][data-scope=recent]').click();await toast('Queued').waitFor();
   await page.locator('[data-run=standfirst]').click();
   await toast('Local model finished').waitFor({timeout:40000});

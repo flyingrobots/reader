@@ -259,63 +259,15 @@
 .inbox-report code { font-family: var(--mono); font-size: 12px; }
 .inbox-report pre { white-space: pre-wrap; }
 /* Local model (Behind the scenes). Calm: muted type, one accent rule for live output, no motion beyond a caret. */
-.lm-lede { max-width: 66ch; color: var(--muted); font-size: 13px; line-height: 1.55; margin: -4px 0 0; }
 .lm-mark { display: block; width: fit-content; margin-top: 8px; font-family: var(--mono); font-size: 10px; letter-spacing: .02em; color: var(--muted); border: 1px solid var(--line); border-radius: 999px; padding: 1px 8px; font-style: normal; }
-.lm-models { list-style: none; margin: 0; padding: 0; display: grid; }
-.lm-models li { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 0; border-top: 1px solid var(--line); min-width: 0; }
-.lm-models li:first-child { border-top: 0; }
-.lm-models li[data-loaded=true] strong::after { content: ''; display: inline-block; width: 6px; height: 6px; margin-left: 7px; border-radius: 50%; background: var(--accent); vertical-align: middle; }
-.lm-model-name, .lm-now-title { display: grid; min-width: 0; }
-.lm-model-name strong, .lm-now-title strong { font-size: 13px; font-weight: 600; overflow-wrap: anywhere; }
-.lm-model-name small, .lm-now-title small, .lm-next { font-size: 11px; color: var(--muted); overflow-wrap: anywhere; }
-.lm-now-title { margin: 0; gap: 2px; }
-.lm-last { margin: 0; display: grid; gap: 2px; font-size: 13px; line-height: 1.5; padding-top: 10px; border-top: 1px solid var(--line); }
-.lm-last .backstage-error { color: var(--warning); }
-.lm-last small { font-size: 10px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
-.lm-confirm { font-size: 11px; color: var(--muted); margin-left: 10px; }
-.lm-server [data-slot=card-footer], .lm-now [data-slot=card-footer] { flex-wrap: wrap; gap: 6px; }
 .lm-preview { border-left: 2px solid var(--accent); padding: 4px 0 4px 12px; max-height: 210px; overflow: auto; overscroll-behavior: contain; }
 .lm-preview p { margin: 0; font-family: var(--serif); font-size: 15px; line-height: 1.55; color: var(--ink); white-space: pre-wrap; overflow-wrap: anywhere; }
 .lm-preview .lm-thinking { font-family: var(--sans); font-size: 12px; color: var(--muted); font-style: italic; }
 .lm-caret { display: inline-block; width: .45em; height: 1em; margin-left: 2px; vertical-align: -2px; background: var(--muted); opacity: .5; animation: lm-caret 1.1s steps(2, start) infinite; }
 @keyframes lm-caret { to { visibility: hidden; } }
 @media (prefers-reduced-motion: reduce) { .lm-caret { animation: none; } }
-.lm-tasks { list-style: none; margin: 0; padding: 0; display: grid; }
-.lm-tasks > li { display: grid; gap: 8px; padding: 12px 0; border-top: 1px solid var(--line); min-width: 0; }
-.lm-tasks > li:first-child { border-top: 0; padding-top: 0; }
-.lm-task-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; flex-wrap: wrap; font-size: 13px; }
-.lm-task-head strong { font-weight: 650; }
-.lm-task-head small { font-size: 11px; color: var(--muted); }
-.lm-count { font-variant-numeric: tabular-nums; color: var(--muted); }
-.lm-task-actions { display: flex; flex-wrap: wrap; gap: 8px; }
-.lm-items li { grid-template-columns: 22px minmax(0, 1fr); }
-.lm-items li[data-item-state=done] .backstage-job-state { color: var(--accent); }
-.lm-items li[data-item-state=rejected] .backstage-job-state, .lm-items li[data-item-state=failed] .backstage-job-state { color: var(--warning); }
-.lm-item-trigger { display: flex; width: 100%; align-items: center; justify-content: space-between; gap: 8px; text-align: left; background: none; padding: 0; color: inherit; font: inherit; cursor: pointer; min-width: 0; }
-.lm-item-trigger > span { min-width: 0; }
-.lm-item-trigger:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 3px; }
-.lm-chevron { color: var(--muted); transition: transform .15s; flex-shrink: 0; }
-.lm-item-trigger[data-panel-open] .lm-chevron { transform: rotate(90deg); }
-.lm-item-detail { display: grid; gap: 10px; padding: 10px 0 4px; }
-.lm-path { font-family: var(--mono); font-size: 11px !important; overflow-wrap: anywhere; }
 .lm-output { margin: 0; padding: 2px 0 2px 12px; border-left: 2px solid var(--line); font-family: var(--serif); font-size: 14px; line-height: 1.55; overflow-wrap: anywhere; }
 .lm-output small { display: block; font-family: var(--mono); font-size: 10px; color: var(--muted); margin-bottom: 2px; }
-.lm-reason { font-size: 12px; }
-.lm-settings-form { display: grid; gap: 18px; }
-.lm-setting { gap: 10px; padding-bottom: 14px; border-bottom: 1px solid var(--line); }
-.lm-setting-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 160px), 1fr)); gap: 10px; }
-.lm-settings .backstage-settings-foot { padding-bottom: 0; }
-.lm-provider .backstage-settings-foot { padding-bottom: 0; }
-.lm-optional { font-weight: 400; color: var(--muted); font-size: 11px; margin-left: 4px; }
-.lm-link { background: none; border: 0; padding: 0; font: inherit; color: var(--accent); text-decoration: underline; text-underline-offset: 2px; cursor: pointer; }
-.lm-link:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 2px; }
-.lm-remote-warning { margin: 0; font-size: 12px; line-height: 1.5; color: var(--ink); border-left: 2px solid var(--warning); padding: 2px 0 2px 10px; }
-.lm-remote-warning.lm-remote-refused { color: var(--warning); }
-.lm-remote-notice { margin: 0; max-width: 72ch; font-size: 13px; line-height: 1.5; color: var(--ink); background: color-mix(in oklab, var(--warning) 12%, var(--surface)); border: 1px solid var(--warning); border-radius: 8px; padding: 8px 12px; overflow-wrap: anywhere; }
-.lm-remote-notice strong { color: var(--warning); }
-.lm-start-yourself { display: grid; gap: 6px; }
-.lm-start-yourself p { margin: 0; overflow-wrap: anywhere; }
-.lm-command { display: block; width: fit-content; max-width: 100%; font-family: var(--mono); font-size: 12px; color: var(--ink); background: var(--raised); border: 1px solid var(--line); border-radius: 6px; padding: 3px 8px; overflow-wrap: anywhere; white-space: pre-wrap; }
 /* Activity transcript (shadcn AI Elements on Trace, Message, Marker). Tokens only, so every theme reads. */
 .activity { position: relative; display: grid; gap: 10px; width: 100%; min-width: 0; padding-top: 10px; border-top: 1px solid var(--line); }
 .activity-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
