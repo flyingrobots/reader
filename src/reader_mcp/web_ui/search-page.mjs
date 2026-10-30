@@ -122,7 +122,7 @@ export function installSearch({api, state, navigate, back, backstage, notify, qu
     select(list.findIndex(entry => entry.w === target));
   }
   const focusField = () => { const field = document.getElementById('search-query'); field?.focus(); field?.select(); };
-  const focusResults = () => { document.querySelector(`.search-results [data-passage="${model.active}"]`)?.focus(); if (model.status === 'loading') resultsFocus = true; };
+  const focusResults = () => { document.querySelector(`[data-search-results] [data-passage="${model.active}"]`)?.focus(); if (model.status === 'loading') resultsFocus = true; };
   /** After a query renders, put focus back on the results if it was there and the re-render dropped it (it is on <body>). */
   function restoreResults() {
     if (!resultsFocus) return; resultsFocus = false;

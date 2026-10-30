@@ -150,6 +150,7 @@ lucide-react/dist/esm/icons/refresh-cw.js:
 lucide-react/dist/esm/icons/rotate-ccw.js:
 lucide-react/dist/esm/icons/route.js:
 lucide-react/dist/esm/icons/scroll-text.js:
+lucide-react/dist/esm/icons/search-x.js:
 lucide-react/dist/esm/icons/search.js:
 lucide-react/dist/esm/icons/server.js:
 lucide-react/dist/esm/icons/settings.js:
