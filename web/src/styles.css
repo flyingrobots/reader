@@ -64,7 +64,7 @@
   :where(.reader-admin, [data-ui="shadcn"], [data-slot$="-content"][data-slot^="sheet"], [data-slot="dialog-content"], [data-slot="alert-dialog-content"], [data-slot="popover-content"]) :where(ol, ul)[data-slot] { padding: 0; list-style: none; }
   :where(.reader-admin, [data-ui="shadcn"], [data-slot$="-content"][data-slot^="sheet"], [data-slot="dialog-content"], [data-slot="alert-dialog-content"], [data-slot="popover-content"]) :where(fieldset, legend)[data-slot] { margin: 0; padding: 0; min-width: 0; }
   :where(.reader-admin, [data-ui="shadcn"], [data-slot$="-content"][data-slot^="sheet"], [data-slot="dialog-content"], [data-slot="alert-dialog-content"], [data-slot="popover-content"]) :where(a)[data-slot] { color: inherit; text-decoration: inherit; }
-  :where(.reader-admin, [data-ui="shadcn"], [data-slot$="-content"][data-slot^="sheet"], [data-slot="dialog-content"], [data-slot="alert-dialog-content"], [data-slot="popover-content"]) :where([data-slot], [data-slot]::before, [data-slot]::after) { border-color: var(--line); }
+  :where(.reader-admin, [data-ui="shadcn"], [data-slot$="-content"][data-slot^="sheet"], [data-slot="dialog-content"], [data-slot="alert-dialog-content"], [data-slot="popover-content"]) :where(*, ::before, ::after) { border-color: var(--line); }
 }
 @utility scrollbar-thin { scrollbar-width: thin; scrollbar-color: var(--line) transparent; }
 #progress-controls-slot { position: absolute; inset: 0; }
@@ -94,18 +94,6 @@
 .chat-markdown .reader-code-block, .inbox-report .reader-code-block, .activity-prose .reader-code-block { margin: .6em 0; }
 .reader-skeleton { max-width: 900px; margin: auto; padding: 10vh 40px; display: grid; gap: 30px; }
 .reader-skeleton.search { padding: 24px 16px; gap: 16px; }
-.reader-file-tree { padding: 8px 0; }
-.reader-file-tree .file-tree-branch { border-left: 1px solid var(--line); padding-left: 4px; }
-.reader-file-tree .file-option, .reader-file-tree .file-folder { text-align: left; }
-.reader-file-tree .name { font: 550 13px/1.4 var(--sans); margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink); }
-.reader-file-tree .file-basename { display: block; font: 10px/1.5 var(--sans); color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.reader-file-tree .file-option[data-read=true] .name, .reader-file-tree .file-read-mark { color: var(--muted); }
-.reader-file-tree .file-option .excerpt { font: 11px/1.5 var(--sans); margin-top: 4px; white-space: normal; }
-.reader-file-tree .file-option .path { margin: 0; }
-.reader-file-tree .file-folder { font-size: 12px; color: var(--muted); }
-.reader-file-tree .file-chevron { transform: rotate(0); transition: transform .12s; }
-.reader-file-tree .file-folder[aria-expanded=true] .file-chevron { transform: rotate(90deg); }
-.reader-file-tree [data-doc-node][data-active] { background: var(--raised); }
 .file-results:focus-visible [data-doc-node][data-active] { outline: 1px solid var(--accent); outline-offset: -1px; }
 @media(max-width: 700px) {
   #quick-theme { padding: 0 6px; gap: 2px; }
@@ -167,12 +155,6 @@
 /* Reader Admin: a sidebar layout with native scrolling. The fixed sidebar stops at the status line. */
 .reader-admin { font-family: var(--sans); --admin-status: 33px; }
 .reader-admin [data-slot="sidebar-container"] { bottom: var(--admin-status); height: auto; }
-.reader-admin [data-slot="sidebar-header"] { padding: 18px 16px 6px; }
-.reader-admin [data-slot="sidebar-menu-button"] { color: var(--ink); text-decoration: none; }
-.reader-admin [data-slot="sidebar-menu-button"][data-active] { background: var(--raised); font-weight: 650; }
-.reader-admin [data-slot="sidebar-menu-button"]:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
-.reader-admin [data-slot="sidebar-menu-button"] svg { width: 16px; height: 16px; flex: none; }
-.reader-admin [data-slot="sidebar-footer"] { padding: 8px 8px 12px; }
 /* The static web demo (#107): a control that needs a running Reader stays disabled but keeps its tooltip under the pointer. */
 [data-needs-reader]:disabled { pointer-events: auto; cursor: not-allowed; }
 #backstage-local-only { font-size: 13px; max-width: 70ch; }
@@ -356,9 +338,7 @@ body:has(#changes-panel[data-side=right]) [data-slot=sheet-overlay] { display: n
 /* Search page */
 .search-page { max-width: 1180px; margin: auto; padding: 48px 48px 120px; font-family: var(--sans); color: var(--ink); }
 .search-meta { margin: 0 auto 0 0; font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
-.search-results { min-width: 0; }
 .search-works { list-style: none; margin: 0; padding: 0; }
-.search-results:not(:focus-within) .search-passage[data-active] { background: color-mix(in srgb, var(--raised) 55%, transparent); }
 .search-chip { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink); padding: 3px 9px; border: 1px solid var(--line); border-radius: 999px; font-variant-numeric: tabular-nums; }
 .search-chip q { font-family: var(--serif); font-style: italic; font-size: 11px; }
 .search-chip-hint { color: var(--muted); }
