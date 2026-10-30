@@ -176,15 +176,9 @@
 .reader-admin [data-slot="sidebar-menu-button"]:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
 .reader-admin [data-slot="sidebar-menu-button"] svg { width: 16px; height: 16px; flex: none; }
 .reader-admin [data-slot="sidebar-footer"] { padding: 8px 8px 12px; }
-.admin-needs-reader { margin-top: 28px; }
-.backstage-section { margin-top: 38px; display: grid; gap: 16px; }
-.backstage-message { font-size: 13px; line-height: 1.5; margin: 0; overflow-wrap: anywhere; }
-.backstage-note { font-size: 11px; color: var(--muted); border-left: 2px solid var(--accent); padding-left: 9px; margin: 0; }
 /* The static web demo (#107): a control that needs a running Reader stays disabled but keeps its tooltip under the pointer. */
 [data-needs-reader]:disabled { pointer-events: auto; cursor: not-allowed; }
 #backstage-local-only { font-size: 13px; max-width: 70ch; }
-.backstage-jobs small.backstage-error { color: var(--warning); }
-.backstage-settings { max-width: 560px; padding: 0 var(--card-spacing); display: grid; gap: 16px; }
 .activity {
   --activity-text: color-mix(in oklab, var(--muted) 25%, var(--ink));
   --activity-secondary: color-mix(in oklab, var(--muted) 65%, var(--ink));

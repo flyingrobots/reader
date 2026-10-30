@@ -1,7 +1,7 @@
 /* Reader Admin section bodies. Each wraps an existing Behind the scenes panel unchanged (its handlers, busy states,
    local-only restrictions and error displays), and starts only the status reads that panel already relied on. */
 import {useEffect, useRef} from 'react';
-import {PaletteIcon} from 'lucide-react';
+import {MonitorIcon, PaletteIcon} from 'lucide-react';
 import {Button} from '../components/ui/button';
 import {Toolbar} from '../theme/molecules/toolbar';
 import {EditionLinks, IndexesPage} from './pages/indexes';
@@ -13,7 +13,7 @@ import {ServerCard} from '../server-card';
 import {SectionHeading} from '../theme/atoms/section-heading';
 import {Notice} from '../theme/molecules/notice';
 import {LibraryPage} from './pages/library';
-import {Unavailable} from '../theme/molecules/states';
+import {EmptyState, Unavailable} from '../theme/molecules/states';
 import {ArtStudio} from '../art-studio';
 import type {AdminContext} from './sections';
 
@@ -21,7 +21,8 @@ type Props={context:AdminContext};
 
 /** The page a section that needs Reader on this computer shows in the static web demo (the shell decides). */
 export function NeedsReader({what}:{what:string}){
-  return <p className="backstage-note admin-needs-reader" id="backstage-local-only" data-state="unavailable">{what} needs Reader on your computer. The web demo shows recorded reading data only; rebuilds, checks, the service and companion tools run there.</p>;
+  return <EmptyState id="backstage-local-only" data-state="unavailable" icon={MonitorIcon} title={`${what} needs Reader on your computer`}
+    description="The web demo shows recorded reading data only; rebuilds, checks, the service and companion tools run there."/>;
 }
 
 export function InboxPanel({context:c}:Props){
@@ -64,7 +65,7 @@ export function ModelsPanel({context:c}:Props){
   const ref=useRef<HTMLDivElement>(null);
   useEffect(()=>{if(!c.local&&ref.current)c.watchLocalModel(ref.current);},[]);
   return <div ref={ref} id="backstage-models">
-    {!c.localModel&&c.localModelError?<p className="backstage-message backstage-error" id="local-model-unavailable" role="status">Couldn’t read the local-model status: {c.localModelError}</p>
+    {!c.localModel&&c.localModelError?<Unavailable id="local-model-unavailable" what="The local-model status" error={c.localModelError}/>
       :<LocalModelSection status={c.localModel} act={c.localModelAction}/>}
   </div>;
 }
