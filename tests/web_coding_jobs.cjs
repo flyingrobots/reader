@@ -46,7 +46,7 @@ async function fixture(flags){
    assert.match(await page.locator('#article pre').last().textContent(),/An example inside a fence never runs/);
    assert.match(await card.textContent(),/Bound parser depth/);assert.match(await card.textContent(),/acme\/widget/);assert.match(await card.textContent(),/Issue #277/);
    await page.waitForFunction(()=>!document.querySelector('[data-prompt-run]')?.disabled,null,{timeout:10000});
-   assert.match(await card.locator('.prompt-card-plan').textContent(),/new branch from main in acme\/widget, links issue #277/);
+   assert.match(await card.locator('[data-prompt-plan]').textContent(),/new branch from main in acme\/widget, links issue #277/);
    await card.scrollIntoViewIfNeeded();await shot(card,'card');
    // Viewing, hovering, expanding and reloading never start a job.
    await card.hover();await page.locator('#article').click({position:{x:5,y:5}});
@@ -70,7 +70,7 @@ async function fixture(flags){
    await card.locator('.job-summary').waitFor();
    assert.equal(posts.length,1);assert.equal(posts[0].action,'submit');assert.match(posts[0].request_id,/^[0-9a-f-]{36}$/);
    await page.waitForFunction(()=>document.querySelector('.job-summary')?.dataset.jobStatus==='pr_opened',null,{timeout:60000});
-   assert.match(await card.locator('.job-links').textContent(),/Pull request #\d+/);
+   assert.match(await card.locator('[data-job-links]').textContent(),/Pull request #\d+/);
    // The finished run frees the card: Run is available again without a reload.
    await page.waitForFunction(()=>!document.querySelector('[data-prompt-run]')?.disabled,null,{timeout:5000}).catch(()=>{});
    assert.equal(await card.locator('[data-prompt-run]').isEnabled(),true,'Run is enabled again once the job finishes');
@@ -91,7 +91,7 @@ async function fixture(flags){
    assert.match(await page.locator(`[data-job-row="${id}"]`).textContent(),/PR #\d+/);
    assert.equal(await page.evaluate(()=>getComputedStyle(document.querySelector('#admin-sections ul')).listStyleType),'none','the sidebar menu has no list bullets');
    await shot(page,'admin-jobs');
-   await page.goto(url+'#admin/jobs/'+id);await page.waitForFunction(id=>document.querySelector(`.job-detail[data-job-id="${id}"]`),id,{timeout:10000});
+   await page.goto(url+'#admin/jobs/'+id);await page.waitForFunction(id=>document.querySelector(`[data-admin-panel="job"][data-job-id="${id}"]`),id,{timeout:10000});
    await shot(page,'admin-job',{fullPage:true});
    // A slow answer for the artifact shown before never replaces the one chosen since.
    let release,held;const arrived=new Promise(resolve=>held=resolve),hold=new Promise(resolve=>release=resolve);
@@ -100,12 +100,14 @@ async function fixture(flags){
    await page.getByRole('tab',{name:'prompt.txt',exact:true}).click();
    await page.waitForFunction(()=>/Check issue #277/.test(document.querySelector('[data-job-artifact="prompt.txt"]')?.textContent||''),null,{timeout:10000});
    release();await page.waitForResponse(r=>r.url().includes('name=stdout.jsonl'));await page.waitForTimeout(300);
-   assert.match(await page.locator('.job-artifact').textContent(),/Check issue #277/,'the chosen artifact stays shown');
+   assert.match(await page.locator('[data-job-artifact]').textContent(),/Check issue #277/,'the chosen artifact stays shown');
    assert.equal(await page.locator('[data-job-artifact="prompt.txt"]').count(),1);
    await page.unroute('**/api/jobs/artifact?**');
    await page.goto(url+'#admin/logs');await panel('logs','[data-log-row]');
    assert.ok(await page.locator('[data-log-row]').filter({hasText:'coding-job'}).count()>=1,'the run is archived as a coding-job LLM log');
    await shot(page,'admin-logs');
+   await page.locator('[data-log-row] a').first().click();await panel('log','[data-admin-panel=log] [role=tab]');
+   await page.locator('[data-admin-panel=log] [data-slot=code-block-content]').first().waitFor();await shot(page,'admin-log',{fullPage:true});
    await page.goto(url+'#admin/repositories');await panel('repositories','[data-repository="acme/widget"]');
    await shot(page,'admin-repositories',{fullPage:true});
    assert.equal((await runs(page)).length,1);assert.equal(posts.length,1,'Admin pages start nothing');
@@ -130,7 +132,7 @@ async function fixture(flags){
    await failed.waitFor({timeout:10000});
    assert.equal(await failed.locator('[data-slot=trace-collapsible-trigger]').getAttribute('aria-expanded'),'true','a failed check expands by itself');
    assert.equal(await page.evaluate(()=>document.activeElement===document.body||!!document.activeElement?.closest('[data-prompt-card]')),true,'it does not steal focus');
-   assert.doesNotMatch(await card.locator('.job-links').count()?await card.locator('.job-links').textContent():'',/Pull request/);
+   assert.doesNotMatch(await card.locator('[data-job-links]').count()?await card.locator('[data-job-links]').textContent():'',/Pull request/);
    await shot(card,'verify-failed');
    assert.deepEqual(errors,[]);
    await context.close();
@@ -143,8 +145,8 @@ async function fixture(flags){
    await page.waitForFunction(()=>!document.querySelector('[data-prompt-run]')?.disabled,null,{timeout:10000});
    await page.goto(url+'#admin/repositories');
    await page.waitForFunction(()=>document.querySelector('[data-repository="acme/widget"]'),null,{timeout:10000});
-   page.once('dialog',dialog=>dialog.accept());
    await page.locator('[data-repository="acme/widget"]').getByRole('button',{name:/Remove/}).click();
+   await page.getByRole('alertdialog').getByRole('button',{name:'Remove',exact:true}).click();
    await page.waitForFunction(()=>!document.querySelector('[data-repository="acme/widget"]'),null,{timeout:10000});
    await page.goto(url+'#read='+encodeURIComponent(DOC));await card.waitFor();
    await page.waitForFunction(()=>/isn’t set up in Reader yet/.test(document.querySelector('[data-prompt-card="bound-parser-depth"]')?.textContent||''),null,{timeout:10000});

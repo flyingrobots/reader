@@ -56,14 +56,14 @@ export function SpeechControl(){
   const s=useSyncExternalStore(subscribe,()=>speaking);
   if(!s)return null;
   const paused=s.state==='Paused'||(s.current&&s.held),text=label(s);
-  return <span className="speech-control" data-speech-state={s.state||''} data-current={s.current?'':undefined} role="group" aria-label="AI-TTS playback">
-    <Volume2 aria-hidden="true" className="speech-glyph size-3.5"/>
-    <span className="speech-label" aria-live="polite">{text}</span>
+  return <span className="inline-flex items-center gap-1.5 whitespace-nowrap text-foreground" data-speech-control="" data-speech-state={s.state||''} data-current={s.current?'':undefined} role="group" aria-label="AI-TTS playback">
+    <Volume2 aria-hidden="true" className="size-3.5 text-primary max-[520px]:text-muted-foreground"/>
+    <span className="text-[10px] text-muted-foreground max-[700px]:hidden" data-speech-label="" aria-live="polite">{text}</span>
     <ButtonGroup>
-      <Button variant="ghost" size="icon-xs" data-speech-extra="" aria-label="Previous segment" title="Previous segment" disabled={!s.current} onClick={()=>act('previous_segment')}><StepBack/></Button>
+      <Button variant="ghost" size="icon-xs" data-speech-extra="" className="max-[700px]:hidden" aria-label="Previous segment" title="Previous segment" disabled={!s.current} onClick={()=>act('previous_segment')}><StepBack/></Button>
       <Button variant="ghost" size="icon-xs" data-speech-action={paused?'resume':'pause'} aria-label={paused?'Resume speech':'Pause speech'} title={paused?'Resume':'Pause'} disabled={!s.current} onClick={()=>act(paused?'resume':'pause')}>{paused?<Play/>:<Pause/>}</Button>
-      <Button variant="ghost" size="icon-xs" data-speech-extra="" aria-label="Next segment" title="Next segment" disabled={!s.current} onClick={()=>act('next_segment')}><StepForward/></Button>
-      <Button variant="ghost" size="icon-xs" data-speech-extra="" aria-label={s.current?'Skip this speech':'Cancel queued speech'} title={s.current?'Skip':'Cancel'} onClick={()=>act(s.current?'skip':'cancel')}><SkipForward/></Button>
+      <Button variant="ghost" size="icon-xs" data-speech-extra="" className="max-[700px]:hidden" aria-label="Next segment" title="Next segment" disabled={!s.current} onClick={()=>act('next_segment')}><StepForward/></Button>
+      <Button variant="ghost" size="icon-xs" data-speech-extra="" className="max-[700px]:hidden" aria-label={s.current?'Skip this speech':'Cancel queued speech'} title={s.current?'Skip':'Cancel'} onClick={()=>act(s.current?'skip':'cancel')}><SkipForward/></Button>
     </ButtonGroup>
   </span>;
 }

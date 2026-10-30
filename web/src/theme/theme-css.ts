@@ -52,7 +52,7 @@ export function themeStylesheet(themes:Theme[],idOf:(theme:Theme,variant:Variant
     const id=idOf(theme,variant),props={...variantProperties(theme[variant],theme.fonts,variant,theme.headings),...(theme.paletteOnly?paletteOnlyProperties(theme[variant]):{})};
     return `:root[data-theme="${id}"]{${Object.entries(props).map(([k,v])=>`${k}:${v}`).join(';')}}\n`+
       `:root[data-theme="${id}"] .chart-mount path[role=button],:root[data-theme="${id}"] .chart-bar-row rect:not([fill=transparent]),:root[data-theme="${id}"] .chart-mount>svg>rect{stroke:var(--chart-stroke);stroke-width:1}\n`+
-      `:root[data-theme="${id}"] .chart-legend i{outline:1px solid var(--chart-stroke)}\n`;
+      `:root[data-theme="${id}"] [data-chart-swatch]{outline:1px solid var(--chart-stroke)}\n`;
   })).join('');
 }
 export function fontLinks(themes:Theme[],installed:InstalledFont[]){

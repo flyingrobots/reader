@@ -1,11 +1,18 @@
-/* Reader Admin › Overview: a read-only summary of the status Reader already polls (maintenance and inbox) and of active
+/* Reader Admin › Overview (design sheet: docs/admin-design/overview.md): a read-only summary of the status Reader already polls (maintenance and inbox) and of active
    coding jobs (read here every few seconds). It starts no
    check, rebuild, model or inbox run. Each tile says Loading, Unavailable (with the reason) or what is known; a status
    that could not be read is never shown as zero or as healthy. */
 import {useEffect, useState, type ReactNode} from 'react';
-import {Loader2Icon} from 'lucide-react';
-import {Badge} from '../components/ui/badge';
-import {Card, CardAction, CardContent, CardHeader, CardTitle} from '../components/ui/card';
+import {ArrowRightIcon, ChevronRightIcon, CircleAlertIcon} from 'lucide-react';
+import {Button} from '@/components/ui/button';
+import {Item, ItemActions, ItemContent, ItemDescription, ItemGroup, ItemMedia, ItemTitle} from '@/components/ui/item';
+import {Spinner} from '@/components/ui/spinner';
+import {StatusBadge} from '@/theme/atoms/status-badge';
+import {RelativeTime} from '@/theme/atoms/time';
+import {Notice} from '@/theme/molecules/notice';
+import {LoadingState} from '@/theme/molecules/states';
+import {StatusCard} from '@/theme/organisms/status-card';
+import {CardGrid} from '@/theme/templates/card-grid';
 import {AdminLink} from './link';
 import {checkState, INDEX_TITLES, jobOutcome, when} from '../backstage';
 import {plural} from '../plural';
@@ -29,14 +36,16 @@ function useActiveJobs(){
 }
 
 type TileState='loading'|'unavailable'|'ready';
+/** A tile: a StatusCard whose footer is one ghost link to the page where you would act. */
 function Tile({id,title,state,badge,context,section,linkLabel,children}:{id:string;title:string;state:TileState;badge?:ReactNode;context:AdminContext;section:string;linkLabel:string;children:ReactNode}){
-  return <Card size="sm" className="backstage-card admin-tile" data-overview={id} data-state={state}>
-    <CardHeader><CardTitle role="heading" aria-level={2}>{title}</CardTitle>{badge?<CardAction>{badge}</CardAction>:null}</CardHeader>
-    <CardContent>{children}<p className="admin-tile-link"><AdminLink context={context} section={section}>{linkLabel}</AdminLink></p></CardContent>
-  </Card>;
+  return <StatusCard data-overview={id} data-state={state} title={title} badge={badge}
+    footer={<Button variant="ghost" size="sm" className="-ml-2" nativeButton={false} render={<AdminLink context={context} section={section}/>}>{linkLabel}<ArrowRightIcon data-icon="inline-end" aria-hidden/></Button>}>
+    {children}
+  </StatusCard>;
 }
-const Unavailable=({what,error}:{what:string;error:string})=><p className="backstage-message backstage-error" data-unavailable="">{what} unavailable: {error}</p>;
-const Loading=()=><p className="backstage-message"><Loader2Icon className="size-3 animate-spin inline" aria-hidden/> Loading…</p>;
+/** A quiet one-line answer inside a tile ("Nothing is running."). */
+const Quiet=({children,...props}:{children:ReactNode}&Record<`data-${string}`,string>)=><span className="text-sm text-muted-foreground" {...props}>{children}</span>;
+const Unavailable=({what,error}:{what:string;error:string})=><Notice tone="error" data-unavailable="" title={<>{what} unavailable</>}>{error}</Notice>;
 
 /** Attention items from known status only; an unreadable source is reported as its own item. */
 function attention(c:AdminContext){
@@ -69,35 +78,44 @@ export function Overview({context:c}:{context:AdminContext}){
   const known=!!(m||c.maintenanceError)&&!!(inbox||c.inboxError),combined:TileState=!known?'loading':!m&&!inbox?'unavailable':'ready';
   const activeState=combined,issues=attention(c),attentionState=combined;
   const checks=Object.entries(m?.checks||{});
-  return <div className="admin-overview" id="admin-overview">
-    <div className="backstage-grid admin-tiles">
+  return <div className="flex flex-col gap-4" id="admin-overview">
+    <CardGrid>
+      <Tile id="attention" title="Attention needed" state={attentionState} linkLabel="Indexes and recent runs" {...link('indexes')}
+        badge={attentionState!=='loading'?<StatusBadge tone={issues.length?'error':'ok'}>{issues.length?plural(issues.length,'item'):'None'}</StatusBadge>:null}>
+        {attentionState==='loading'?<LoadingState/>:issues.length?<ItemGroup>{issues.map(item=><Item key={item.key} size="xs" variant="outline" role="listitem" render={<AdminLink context={c} section={item.section}/>}>
+            <ItemMedia variant="icon"><CircleAlertIcon className="text-destructive" aria-hidden/></ItemMedia>
+            <ItemContent className="min-w-0"><ItemTitle className="line-clamp-none font-normal [overflow-wrap:anywhere]">{item.text}</ItemTitle></ItemContent>
+            <ItemActions><ChevronRightIcon className="size-4 text-muted-foreground" aria-hidden/></ItemActions></Item>)}</ItemGroup>
+          :<Quiet>Nothing needs attention{m&&!checks.length?' that Reader has checked':''}.</Quiet>}
+      </Tile>
       <Tile id="active" title="Active work" state={activeState} linkLabel="Recent runs" {...link('indexes')}
-        badge={active.length?<Badge className="backstage-badge"><Loader2Icon data-icon="inline-start" className="animate-spin" aria-hidden/>{active.length} running</Badge>:null}>
-        {activeState==='loading'?<Loading/>:<>
-          {active.length?<ul className="admin-list">{active.map(item=><li key={item.key}>{item.text}</li>)}</ul>
-            :m&&inbox&&(coding.jobs||needsReader('jobs'))&&!coding.error?<p className="backstage-message">Nothing is running.</p>:null}
+        badge={active.length?<StatusBadge tone="active" busy>{active.length} running</StatusBadge>:null}>
+        {activeState==='loading'?<LoadingState/>:<>
+          {active.length?<ItemGroup>{active.map(item=><Item key={item.key} size="xs" role="listitem" className="px-0">
+              <ItemMedia><Spinner aria-hidden/></ItemMedia><ItemContent className="min-w-0"><ItemDescription className="line-clamp-none text-foreground [overflow-wrap:anywhere]">{item.text}</ItemDescription></ItemContent></Item>)}</ItemGroup>
+            :m&&inbox&&(coding.jobs||needsReader('jobs'))&&!coding.error?<Quiet>Nothing is running.</Quiet>:null}
           {!m&&c.maintenanceError?<Unavailable what="Index jobs" error={c.maintenanceError}/>:null}
           {!inbox&&c.inboxError?<Unavailable what="Inbox runs" error={c.inboxError}/>:null}
           {coding.error?<Unavailable what="Coding jobs" error={coding.error}/>:null}</>}
       </Tile>
       <Tile id="inbox" title="Inbox" state={inbox?'ready':c.inboxError?'unavailable':'loading'} linkLabel="Open the inbox" {...link('inbox')}
-        badge={inbox?<Badge variant={inbox.arrivals.length?'default':'secondary'} className="backstage-badge" data-arrivals={inbox.arrivals.length}>{inbox.arrivals.length?plural(inbox.arrivals.length,'arrival'):'Empty'}</Badge>:null}>
-        {inbox?<p className="backstage-message">{inbox.arrivals.length?`${plural(inbox.arrivals.length,'arrival')} waiting to be filed.`:'No arrivals are waiting.'}{run?.finished_at&&!['starting','running'].includes(run.status)?<> Last run {when(run.finished_at)}: {run.message}</>:null}</p>
-          :c.inboxError?<Unavailable what="The inbox" error={c.inboxError}/>:<Loading/>}
+        badge={inbox?<StatusBadge tone={inbox.arrivals.length?'active':'ok'} data-arrivals={inbox.arrivals.length}>{inbox.arrivals.length?plural(inbox.arrivals.length,'arrival'):'Empty'}</StatusBadge>:null}>
+        {inbox?<>
+            <span className="text-sm">{inbox.arrivals.length?`${plural(inbox.arrivals.length,'arrival')} waiting to be filed.`:'No arrivals are waiting.'}</span>
+            {run?.finished_at&&!['starting','running'].includes(run.status)?<Quiet>Last run <RelativeTime value={run.finished_at}/>: {run.message}</Quiet>:null}</>
+          :c.inboxError?<Unavailable what="The inbox" error={c.inboxError}/>:<LoadingState/>}
       </Tile>
-      <Tile id="attention" title="Attention needed" state={attentionState} linkLabel="Indexes and recent runs" {...link('indexes')}
-        badge={attentionState!=='loading'?<Badge variant={issues.length?'destructive':'secondary'} className="backstage-badge">{issues.length?plural(issues.length,'item'):'None'}</Badge>:null}>
-        {attentionState==='loading'?<Loading/>:issues.length?<ul className="admin-list admin-attention">{issues.map(item=><li key={item.key}><AdminLink context={c} section={item.section}>{item.text}</AdminLink></li>)}</ul>
-          :<p className="backstage-message">Nothing needs attention{m&&!checks.length?' that Reader has checked':''}.</p>}
+      <Tile id="indexes" title="Index health" state={m?'ready':c.maintenanceError?'unavailable':'loading'} linkLabel="Open Indexes" {...link('indexes')}>
+        {m?checks.length?<>
+            <ItemGroup className="gap-1">{checks.map(([key,check])=>{const state=checkState(check)!;return <Item key={key} size="xs" role="listitem" className="px-0 py-1" data-check={key} data-state={check.state}>
+              <ItemContent><ItemTitle className="font-normal">{INDEX_TITLES[key]||key}</ItemTitle></ItemContent>
+              <ItemActions><StatusBadge tone={state.tone}>{state.label}</StatusBadge></ItemActions></Item>;})}</ItemGroup>
+            <Quiet>Checked <RelativeTime value={Object.values(m.checks)[0]?.checked_at}/>.</Quiet></>
+          :<Quiet data-unchecked="">{c.local?'Index checks need Reader on your computer.':'Not checked yet. Indexes runs a freshness check when you open it.'}</Quiet>
+          :c.maintenanceError?<Unavailable what="Index status" error={c.maintenanceError}/>:<LoadingState/>}
       </Tile>
-      <Tile id="indexes" title="Index health and capacity" state={m?'ready':c.maintenanceError?'unavailable':'loading'} linkLabel="Open Indexes" {...link('indexes')}>
-        {m?checks.length?<dl className="backstage-facts admin-health">{checks.map(([key,check])=>{const state=checkState(check)!;return <div key={key} data-check={key} data-state={check.state}><dt>{INDEX_TITLES[key]||key}</dt><dd><Badge variant={state.variant} className="backstage-badge">{state.label}</Badge></dd></div>;})}</dl>
-            :<p className="backstage-message" data-unchecked="">{c.local?'Index checks need Reader on your computer.':'Not checked yet. Indexes runs a freshness check when you open it.'}</p>
-          :c.maintenanceError?<Unavailable what="Index status" error={c.maintenanceError}/>:<Loading/>}
-        {m&&checks.length?<p className="backstage-note">Checked {when(Object.values(m.checks)[0]?.checked_at)}.</p>:null}
-      </Tile>
-    </div>
-    {m&&c.maintenanceError||inbox&&c.inboxError?<p className="backstage-note admin-overview-note" id="admin-stale" role="status">The last refresh of {[m&&c.maintenanceError?'index status':null,inbox&&c.inboxError?'the inbox':null].filter(Boolean).join(' and ')} failed; these tiles show what was read before it.</p>:null}
-    <p className="backstage-note admin-overview-note">Library holdings and reading statistics are in <AdminLink context={c} section="library">Library</AdminLink>.</p>
+    </CardGrid>
+    {m&&c.maintenanceError||inbox&&c.inboxError?<Notice id="admin-stale" role="status" title="A status refresh failed">The last refresh of {[m&&c.maintenanceError?'index status':null,inbox&&c.inboxError?'the inbox':null].filter(Boolean).join(' and ')} failed; these tiles show what was read before it.</Notice>:null}
+    <Quiet>Library holdings and reading statistics are in <AdminLink context={c} section="library" className="text-primary underline-offset-4 hover:underline">Library</AdminLink>.</Quiet>
   </div>;
 }

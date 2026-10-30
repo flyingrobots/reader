@@ -25,25 +25,25 @@ const {chromium}=require(process.env.READER_PLAYWRIGHT||'playwright-core');
   // The card.
   await page.goto(url+'#admin/service');await card.waitFor();
   await card.locator('[data-fact=commit]').waitFor();
-  assert.match(await card.locator('[data-fact=commit] dd').textContent(),/^1f2e3d4 · /);
-  assert.equal(await card.locator('[data-fact=source] dd').textContent(),'preview/integration');
+  assert.match(await card.locator('[data-fact=commit] [data-fact-value]').textContent(),/^1f2e3d4 · /);
+  assert.equal(await card.locator('[data-fact=source] [data-fact-value]').textContent(),'preview/integration');
   assert.equal(await card.locator('[data-fact=tailscale] a').textContent(),'reader-host.example-tailnet.ts.net');
   assert.equal(await card.locator('[data-fact=tailscale] a').getAttribute('href'),'https://reader-host.example-tailnet.ts.net');
-  assert.equal(await card.locator('[data-fact=identity] dd').textContent(),'This Mac (local)');
+  assert.equal(await card.locator('[data-fact=identity] [data-fact-value]').textContent(),'This Mac (local)');
   assert.equal(await card.locator('[data-fact=subject]').textContent(),'A synthetic change');
-  assert.equal(await card.locator('.backstage-badge').textContent(),'Running');
+  assert.equal(await card.locator('[data-slot=card-action] [data-slot=badge]').textContent(),'Running');
   await page.screenshot({path:'.reader/web-dev/server-card.png',fullPage:true});
   // Update now: a loading toast, then the outcome when the updater lands the new commit.
   await page.locator('#service-update').click();
   await toast('Checking for an update…').waitFor();assert.equal(await toast('Checking for an update…').getAttribute('data-type'),'loading');
   await toast('Updated to 9a8b7c6').waitFor({timeout:15000});assert.equal(await toast('Updated to 9a8b7c6').getAttribute('data-type'),'success');
   assert.equal(await toast('Checking for an update…').count(),0,'the loading toast is replaced');
-  assert.match(await card.locator('[data-fact=commit] dd').textContent(),/^9a8b7c6 · /);
-  assert.match(await card.locator('[data-fact=next-check] dd').textContent(),/^In (9|10) min$/);
+  assert.match(await card.locator('[data-fact=commit] [data-fact-value]').textContent(),/^9a8b7c6 · /);
+  assert.match(await card.locator('[data-fact=next-check] [data-fact-value]').textContent(),/^In (9|10) min$/);
   // Pause and resume.
   await page.locator('#service-pause').click();await toast('Updates paused').waitFor();
   await page.waitForFunction(()=>document.querySelector('#service-pause').textContent==='Resume updates');
-  assert.equal(await card.locator('.backstage-badge').textContent(),'Updates paused');assert.equal(await card.locator('[data-fact=next-check] dd').textContent(),'Paused');
+  assert.equal(await card.locator('[data-slot=card-action] [data-slot=badge]').textContent(),'Updates paused');assert.equal(await card.locator('[data-fact=next-check] [data-fact-value]').textContent(),'Paused');
   await page.locator('#service-pause').click();await toast('Updates resumed').waitFor();await page.waitForFunction(()=>document.querySelector('#service-pause').textContent==='Pause updates');
   // Phone width.
   await page.setViewportSize({width:390,height:844});await page.waitForTimeout(200);

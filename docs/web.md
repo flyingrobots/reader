@@ -458,7 +458,8 @@ never bring items back. The current ranks:
 
 A new status item declares its own priority; one without a declaration gives way
 first, so it can never push the mode or Backstage off screen. Media queries only
-compact labels: below 700 px Backstage and the dark-mode switch drop their text, and
+compact labels: below 700 px Backstage drops its text and the dark-mode switch is hidden (the
+theme picker beside it still offers every light and dark variant), and
 below 520 px the version chip drops its icon and speech drops its label. CSS
 breakpoints alone cannot choose what stays, because they see the viewport, not how
 wide the breadcrumb, speech label or version chip is; the line also cannot clip or
@@ -1084,7 +1085,7 @@ No model is called and nothing leaves the machine; the route writes nothing.
 
 ### Reader Admin: indexes, the inbox, library statistics and settings
 
-Reader Admin (formerly Reader Admin) is a separate layout for administration,
+Reader Admin (formerly Behind the scenes) is a separate layout for administration,
 not a page inside the article reader. A shadcn **Sidebar** lists its sections; a
 header carries the sidebar trigger, a breadcrumb (*Reader Admin › Section*) and
 **Back to Library**; the page shows one section at a time under its own heading.
@@ -1092,7 +1093,10 @@ Each section is its own hash route:
 
 | Route | Section |
 | --- | --- |
-| `#admin` | Overview: active work, the inbox, attention needed, index health and capacity |
+| `#admin` | Overview: attention needed, active work, the inbox and index health |
+| `#admin/jobs`, `#admin/jobs/<uuid>` | Coding jobs from article prompts, and one job's trace and archive |
+| `#admin/logs`, `#admin/logs/<kind>/<date>/<run-id>` | The LLM log archive, and one archived run |
+| `#admin/repositories` | Which checkouts article prompts may run in |
 | `#admin/voices` | The agent command lines chat voices and the librarian run (the *Agents and models* card) |
 | `#admin/models` | The local model: provider, server, queue, outputs and task settings |
 | `#admin/inbox` | Arrivals, receipts, claims and **You got mail** |
@@ -1141,13 +1145,53 @@ Indexes and the Inbox show the same unavailable state, with their actions disabl
 In the static web demo, Service & tools, Voices and Models say that they need
 Reader on your computer instead of showing empty controls.
 
+#### Component system
+
+Every Admin page is composed from real shadcn/ui components (style `base-nova`, Base UI primitives) added with the
+shadcn CLI into `web/src/components/ui/`. Pages do not draw their own cards, lists, badges, callouts or tables. They
+build up through atomic tiers in `web/src/theme/`:
+
+| Tier | Folder | Parts |
+| --- | --- | --- |
+| Atoms | `theme/atoms/` | `StatusBadge` (a tone: ok, attention, error, active or neutral, mapped to a Badge variant), `RelativeTime`, `Elapsed`, `RunStateIcon`, `SectionHeading` |
+| Molecules | `theme/molecules/` | `FactList` (grid or rows of Items), `Notice` (Alert), `EmptyState` (Empty), `LoadingState`, `Unavailable`, `RunRow` (Item), `Toolbar` (muted Item), `FilterSelect` and `FilterBar` (Field + Select), `Pager` |
+| Organisms | `theme/organisms/` | `StatusCard` (full Card composition), `RunList` (ItemGroup), `ConfirmAction` (AlertDialog) |
+| Templates | `theme/templates/` | `AdminHeader` (sidebar trigger, Breadcrumb, Back to Library), `AdminPage` (focusable h1, lede, Separator), `CardGrid` |
+
+Pages live in `web/src/admin/pages/` (Inbox, Indexes, Coding jobs, LLM logs, Repositories, Voices, Library), with Overview in
+`web/src/admin/overview.tsx` and the larger sections in their feature files (`local-model.tsx`, `server-card.tsx`,
+`companions.tsx`, `art-studio.tsx`, and `SettingsForm` in `reader-controls.tsx`). Each page has a design sheet in
+[`admin-design/`](admin-design/index.md) that states its focused activity, layout, composition, states and test hooks.
+
+Colours, fonts and radii come only from semantic utilities (`bg-card`, `text-muted-foreground`, `text-destructive`,
+`border-border`). `web/src/styles.css` maps them onto Reader's theme tokens with `@theme inline`, so every built-in,
+famous and custom theme applies. The stylesheet imports `shadcn/tailwind.css`, the variants the components are written
+for (for example, `data-horizontal` follows `data-orientation`). Reader loads no Tailwind preflight, and its page
+stylesheet (`web_ui/style.css`) declares the layers `theme, base, reader-legacy, reader-slots, utilities`. The
+`reader-slots` layer, defined in `styles.css`, removes legacy element rules (prose margins, heading fonts, link and
+fieldset styles) from shadcn slots inside Admin and its alert dialogs, and still loses to every component utility.
+Tests find parts by ids and `data-*` hooks, never by styling classes.
+
+Outside Admin the same rules apply. Search, the reading queue, the Theme Editor, chat, the article prompt card, the
+quiz, the writing prompt and What changed are composed from shadcn components, and each opts into the slot preflight
+with `data-ui="shadcn"` (shadcn's portaled dialogs, sheets and popovers are always covered). Their design sheets are in
+[`ui-design/`](ui-design/index.md). Surfaces still rendered by the plain-JavaScript modules use the vanilla bridge
+(`web/src/vanilla-buttons.ts`): `data-button` markup takes `buttonVariants`, and plain `<kbd>` in Reader's chrome takes
+Kbd's classes. `node tests/web_page_review.cjs [page …]` reviews these pages like the Admin harness does.
+
+`node tests/web_admin_review.cjs [section …]` opens every Admin section (or the ones named) against the synthetic
+fixture, on desktop (1440 × 900), tablet (iPad Mini) and phone (iPhone 13) profiles in a light and a dark theme. It
+saves a full-page screenshot of each under `READER_SHOTS/admin-review/` (default `.reader/web-dev/`), and fails on a
+page error, a console error or horizontal page overflow.
+
 New sections are added in one place: the section registry in
 `web/src/admin/sections.tsx` (id, title, icon, description, whether it needs Reader
 on this computer, which route parameters it accepts, and its page). The route
 syntax, `#admin/<section>[/<param>…]`, is parsed by `web_ui/admin-routes.mjs`.
 
 **Indexes** shows one shadcn **Card** per rebuildable index, with a
-state **Badge** (Current, Needs rebuild, Partial, Not built, Not configured, Error):
+state **Badge** (Current, Needs rebuild, Partial, Not built, Not configured, Error), its facts, and its rebuild
+actions in the card footer:
 
 | Index | Freshness check | Rebuild |
 | --- | --- | --- |
@@ -1184,9 +1228,10 @@ check runs, and otherwise every 15 seconds while the tab is visible, so toasts a
 appear while you read elsewhere in the app. Every other app message, such as saved
 replies and errors, uses the same Toaster.
 
-The **Library** page holds the statistics dashboard that used to be the
-homepage, unchanged (see [Search, dashboard and shared discussion](#search-dashboard-and-shared-discussion)).
-The page owns the header, so the dashboard's own masthead is omitted there.
+The **Library** page holds the reading statistics that used to be the homepage (see
+[Search, dashboard and shared discussion](#search-dashboard-and-shared-discussion)): six totals, the chart cards, the
+works behind a selection, and unread discussion. It is a React page: `web_ui/dashboard.mjs` computes the model
+(`libraryModel`) and `web/src/admin/pages/library.tsx` renders it, drawing the charts with D3.
 
 When a request cannot reach the server at all (stopped, restarting, or the laptop
 slept), the app shows one toast, *Reader isn’t reachable — retrying…*, with a
@@ -1196,18 +1241,18 @@ toasts of their own. A probe (`GET /`) retries with backoff from 1 to 30 seconds
 the first success, or any request that reaches the server, replaces the toast with
 *Reader is reachable again.*
 
-The Settings page holds the preferences form, with shadcn **Select** controls
-for palette, prose colors, recent-file count, layout, page turn and reading pace, the issue's
-excluded types, and switches
-for the atlas, activity, smooth scrolling, Read next, the outline rail and Linked from. Escape dismisses an open
-Select only. Reader's global Vim commands yield to these controls. Preferences
-take effect when saved; you stay on the page, and a toast confirms the save.
-**Theme Editor…** opens the editor over the page.
+The Settings page holds the preferences form in four cards: *You and the page* (reading name, palette), *Reading*
+(layout, page turn, pace, recent files, prose colors, and switches for the atlas, activity, smooth scrolling, Read
+next, Linked from and the outline rail), *The issue and article art* (excluded kinds of writing, article art, art
+producer and automatic art) and *Inbox* (job permissions). Choices are shadcn **Select** controls. Escape dismisses
+an open Select only, and Reader's global Vim commands yield to these controls. A save bar stays in view at the bottom
+of the page. Preferences take effect when saved; you stay on the page, and a toast confirms the save. **Theme
+Editor…**, in the toolbar above the form, opens the editor over the page.
 
 ### Inbox and You got mail
 
-Reader Admin's **Inbox** page (`#admin/inbox`) holds the **Inbox** card, and the
-Overview counts what is waiting. While mail waits, the footer button reads
+Reader Admin's **Inbox** page (`#admin/inbox`) holds two cards, *Librarian run* (You got mail, its live
+transcript and report) and *Waiting to be filed* (the arrivals), and the Overview counts what is waiting. While mail waits, the footer button reads
 **Backstage · N**. The card lists one row per top-level
 arrival: a folder under `inbox/`, or a loose file. It uses the inbox runner's own
 inventory: at most 10,000 files, excluding `inbox/README.md`, hidden files, symlinks

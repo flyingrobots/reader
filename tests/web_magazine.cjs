@@ -65,8 +65,8 @@ const THEMES=['ink','paper','orchid','orchid-dark','harvest','harvest-dark',...r
   await page.locator('#main').focus();await page.keyboard.press(']');await page.waitForFunction(w=>document.querySelector('#issue')?.dataset.week===w,week);assert.equal(new URL(page.url()).hash,'');
   await page.locator('.issue-archive summary').click();assert.ok(await page.locator('.issue-archive li').count()>=2);await page.keyboard.press('Escape');
   // The dashboard is Reader Admin's Library page.
-  await page.locator('#issue-backstage').click();await page.locator('#backstage-library .statistics-grid').waitFor();
-  assert.equal(await page.locator('#backstage-library .stat-panel').count(),12);assert.equal(await page.locator('#reader-admin h1').count(),1,'one page heading');assert.equal(new URL(page.url()).hash,'#admin/library');
+  await page.locator('#issue-backstage').click();await page.locator('#backstage-library [data-statistics-grid]').waitFor();
+  assert.equal(await page.locator('#backstage-library [data-stat-panel]').count(),12);assert.equal(await page.locator('#reader-admin h1').count(),1,'one page heading');assert.equal(new URL(page.url()).hash,'#admin/library');
   await page.goto(url);await page.locator('.issue-cover').waitFor();
   // Every theme: the issue's own text against the page.
   await page.addStyleTag({content:'*,*::before,*::after{transition:none!important;animation:none!important}'});

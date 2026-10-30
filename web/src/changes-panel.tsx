@@ -1,6 +1,10 @@
 /* What changed: a Sheet listing paragraph hunks between the edition someone read and this one. */
 import {useEffect, useState, useSyncExternalStore} from 'react';
+import {Badge} from './components/ui/badge';
 import {Button} from './components/ui/button';
+import {Item, ItemGroup} from './components/ui/item';
+import {Marker, MarkerContent} from './components/ui/marker';
+import {Notice} from './theme/molecules/notice';
 import {Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetFooter} from './components/ui/sheet';
 
 type Words=['='|'-'|'+',string][];
@@ -34,13 +38,18 @@ export function annotationSummary(data:ChangeSet,participant:string){
   }).join(' ');
 }
 
+const KIND={replace:{label:'Reworded',variant:'secondary'},insert:{label:'Added',variant:'default'},delete:{label:'Removed',variant:'destructive'}} as const;
+const mark='[&_del]:text-muted-foreground [&_del]:decoration-destructive [&_ins]:rounded-sm [&_ins]:bg-primary/20 [&_ins]:text-foreground [&_ins]:no-underline';
 function HunkView({hunk,seek}:{hunk:Hunk;seek:(start:number,end:number)=>void}){
-  if(hunk.op==='equal')return <li className="change-equal" data-op="equal">{plural(hunk.count,'unchanged paragraph')}</li>;
-  const body=hunk.op==='replace'?<p className="change-words">{hunk.words.map(([op,text],i)=>op==='='?<span key={i}>{text}</span>:op==='-'?<del key={i}>{text}</del>:<ins key={i}>{text}</ins>)}</p>
-    :hunk.op==='insert'?<p className="change-text">{hunk.new}</p>:<p className="change-text"><del>{hunk.old}</del></p>;
-  const label={replace:'Reworded',insert:'Added',delete:'Removed'}[hunk.op];
-  return <li data-op={hunk.op}><button type="button" className={'change-hunk change-'+hunk.op} data-start={hunk.new_start} onClick={()=>seek(hunk.new_start,hunk.new_end)} aria-label={`${label}; show in the article`}>
-    <span className="change-kind">{label}</span>{body}</button></li>;
+  if(hunk.op==='equal')return <Marker variant="separator" role="listitem" className="text-xs" data-op="equal"><MarkerContent>{plural(hunk.count,'unchanged paragraph')}</MarkerContent></Marker>;
+  const body=hunk.op==='replace'?<>{hunk.words.map(([op,text],i)=>op==='='?<span key={i}>{text}</span>:op==='-'?<del key={i}>{text}</del>:<ins key={i}>{text}</ins>)}</>
+    :hunk.op==='insert'?hunk.new:<del>{hunk.old}</del>;
+  const kind=KIND[hunk.op];
+  return <Item role="listitem" variant="outline" size="sm" render={<button type="button"/>} className="change-hunk w-full cursor-pointer flex-col items-start gap-1.5 text-left hover:bg-muted/60" data-op={hunk.op} data-start={hunk.new_start}
+    onClick={()=>seek(hunk.new_start,hunk.new_end)} aria-label={`${kind.label}; show in the article`}>
+    <Badge variant={kind.variant}>{kind.label}</Badge>
+    <span className={'font-serif text-sm leading-relaxed whitespace-pre-wrap [overflow-wrap:anywhere] '+mark} data-change-text="">{body}</span>
+  </Item>;
 }
 
 export function ChangesPanel({data,participant,seek,caughtUp,onClose}:ChangesOptions){
@@ -61,11 +70,11 @@ export function ChangesPanel({data,participant,seek,caughtUp,onClose}:ChangesOpt
       finalFocus={false}>
       <SheetHeader><SheetTitle>{title}</SheetTitle>
         <SheetDescription>{data.read_at&&!data.successor?`Read on ${day(data.read_at)}. `:''}{s?[plural(s.reworded,'paragraph')+' reworded',s.added+' added',s.removed+' removed',s.unchanged+' unchanged'].join(' · '):''}</SheetDescription></SheetHeader>
-      <div className="changes-body">
-        {summary?<p className="changes-annotations">{summary}</p>:null}
-        {data.status==='unavailable'?<p className="changes-note">{data.reason}</p>:null}
-        <ol className="changes-hunks">{(data.hunks||[]).map((hunk,i)=><HunkView key={i} hunk={hunk} seek={(a,b)=>{seek(a,b);if(narrow)setOpen(false);}}/>)}</ol>
-        {data.truncated?<p className="changes-note">Diff too large; showing the first {data.hunks?.length} changes.</p>:null}
+      <div className="flex flex-1 flex-col gap-3 overflow-y-auto px-4 pb-4" data-ui="shadcn">
+        {summary?<Notice data-changes-annotations="" title="Your margins">{summary}</Notice>:null}
+        {data.status==='unavailable'?<Notice tone="error" title="The changes are unavailable">{data.reason}</Notice>:null}
+        <ItemGroup className="gap-2" aria-label="Changes" data-changes-hunks="">{(data.hunks||[]).map((hunk,i)=><HunkView key={i} hunk={hunk} seek={(a,b)=>{seek(a,b);if(narrow)setOpen(false);}}/>)}</ItemGroup>
+        {data.truncated?<span className="text-xs text-muted-foreground">Diff too large; showing the first {data.hunks?.length} changes.</span>:null}
       </div>
       {caughtUp?<SheetFooter><Button id="changes-caught-up" disabled={busy} onClick={async()=>{setBusy(true);try{await caughtUp();setOpen(false);}finally{setBusy(false);}}}>Mark as caught up</Button></SheetFooter>:null}
     </SheetContent></Sheet>;

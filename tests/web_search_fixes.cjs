@@ -15,22 +15,22 @@ const {waitFor,watch}=require('./web_wait.cjs');
    const searched=query.includes('zz')?null:page.waitForResponse(response=>response.url().includes('/api/search'),{timeout:10000}).catch(()=>null);
    await page.goto(url+'/?fresh='+Math.random()+route);await page.locator('.search-page').waitFor();
    assert.equal(await page.locator('#search-query').inputValue(),query,route);
-   if(searched){assert.ok(await searched,'the query runs: '+route);await page.locator('.search-work').first().waitFor();}
+   if(searched){assert.ok(await searched,'the query runs: '+route);await page.locator('[data-work]').first().waitFor();}
   }
   // #59: Escape on a mode button returns to the results; a second Escape (from the results) leaves Search.
   await page.goto(url+'/?fresh=2');await page.locator('#home-title').waitFor();
   await page.locator('#main').focus();await page.keyboard.press('Space');await page.keyboard.press('/');await page.locator('.search-page').waitFor();
   // The field takes focus a frame after Search renders; typing sooner drops the first letters.
   await waitFor(page,'Search focuses its field',()=>({field:document.activeElement?.id==='search-query'}),{timeout:5000});
-  await page.keyboard.type('observation');await page.locator('.search-work').first().waitFor();
+  await page.keyboard.type('observation');await page.locator('[data-work]').first().waitFor();
   const inResults=label=>waitFor(page,label,()=>({ready:document.querySelector('.search-page')?.dataset.status==='ready',results:document.activeElement?.closest('[data-passage]')!=null}),{timeout:5000});
-  await page.locator('.search-modes button').nth(1).click();await waitFor(page,'the new mode’s results',()=>({ready:document.querySelector('.search-page')?.dataset.status==='ready'}),{timeout:10000});
+  await page.locator('[data-search-modes] button').nth(1).click();await waitFor(page,'the new mode’s results',()=>({ready:document.querySelector('.search-page')?.dataset.status==='ready'}),{timeout:10000});
   await page.keyboard.press('Escape');
   assert.ok(await page.locator('.search-page').isVisible(),'Escape on a mode button stays on Search');
   await inResults('focus moves to the results');
   // #84: Escape while the new mode's query is still running lands on the results it brings, not on <body>.
   await page.route('**/api/search/page?*',async route=>{await new Promise(resolve=>setTimeout(resolve,800));await route.continue();});
-  await page.locator('.search-modes button').nth(2).focus();await page.keyboard.press('Enter');
+  await page.locator('[data-search-modes] button').nth(2).focus();await page.keyboard.press('Enter');
   await waitFor(page,'the delayed query is running',()=>({loading:document.querySelector('.search-page')?.dataset.status==='loading'}),{timeout:5000});
   await page.keyboard.press('Escape');
   await inResults('focus on the results after the delayed query renders');

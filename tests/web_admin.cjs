@@ -47,7 +47,7 @@ const shots=process.env.READER_SHOTS||'.reader/web-dev';
    assert.equal(await hash(page),'#admin');let h=await heading(page);assert.equal(h.scrollY,0);assert.ok(h.top>=0&&h.top<200,'Overview heading at the top: '+h.top);
    assert.equal(await page.locator('#vim-mode').textContent(),'ADMIN');
    assert.equal(await page.locator('#status-location [aria-current=page]').textContent(),'Reader Admin');
-   assert.equal(await page.locator('.admin-breadcrumb [aria-current=page]').textContent(),'Overview');
+   assert.equal(await page.locator('[data-admin-breadcrumb] [aria-current=page]').textContent(),'Overview');
    assert.equal(await page.locator('[data-admin-nav=overview]').getAttribute('aria-current'),'page');
    // Overview is read-only: real tiles from the polled status, and nothing started (no POST at all).
    for(const tile of ['active','inbox','attention','indexes'])await page.locator(`[data-overview=${tile}][data-state=ready]`).waitFor({timeout:8000});
@@ -71,7 +71,7 @@ const shots=process.env.READER_SHOTS||'.reader/web-dev';
    assert.equal(await hash(page),'#admin/settings');let h=await heading(page);assert.equal(h.scrollY,0,'Settings starts at the top');assert.ok(h.top>=0&&h.top<200);
    assert.notEqual(await page.locator('#vim-mode').textContent(),'INSERT','the heading has focus, not a field');
    // From a long admin page scrolled down, :set and :settings return to Settings' top.
-   await page.locator('[data-admin-nav=library]').click();await atSection(page,'library','Library');await page.locator('#backstage-library .statistics-grid').waitFor();
+   await page.locator('[data-admin-nav=library]').click();await atSection(page,'library','Library');await page.locator('#backstage-library [data-statistics-grid]').waitFor();
    await page.evaluate(()=>scrollTo(0,document.documentElement.scrollHeight));await page.waitForTimeout(100);assert.ok(await page.evaluate(()=>scrollY)>0,'Library scrolls natively');
    await command(page,'set');await atSection(page,'settings','Settings');h=await heading(page);assert.equal(h.scrollY,0);
    await page.evaluate(()=>scrollTo(0,400));await command(page,'settings');await page.waitForFunction(()=>scrollY===0&&document.activeElement?.id==='admin-title');
@@ -88,7 +88,7 @@ const shots=process.env.READER_SHOTS||'.reader/web-dev';
   await check('history',async()=>{const {page,context}=await open();
    await page.goto(url+'#admin');await atSection(page,'overview','Overview');
    await page.locator('[data-admin-nav=inbox]').click();await atSection(page,'inbox','Inbox');assert.equal(await hash(page),'#admin/inbox');
-   await page.locator('#inbox .inbox-arrival').first().waitFor();
+   await page.locator('#inbox [data-arrival]').first().waitFor();
    await page.locator('[data-admin-nav=indexes]').click();await atSection(page,'indexes','Indexes');
    await page.goBack();await atSection(page,'inbox','Inbox');await page.goBack();await atSection(page,'overview','Overview');
    await page.goForward();await atSection(page,'inbox','Inbox');assert.equal((await heading(page)).scrollY,0);

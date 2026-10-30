@@ -1,11 +1,14 @@
-/* shadcn Button and Button Group for the plain-JavaScript renderer.
+/* shadcn Button, Button Group and Kbd for the plain-JavaScript renderer.
    Markup declares `data-button="<variant> <size> [round]"` or
    `data-button-group="horizontal|vertical"`; this applies the same cva classes and
-   data-slot contract the React components render. A MutationObserver covers markup
-   rendered later from template strings. */
+   data-slot contract the React components render. Plain <kbd> elements in Reader's own chrome (dialogs, panels,
+   prompts) take the shadcn Kbd classes the same way; author content (#article and other prose), the compact
+   status-line hints and the Theme Editor's preview keep their own. A MutationObserver covers markup rendered later
+   from template strings. */
 import {cn} from 'cn';
 import {buttonVariants} from './components/ui/button';
 import {buttonGroupVariants} from './components/ui/button-group';
+import {kbdClasses} from './components/ui/kbd';
 
 type Variant=NonNullable<Parameters<typeof buttonVariants>[0]>['variant'];
 type Size=NonNullable<Parameters<typeof buttonVariants>[0]>['size'];
@@ -28,6 +31,12 @@ function decorateGroup(element:HTMLElement){
   element.className=cn(buttonGroupVariants({orientation}),own);
   element.setAttribute('role','group');element.dataset.slot='button-group';element.dataset.orientation=orientation;
 }
+/** Reader chrome only: content and the status line style their own keys. */
+const KBD_EXCLUDE='#article, .article, .reader-prose, #status-keys, #statusline, .theme-preview, [contenteditable]';
+function decorateKbd(element:HTMLElement){
+  if(element.dataset.slot||element.parentElement?.closest(KBD_EXCLUDE))return;
+  element.className=cn(kbdClasses,element.className);element.dataset.slot='kbd';
+}
 export function decorateButtons(root:ParentNode=document){
   const scope=root instanceof HTMLElement?[root]:[];
   for(const element of [...scope,...root.querySelectorAll<HTMLElement>('[data-button],[data-button-group]')]){
@@ -36,6 +45,7 @@ export function decorateButtons(root:ParentNode=document){
     if(element.dataset.button!==undefined&&element.dataset.decorated!==element.dataset.button)decorateButton(element);
     else if(element.dataset.buttonGroup!==undefined&&element.dataset.slot!=='button-group')decorateGroup(element);
   }
+  for(const element of [...(root instanceof HTMLElement&&root.tagName==='KBD'?[root]:[]),...root.querySelectorAll<HTMLElement>('kbd:not([data-slot])')])decorateKbd(element);
 }
 export function observeButtons(){
   decorateButtons();

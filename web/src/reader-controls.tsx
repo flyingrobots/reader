@@ -8,7 +8,13 @@ import {Select, SelectTrigger, SelectValue, SelectContent, SelectGroup, SelectIt
 import {Switch} from './components/ui/switch';
 import {PaletteIcon} from 'lucide-react';
 import {Skeleton} from './components/ui/skeleton';
-import {Field, FieldGroup, FieldLabel, FieldDescription} from './components/ui/field';
+import {Field, FieldGroup, FieldLabel, FieldDescription, FieldSeparator} from './components/ui/field';
+import {Item, ItemActions, ItemContent, ItemDescription} from './components/ui/item';
+import {Kbd} from './components/ui/kbd';
+import {Label} from './components/ui/label';
+import {Spinner} from './components/ui/spinner';
+import {StatusCard} from './theme/organisms/status-card';
+import type {LibraryActions} from './admin/pages/library';
 import {Input} from './components/ui/input';
 import {Button} from './components/ui/button';
 import {Badge} from './components/ui/badge';
@@ -31,7 +37,10 @@ import type {RunInfo} from './activity/transcript';
 import {PromptCard, type PromptBlock, type PromptContext} from './jobs/prompt-card';
 import {setJobsApi} from './jobs/store';
 import type {JobViewOptions} from './jobs/job-detail';
-export {JobsPanel, JobPanel, LogsPanel, LogPanel, RepositoriesPanel, type AdminPanelProps} from './jobs/admin';
+export {type AdminPanelProps} from './jobs/admin';
+export {RepositoriesPage as RepositoriesPanel} from './admin/pages/repositories';
+export {LogsPage as LogsPanel, LogPage as LogPanel} from './admin/pages/logs';
+export {JobsPage as JobsPanel, JobPage as JobPanel} from './admin/pages/jobs';
 import {CompanionPrompt, focusCompanion, isDismissed, type Companion, type CompanionsStatus} from './companions';
 import {useArtProducers} from './art-studio';
 import {ArtRegenerate, type ArtRegenerateOptions} from './art-regenerate';
@@ -83,7 +92,7 @@ function QuickThemePicker({model,actions}:{model:Model;actions:Actions}){
         <SelectGroup>{items.map(item=><SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>)}</SelectGroup>
       </SelectContent>
     </Select>
-    <label className="theme-toggle"><Switch id="theme-swap" size="sm" aria-label="Dark mode" checked={dark(model.theme)} onCheckedChange={checked=>{if(checked!==dark(model.theme))actions.theme();}}/><span>Dark</span></label>
+    <Label className="shrink-0 cursor-pointer gap-0 px-1.5 text-[10px] font-normal max-[700px]:hidden" data-theme-toggle=""><Switch id="theme-swap" size="sm" aria-label="Dark mode" checked={dark(model.theme)} onCheckedChange={checked=>{if(checked!==dark(model.theme))actions.theme();}}/><span className="ml-[7px]">Dark</span></Label>
   </div>;
 }
 
@@ -94,33 +103,50 @@ function SettingsForm({model,actions}:{model:Model;actions:Actions}){
   const [draft,setDraft]=useState({...model.prefs,participant:model.prefs.participant||''}),[busy,setBusy]=useState(false),producers=useArtProducers(actions.api);
   useEffect(()=>{setDraft({...model.prefs,participant:model.prefs.participant||''});},[model.prefs]);
   const set=(key:keyof Preferences,value:string|number|boolean)=>setDraft(old=>({...old,[key]:value}));
-  return <form id="preferences-form" className="backstage-settings" onSubmit={async event=>{event.preventDefault();const form=event.currentTarget;setBusy(true);try{await actions.save({...draft,participant:draft.participant.trim()});}catch(error){actions.error(error);}finally{setBusy(false);
+  return <form id="preferences-form" className="flex flex-col gap-6" onSubmit={async event=>{event.preventDefault();const form=event.currentTarget;setBusy(true);try{await actions.save({...draft,participant:draft.participant.trim()});}catch(error){actions.error(error);}finally{setBusy(false);
     // The Save button is disabled while saving, which drops focus to <body>; give it back once it is enabled again (#59).
     setTimeout(()=>{const active=document.activeElement;if(!active||active===document.body)(form.isConnected?form:document.getElementById('preferences-form'))?.querySelector<HTMLElement>('button[type=submit]')?.focus({preventScroll:true});},0);}}}>
-    <p className="backstage-message">Your reading preferences, saved on this device.</p>
-    <FieldGroup>
+    <StatusCard title="You and the page" description="Who is reading here, and how Reader looks.">
+      <FieldGroup className="max-w-2xl">
       <Field><FieldLabel htmlFor="profile-name">Reading as</FieldLabel><Input id="profile-name" name="participant" value={draft.participant} required maxLength={100} list="participant-list" onChange={event=>set('participant',event.target.value)}/><datalist id="participant-list">{model.participants.map(name=><option key={name} value={name}/>)}</datalist><FieldDescription>Names identify local reading receipts. They are not authenticated accounts.</FieldDescription></Field>
       <Choice id="theme-choice" label="Palette" value={draft.theme} items={themeChoices(model.customThemes)} onChange={value=>set('theme',value)}/>
-      <FieldDescription>Create, edit or delete your own light/dark themes with the Theme Editor: <kbd>Space</kbd> <kbd>,</kbd> <kbd>t</kbd> or <kbd>F10</kbd>.</FieldDescription>
-      <Choice id="recent-count" label="Recent files" value={String(draft.recent)} items={[10,20,30,50].map(n=>({value:String(n),label:String(n)}))} onChange={value=>set('recent',+value)}/>
+      <FieldDescription>Create, edit or delete your own light/dark themes with the Theme Editor: <Kbd>Space</Kbd> <Kbd>,</Kbd> <Kbd>t</Kbd> or <Kbd>F10</Kbd>.</FieldDescription>
+      </FieldGroup>
+    </StatusCard>
+    <StatusCard title="Reading" description="Layout, pace and what appears around an article.">
+      <FieldGroup className="max-w-2xl">
       <Choice id="reading-mode" label="Reading layout" value={draft.layout} items={[{value:'scroll',label:'Continuous'},{value:'spread',label:'Two pages'}]} onChange={value=>set('layout',value)}/>
       <Choice id="page-turn" label="Page turn (two pages)" value={draft.pageTurn||'curl'} items={[{value:'curl',label:'Turn the page (3D)'},{value:'slide',label:'Slide'}]} onChange={value=>set('pageTurn',value)}/>
-      <Choice id="inbox-sandbox" label="Inbox job permissions" value={draft.inboxSandbox==='danger-full-access'?'danger-full-access':'workspace-write'} items={[{value:'workspace-write',label:'Sandboxed workspace'},{value:'danger-full-access',label:'Host access'}]} onChange={value=>set('inboxSandbox',value)}/>
-      <FieldDescription id="inbox-sandbox-note">For You got mail. Host access supports git-locks process control and guarded indexing. It allows writes beyond the vault; use only for trusted librarian jobs. Runtime resource limits still apply.</FieldDescription>
-      <Choice id="prose-colors" label="Prose colors" value={({skim:'subtle',full:'vivid'} as Record<string,string>)[draft.proseColors]??draft.proseColors??'clear'} items={[{value:'off',label:'Off'},{value:'subtle',label:'Subtle: function words fade a little'},{value:'clear',label:'Clear: the skeleton recedes, names stand out'},{value:'vivid',label:'Vivid: every role its own color, like an editor'}]} onChange={value=>set('proseColors',value)}/>
-      <FieldDescription id="prose-status">Grammar highlighting from Colorful Language for Markdown and PDF text. <kbd>Space</kbd> <kbd>c</kbd> steps the open document through Off, Subtle, Clear and Vivid. Vivid colors nouns, verbs, adjectives and adverbs only for the few words Colorful's lexicon knows; most content words keep the body ink. {model.prose===null?'Checking for Colorful…':model.prose.available?`Using Colorful ${model.prose.version} (${model.prose.path}).`:model.prose.message}</FieldDescription>
       <Choice id="reading-speed" label="Reading pace" value={String(draft.pace)} items={[160,220,300].map(n=>({value:String(n),label:`${n} words / min`}))} onChange={value=>set('pace',+value)}/>
-      <Field><FieldLabel htmlFor="issue-exclude">Leave out of the issue</FieldLabel><Input id="issue-exclude" name="issueExclude" value={draft.issueExclude??''} maxLength={500} onChange={event=>set('issueExclude',event.target.value)}/><FieldDescription>Kinds of writing the homepage issue never features, separated by commas, such as Task, Receipt, Manifest, Handoff.</FieldDescription></Field>
+      <Choice id="recent-count" label="Recent files" value={String(draft.recent)} items={[10,20,30,50].map(n=>({value:String(n),label:String(n)}))} onChange={value=>set('recent',+value)}/>
+      <Choice id="prose-colors" label="Prose colors" value={({skim:'subtle',full:'vivid'} as Record<string,string>)[draft.proseColors]??draft.proseColors??'clear'} items={[{value:'off',label:'Off'},{value:'subtle',label:'Subtle: function words fade a little'},{value:'clear',label:'Clear: the skeleton recedes, names stand out'},{value:'vivid',label:'Vivid: every role its own color, like an editor'}]} onChange={value=>set('proseColors',value)}/>
+      <FieldDescription id="prose-status">Grammar highlighting from Colorful Language for Markdown and PDF text. <Kbd>Space</Kbd> <Kbd>c</Kbd> steps the open document through Off, Subtle, Clear and Vivid. Vivid colors nouns, verbs, adjectives and adverbs only for the few words Colorful's lexicon knows; most content words keep the body ink. {model.prose===null?'Checking for Colorful…':model.prose.available?`Using Colorful ${model.prose.version} (${model.prose.path}).`:model.prose.message}</FieldDescription>
+        <FieldSeparator/>
       {(['atlas','activity','smooth','nextReads','backlinks','outline'] as const).map((key,index)=><Field key={key} orientation="horizontal"><FieldLabel htmlFor={'setting-'+key}>{['Library atlas','Reading activity','Smooth scrolling','Read next at the end of articles','Linked from at the end of articles','Outline beside long documents'][index]}</FieldLabel><Switch id={'setting-'+key} checked={draft[key]!==false} onCheckedChange={value=>set(key,value)}/></Field>)}
+      </FieldGroup>
+    </StatusCard>
+    <StatusCard title="The issue and article art" description="What the homepage issue features, and the art made for it.">
+      <FieldGroup className="max-w-2xl">
+      <Field><FieldLabel htmlFor="issue-exclude">Leave out of the issue</FieldLabel><Input id="issue-exclude" name="issueExclude" value={draft.issueExclude??''} maxLength={500} onChange={event=>set('issueExclude',event.target.value)}/><FieldDescription>Kinds of writing the homepage issue never features, separated by commas, such as Task, Receipt, Manifest, Handoff.</FieldDescription></Field>
       <Field orientation="horizontal"><FieldLabel htmlFor="setting-art">Article art</FieldLabel><Switch id="setting-art" aria-describedby="setting-art-note" checked={draft.art!==false} onCheckedChange={value=>set('art',value)}/></Field>
-      <FieldDescription id="setting-art-note">Bespoke art for featured articles: an agent reads the piece, writes an art brief (the Artist’s note) and composes a scene that Reader draws itself. It shows on the cover, on features and, with <kbd>Space</kbd> <kbd>g</kbd>, above an open article. <code>:shape</code> shows the older data view.</FieldDescription>
+      <FieldDescription id="setting-art-note">Bespoke art for featured articles: an agent reads the piece, writes an art brief (the Artist’s note) and composes a scene that Reader draws itself. It shows on the cover, on features and, with <Kbd>Space</Kbd> <Kbd>g</Kbd>, above an open article. <code>:shape</code> shows the older data view.</FieldDescription>
       <Field orientation="horizontal"><FieldLabel htmlFor="setting-art-hero">Open articles with their art</FieldLabel><Switch id="setting-art-hero" aria-describedby="setting-art-hero-note" checked={draft.artHero!==false} disabled={draft.art===false} onCheckedChange={value=>set('artHero',value)}/></Field>
-      <FieldDescription id="setting-art-hero-note">An article with art opens on it, like a magazine feature: full width above the title, or the whole first spread in two-page reading. <kbd>Space</kbd> <kbd>g</kbd> hides it for this session.</FieldDescription>
+      <FieldDescription id="setting-art-hero-note">An article with art opens on it, like a magazine feature: full width above the title, or the whole first spread in two-page reading. <Kbd>Space</Kbd> <Kbd>g</Kbd> hides it for this session.</FieldDescription>
       <Choice id="art-by" label="Art made by" value={draft.artBy||'default'} items={[{value:'default',label:'Default'+(producers?.default?` (${producers.producers.find(p=>p.id===producers.default)?.label||producers.default})`:'')},...(producers?.producers||[]).map(p=>({value:p.id,label:p.label+(p.model?` · ${p.model}`:'')+(p.available?'':' (unavailable)')}))]} onChange={value=>set('artBy',value==='default'?'':value)}/>
       <Choice id="art-auto" label="Make art automatically" value={draft.artAuto||'off'} items={[{value:'off',label:'Off: only when I ask (Generate art)'},{value:'cover',label:'For each issue’s cover story'},{value:'issue',label:'For the cover story and features'}]} onChange={value=>set('artAuto',value)}/>
       <FieldDescription id="art-auto-note">Each piece of art is a background run of the chosen voice’s CLI (its subscription) or the local model: usually a few minutes, never more than one at a time. Every run is archived in the vault’s LLM logs, and each version is committed beside its edition under <code>art/</code>.</FieldDescription>
-    </FieldGroup>
-    <div className="backstage-settings-foot"><Button type="submit" disabled={busy||!draft.participant.trim()}>{busy?'Saving…':'Save preferences'}</Button></div>
+      </FieldGroup>
+    </StatusCard>
+    <StatusCard title="Inbox" description="How the librarian runs when you press You got mail.">
+      <FieldGroup className="max-w-2xl">
+      <Choice id="inbox-sandbox" label="Inbox job permissions" value={draft.inboxSandbox==='danger-full-access'?'danger-full-access':'workspace-write'} items={[{value:'workspace-write',label:'Sandboxed workspace'},{value:'danger-full-access',label:'Host access'}]} onChange={value=>set('inboxSandbox',value)}/>
+      <FieldDescription id="inbox-sandbox-note">For You got mail. Host access supports git-locks process control and guarded indexing. It allows writes beyond the vault; use only for trusted librarian jobs. Runtime resource limits still apply.</FieldDescription>
+      </FieldGroup>
+    </StatusCard>
+    <Item variant="outline" size="sm" className="sticky bottom-12 z-10 bg-background">
+      <ItemContent><ItemDescription>Saved on this device.</ItemDescription></ItemContent>
+      <ItemActions><Button type="submit" disabled={busy||!draft.participant.trim()}>{busy?<Spinner data-icon="inline-start" aria-hidden/>:null}{busy?'Saving…':'Save preferences'}</Button></ItemActions>
+    </Item>
   </form>;
 }
 function ReadingProgress({model,actions}:{model:Model;actions:Actions}){
@@ -368,7 +394,7 @@ async function checkIndexes(){
   if(status&&!status.running&&!status.checking&&(!checked||Date.now()-+new Date(checked)>120000))startJob('check');
 }
 function watchLocalModel(element:HTMLElement){localHost=element;pollLocalModel();}
-function AdminView({library}:{library?:(element:HTMLElement)=>void}){
+function AdminView({library}:{library?:LibraryActions}){
   const current=useSyncExternalStore(subscribe,snapshot);
   const inbox=current.inbox,route=current.admin||{section:'overview',params:[]};
   const context:AdminContext={route,local:needsReader(),
@@ -384,7 +410,7 @@ function AdminView({library}:{library?:(element:HTMLElement)=>void}){
 }
 /** Reader Admin, as a route-owned island in #main: the shell mounts once and section changes re-render it in place.
  *  Entering reads the inbox and maintenance status (reads only; no check, rebuild, model or inbox run starts here). */
-export function mountAdmin(container:HTMLElement,route:AdminRoute,{library}:{library?:(element:HTMLElement)=>void}={}){
+export function mountAdmin(container:HTMLElement,route:AdminRoute,{library}:{library?:LibraryActions}={}){
   update({admin:route});
   mount(container,<AdminView library={library}/>);
   pollInbox();pollMaintenance();

@@ -12,9 +12,13 @@ import type {MaintenanceStatus, InboxStatus} from '../backstage';
 import type {ActivityModel} from '../reader-controls';
 import type {LocalModelStatus} from '../local-model';
 import type {CompanionsStatus} from '../companions';
+import type {LibraryActions} from './pages/library';
 import {ArtworkPanel, IndexesPanel, InboxPanel, LibraryPanel, ModelsPanel, ServicePanel, SettingsPanel, VoicesPanel} from './panels';
 import {Overview} from './overview';
-import {JobPanel, JobsPanel, LogPanel, LogsPanel, RepositoriesPanel, type AdminPanelProps} from '../jobs/admin';
+import {type AdminPanelProps} from '../jobs/admin';
+import {RepositoriesPage} from './pages/repositories';
+import {LogPage, LogsPage} from './pages/logs';
+import {JobPage, JobsPage} from './pages/jobs';
 import {jobViewOptions} from '../reader-controls';
 
 export type AdminRoute={section:string;params:string[]};
@@ -46,7 +50,8 @@ export type AdminContext={
   /** Keep the local-model status polled while `element` is on screen. */
   watchLocalModel:(element:HTMLElement)=>void;
   settings:ReactNode;themeEditor:()=>void;
-  library?:(element:HTMLElement)=>void;
+  /** Admin › Library's model and the app actions it needs (web_ui/app.mjs). */
+  library?:LibraryActions;
 };
 export type AdminSection={
   id:string;title:string;icon:LucideIcon;
@@ -67,12 +72,12 @@ export const ADMIN_SECTIONS:AdminSection[]=[
   {id:OVERVIEW,title:'Overview',icon:LayoutDashboardIcon,description:'What is running, what is waiting and what needs attention. Read-only: opening it starts nothing.',render:context=><Overview context={context}/>},
   {id:'jobs',title:'Coding jobs',icon:GitPullRequestArrowIcon,needsReader:true,description:'Article prompts run as coding jobs: their queue, history, traces and pull requests. Opening a job starts nothing.',
     params:params=>params.length===1&&UUID.test(params[0]),
-    render:context=>context.route.params.length?<JobPanel id={context.route.params[0]} {...panelProps(context)}/>:<JobsPanel {...panelProps(context)}/>},
+    render:context=>context.route.params.length?<JobPage id={context.route.params[0]} {...panelProps(context)}/>:<JobsPage {...panelProps(context)}/>},
   {id:'logs',title:'LLM logs',icon:ScrollTextIcon,needsReader:true,description:'Every archived LLM run, kept forever: prompts, captured output, events and results. Read in pages; nothing is pruned.',
     params:params=>params.length===3&&/^[a-z-]+$/.test(params[0])&&/^\d{4}-\d{2}-\d{2}$/.test(params[1]),
-    render:context=>context.route.params.length?<LogPanel params={context.route.params} {...panelProps(context)}/>:<LogsPanel {...panelProps(context)}/>},
+    render:context=>context.route.params.length?<LogPage params={context.route.params} {...panelProps(context)}/>:<LogsPage {...panelProps(context)}/>},
   {id:'repositories',title:'Repositories',icon:FolderGitIcon,needsReader:true,description:'Which local checkouts article prompts may run in, with their base branch, agents and verification command.',
-    render:context=><RepositoriesPanel {...panelProps(context)}/>},
+    render:context=><RepositoriesPage {...panelProps(context)}/>},
   {id:'voices',title:'Voices',icon:BotIcon,needsReader:true,description:'The agent command lines chat voices and the librarian run. Reader finds them; you install and sign in.',render:context=><VoicesPanel context={context}/>},
   {id:'models',title:'Models',icon:CpuIcon,needsReader:true,description:'A local model for bulk, private work: its provider, server, queue and outputs.',render:context=><ModelsPanel context={context}/>},
   {id:'inbox',title:'Inbox',icon:InboxIcon,description:'Arrivals waiting to be filed, their receipts, and the librarian run that files them.',render:context=><InboxPanel context={context}/>},

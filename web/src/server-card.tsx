@@ -1,11 +1,15 @@
-/* Behind the scenes: the always-on service — running commit, updater, Tailscale address and identity. */
+/* Admin › Service & tools (design sheet: docs/admin-design/service.md): the always-on service — running commit, updater, Tailscale address and identity. */
 import {useEffect, useRef, useState} from 'react';
 import {toast} from 'sonner';
-import {Badge} from './components/ui/badge';
 import {Button} from './components/ui/button';
 import {ButtonGroup} from './components/ui/button-group';
-import {Card, CardHeader, CardTitle, CardDescription, CardAction, CardContent, CardFooter} from './components/ui/card';
-import {when} from './backstage';
+import {Spinner} from './components/ui/spinner';
+import {StatusBadge, type Tone} from './theme/atoms/status-badge';
+import {when} from './theme/atoms/time';
+import {FactList, type FactEntry} from './theme/molecules/fact-list';
+import {Notice} from './theme/molecules/notice';
+import {LoadingState} from './theme/molecules/states';
+import {StatusCard} from './theme/organisms/status-card';
 
 type Update={at:string;outcome:string;from?:string|null;to?:string;error?:string;busy?:{label:string}[];steps?:{step:string;ok:boolean;detail:unknown}[]};
 export type ServiceInfo={
@@ -57,32 +61,27 @@ export function ServerCard({api}:{api:Api}){
     finally{setBusy(null);}
   }
   const s=info?.service,installed=!!s?.installed,ts=s?.tailscale,identity=info?.identity;
-  const state=!info?{label:'Loading…',variant:'outline' as const}:!installed?{label:'Not installed',variant:'outline' as const}:s!.paused?{label:'Updates paused',variant:'outline' as const}:s!.web?.loaded?{label:'Running',variant:'secondary' as const}:{label:'Stopped',variant:'destructive' as const};
-  const facts:[string,string|null|undefined,string?][]=installed?[
-    ['Commit',short(s!.commit)?`${short(s!.commit)}${s!.commit_facts?.date?' · '+when(s!.commit_facts.date):''}`:null,'commit'],
-    ['Source',s!.source,'source'],
-    ['Last update',s!.last_update?`${OUTCOMES[s!.last_update.outcome]||s!.last_update.outcome} · ${when(s!.last_update.at)}`:'None yet','last-update'],
-    ['Next check',s!.paused?'Paused':s!.update_requested_at?'Now':s!.next_check_at?until(s!.next_check_at):'Within 10 min','next-check'],
-  ]:[];
-  return <Card size="sm" className="backstage-card server-card" data-card="service" data-installed={installed?'true':'false'}>
-    <CardHeader><CardTitle>Server</CardTitle>
-      <CardDescription>Reader as an always-on service on this Mac, kept current from its source branch and reachable on your tailnet.</CardDescription>
-      <CardAction><Badge variant={state.variant} className="backstage-badge">{state.label}</Badge></CardAction></CardHeader>
-    <CardContent>
-      {error?<p className="backstage-message backstage-error">{error}</p>:null}
-      {info&&!installed?<p className="backstage-message">This server is not running as a service. Install it with <code>scripts/reader_service.py install</code>; see the web guide.</p>:null}
-      {s?.commit_facts?.subject?<p className="backstage-message" data-fact="subject">{s.commit_facts.subject}</p>:null}
-      <dl className="backstage-facts">
-        {facts.map(([label,value,key])=>value?<div key={label} data-fact={key}><dt>{label}</dt><dd>{value}</dd></div>:null)}
-        {installed?<div data-fact="tailscale" className="server-wide"><dt>Tailscale</dt><dd>{ts?.state==='on'&&ts.url?<a href={ts.url} rel="noreferrer">{ts.url.replace('https://','')}</a>:ts?.state==='unavailable'?'Unavailable':'Off'}</dd></div>:null}
-        {identity?<div data-fact="identity" className="server-wide"><dt>Signed in as</dt><dd>{identity.via==='tailscale'?identity.name?`${identity.name} (${identity.login})`:identity.login:'This Mac (local)'}</dd></div>:null}
-      </dl>
-      {info?.health.busy.length?<p className="backstage-note">Running now: {info.health.busy.map(b=>b.label).join(', ')}. Updates wait until it finishes.</p>:null}
-    </CardContent>
-    <CardFooter><ButtonGroup>
-      <Button id="service-update" variant="default" size="sm" disabled={!installed||!!busy} onClick={()=>act('update')}>Update now</Button>
+  const state:{label:string;tone:Tone}=!info?{label:'Loading…',tone:'neutral'}:!installed?{label:'Not installed',tone:'neutral'}:s!.paused?{label:'Updates paused',tone:'attention'}:s!.web?.loaded?{label:'Running',tone:'ok'}:{label:'Stopped',tone:'error'};
+  const facts:FactEntry[]=[...(installed?[
+    {key:'commit',label:'Commit',value:short(s!.commit)?`${short(s!.commit)}${s!.commit_facts?.date?' · '+when(s!.commit_facts.date):''}`:null},
+    {key:'source',label:'Source',value:s!.source},
+    {key:'last-update',label:'Last update',value:s!.last_update?`${OUTCOMES[s!.last_update.outcome]||s!.last_update.outcome} · ${when(s!.last_update.at)}`:'None yet'},
+    {key:'next-check',label:'Next check',value:s!.paused?'Paused':s!.update_requested_at?'Now':s!.next_check_at?until(s!.next_check_at):'Within 10 min'},
+    {key:'tailscale',label:'Tailscale',value:ts?.state==='on'&&ts.url?<a className="text-primary underline-offset-4 hover:underline" href={ts.url} rel="noreferrer">{ts.url.replace('https://','')}</a>:ts?.state==='unavailable'?'Unavailable':'Off'}]:[]),
+    ...(identity?[{key:'identity',label:'Signed in as',value:identity.via==='tailscale'?identity.name?`${identity.name} (${identity.login})`:identity.login:'This Mac (local)'}]:[])];
+  return <StatusCard data-card="service" data-installed={installed?'true':'false'} title="Server"
+    description="Reader as an always-on service on this Mac, kept current from its source branch and reachable on your tailnet."
+    badge={<StatusBadge tone={state.tone} busy={pending}>{state.label}</StatusBadge>}
+    footer={<ButtonGroup>
+      <Button id="service-update" variant="default" size="sm" disabled={!installed||!!busy} onClick={()=>act('update')}>{busy==='update'?<Spinner data-icon="inline-start" aria-hidden/>:null}Update now</Button>
       <Button id="service-restart" variant="outline" size="sm" disabled={!installed||!!busy} onClick={()=>act('restart')}>Restart</Button>
       <Button id="service-pause" variant="outline" size="sm" disabled={!installed||!!busy} onClick={()=>act(s?.paused?'resume':'pause')}>{s?.paused?'Resume updates':'Pause updates'}</Button>
-    </ButtonGroup></CardFooter>
-  </Card>;
+    </ButtonGroup>}>
+    {error?<Notice tone="error" role="alert" title="Service status unavailable">{error}</Notice>:null}
+    {!info&&!error?<LoadingState/>:null}
+    {info&&!installed?<Notice title="Not running as a service">Install it with <code className="font-mono text-xs">scripts/reader_service.py install</code>; see the web guide.</Notice>:null}
+    {s?.commit_facts?.subject?<span className="text-sm [overflow-wrap:anywhere]" data-fact="subject">{s.commit_facts.subject}</span>:null}
+    <FactList layout="rows" facts={facts}/>
+    {info?.health.busy.length?<Notice title="Updates wait for running work">Running now: {info.health.busy.map(b=>b.label).join(', ')}.</Notice>:null}
+  </StatusCard>;
 }

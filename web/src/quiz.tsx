@@ -1,4 +1,10 @@
 import {useSyncExternalStore} from 'react';
+import {ChevronRightIcon} from 'lucide-react';
+import {CodeBlock, CodeBlockContent} from './components/ui/code-block';
+import {Collapsible, CollapsibleContent, CollapsibleTrigger} from './components/ui/collapsible';
+import {FieldDescription} from './components/ui/field';
+import {Notice} from './theme/molecules/notice';
+import {LoadingState} from './theme/molecules/states';
 import {CheckIcon,XIcon} from 'lucide-react';
 import {createRoot} from 'react-dom/client';
 import {Dialog,DialogContent,DialogDescription,DialogFooter,DialogHeader,DialogTitle} from './components/ui/dialog';
@@ -53,11 +59,11 @@ function QuizDialog({getSnapshot,subscribe,actions}:Options){
           <Field><div className="flex items-baseline justify-between gap-2"><FieldLabel id="quiz-difficulty-label">Difficulty</FieldLabel><span className="text-sm font-medium tabular-nums">{model.difficulty} · {LEVELS[model.difficulty-1]}</span></div>
             <Slider aria-labelledby="quiz-difficulty-label" min={1} max={5} step={1} value={[model.difficulty]} disabled={disabled}
               onValueChange={value=>actions.difficulty(Array.isArray(value)?value[0]:value)}/>
-            <p className="text-muted-foreground text-sm">{HINTS[model.difficulty-1]}</p></Field>
+            <FieldDescription>{HINTS[model.difficulty-1]}</FieldDescription></Field>
         </FieldGroup>}
-        {model.busy&&<p role="status">{status||'Working…'}{model.task?.attempts?` · attempt ${model.task.attempts}`:''}</p>}
-        {model.error&&<p role="alert" className="text-destructive">{model.error}</p>}
-        {quiz?.earlier&&<p><Badge variant="secondary">Earlier edition</Badge> {quiz.hidden.length} unavailable {quiz.hidden.length===1?'question':'questions'} hidden. Remaining passages were located in this edition.</p>}
+        {model.busy&&<LoadingState>{status||'Working…'}{model.task?.attempts?` · attempt ${model.task.attempts}`:''}</LoadingState>}
+        {model.error&&<Notice tone="error" role="alert" title={model.error}/>}
+        {quiz?.earlier&&<Notice title="From an earlier edition">{quiz.hidden.length} unavailable {quiz.hidden.length===1?'question':'questions'} hidden. Remaining passages were located in this edition.</Notice>}
         {!quiz||model.setup?<div className="flex flex-wrap gap-2"><Button disabled={disabled||!model.voices.length} onClick={()=>actions.generate(!!quiz)}>Generate a quiz</Button>
           {quiz&&!model.busy&&<Button variant="ghost" onClick={()=>actions.setup(false)}>Back to the current quiz</Button>}</div>:model.result?<>
           <p className="text-muted-foreground">Your score</p><div className="reader-quiz-score" role="status">{model.result.score} of {model.result.total}</div>
@@ -87,7 +93,8 @@ function QuizDialog({getSnapshot,subscribe,actions}:Options){
             :<Field><FieldLabel htmlFor={'quiz-short-'+q.id}>Your answer</FieldLabel><Textarea id={'quiz-short-'+q.id} maxLength={16000} rows={4} value={model.short[q.id]||''} disabled={disabled||!!model.reviews[q.id]} onChange={event=>actions.shortAnswer(event.target.value)}/></Field>}
           </QuestionnaireItem>)}
           {question.type==='short'&&!review&&<Button type="button" variant="outline" disabled={disabled||!model.short[question.id]?.trim()||!model.voice} onClick={actions.review}>Ask for a review</Button>}
-          {answered&&<div className="reader-quiz-feedback" role="status">{question.type==='choice'?<><strong>{selected===question.answer?'Correct.':'The saved answer is '+question.options![question.answer!]+'.'}</strong>{question.explanation&&<p><span className="reader-quiz-why">Why: </span>{question.explanation}</p>}</>:<><strong>{review!.verdict==='right'?'Right':review!.verdict==='partly'?'Partly':'Not yet'}</strong><p>{review!.comment}</p></>}</div>}
+          {answered&&(question.type==='choice'?<Notice role="status" data-quiz-feedback="" tone={selected===question.answer?'info':'error'} title={selected===question.answer?'Correct.':'The saved answer is '+question.options![question.answer!]+'.'}>{question.explanation?<><span className="font-medium">Why: </span>{question.explanation}</>:null}</Notice>
+            :<Notice role="status" data-quiz-feedback="" tone={review!.verdict==='not yet'?'error':'info'} title={review!.verdict==='right'?'Right':review!.verdict==='partly'?'Partly':'Not yet'}>{review!.comment}</Notice>)}
           <Button type="button" variant="link" disabled={question.type==='choice'&&!answered} onClick={()=>actions.evidence(question)}>Show me in the text</Button>
           <DialogFooter><QuestionnaireActions>
             <QuestionnairePrevious disabled={disabled} onClick={event=>{event.preventDefault();actions.back();}}/>
@@ -95,10 +102,10 @@ function QuizDialog({getSnapshot,subscribe,actions}:Options){
             :question.type==='short'&&!review?<QuestionnaireSkip disabled={disabled} onClick={event=>{event.preventDefault();actions.next();}}>Skip optional question</QuestionnaireSkip>
             :<QuestionnaireNext disabled={disabled||question.type==='choice'&&!answered} onClick={event=>{event.preventDefault();actions.next();}}>Next question</QuestionnaireNext>}
           </QuestionnaireActions></DialogFooter>
-        </Questionnaire>:<p>None of the saved questions can be located in this edition. Generate a new quiz.</p>}
+        </Questionnaire>:<Notice title="None of the saved questions can be located in this edition.">Generate a new quiz.</Notice>}
         {quiz&&!model.setup&&<Button variant="ghost" disabled={disabled} onClick={()=>actions.setup(true)}>Generate a new quiz</Button>}
-        {model.task&&(model.task.rejected?.length||model.task.changed_paths?.length||model.task.commit?.status==='failed')?<details><summary>Task details</summary>
-          <pre className="reader-quiz-task-details">{JSON.stringify({rejected:model.task.rejected,changed_paths:model.task.changed_paths,commit:model.task.commit,runs:model.task.runs},null,2)}</pre></details>:null}
+        {model.task&&(model.task.rejected?.length||model.task.changed_paths?.length||model.task.commit?.status==='failed')?<Collapsible data-quiz-task-details=""><CollapsibleTrigger render={<Button variant="ghost" size="xs" className="text-muted-foreground"/>}><ChevronRightIcon data-icon="inline-start" aria-hidden className="transition-transform in-data-[panel-open]:rotate-90"/>Task details</CollapsibleTrigger>
+          <CollapsibleContent><CodeBlock size="sm"><CodeBlockContent wrap className="max-h-64">{JSON.stringify({rejected:model.task.rejected,changed_paths:model.task.changed_paths,commit:model.task.commit,runs:model.task.runs},null,2)}</CodeBlockContent></CodeBlock></CollapsibleContent></Collapsible>:null}
       </>}
     </DialogContent>
   </Dialog>;

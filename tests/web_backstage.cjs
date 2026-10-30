@@ -34,8 +34,8 @@ const {sanitizerReport}=require('./web_wait.cjs');  // #151
    await page.locator('[data-job="search-keyword"]:not([disabled])').waitFor();await page.locator('[data-job="search-keyword"]').click();
    await toast(page,'Search index (keywords only) finished').waitFor({timeout:60000});
    await page.locator('[data-index=search][data-state=partial]').waitFor({timeout:15000});
-   assert.equal(await page.locator('.backstage-jobs li[data-job-state=failed]').count(),1);
-   assert.ok(await page.locator('.backstage-jobs').textContent().then(t=>t.includes('Synthetic catalog failure')));
+   assert.equal(await page.locator('#recent-runs [data-job-state=failed]').count(),1);
+   assert.ok(await page.locator('#recent-runs [data-run-list]').textContent().then(t=>t.includes('Synthetic catalog failure')));
    await page.screenshot({path:'.reader/web-dev/backstage.png',fullPage:true});
    // Settings have their own page.
    await page.locator('[data-admin-nav=settings]').click();await page.locator('#preferences-form').waitFor();

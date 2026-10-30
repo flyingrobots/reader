@@ -3,9 +3,10 @@
    the page shows one section at a time under its own heading. Scrolling is the window's own (no reading smoother or
    pagination). Each route change starts at the top and focuses the page heading without scrolling. */
 import {useLayoutEffect, useRef} from 'react';
-import {ArrowLeftIcon} from 'lucide-react';
+import {ArrowLeftIcon, CompassIcon} from 'lucide-react';
 import {Button} from '../components/ui/button';
-import {Separator} from '../components/ui/separator';
+import {AdminHeader, AdminPage} from '../theme/templates/admin-page';
+import {EmptyState} from '../theme/molecules/states';
 import {Sidebar, SidebarContent, SidebarFooter, SidebarGroup, SidebarGroupContent, SidebarHeader, SidebarInset, SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarProvider, SidebarTrigger, useSidebar} from '../components/ui/sidebar';
 import {ADMIN_SECTIONS, OVERVIEW, sectionFor, type AdminContext, type AdminSection} from './sections';
 import {NeedsReader} from './panels';
@@ -39,17 +40,13 @@ function focusHeading(){
 }
 
 function Header({context,section}:{context:AdminContext;section:AdminSection|null}){
-  const {open,openMobile,isMobile}=useSidebar();
-  return <header className="admin-header" data-reader-decoration="">
-    <SidebarTrigger aria-label="Show or hide the admin sections" aria-controls={NAV_ID} aria-expanded={isMobile?openMobile:open} className="admin-trigger"/>
-    <Separator orientation="vertical" className="admin-header-rule"/>
-    <nav aria-label="Breadcrumb" className="admin-breadcrumb"><ol>
-      <li>{section?.id===OVERVIEW?<span>Reader Admin</span>:<AdminLink context={context} section={OVERVIEW}>Reader Admin</AdminLink>}</li>
-      <li aria-hidden="true" className="admin-breadcrumb-sep">›</li>
-      <li><span aria-current="page">{section?section.title:'Not found'}</span></li>
-    </ol></nav>
-    <Button id="admin-back" variant="outline" size="sm" className="admin-back" onClick={context.backToLibrary}><ArrowLeftIcon data-icon="inline-start" aria-hidden/>Back to Library</Button>
-  </header>;
+  const {open,openMobile,isMobile}=useSidebar(),overview=section?.id===OVERVIEW;
+  return <AdminHeader
+    trigger={<SidebarTrigger aria-label="Show or hide the admin sections" aria-controls={NAV_ID} aria-expanded={isMobile?openMobile:open}/>}
+    home={overview?{label:'Reader Admin'}:{label:'Reader Admin',href:context.href(OVERVIEW),onClick:event=>{
+      if(event.button!==0||event.metaKey||event.ctrlKey||event.shiftKey||event.altKey)return;event.preventDefault();context.go(OVERVIEW);}}}
+    current={section?section.title:'Not found'}
+    actions={<Button id="admin-back" variant="outline" size="sm" onClick={context.backToLibrary}><ArrowLeftIcon data-icon="inline-start" aria-hidden/><span className="max-sm:sr-only">Back to Library</span></Button>}/>;
 }
 
 export function AdminShell({context}:{context:AdminContext}){
@@ -60,23 +57,19 @@ export function AdminShell({context}:{context:AdminContext}){
     if(shown.current===key)return;shown.current=key;
     window.scrollTo({top:0,left:0,behavior:'instant'});focusHeading();
   },[key]);
-  return <SidebarProvider className="reader-admin" id="reader-admin" data-admin-section={section?.id||'not-found'}>
-    <Sidebar collapsible="offcanvas" className="admin-sidebar" mobileTitle="Admin sections" mobileDescription="Reader Admin’s sections." mobileFinalFocus={sheetFocus}>
-      <SidebarHeader><AdminLink context={context} section={OVERVIEW} className="admin-brand">Reader Admin</AdminLink></SidebarHeader>
+  return <SidebarProvider className="reader-admin font-sans" id="reader-admin" data-admin-section={section?.id||'not-found'}>
+    <Sidebar collapsible="offcanvas" mobileTitle="Admin sections" mobileDescription="Reader Admin’s sections." mobileFinalFocus={sheetFocus}>
+      <SidebarHeader><AdminLink context={context} section={OVERVIEW} className="px-2 text-sm font-semibold text-sidebar-foreground no-underline">Reader Admin</AdminLink></SidebarHeader>
       <SidebarContent><SectionNav context={context} current={section?.id||''}/></SidebarContent>
-      <SidebarFooter><Button variant="ghost" size="sm" className="admin-back-side" onClick={context.backToLibrary}><ArrowLeftIcon data-icon="inline-start" aria-hidden/>Back to Library</Button></SidebarFooter>
+      <SidebarFooter><Button variant="ghost" size="sm" className="justify-start" onClick={context.backToLibrary}><ArrowLeftIcon data-icon="inline-start" aria-hidden/>Back to Library</Button></SidebarFooter>
     </Sidebar>
-    <SidebarInset className="admin-inset">
+    <SidebarInset className="min-w-0 bg-background">
       <Header context={context} section={section}/>
-      <div className="admin-content" id="admin-content" data-admin-section={section?.id||'not-found'}>
-        <div className="admin-page-head">
-          <h1 id="admin-title" tabIndex={-1}>{section?section.title:'Section not found'}</h1>
-          <p className="admin-lede">{section?section.description:'Reader Admin has no page at this address.'}</p>
-        </div>
-        {!section?<p className="backstage-message" id="admin-not-found"><AdminLink context={context} section={OVERVIEW}>Go to the Overview</AdminLink></p>
+      <AdminPage id="admin-content" data-admin-section={section?.id||'not-found'} title={section?section.title:'Section not found'} lede={section?section.description:'Reader Admin has no page at this address.'}>
+        {!section?<EmptyState id="admin-not-found" icon={CompassIcon} title="No page here" description="Reader Admin has no page at this address."><Button variant="outline" size="sm" render={<a href={context.href(OVERVIEW)} onClick={event=>{event.preventDefault();context.go(OVERVIEW);}}/>} nativeButton={false}>Go to the Overview</Button></EmptyState>
           :section.needsReader&&context.local?<NeedsReader what={section.title}/>
           :section.render(context)}
-      </div>
+      </AdminPage>
     </SidebarInset>
   </SidebarProvider>;
 }

@@ -35,11 +35,11 @@ await build({entryPoints:['src/theme/famous-build.ts'],bundle:true,format:'esm',
 const {famousStylesheet}=await import(new URL('./node_modules/.cache/famous-build.mjs?'+Date.now(),import.meta.url));
 writeFileSync(out+'/famous-themes.css',famousStylesheet().css);
 execFileSync('node_modules/.bin/tailwindcss',['-i','src/styles.css','-o',out+'/reader-controls.css','--minify'],{stdio:'inherit'});
-// Licenses: only packages with bytes in an output, plus the CSS (Tailwind, tw-animate-css) and KaTeX
+// Licenses: only packages with bytes in an output, plus the CSS (Tailwind, tw-animate-css, shadcn's variants) and KaTeX
 // stylesheet/font sources copied outside esbuild; licenses/ is rebuilt so removed dependencies drop out.
 const metafiles=[result,three,diagrams,math,highlight,editor].map(build=>build.metafile);
 const shipped=shippedInputs(metafiles).filter(p=>p.includes('node_modules/')).map(packageRoot);
-const dependencies=writeLicenses(out+'/licenses',[...shipped,...['tailwindcss','tw-animate-css','katex'].map(name=>'node_modules/'+name)],{'shadcn-ui-LICENSE':'LICENSE.shadcn-ui'});
+const dependencies=writeLicenses(out+'/licenses',[...shipped,...['tailwindcss','tw-animate-css','shadcn','katex'].map(name=>'node_modules/'+name)],{'shadcn-ui-LICENSE':'LICENSE.shadcn-ui'});
 const sources=Object.fromEntries([...new Set(inputs.filter(p=>!p.includes('node_modules/'))),'src/styles.css','src/theme/famous-build.ts','src/theme/famous.ts','../src/reader_mcp/web_ui/famous-themes.json','package-lock.json','components.json','build.mjs','licenses.mjs'].sort().map(path=>[path,hash(path)]));
 const outputs={};
 function collect(folder){for(const file of readdirSync(folder,{withFileTypes:true})){const path=join(folder,file.name);if(file.isDirectory())collect(path);else if(file.name!=='build-meta.json')outputs[path.slice(out.length+1)]={bytes:readFileSync(path).length,sha256:hash(path)};}}

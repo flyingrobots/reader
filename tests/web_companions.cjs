@@ -31,7 +31,7 @@ const shots=process.env.READER_SHOTS||'.reader/web-dev';
   // Space s without AI-TTS: a calm prompt naming what is missing, what it adds and its repo; never an error toast.
   await leader('s');await page.locator('#speak-menu[open]').waitFor();await page.keyboard.press('a');
   const speakPrompt=page.locator('[data-companion-prompt=ai-tts]');await speakPrompt.waitFor();
-  assert.equal(await speakPrompt.locator('.companion-prompt-title').textContent(),'Read aloud needs AI-TTS');
+  assert.equal(await speakPrompt.locator('[data-prompt-title]').textContent(),'Read aloud needs AI-TTS');
   assert.match(await speakPrompt.textContent(),/local speech daemon/);
   assert.equal(await speakPrompt.locator('a').getAttribute('href'),'https://github.com/flyingrobots/AI-TTS');
   assert.equal(await speakPrompt.locator('[data-prompt-action=install]').count(),0,'AI-TTS is guided, never auto-installed');
@@ -60,7 +60,7 @@ const shots=process.env.READER_SHOTS||'.reader/web-dev';
   await page.locator('[data-admin-nav=service]').click();await card('wide-md').waitFor();
   // wide-md: Install lists what will change before anything runs; Cancel runs nothing.
   await card('wide-md').locator('[data-action=install]').click();
-  const confirm=card('wide-md').locator('.companion-confirm');await confirm.waitFor();
+  const confirm=card('wide-md').locator('[data-companion-panel=confirm]');await confirm.waitFor();
   assert.match(await confirm.textContent(),/install_wide_md\.py/);assert.match(await confirm.textContent(),/sudo/);
   await confirm.getByRole('button',{name:'Cancel'}).click();await confirm.waitFor({state:'detached'});
   // Set path refuses a path that is not an executable.
@@ -73,7 +73,7 @@ const shots=process.env.READER_SHOTS||'.reader/web-dev';
   await page.goto(doc);await ready();
   await leader('c');
   const colorPrompt=page.locator('[data-companion-prompt=colorful]');await colorPrompt.waitFor();
-  assert.equal(await colorPrompt.locator('.companion-prompt-title').textContent(),'Prose colors needs Colorful Language');
+  assert.equal(await colorPrompt.locator('[data-prompt-title]').textContent(),'Prose colors needs Colorful Language');
   await colorPrompt.locator('[data-prompt-action=install]').click();
   await toast('Install Colorful Language running…').waitFor();
   assert.equal(await toast('Install Colorful Language running…').getAttribute('data-type'),'loading');
@@ -102,17 +102,17 @@ const shots=process.env.READER_SHOTS||'.reader/web-dev';
   await page.locator('[data-companion=colorful][data-state=installed]').waitFor();
   assert.match(await card('colorful').locator('[data-fact=version]').textContent(),/0\.4\.0/);
   assert.match(await card('colorful').locator('[data-fact=path]').textContent(),/\.reader\/tooling\/bin\/colorful$/);
-  await card('colorful').locator('.companion-log summary').click();
-  await card('colorful').locator('.companion-log pre').filter({hasText:'Compiling colorful-cli'}).waitFor();
+  await card('colorful').locator('[data-companion-log] [data-slot=collapsible-trigger]').click();
+  await card('colorful').locator('[data-companion-log] [data-slot=code-block-content]').filter({hasText:'Compiling colorful-cli'}).waitFor();
   await page.locator('[data-admin-nav=indexes]').click();await page.locator('#recent-runs').waitFor();
-  await page.locator('.backstage-jobs li[data-job-state=succeeded]').filter({hasText:'Install Colorful Language'}).first().waitFor();
+  await page.locator('#recent-runs [data-job-state=succeeded]').filter({hasText:'Install Colorful Language'}).first().waitFor();
   const tools=readFileSync(root+'/.fake-tools/calls.jsonl','utf8').trim().split('\n').map(l=>JSON.parse(l));
   assert.ok(tools.some(t=>t.tool==='git'&&t.argv.includes('61d0aa8b20837decdb26c92f71b967c7b14578d7')),'the pinned commit is checked out');
   assert.ok(tools.filter(t=>t.tool==='cargo').every(t=>t.argv[0]==='build'&&t.argv.includes('--locked')));
 
   // git-locks absent: a local-model run takes Reader's own GPU lock.
   await page.locator('[data-admin-nav=models]').click();await page.locator('#lm-gpu').filter({hasText:'This Reader only'}).waitFor();
-  await page.locator('#lm-server-start').click();await page.locator('.lm-server[data-server-state=ready]').waitFor({timeout:15000});
+  await page.locator('#lm-server-start').click();await page.locator('[data-lm=server][data-server-state=ready]').waitFor({timeout:15000});
   await page.locator('[data-enqueue=standfirst][data-scope=recent]').click();await toast('Queued').waitFor();
   await page.locator('[data-run=standfirst]').click();
   await toast('Local model finished').waitFor({timeout:40000});

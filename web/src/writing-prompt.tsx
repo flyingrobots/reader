@@ -1,4 +1,5 @@
 import {useRef,useState,useSyncExternalStore} from 'react';
+import {Notice} from './theme/molecules/notice';
 import {createRoot} from 'react-dom/client';
 import {ArrowUpIcon,ChevronDownIcon,LoaderCircleIcon,RefreshCwIcon,TextQuoteIcon,TriangleAlertIcon} from 'lucide-react';
 import {Dialog,DialogContent,DialogDescription,DialogHeader,DialogTitle} from './components/ui/dialog';
@@ -39,8 +40,8 @@ function WritingPrompt({getSnapshot,subscribe,actions}:Options){
             </MessageFooter>
           </MessageContent>
         </Message>}
-        {!model.voices.length&&<p className="text-muted-foreground">Configure an enabled voice to generate a question. Existing saved questions remain readable.</p>}
-        {model.task?.commit?.status==='failed'&&<p role="alert">The question was saved, but its commit failed. {model.task.commit.error}</p>}
+        {!model.voices.length&&<Notice title="Configure an enabled voice to generate a question.">Existing saved questions remain readable.</Notice>}
+        {model.task?.commit?.status==='failed'&&<Notice tone="error" role="alert" title="The question was saved, but its commit failed.">{model.task.commit.error}</Notice>}
         <form ref={form} onSubmit={event=>{event.preventDefault();if(prompt&&!disabled){actions.write(opening);setOpening('');}}}>
           <InputGroup>
             <InputGroupTextarea aria-label="Your answer" placeholder={prompt?'Start your answer. Send it to keep writing in Scratch.':'Your answer goes here once the question arrives.'}

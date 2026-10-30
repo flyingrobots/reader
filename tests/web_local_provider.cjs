@@ -20,26 +20,26 @@ const {chromium}=require(process.env.READER_PLAYWRIGHT||'playwright-core');
   const saveProvider=async()=>{await page.locator('#lm-provider-save:not([disabled])').click();};
   await page.goto(url+'#admin/models');await page.locator('#local-model').waitFor();
   // The default provider is LM Studio on loopback, with its lms extras.
-  await page.locator('.lm-provider[data-provider=lmstudio]').waitFor();
+  await page.locator('[data-lm=provider][data-provider=lmstudio]').waitFor();
   assert.equal(await page.locator('#lm-provider-scope').textContent(),'This machine only');
   assert.equal(await page.locator('#lm-base-url').inputValue(),(await status()).provider.base_url);
-  assert.match(await page.locator('.lm-server [data-slot=card-title]').textContent(),/^LM Studio server$/);
+  assert.match(await page.locator('[data-lm=server] [data-slot=card-title]').textContent(),/^LM Studio server$/);
   assert.equal(await page.locator('#lm-remote-notice').count(),0);
   // Ollama preset: its default URL fills in; with nothing on that port the server card says to start it yourself (no Start button).
   await choosePreset('Ollama');
   assert.equal(await page.locator('#lm-base-url').inputValue(),'http://127.0.0.1:11434/v1');
   await page.locator('#lm-model').fill('llama3.2:3b');
   await saveProvider();await toast('Local-model settings saved.').waitFor();
-  await page.locator('.lm-server[data-provider=ollama][data-server-state=off]').waitFor();
+  await page.locator('[data-lm=server][data-provider=ollama][data-server-state=off]').waitFor();
   assert.equal(await page.locator('#lm-server-state').textContent(),'Not reachable');
   assert.match(await page.locator('#lm-start-yourself').textContent(),/start it yourself.*ollama serve.*ollama pull/s);
   assert.equal(await page.locator('#lm-server-start').count(),0,'no Start button for a server Reader does not control');
-  assert.equal(await page.locator('.lm-server [data-slot=card-title]').textContent(),'Ollama server');
+  assert.equal(await page.locator('[data-lm=server] [data-slot=card-title]').textContent(),'Ollama server');
   // Point it at the fake Ollama: discovery through GET /v1/models, no Load buttons.
   await page.locator('#lm-base-url').fill(providers.ollama);await saveProvider();
-  await page.locator('.lm-server[data-server-state=ready]').waitFor({timeout:10000});
+  await page.locator('[data-lm=server][data-server-state=ready]').waitFor({timeout:10000});
   assert.equal(await page.locator('#lm-server-state').textContent(),'Ready · 2 models');
-  assert.deepEqual(await page.locator('.lm-models li').evaluateAll(els=>els.map(e=>e.dataset.model)),['llama3.2:3b','nomic-embed-text:latest']);
+  assert.deepEqual(await page.locator('[data-lm=models] [data-model]').evaluateAll(els=>els.map(e=>e.dataset.model)),['llama3.2:3b','nomic-embed-text:latest']);
   assert.equal(await page.locator('[data-load],[data-unload]').count(),0);
   assert.deepEqual(await page.locator('#lm-model-options option').evaluateAll(els=>els.map(e=>e.value)),['llama3.2:3b'],'model suggestions from discovery');
   // The provider's embedding models are offered for search, named by provider.
@@ -52,30 +52,30 @@ const {chromium}=require(process.env.READER_PLAYWRIGHT||'playwright-core');
   await page.locator('[data-run=standfirst]:not([disabled])').click();
   await toast('Local model finished').waitFor({timeout:30000});
   assert.match(await toast('Local model finished').textContent(),/Standfirsts: 4 done, 1 rejected/);
-  await page.waitForFunction(()=>document.querySelectorAll('.lm-items li[data-item-state=done]').length===4);
-  assert.match(await page.locator('.lm-items li[data-item-state=done]').first().textContent(),/llama3\.2:3b/);
+  await page.waitForFunction(()=>document.querySelectorAll('[data-lm=items] [data-item-state=done]').length===4);
+  assert.match(await page.locator('[data-lm=items] [data-item-state=done]').first().textContent(),/llama3\.2:3b/);
   // llama.cpp: one served model, from its mixed models/data listing.
   await choosePreset('llama.cpp');
   assert.equal(await page.locator('#lm-base-url').inputValue(),'http://127.0.0.1:8080/v1');
   await page.locator('#lm-base-url').fill(providers.llamacpp);await page.locator('#lm-model').fill('models/tiny-q4_k_m.gguf');await saveProvider();
-  await page.locator('.lm-server[data-provider=llamacpp][data-server-state=ready]').waitFor({timeout:10000});
+  await page.locator('[data-lm=server][data-provider=llamacpp][data-server-state=ready]').waitFor({timeout:10000});
   assert.equal(await page.locator('#lm-server-state').textContent(),'Ready · 1 model');
   // A URL on another machine is refused until the opt-in is on, and the form warns before saving.
   await choosePreset('Other OpenAI-compatible server');
   await page.locator('#lm-base-url').fill('http://192.0.2.10:11434/v1');await page.locator('#lm-model').fill('llama3.2:3b');
-  await page.locator('#lm-remote-warning.lm-remote-refused').waitFor();
+  await page.locator('#lm-remote-warning[data-lm=remote-refused]').waitFor();
   await saveProvider();
   await toast('Local model: that didn’t work').waitFor();
   assert.match(await toast('Local model: that didn’t work').textContent(),/not a loopback address/);
   assert.equal((await status()).provider.preset,'llamacpp','a refused URL changes nothing');
-  await page.locator('.lm-provider [data-slot=switch]').click();
+  await page.locator('[data-lm=provider] [data-slot=switch]').click();
   assert.match(await page.locator('#lm-remote-warning').textContent(),/leave this machine/);
   await saveProvider();await toast('Local-model settings saved.').nth(0).waitFor();
   await page.locator('#lm-remote-notice').waitFor({timeout:10000});
-  assert.equal(await page.locator('#lm-remote-notice').textContent(),'Text leaves this machine. Document text and prompts are sent to 192.0.2.10. They leave this machine, unencrypted over http.');
+  assert.equal(await page.locator('#lm-remote-notice [data-slot=alert-title]').textContent(),'Text leaves this machine.');assert.equal(await page.locator('#lm-remote-notice [data-slot=alert-description]').textContent(),'Document text and prompts are sent to 192.0.2.10. They leave this machine, unencrypted over http.');
   assert.equal(await page.locator('#lm-provider-scope').textContent(),'Leaves this machine');
-  await page.locator('.lm-server[data-server-state=ready]').waitFor({timeout:10000});
-  assert.match(await page.locator('.lm-now').textContent(),/sent to the remote provider/);
+  await page.locator('[data-lm=server][data-server-state=ready]').waitFor({timeout:10000});
+  assert.match(await page.locator('[data-lm=now]').textContent(),/sent to the remote provider/);
   // An API key is saved but never comes back to the page.
   const secret='sk-fixture-'+'z'.repeat(24);
   await page.locator('#lm-api-key').fill(secret);await saveProvider();
@@ -93,8 +93,8 @@ const {chromium}=require(process.env.READER_PLAYWRIGHT||'playwright-core');
   await page.locator('#local-model').screenshot({path:'.reader/web-dev/local-provider-phone.png'});
   // Back to this machine: turning the opt-in off with a remote URL is refused; returning to LM Studio clears the notice.
   await page.setViewportSize({width:1300,height:900});
-  await choosePreset('LM Studio');await page.locator('.lm-provider [data-slot=switch]').click();await saveProvider();
-  await page.locator('.lm-provider[data-provider=lmstudio][data-remote=false]').waitFor({timeout:10000});
+  await choosePreset('LM Studio');await page.locator('[data-lm=provider] [data-slot=switch]').click();await saveProvider();
+  await page.locator('[data-lm=provider][data-provider=lmstudio][data-remote=false]').waitFor({timeout:10000});
   assert.equal(await page.locator('#lm-remote-notice').count(),0);
   assert.deepEqual(external,[]);assert.deepEqual(errors,[]);
   await context.close();

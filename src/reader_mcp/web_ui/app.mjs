@@ -12,7 +12,8 @@ import {installOutline} from './outline.mjs';
 import {installSearch} from './search-page.mjs';
 import {installProseColors} from './prose-colors.mjs';
 import {installQueue} from './queue.mjs';
-import {mountDashboard} from './dashboard.mjs';
+import {libraryModel} from './dashboard.mjs';
+import {drawArrivalCalendar,drawReadingTopics,mountShelves} from './library-charts.mjs';
 import {DEFAULT_EXCLUDED_TYPES,currentIssue,isoWeek,issueWindow,issueWeeks,selectIssue,mountMagazine} from './magazine.mjs';
 import {THEMES,oppositeTheme} from './themes.mjs';
 import {calloutPlugin} from './callouts.mjs';
@@ -216,9 +217,6 @@ async function loadLibrary() {
 }
 function savePrefs() { const url=new URL(location.href);if(url.searchParams.has('theme') && url.searchParams.get('theme')!==state.prefs.theme){url.searchParams.delete('theme');history.replaceState(history.state,'',url);}try { localStorage.setItem('reader.preferences.v1', JSON.stringify(state.prefs)); } catch {} if(split?.active())split.broadcast({type:'prefs-changed'}); }
 function latestWorks() { return [...state.data.works].sort((a,b) => (b.date || '').localeCompare(a.date || '') || a.title.localeCompare(b.title)); }
-function workRows(works) {
-  return works.map((w,i) => `<li class="work-row" tabindex="0" role="link" data-path="${esc(w.primary)}"><span class="row-index">${String(i+1).padStart(2,'0')}</span><div><h3 class="work-title">${esc(w.title)}${!w.read?'<span class="unread-pip" title="Unread edition" aria-label="Unread edition"></span>':''}</h3><div class="work-byline">${esc(w.authors?.join(' · ') || 'Unspecified author')}${w.projects?.[0] && w.projects[0] !== 'Unspecified project'?' · '+esc(w.projects[0]):''}</div></div><span class="work-date">${formatDate(w.date)}</span></li>`).join('');
-}
 function issueOptions(){return {today:state.data.today,exclude:state.prefs.issueExclude};}
 async function renderHome(path=null,id=state.routeId) {
   state.issuePath=path;
@@ -437,9 +435,19 @@ function movePiece(delta){
   next.focus({preventScroll:true});const rect=next.getBoundingClientRect();
   if(rect.top<70||rect.bottom>innerHeight-70)scrollToPosition(shown()+rect.top-innerHeight*.3);
 }
-function mountLibrary(container){
-  mountDashboard({root:container,data:state.data,prefs:state.prefs,embedded:true,workRows,wireDocumentLinks,openPicker,openPreferences:openSettings,navigate,showTooltip:showChartTooltip,hideTooltip:hideChartTooltip,seek:element=>scrollToPosition(shown()+element.getBoundingClientRect().top-50)});
-}
+/** Admin › Library's data and the app actions it needs; the React page renders it (web/src/admin/pages/library.tsx). */
+// The model is cached per data and preferences object: Admin re-renders on every status poll, and a new model would redraw the charts.
+let libraryCache={data:null,prefs:null,model:null};
+const library={
+  // Opening a document marks its work read in place, so the read count is part of the key.
+  model:()=>{if(!state.data)return null;const read=state.data.works.reduce((n,work)=>n+(work.read?1:0),0);
+    if(libraryCache.data!==state.data||libraryCache.prefs!==state.prefs||libraryCache.read!==read)libraryCache={data:state.data,prefs:state.prefs,read,model:libraryModel({data:state.data,prefs:state.prefs})};return libraryCache.model;},
+  open:(path,{thread=null,split=false}={})=>{if(split&&path?.startsWith('library/')){openInSplit('#read='+param(path));return;}navigate(path,{thread});},
+  picker:()=>openPicker('all'),settings:()=>openSettings(),
+  tooltip:(event,title,detail)=>showChartTooltip(event,title,detail),hideTooltip:()=>hideChartTooltip(),
+  // The gallery charts (library-charts.mjs) the page draws for the arrival calendar, reading by topic and the shelves.
+  charts:{drawArrivalCalendar,drawReadingTopics,mountShelves},
+};
 function showChartTooltip(event,title,detail='') {
   const tip=$('#chart-tooltip'); tip.replaceChildren();
   const strong=document.createElement('strong');strong.textContent=title;tip.append(strong,document.createTextNode(detail));
@@ -1262,7 +1270,7 @@ function renderAdmin(path,inPlace=false){
   const route=adminRoute(path);
   if(inPlace&&$('#reader-admin')){setAdminRoute(route);reading?.updateStatus();return;}
   controls.update({prefs:{...state.prefs},participants:state.data?.participants||[]});
-  clearControlsWithin($('#main'));window.scrollTo(0,0);mountAdmin($('#main'),route,{library:mountLibrary});reading?.updateStatus();
+  clearControlsWithin($('#main'));window.scrollTo(0,0);mountAdmin($('#main'),route,{library});reading?.updateStatus();
   prose.status(true).then(status=>controls.update({prose:status}));
 }
 /** Open an admin section ('' is Overview). Already there: back to its top, heading focused, without a new history entry. */
@@ -1306,7 +1314,7 @@ function previewFont(href){if(!/^\/fonts\/[a-z0-9-]+\/font\.css$/.test(href)||do
 async function applyPreferences(prefs){
   await reading?.leave();if(prefs.proseColors!==state.prefs.proseColors)state.proseStyles?.clear();state.prefs={...state.prefs,...prefs};savePrefs();document.documentElement.dataset.theme=state.prefs.theme;
   await loadLibrary();
-  if(state.view==='admin'){controls.update({theme:state.prefs.theme,prefs:{...state.prefs},participants:state.data?.participants||[]});const slot=$('#backstage-library-mount');if(slot)mountLibrary(slot);notify('Preferences saved.','success');}
+  if(state.view==='admin'){controls.update({theme:state.prefs.theme,prefs:{...state.prefs},participants:state.data?.participants||[]});notify('Preferences saved.','success');}
   else if(state.doc)await navigate(state.doc.path,{record:false});else await renderHome(state.issuePath);reading?.updateStatus();
 }
 $('#annotation-form').onsubmit=async event=>{event.preventDefault();const button=event.currentTarget.querySelector('button');button.disabled=true;try{await createAnnotation($('#annotation-dialog').classList.contains('warning')?'warning':'highlight',$('#annotation-body').value);}catch(error){report(error);}finally{button.disabled=false;}};
@@ -1351,7 +1359,7 @@ document.addEventListener('mousemove',event=>{
 // Keyboard ------------------------------------------------------------------------------------------
 // Every page key is a row in the keymap table (keys.mjs); the help dialog and the leader hints are generated from it.
 // A feature adds keys with keys.map({mode, keys, when, run, help, hint, group}) and commands with keys.command({...}).
-const typing=event=>state.themeEditorOpen||!!event.target.closest?.('input,textarea,select,[contenteditable="true"],dialog,[role=dialog],[role=listbox]:not(.queue-list),[data-slot=select-trigger],[data-slot=select-content],[data-slot=popover-content],[role=switch],[data-slot=pagination]');
+const typing=event=>state.themeEditorOpen||!!event.target.closest?.('input,textarea,select,[contenteditable="true"],dialog,[role=dialog],[role=listbox]:not([data-queue-list]),[data-slot=select-trigger],[data-slot=select-content],[data-slot=popover-content],[role=switch],[data-slot=pagination]');
 function pageEscape(event){
   if(event.target.closest?.('.cm-editor'))return;  // Vim's Escape stays in the scratch editor; Escape in normal mode leaves it.
   if(state.themeEditorOpen||event.target.closest('[data-slot=popover-content],[data-slot=select-content],[data-slot=sheet-content]')||document.querySelector('dialog[open]'))return;

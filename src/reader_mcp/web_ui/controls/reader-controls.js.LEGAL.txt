@@ -87,6 +87,7 @@ lucide-react/dist/esm/Icon.js:
 lucide-react/dist/esm/createLucideIcon.js:
 lucide-react/dist/esm/icons/arrow-down.js:
 lucide-react/dist/esm/icons/arrow-left.js:
+lucide-react/dist/esm/icons/arrow-right.js:
 lucide-react/dist/esm/icons/arrow-up-right.js:
 lucide-react/dist/esm/icons/arrow-up.js:
 lucide-react/dist/esm/icons/bot.js:
@@ -96,13 +97,16 @@ lucide-react/dist/esm/icons/chevron-down.js:
 lucide-react/dist/esm/icons/chevron-left.js:
 lucide-react/dist/esm/icons/chevron-right.js:
 lucide-react/dist/esm/icons/chevron-up.js:
+lucide-react/dist/esm/icons/circle-alert.js:
 lucide-react/dist/esm/icons/circle-check.js:
+lucide-react/dist/esm/icons/circle-dashed.js:
 lucide-react/dist/esm/icons/circle-dot.js:
 lucide-react/dist/esm/icons/circle-question-mark.js:
 lucide-react/dist/esm/icons/circle-x.js:
 lucide-react/dist/esm/icons/circle.js:
 lucide-react/dist/esm/icons/clipboard-list.js:
 lucide-react/dist/esm/icons/clipboard-paste.js:
+lucide-react/dist/esm/icons/compass.js:
 lucide-react/dist/esm/icons/copy.js:
 lucide-react/dist/esm/icons/corner-up-left.js:
 lucide-react/dist/esm/icons/cpu.js:
@@ -124,6 +128,7 @@ lucide-react/dist/esm/icons/git-commit-horizontal.js:
 lucide-react/dist/esm/icons/git-pull-request-arrow.js:
 lucide-react/dist/esm/icons/git-pull-request.js:
 lucide-react/dist/esm/icons/globe.js:
+lucide-react/dist/esm/icons/hand.js:
 lucide-react/dist/esm/icons/image.js:
 lucide-react/dist/esm/icons/inbox.js:
 lucide-react/dist/esm/icons/info.js:
@@ -133,6 +138,8 @@ lucide-react/dist/esm/icons/list-checks.js:
 lucide-react/dist/esm/icons/list.js:
 lucide-react/dist/esm/icons/loader-circle.js:
 lucide-react/dist/esm/icons/mail.js:
+lucide-react/dist/esm/icons/message-square-text.js:
+lucide-react/dist/esm/icons/monitor.js:
 lucide-react/dist/esm/icons/octagon-x.js:
 lucide-react/dist/esm/icons/palette.js:
 lucide-react/dist/esm/icons/panel-left.js:
@@ -145,6 +152,7 @@ lucide-react/dist/esm/icons/refresh-cw.js:
 lucide-react/dist/esm/icons/rotate-ccw.js:
 lucide-react/dist/esm/icons/route.js:
 lucide-react/dist/esm/icons/scroll-text.js:
+lucide-react/dist/esm/icons/search-x.js:
 lucide-react/dist/esm/icons/search.js:
 lucide-react/dist/esm/icons/server.js:
 lucide-react/dist/esm/icons/settings.js:
