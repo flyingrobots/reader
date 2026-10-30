@@ -1,8 +1,9 @@
 /* Reader Admin section bodies. Each wraps an existing Behind the scenes panel unchanged (its handlers, busy states,
    local-only restrictions and error displays), and starts only the status reads that panel already relied on. */
 import {useEffect, useLayoutEffect, useRef} from 'react';
+import {PaletteIcon} from 'lucide-react';
 import {Button} from '../components/ui/button';
-import {Card} from '../components/ui/card';
+import {Toolbar} from '../theme/molecules/toolbar';
 import {EditionLinks, IndexesPage} from './pages/indexes';
 import {InboxPage} from './pages/inbox';
 import {LocalModelSection} from '../local-model';
@@ -74,8 +75,8 @@ export function ModelsPanel({context:c}:Props){
 }
 
 export function SettingsPanel({context:c}:Props){
-  return <section className="backstage-section" id="backstage-settings" aria-label="Settings">
-    <div className="backstage-section-head"><span className="backstage-checked">Theme colours, fonts and contrast checks</span><Button id="theme-editor-open" variant="outline" size="sm" onClick={c.themeEditor}>Theme Editor…</Button></div>
-    <Card size="sm" className="backstage-card">{c.settings}</Card>
+  return <section className="flex flex-col gap-6" id="backstage-settings" aria-label="Settings">
+    <Toolbar status="Theme colours, fonts and contrast checks are in the Theme Editor."><Button id="theme-editor-open" variant="outline" size="sm" onClick={c.themeEditor}><PaletteIcon data-icon="inline-start" aria-hidden/>Theme Editor…</Button></Toolbar>
+    {c.settings}
   </section>;
 }

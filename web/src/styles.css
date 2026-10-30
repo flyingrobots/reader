@@ -215,30 +215,13 @@
 .reader-admin [data-slot="sidebar-footer"] { padding: 8px 8px 12px; }
 .admin-needs-reader { margin-top: 28px; }
 .backstage-section { margin-top: 38px; display: grid; gap: 16px; }
-.backstage-section-head { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
-.backstage-section-head h2 { font-family: var(--serif); font-weight: 450; font-size: 28px; margin: 0 auto 0 0; }
-.backstage-checked { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); }
-.backstage-card [data-slot="card-title"] { font-family: var(--sans); font-weight: 650; font-size: 15px; }
-.backstage-card [data-slot="card-description"] { color: var(--muted); font-size: 12px; line-height: 1.45; }
-.backstage-card [data-slot="card-content"] { display: grid; gap: 12px; align-content: start; flex: 1; }
-.backstage-card [data-slot="card-footer"] { padding-bottom: var(--card-spacing); }
-.backstage-card { min-width: 0; }
 .backstage-message { font-size: 13px; line-height: 1.5; margin: 0; overflow-wrap: anywhere; }
 .backstage-note { font-size: 11px; color: var(--muted); border-left: 2px solid var(--accent); padding-left: 9px; margin: 0; }
 /* The static web demo (#107): a control that needs a running Reader stays disabled but keeps its tooltip under the pointer. */
 [data-needs-reader]:disabled { pointer-events: auto; cursor: not-allowed; }
 #backstage-local-only { font-size: 13px; max-width: 70ch; }
-.backstage-jobs { list-style: none; margin: 0; padding: 0; display: grid; }
-.backstage-jobs li { display: grid; grid-template-columns: 22px 1fr; gap: 8px; padding: 9px 0; border-top: 1px solid var(--line); }
-.backstage-jobs li:first-child { border-top: 0; }
-.backstage-jobs strong { display: block; font-size: 13px; font-weight: 600; }
-.backstage-jobs small { display: block; font-size: 11px; color: var(--muted); overflow-wrap: anywhere; }
 .backstage-jobs small.backstage-error { color: var(--warning); }
-.backstage-job-state { display: grid; place-items: center; height: 20px; font-size: 12px; color: var(--muted); }
-.backstage-jobs li[data-job-state=succeeded] .backstage-job-state { color: var(--accent); }
-.backstage-jobs li[data-job-state=failed] .backstage-job-state { color: var(--warning); }
 .backstage-settings { max-width: 560px; padding: 0 var(--card-spacing); display: grid; gap: 16px; }
-.backstage-settings-foot { display: flex; justify-content: flex-end; padding-bottom: var(--card-spacing); }
 .activity {
   --activity-text: color-mix(in oklab, var(--muted) 25%, var(--ink));
   --activity-secondary: color-mix(in oklab, var(--muted) 65%, var(--ink));

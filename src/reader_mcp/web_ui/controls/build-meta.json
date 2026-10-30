@@ -24,7 +24,7 @@
     "src/admin/pages/logs.tsx": "ded000bd5ca82dce862fe1e86436383a326660f00be8c366fde7fdd978fb2609",
     "src/admin/pages/repositories.tsx": "b27c3176025dd93ab4194beff4ec6eb12aca8a62235fb2b1a84c39ef97760c78",
     "src/admin/pages/voices.tsx": "066a7971b8460c9133bc29382d4f5356978cefdb216f4d21ff86f51a4904cb8f",
-    "src/admin/panels.tsx": "65492447a81f7bf489cc1d0f780abbd1a5913c0da0ea931384b0480d0fba636c",
+    "src/admin/panels.tsx": "fcd6b7af8b553c168d55c013d5dfe98df9fdcd26589f89aaa9188355283d6639",
     "src/admin/sections.tsx": "d6b17abbfea256a0047736e4025e310cdf5a241c3b4844da9678aab0691166d3",
     "src/art-regenerate.tsx": "8d0c621e0239e13fcf89a528747a15a0028e01722585b4156ba5db590fbcd7e9",
     "src/art-studio.tsx": "b907a89419ee96cb50620815be4aa207d8fa688060ddd39b3270d9a3326dd302",
@@ -100,13 +100,13 @@
     "src/plural.ts": "4c0d0698a171b39d5683548f00e2e9a8a7c5ea1af28e4067aaa63612476b5fa2",
     "src/queue-panel.tsx": "5ed0363915f6ed4af4a11bd071791e59451f397fffc2246786512598bd177530",
     "src/quiz.tsx": "701461de3797ae331891fcbba4b1462ecd7700b5b83f7208dac3db86041c810f",
-    "src/reader-controls.tsx": "25cfb6e9f2eabcc0ff6da2127502a5dffd9ffcc388557cd887a7aa3abcd950e4",
+    "src/reader-controls.tsx": "47d6d5b09bc374e540b57c4d0a96022d778ef6b08e5a902088ae46b8b7b9e598",
     "src/search-page.tsx": "2cd0ec009e41f4dc701efa2ed64edd91e54503d1e880d083df21fff52ef82a5d",
     "src/server-card.tsx": "c2cc03c517af4398b69f6179503c27cb46dafcbcf1f548fb196f2400c0afd201",
     "src/shape/shape.ts": "9fe4b2b1dd21a2869130afa25aed34e2ea482fc8fe05aa2609193aa24c04b50c",
     "src/speech-control.tsx": "45a7efd449606ea196c7adef281ddadb2bd89dab1b5c9a945f56897cadbb4e0c",
     "src/static-demo.ts": "036a0b4413452d2ec8f7a51248157340082f3c030fc51d3237275021340e8810",
-    "src/styles.css": "bc9b32ec7758688fe87fde58974c72ee0e58546c5ce6434b6fcb1278e679d60b",
+    "src/styles.css": "a2b1b757ac9fc82ddd9355cd4f8873a3b0a7c6d9de6f6d31be5e9ff2ece7ffcc",
     "src/theme/atoms/run-state-icon.tsx": "7898209e6e1893b71c6c38a94dde6c3a83e1ffd19344382e48dca151cf361b06",
     "src/theme/atoms/section-heading.tsx": "47390df21cea8262baad84426e0af328b55e8f88673edd1833078e9f842b5790",
     "src/theme/atoms/status-badge.tsx": "8b6e9f9c0de4921c3cba50a7972392e759f566a4f5b5a6c7580128ebaa959ba3",
@@ -947,12 +947,12 @@
       "sha256": "cb2ee2554fd41ac9f8e2e69c350365f0e1cf9732d27ad161c9c97b20945bbe4c"
     },
     "reader-controls.css": {
-      "bytes": 185046,
-      "sha256": "5a8c1199ec382eb4b52b7487491d77360f6a00c2c22041a89feead511ae54140"
+      "bytes": 183672,
+      "sha256": "844a81a76785614224578a8b9871c6bcce88c43a7b6f8ea54f210218469dae9f"
     },
     "reader-controls.js": {
-      "bytes": 1103913,
-      "sha256": "0098492fdb217f1dd3f1f65acfb95a933c06c366460070aaefae29524eee8bb4"
+      "bytes": 1105006,
+      "sha256": "c675d871c9383bd30445895bfe4bf9d8e69525ad05b00a64c97a0ec85ae4b5ba"
     },
     "reader-controls.js.LEGAL.txt": {
       "bytes": 6150,
