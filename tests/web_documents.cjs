@@ -14,11 +14,11 @@ const THEMES=['ink','paper','orchid','orchid-dark','harvest','harvest-dark',...r
   await page.goto(url+'/#read='+encodeURIComponent('library/research/causal/notes/source.md'));await seen;
   await page.locator('#main').focus();await page.keyboard.press('Space');await page.keyboard.press('e');
   const tree=page.getByRole('tree',{name:'Documents'});await tree.waitFor();assert.equal(await page.locator('#picker-filter').isVisible(),false);assert.equal(await page.evaluate(()=>document.activeElement.id),'file-results');
-  assert.equal(await page.locator('.file-option').count(),1,'default remains recent files');assert.equal(await page.locator('.file-option').getAttribute('data-read'),'true');
-  await page.keyboard.press('/');await page.locator('#file-query').fill('causal');await page.waitForFunction(()=>document.querySelectorAll('.file-option').length===4);
-  const source=page.locator('.file-option').filter({hasText:'Causal note source'}),sibling=page.locator('.file-option').filter({hasText:'Causal note sibling'});
+  assert.equal(await page.locator('[data-doc-node=file]').count(),1,'default remains recent files');assert.equal(await page.locator('[data-doc-node=file]').getAttribute('data-read'),'true');
+  await page.keyboard.press('/');await page.locator('#file-query').fill('causal');await page.waitForFunction(()=>document.querySelectorAll('[data-doc-node=file]').length===4);
+  const source=page.locator('[data-doc-node=file]').filter({hasText:'Causal note source'}),sibling=page.locator('[data-doc-node=file]').filter({hasText:'Causal note sibling'});
   assert.equal(await source.getAttribute('data-read'),'true');assert.equal(await sibling.getAttribute('data-read'),'false');
-  const colors=await page.evaluate(()=>[...document.querySelectorAll('.file-option')].map(row=>({read:row.dataset.read,color:getComputedStyle(row.querySelector('.name')).color})));assert.notEqual(colors.find(row=>row.read==='true').color,colors.find(row=>row.read==='false').color,'read title is muted');
+  const colors=await page.evaluate(()=>[...document.querySelectorAll('[data-doc-node=file]')].map(row=>({read:row.dataset.read,color:getComputedStyle(row.querySelector('[data-doc-title]')).color})));assert.notEqual(colors.find(row=>row.read==='true').color,colors.find(row=>row.read==='false').color,'read title is muted');
   await source.hover();await tree.focus();await page.keyboard.press('ArrowLeft');
   const folder=page.locator('[data-tree-folder="library/research/causal/notes"] > [data-doc-node=folder]');
   assert.equal(await tree.getAttribute('aria-activedescendant'),await folder.getAttribute('id'));await page.keyboard.press('h');assert.equal(await folder.getAttribute('aria-expanded'),'false');await sibling.waitFor({state:'hidden'});
@@ -46,7 +46,7 @@ const THEMES=['ink','paper','orchid','orchid-dark','harvest','harvest-dark',...r
   await sibling.hover();await tree.focus();await page.keyboard.press('Enter');await page.waitForFunction(()=>decodeURIComponent(location.hash).includes('/sibling.md'));await page.waitForFunction(()=>!document.querySelector('.resume-pending'));
   await page.close();
   const context=await browser.newContext({viewport:{width:390,height:844},reducedMotion:'reduce'});await context.addInitScript(()=>localStorage.setItem('reader.preferences.v1',JSON.stringify({participant:'Different reader'})));page=await context.newPage();page.on('pageerror',error=>errors.push(error.message));
-  await page.goto(url);await page.locator('#home-title').waitFor();await page.keyboard.press('Space');await page.keyboard.press('e');await page.getByRole('tree',{name:'Documents'}).waitFor();assert.equal(await page.locator('.file-option[data-read=true]').count(),0,'another participant has independent receipts');assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1));await page.screenshot({path:'.reader/web-dev/documents-tree-mobile.png'});
+  await page.goto(url);await page.locator('#home-title').waitFor();await page.keyboard.press('Space');await page.keyboard.press('e');await page.getByRole('tree',{name:'Documents'}).waitFor();assert.equal(await page.locator('[data-doc-node=file][data-read=true]').count(),0,'another participant has independent receipts');assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1));await page.screenshot({path:'.reader/web-dev/documents-tree-mobile.png'});
   assert.deepEqual(errors,[]);console.log('Documents passed: actual Collapsible/Button tree, recent default, explicit filter, folder/Vim navigation, read/unread distinction, participant isolation, six-theme contrast and mobile fit.');
  }finally{await browser?.close();if(fixture.exitCode===null&&fixture.signalCode===null){fixture.kill('SIGTERM');await new Promise(resolve=>fixture.once('exit',resolve));}}
 })().catch(error=>{console.error(error);process.exitCode=1;});
