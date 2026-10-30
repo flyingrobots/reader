@@ -13,6 +13,7 @@ import {Item, ItemActions, ItemContent, ItemDescription} from './components/ui/i
 import {Kbd} from './components/ui/kbd';
 import {Spinner} from './components/ui/spinner';
 import {StatusCard} from './theme/organisms/status-card';
+import type {LibraryActions} from './admin/pages/library';
 import {Input} from './components/ui/input';
 import {Button} from './components/ui/button';
 import {Badge} from './components/ui/badge';
@@ -387,7 +388,7 @@ async function checkIndexes(){
   if(status&&!status.running&&!status.checking&&(!checked||Date.now()-+new Date(checked)>120000))startJob('check');
 }
 function watchLocalModel(element:HTMLElement){localHost=element;pollLocalModel();}
-function AdminView({library}:{library?:(element:HTMLElement)=>void}){
+function AdminView({library}:{library?:LibraryActions}){
   const current=useSyncExternalStore(subscribe,snapshot);
   const inbox=current.inbox,route=current.admin||{section:'overview',params:[]};
   const context:AdminContext={route,local:needsReader(),
@@ -403,7 +404,7 @@ function AdminView({library}:{library?:(element:HTMLElement)=>void}){
 }
 /** Reader Admin, as a route-owned island in #main: the shell mounts once and section changes re-render it in place.
  *  Entering reads the inbox and maintenance status (reads only; no check, rebuild, model or inbox run starts here). */
-export function mountAdmin(container:HTMLElement,route:AdminRoute,{library}:{library?:(element:HTMLElement)=>void}={}){
+export function mountAdmin(container:HTMLElement,route:AdminRoute,{library}:{library?:LibraryActions}={}){
   update({admin:route});
   mount(container,<AdminView library={library}/>);
   pollInbox();pollMaintenance();

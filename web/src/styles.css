@@ -627,3 +627,9 @@ body:has(#changes-panel[data-side=right]) [data-slot=sheet-overlay] { display: n
 .job-artifacts { display: grid; gap: 8px; min-width: 0; }
 .job-artifact-tabs, .job-artifact-actions { display: flex; flex-wrap: wrap; gap: 4px; }
 .job-artifact { display: grid; gap: 6px; min-width: 0; }
+
+/* Admin › Library: the atlas's SVG marks (drawn by D3 in admin/pages/library-charts.ts; the other chart marks keep their
+   web_ui/style.css rules). */
+[data-library] .topic-circle { stroke: var(--line); fill: transparent; cursor: pointer; }
+[data-library] .work-dot { cursor: pointer; stroke: var(--surface); stroke-width: .6; }
+[data-library] .work-dot:hover, [data-library] .work-dot:focus-visible { stroke: var(--ink); stroke-width: 1.5; outline: none; }

@@ -1,6 +1,6 @@
 /* Reader Admin section bodies. Each wraps an existing Behind the scenes panel unchanged (its handlers, busy states,
    local-only restrictions and error displays), and starts only the status reads that panel already relied on. */
-import {useEffect, useLayoutEffect, useRef} from 'react';
+import {useEffect, useRef} from 'react';
 import {PaletteIcon} from 'lucide-react';
 import {Button} from '../components/ui/button';
 import {Toolbar} from '../theme/molecules/toolbar';
@@ -11,6 +11,8 @@ import {CompanionsSection} from '../companions';
 import {VoicesPage} from './pages/voices';
 import {ServerCard} from '../server-card';
 import {SectionHeading} from '../theme/atoms/section-heading';
+import {Notice} from '../theme/molecules/notice';
+import {LibraryPage} from './pages/library';
 import {Unavailable} from '../theme/molecules/states';
 import {ArtStudio} from '../art-studio';
 import type {AdminContext} from './sections';
@@ -20,13 +22,6 @@ type Props={context:AdminContext};
 /** The page a section that needs Reader on this computer shows in the static web demo (the shell decides). */
 export function NeedsReader({what}:{what:string}){
   return <p className="backstage-note admin-needs-reader" id="backstage-local-only" data-state="unavailable">{what} needs Reader on your computer. The web demo shows recorded reading data only; rebuilds, checks, the service and companion tools run there.</p>;
-}
-
-/** A DOM slot React renders once and never touches again: the vanilla dashboard owns its contents. */
-function Slot({id,mount}:{id:string;mount:(element:HTMLElement)=>void}){
-  const ref=useRef<HTMLDivElement>(null);
-  useLayoutEffect(()=>{if(ref.current)mount(ref.current);},[mount]);
-  return <div id={id} ref={ref}/>;
 }
 
 export function InboxPanel({context:c}:Props){
@@ -44,8 +39,8 @@ export function IndexesPanel({context:c}:Props){
 export function ArtworkPanel({context:c}:Props){return <ArtStudio api={c.api} open={c.open}/>;}
 
 export function LibraryPanel({context:c}:Props){
-  return <section className="backstage-section backstage-library" id="backstage-library" aria-label="Library statistics">
-    {c.library?<Slot id="backstage-library-mount" mount={c.library}/>:<p className="backstage-message">Library statistics are unavailable here.</p>}
+  return <section id="backstage-library" aria-label="Library statistics">
+    {c.library?<LibraryPage actions={c.library}/>:<Notice role="status" title="Library statistics are unavailable here."/>}
   </section>;
 }
 

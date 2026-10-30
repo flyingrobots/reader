@@ -12,6 +12,7 @@ import type {MaintenanceStatus, InboxStatus} from '../backstage';
 import type {ActivityModel} from '../reader-controls';
 import type {LocalModelStatus} from '../local-model';
 import type {CompanionsStatus} from '../companions';
+import type {LibraryActions} from './pages/library';
 import {ArtworkPanel, IndexesPanel, InboxPanel, LibraryPanel, ModelsPanel, ServicePanel, SettingsPanel, VoicesPanel} from './panels';
 import {Overview} from './overview';
 import {type AdminPanelProps} from '../jobs/admin';
@@ -49,7 +50,8 @@ export type AdminContext={
   /** Keep the local-model status polled while `element` is on screen. */
   watchLocalModel:(element:HTMLElement)=>void;
   settings:ReactNode;themeEditor:()=>void;
-  library?:(element:HTMLElement)=>void;
+  /** Admin › Library's model and the app actions it needs (web_ui/app.mjs). */
+  library?:LibraryActions;
 };
 export type AdminSection={
   id:string;title:string;icon:LucideIcon;

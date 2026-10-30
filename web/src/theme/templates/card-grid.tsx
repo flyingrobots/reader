@@ -2,6 +2,6 @@
 import type {ReactNode} from 'react';
 import {cn} from 'cn';
 
-export function CardGrid({children,className,...props}:{children:ReactNode;className?:string;id?:string}){
+export function CardGrid({children,className,...props}:{children:ReactNode;className?:string;id?:string}&Record<`data-${string}`,string>){
   return <div className={cn('grid grid-cols-[repeat(auto-fit,minmax(min(100%,20rem),1fr))] gap-4',className)} {...props}>{children}</div>;
 }

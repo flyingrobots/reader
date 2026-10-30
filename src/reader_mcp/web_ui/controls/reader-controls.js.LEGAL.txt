@@ -137,6 +137,7 @@ lucide-react/dist/esm/icons/list-checks.js:
 lucide-react/dist/esm/icons/list.js:
 lucide-react/dist/esm/icons/loader-circle.js:
 lucide-react/dist/esm/icons/mail.js:
+lucide-react/dist/esm/icons/message-square-text.js:
 lucide-react/dist/esm/icons/octagon-x.js:
 lucide-react/dist/esm/icons/palette.js:
 lucide-react/dist/esm/icons/panel-left.js:
