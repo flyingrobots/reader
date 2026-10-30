@@ -9,7 +9,12 @@
    the same request, never a second run. Static demos, historical editions and inbox previews stay readable and
    copyable but cannot run. */
 import * as React from 'react';
-import {ArrowUpRightIcon, ChevronDownIcon, CopyIcon, GitPullRequestArrowIcon, LoaderCircleIcon, RotateCcwIcon, WrenchIcon} from 'lucide-react';
+import {ArrowUpRightIcon, ChevronDownIcon, ChevronRightIcon, CopyIcon, GitPullRequestArrowIcon, RotateCcwIcon, WrenchIcon} from 'lucide-react';
+import {Card, CardContent, CardDescription, CardHeader, CardTitle} from '../components/ui/card';
+import {Collapsible, CollapsibleContent, CollapsibleTrigger} from '../components/ui/collapsible';
+import {Item, ItemActions, ItemContent, ItemGroup} from '../components/ui/item';
+import {Spinner} from '../components/ui/spinner';
+import {Notice} from '../theme/molecules/notice';
 import {DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuLabel, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuTrigger} from '../components/ui/dropdown-menu';
 import {InputGroup, InputGroupAddon, InputGroupButton, InputGroupText, InputGroupTextarea} from '../components/ui/input-group';
 import {Button} from '../components/ui/button';
@@ -84,15 +89,17 @@ export function PromptCard({block,context}:{block:PromptBlock;context:PromptCont
   }
   const plan=reason?null:<>Run → PR works on a new branch from <code>{info?.base||'the base branch'}</code> in <strong>{block.repo}</strong>, {block.issue?<>links issue #{block.issue}</>:<>creates an issue if the finding is confirmed</>},
     and opens a pull request only after Reader verifies the change. Nothing is merged.</>;
-  return <section ref={card} className="prompt-card" aria-labelledby={titleId} tabIndex={-1} data-prompt-card={block.id} data-reader-decoration="">
-    <header className="prompt-card-head">
-      <span className="prompt-card-eyebrow"><WrenchIcon aria-hidden/>Repair prompt</span>
-      <h3 id={titleId} className="prompt-card-title">{block.title}</h3>
-      <p className="prompt-card-target">
-        <a href={`https://github.com/${block.repo}`} target="_blank" rel="noreferrer noopener">{block.repo}<span className="sr-only"> on GitHub (opens a new tab)</span></a>
-        {' · '}{issueUrl?<a href={issueUrl} target="_blank" rel="noreferrer noopener">Issue #{block.issue}<ArrowUpRightIcon aria-hidden/></a>:<span>Create issue</span>}
-      </p>
-    </header>
+  return <section ref={card} className="prompt-card" aria-labelledby={titleId} tabIndex={-1} data-prompt-card={block.id} data-reader-decoration="" data-ui="shadcn">
+   <Card className="font-sans">
+    <CardHeader>
+      <CardDescription className="flex items-center gap-1.5 text-xs font-medium tracking-wide uppercase"><WrenchIcon aria-hidden className="size-3.5"/>Repair prompt</CardDescription>
+      <CardTitle id={titleId} role="heading" aria-level={3} className="font-serif text-lg font-normal">{block.title}</CardTitle>
+      <CardDescription className="flex flex-wrap items-center gap-x-2" data-prompt-target="">
+        <a className="text-primary underline-offset-4 hover:underline" href={`https://github.com/${block.repo}`} target="_blank" rel="noreferrer noopener">{block.repo}<span className="sr-only"> on GitHub (opens a new tab)</span></a>
+        <span aria-hidden>·</span>{issueUrl?<a className="inline-flex items-center gap-0.5 text-primary underline-offset-4 hover:underline" href={issueUrl} target="_blank" rel="noreferrer noopener">Issue #{block.issue}<ArrowUpRightIcon aria-hidden className="size-3.5"/></a>:<span>Create issue</span>}
+      </CardDescription>
+    </CardHeader>
+    <CardContent className="flex flex-col gap-3">
     <form onSubmit={run} aria-describedby={plan?planId:undefined} onKeyDown={event=>{
       if(event.key==='Escape'&&(event.target as HTMLElement).matches('textarea')){event.preventDefault();event.stopPropagation();card.current?.focus({preventScroll:true});}}}>
       <InputGroup>
@@ -117,21 +124,24 @@ export function PromptCard({block,context}:{block:PromptBlock;context:PromptCont
             </DropdownMenuContent>
           </DropdownMenu>
           <InputGroupButton type="submit" size="sm" variant="default" disabled={!canRun} title={reason||undefined} data-prompt-run="" data-needs-reader={context.blocked?'':undefined}>
-            {busy?<LoaderCircleIcon className="animate-spin"/>:<GitPullRequestArrowIcon/>}Run → PR
+            {busy?<Spinner/>:<GitPullRequestArrowIcon/>}Run → PR
           </InputGroupButton>
         </InputGroupAddon>
       </InputGroup>
     </form>
-    <p className="prompt-card-plan" id={planId} role="status" aria-live="polite">
-      {error?<span className="prompt-card-error">{error}</span>:reason?<>{reason}{info&&!info.registered&&context.onAdmin?<> <Button size="xs" variant="link" onClick={()=>context.onAdmin!('#admin/repositories')}>Set up repository</Button></>:null}</>:plan}
-    </p>
+    <div id={planId} role="status" aria-live="polite" data-prompt-plan="">
+      {error?<Notice tone="error" title={error}/>:reason?<Notice title={reason} action={info&&!info.registered&&context.onAdmin?<Button size="xs" variant="outline" onClick={()=>context.onAdmin!('#admin/repositories')}>Set up repository</Button>:undefined}/>
+        :<span className="text-sm text-muted-foreground [&_code]:font-mono [&_strong]:font-medium [&_strong]:text-foreground">{plan}</span>}
+    </div>
     {current?<JobSummary id={current} options={context.options} onAdmin={context.onAdmin?id=>context.onAdmin!('#admin/jobs/'+id):undefined}/>:null}
-    {info&&info.runs.length>1||info?.runs.length===1&&info.runs[0].id!==current?<details className="prompt-card-history">
-      <summary>Earlier runs ({info!.runs.length})</summary>
-      <ul>{info!.runs.map(r=><li key={r.id}>
-        <Button size="xs" variant={r.id===current?'secondary':'ghost'} onClick={()=>setCurrent(r.id)} aria-pressed={r.id===current}>{statusLabel(r)} · {new Date(r.created_at).toLocaleString()}</Button>
-        {r.pr?<a href={r.pr.url} target="_blank" rel="noreferrer noopener">PR #{r.pr.number}</a>:null}
-      </li>)}</ul>
-    </details>:null}
+    {info&&info.runs.length>1||info?.runs.length===1&&info.runs[0].id!==current?<Collapsible data-prompt-history="">
+      <CollapsibleTrigger render={<Button variant="ghost" size="xs" className="text-muted-foreground"/>}><ChevronRightIcon data-icon="inline-start" aria-hidden className="transition-transform in-data-[panel-open]:rotate-90"/>Earlier runs ({info!.runs.length})</CollapsibleTrigger>
+      <CollapsibleContent><ItemGroup className="gap-0.5 pt-1">{info!.runs.map(r=><Item key={r.id} size="xs" role="listitem" className="px-0">
+        <ItemContent><Button size="xs" variant={r.id===current?'secondary':'ghost'} className="self-start" onClick={()=>setCurrent(r.id)} aria-pressed={r.id===current}>{statusLabel(r)} · {new Date(r.created_at).toLocaleString()}</Button></ItemContent>
+        {r.pr?<ItemActions><a className="text-sm text-primary underline-offset-4 hover:underline" href={r.pr.url} target="_blank" rel="noreferrer noopener">PR #{r.pr.number}</a></ItemActions>:null}
+      </Item>)}</ItemGroup></CollapsibleContent>
+    </Collapsible>:null}
+    </CardContent>
+   </Card>
   </section>;
 }

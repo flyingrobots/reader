@@ -14,18 +14,11 @@ import {Pager} from '@/theme/molecules/pager';
 import {EmptyState, LoadingState} from '@/theme/molecules/states';
 import {StatusCard} from '@/theme/organisms/status-card';
 import {ActivityTranscript} from '../../activity/transcript';
-import {ARTIFACTS, Artifact, OutcomeBadge, StopButton, jobLabels, runInfo} from '../../jobs/job-detail';
+import {ARTIFACTS, Artifact, GitHubLinks, OutcomeBadge, StopButton, jobLabels, runInfo} from '../../jobs/job-detail';
 import {OUTCOME_LABELS, useJob, type JobRun} from '../../jobs/store';
 import {Unavailable, dateTime, useLoad, type AdminPanelProps} from '../../jobs/admin';
 import {needsReader} from '../../static-demo';
 
-/** A job's GitHub results as outline link Buttons. */
-function GitHubLinks({run}:{run:JobRun}){
-  const links=[run.pr&&{href:run.pr.url,label:`Pull request #${run.pr.number}`},run.issue&&{href:run.issue.url,label:`Issue #${run.issue.number}${run.issue.created?' (created)':''}`},
-    run.existing_pr&&{href:run.existing_pr.url,label:`Existing pull request #${run.existing_pr.number}`}].filter(Boolean) as {href:string;label:string}[];
-  return <>{links.map(link=><Button key={link.href} variant="outline" size="sm" nativeButton={false} render={<a href={link.href} target="_blank" rel="noreferrer noopener"/>}>
-    {link.label}<ArrowUpRightIcon data-icon="inline-end" aria-hidden/><span className="sr-only"> (opens GitHub in a new tab)</span></Button>)}</>;
-}
 
 export function JobsPage({options,go,href}:AdminPanelProps){
   const [repo,setRepo]=React.useState(''),[state,setState]=React.useState(''),[path,setPath]=React.useState(''),[cursor,setCursor]=React.useState(0);

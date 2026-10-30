@@ -13,6 +13,7 @@ import {CodeBlock, CodeBlockContent} from '../components/ui/code-block';
 import {Collapsible, CollapsibleContent, CollapsibleTrigger} from '../components/ui/collapsible';
 import {Button} from '../components/ui/button';
 import {Progress} from '../components/ui/progress';
+import {Spinner} from '../components/ui/spinner';
 import {steps as stepsOf, queue as queueOf, type Activity, type Item, type Lines, type Usage} from './reducer';
 
 export type RunInfo={status:string|null;startedAt:string|null;finishedAt:string|null;arrivals:string[];remaining:string[]|null;titles:Record<string,string>;
@@ -316,7 +317,7 @@ export function ActivityTranscript({activity,run,live,html,onOpen,onReport,label
       {activity.items.map(item=><div key={item.kind+item.id} className="activity-item" data-activity-item={item.kind} data-item-id={item.id} tabIndex={-1}><Row item={item} live={live} html={html} onOpen={onOpen} onReport={onReport} labels={labels}/></div>)}
       {failed?<div className="activity-item" data-activity-item="error" tabIndex={-1}><Trace><StackTrace message={run.message||'The run failed.'} detail={run.stderr}/></Trace></div>:null}
       {commit?<div className="activity-item" data-activity-item="checkpoint" tabIndex={-1}><Checkpoint hash={commit.hash} subject={commit.subject} onReport={onReport}/></div>:null}
-      {live?<p className="activity-working" aria-hidden><span className="activity-spinner"/>Working…</p>
+      {live?<Marker className="activity-working" aria-hidden><MarkerIcon><Spinner/></MarkerIcon><MarkerContent>Working…</MarkerContent></Marker>
         :activity.usage||elapsed!==null?<div className="activity-item activity-end" data-activity-item="context" tabIndex={-1}><Marker variant="separator"><MarkerContent><Context usage={activity.usage} elapsed={elapsed} tool={labels.tool}/></MarkerContent></Marker></div>:null}
     </div>
     {!follow?<div className="activity-foot"><Button variant="outline" size="xs" data-activity-jump="" onClick={()=>{setFollow(true);const el=log.current!;el.scrollTop=el.scrollHeight;}}><ArrowDownIcon/>Jump to latest</Button></div>:null}

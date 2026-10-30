@@ -46,7 +46,7 @@ async function fixture(flags){
    assert.match(await page.locator('#article pre').last().textContent(),/An example inside a fence never runs/);
    assert.match(await card.textContent(),/Bound parser depth/);assert.match(await card.textContent(),/acme\/widget/);assert.match(await card.textContent(),/Issue #277/);
    await page.waitForFunction(()=>!document.querySelector('[data-prompt-run]')?.disabled,null,{timeout:10000});
-   assert.match(await card.locator('.prompt-card-plan').textContent(),/new branch from main in acme\/widget, links issue #277/);
+   assert.match(await card.locator('[data-prompt-plan]').textContent(),/new branch from main in acme\/widget, links issue #277/);
    await card.scrollIntoViewIfNeeded();await shot(card,'card');
    // Viewing, hovering, expanding and reloading never start a job.
    await card.hover();await page.locator('#article').click({position:{x:5,y:5}});
@@ -70,7 +70,7 @@ async function fixture(flags){
    await card.locator('.job-summary').waitFor();
    assert.equal(posts.length,1);assert.equal(posts[0].action,'submit');assert.match(posts[0].request_id,/^[0-9a-f-]{36}$/);
    await page.waitForFunction(()=>document.querySelector('.job-summary')?.dataset.jobStatus==='pr_opened',null,{timeout:60000});
-   assert.match(await card.locator('.job-links').textContent(),/Pull request #\d+/);
+   assert.match(await card.locator('[data-job-links]').textContent(),/Pull request #\d+/);
    // The finished run frees the card: Run is available again without a reload.
    await page.waitForFunction(()=>!document.querySelector('[data-prompt-run]')?.disabled,null,{timeout:5000}).catch(()=>{});
    assert.equal(await card.locator('[data-prompt-run]').isEnabled(),true,'Run is enabled again once the job finishes');
@@ -100,7 +100,7 @@ async function fixture(flags){
    await page.getByRole('tab',{name:'prompt.txt',exact:true}).click();
    await page.waitForFunction(()=>/Check issue #277/.test(document.querySelector('[data-job-artifact="prompt.txt"]')?.textContent||''),null,{timeout:10000});
    release();await page.waitForResponse(r=>r.url().includes('name=stdout.jsonl'));await page.waitForTimeout(300);
-   assert.match(await page.locator('.job-artifact').textContent(),/Check issue #277/,'the chosen artifact stays shown');
+   assert.match(await page.locator('[data-job-artifact]').textContent(),/Check issue #277/,'the chosen artifact stays shown');
    assert.equal(await page.locator('[data-job-artifact="prompt.txt"]').count(),1);
    await page.unroute('**/api/jobs/artifact?**');
    await page.goto(url+'#admin/logs');await panel('logs','[data-log-row]');
@@ -132,7 +132,7 @@ async function fixture(flags){
    await failed.waitFor({timeout:10000});
    assert.equal(await failed.locator('[data-slot=trace-collapsible-trigger]').getAttribute('aria-expanded'),'true','a failed check expands by itself');
    assert.equal(await page.evaluate(()=>document.activeElement===document.body||!!document.activeElement?.closest('[data-prompt-card]')),true,'it does not steal focus');
-   assert.doesNotMatch(await card.locator('.job-links').count()?await card.locator('.job-links').textContent():'',/Pull request/);
+   assert.doesNotMatch(await card.locator('[data-job-links]').count()?await card.locator('[data-job-links]').textContent():'',/Pull request/);
    await shot(card,'verify-failed');
    assert.deepEqual(errors,[]);
    await context.close();
