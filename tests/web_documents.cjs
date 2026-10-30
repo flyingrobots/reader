@@ -4,6 +4,9 @@ const {spawn}=require('node:child_process');
 const {createInterface}=require('node:readline');
 const {chromium}=require(process.env.READER_PLAYWRIGHT||'playwright-core');
 const THEMES=['ink','paper','orchid','orchid-dark','harvest','harvest-dark',...require('../src/reader_mcp/web_ui/famous-themes.json').themes.flatMap(t=>[t.id,t.id+'-dark'])];
+// Palette-only themes (Monocolor) paint every mode in one swatch: too few of their shades carry text at 4.5:1 to tell
+// eight modes apart, and the label names the mode anyway. They keep the contrast checks.
+const ONE_MODE_COLOR=new Set(require('../src/reader_mcp/web_ui/famous-themes.json').themes.filter(t=>t.paletteOnly).flatMap(t=>[t.id,t.id+'-dark']));
 (async()=>{
  const fixture=spawn(process.env.READER_PYTHON||'.venv/bin/python',['tests/web_fixture.py','--breadcrumbs'],{stdio:['ignore','pipe','inherit']});let browser;
  try{
@@ -41,7 +44,7 @@ const THEMES=['ink','paper','orchid','orchid-dark','harvest','harvest-dark',...r
       rows.push({theme,minimum,linkCode:linkCodeRatio,distinct:new Set(backgrounds).size});
     }
     linkCode.remove();still.remove();html.dataset.theme=originalTheme;mode.dataset.mode=originalMode;return rows;
-  },THEMES);for(const row of contrast){assert.equal(row.distinct,8,JSON.stringify(row));assert.ok(row.minimum>=4.5,JSON.stringify(row));}console.log(JSON.stringify(contrast));
+  },THEMES);for(const row of contrast){assert.equal(row.distinct,ONE_MODE_COLOR.has(row.theme)?1:8,JSON.stringify(row));assert.ok(row.minimum>=4.5,JSON.stringify(row));}console.log(JSON.stringify(contrast));
   // Tree navigation alone never reads a file. Enter opens the selected sibling.
   await sibling.hover();await tree.focus();await page.keyboard.press('Enter');await page.waitForFunction(()=>decodeURIComponent(location.hash).includes('/sibling.md'));await page.waitForFunction(()=>!document.querySelector('.resume-pending'));
   await page.close();

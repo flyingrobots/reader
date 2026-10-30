@@ -268,7 +268,7 @@ export function createKeys({guard=()=>false,escape=()=>{},changed=()=>{},notify=
     root.innerHTML=html;
   }
   /** Every key sequence a binding maps, for tests and the help. */
-  const listed=()=>table.map(entry=>({mode:entry.modes,keys:entry.keys,help:entry.help||'',group:entry.group||'Reading',runs:!!entry.run}));
+  const listed=()=>table.map(entry=>({mode:entry.modes,keys:entry.keys,help:entry.help||'',group:entry.group||'Reading',runs:!!entry.run,...(entry.display?{display:entry.display}:{})}));
 
   defineMode('command',{label:()=>'COMMAND',hints:()=>'',escape:()=>closeLine()});
   /** The help's section order; sections not named follow in the order their first key was mapped. */

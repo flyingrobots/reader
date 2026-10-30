@@ -129,7 +129,9 @@ parameter and saves the preference. Theme previews do not change participant dat
 Monocolor uses ten swatches sampled from the supplied LINX SUPPLY grayscale photograph,
 including its slight photographic tints. Its surfaces, text, highlights, chart colors,
 prose roles and mode indicators use only those swatches, without contrast recoloring
-or synthesized prose hues. Preview with `/?theme=monocolor` or `/?theme=monocolor-dark`.
+or synthesized prose hues. Every mode indicator uses the one accent swatch: too few
+swatches carry the label at 4.5:1 to tell eight modes apart, so the label text names the
+mode. Preview with `/?theme=monocolor` or `/?theme=monocolor-dark`.
 Colorful Language assigns four readable grayscale shades in light mode and five
 in dark mode across its prose roles. Clear mode uses a softer gray for structural
 words; quoted passages use a contrasting surface swatch. Warning icons, labels

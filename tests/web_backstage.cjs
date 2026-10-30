@@ -50,7 +50,8 @@ const {sanitizerReport}=require('./web_wait.cjs');  // #151
    await page.goto(url+'#read='+encodeURIComponent('library/thought.md'));await page.locator('.next-reads').waitFor();
    const titles=await page.locator('.next-read-title').allTextContents();
    assert.deepEqual(titles,['Another thought','A newer observation','Notes on careful reading'],'related works, unread first then latest');
-   assert.ok(await page.evaluate(()=>document.querySelector('#article + .next-reads + .document-footer')!==null),'between the article and its footer');
+   // Linked from and the learning card may sit alongside; Read next stays after the article and before its footer.
+   assert.ok(await page.evaluate(()=>{const kids=[...document.querySelector('#article').parentElement.children],at=el=>kids.indexOf(document.querySelector(el));return at('#article')<at('.next-reads')&&at('.next-reads')<at('.document-footer');}),'between the article and its footer');
    assert.ok(await page.locator('.next-reads').evaluate(el=>el.hasAttribute('data-reader-decoration')));
    await page.locator('.next-read').first().click();await page.getByRole('heading',{name:'Another thought'}).waitFor();assert.equal(decodeURIComponent(new URL(page.url()).hash),'#read=library/other.md');
    await context.close();}

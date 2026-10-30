@@ -29,7 +29,8 @@ const highlightText=(page,name)=>page.evaluate(name=>[...(CSS.highlights.get(nam
   const label=key=>({'<Space>':'Space','<CR>':'Enter','<Down>':'↓','<Up>':'↑','<Left>':'←','<Right>':'→','{a-z}':'a–z','{mark}':'a–z'})[key]||key.replace(/^<C-(.)>$/,'Ctrl $1').replace(/^<(.+)>$/,'$1');
   const tokens=keys=>keys.match(/<[^>]+>|\{[a-z-]+\}|./g)||[];
   for(const entry of help.listed.filter(e=>e.runs)){
-   const shown=tokens(entry.keys).map(label).join(' ');
+   // An entry may name its keys for people (Space Shift+T for <Space>T); the help shows that text.
+   const shown=entry.display?.replace(/\s*\/\s*/g,' / ')||tokens(entry.keys).map(label).join(' ');
    assert.ok(help.dts.some(dt=>dt.includes(shown)),`the help lists ${entry.keys} (${shown})`);
   }
   for(const entry of help.listed.filter(e=>e.help))assert.ok(help.text.includes(entry.help.replace(/`/g,'').slice(0,24)),'help text for '+entry.keys);
@@ -71,8 +72,12 @@ const highlightText=(page,name)=>page.evaluate(name=>[...(CSS.highlights.get(nam
 
   // The command line: completion, a command, an unknown one.
   await press(page,':');assert.equal((await status(page)).mode,'COMMAND');assert.ok(await page.locator('#command-input').isVisible());
-  await page.keyboard.type('the');await press(page,'Tab');assert.equal(await page.locator('#command-input').inputValue(),'theme ','Tab completes :the to :theme');
-  await page.keyboard.type('pa');await press(page,'Tab');assert.equal(await page.locator('#command-input').inputValue(),'theme paper','Tab completes the argument');
+  await page.keyboard.type('the');await press(page,'Tab');assert.equal(await page.locator('#command-input').inputValue(),'theme','Tab completes :the to the first match, :theme');
+  // :theme and :themes both match, so the menu offers both and Tab cycles between them.
+  assert.deepEqual(await page.locator('.command-choice').allTextContents(),['theme','themes']);
+  await press(page,'Tab');assert.equal(await page.locator('#command-input').inputValue(),'themes','Tab cycles to :themes');
+  await press(page,'Tab');assert.equal(await page.locator('#command-input').inputValue(),'theme','and back to :theme');
+  await page.keyboard.type(' pa');await press(page,'Tab');assert.equal(await page.locator('#command-input').inputValue(),'theme paper','Tab completes the argument');
   await press(page,'Enter');await page.waitForFunction(()=>document.documentElement.dataset.theme==='paper');
   assert.equal((await status(page)).mode,'NORMAL');assert.ok(await page.locator('#command-line').isHidden());
   await press(page,':');await page.keyboard.type('chnages');await press(page,'Enter');
