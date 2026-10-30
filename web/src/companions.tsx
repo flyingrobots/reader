@@ -2,14 +2,26 @@
    their status in Behind the scenes, and the calm "not installed" prompt a missing feature shows.
    Installs run as maintenance jobs on the server (/api/companions); this file only asks for them. */
 import {useEffect, useRef, useState} from 'react';
-import {CheckIcon, CopyIcon, ExternalLinkIcon, Loader2Icon} from 'lucide-react';
+import {CheckIcon, ChevronRightIcon, CopyIcon, ExternalLinkIcon, ListChecksIcon} from 'lucide-react';
 import {toast} from 'sonner';
-import {Badge} from './components/ui/badge';
+import {Alert, AlertDescription, AlertTitle} from './components/ui/alert';
 import {Button} from './components/ui/button';
 import {ButtonGroup} from './components/ui/button-group';
-import {Card, CardHeader, CardTitle, CardDescription, CardAction, CardContent, CardFooter} from './components/ui/card';
+import {CodeBlock, CodeBlockActions, CodeBlockContent, CodeBlockHeader, CodeBlockTitle} from './components/ui/code-block';
+import {Collapsible, CollapsibleContent, CollapsibleTrigger} from './components/ui/collapsible';
+import {Field, FieldLabel} from './components/ui/field';
 import {Input} from './components/ui/input';
-import {when, type Job} from './backstage';
+import {Kbd} from './components/ui/kbd';
+import {StatusBadge, type Tone} from './theme/atoms/status-badge';
+import {SectionHeading} from './theme/atoms/section-heading';
+import {RelativeTime} from './theme/atoms/time';
+import {FactList} from './theme/molecules/fact-list';
+import {Notice} from './theme/molecules/notice';
+import {LoadingState} from './theme/molecules/states';
+import {Toolbar} from './theme/molecules/toolbar';
+import {StatusCard} from './theme/organisms/status-card';
+import {CardGrid} from './theme/templates/card-grid';
+import type {Job} from './backstage';
 
 type Guide={commands:string[];note:string};
 type Plan={available:boolean;pinned?:string;reason:string|null;changes:string[];help?:string|null};
@@ -22,7 +34,7 @@ export type CompanionsStatus={companions:Companion[];cli?:Cli[];local_model?:{pr
 type Api=(path:string,payload?:unknown)=>Promise<any>;
 export type CompanionAct=(name:string,action:string,extra?:Record<string,unknown>)=>Promise<any>;
 
-const BADGE:Record<string,'secondary'|'outline'|'destructive'|'default'>={installed:'secondary',missing:'outline','too-old':'outline','not-running':'outline',error:'destructive'};
+const TONE:Record<string,Tone>={installed:'ok',missing:'neutral','too-old':'attention','not-running':'attention',error:'error'};
 const ACTION_LABEL:Record<string,string>={install:'Install',update:'Update',start:'Start…'};
 
 // "Don't show again", per feature. A dismissed prompt still says what is missing, in one line.
@@ -42,28 +54,34 @@ async function copy(text:string){
 }
 function Commands({guide,id}:{guide:Guide;id:string}){
   const [copied,setCopied]=useState(false);const text=guide.commands.join('\n');
-  return <div className="companion-guide" id={id}>
-    <div className="companion-commands-wrap"><pre className="companion-commands" data-reader-decoration=""><code>{text}</code></pre>
-      <Button variant="outline" size="xs" className="companion-copy" aria-label="Copy the commands" onClick={async()=>{if(await copy(text)){setCopied(true);setTimeout(()=>setCopied(false),2000);}else toast.error('Couldn’t copy; select the commands instead.');}}>
-        {copied?<CheckIcon data-icon="inline-start" aria-hidden/>:<CopyIcon data-icon="inline-start" aria-hidden/>}{copied?'Copied':'Copy'}</Button></div>
-    <p className="backstage-note">{guide.note}</p>
+  return <div className="flex min-w-0 flex-col gap-2" id={id} data-companion-panel="guide">
+    <CodeBlock size="sm"><CodeBlockHeader><CodeBlockTitle>Commands</CodeBlockTitle><CodeBlockActions>
+      <Button variant="ghost" size="xs" aria-label="Copy the commands" onClick={async()=>{if(await copy(text)){setCopied(true);setTimeout(()=>setCopied(false),2000);}else toast.error('Couldn’t copy; select the commands instead.');}}>
+        {copied?<CheckIcon data-icon="inline-start" aria-hidden/>:<CopyIcon data-icon="inline-start" aria-hidden/>}{copied?'Copied':'Copy'}</Button></CodeBlockActions></CodeBlockHeader>
+      <CodeBlockContent wrap data-reader-decoration="">{text}</CodeBlockContent></CodeBlock>
+    <span className="text-xs text-muted-foreground">{guide.note}</span>
   </div>;
 }
 function Changes({title,items,confirm,onConfirm,onCancel,busy}:{title:string;items:string[];confirm:string;onConfirm:()=>void;onCancel:()=>void;busy:boolean}){
   const ref=useRef<HTMLButtonElement>(null);useEffect(()=>{ref.current?.focus();},[]);
-  return <div className="companion-confirm" role="group" aria-label={title} onKeyDown={event=>{if(event.key==='Escape'){event.stopPropagation();onCancel();}}}>
-    <p className="backstage-message"><strong>{title}</strong></p>
-    <ul>{items.map(item=><li key={item}>{item}</li>)}</ul>
-    <p className="backstage-note">Nothing runs with sudo, and nothing else on this Mac is changed.</p>
-    <ButtonGroup><Button ref={ref} size="sm" data-confirm="" disabled={busy} onClick={onConfirm}>{confirm}</Button><Button size="sm" variant="outline" onClick={onCancel}>Cancel</Button></ButtonGroup>
-  </div>;
+  return <Alert role="group" aria-label={title} data-companion-panel="confirm" onKeyDown={event=>{if(event.key==='Escape'){event.stopPropagation();onCancel();}}}>
+    <ListChecksIcon aria-hidden/>
+    <AlertTitle>{title}</AlertTitle>
+    <AlertDescription className="flex flex-col gap-2">
+      <ul className="list-disc pl-4 [overflow-wrap:anywhere]">{items.map(item=><li key={item}>{item}</li>)}</ul>
+      <span>Nothing runs with sudo, and nothing else on this Mac is changed.</span>
+      <ButtonGroup><Button ref={ref} size="sm" data-confirm="" disabled={busy} onClick={onConfirm}>{confirm}</Button><Button size="sm" variant="outline" onClick={onCancel}>Cancel</Button></ButtonGroup>
+    </AlertDescription>
+  </Alert>;
 }
 function Log({api,name,job}:{api:Api;name:string;job:Job|null}){
   const [text,setText]=useState<string|null>(null),[open,setOpen]=useState(false);
   useEffect(()=>{if(!open)return;let live=true;const load=()=>api('/api/companions/log?name='+encodeURIComponent(name)).then(r=>{if(live)setText(r.log||'');},()=>{});load();
     const timer=job?setInterval(load,1500):undefined;return ()=>{live=false;clearInterval(timer);};},[open,name,job?.id]);
-  return <details className="companion-log" onToggle={event=>setOpen((event.target as HTMLDetailsElement).open)}><summary>Install log</summary>
-    <pre data-reader-decoration="">{text===null?'Loading…':text||'No install has run yet.'}</pre></details>;
+  return <Collapsible open={open} onOpenChange={setOpen} data-companion-log="" className="rounded-lg border">
+    <CollapsibleTrigger render={<Button variant="ghost" size="sm" className="w-full justify-start"/>}><ChevronRightIcon data-icon="inline-start" aria-hidden className="transition-transform in-data-[panel-open]:rotate-90"/>Install log</CollapsibleTrigger>
+    <CollapsibleContent className="border-t p-2"><CodeBlock size="sm"><CodeBlockContent wrap className="max-h-72" data-reader-decoration="">{text===null?'Loading…':text||'No install has run yet.'}</CodeBlockContent></CodeBlock></CollapsibleContent>
+  </Collapsible>;
 }
 
 function CompanionCard({item,api,act,busy}:{item:Companion;api:Api;act:CompanionAct;busy:boolean}){
@@ -76,42 +94,40 @@ function CompanionCard({item,api,act,busy}:{item:Companion;api:Api;act:Companion
     try{await act(item.name,action,extra);setPanel(null);}catch(e){setError(e instanceof Error?e.message:String(e));}finally{setPending(false);}
   }
   const plan=primary==='start'?item.start:item.install;
-  const state=running?{label:running.progress?.split(' · ')[0]||running.label,variant:'default' as const}:{label:item.label,variant:BADGE[item.state]||'outline'};
+  const state:{label:string;tone:Tone}=running?{label:running.progress?.split(' · ')[0]||running.label,tone:'active'}:{label:item.label,tone:TONE[item.state]||'neutral'};
+  const wide=(label:string)=>label==='Path'||label==='Socket'||label==='Store';
   const facts:[string,string|null|undefined][]=[['Version',item.version],['Path',item.path],...item.facts];
-  return <Card size="sm" className="backstage-card companion-card" id={'companion-'+item.name} data-companion={item.name} data-state={running?'running':item.state}>
-    <CardHeader><CardTitle>{item.title}</CardTitle><CardDescription>{item.enables}{item.keys?<> · <kbd>{item.keys}</kbd></>:null}</CardDescription>
-      <CardAction><Badge variant={state.variant} className="backstage-badge" data-companion-badge="">{running?<Loader2Icon data-icon="inline-start" className="animate-spin" aria-hidden/>:null}{state.label}</Badge></CardAction></CardHeader>
-    <CardContent>
-      {running?<p className="backstage-message companion-progress" aria-live="polite">{running.progress||running.label+'…'}</p>:item.message?<p className={'backstage-message'+(item.state==='error'?' backstage-error':'')}>{item.message}</p>:null}
-      <dl className="backstage-facts">{facts.map(([label,value])=>value?<div key={label} data-fact={label.toLowerCase()} className={label==='Path'||label==='Socket'||label==='Store'?'companion-wide':''}><dt>{label}</dt><dd>{label==='Path'||label==='Socket'||label==='Store'?<code>{value}</code>:value}</dd></div>:null)}</dl>
-      {item.install&&!item.install.available&&item.state!=='installed'&&item.install.reason?<p className="backstage-note" data-install-blocked="">{item.install.reason}{item.install.help?<> <a href={item.install.help} target="_blank" rel="noreferrer">{item.install.help.replace('https://','')}</a></>:null}</p>:null}
-      {error?<p className="backstage-message backstage-error" role="alert">{error}</p>:null}
-      {panel==='confirm'&&plan?<Changes title={primary==='start'?'Start AI-TTS':`${ACTION_LABEL[primary!]} ${item.title}${item.install?.pinned?' '+item.install.pinned:''}`} items={[...plan.changes,...(primary==='start'&&item.start?item.start.commands.map(c=>'Runs: '+c):[])]}
-        confirm={primary==='start'?'Start':ACTION_LABEL[primary!]} busy={pending||busy} onConfirm={()=>run(primary!)} onCancel={()=>setPanel(null)}/>:null}
-      {panel==='guide'&&item.guide?<Commands guide={item.guide} id={'companion-guide-'+item.name}/>:null}
-      {panel==='path'?<form className="companion-path" onSubmit={event=>{event.preventDefault();run('set-path',{path});}}>
-        <label htmlFor={'companion-path-'+item.name}>{item.name==='git-locks'?'Path to git-locks, or to a git-locks store (…/store.git)':'Path to the colorful binary'}</label>
-        <div className="companion-path-row"><Input id={'companion-path-'+item.name} value={path} placeholder="/absolute/path" autoFocus onChange={event=>setPath(event.target.value)}/>
-          <ButtonGroup><Button size="sm" type="submit" disabled={pending}>Save</Button><Button size="sm" variant="outline" type="button" disabled={pending} onClick={()=>run('set-path',{path:''})}>Clear</Button></ButtonGroup></div>
-      </form>:null}
-      {['colorful','wide-md','ai-tts'].includes(item.name)&&(item.install||item.start||running)?<Log api={api} name={item.name} job={running}/>:null}
-    </CardContent>
-    <CardFooter className="companion-footer"><ButtonGroup>
+  return <StatusCard id={'companion-'+item.name} data-companion={item.name} data-state={running?'running':item.state} title={item.title}
+    description={<>{item.enables}{item.keys?<> · <Kbd>{item.keys}</Kbd></>:null}</>}
+    badge={<StatusBadge tone={state.tone} busy={!!running} data-companion-badge="">{state.label}</StatusBadge>}
+    footer={<div className="flex w-full flex-wrap items-center justify-between gap-2"><ButtonGroup className="flex-wrap">
       {primary?<Button size="sm" data-action={primary} disabled={!!running||busy||pending} onClick={()=>setPanel(panel==='confirm'?null:'confirm')}>{ACTION_LABEL[primary]}</Button>:null}
       {item.guide&&item.state!=='installed'?<Button size="sm" variant="outline" data-action="guide" aria-expanded={panel==='guide'} onClick={()=>setPanel(panel==='guide'?null:'guide')}>How to install</Button>:null}
       {item.actions.includes('set-path')?<Button size="sm" variant="outline" data-action="set-path" aria-expanded={panel==='path'} onClick={()=>{setPath(item.path||'');setPanel(panel==='path'?null:'path');}}>Set path</Button>:null}
       <Button size="sm" variant="outline" data-action="check" disabled={pending} onClick={()=>run('check')}>Check again</Button>
-    </ButtonGroup><a className="companion-repo" href={item.repo} target="_blank" rel="noreferrer">{item.repo.replace('https://github.com/','')}<ExternalLinkIcon aria-hidden className="size-3"/></a></CardFooter>
-  </Card>;
+    </ButtonGroup><Button variant="link" size="sm" className="px-0" nativeButton={false} render={<a href={item.repo} target="_blank" rel="noreferrer"/>}>{item.repo.replace('https://github.com/','')}<ExternalLinkIcon data-icon="inline-end" aria-hidden/></Button></div>}>
+    {running?<span className="text-sm" aria-live="polite" data-companion-progress="">{running.progress||running.label+'…'}</span>:item.message?<Notice tone={item.state==='error'?'error':'info'} title={item.message}/>:null}
+    <FactList layout="rows" facts={facts.map(([label,value])=>({key:label.toLowerCase(),label,value:value&&wide(label)?<code className="font-mono text-xs">{value}</code>:value}))}/>
+    {item.install&&!item.install.available&&item.state!=='installed'&&item.install.reason?<Notice data-install-blocked="" title="Install isn’t available here">{item.install.reason}{item.install.help?<> <a className="text-primary underline-offset-4 hover:underline" href={item.install.help} target="_blank" rel="noreferrer">{item.install.help.replace('https://','')}</a></>:null}</Notice>:null}
+    {error?<Notice tone="error" role="alert" title={error}/>:null}
+    {panel==='confirm'&&plan?<Changes title={primary==='start'?'Start AI-TTS':`${ACTION_LABEL[primary!]} ${item.title}${item.install?.pinned?' '+item.install.pinned:''}`} items={[...plan.changes,...(primary==='start'&&item.start?item.start.commands.map(c=>'Runs: '+c):[])]}
+      confirm={primary==='start'?'Start':ACTION_LABEL[primary!]} busy={pending||busy} onConfirm={()=>run(primary!)} onCancel={()=>setPanel(null)}/>:null}
+    {panel==='guide'&&item.guide?<Commands guide={item.guide} id={'companion-guide-'+item.name}/>:null}
+    {panel==='path'?<form data-companion-panel="path" onSubmit={event=>{event.preventDefault();run('set-path',{path});}}>
+      <Field><FieldLabel htmlFor={'companion-path-'+item.name}>{item.name==='git-locks'?'Path to git-locks, or to a git-locks store (…/store.git)':'Path to the colorful binary'}</FieldLabel>
+        <div className="flex flex-wrap gap-2"><Input id={'companion-path-'+item.name} className="min-w-48 flex-1" value={path} placeholder="/absolute/path" autoFocus onChange={event=>setPath(event.target.value)}/>
+          <ButtonGroup><Button size="sm" type="submit" disabled={pending}>Save</Button><Button size="sm" variant="outline" type="button" disabled={pending} onClick={()=>run('set-path',{path:''})}>Clear</Button></ButtonGroup></div></Field>
+    </form>:null}
+    {['colorful','wide-md','ai-tts'].includes(item.name)&&(item.install||item.start||running)?<Log api={api} name={item.name} job={running}/>:null}
+  </StatusCard>;
 }
 
 export function CompanionsSection({api,act,status,busy,onRefresh}:{api:Api;act:CompanionAct;status:CompanionsStatus|null;busy:boolean;onRefresh:()=>void}){
-  return <section className="backstage-section" id="companions" aria-labelledby="companions-title">
-    <div className="backstage-section-head"><h2 id="companions-title">Companions</h2>
-      <span className="backstage-checked">{status?'Checked '+when(status.checked_at):'Looking for companion tools…'}</span>
-      <Button id="companions-check" variant="outline" size="sm" onClick={onRefresh}>Check again</Button></div>
-    <p className="backstage-intro">Separate projects that add features. Reader works without each one; a feature that needs a missing companion says so and offers setup here.</p>
-    <div className="backstage-grid">{status?status.companions.map(item=><CompanionCard key={item.name} item={item} api={api} act={act} busy={busy}/>):null}</div>
+  return <section className="flex flex-col gap-4" id="companions" aria-labelledby="companions-title">
+    <SectionHeading id="companions-title">Companions</SectionHeading>
+    <Toolbar status={<>{status?<>Checked <RelativeTime value={status.checked_at}/></>:'Looking for companion tools…'}<span className="mt-1 block text-muted-foreground">Separate projects that add features. Reader works without each one; a feature that needs a missing companion says so and offers setup here.</span></>}>
+      <Button id="companions-check" variant="outline" size="sm" onClick={onRefresh}>Check again</Button></Toolbar>
+    {status?<CardGrid>{status.companions.map(item=><CompanionCard key={item.name} item={item} api={api} act={act} busy={busy}/>)}</CardGrid>:<LoadingState/>}
   </section>;
 }
 

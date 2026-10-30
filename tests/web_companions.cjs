@@ -60,7 +60,7 @@ const shots=process.env.READER_SHOTS||'.reader/web-dev';
   await page.locator('[data-admin-nav=service]').click();await card('wide-md').waitFor();
   // wide-md: Install lists what will change before anything runs; Cancel runs nothing.
   await card('wide-md').locator('[data-action=install]').click();
-  const confirm=card('wide-md').locator('.companion-confirm');await confirm.waitFor();
+  const confirm=card('wide-md').locator('[data-companion-panel=confirm]');await confirm.waitFor();
   assert.match(await confirm.textContent(),/install_wide_md\.py/);assert.match(await confirm.textContent(),/sudo/);
   await confirm.getByRole('button',{name:'Cancel'}).click();await confirm.waitFor({state:'detached'});
   // Set path refuses a path that is not an executable.
@@ -102,8 +102,8 @@ const shots=process.env.READER_SHOTS||'.reader/web-dev';
   await page.locator('[data-companion=colorful][data-state=installed]').waitFor();
   assert.match(await card('colorful').locator('[data-fact=version]').textContent(),/0\.4\.0/);
   assert.match(await card('colorful').locator('[data-fact=path]').textContent(),/\.reader\/tooling\/bin\/colorful$/);
-  await card('colorful').locator('.companion-log summary').click();
-  await card('colorful').locator('.companion-log pre').filter({hasText:'Compiling colorful-cli'}).waitFor();
+  await card('colorful').locator('[data-companion-log] [data-slot=collapsible-trigger]').click();
+  await card('colorful').locator('[data-companion-log] [data-slot=code-block-content]').filter({hasText:'Compiling colorful-cli'}).waitFor();
   await page.locator('[data-admin-nav=indexes]').click();await page.locator('#recent-runs').waitFor();
   await page.locator('#recent-runs [data-job-state=succeeded]').filter({hasText:'Install Colorful Language'}).first().waitFor();
   const tools=readFileSync(root+'/.fake-tools/calls.jsonl','utf8').trim().split('\n').map(l=>JSON.parse(l));
