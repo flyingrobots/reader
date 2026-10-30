@@ -56,6 +56,10 @@ if args[:2] == ['worktree', 'remove']:
     w = load(); w['heads'].pop(path, None); save(w); sys.exit(0)
 if args[:2] == ['worktree', 'prune']: sys.exit(0)
 if args[:2] == ['status', '--porcelain']: out(w['dirty'].get(cwd, ''))
+if args == ['remote']: out('origin')
+if args[:1] == ['fetch']:
+    if w.get('offline'): print('fatal: unable to access remote', file=sys.stderr); sys.exit(128)
+    w = load(); w['branches'].update(w.get('upstream', {})); save(w); sys.exit(0)
 if args[:1] == ['checkout']:
     w = load(); w['heads'][cwd] = args[-1]; save(w); sys.exit(0)
 print('fake git: unsupported ' + ' '.join(args), file=sys.stderr); sys.exit(2)
@@ -136,7 +140,7 @@ def world(tmp_path, monkeypatch):
         (templates / commit / 'tests/test_web.py').write_text(test)
         (templates / commit / 'tests/web_fixture.py').write_text(FIXTURE)
     file = tmp_path / 'world.json'
-    file.write_text(json.dumps({'calls': [], 'branches': {'preview/integration': GOOD}, 'heads': {}, 'dirty': {},
+    file.write_text(json.dumps({'calls': [], 'branches': {'origin/main': GOOD}, 'heads': {}, 'dirty': {},
                                 'loaded': [], 'kicks': [], 'templates': [GOOD, NEWER, BROKEN, SICK], 'template_root': str(templates),
                                 'unhealthy': [SICK], 'busy': [], 'dns': TAILNET, 'login': LOGIN,
                                 'serve': {'TCP': {'1234': {'TCPForward': '127.0.0.1:1234'}}}}))
@@ -218,9 +222,9 @@ def test_install_writes_agents_with_the_right_keys_and_backs_up_existing_ones(wo
     os.environ['READER_COLORFUL'] = '/opt/example/colorful'
     try:
         result = world.install()
-        world.edit(branches={'preview/integration': NEWER})
+        world.edit(branches={'origin/main': NEWER})
         assert world.run('update')['outcome'] == 'updated', 'locked checkouts ignore a host GIT_LOCKS_STORE'
-        world.edit(branches={'preview/integration': GOOD})
+        world.edit(branches={'origin/main': GOOD})
         assert world.run('update')['outcome'] == 'updated'
     finally:
         del os.environ['GIT_LOCKS_STORE'], os.environ['READER_COLORFUL']
@@ -288,7 +292,7 @@ def test_install_refuses_a_port_held_by_another_process_and_a_failing_source(wor
         other.bind(('127.0.0.1', 0)); other.listen()
         result = world.run('install', '--repo', str(world.repo), '--vault', str(world.vault), '--port', str(other.getsockname()[1]), expect=1)
         assert 'already in use' in result['error']
-    world.edit(branches={'preview/integration': BROKEN})
+    world.edit(branches={'origin/main': BROKEN})
     result = world.run('install', '--repo', str(world.repo), '--vault', str(world.vault), '--port', str(world.port), expect=1)
     assert 'failed its smoke test' in result['error']
     assert not (world.home / 'Library/LaunchAgents/com.flyingrobots.reader.web.plist').exists()
@@ -298,13 +302,13 @@ def test_install_refuses_a_port_held_by_another_process_and_a_failing_source(wor
 def test_update_advances_only_after_the_smoke_test_passes(world):
     world.install()
     assert world.run('update')['outcome'] == 'current'
-    world.edit(branches={'preview/integration': BROKEN})
+    world.edit(branches={'origin/main': BROKEN})
     kicks = len(world.state['kicks'])
     result = world.run('update')
     assert result['outcome'] == 'smoke-failed' and result['steps'][0] == {'step': 'pytest', 'ok': False, 'detail': result['steps'][0]['detail']}
     assert world.state['heads'][str(world.home / 'Library/Application Support/Reader/live')] == GOOD and len(world.state['kicks']) == kicks
     assert world.run('update')['outcome'] == 'skipped', 'a failed commit is not retested every interval'
-    world.edit(branches={'preview/integration': NEWER})
+    world.edit(branches={'origin/main': NEWER})
     result = world.run('update')
     assert result['outcome'] == 'updated' and result['from'] == GOOD and result['to'] == NEWER
     assert world.state['heads'][str(world.home / 'Library/Application Support/Reader/live')] == NEWER
@@ -321,7 +325,7 @@ def test_update_advances_only_after_the_smoke_test_passes(world):
 
 def test_update_rolls_back_when_the_restarted_server_is_unhealthy(world):
     world.install()
-    world.edit(branches={'preview/integration': SICK})
+    world.edit(branches={'origin/main': SICK})
     result = world.run('update')
     assert result['outcome'] == 'rolled-back' and result['to'] == SICK
     assert world.state['heads'][str(world.home / 'Library/Application Support/Reader/live')] == GOOD
@@ -331,7 +335,7 @@ def test_update_rolls_back_when_the_restarted_server_is_unhealthy(world):
 
 def test_update_waits_while_a_chat_turn_or_inbox_run_is_active(world, monkeypatch):
     world.install()
-    world.edit(branches={'preview/integration': NEWER}, busy=[{'kind': 'inbox', 'label': 'Inbox run'}])
+    world.edit(branches={'origin/main': NEWER}, busy=[{'kind': 'inbox', 'label': 'Inbox run'}])
     monkeypatch.setenv('READER_SERVICE_BUSY_WAIT', '0.5')
     kicks = len(world.state['kicks'])
     result = world.run('update')
@@ -350,7 +354,7 @@ def test_update_waits_while_a_chat_turn_or_inbox_run_is_active(world, monkeypatc
 
 def test_pause_resume_request_update_and_a_dirty_live_worktree(world):
     world.install()
-    world.edit(branches={'preview/integration': NEWER})
+    world.edit(branches={'origin/main': NEWER})
     assert world.run('pause') == {'paused': True}
     assert world.run('update')['outcome'] == 'paused'
     assert world.run('request-update')['requested'] is True
@@ -431,8 +435,30 @@ def test_install_and_update_work_without_git_locks(world, monkeypatch):
     result = world.install()
     assert result['installed'] and result['commit'] == GOOD
     assert 'git_locks' not in world.service_state()['executables']
-    world.edit(branches={'preview/integration': NEWER})
+    world.edit(branches={'origin/main': NEWER})
     assert world.run('update')['outcome'] == 'updated'
     assert world.state['heads'][str(world.home / 'Library/Application Support/Reader/live')] == NEWER
     assert world.calls('git-locks') == [] and any('checkout' in c for c in world.calls('git'))
     assert (world.home / 'Library/Application Support/Reader/git.lock').is_file()
+
+
+def test_update_fetches_a_remote_tracking_source_and_survives_being_offline(world):
+    """origin/main follows what was pushed: the updater fetches it, under the repo `.git/` lock, before resolving."""
+    world.install()
+    world.edit(upstream={'origin/main': NEWER})
+    result = world.run('update')
+    assert result['outcome'] == 'updated' and result['to'] == NEWER
+    fetches = [c for c in world.calls('git-locks') if 'fetch' in c]
+    assert fetches and all('.git/' in c for c in fetches)
+    assert fetches[-1][-2:] == ['origin', '+refs/heads/main:refs/remotes/origin/main']
+    world.edit(offline=True, upstream={'origin/main': GOOD})
+    assert world.run('update')['outcome'] == 'current', 'offline, it keeps following the last fetched commit'
+    log = [json.loads(line) for line in (world.home / 'Library/Logs/Reader/updates.jsonl').read_text().splitlines()]
+    assert log[-1]['outcome'] == 'fetch-failed' and log[-1]['following'] == NEWER and 'unable to access' in log[-1]['error']
+
+
+def test_a_local_branch_source_is_not_fetched(world):
+    world.edit(branches={'origin/main': GOOD, 'preview/integration': GOOD})
+    world.install('--source', 'preview/integration')
+    world.run('update')
+    assert not [c for c in world.calls('git-locks') + world.calls('git') if 'fetch' in c]

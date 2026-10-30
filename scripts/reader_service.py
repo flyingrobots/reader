@@ -29,7 +29,7 @@ import uuid
 WEB_LABEL = 'com.flyingrobots.reader.web'
 UPDATER_LABEL = 'com.flyingrobots.reader.updater'
 LABELS = (WEB_LABEL, UPDATER_LABEL)
-DEFAULT_SOURCE = 'preview/integration'
+DEFAULT_SOURCE = 'origin/main'
 DEFAULT_PORT = 8766
 INTERVAL = 600
 LOG_LIMIT = 16 * 1024**2
@@ -242,6 +242,17 @@ def locked_git(state, note, *args, timeout=300):
 
 def resolve(state, ref):
     return git(state, '-C', state['repo'], 'rev-parse', '--verify', '--end-of-options', ref + '^{commit}').stdout.strip()
+
+
+def refresh_source(state):
+    """Fetch the branch a remote-tracking source (origin/main) names, so pushed commits reach the updater.
+    Returns None, or the fetch error: offline, the updater keeps following the last fetched commit."""
+    remote, _, branch = state['source'].partition('/')
+    if not branch or remote not in git(state, '-C', state['repo'], 'remote', check=False).stdout.split():
+        return None
+    result = repo_locked(state, 'reader service fetch', [executable('git', state), '-C', state['repo'], 'fetch', '--quiet', remote,
+                                                         f'+refs/heads/{branch}:refs/remotes/{remote}/{branch}'], 120, state['repo'])
+    return None if result.returncode == 0 else ((result.stderr or result.stdout).strip()[-300:] or f'exit {result.returncode}')
 
 
 def live_head(state):
@@ -461,10 +472,13 @@ def update(args):
         if state.get('paused') and not explicit:
             return {'outcome': 'paused'}
         current = live_head(state)
+        fetch_error = refresh_source(state)
         try:
             target = resolve(state, state['source'])
         except ServiceError as exc:
-            return record({'outcome': 'source-missing', 'source': state['source'], 'error': str(exc)[:300]})
+            return record({'outcome': 'source-missing', 'source': state['source'], 'error': str(exc)[:300]} | ({'fetch_error': fetch_error} if fetch_error else {}))
+        if fetch_error:
+            record({'outcome': 'fetch-failed', 'source': state['source'], 'error': fetch_error, 'following': target})
         if target == current:
             result = {'outcome': 'current', 'commit': current}
             return record(result) if explicit else result
@@ -566,8 +580,9 @@ def install(args):
     web = agent_info(state, WEB_LABEL)
     if not web['loaded'] and probe(state['port']) is None and port_busy(state['port']):
         raise ServiceError(f'Port {state["port"]} is already in use by another process; stop it or pass --port')
+    fetch_error = refresh_source(state)
     target = resolve(state, state['source'])
-    report = {'source_commit': target}
+    report = {'source_commit': target} | ({'fetch_error': fetch_error} if fetch_error else {})
     live = Path(state['live'])
     if not live.exists():
         if not args.skip_smoke:

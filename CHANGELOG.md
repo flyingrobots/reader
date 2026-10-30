@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- The Reader service follows `origin/main` by default and fetches it before each install and update, so the preview shows what was pushed. Fetches take the repo `.git/` lock; offline, the updater keeps the last fetched commit and logs `fetch-failed`. Previously it followed the local `preview/integration` branch and never fetched.
 - The committed web bundle is checked against its sources: `tests/test_controls_bundle.py` fails on a forgotten rebuild, a hand-edited output or a leftover chunk, using the hashes `build-meta.json` already records. `.gitattributes` marks `controls/` as generated, with a `reader-bundle` merge driver that keeps one side for a rebuild instead of writing conflict markers (see docs/web.md).
 - Three browser suites pass again on main: the help and command-line tests follow `:themes` and display labels, Read next is checked by order, and palette-only themes may use one mode color.
 - The shadcn sweep continues past Admin:

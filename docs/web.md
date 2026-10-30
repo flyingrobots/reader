@@ -3974,7 +3974,7 @@ Defaults: the repo is the checkout's common Git repository (the main
 `reader-code`), the interpreter `REPO/.venv/bin/python`, the vault `READER_ROOT`
 or `REPO/.reader/config.json`, the live worktree the existing install recorded
 (else `~/Library/Application Support/Reader/live`, outside any checkout), the
-source `preview/integration` and the port 8766. Executable paths (launchctl,
+source `origin/main` (what has been pushed) and the port 8766. Executable paths (launchctl,
 tailscale, git, git-locks) are resolved at install and recorded; tailscale and
 git-locks are optional, and without git-locks the script's Git changes serialize on
 `~/Library/Application Support/Reader/git.lock` (`READER_SERVICE_GIT_LOCKS=none` hides it);
@@ -3995,6 +3995,14 @@ changes take the repo `.git/` key in the repository's default git-locks store, w
 `updater.log` and `updates.jsonl`, each rotated by copy-and-truncate at 16 MiB with
 three generations, checked on every updater run. State and backups live in
 `~/Library/Application Support/Reader/` (`service.json`, `backups/`).
+
+**Following a pushed branch.** When the source names a remote-tracking branch
+(`origin/main`), install and every update first fetch that one branch under the repo
+`.git/` lock, so commits pushed from any checkout reach the preview. A failed fetch is
+logged as `fetch-failed` with the commit still followed, and the update continues
+from the last fetched commit. A local branch source (`--source my-branch`) is never
+fetched. To change the source of an existing install, run `install --source REF`
+again; it keeps the recorded paths and backups.
 
 **The update gate.** Runs hold `update.lock` so they never overlap.
 
