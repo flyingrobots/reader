@@ -448,7 +448,8 @@ never bring items back. The current ranks:
 
 A new status item declares its own priority; one without a declaration gives way
 first, so it can never push the mode or Backstage off screen. Media queries only
-compact labels: below 700 px Backstage and the dark-mode switch drop their text, and
+compact labels: below 700 px Backstage drops its text and the dark-mode switch is hidden (the
+theme picker beside it still offers every light and dark variant), and
 below 520 px the version chip drops its icon and speech drops its label. CSS
 breakpoints alone cannot choose what stays, because they see the viewport, not how
 wide the breadcrumb, speech label or version chip is; the line also cannot clip or

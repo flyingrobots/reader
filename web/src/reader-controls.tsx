@@ -91,7 +91,7 @@ function QuickThemePicker({model,actions}:{model:Model;actions:Actions}){
         <SelectGroup>{items.map(item=><SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>)}</SelectGroup>
       </SelectContent>
     </Select>
-    <Label className="shrink-0 cursor-pointer gap-0 px-1.5 text-[10px] font-normal max-[700px]:px-[3px]" data-theme-toggle=""><Switch id="theme-swap" size="sm" className="max-[700px]:after:-inset-x-[3px]" aria-label="Dark mode" checked={dark(model.theme)} onCheckedChange={checked=>{if(checked!==dark(model.theme))actions.theme();}}/><span className="ml-[7px] max-[700px]:hidden">Dark</span></Label>
+    <Label className="shrink-0 cursor-pointer gap-0 px-1.5 text-[10px] font-normal max-[700px]:hidden" data-theme-toggle=""><Switch id="theme-swap" size="sm" aria-label="Dark mode" checked={dark(model.theme)} onCheckedChange={checked=>{if(checked!==dark(model.theme))actions.theme();}}/><span className="ml-[7px]">Dark</span></Label>
   </div>;
 }
 
