@@ -13,7 +13,6 @@ import {installSearch} from './search-page.mjs';
 import {installProseColors} from './prose-colors.mjs';
 import {installQueue} from './queue.mjs';
 import {libraryModel} from './dashboard.mjs';
-import {drawArrivalCalendar,drawReadingTopics,mountShelves} from './library-charts.mjs';
 import {DEFAULT_EXCLUDED_TYPES,currentIssue,isoWeek,issueWindow,issueWeeks,selectIssue,mountMagazine} from './magazine.mjs';
 import {THEMES,oppositeTheme} from './themes.mjs';
 import {calloutPlugin} from './callouts.mjs';
@@ -445,8 +444,6 @@ const library={
   open:(path,{thread=null,split=false}={})=>{if(split&&path?.startsWith('library/')){openInSplit('#read='+param(path));return;}navigate(path,{thread});},
   picker:()=>openPicker('all'),settings:()=>openSettings(),
   tooltip:(event,title,detail)=>showChartTooltip(event,title,detail),hideTooltip:()=>hideChartTooltip(),
-  // The gallery charts (library-charts.mjs) the page draws for the arrival calendar, reading by topic and the shelves.
-  charts:{drawArrivalCalendar,drawReadingTopics,mountShelves},
 };
 function showChartTooltip(event,title,detail='') {
   const tip=$('#chart-tooltip'); tip.replaceChildren();

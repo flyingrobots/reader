@@ -11,16 +11,14 @@ import {Notice} from '@/theme/molecules/notice';
 import {EmptyState} from '@/theme/molecules/states';
 import {StatusCard} from '@/theme/organisms/status-card';
 import {CardGrid} from '@/theme/templates/card-grid';
-import {drawChart, palette, type ChartRow, type LibraryWork, type Panel} from './library-charts';
+import {calendar as drawCalendar, drawChart, palette, type ChartRow, type LibraryWork, type Panel} from './library-charts';
+import {Shelves} from './shelves';
 
 type Total={key:string;value:number;label:string;works?:LibraryWork[];panel?:string};
 type Pending={id:string;path:string;owner:string;quote:string;comments:string;at:string};
 export type LibraryModel={participant:string;catalog:string;today:string;day:string;works:LibraryWork[];undated:number;panels:Panel[];totals:Total[];pending:Pending[]};
 export type LibraryActions={model:()=>LibraryModel|null;open:(path:string,options?:{thread?:string|null;split?:boolean})=>void;picker:()=>void;settings:()=>void;
-  tooltip:(event:Event,title:string,detail:string)=>void;hideTooltip:()=>void;charts:GalleryCharts};
-type Hooks={mount:HTMLElement;works:LibraryWork[];select:(label:string,works:LibraryWork[],key?:string)=>void;showTooltip:(event:Event,title:string,detail:string)=>void;hideTooltip:()=>void};
-/** The gallery charts in web_ui/library-charts.mjs, passed in by app.mjs. */
-type GalleryCharts={drawArrivalCalendar:(options:Hooks&{today:string})=>void;drawReadingTopics:(options:Hooks)=>void;mountShelves:(options:Hooks&{navigate:(path:string)=>void})=>{reset:()=>void}};
+  tooltip:(event:Event,title:string,detail:string)=>void;hideTooltip:()=>void};
 type Selection={key:string;label:string;works:LibraryWork[]}|null;
 
 const motion=()=>matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth';
@@ -28,24 +26,25 @@ const newest=(works:LibraryWork[])=>[...works].sort((a,b)=>(b.date||'').localeCo
 
 function Chart({panel,choose,actions,works,selected,today}:{panel:Panel;choose:(key:string,row:ChartRow)=>void;actions:LibraryActions;works:LibraryWork[];selected:string|null;today:string}){
   const mount=useRef<HTMLDivElement>(null),latest=useRef({choose,actions});latest.current={choose,actions};
-  const shelves=useRef<{reset:()=>void}|null>(null),[calendar,setCalendar]=useState(false);
-  useEffect(()=>{if(!mount.current)return;const element=mount.current;
-    const hooks:Hooks={mount:element,works,select:(label,items,key=panel.id+':'+label)=>latest.current.choose(key,{key,label,value:items.length,works:items}),
-      showTooltip:(event,title,detail)=>latest.current.actions.tooltip(event,title,detail),hideTooltip:()=>latest.current.actions.hideTooltip()};
-    const charts=latest.current.actions.charts;
-    if(panel.kind==='shelves'){shelves.current=charts.mountShelves({...hooks,navigate:path=>latest.current.actions.open(path)});return ()=>{hooks.hideTooltip();element.replaceChildren();};}
-    if(panel.kind==='reading-topics'){charts.drawReadingTopics(hooks);return ()=>{hooks.hideTooltip();element.replaceChildren();};}
-    if(panel.calendar&&calendar){charts.drawArrivalCalendar({...hooks,today});return ()=>{hooks.hideTooltip();element.replaceChildren();};}
-    return drawChart(element,panel,{works,choose:row=>latest.current.choose(panel.id+':'+row.key,row),open:path=>latest.current.actions.open(path),
-      tooltip:(event,title,detail)=>latest.current.actions.tooltip(event,title,detail),hideTooltip:()=>latest.current.actions.hideTooltip()});},[panel,works,calendar,today]);
-  // The gallery charts mark their own choices; mirror the page's selection onto them.
+  const [calendar,setCalendar]=useState(false),[reset,setReset]=useState(0);
+  useEffect(()=>{if(!mount.current||panel.kind==='shelves')return;const element=mount.current;
+    const hooks={works,today,choose:(row:ChartRow)=>latest.current.choose(panel.id+':'+row.key,row),open:(path:string)=>latest.current.actions.open(path),
+      tooltip:(event:Event,title:string,detail:string)=>latest.current.actions.tooltip(event,title,detail),hideTooltip:()=>latest.current.actions.hideTooltip()};
+    if(panel.calendar&&calendar){drawCalendar(element,panel,hooks);return ()=>{hooks.hideTooltip();element.replaceChildren();};}
+    return drawChart(element,panel,hooks);},[panel,works,calendar,today]);
+  // D3 draws its marks outside React; mirror the page's selection onto them.
   useEffect(()=>{mount.current?.querySelectorAll<HTMLElement>('[data-chart-choice]').forEach(el=>el.setAttribute('aria-pressed',String(el.dataset.chartChoice===selected)));});
   const legend=panel.kind==='donut';
-  const action=panel.kind==='shelves'?<Button id="atlas-reset" variant="ghost" size="xs" onClick={()=>{shelves.current?.reset();choose('',{key:'',label:'',value:0,works:[]});}}>Reset</Button>
+  const action=panel.kind==='shelves'?<Button id="atlas-reset" variant="ghost" size="xs" onClick={()=>{setReset(reset+1);choose('',{key:'',label:'',value:0,works:[]});}}>Reset</Button>
     :panel.calendar?<Button id="arrivals-view" variant="ghost" size="xs" aria-pressed={calendar} aria-label={calendar?'Show weekly arrivals':'Show arrival calendar'} onClick={()=>{actions.hideTooltip();setCalendar(!calendar);}}>{calendar?'Weekly':'Calendar'}</Button>:null;
   return <StatusCard id={'panel-'+panel.id} data-stat-panel={panel.id} titleId={'title-'+panel.id} title={panel.title} description={panel.note} badge={action}>
     <div className={legend?'grid items-center gap-3 sm:grid-cols-[minmax(0,11rem)_1fr]':''}>
-      <div ref={mount} id={'chart-'+panel.id} data-chart-mount="" className={cn('chart-mount min-w-0 [&_svg]:block [&_svg]:h-auto [&_svg]:w-full',legend&&'mx-auto w-full max-w-44')}/>
+      {panel.kind==='shelves'?<div id={'chart-'+panel.id} data-chart-mount="" className="min-w-0">
+        <Shelves key={reset} works={works} open={path=>actions.open(path)} select={(key,label,items)=>choose(panel.id+':'+key,{key,label,value:items.length,works:items})}
+          tooltip={actions.tooltip} hideTooltip={actions.hideTooltip}/></div>
+        :<div ref={mount} id={'chart-'+panel.id} data-chart-mount="" className={cn('chart-mount min-w-0 [&_svg]:block [&_svg]:h-auto [&_svg]:w-full',legend&&'mx-auto w-full max-w-44')}/>}
+      {panel.kind==='reading-topics'?<div className="flex justify-center gap-4 pt-1 text-xs" data-chart-series-key="">{['Read','Unread'].map((label,i)=>
+        <span key={label} className="border-b-4 px-1 py-0.5" style={{borderColor:palette[i]}}>{label}</span>)}</div>:null}
       {legend?<div className="flex flex-col gap-0.5" role="group" aria-label={panel.title+' legend'}>{panel.rows.map((row,i)=>{const key=panel.id+':'+row.key;
         return <Button key={row.key} variant={selected===key?'secondary':'ghost'} size="xs" className="justify-start" data-chart-choice={key} aria-pressed={selected===key} onClick={()=>choose(key,row)}>
           <span aria-hidden data-chart-swatch="" className="size-2 shrink-0 rounded-full" style={{background:palette[i%palette.length]}}/><span className="min-w-0 flex-1 truncate text-left">{row.label}</span><span className="tabular-nums text-muted-foreground">{row.value.toLocaleString()}</span></Button>;})}</div>:null}

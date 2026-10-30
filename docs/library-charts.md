@@ -80,8 +80,12 @@ The view has no decorative motion and honors Reader’s existing theme tokens.
 
 ## Implementation and checks
 
-`web_ui/library-charts.mjs` owns grouping and rendering; `dashboard.mjs` connects
-its selections to the existing editions list. D3 is shipped locally. No gallery
+The data helpers (`arrivalCalendar`, `readingTopics`, `shelfHierarchy`) are pure
+functions in `web/src/admin/pages/gallery-model.ts`. `library-charts.ts` draws the
+calendar and reading-by-topic marks with D3; `shelves.tsx` is the shelves component:
+a shadcn Breadcrumb trail, a NativeSelect listing every child shelf or work, and the
+D3 icicle. The Library page (`library.tsx`) connects their selections to the editions
+list, and `dashboard.mjs`'s `libraryModel` supplies the panels. D3 is shipped locally. No gallery
 iframe, CDN fetch, automatic catalog rebuild, or source-file mutation is needed.
 Names enter SVG and picker labels as text, not trusted HTML. The reusable data
 helpers accept catalog works, preserving grouped-work and first-label counting.

@@ -348,8 +348,9 @@ body:has(#changes-panel[data-side=right]) [data-slot=sheet-overlay] { display: n
 .job-summary { display: grid; gap: 6px; min-width: 0; padding-top: 8px; border-top: 1px solid var(--line); }
 .job-detail { display: grid; gap: 14px; min-width: 0; font-family: var(--sans); }
 
-/* Admin › Library: the atlas's SVG marks (drawn by D3 in admin/pages/library-charts.ts; the other chart marks keep their
-   web_ui/style.css rules). */
-[data-library] .topic-circle { stroke: var(--line); fill: transparent; cursor: pointer; }
-[data-library] .work-dot { cursor: pointer; stroke: var(--surface); stroke-width: .6; }
-[data-library] .work-dot:hover, [data-library] .work-dot:focus-visible { stroke: var(--ink); stroke-width: 1.5; outline: none; }
+/* Admin › Library: SVG marks D3 draws (admin/pages/library-charts.ts and shelves.tsx), which utilities cannot reach.
+   The chart cards, legends, the shelves' Breadcrumb and NativeSelect are components. */
+[data-library] .calendar-count { font: 11px var(--sans); fill: var(--ink); paint-order: stroke fill; stroke: var(--surface); stroke-width: 3px; stroke-linejoin: round; font-variant-numeric: tabular-nums; }
+[data-library] .shelf-cell { cursor: pointer; }
+[data-library] .shelf-cell text { font: 11px var(--sans); fill: var(--ink); }
+[data-library] :is(.topic-reading-segment, .calendar-day)[aria-pressed=true] { stroke: var(--accent); stroke-width: 2px; }

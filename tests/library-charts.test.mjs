@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {arrivalCalendar,readingTopics,shelfHierarchy} from '../src/reader_mcp/web_ui/library-charts.mjs';
+import {arrivalCalendar,readingTopics,shelfHierarchy} from '../web/src/admin/pages/gallery-model.ts';
 import {localizeLibrary} from '../src/reader_mcp/web_ui/logic.mjs';
 
 test('calendar conserves current-window works across Monday, year and leap-day boundaries',()=>{

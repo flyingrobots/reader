@@ -12,7 +12,7 @@ const THEMES=['ink','paper','orchid','orchid-dark','harvest','harvest-dark',...r
   browser=await launch();
   let page=await browser.newPage({viewport:{width:1440,height:1100},reducedMotion:'reduce'}),errors=[];page.on('pageerror',error=>errors.push(error.message));
   await page.goto(url+'/?theme=orchid-dark#admin/library');await page.locator('#backstage-library [data-statistics-grid]').waitFor();await page.waitForTimeout(400);
-  assert.equal(await page.locator('[data-stat-panel]').count(),12);assert.equal(await page.locator('[data-stat-panel] svg').count(),12);
+  assert.equal(await page.locator('[data-stat-panel]').count(),12);assert.equal(await page.locator('[data-stat-panel] svg[role]').count(),12);
   assert.ok(await page.locator('.shelf-cell').count()>0);assert.equal(await page.locator('[data-total="0"] [data-total-value]').textContent(),'14');
   await page.locator('#panel-reading [data-chart-choice]').filter({hasText:'Unread'}).click();assert.equal(await page.locator('#editions-title').textContent(),'Unread');assert.match(await page.locator('#dashboard-selection').textContent(),/14 matching works/);
   const margin=page.locator('[data-margin-item]').filter({hasText:'Bo'}).first();await margin.waitFor();
