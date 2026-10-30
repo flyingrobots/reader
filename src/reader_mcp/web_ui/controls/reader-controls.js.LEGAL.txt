@@ -96,6 +96,7 @@ lucide-react/dist/esm/icons/chevron-down.js:
 lucide-react/dist/esm/icons/chevron-left.js:
 lucide-react/dist/esm/icons/chevron-right.js:
 lucide-react/dist/esm/icons/chevron-up.js:
+lucide-react/dist/esm/icons/circle-alert.js:
 lucide-react/dist/esm/icons/circle-check.js:
 lucide-react/dist/esm/icons/circle-dot.js:
 lucide-react/dist/esm/icons/circle-question-mark.js:
@@ -103,6 +104,7 @@ lucide-react/dist/esm/icons/circle-x.js:
 lucide-react/dist/esm/icons/circle.js:
 lucide-react/dist/esm/icons/clipboard-list.js:
 lucide-react/dist/esm/icons/clipboard-paste.js:
+lucide-react/dist/esm/icons/compass.js:
 lucide-react/dist/esm/icons/copy.js:
 lucide-react/dist/esm/icons/corner-up-left.js:
 lucide-react/dist/esm/icons/cpu.js:

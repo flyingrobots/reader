@@ -1,6 +1,7 @@
 @import "tailwindcss/theme.css" layer(theme);
 @import "tailwindcss/utilities.css" layer(utilities);
 @import "tw-animate-css";
+@import "shadcn/tailwind.css";
 @source "./";
 @custom-variant dark (&:where([data-theme="ink"], [data-theme="ink"] *, [data-theme$="-dark"], [data-theme$="-dark"] *));
 @theme inline {
@@ -33,6 +34,8 @@
   --color-sidebar-border: var(--line);
   --color-sidebar-ring: var(--accent);
   --font-sans: Manrope, Helvetica, sans-serif;
+  --font-serif: var(--serif);
+  --font-mono: var(--mono);
   --radius-sm: 4px;
   --radius-md: 6px;
   --radius-lg: 8px;
@@ -47,6 +50,17 @@
   [data-slot="pagination-link"] { text-decoration: none; }
   [data-slot="code-block-content"] { margin: 0; font-family: var(--mono); font-size: 13px; counter-reset: line; }
   [data-slot="code-block-code"] { font: inherit; background: none; padding: 0; border-radius: 0; white-space: inherit; overflow-wrap: normal; }
+}
+/* Reader Admin's slot preflight. web_ui/style.css orders the layers theme, base, reader-legacy, reader-slots, utilities:
+   Reader's legacy element rules (p and heading margins, heading fonts, small) outrank Tailwind's base layer, so without
+   this a shadcn <p> or <h2> slot inherits page prose spacing. This layer restores what the components expect (no
+   element margins, borders in the theme's line colour) and still loses to every component utility. */
+@layer reader-slots {
+  :where(.reader-admin) :where(p, h1, h2, h3, h4, ol, ul, dl, dd, figure)[data-slot] { margin: 0; }
+  :where(.reader-admin) :where(h1, h2, h3, h4, small)[data-slot] { font: inherit; letter-spacing: inherit; color: inherit; }
+  :where(.reader-admin) :where(ol, ul)[data-slot] { padding: 0; list-style: none; }
+  :where(.reader-admin) :where(a)[data-slot] { color: inherit; text-decoration: inherit; }
+  :where(.reader-admin) :where([data-slot], [data-slot]::before, [data-slot]::after) { border-color: var(--line); }
 }
 @utility scrollbar-thin { scrollbar-width: thin; scrollbar-color: var(--line) transparent; }
 #progress-controls-slot { position: absolute; inset: 0; }
@@ -193,29 +207,11 @@
 .reader-admin { font-family: var(--sans); --admin-status: 33px; }
 .reader-admin [data-slot="sidebar-container"] { bottom: var(--admin-status); height: auto; }
 .reader-admin [data-slot="sidebar-header"] { padding: 18px 16px 6px; }
-.admin-brand { font: 650 15px/1.2 var(--sans); color: var(--ink); text-decoration: none; }
-.admin-brand:focus-visible, .admin-breadcrumb a:focus-visible, .admin-tile-link a:focus-visible, .admin-attention a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 2px; }
 .reader-admin [data-slot="sidebar-menu-button"] { color: var(--ink); text-decoration: none; }
 .reader-admin [data-slot="sidebar-menu-button"][data-active] { background: var(--raised); font-weight: 650; }
 .reader-admin [data-slot="sidebar-menu-button"]:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
 .reader-admin [data-slot="sidebar-menu-button"] svg { width: 16px; height: 16px; flex: none; }
 .reader-admin [data-slot="sidebar-footer"] { padding: 8px 8px 12px; }
-.admin-back-side { justify-content: flex-start; }
-.admin-inset { min-width: 0; background: var(--bg); }
-.admin-header { position: sticky; top: 0; z-index: 5; display: flex; align-items: center; gap: 10px; min-height: 52px; padding: 8px 24px 8px 14px; background: var(--bg); border-bottom: 1px solid var(--line); }
-.admin-header-rule { height: 18px; }
-.admin-breadcrumb { min-width: 0; flex: 1; }
-.admin-breadcrumb ol { display: flex; align-items: center; gap: 8px; list-style: none; margin: 0; padding: 0; font-size: 13px; color: var(--muted); white-space: nowrap; overflow: hidden; }
-.admin-breadcrumb a { color: var(--muted); text-decoration: none; }
-.admin-breadcrumb a:hover { color: var(--ink); text-decoration: underline; }
-.admin-breadcrumb [aria-current] { color: var(--ink); font-weight: 600; overflow: hidden; text-overflow: ellipsis; }
-.admin-content { width: 100%; max-width: 1180px; margin: 0 auto; padding: 32px 48px 96px; }
-.admin-page-head { padding-bottom: 22px; border-bottom: 1px solid var(--line); }
-.admin-page-head h1 { font-family: var(--serif); font-weight: 450; font-size: 40px; line-height: 1.08; margin: 0 0 10px; scroll-margin-top: 64px; }
-.admin-page-head h1:focus { outline: none; }
-.admin-page-head h1:focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; }
-.admin-lede { max-width: 66ch; color: var(--muted); font-size: 14px; line-height: 1.55; margin: 0; }
-.admin-content > .backstage-section:first-of-type, .admin-content > .admin-overview, .admin-content > #backstage-models > .backstage-section:first-child, .admin-content > #backstage-art { margin-top: 28px; }
 .admin-list { margin: 0; padding-left: 18px; display: grid; gap: 6px; font-size: 13px; line-height: 1.45; }
 .admin-attention a { color: var(--ink); }
 .admin-tile-link { margin: 0; font-size: 12px; }
@@ -254,10 +250,7 @@
 .backstage-jobs li[data-job-state=failed] .backstage-job-state { color: var(--warning); }
 .backstage-settings { max-width: 560px; padding: 0 var(--card-spacing); display: grid; gap: 16px; }
 .backstage-settings-foot { display: flex; justify-content: flex-end; padding-bottom: var(--card-spacing); }
-.inbox-mail { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
-.inbox-mail-note { margin: 0; font-size: 13px; color: var(--muted); line-height: 1.45; flex: 1 1 220px; min-width: 0; overflow-wrap: anywhere; }
-.inbox-mail-note .backstage-error, .backstage-message.backstage-error { color: var(--warning); }
-.inbox-card, .activity {
+.activity {
   --activity-text: color-mix(in oklab, var(--muted) 25%, var(--ink));
   --activity-secondary: color-mix(in oklab, var(--muted) 65%, var(--ink));
   --activity-running: color-mix(in oklab, var(--mode-search) 70%, var(--ink));
@@ -267,16 +260,6 @@
 }
 .inbox-card:is([data-run-state=starting], [data-run-state=running]) [data-inbox-badge] { background: color-mix(in oklab, var(--activity-running) 12%, var(--surface)); color: var(--activity-running); border-color: color-mix(in oklab, var(--activity-running) 40%, var(--line)); }
 .inbox-card[data-run-state=finished] [data-inbox-badge] { background: color-mix(in oklab, var(--activity-done) 12%, var(--surface)); color: var(--activity-done); }
-.inbox-run { display: grid; gap: 10px; justify-items: start; padding: 14px; border: 1px solid var(--activity-rule); border-radius: 10px; background: var(--bg); min-width: 0; }
-.inbox-run:has(.activity) .activity { border-top: 0; padding-top: 0; }
-#inbox-stop { color: var(--activity-error); border-color: color-mix(in oklab, var(--activity-error) 55%, var(--line)); }
-.inbox-run > * { max-width: 100%; }
-.inbox-run small { color: var(--muted); }
-.inbox-event { margin: 0; font-family: var(--mono); font-size: 11px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; width: 100%; }
-.inbox-commit { margin: 0; font-size: 12px; overflow-wrap: anywhere; }
-.inbox-commit code { font-family: var(--mono); font-size: 11px; background: var(--surface); padding: 1px 5px; border-radius: 4px; }
-.inbox-report-wrap { width: 100%; }
-.inbox-report-wrap summary { cursor: pointer; font-size: 12px; font-weight: 600; }
 .inbox-report { font-family: var(--serif); font-size: 15px; line-height: 1.55; overflow-wrap: anywhere; max-height: 420px; overflow: auto; margin-top: 8px; }
 .inbox-report :is(h1, h2, h3) { font-size: 17px; margin: 12px 0 6px; }
 .inbox-report :is(ul, ol) { padding-left: 1.3em; margin: 6px 0; }
@@ -284,15 +267,6 @@
 .inbox-report a { color: var(--accent); }
 .inbox-report code { font-family: var(--mono); font-size: 12px; }
 .inbox-report pre { white-space: pre-wrap; }
-.inbox-arrivals { list-style: none; margin: 0; padding: 0; display: grid; }
-.inbox-arrivals li { border-top: 1px solid var(--line); }
-.inbox-arrival { display: grid; gap: 3px; width: 100%; padding: 10px 4px; text-align: left; background: none; border: 0; color: var(--ink); cursor: pointer; font: inherit; border-radius: 6px; min-width: 0; }
-.inbox-arrival:hover, .inbox-arrival:focus-visible { background: var(--raised); outline: none; }
-.inbox-arrival:focus-visible { box-shadow: 0 0 0 2px var(--accent); }
-.inbox-arrival-title { font-family: var(--serif); font-size: 16px; line-height: 1.3; overflow-wrap: anywhere; }
-.inbox-arrival-meta { font-size: 12px; color: var(--muted); overflow-wrap: anywhere; }
-.inbox-source { color: var(--faint); }
-.inbox-arrival-facts { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 11px; color: var(--muted); font-variant-numeric: tabular-nums; }
 /* Local model (Behind the scenes). Calm: muted type, one accent rule for live output, no motion beyond a caret. */
 .lm-lede { max-width: 66ch; color: var(--muted); font-size: 13px; line-height: 1.55; margin: -4px 0 0; }
 .lm-mark { display: block; width: fit-content; margin-top: 8px; font-family: var(--mono); font-size: 10px; letter-spacing: .02em; color: var(--muted); border: 1px solid var(--line); border-radius: 999px; padding: 1px 8px; font-style: normal; }
@@ -436,10 +410,6 @@
 }
 @media (max-width: 700px) {
   .reader-admin { --admin-status: 39px; }
-  .admin-header { padding: 6px 12px 6px 8px; gap: 6px; }
-  .admin-back { padding-inline: 8px; }
-  .admin-content { padding: 22px 16px 88px; }
-  .admin-page-head h1 { font-size: 32px; }
 }
 
 /* Diagrams (Pele). Colors follow Reader tokens through CSS variables, so a theme change recolors without re-rendering. */

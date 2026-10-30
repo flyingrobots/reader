@@ -38,6 +38,7 @@
     "@types/react-dom": "^19",
     "@types/three": "^0.186.0",
     "esbuild": "0.28.2",
+    "shadcn": "4.23.0",
     "tailwindcss": "4.3.3",
     "typescript": "7.0.2"
   }

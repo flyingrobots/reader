@@ -3,7 +3,8 @@
 import {useEffect, useLayoutEffect, useRef} from 'react';
 import {Button} from '../components/ui/button';
 import {Card} from '../components/ui/card';
-import {EditionLinks, Inbox, Indexes} from '../backstage';
+import {EditionLinks, Indexes} from '../backstage';
+import {InboxPage} from './pages/inbox';
 import {LocalModelSection} from '../local-model';
 import {CompanionsSection, AgentsCard} from '../companions';
 import {ServerCard} from '../server-card';
@@ -25,8 +26,8 @@ function Slot({id,mount}:{id:string;mount:(element:HTMLElement)=>void}){
 }
 
 export function InboxPanel({context:c}:Props){
-  return <section className="backstage-section" id="backstage-inbox" aria-label="Inbox">
-    <Inbox status={c.inbox} error={c.inboxError} starting={c.inboxStarting} onMail={c.startInbox} onStop={c.stopInbox} onOpen={c.open} html={c.markdown} activity={c.activity}/>
+  return <section id="backstage-inbox" aria-label="Inbox">
+    <InboxPage status={c.inbox} error={c.inboxError} starting={c.inboxStarting} onMail={c.startInbox} onStop={c.stopInbox} onOpen={c.open} html={c.markdown} activity={c.activity}/>
   </section>;
 }
 

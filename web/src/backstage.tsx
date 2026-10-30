@@ -1,9 +1,6 @@
-/* Reader Admin panels: index freshness and on-demand rebuilds, and the inbox. */
+/* Reader Admin: maintenance and inbox status types and helpers shared with the pages under admin/pages/. */
 import {useEffect, useState, type ReactNode} from 'react';
-import {Loader2Icon, MailIcon, SquareIcon} from 'lucide-react';
-import {toast} from 'sonner';
-import {ActivityTranscript} from './activity/transcript';
-import type {ActivityModel} from './reader-controls';
+import {Loader2Icon} from 'lucide-react';
 import {Badge} from './components/ui/badge';
 import {Button} from './components/ui/button';
 import {ButtonGroup} from './components/ui/button-group';
@@ -151,59 +148,4 @@ export {summary as jobOutcome};
 export type Arrival={id:string;path:string;bundle:boolean;document:string;title:string;source:string|null;project:string|null;author:string|null;report_date:string|null;request_id:string|null;integrity:'intact'|'changed'|null;receipt_error:string|null;files:number;bytes:number;received_at:string|null};
 export type InboxRun={status:string;run_id:string|null;started_at:string|null;updated_at:string|null;finished_at:string|null;message:string;arrivals:number|null;remaining:number|null;exit_code:number|null;sandbox_mode:string|null;event?:string|null;report_md?:string|null;report_truncated?:boolean;commit?:{hash:string;short:string;subject:string}|null};
 export type InboxStatus={arrivals:Arrival[];runner:InboxRun|null;claims_held:string[];codex:{name:string;installed:boolean};errors:string[];blocked:{reason:string;message:string}|null};
-const ACTIVE_RUN=['starting','running'];
-const RUN_STATES:Record<string,{label:string;variant:'secondary'|'outline'|'destructive'|'default'}>={
-  starting:{label:'Starting…',variant:'default'},running:{label:'Librarian reading',variant:'default'},finished:{label:'Filed',variant:'secondary'},
-  empty:{label:'Nothing to file',variant:'outline'},stopped:{label:'Stopped',variant:'outline'},failed:{label:'Failed',variant:'destructive'},interrupted:{label:'Interrupted',variant:'destructive'}};
-export function size(bytes:number){return bytes<1024?bytes+' B':bytes<1024**2?(bytes/1024).toFixed(1)+' KB':(bytes/1024**2).toFixed(1)+' MB';}
-function Clock({since}:{since:string}){
-  const [, tick]=useState(0);useEffect(()=>{const timer=setInterval(()=>tick(n=>n+1),1000);return ()=>clearInterval(timer);},[]);
-  const seconds=Math.max(0,Math.round((Date.now()-+new Date(since))/1000));return <time dateTime={`PT${seconds}S`}>{Math.floor(seconds/60)}:{String(seconds%60).padStart(2,'0')}</time>;
-}
-function Report({markdown,html,onOpen}:{markdown:string;html:(text:string)=>string;onOpen:(path:string)=>void}){
-  // Sanitized by DOMPurify; vault links open in the reader, others in a new tab.
-  const click=(event:React.MouseEvent<HTMLDivElement>)=>{
-    const link=(event.target as HTMLElement).closest('a');if(!link)return;event.preventDefault();
-    const href=link.getAttribute('href')||'';
-    if(/^https?:/i.test(href)){window.open(href,'_blank','noopener,noreferrer');return;}
-    const path=decodeURIComponent(href.split('#')[0]);
-    if(/^(library|inbox)\//.test(path))onOpen(path);else toast(`${path} is outside the library; open it in the vault.`);
-  };
-  return <div id="inbox-report" className="inbox-report" data-reader-decoration="" onClick={click} dangerouslySetInnerHTML={{__html:html(markdown)}}/>;
-}
-export function Inbox({status,error=null,starting,onMail,onStop,onOpen,html,activity}:{status:InboxStatus|null;error?:string|null;starting:boolean;onMail:()=>void;onStop:()=>void;onOpen:(path:string)=>void;html:(text:string)=>string;activity:ActivityModel|null}){
-  const arrivals=status?.arrivals||[],run=status?.runner,active=starting||ACTIVE_RUN.includes(run?.status||''),blocked=status?.blocked;
-  const state=starting&&!active?RUN_STATES.starting:run?RUN_STATES[run.status]||{label:run.status,variant:'outline' as const}:null;
-  const disabled=!status||starting||!!blocked;
-  const report=()=>{const details=document.getElementById('inbox-report-wrap') as HTMLDetailsElement|null;if(details){details.open=true;details.scrollIntoView({block:'start',behavior:'smooth'});}};
-  const transcript=activity?.run?<ActivityTranscript activity={activity.activity} run={activity.run} live={active||!activity.done} html={html} onOpen={onOpen} onReport={run?.report_md?report:undefined}/>:null;
-  return <Card size="sm" className="backstage-card inbox-card" id="inbox" data-run-state={starting?'starting':run?.status||'none'} data-state={status?'ready':error?'unavailable':'loading'} aria-labelledby="inbox-title">
-    <CardHeader><CardTitle id="inbox-title">Inbox</CardTitle>
-      <CardDescription>{!status?(error?<span className="backstage-error" id="inbox-unavailable">Couldn’t read the inbox: {error}</span>:'Looking in the inbox…'):arrivals.length?`${plural(arrivals.length,'arrival')} waiting to be filed. Opening one previews it; it is not marked read.`:'No arrivals are waiting.'}</CardDescription>
-      {state?<CardAction><Badge variant={state.variant} className="backstage-badge" data-inbox-badge="">{active?<Loader2Icon data-icon="inline-start" className="animate-spin" aria-hidden/>:null}{state.label}</Badge></CardAction>:null}</CardHeader>
-    <CardContent>
-      <div className="inbox-mail">
-        <Button id="inbox-mail" size="lg" disabled={disabled} {...localOnly()} onClick={onMail} aria-describedby="inbox-mail-note">{active?<Loader2Icon data-icon="inline-start" className="animate-spin" aria-hidden/>:<MailIcon data-icon="inline-start" aria-hidden/>}You got mail</Button>
-        <p id="inbox-mail-note" className="inbox-mail-note">{active?'The librarian is reading the mail.':blocked?<span id="inbox-blocked" data-reason={blocked.reason} className={['interrupted','error','codex'].includes(blocked.reason)?'backstage-error':''}>{blocked.message}</span>:needsReader()?`Filing ${plural(arrivals.length,'arrival')} needs Reader on your computer, where a librarian voice reads the mail.`:`Ask the librarian to file ${plural(arrivals.length,'arrival')}.`}</p>
-      </div>
-      {active?<div className="inbox-run" aria-live="polite">
-        {!transcript?<p className="backstage-message">{starting&&!run?.started_at?'Starting the librarian…':<>Running for {run?.started_at?<Clock since={run.started_at}/>:'…'}{run?.arrivals?<> · {plural(run.arrivals,'arrival')}</>:null}{run?.sandbox_mode==='danger-full-access'?' · Host access':''}</>}</p>
-          :run?.sandbox_mode==='danger-full-access'?<p className="backstage-message">Host access</p>:null}
-        {transcript||(run?.event?<p className="inbox-event" title={run.event}>{run.event}</p>:null)}
-        <Button id="inbox-stop" variant="outline" size="sm" disabled={starting&&!run?.started_at} onClick={onStop}><SquareIcon data-icon="inline-start" aria-hidden/>Stop</Button>
-      </div>:run&&!ACTIVE_RUN.includes(run.status)?<div className="inbox-run" data-finished="">
-        <p className={'backstage-message'+(['failed','interrupted'].includes(run.status)?' backstage-error':'')} id="inbox-run-message">{run.message}{run.finished_at?<small> · {when(run.finished_at)}</small>:null}</p>
-        {run.commit?<p className="inbox-commit">Commit <code>{run.commit.short}</code> {run.commit.subject}</p>:null}
-        {run.report_md?<details className="inbox-report-wrap" id="inbox-report-wrap" open={run.status==='finished'}><summary>Librarian’s report{run.report_truncated?' (last 256 KiB)':''}</summary><Report markdown={run.report_md} html={html} onOpen={onOpen}/></details>:null}
-        {transcript}
-      </div>:null}
-      {arrivals.length?<ol className="inbox-arrivals" aria-label="Arrivals waiting in the inbox">{arrivals.map(arrival=><li key={arrival.id}>
-        <button type="button" className="inbox-arrival" data-arrival={arrival.id} onClick={()=>onOpen(arrival.document)}>
-          <span className="inbox-arrival-title">{arrival.title}</span>
-          <span className="inbox-arrival-meta">{[arrival.author,arrival.project,arrival.report_date].filter(Boolean).join(' · ')}{arrival.source?<span className="inbox-source"> via {arrival.source}</span>:null}</span>
-          <span className="inbox-arrival-facts">{arrival.integrity?<Badge variant={arrival.integrity==='intact'?'secondary':'destructive'} data-integrity={arrival.integrity}>{arrival.integrity==='intact'?'Receipt intact':'Changed since delivery'}</Badge>:<Badge variant="outline" data-integrity="none" title={arrival.receipt_error||undefined}>{arrival.receipt_error?'Unreadable receipt':'No receipt'}</Badge>}
-            <span>{plural(arrival.files,'file')} · {size(arrival.bytes)}{arrival.received_at?<> · {when(arrival.received_at)}</>:null}</span></span>
-        </button></li>)}</ol>:null}
-    </CardContent>
-  </Card>;
-}
+export {size} from './admin/pages/inbox';
