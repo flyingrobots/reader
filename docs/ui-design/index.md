@@ -13,3 +13,4 @@ Reader Admin's pages have their sheets in [admin-design/](../admin-design/index.
 | Article prompt card | `web/src/jobs/prompt-card.tsx` | shadcn: [prompt-card.md](prompt-card.md) |
 | Quiz | `web/src/quiz.tsx` | shadcn: [quiz.md](quiz.md) |
 | Writing prompt | `web/src/writing-prompt.tsx` | shadcn: [writing-prompt.md](writing-prompt.md) |
+| What changed | `web/src/changes-panel.tsx` | shadcn: [changes.md](changes.md) |
