@@ -1147,7 +1147,7 @@ build up through atomic tiers in `web/src/theme/`:
 | Organisms | `theme/organisms/` | `StatusCard` (full Card composition), `RunList` (ItemGroup), `ConfirmAction` (AlertDialog) |
 | Templates | `theme/templates/` | `AdminHeader` (sidebar trigger, Breadcrumb, Back to Library), `AdminPage` (focusable h1, lede, Separator), `CardGrid` |
 
-Pages live in `web/src/admin/pages/` (Inbox, Indexes, Coding jobs, LLM logs, Repositories, Voices), with Overview in
+Pages live in `web/src/admin/pages/` (Inbox, Indexes, Coding jobs, LLM logs, Repositories, Voices, Library), with Overview in
 `web/src/admin/overview.tsx` and the larger sections in their feature files (`local-model.tsx`, `server-card.tsx`,
 `companions.tsx`, `art-studio.tsx`, and `SettingsForm` in `reader-controls.tsx`). Each page has a design sheet in
 [`admin-design/`](admin-design/index.md) that states its focused activity, layout, composition, states and test hooks.
@@ -1210,9 +1210,10 @@ check runs, and otherwise every 15 seconds while the tab is visible, so toasts a
 appear while you read elsewhere in the app. Every other app message, such as saved
 replies and errors, uses the same Toaster.
 
-The **Library** page holds the statistics dashboard that used to be the
-homepage, unchanged (see [Search, dashboard and shared discussion](#search-dashboard-and-shared-discussion)).
-The page owns the header, so the dashboard's own masthead is omitted there.
+The **Library** page holds the reading statistics that used to be the homepage (see
+[Search, dashboard and shared discussion](#search-dashboard-and-shared-discussion)): six totals, the chart cards, the
+works behind a selection, and unread discussion. It is a React page: `web_ui/dashboard.mjs` computes the model
+(`libraryModel`) and `web/src/admin/pages/library.tsx` renders it, drawing the charts with D3.
 
 When a request cannot reach the server at all (stopped, restarting, or the laptop
 slept), the app shows one toast, *Reader isn’t reachable — retrying…*, with a

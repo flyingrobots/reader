@@ -13,7 +13,7 @@ Each Admin page has a design sheet. A sheet states the page's focused activity (
 | Inbox | `#admin/inbox` | [inbox.md](inbox.md) |
 | Indexes | `#admin/indexes` | [indexes.md](indexes.md) |
 | Artwork | `#admin/artwork` | [artwork.md](artwork.md) |
-| Library | `#admin/library` | [library.md](library.md) (target; the dashboard is not yet rebuilt) |
+| Library | `#admin/library` | [library.md](library.md) |
 | Service & tools | `#admin/service` | [service.md](service.md) |
 | Settings | `#admin/settings` | [settings.md](settings.md) |
 
