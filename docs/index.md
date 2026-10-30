@@ -13,6 +13,7 @@ This corpus describes how Reader works: its architecture, contracts, capabilitie
 - [Obsidian Reader sidebar](obsidian-plugin.md) — relationships, dates, filtering, library search, read-aloud, installation, and recovery.
 - [Demo vault](demo.md) — `reader demo`: a disposable example vault with public-domain texts, scripted voices and every feature seeded.
 - [Library website](web.md) — local dashboard, Vim navigation, two-page reading, automatic bookmarks and shared margins.
+- [Stray work report](stray-work.md) — finished work not yet on `origin/main`, and which branches and worktrees can safely go.
 - [Library charts](library-charts.md) — arrival calendar, reading by topic, and zoomable shelves.
 - [Reader Admin design sheets](admin-design/index.md) — each Admin page's focused activity, layout, shadcn composition through the atomic tiers, states and test hooks.
 - [Reader page design sheets](ui-design/index.md) — Search, the reading queue, the Theme Editor, chat, the prompt card and What changed, and an audit of the plain-JavaScript surfaces.
