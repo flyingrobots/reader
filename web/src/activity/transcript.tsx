@@ -11,6 +11,7 @@ import {Marker, MarkerContent, MarkerIcon} from '../components/ui/marker';
 import {HoverCard, HoverCardContent, HoverCardTrigger} from '../components/ui/hover-card';
 import {CodeBlock, CodeBlockContent} from '../components/ui/code-block';
 import {Collapsible, CollapsibleContent, CollapsibleTrigger} from '../components/ui/collapsible';
+import {Badge} from '../components/ui/badge';
 import {Button} from '../components/ui/button';
 import {Progress} from '../components/ui/progress';
 import {Spinner} from '../components/ui/spinner';
@@ -34,13 +35,13 @@ const plural=(n:number,word:string)=>`${n.toLocaleString()} ${word}${n===1?'':'s
 
 function Output({output,omittedBytes,failed,logHint}:{output:Lines;omittedBytes:number;failed:boolean;logHint:string|null}){
   const [all,setAll]=useState(false);
-  if(!output.full)return <p className="activity-quiet">No output.</p>;
+  if(!output.full)return <span className="text-xs text-[var(--activity-secondary)]" data-activity-quiet="">No output.</span>;
   return <div className="activity-output">
     <CodeBlock size="sm" variant={failed?'destructive':'default'} data-activity-terminal="">
       <CodeBlockContent wrap className="max-h-64">{all?output.full:output.lines.join('\n')}</CodeBlockContent>
     </CodeBlock>
     {output.omitted&&!all?<Button variant="ghost" size="xs" data-activity-full="" onClick={()=>setAll(true)}>Show all {plural(output.omitted+output.lines.length,'line')}</Button>:null}
-    {omittedBytes?<p className="activity-quiet">The server kept the first and last 64 KiB of {tokens(omittedBytes)} characters{logHint?`; the full log stays in ${logHint}`:''}.</p>:null}
+    {omittedBytes?<span className="text-xs text-[var(--activity-secondary)]" data-activity-quiet="">The server kept the first and last 64 KiB of {tokens(omittedBytes)} characters{logHint?`; the full log stays in ${logHint}`:''}.</span>:null}
   </div>;
 }
 
@@ -59,7 +60,7 @@ function ToolRow({item,logHint}:{item:Extract<Item,{kind:'tool'}>;logHint:string
     </TraceCollapsibleTrigger>
     <TraceCollapsibleContent>
       <div className="activity-tool">
-        <p className="activity-command"><span aria-hidden>$ </span>{item.title}</p>
+        <span className="block font-mono text-xs leading-normal whitespace-pre-wrap text-foreground [overflow-wrap:anywhere]" data-activity-command=""><span aria-hidden className="text-muted-foreground">$ </span>{item.title}</span>
         {tests?<TestResults tests={tests}/>:null}
         <Output output={item.output} omittedBytes={item.omittedBytes} failed={failed} logHint={logHint}/>
       </div>
@@ -79,7 +80,7 @@ function TestResults({tests}:{tests:NonNullable<Extract<Item,{kind:'tool'}>['tes
         </TraceLine>
       </TraceCollapsibleTrigger>
       <TraceCollapsibleContent>
-        <Trace>{tests.failures.length?tests.failures.map(f=><TraceLine key={f.name} status="error"><TraceIcon><XIcon/></TraceIcon><TraceTitle title={f.detail||f.name}>{f.name}{f.detail?<span className="activity-quiet"> — {f.detail}</span>:null}</TraceTitle></TraceLine>)
+        <Trace>{tests.failures.length?tests.failures.map(f=><TraceLine key={f.name} status="error"><TraceIcon><XIcon/></TraceIcon><TraceTitle title={f.detail||f.name}>{f.name}{f.detail?<span className="text-xs text-[var(--activity-secondary)]"> — {f.detail}</span>:null}</TraceTitle></TraceLine>)
           :<TraceLine><TraceIcon><CircleCheckIcon/></TraceIcon><TraceTitle>{tests.failed?'Failures are listed in the output below.':'Every test passed.'}</TraceTitle></TraceLine>}</Trace>
       </TraceCollapsibleContent>
     </TraceCollapsible>
@@ -107,7 +108,7 @@ function FileNode({node,onOpen}:{node:Node;onOpen:(path:string)=>void}){
   if(node.kind){
     const kind=KIND[node.kind],can=node.kind!=='delete'&&openable(node.path);
     return <Button variant="ghost" size="sm" className="activity-file w-full justify-start font-normal" data-change={node.kind} disabled={!can} title={node.path}
-      aria-label={`${kind.label} ${node.path}${can?'. Open':''}`} onClick={()=>can&&onOpen(node.path)}>{kind.icon}<span className="truncate">{node.name}</span><span className="activity-change">{kind.label}</span></Button>;
+      aria-label={`${kind.label} ${node.path}${can?'. Open':''}`} onClick={()=>can&&onOpen(node.path)}>{kind.icon}<span className="truncate">{node.name}</span><Badge variant={node.kind==='add'?'default':node.kind==='delete'?'destructive':'outline'} className="ml-auto" data-activity-change="">{kind.label}</Badge></Button>;
   }
   return <Collapsible defaultOpen>
     <CollapsibleTrigger render={<Button variant="ghost" size="sm" className="w-full justify-start font-normal aria-expanded:bg-transparent aria-expanded:hover:bg-muted"/>}>
@@ -151,7 +152,7 @@ function Citation({path,onOpen}:{path:string;onOpen:(path:string)=>void}){
     <HoverCardTrigger delay={150} closeDelay={100} render={<Button variant="outline" size="xs" className="activity-cite" data-cite={path} onClick={()=>onOpen(path)}/>}><FileIcon/>{name}</HoverCardTrigger>
     <HoverCardContent className="flex w-72 flex-col gap-2" data-reader-decoration="">
       <div className="font-medium break-all">{name}</div>
-      <div className="activity-quiet break-all">{path}</div>
+      <div className="break-all text-xs text-[var(--activity-secondary)]">{path}</div>
       <Button size="xs" variant="outline" className="self-start" onClick={()=>onOpen(path)}>Open in the reader</Button>
     </HoverCardContent>
   </HoverCard>;
@@ -185,7 +186,7 @@ function StackTrace({message,detail}:{message:string;detail?:string|null}){
     <TraceCollapsibleTrigger><TraceLine status="error"><TraceIcon><CircleXIcon/></TraceIcon><TraceTitle>Failed: {message}</TraceTitle></TraceLine></TraceCollapsibleTrigger>
     <TraceCollapsibleContent>
       <div className="activity-stack" data-activity-stack="">
-        <p className="activity-stack-error">{message}</p>
+        <span className="block font-mono text-xs text-[var(--activity-error)] [overflow-wrap:anywhere]" data-activity-stack-error="">{message}</span>
         {detail?<ol>{[first,...rest].slice(-40).map((frame,index)=><li key={index}>{frame}</li>)}</ol>:null}
       </div>
     </TraceCollapsibleContent>
@@ -211,8 +212,8 @@ function Row({item,live,html,onOpen,onReport,labels}:{item:Item;live:boolean;htm
       return <Trace><TraceCollapsible defaultOpen={failed}>
         <TraceCollapsibleTrigger><TraceLine status={running?'running':failed?'error':undefined}><TraceIcon><WrenchIcon/></TraceIcon><TraceTitle>{running?'Calling':failed?'Failed to call':'Called'} <code>{item.server}.{item.tool}</code></TraceTitle></TraceLine></TraceCollapsibleTrigger>
         <TraceCollapsibleContent><div className="activity-tool">
-          {item.args?<><p className="activity-label">Arguments</p><CodeBlock size="sm"><CodeBlockContent wrap className="max-h-48">{item.args}</CodeBlockContent></CodeBlock></>:null}
-          {item.error?<p className="activity-stack-error">{item.error}</p>:item.result?<><p className="activity-label">Result</p><CodeBlock size="sm"><CodeBlockContent wrap className="max-h-48">{item.result.length>20000?item.result.slice(0,20000)+'\n…':item.result}</CodeBlockContent></CodeBlock></>:null}
+          {item.args?<><span className="text-[10px] font-semibold tracking-wide text-muted-foreground uppercase" data-activity-label="">Arguments</span><CodeBlock size="sm"><CodeBlockContent wrap className="max-h-48">{item.args}</CodeBlockContent></CodeBlock></>:null}
+          {item.error?<span className="block font-mono text-xs text-[var(--activity-error)] [overflow-wrap:anywhere]" data-activity-stack-error="">{item.error}</span>:item.result?<><span className="text-[10px] font-semibold tracking-wide text-muted-foreground uppercase" data-activity-label="">Result</span><CodeBlock size="sm"><CodeBlockContent wrap className="max-h-48">{item.result.length>20000?item.result.slice(0,20000)+'\n…':item.result}</CodeBlockContent></CodeBlock></>:null}
         </div></TraceCollapsibleContent>
       </TraceCollapsible></Trace>;
     }
@@ -254,9 +255,9 @@ function Context({usage,elapsed,tool}:{usage:Usage|null;elapsed:number|null;tool
     </HoverCardTrigger>
     <HoverCardContent className="flex w-64 flex-col gap-3" data-reader-decoration="">
       <div className="flex items-center justify-between gap-3 text-sm"><span className="font-medium">Context</span>{elapsed!==null?<span className="text-muted-foreground">{clock(elapsed)}</span>:null}</div>
-      {usage?<><Progress value={cached} aria-label="Share of input served from cache"/><p className="activity-quiet">{cached}% of input tokens came from the cache over {plural(usage.turns,'turn')}.</p>
+      {usage?<><Progress value={cached} aria-label="Share of input served from cache"/><span className="text-xs text-[var(--activity-secondary)]">{cached}% of input tokens came from the cache over {plural(usage.turns,'turn')}.</span>
         <div className="flex flex-col gap-1 text-sm tabular-nums">{rows.map(([label,value])=><div key={label} className="flex justify-between gap-3"><span className="text-muted-foreground">{label}</span><span>{value.toLocaleString()}</span></div>)}</div></>
-        :<p className="activity-quiet">{tool} has not reported token usage yet.</p>}
+        :<span className="text-xs text-[var(--activity-secondary)]">{tool} has not reported token usage yet.</span>}
     </HoverCardContent>
   </HoverCard>;
 }
@@ -307,13 +308,13 @@ export function ActivityTranscript({activity,run,live,html,onOpen,onReport,label
   const empty=!activity.items.length;
   return <section className="activity" aria-labelledby={titleId} data-reader-decoration="" data-activity-live={live||undefined}>
     <div className="activity-head">
-      <h3 id={titleId}>{labels.title}</h3>
+      <h3 id={titleId} data-slot="activity-title" className="mr-auto text-xs font-semibold tracking-wide text-muted-foreground uppercase">{labels.title}</h3>
       {live?<Context usage={activity.usage} elapsed={elapsed} tool={labels.tool}/>:null}
     </div>
     <div className="activity-meta"><Steps activity={activity} finished={finished} status={run.status}/><Queue run={run} activity={activity}/></div>
     <div ref={log} className="activity-log" role="log" aria-live="polite" aria-relevant="additions" aria-label={`${labels.log}. j and k move between items; Enter opens one.`} tabIndex={0}
       onKeyDown={move} onScroll={()=>{const el=log.current!;const atEnd=el.scrollHeight-el.scrollTop-el.clientHeight<48;if(atEnd!==follow)setFollow(atEnd);}}>
-      {empty?<p className="activity-quiet" data-activity-empty="">{live?labels.waiting:'No activity was recorded for this run.'}</p>:null}
+      {empty?<span className="text-xs text-[var(--activity-secondary)]" data-activity-empty="">{live?labels.waiting:'No activity was recorded for this run.'}</span>:null}
       {activity.items.map(item=><div key={item.kind+item.id} className="activity-item" data-activity-item={item.kind} data-item-id={item.id} tabIndex={-1}><Row item={item} live={live} html={html} onOpen={onOpen} onReport={onReport} labels={labels}/></div>)}
       {failed?<div className="activity-item" data-activity-item="error" tabIndex={-1}><Trace><StackTrace message={run.message||'The run failed.'} detail={run.stderr}/></Trace></div>:null}
       {commit?<div className="activity-item" data-activity-item="checkpoint" tabIndex={-1}><Checkpoint hash={commit.hash} subject={commit.subject} onReport={onReport}/></div>:null}
