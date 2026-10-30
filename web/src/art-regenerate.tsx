@@ -3,8 +3,12 @@
    with its textarea, and a block-end addon holding the Model Selector menu (here: who makes the art, the Settings
    "Art made by" list) and the send button. Enter sends, Shift+Enter adds a line, Esc cancels. No attachments: a
    direction is text. The new version never replaces the one on screen. */
+import {Button} from './components/ui/button';
+import {FieldDescription, FieldLegend, FieldSet} from './components/ui/field';
+import {Kbd} from './components/ui/kbd';
+import {Spinner} from './components/ui/spinner';
 import * as React from 'react';
-import {ArrowUpIcon, ChevronDownIcon, LoaderCircleIcon} from 'lucide-react';
+import {ArrowUpIcon, ChevronDownIcon} from 'lucide-react';
 import {DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuLabel, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuTrigger} from './components/ui/dropdown-menu';
 import {InputGroup, InputGroupAddon, InputGroupButton, InputGroupText, InputGroupTextarea} from './components/ui/input-group';
 
@@ -27,8 +31,9 @@ export function ArtRegenerate({title,initial,from,producers,producer:chosen,max,
   }
   return (
     <form ref={formRef} onSubmit={onSubmit} className="art-regenerate" aria-labelledby="art-regenerate-title" onKeyDown={event=>{if(event.key==='Escape'&&!event.defaultPrevented){event.preventDefault();event.stopPropagation();close();}}}>
-      <h3 id="art-regenerate-title" className="art-regenerate-title">Regenerate this</h3>
-      <p className="art-regenerate-lede">A new version of the art for <strong>{title}</strong>, steered by your direction. {from==='direction'?'This is the direction the version on screen was made with.':'This version had no direction; its Artist’s note is a starting point.'} The version on screen is kept.</p>
+      <FieldSet className="gap-3" data-ui="shadcn">
+      <FieldLegend id="art-regenerate-title">Regenerate this</FieldLegend>
+      <FieldDescription className="text-foreground/80">A new version of the art for <strong>{title}</strong>, steered by your direction. {from==='direction'?'This is the direction the version on screen was made with.':'This version had no direction; its Artist’s note is a starting point.'} The version on screen is kept.</FieldDescription>
       <InputGroup>
         <InputGroupTextarea ref={areaRef} id="art-direction" aria-label="Your direction for the new version" value={text} disabled={busy||!!disabled} rows={6} maxLength={max*2}
           onChange={event=>setText(event.target.value)} placeholder="Describe what the new version should change: imagery, mood, palette, motion…" className="p-3"
@@ -50,14 +55,15 @@ export function ArtRegenerate({title,initial,from,producers,producer:chosen,max,
             </DropdownMenuContent>
           </DropdownMenu>
           <InputGroupButton type="submit" size="icon-sm" variant="default" className="rounded-full" disabled={!canSend} aria-label="Make the new version" title={disabled||undefined} data-needs-reader={disabled?'':undefined}>
-            {busy?<LoaderCircleIcon className="animate-spin"/>:<ArrowUpIcon/>}
+            {busy?<Spinner/>:<ArrowUpIcon/>}
           </InputGroupButton>
         </InputGroupAddon>
       </InputGroup>
-      <div className="art-regenerate-foot">
-        <span role="status" aria-live="polite">{disabled?disabled:error?error:busy?'Queuing…':tooLong?`At most ${max.toLocaleString()} characters.`:'Enter sends · Shift Enter adds a line · Esc cancels'}</span>
-        <InputGroupButton type="button" size="sm" variant="ghost" onClick={close}>Cancel</InputGroupButton>
+      <div className="flex flex-wrap items-center justify-between gap-2" data-art-regenerate-foot="">
+        <span role="status" aria-live="polite" className={error||tooLong?'text-xs text-destructive':'text-xs text-muted-foreground'}>{disabled?disabled:error?error:busy?'Queuing…':tooLong?`At most ${max.toLocaleString()} characters.`:<><Kbd>Enter</Kbd> sends · <Kbd>Shift Enter</Kbd> adds a line · <Kbd>Esc</Kbd> cancels</>}</span>
+        <Button type="button" size="sm" variant="ghost" onClick={close}>Cancel</Button>
       </div>
+      </FieldSet>
     </form>
   );
 }

@@ -28,7 +28,7 @@
     "src/admin/pages/voices.tsx": "066a7971b8460c9133bc29382d4f5356978cefdb216f4d21ff86f51a4904cb8f",
     "src/admin/panels.tsx": "d5544a5eff90ce51f882b1de40d35cd800b428012acdfd09588b5344349cc280",
     "src/admin/sections.tsx": "3a3c193d3939ab98af817fef09ebef41e37bb8d25697c35ba2f561f436049d3b",
-    "src/art-regenerate.tsx": "8d0c621e0239e13fcf89a528747a15a0028e01722585b4156ba5db590fbcd7e9",
+    "src/art-regenerate.tsx": "1d1187b7482efb4ce0ba829e1bfb94fe8f1af72d9a90f6e525edb59e1be76f2f",
     "src/art-studio.tsx": "b907a89419ee96cb50620815be4aa207d8fa688060ddd39b3270d9a3326dd302",
     "src/art/art.ts": "cd1242a47eda6306459ef1906116ada99778ea58660ca54e252aecd1106375a2",
     "src/backstage.tsx": "4efff95b2fff855803e752866c9c3879a8456dbc2b72945d589278de30fd28a3",
@@ -952,12 +952,12 @@
       "sha256": "cb2ee2554fd41ac9f8e2e69c350365f0e1cf9732d27ad161c9c97b20945bbe4c"
     },
     "reader-controls.css": {
-      "bytes": 174230,
-      "sha256": "6f4ced7343612e7b6023a02e67f0a777e564013eda4ce46bb628d3ef65e20aff"
+      "bytes": 174391,
+      "sha256": "695e3223b7031c5db6fe2def93cbda375f327b97696ff27f00b00c93e3fd0c42"
     },
     "reader-controls.js": {
-      "bytes": 1150362,
-      "sha256": "7d9f0954625ac1ae69a33878ae35e8a5c7de06038e4465a5a32707daa6917d17"
+      "bytes": 1150629,
+      "sha256": "2e325eb7b6f729c65abb686df32c5f090209a30704e3a6a5a6dd7208bb7a61b7"
     },
     "reader-controls.js.LEGAL.txt": {
       "bytes": 6280,

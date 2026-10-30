@@ -99,7 +99,7 @@ const {chromium}=require(process.env.READER_PLAYWRIGHT||'playwright-core');
    await page.locator('.art-focus [data-focus-regenerate]').click();
    const area=page.locator('#art-direction');await area.waitFor();
    assert.equal(await area.inputValue(),brief,'prefilled with the Artist’s note');
-   assert.match(await page.locator('.art-regenerate-lede').textContent(),/had no direction; its Artist’s note is a starting point/);
+   assert.match(await page.locator('.art-regenerate [data-slot=field-description]').textContent(),/had no direction; its Artist’s note is a starting point/);
    assert.equal(await page.evaluate(()=>document.activeElement?.id),'art-direction','the direction has focus');
    assert.match(await page.locator('.art-regenerate [aria-label^="Art made by"]').textContent(),/Painter · fake-model-1/);
    await page.screenshot({path:'.reader/web-dev/art-regenerate.png'});
@@ -117,7 +117,7 @@ const {chromium}=require(process.env.READER_PLAYWRIGHT||'playwright-core');
    // The new version's Regenerate starts from its direction.
    await page.locator('#article .art-hero .art-focus-toggle').click();await opened(page);await page.locator('.art-focus [data-focus-regenerate]').click();
    await page.locator('#art-direction').waitFor();assert.equal(await page.locator('#art-direction').inputValue(),'A night version: slower, with one bright accent.\nKeep the threads.');
-   assert.match(await page.locator('.art-regenerate-lede').textContent(),/the direction the version on screen was made with/);
+   assert.match(await page.locator('.art-regenerate [data-slot=field-description]').textContent(),/the direction the version on screen was made with/);
    await page.keyboard.press('Escape');await page.waitForFunction(()=>!document.querySelector('#art-direction'));
    assert.equal(await focusView(page).count(),1,'Esc closes the form first, then the view');
    await page.keyboard.press('Escape');await closed(page);
