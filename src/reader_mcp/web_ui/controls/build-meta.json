@@ -61,7 +61,7 @@
     "src/components/ui/input-group.tsx": "7e768d41f247b1a4a3b0d214453dbeb1c2150aba500f5c0037b0285dfbe6a899",
     "src/components/ui/input.tsx": "dab990dfefa0ba78854ab6602ad074270dba9d7d1262184d9bfbb62bd990903b",
     "src/components/ui/item.tsx": "08cc237a727e1b0d1de24ca60ca49fcf44ad3923620c71b6c70ab16ac2f575b6",
-    "src/components/ui/kbd.tsx": "d17724eb15923ea4f0432cd1cf22538addb14a386f4f9326661efcce7f97e33b",
+    "src/components/ui/kbd.tsx": "2a64ef7aa772e4624aaa5f6e078ae8ea55f0e2e7fa957afe0d3e2dbc21c8c73a",
     "src/components/ui/label.tsx": "86232709f634da7f357a8aaec0e815f3f562604bb67202c88997fae97659b450",
     "src/components/ui/marker.tsx": "6b0a6a0f510ac210bbc71808e2efa9195947db91e9962685e9674f5e802e30ed",
     "src/components/ui/message-scroller.tsx": "653012cfeefe555badfb7b7f2079bd758c21fbfc7123140cf0d0bdcb7d6ca349",
@@ -111,7 +111,7 @@
     "src/shape/shape.ts": "9fe4b2b1dd21a2869130afa25aed34e2ea482fc8fe05aa2609193aa24c04b50c",
     "src/speech-control.tsx": "45a7efd449606ea196c7adef281ddadb2bd89dab1b5c9a945f56897cadbb4e0c",
     "src/static-demo.ts": "036a0b4413452d2ec8f7a51248157340082f3c030fc51d3237275021340e8810",
-    "src/styles.css": "5ed3fab59e0a7e2af3636fa56b8703a49d496a8e1cc3859c8a621c28791f6823",
+    "src/styles.css": "c27eb1c9c8dbaec050bd732cdd8cb1d1215d19cecf266eaaa28e6d5d00350754",
     "src/theme/atoms/run-state-icon.tsx": "7898209e6e1893b71c6c38a94dde6c3a83e1ffd19344382e48dca151cf361b06",
     "src/theme/atoms/section-heading.tsx": "47390df21cea8262baad84426e0af328b55e8f88673edd1833078e9f842b5790",
     "src/theme/atoms/status-badge.tsx": "8b6e9f9c0de4921c3cba50a7972392e759f566a4f5b5a6c7580128ebaa959ba3",
@@ -133,7 +133,7 @@
     "src/theme/templates/card-grid.tsx": "5824ab5a84257d55feb2827f0a611ecdd1ae3fbfd490684feb8928bb69bfbf87",
     "src/theme/theme-css.ts": "6c8873bc68ec5f73cb38b63647cdbaf8df272b1d0e36033cac5b44a21ce46878",
     "src/theme/theme-editor.tsx": "b33809853471121d6b8700b4bb2745bf10825d09628c3164fec6902b0a4d9dab",
-    "src/vanilla-buttons.ts": "f54cd8c9ffec8fb89fb410301462a3b4da10fd1d449063a7ac5de71c0166c24b",
+    "src/vanilla-buttons.ts": "23836ca88f55f1d49b6111005d3538f48832297a6a5baff30d791bf3a6edde79",
     "src/writing-prompt.tsx": "8d1c73ec0f9eeb7da9dd725b03cf15674ed55de8c884f23b9c53631cc02ba5d8"
   },
   "dependencies": {
@@ -952,12 +952,12 @@
       "sha256": "cb2ee2554fd41ac9f8e2e69c350365f0e1cf9732d27ad161c9c97b20945bbe4c"
     },
     "reader-controls.css": {
-      "bytes": 174391,
-      "sha256": "695e3223b7031c5db6fe2def93cbda375f327b97696ff27f00b00c93e3fd0c42"
+      "bytes": 174436,
+      "sha256": "ddf4101cdf8451a4ab15b321d02099250c08880a90c230edea37d50c93dd452c"
     },
     "reader-controls.js": {
-      "bytes": 1150629,
-      "sha256": "2e325eb7b6f729c65abb686df32c5f090209a30704e3a6a5a6dd7208bb7a61b7"
+      "bytes": 1150980,
+      "sha256": "1b7310c43c0113907ddf3e4c68843cd98b5db52b60628cb6b3315def648f4465"
     },
     "reader-controls.js.LEGAL.txt": {
       "bytes": 6280,

@@ -152,7 +152,7 @@ export function installScratch({state,api,notify,renderMarkdown,navigate,focusMa
     if(!show){panel.hidden=true;editor?.focus();return;}
     await persist();let all=[];try{all=(await drafts.all()).sort((a,b)=>b.updated.localeCompare(a.updated));}catch{local=false;}
     panel.hidden=false;
-    panel.innerHTML=`<div class="thread-top"><h2>Drafts</h2><button type="button" data-button="ghost icon-sm" class="close-button" aria-label="Close drafts" data-drafts-close>×</button></div><p class="quiet">Drafts are kept in this browser only.${local?'':' This browser can’t keep them right now.'}</p>`+
+    panel.innerHTML=`<div class="thread-top"><h2>Drafts</h2><button type="button" data-button="ghost icon-sm" class="close-button" aria-label="Close drafts" data-drafts-close><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" data-icon="x"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button></div><p class="quiet">Drafts are kept in this browser only.${local?'':' This browser can’t keep them right now.'}</p>`+
       (all.length?`<ul class="scratch-draft-list" role="listbox" aria-label="Drafts">${all.map(d=>`<li role="option" tabindex="-1" data-draft="${esc(d.id)}" aria-selected="${d.id===draft?.id}"><strong>${esc(d.title)}</strong><small>${esc(new Date(d.updated).toLocaleString(undefined,{month:'short',day:'numeric',hour:'numeric',minute:'2-digit'}))} · ${wordCount(d.body)} words${d.vault_path?' · In vault':''}</small></li>`).join('')}</ul><p class="quiet"><kbd>j</kbd> <kbd>k</kbd> move <kbd>Enter</kbd> open <kbd>x</kbd> delete <kbd>Esc</kbd> close</p>`:'<p class="empty-note">No drafts yet.</p>');
     panel.querySelector('[data-drafts-close]').onclick=()=>toggleDrafts(false);
     list=[...panel.querySelectorAll('[data-draft]')];
@@ -190,7 +190,7 @@ export function installScratch({state,api,notify,renderMarkdown,navigate,focusMa
     let dialog=$('#scratch-save');
     if(!dialog){dialog=document.createElement('dialog');dialog.id='scratch-save';dialog.className='scratch-save-dialog';dialog.setAttribute('aria-labelledby','scratch-save-title');document.body.append(dialog);}
     const revising=!!draft.base,title=draft.title&&draft.title!=='Untitled'?draft.title:titleOf(body),responds=draft.responds_to??state.lastDocPath??'';
-    dialog.innerHTML=`<div class="dialog-heading"><h2 id="scratch-save-title">${revising?'Save a new version':'Save to vault'}</h2><button type="button" data-button="ghost icon-sm" class="close-button" aria-label="Close" data-save-close>×</button></div>
+    dialog.innerHTML=`<div class="dialog-heading"><h2 id="scratch-save-title">${revising?'Save a new version':'Save to vault'}</h2><button type="button" data-button="ghost icon-sm" class="close-button" aria-label="Close" data-save-close><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" data-icon="x"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button></div>
       <form class="scratch-save-form" method="dialog">
         <label>Title<input name="title" maxlength="200" required value="${esc(title)}"></label>
         ${revising?`<label>What shifted (optional)<input name="shifted" maxlength="2000"></label>`:`<label>Slug<input name="slug" maxlength="60" pattern="[a-z0-9\\-]{1,60}" required value="${esc(slugify(title))}"></label>`}

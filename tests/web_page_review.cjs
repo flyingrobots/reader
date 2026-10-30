@@ -10,7 +10,9 @@ const {chromium,devices}=require(process.env.READER_PLAYWRIGHT||'playwright-core
 const shots=(process.env.READER_SHOTS||'.reader/web-dev')+'/page-review';
 /** Page name → route, a selector present once the page has rendered, and keys that open a panel on it (optional). */
 const PAGES={home:['#','#home-title'],search:['#search','#search-query'],results:['#search='+encodeURIComponent('q=observation'),'[data-work]'],article:['#read=library%2Fthought.md','#article'],
-  queue:['#read=library%2Fthought.md','#article',['Space','r'],'#queue-panel:not([hidden]) [data-queue-row]']};
+  queue:['#read=library%2Fthought.md','#article',['Space','r'],'#queue-panel:not([hidden]) [data-queue-row]'],
+  picker:['#','#home-title',['Space','e'],'#picker[open]'],help:['#','#home-title',['Shift+Slash'],'#help[open]'],
+  issue:['#issue=2026-W43','.issue-cover']};
 const SECTIONS=process.argv.slice(2).length?process.argv.slice(2):Object.keys(PAGES);
 const PROFILES={desktop:{viewport:{width:1440,height:900}},tablet:devices['iPad Mini'],phone:devices['iPhone 13']};
 const THEMES=['paper','ink'];

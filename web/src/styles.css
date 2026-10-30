@@ -57,6 +57,8 @@
    this a shadcn <p> or <h2> slot inherits page prose spacing. This layer restores what the components expect (no
    element margins, borders in the theme's line colour) and still loses to every component utility. */
 @layer reader-slots {
+  /* Kbd anywhere (React or the vanilla bridge): the legacy kbd border and margins give way to the component. */
+  :where(kbd)[data-slot="kbd"] { border: 0; margin: 0; }
   :where(.reader-admin, [data-ui="shadcn"], [data-slot$="-content"][data-slot^="sheet"], [data-slot="dialog-content"], [data-slot="alert-dialog-content"], [data-slot="popover-content"]) :where(p, h1, h2, h3, h4, ol, ul, dl, dd, figure)[data-slot] { margin: 0; }
   :where(.reader-admin, [data-ui="shadcn"], [data-slot$="-content"][data-slot^="sheet"], [data-slot="dialog-content"], [data-slot="alert-dialog-content"], [data-slot="popover-content"]) :where(h1, h2, h3, h4, small)[data-slot] { font: inherit; letter-spacing: inherit; color: inherit; }
   :where(.reader-admin, [data-ui="shadcn"], [data-slot$="-content"][data-slot^="sheet"], [data-slot="dialog-content"], [data-slot="alert-dialog-content"], [data-slot="popover-content"]) :where(ol, ul)[data-slot] { padding: 0; list-style: none; }
