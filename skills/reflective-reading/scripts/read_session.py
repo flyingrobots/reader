@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""One offline, vault-only reading turn; notes are the sole writable workspace."""
+"""One bounded, vault-only reading turn; notes are the sole writable workspace."""
 import argparse
 import hashlib
 import json
