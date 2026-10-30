@@ -1,5 +1,6 @@
 """No model, service, account, network or real vault is needed for these tests."""
 import importlib.util
+import json
 from pathlib import Path
 import sys
 import tempfile
@@ -61,6 +62,48 @@ class ReadingBoundaryTests(unittest.TestCase):
         script = 'import signal,time; signal.signal(signal.SIGTERM,signal.SIG_IGN); time.sleep(30)'
         with self.assertRaisesRegex(RuntimeError, 'time or'):
             reading.run([sys.executable, '-c', script], '', self.notes, 0.5)
+
+    def valid_report(self):
+        selection = dict(source=str(self.source), sha256='a' * 64, first_line=1, last_line=1)
+        report = dict(source_path=selection['source'], source_sha256=selection['sha256'],
+                      first_line=1, last_line=1, status='complete', summary='An existing source.',
+                      coverage_note='Read the one selected line.', opinion='A small fixture.', uncertainties=[])
+        path = self.notes / 'report.json'
+        path.write_text(json.dumps(report))
+        return path, selection, report
+
+    def test_valid_report_matches_exact_selection(self):
+        path, selection, report = self.valid_report()
+        self.assertEqual(reading.validate_report(path, selection), report)
+
+    def test_missing_malformed_and_symlink_reports_fail(self):
+        path, selection, _ = self.valid_report()
+        path.unlink()
+        with self.assertRaises(RuntimeError):
+            reading.validate_report(path, selection)
+        path.write_text('not json')
+        with self.assertRaises(RuntimeError):
+            reading.validate_report(path, selection)
+        path.unlink()
+        path.symlink_to(self.source)
+        with self.assertRaises(RuntimeError):
+            reading.validate_report(path, selection)
+
+    def test_wrong_source_hash_and_range_fail(self):
+        path, selection, report = self.valid_report()
+        for key, wrong in [('source_path', 'another.md'), ('source_sha256', 'b' * 64),
+                           ('first_line', True), ('last_line', 2)]:
+            with self.subTest(key=key):
+                path.write_text(json.dumps({**report, key: wrong}))
+                with self.assertRaises(RuntimeError):
+                    reading.validate_report(path, selection)
+
+    def test_incomplete_and_empty_coverage_fail(self):
+        path, selection, report = self.valid_report()
+        for changes in [{'status': 'incomplete'}, {'coverage_note': ' '}, {'uncertainties': 'none'}]:
+            path.write_text(json.dumps({**report, **changes}))
+            with self.assertRaises(RuntimeError):
+                reading.validate_report(path, selection)
 
 
 if __name__ == '__main__':
