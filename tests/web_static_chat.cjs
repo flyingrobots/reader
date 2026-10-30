@@ -49,7 +49,7 @@ const opening=text=>new RegExp(text.replace(/\*\*/g,'').split(/\s+/).slice(0,4).
   await open('library/essayists/montaigne/of-books.md','Of Books');
   assert.equal(await page.locator('#chat-input').isDisabled(),false,'the composer is enabled in the web demo');
   assert.equal(await page.locator('#chat-send').getAttribute('data-needs-reader'),null,'Send no longer needs Reader');
-  await page.locator('#chat-panel .chat-empty').filter({hasText:'@archivist'}).waitFor();// The empty chat names the scripted voices.
+  await page.locator('#chat-panel [data-chat-empty]').filter({hasText:'@archivist'}).waitFor();// The empty chat names the scripted voices.
   await page.evaluate(()=>{window.__events.length=0;});
   await page.locator('#chat-input').fill('@plain I have five minutes: which paragraph should I read?');await page.keyboard.press('Enter');
   const mine=page.locator('#chat-panel [data-chat-message][data-author="You"]').last();
@@ -70,7 +70,7 @@ const opening=text=>new RegExp(text.replace(/\*\*/g,'').split(/\s+/).slice(0,4).
   assert.ok(deltas.every((d,i)=>d.offset===deltas.slice(0,i).reduce((n,x)=>n+x.text.length,0)),'each delta starts where the last ended');
   // Both messages say where they live, and the voice says it is scripted.
   for(const message of [mine,plain])assert.match(await message.locator('[data-chat-local]').textContent(),/only in this browser/i);
-  assert.match(await plain.locator('.chat-runtime').textContent(),/scripted/);
+  assert.match(await plain.locator('[data-chat-runtime]').textContent(),/scripted/);
   assert.match(await page.locator('#chat-panel [data-chat-local-note]').textContent(),/nothing is sent anywhere/,'the panel does not claim turns go to a provider');
   assert.ok((await toasts()).some(([,text])=>/Plain Reader is replying/.test(text)),'the started event reaches the toast');
 
@@ -88,7 +88,7 @@ const opening=text=>new RegExp(text.replace(/\*\*/g,'').split(/\s+/).slice(0,4).
   await page.locator('#chat-input').fill('What would you measure first?');await page.keyboard.press('Enter');
   await page.waitForFunction(n=>document.querySelectorAll('#chat-panel [data-chat-message]').length>=n+2,before,{timeout:10000});
   await page.waitForFunction(()=>[...document.querySelectorAll('[data-sonner-toast]')].some(t=>/was chosen at random to answer/.test(t.textContent)));
-  assert.match(await page.locator('#chat-panel [data-chat-message]').last().locator('.chat-runtime').textContent(),/chosen at random/);
+  assert.match(await page.locator('#chat-panel [data-chat-message]').last().locator('[data-chat-runtime]').textContent(),/chosen at random/);
   // A manual voice answers by paste, as in the local demo.
   await page.locator('#chat-paste-toggle').click();await page.locator('#chat-paste-body').fill('Wren says: a fictional pasted reply.');
   await page.getByRole('button',{name:'Save as Wren'}).click();
@@ -130,7 +130,7 @@ const opening=text=>new RegExp(text.replace(/\*\*/g,'').split(/\s+/).slice(0,4).
   await open('library/lantern/design/sync-design.v2.md','Lantern sync');
   await page.waitForFunction(n=>document.querySelectorAll('#chat-panel [data-chat-message]').length===n,seeded);
   await page.locator('#chat-close').click();
-  await open('library/essayists/montaigne/of-books.md','Of Books');await page.locator('#chat-panel .chat-empty').waitFor();
+  await open('library/essayists/montaigne/of-books.md','Of Books');await page.locator('#chat-panel [data-chat-empty]').waitFor();
 
   // Nothing left the browser: every request was a GET of an exported file, none reached /api/.
   const strays=requests.filter(([method,address])=>method!=='GET'||!address.startsWith(url)||new URL(address).pathname.startsWith('/api/'));

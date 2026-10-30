@@ -44,8 +44,8 @@ function Step({step}:{step:RawStep}){
       {step.detail?<ItemDescription className="line-clamp-none font-mono text-xs [overflow-wrap:anywhere]">{step.detail}</ItemDescription>:null}
     </ItemContent>
     {step.kind==='text'&&step.body?<Disclosure label={`${step.body.length} characters`} data-raw-text=""><LogBlock text={step.body}/></Disclosure>
-      :step.body?<LogBlock text={step.body} contentClassName="chat-raw-body"/>:null}
-    {step.error?<LogBlock text={step.error} destructive contentClassName="chat-raw-error"/>:null}
+      :step.body?<LogBlock text={step.body} contentClassName="max-h-60" data-raw-body=""/>:null}
+    {step.error?<LogBlock text={step.error} destructive contentClassName="max-h-60" data-raw-error=""/>:null}
   </Item>;
 }
 
@@ -92,7 +92,7 @@ export function RawOutput({chatId,turnId,running,open,onOpenChange,api,bus,label
           <Note>{lines.current.stdout.length} stdout lines{stderr.length?` · ${stderr.length} stderr`:''}</Note>
         </div>
         {view==='steps'?(steps.length?<ItemGroup className="gap-1.5" aria-label="Raw steps">{steps.map(step=><Step key={step.key} step={step}/>)}</ItemGroup>:<Note>{running?'Waiting for output…':'The CLI printed nothing on stdout.'}</Note>)
-          :<LogBlock text={events.join('\n')} contentClassName="chat-raw-events"/>}
+          :<LogBlock text={events.join('\n')} contentClassName="max-h-[360px]" data-raw-events=""/>}
         {data.stdout_truncated?<Note>Showing the first {Math.round(data.limit/1048576)} MiB; the archive holds all of it.</Note>:null}
         {stderr.length?<div className="flex flex-col gap-1" data-raw-stderr=""><span className="text-xs font-medium text-muted-foreground">stderr</span><LogBlock text={stderr.join('\n')}/></div>:null}
         {data.prompt?<Disclosure label={`Prompt sent (${data.prompt.length} characters)`} data-raw-prompt=""><LogBlock text={data.prompt}/></Disclosure>:null}
