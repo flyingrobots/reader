@@ -25,7 +25,7 @@ const {chromium}=require(process.env.READER_PLAYWRIGHT||'playwright-core');
   assert.equal(await page.locator('#token-bg').inputValue(),'#141713');assert.ok(await page.getByText('Saving creates your own copy').isVisible());
   await page.locator('#theme-name').fill('Dusk test');
   await page.locator('#token-ink').fill('#4a4a4a');await page.locator('#token-ink').press('Enter');
-  const fail=page.locator('.theme-checks li[data-severity=fail]').filter({hasText:'Body text on page'});await fail.waitFor();
+  const fail=page.locator('[data-theme-checks] [data-severity=fail]').filter({hasText:'Body text on page'});await fail.waitFor();
   const previewInk=await page.locator('.theme-preview').evaluate(el=>getComputedStyle(el).getPropertyValue('--ink').trim());assert.equal(previewInk,'#4a4a4a','preview follows the draft');
   await page.getByRole('button',{name:'Fix contrast failures'}).click();await fail.waitFor({state:'detached'});
   const fixed=await page.locator('#token-ink').inputValue();assert.notEqual(fixed,'#4a4a4a');
@@ -33,8 +33,8 @@ const {chromium}=require(process.env.READER_PLAYWRIGHT||'playwright-core');
   await page.locator('#theme-simulation').click();await page.getByRole('option',{name:'Deuteranopia',exact:true}).click();
   assert.equal(await page.locator('#token-chart-1').inputValue(),'#9fc08b');assert.notEqual(await page.locator('.theme-preview').evaluate(el=>getComputedStyle(el).getPropertyValue('--chart-1').trim()),'#9fc08b');
   // Google Fonts: search and install through the local server only.
-  await page.locator('#font-search').fill('lo');await page.locator('.theme-font-results li').filter({hasText:'Lora'}).getByRole('button',{name:'Add'}).click();
-  await page.locator('.theme-font-results li').filter({hasText:'Lora'}).getByRole('button',{name:'Added'}).waitFor();
+  await page.locator('#font-search').fill('lo');await page.locator('[data-font-results] [data-font]').filter({hasText:'Lora'}).getByRole('button',{name:'Add'}).click();
+  await page.locator('[data-font-results] [data-font]').filter({hasText:'Lora'}).getByRole('button',{name:'Added'}).waitFor();
   await page.locator('#font-serif').click();await page.getByRole('option',{name:'Lora · Serif'}).click();
   assert.match(await page.locator('.theme-preview').evaluate(el=>getComputedStyle(el).getPropertyValue('--serif')),/^'Lora'/);
   // Headings: each level takes its own font and size; blank keeps the default.
@@ -48,8 +48,8 @@ const {chromium}=require(process.env.READER_PLAYWRIGHT||'playwright-core');
   assert.match((await previewHeading('h1')).family,/^Lora/);assert.equal((await previewHeading('h2')).size,'40px');
   assert.match((await previewHeading('h2')).family,/^Newsreader/);assert.equal((await previewHeading('h4')).size,'17px','unset levels keep the preview default');
   // Light variant: derive from dark, then save and use.
-  await page.locator('.theme-editor-form .theme-variant button').filter({hasText:'Light'}).click();
-  await page.getByRole('button',{name:'Derive dark variant from light'}).click();
+  await page.locator('[data-theme-variant] button').filter({hasText:'Light'}).click();
+  await page.getByRole('button',{name:'Derive dark variant from light'}).click();await page.getByRole('alertdialog').getByRole('button',{name:'Replace',exact:true}).click();
   await page.getByRole('button',{name:'Save and use'}).click();
   await page.waitForFunction(()=>document.documentElement.dataset.theme==='user-dusk-test');
   const listed=await (await page.request.get(url+'/api/themes')).json();assert.deepEqual(listed.themes.map(t=>t.id),['dusk-test']);assert.equal(listed.themes[0].fonts.serif,null);
@@ -77,7 +77,7 @@ const {chromium}=require(process.env.READER_PLAYWRIGHT||'playwright-core');
   await page.goto(url);await page.locator('#home-title').waitFor();
   // Delete returns to a built-in of the same polarity.
   await page.keyboard.press('F10');await editor.waitFor();assert.equal(await page.locator('#theme-name').inputValue(),'Dusk test');
-  await page.getByRole('button',{name:'Delete theme'}).click();await page.waitForFunction(()=>document.documentElement.dataset.theme==='ink');
+  await page.getByRole('button',{name:'Delete theme'}).click();await page.getByRole('alertdialog').getByRole('button',{name:'Delete theme',exact:true}).click();await page.waitForFunction(()=>document.documentElement.dataset.theme==='ink');
   assert.deepEqual((await (await page.request.get(url+'/api/themes')).json()).themes,[]);
   await page.screenshot({path:'.reader/web-dev/theme-editor-new.png'});
   await page.setViewportSize({width:390,height:844});await page.waitForTimeout(200);assert.ok(await page.evaluate(()=>document.querySelector('#theme-editor').scrollWidth<=innerWidth+1),'editor fits phone width');

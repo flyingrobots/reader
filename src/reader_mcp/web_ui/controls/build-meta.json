@@ -75,6 +75,7 @@
     "src/components/ui/sheet.tsx": "0bc113277c4c1e2be0ed94a9bb2ba305fa6df38bdf3205575e932978f5b0d129",
     "src/components/ui/sidebar.tsx": "7967edb3f788a44ea26eff9a2da48096f403ae541f55d3c655e3f0f470b86f3a",
     "src/components/ui/skeleton.tsx": "4c2af7fa9c645358a0fb188779deab6f0b981733b62befc25e18aaebea1350dc",
+    "src/components/ui/slider.tsx": "1fd32ee03ddaa382aabccce0bd88669aa8f91e4fe487622a68745d2ed1d5f5b9",
     "src/components/ui/sonner.tsx": "c94ab41a6098f553688e870ac3ac5e1e728801d0e977c7798ed30303160baa70",
     "src/components/ui/spinner.tsx": "6916679a40ad1c7624520de5eaa7b337635e81f9a76413201267f8619844646f",
     "src/components/ui/switch.tsx": "d232e2ffcfa122c59099872bcb8395eaad36d42fa9d2e0e40382ad19994065e2",
@@ -110,7 +111,7 @@
     "src/shape/shape.ts": "9fe4b2b1dd21a2869130afa25aed34e2ea482fc8fe05aa2609193aa24c04b50c",
     "src/speech-control.tsx": "45a7efd449606ea196c7adef281ddadb2bd89dab1b5c9a945f56897cadbb4e0c",
     "src/static-demo.ts": "036a0b4413452d2ec8f7a51248157340082f3c030fc51d3237275021340e8810",
-    "src/styles.css": "0f7d5d289b4aa5e4974f468a1bbebd872a90eaa80e3e5c78e786a31d40ef5713",
+    "src/styles.css": "a0c9265ff550229dc7e2bdb48a57ec162723e142195c075957dd98582edf9f58",
     "src/theme/atoms/run-state-icon.tsx": "7898209e6e1893b71c6c38a94dde6c3a83e1ffd19344382e48dca151cf361b06",
     "src/theme/atoms/section-heading.tsx": "47390df21cea8262baad84426e0af328b55e8f88673edd1833078e9f842b5790",
     "src/theme/atoms/status-badge.tsx": "8b6e9f9c0de4921c3cba50a7972392e759f566a4f5b5a6c7580128ebaa959ba3",
@@ -131,7 +132,7 @@
     "src/theme/templates/admin-page.tsx": "554ea5fda922a33157957658874f498561a8ac1d797cf4643f6d7a86fd1a3d04",
     "src/theme/templates/card-grid.tsx": "5824ab5a84257d55feb2827f0a611ecdd1ae3fbfd490684feb8928bb69bfbf87",
     "src/theme/theme-css.ts": "6c8873bc68ec5f73cb38b63647cdbaf8df272b1d0e36033cac5b44a21ce46878",
-    "src/theme/theme-editor.tsx": "8be687dc741271f1238a5b04065feba2f02bb0dfc492e78aeb82e6d1615fb8cd",
+    "src/theme/theme-editor.tsx": "b33809853471121d6b8700b4bb2745bf10825d09628c3164fec6902b0a4d9dab",
     "src/vanilla-buttons.ts": "f54cd8c9ffec8fb89fb410301462a3b4da10fd1d449063a7ac5de71c0166c24b",
     "src/writing-prompt.tsx": "a2c5fa97a3eb788d16e0d585e497bf5c692660cfcdef3160032936ad4706b92e"
   },
@@ -951,12 +952,12 @@
       "sha256": "cb2ee2554fd41ac9f8e2e69c350365f0e1cf9732d27ad161c9c97b20945bbe4c"
     },
     "reader-controls.css": {
-      "bytes": 182814,
-      "sha256": "b3e1edeeb465e4a1aea802d2bda35136373ffca48d178932cc18fb22d8d17c8a"
+      "bytes": 181282,
+      "sha256": "2ef3509ce15ab13a94365aabee0d068a21ed8f7c6b0bf1aa4b60d2710a702ef8"
     },
     "reader-controls.js": {
-      "bytes": 1125786,
-      "sha256": "f78afa8f0d2f76a488ab519c96ba5d6e8b3290bc77af8012c3a0735b486852a1"
+      "bytes": 1146520,
+      "sha256": "e910bdfe421b87667ddd4885df1e13117184befeb12a1f5797bb0b77edf1dc7b"
     },
     "reader-controls.js.LEGAL.txt": {
       "bytes": 6243,
