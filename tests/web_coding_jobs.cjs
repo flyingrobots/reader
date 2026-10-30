@@ -106,6 +106,8 @@ async function fixture(flags){
    await page.goto(url+'#admin/logs');await panel('logs','[data-log-row]');
    assert.ok(await page.locator('[data-log-row]').filter({hasText:'coding-job'}).count()>=1,'the run is archived as a coding-job LLM log');
    await shot(page,'admin-logs');
+   await page.locator('[data-log-row] a').first().click();await panel('log','[data-admin-panel=log] [role=tab]');
+   await page.locator('[data-admin-panel=log] [data-slot=code-block-content]').first().waitFor();await shot(page,'admin-log',{fullPage:true});
    await page.goto(url+'#admin/repositories');await panel('repositories','[data-repository="acme/widget"]');
    await shot(page,'admin-repositories',{fullPage:true});
    assert.equal((await runs(page)).length,1);assert.equal(posts.length,1,'Admin pages start nothing');

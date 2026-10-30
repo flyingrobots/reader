@@ -42,52 +42,6 @@ export function Unavailable({what,error}:{what:string;error:string|null}){
 export const dateTime=(value:string|null|undefined)=>value?new Date(value).toLocaleString():'—';
 const when=dateTime;
 
-type LogRow={path:string;kind:string;run_id:string;status:string|null;outcome?:string|null;started_at:string|null;ended_at:string|null;agent:string|null;title:string|null;bytes:number;artifacts:string[];sealed:boolean};
-export function LogsPanel({options,go,href}:AdminPanelProps){
-  const [kind,setKind]=React.useState(''),[pages,setPages]=React.useState<(string|null)[]>([null]);
-  const cursor=pages.at(-1);
-  const query=new URLSearchParams({...(kind?{kind}:{}),...(cursor?{cursor}:{}),limit:'30'});
-  const [page,reload]=useLoad<{runs:LogRow[];next:string|null;kinds:string[];retention:string}>(needsReader('logs')?null:'/api/logs?'+query,options.api);
-  if(page.error||needsReader('logs'))return <Unavailable what="The LLM log archive" error={page.error}/>;
-  return <div className="admin-logs" data-admin-panel="logs">
-    <p className="job-quiet">Every LLM run Reader starts is archived under <code>logs/llm/</code> and kept forever. This page reads it in pages; it never prunes.</p>
-    <div className="admin-filters" role="group" aria-label="Filter LLM logs">
-      <label>Kind <select value={kind} onChange={e=>{setKind(e.target.value);setPages([null]);}}><option value="">All</option>{(page.data?.kinds||[]).map(k=><option key={k}>{k}</option>)}</select></label>
-      <Button size="sm" variant="outline" onClick={reload}><RefreshCwIcon/>Refresh</Button>
-    </div>
-    {page.loading&&!page.data?<p className="job-quiet" role="status">Reading the archive…</p>:null}
-    {page.data?<table className="admin-table"><caption className="sr-only">Archived LLM runs, newest first</caption>
-      <thead><tr><th scope="col">Run</th><th scope="col">Kind</th><th scope="col">Status</th><th scope="col">Agent</th><th scope="col">Started</th><th scope="col">Size</th></tr></thead>
-      <tbody>{page.data.runs.length?page.data.runs.map(row=><tr key={row.path} data-log-row={row.run_id}>
-        <td><a href={href('logs',...logParams(row.path))} onClick={e=>{e.preventDefault();go('logs',...logParams(row.path));}}>{row.title||row.run_id}</a></td>
-        <td>{row.kind}</td><td><Badge variant={row.sealed?'outline':'secondary'}>{row.outcome||row.status||'unknown'}{row.sealed?'':' · open'}</Badge></td>
-        <td>{row.agent||'—'}</td><td>{when(row.started_at)}</td><td>{row.bytes?(row.bytes/1024).toLocaleString(undefined,{maximumFractionDigits:1})+' KiB':'—'}</td></tr>)
-        :<tr><td colSpan={6} className="job-quiet">No archived runs{kind?` of kind ${kind}`:''}.</td></tr>}</tbody></table>:null}
-    {page.data?<div className="admin-pager">
-      <Button size="sm" variant="ghost" disabled={pages.length<2} onClick={()=>setPages(pages.slice(0,-1))}>Newer</Button>
-      <Button size="sm" variant="ghost" disabled={!page.data.next} onClick={()=>setPages([...pages,page.data!.next])}>Older</Button></div>:null}
-  </div>;
-}
-
-export function LogPanel({params,options}:AdminPanelProps&{params:string[]}){
-  const relative=logPath(params);
-  const [detail]=useLoad<{run:LogRow;meta:Record<string,unknown>;artifacts:string[]}>(needsReader('logs')?null:'/api/logs/run?path='+encodeURIComponent(relative),options.api);
-  const [name,setName]=React.useState<string|null>(null);
-  const chosen=name||detail.data?.artifacts.find(a=>a.startsWith('prompt'))||detail.data?.artifacts[0]||null;
-  const [artifact]=useLoad<{text:string|null;bytes:number|null;truncated:boolean;limit:number;available:boolean}>(chosen?`/api/logs/artifact?path=${encodeURIComponent(relative)}&name=${encodeURIComponent(chosen)}`:null,options.api,[relative]);
-  if(detail.error||needsReader('logs'))return <Unavailable what="This LLM run" error={detail.error}/>;
-  if(!detail.data)return <p className="job-quiet" role="status">Reading the run…</p>;
-  return <article className="admin-log" data-admin-panel="log">
-    <p className="job-quiet">{detail.data.run.kind} · {detail.data.run.status} · {relative}{detail.data.run.sealed?'':' · still open (.partial artifacts)'}</p>
-    <details><summary>Run metadata</summary><CodeBlock size="sm"><CodeBlockContent wrap className="max-h-96">{JSON.stringify(detail.data.meta,null,2)}</CodeBlockContent></CodeBlock></details>
-    <div className="job-artifact-tabs" role="tablist" aria-label="Artifacts">{detail.data.artifacts.map(a=><Button key={a} size="xs" role="tab" aria-selected={a===chosen} variant={a===chosen?'secondary':'ghost'} onClick={()=>setName(a)}>{a}</Button>)}</div>
-    {artifact.data?<div className="job-artifact"><p className="job-quiet">{artifact.data.truncated?`A preview of the first ${(artifact.data.limit/1024).toLocaleString()} KiB; the archive keeps the complete artifact.`:'Complete.'}</p>
-      <Button size="xs" variant="outline" onClick={()=>navigator.clipboard?.writeText(artifact.data!.text||'')}>Copy{artifact.data.truncated?' preview':''}</Button>
-      <CodeBlock size="sm"><CodeBlockContent wrap className="max-h-[32rem]">{artifact.data.text??'Missing from the archive.'}</CodeBlockContent></CodeBlock></div>
-      :artifact.error?<Unavailable what={chosen||'Artifact'} error={artifact.error}/>:null}
-  </article>;
-}
-
 type Repository={repo:string;checkout?:string;remote?:string;base?:string;worktree_root?:string;agents?:string[];agent_modes?:Record<string,string>;
   verify?:{argv:string[];timeout_seconds:number;lock:{keys:string[]}|null};problems:string[]|null;error?:string};
 export function RepositoriesPanel({options}:AdminPanelProps){
