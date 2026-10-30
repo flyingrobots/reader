@@ -56,11 +56,11 @@
    this a shadcn <p> or <h2> slot inherits page prose spacing. This layer restores what the components expect (no
    element margins, borders in the theme's line colour) and still loses to every component utility. */
 @layer reader-slots {
-  :where(.reader-admin) :where(p, h1, h2, h3, h4, ol, ul, dl, dd, figure)[data-slot] { margin: 0; }
-  :where(.reader-admin) :where(h1, h2, h3, h4, small)[data-slot] { font: inherit; letter-spacing: inherit; color: inherit; }
-  :where(.reader-admin) :where(ol, ul)[data-slot] { padding: 0; list-style: none; }
-  :where(.reader-admin) :where(a)[data-slot] { color: inherit; text-decoration: inherit; }
-  :where(.reader-admin) :where([data-slot], [data-slot]::before, [data-slot]::after) { border-color: var(--line); }
+  :where(.reader-admin, [data-slot="alert-dialog-content"]) :where(p, h1, h2, h3, h4, ol, ul, dl, dd, figure)[data-slot] { margin: 0; }
+  :where(.reader-admin, [data-slot="alert-dialog-content"]) :where(h1, h2, h3, h4, small)[data-slot] { font: inherit; letter-spacing: inherit; color: inherit; }
+  :where(.reader-admin, [data-slot="alert-dialog-content"]) :where(ol, ul)[data-slot] { padding: 0; list-style: none; }
+  :where(.reader-admin, [data-slot="alert-dialog-content"]) :where(a)[data-slot] { color: inherit; text-decoration: inherit; }
+  :where(.reader-admin, [data-slot="alert-dialog-content"]) :where([data-slot], [data-slot]::before, [data-slot]::after) { border-color: var(--line); }
 }
 @utility scrollbar-thin { scrollbar-width: thin; scrollbar-color: var(--line) transparent; }
 #progress-controls-slot { position: absolute; inset: 0; }

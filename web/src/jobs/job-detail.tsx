@@ -6,7 +6,7 @@ import {useEffect, useRef, useState, type ReactNode} from 'react';
 import {ArrowUpRightIcon, CopyIcon, DownloadIcon, GitBranchIcon, LoaderCircleIcon, SquareIcon} from 'lucide-react';
 import {ActivityTranscript, type Labels, type RunInfo} from '../activity/transcript';
 import {steps} from '../activity/reducer';
-import {Badge} from '../components/ui/badge';
+import {StatusBadge, type Tone} from '../theme/atoms/status-badge';
 import {Button} from '../components/ui/button';
 import {CodeBlock, CodeBlockContent} from '../components/ui/code-block';
 import {Collapsible, CollapsibleContent, CollapsibleTrigger} from '../components/ui/collapsible';
@@ -18,14 +18,14 @@ export const jobLabels=(run:JobRun|null):Partial<Labels>=>({title:'Trace',speake
   waiting:'Waiting for the first step…',logHint:run?.log?'the run archive ('+run.log+')':null});
 export type JobViewOptions={html:(text:string)=>string;onOpen:(path:string)=>void;api:(path:string,payload?:unknown)=>Promise<any>;notify?:(message:string,kind?:string)=>void};
 
-function runInfo(run:JobRun|null):RunInfo{
+export function runInfo(run:JobRun|null):RunInfo{
   return {status:run?run.outcome||run.status:null,startedAt:run?.started_at||run?.created_at||null,finishedAt:run?.finished_at||null,arrivals:[],remaining:null,titles:{},
     message:run?.message||null,stderr:null,commit:null};
 }
 
 export function OutcomeBadge({run}:{run:JobRun}){
-  const tone:'secondary'|'outline'|'destructive'=run.outcome?GOOD.includes(run.outcome)?'secondary':run.outcome==='cancelled'?'outline':'destructive':'outline';
-  return <Badge variant={tone} data-job-outcome={run.outcome||run.status}>{!run.outcome&&run.status==='running'?<LoaderCircleIcon className="animate-spin" aria-hidden/>:null}{statusLabel(run)}</Badge>;
+  const tone:Tone=run.outcome?GOOD.includes(run.outcome)?'ok':run.outcome==='cancelled'?'neutral':'error':run.status==='running'?'active':'neutral';
+  return <StatusBadge tone={tone} busy={!run.outcome&&run.status==='running'} data-job-outcome={run.outcome||run.status}>{statusLabel(run)}</StatusBadge>;
 }
 
 function Links({run}:{run:JobRun}){
@@ -36,7 +36,7 @@ function Links({run}:{run:JobRun}){
     <a href={link.href} target="_blank" rel="noreferrer noopener" className="job-link">{link.label}<ArrowUpRightIcon aria-hidden/><span className="sr-only"> (opens GitHub in a new tab)</span></a></li>)}</ul>;
 }
 
-function StopButton({run,notify}:{run:JobRun;notify?:JobViewOptions['notify']}){
+export function StopButton({run,notify}:{run:JobRun;notify?:JobViewOptions['notify']}){
   const [busy,setBusy]=useState(false);
   if(!run.active)return null;
   return <Button size="sm" variant="outline" disabled={busy||!run.can_stop} title={run.can_stop?undefined:'Another Reader server owns this job'} data-job-stop=""
@@ -69,7 +69,7 @@ export function JobSummary({id,options,onAdmin}:{id:string;options:JobViewOption
   </div>;
 }
 
-function Artifact({run,name,api}:{run:JobRun;name:string;api:JobViewOptions['api']}){
+export function Artifact({run,name,api}:{run:JobRun;name:string;api:JobViewOptions['api']}){
   const [data,setData]=useState<{text:string|null;bytes:number|null;truncated:boolean;limit:number;available:boolean}|null>(null),[error,setError]=useState<string|null>(null);
   // Only the latest request may answer: a slow one for the artifact shown before never replaces the one chosen since.
   const latest=useRef(0);

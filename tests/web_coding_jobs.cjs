@@ -91,7 +91,7 @@ async function fixture(flags){
    assert.match(await page.locator(`[data-job-row="${id}"]`).textContent(),/PR #\d+/);
    assert.equal(await page.evaluate(()=>getComputedStyle(document.querySelector('#admin-sections ul')).listStyleType),'none','the sidebar menu has no list bullets');
    await shot(page,'admin-jobs');
-   await page.goto(url+'#admin/jobs/'+id);await page.waitForFunction(id=>document.querySelector(`.job-detail[data-job-id="${id}"]`),id,{timeout:10000});
+   await page.goto(url+'#admin/jobs/'+id);await page.waitForFunction(id=>document.querySelector(`[data-admin-panel="job"][data-job-id="${id}"]`),id,{timeout:10000});
    await shot(page,'admin-job',{fullPage:true});
    // A slow answer for the artifact shown before never replaces the one chosen since.
    let release,held;const arrived=new Promise(resolve=>held=resolve),hold=new Promise(resolve=>release=resolve);

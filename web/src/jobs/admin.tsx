@@ -12,8 +12,9 @@ import {Field, FieldDescription, FieldGroup, FieldLabel} from '../components/ui/
 import {Input} from '../components/ui/input';
 import {Textarea} from '../components/ui/textarea';
 import {Checkbox} from '../components/ui/checkbox';
-import {JobDetail, OutcomeBadge, type JobViewOptions} from './job-detail';
-import {OUTCOME_LABELS, forgetArticleActions, type JobRun} from './store';
+import {type JobViewOptions} from './job-detail';
+import {Notice} from '../theme/molecules/notice';
+import {forgetArticleActions} from './store';
 import {needsReader, NEEDS_READER} from '../static-demo';
 
 /** `go`/`href` are the admin shell's section navigation; `open` opens a library document. */
@@ -22,7 +23,7 @@ export type AdminPanelProps={options:JobViewOptions;go:(section?:string,...param
 export function logParams(path:string){const [kind,y,m,d,run]=path.replace(/^logs\/llm\//,'').split('/');return [kind,`${y}-${m}-${d}`,run];}
 export function logPath(params:string[]){const [kind,date,run]=params;return `logs/llm/${kind}/${date.replace(/-/g,'/')}/${run}`;}
 type Load<T>={data:T|null;error:string|null;loading:boolean};
-function useLoad<T>(path:string|null,api:JobViewOptions['api'],deps:unknown[]=[]):[Load<T>,()=>void]{
+export function useLoad<T>(path:string|null,api:JobViewOptions['api'],deps:unknown[]=[]):[Load<T>,()=>void]{
   const [state,setState]=React.useState<Load<T>>({data:null,error:null,loading:!!path});
   const [tick,setTick]=React.useState(0);
   React.useEffect(()=>{
@@ -33,46 +34,13 @@ function useLoad<T>(path:string|null,api:JobViewOptions['api'],deps:unknown[]=[]
   },[path,tick,...deps]);
   return [state,()=>setTick(t=>t+1)];
 }
-function Unavailable({what,error}:{what:string;error:string|null}){
-  return <p className="admin-unavailable" role="alert">{needsReader('jobs')?`${what} ${NEEDS_READER.toLowerCase()}.`:`${what} unavailable: ${error||'no answer'}`}</p>;
+/** A failed read as a destructive Alert (role alert); in the static demo, the honest "needs Reader" message instead. */
+export function Unavailable({what,error}:{what:string;error:string|null}){
+  return needsReader('jobs')?<Notice role="alert" title={`${what} ${NEEDS_READER.toLowerCase()}.`}/>:<Notice tone="error" role="alert" data-unavailable="" title={`${what} unavailable`}>{error||'No answer.'}</Notice>;
 }
-const when=(value:string|null|undefined)=>value?new Date(value).toLocaleString():'—';
-
-export function JobsPanel({options,go,href}:AdminPanelProps){
-  const [repo,setRepo]=React.useState(''),[state,setState]=React.useState(''),[path,setPath]=React.useState(''),[cursor,setCursor]=React.useState(0);
-  const query=new URLSearchParams({...(repo?{repo}:{}),...(state?{state}:{}),...(path?{path}:{}),cursor:String(cursor),limit:'25'});
-  const [list,reload]=useLoad<{runs:JobRun[];total:number;next:number|null;configured:boolean;read_only:boolean}>(needsReader('jobs')?null:'/api/jobs?'+query,options.api);
-  const [all]=useLoad<{runs:JobRun[]}>(needsReader('jobs')?null:'/api/jobs?limit=50',options.api);
-  const repos=[...new Set((all.data?.runs||[]).map(r=>r.source.repo))],paths=[...new Set((all.data?.runs||[]).map(r=>r.source.path))];
-  if(list.error||needsReader('jobs'))return <Unavailable what="Coding jobs" error={list.error}/>;
-  return <div className="admin-jobs" data-admin-panel="jobs">
-    <div className="admin-filters" role="group" aria-label="Filter coding jobs">
-      <label>Repository <select value={repo} onChange={e=>{setRepo(e.target.value);setCursor(0);}}><option value="">All</option>{repos.map(r=><option key={r}>{r}</option>)}</select></label>
-      <label>State <select value={state} onChange={e=>{setState(e.target.value);setCursor(0);}}><option value="">All</option><option value="active">Active</option>
-        {Object.entries(OUTCOME_LABELS).map(([value,label])=><option key={value} value={value}>{label}</option>)}</select></label>
-      <label>Article <select value={path} onChange={e=>{setPath(e.target.value);setCursor(0);}}><option value="">All</option>{paths.map(p=><option key={p}>{p}</option>)}</select></label>
-      <Button size="sm" variant="outline" onClick={reload}><RefreshCwIcon/>Refresh</Button>
-    </div>
-    {list.loading&&!list.data?<p className="job-quiet" role="status"><LoaderCircleIcon className="animate-spin" aria-hidden/> Loading coding jobs…</p>:null}
-    {list.data&&!list.data.configured?<p className="job-quiet">No repositories are registered, so no article prompt can run yet. Register one under Repositories.</p>:null}
-    {list.data?.read_only?<p className="job-quiet">Another Reader server owns coding jobs for this vault; this page is read-only.</p>:null}
-    {list.data?<table className="admin-table"><caption className="sr-only">Coding jobs, newest first</caption>
-      <thead><tr><th scope="col">Task</th><th scope="col">Repository</th><th scope="col">State</th><th scope="col">Agent</th><th scope="col">Started</th><th scope="col">Result</th></tr></thead>
-      <tbody>{list.data.runs.length?list.data.runs.map(run=><tr key={run.id} data-job-row={run.id}>
-        <td><a href={href('jobs',run.id)} onClick={e=>{e.preventDefault();go('jobs',run.id);}}>{run.source.title}</a></td>
-        <td>{run.source.repo}</td><td><OutcomeBadge run={run}/></td><td>{run.agent_label}</td><td>{when(run.created_at)}</td>
-        <td>{run.pr?<a href={run.pr.url} target="_blank" rel="noreferrer noopener">PR #{run.pr.number}<ArrowUpRightIcon aria-hidden className="job-inline-icon"/></a>:run.message?.slice(0,120)}</td>
-      </tr>):<tr><td colSpan={6} className="job-quiet">No coding jobs match.</td></tr>}</tbody></table>:null}
-    {list.data?<div className="admin-pager"><span>{list.data.total.toLocaleString()} jobs</span>
-      <Button size="sm" variant="ghost" disabled={!cursor} onClick={()=>setCursor(Math.max(0,cursor-25))}>Newer</Button>
-      <Button size="sm" variant="ghost" disabled={list.data.next===null} onClick={()=>setCursor(list.data!.next!)}>Older</Button></div>:null}
-  </div>;
-}
-
-export function JobPanel({id,options,open}:AdminPanelProps&{id:string}){
-  if(needsReader('jobs'))return <Unavailable what="Coding jobs" error={null}/>;
-  return <JobDetail id={id} options={options} onArticle={open}/>;
-}
+/** A full local date and time, or an em dash for none. */
+export const dateTime=(value:string|null|undefined)=>value?new Date(value).toLocaleString():'—';
+const when=dateTime;
 
 type LogRow={path:string;kind:string;run_id:string;status:string|null;outcome?:string|null;started_at:string|null;ended_at:string|null;agent:string|null;title:string|null;bytes:number;artifacts:string[];sealed:boolean};
 export function LogsPanel({options,go,href}:AdminPanelProps){
