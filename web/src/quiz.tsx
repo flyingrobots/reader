@@ -1,4 +1,9 @@
 import {useSyncExternalStore} from 'react';
+import {ChevronRightIcon} from 'lucide-react';
+import {CodeBlock, CodeBlockContent} from './components/ui/code-block';
+import {Collapsible, CollapsibleContent, CollapsibleTrigger} from './components/ui/collapsible';
+import {Notice} from './theme/molecules/notice';
+import {LoadingState} from './theme/molecules/states';
 import {createRoot} from 'react-dom/client';
 import {Dialog,DialogContent,DialogDescription,DialogFooter,DialogHeader,DialogTitle} from './components/ui/dialog';
 import {RadioGroup,RadioGroupItem} from './components/ui/radio-group';
@@ -35,30 +40,31 @@ function QuizDialog({getSnapshot,subscribe,actions}:Options){
         <FieldGroup><Field><FieldLabel htmlFor="quiz-voice">Quiz voice</FieldLabel><Select value={model.voice||null} onValueChange={value=>{if(value)actions.voice(value);}} disabled={disabled||!model.voices.length}>
           <SelectTrigger id="quiz-voice"><SelectValue placeholder="Choose a voice"/></SelectTrigger><SelectContent><SelectGroup>{model.voices.map(v=><SelectItem key={v.name} value={v.name}>{v.name}</SelectItem>)}</SelectGroup></SelectContent>
         </Select></Field></FieldGroup>
-        {!model.voices.length&&<p className="text-muted-foreground">Configure an enabled voice in Reader to generate questions. Saved quizzes remain available.</p>}
-        {model.busy&&<p role="status">{status||'Working…'}{model.task?.attempts?` · attempt ${model.task.attempts}`:''}</p>}
-        {model.error&&<p role="alert" className="text-destructive">{model.error}</p>}
-        {quiz?.earlier&&<p><Badge variant="secondary">Earlier edition</Badge> {quiz.hidden.length} unavailable {quiz.hidden.length===1?'question':'questions'} hidden. Remaining passages were located in this edition.</p>}
+        {!model.voices.length&&<Notice title="Configure an enabled voice in Reader to generate questions.">Saved quizzes remain available.</Notice>}
+        {model.busy&&<LoadingState>{status||'Working…'}{model.task?.attempts?` · attempt ${model.task.attempts}`:''}</LoadingState>}
+        {model.error&&<Notice tone="error" role="alert" title={model.error}/>}
+        {quiz?.earlier&&<Notice title="From an earlier edition">{quiz.hidden.length} unavailable {quiz.hidden.length===1?'question':'questions'} hidden. Remaining passages were located in this edition.</Notice>}
         {!quiz?<Button disabled={disabled||!model.voices.length} onClick={()=>actions.generate()}>Generate a quiz</Button>:model.result?<>
-          <div className="reader-quiz-score" role="status">{model.result.score} of {model.result.total}</div>
-          <p>{model.result.missed.length?'Revisit these questions and their evidence:':'You matched every answer in this quiz.'}</p>
+          <div className="flex flex-col gap-1" role="status" data-quiz-score=""><span className="font-serif text-4xl tabular-nums">{model.result.score} of {model.result.total}</span>
+          <span className="text-sm text-muted-foreground">{model.result.missed.length?'Revisit these questions and their evidence:':'You matched every answer in this quiz.'}</span></div>
           <ul className="flex flex-col gap-2">{quiz.questions.filter(q=>model.result!.missed.includes(q.id)).map(q=><li key={q.id}><Button variant="link" onClick={()=>actions.evidence(q)}>{q.prompt}</Button></li>)}</ul>
           <Button variant="outline" onClick={actions.retake}>Retake the same quiz</Button>
         </>:question?<>
-          <p className="text-muted-foreground">Question {model.index+1} of {quiz.questions.length}{question.type==='short'?' · optional short answer':''}</p>
+          <span className="text-sm text-muted-foreground" data-quiz-progress="">Question {model.index+1} of {quiz.questions.length}{question.type==='short'?' · optional short answer':''}</span>
           <FieldGroup><FieldSet><FieldLegend>{question.prompt}</FieldLegend>
             {question.type==='choice'?<RadioGroup aria-label={question.prompt} value={selected===undefined?null:String(selected)} onValueChange={value=>actions.choose(String(value))} disabled={answered||disabled}>
               {question.options!.map((option,index)=><Field key={index} orientation="horizontal"><RadioGroupItem id={'quiz-option-'+index} value={String(index)}/><FieldLabel htmlFor={'quiz-option-'+index}>{option}</FieldLabel></Field>)}
             </RadioGroup>:<Field><FieldLabel htmlFor="quiz-short">Your answer</FieldLabel><Textarea id="quiz-short" maxLength={16000} rows={4} value={model.short[question.id]||''} disabled={disabled||!!review} onChange={event=>actions.shortAnswer(event.target.value)}/></Field>}
           </FieldSet></FieldGroup>
           {question.type==='short'&&!review&&<Button variant="outline" disabled={disabled||!model.short[question.id]?.trim()||!model.voice} onClick={actions.review}>Ask for a review</Button>}
-          {answered&&<div className="reader-quiz-feedback" role="status">{question.type==='choice'?<><strong>{selected===question.answer?'Correct.':'The saved answer is '+question.options![question.answer!]+'.'}</strong><p>{question.explanation}</p></>:<><strong>{review!.verdict==='right'?'Right':review!.verdict==='partly'?'Partly':'Not yet'}</strong><p>{review!.comment}</p></>}</div>}
+          {answered&&(question.type==='choice'?<Notice role="status" data-quiz-feedback="" tone={selected===question.answer?'info':'error'} title={selected===question.answer?'Correct.':'The saved answer is '+question.options![question.answer!]+'.'}>{question.explanation}</Notice>
+            :<Notice role="status" data-quiz-feedback="" tone={review!.verdict==='right'?'info':review!.verdict==='partly'?'info':'error'} title={review!.verdict==='right'?'Right':review!.verdict==='partly'?'Partly':'Not yet'}>{review!.comment}</Notice>)}
           <Button variant="link" disabled={question.type==='choice'&&!answered} onClick={()=>actions.evidence(question)}>Show me in the text</Button>
           <DialogFooter><Button variant="outline" disabled={disabled||model.index===0} onClick={actions.back}>Previous</Button><Button disabled={disabled||question.type==='choice'&&!answered} onClick={actions.next}>{model.index+1===quiz.questions.length?'Save results':question.type==='short'&&!review?'Skip optional question':'Next question'}</Button></DialogFooter>
-        </>:<p>None of the saved questions can be located in this edition. Generate a new quiz.</p>}
+        </>:<Notice title="None of the saved questions can be located in this edition.">Generate a new quiz.</Notice>}
         {quiz&&<Button variant="ghost" disabled={disabled||!model.voices.length} onClick={()=>actions.generate(true)}>Generate a new quiz</Button>}
-        {model.task&&(model.task.rejected?.length||model.task.changed_paths?.length||model.task.commit?.status==='failed')?<details><summary>Task details</summary>
-          <pre className="reader-quiz-task-details">{JSON.stringify({rejected:model.task.rejected,changed_paths:model.task.changed_paths,commit:model.task.commit,runs:model.task.runs},null,2)}</pre></details>:null}
+        {model.task&&(model.task.rejected?.length||model.task.changed_paths?.length||model.task.commit?.status==='failed')?<Collapsible data-quiz-task-details=""><CollapsibleTrigger render={<Button variant="ghost" size="xs" className="text-muted-foreground"/>}><ChevronRightIcon data-icon="inline-start" aria-hidden className="transition-transform in-data-[panel-open]:rotate-90"/>Task details</CollapsibleTrigger>
+          <CollapsibleContent><CodeBlock size="sm"><CodeBlockContent wrap className="max-h-64">{JSON.stringify({rejected:model.task.rejected,changed_paths:model.task.changed_paths,commit:model.task.commit,runs:model.task.runs},null,2)}</CodeBlockContent></CodeBlock></CollapsibleContent></Collapsible>:null}
       </>}
     </DialogContent>
   </Dialog>;
