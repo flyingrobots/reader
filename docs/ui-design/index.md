@@ -9,3 +9,4 @@ Reader Admin's pages have their sheets in [admin-design/](../admin-design/index.
 | Search | `web/src/search-page.tsx` | shadcn: [search.md](search.md) |
 | Reading queue | `web/src/queue-panel.tsx` | shadcn: [queue.md](queue.md) |
 | Theme Editor | `web/src/theme/theme-editor.tsx` | shadcn: [theme-editor.md](theme-editor.md) |
+| Chat with the voices | `web/src/chat/` | shadcn: [chat.md](chat.md) |

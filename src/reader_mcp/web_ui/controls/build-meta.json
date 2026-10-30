@@ -34,8 +34,8 @@
     "src/backstage.tsx": "4efff95b2fff855803e752866c9c3879a8456dbc2b72945d589278de30fd28a3",
     "src/callouts.tsx": "fccf6b854b5c95a48ef40d206edfe927718f2ad9e8b59f3b5005548819172584",
     "src/changes-panel.tsx": "11941b33dc0809a4536108411d6910da883706f3a4e8cfad9d5db341cfd36a73",
-    "src/chat/chat-panel.tsx": "1254b58827cbb57206ddc8949a295ed7c2644054b862b53eca2f8b41a9d853ff",
-    "src/chat/raw-output.tsx": "e27ca3496ded4ca39ae3f252e92fd6bd89393183f5b20b88613eafe1eb694d5e",
+    "src/chat/chat-panel.tsx": "a025fbe7b9345cc74077ba599194b9f17b2ae45f5108670b0d81096798e27c87",
+    "src/chat/raw-output.tsx": "fa1ab1f90958e54300996b8d3092b1a616d10da641676ed7699112d715b3ec38",
     "src/chat/raw-steps.ts": "10faca4988fc72a912529eeb4201af7fd7193e669110db409606879f44579678",
     "src/code-blocks.ts": "66716c693b0ae5fef0607913afafc3c9be26bff8aa267c648e8274eff8b89267",
     "src/code-highlight.ts": "36c456df8e9a5277690eb3ee02e49eb0246077a1c8fbbe5873342cfa3afd0063",
@@ -111,7 +111,7 @@
     "src/shape/shape.ts": "9fe4b2b1dd21a2869130afa25aed34e2ea482fc8fe05aa2609193aa24c04b50c",
     "src/speech-control.tsx": "45a7efd449606ea196c7adef281ddadb2bd89dab1b5c9a945f56897cadbb4e0c",
     "src/static-demo.ts": "036a0b4413452d2ec8f7a51248157340082f3c030fc51d3237275021340e8810",
-    "src/styles.css": "a0c9265ff550229dc7e2bdb48a57ec162723e142195c075957dd98582edf9f58",
+    "src/styles.css": "b515085d3bbf6ac3b2466bc1a6ca531eb8b2c943eeb09c5f9b3f665160000433",
     "src/theme/atoms/run-state-icon.tsx": "7898209e6e1893b71c6c38a94dde6c3a83e1ffd19344382e48dca151cf361b06",
     "src/theme/atoms/section-heading.tsx": "47390df21cea8262baad84426e0af328b55e8f88673edd1833078e9f842b5790",
     "src/theme/atoms/status-badge.tsx": "8b6e9f9c0de4921c3cba50a7972392e759f566a4f5b5a6c7580128ebaa959ba3",
@@ -952,16 +952,16 @@
       "sha256": "cb2ee2554fd41ac9f8e2e69c350365f0e1cf9732d27ad161c9c97b20945bbe4c"
     },
     "reader-controls.css": {
-      "bytes": 181282,
-      "sha256": "2ef3509ce15ab13a94365aabee0d068a21ed8f7c6b0bf1aa4b60d2710a702ef8"
+      "bytes": 177875,
+      "sha256": "29cd279027f9f16e17e11d160732936e24b74c746b78672dd06b4c3f824e6d46"
     },
     "reader-controls.js": {
-      "bytes": 1146520,
-      "sha256": "e910bdfe421b87667ddd4885df1e13117184befeb12a1f5797bb0b77edf1dc7b"
+      "bytes": 1148639,
+      "sha256": "4a9bded452cae95f5c1d454be25dc26c8ea5f488eeec34b1d37e62106d0cc830"
     },
     "reader-controls.js.LEGAL.txt": {
-      "bytes": 6243,
-      "sha256": "62d7f3f8d39c0c65ae18ad2ec071cfc49fec4653590c69ea27bc2026662e9635"
+      "bytes": 6280,
+      "sha256": "74b294583218014cb7b4c82eb52ce767999b5c3f782b835016e8488c304f1ff9"
     },
     "shape.js": {
       "bytes": 8806,

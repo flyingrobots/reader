@@ -2,9 +2,14 @@
 import {LogBlock} from '../log-block';
 import {useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState} from 'react';
 import {Autocomplete as AutocompletePrimitive, Combobox as ComboboxPrimitive} from '@base-ui/react';
-import {ArrowUpIcon, ClipboardPasteIcon, CornerUpLeftIcon, PlusIcon, RefreshCwIcon, RotateCcwIcon, SquareIcon, XIcon} from 'lucide-react';
+import {ArrowUpIcon, ChevronRightIcon, ClipboardPasteIcon, HandIcon, CornerUpLeftIcon, PlusIcon, RefreshCwIcon, RotateCcwIcon, SquareIcon, XIcon} from 'lucide-react';
 import {Badge} from '../components/ui/badge';
-import {Card} from '../components/ui/card';
+import {Card, CardAction, CardDescription, CardFooter, CardHeader, CardTitle} from '../components/ui/card';
+import {Collapsible, CollapsibleContent, CollapsibleTrigger} from '../components/ui/collapsible';
+import {FieldLabel} from '../components/ui/field';
+import {Kbd} from '../components/ui/kbd';
+import {Marker, MarkerContent} from '../components/ui/marker';
+import {Notice} from '../theme/molecules/notice';
 import {Button} from '../components/ui/button';
 import {ButtonGroup} from '../components/ui/button-group';
 import {Bubble, BubbleContent} from '../components/ui/bubble';
@@ -100,13 +105,14 @@ function Footer({message,retried,onRetry,onReply,openPath,raw}:{message:ChatMess
       {failed&&!retried?<Button variant="ghost" size="xs" onClick={onRetry} data-chat-retry=""><RotateCcwIcon/>Retry</Button>:null}
     </span>
     {listening?.warnings.map((warning,index)=><span key={index} className="chat-failed" data-chat-warning="">{warning.message}</span>)}
-    {failed&&turn.stderr_tail?<details className="chat-error" data-chat-reason=""><summary>{turn.error||'Details'}</summary><div className="chat-raw-heading">stderr (last lines)</div><LogBlock text={turn.stderr_tail} contentClassName="max-h-40"/></details>
-      :failed&&turn.error?<p className="chat-error" data-chat-reason="">{turn.error}</p>:null}
-    {!failed&&turn.warning?<p className="chat-warning" data-chat-warning="">{turn.warning}</p>:null}
+    {failed&&turn.stderr_tail?<Notice tone="error" className="chat-error" data-chat-reason="" title={turn.error||'The voice failed'}>
+        <Collapsible><CollapsibleTrigger render={<Button variant="link" size="xs" className="h-auto px-0 text-destructive"/>}>stderr (last lines)</CollapsibleTrigger><CollapsibleContent className="pt-1"><LogBlock text={turn.stderr_tail} contentClassName="max-h-40"/></CollapsibleContent></Collapsible></Notice>
+      :failed&&turn.error?<Notice tone="error" className="chat-error" data-chat-reason="" title={turn.error}/>:null}
+    {!failed&&turn.warning?<Notice data-chat-warning="" title={turn.warning}/>:null}
     <RawOutput chatId={raw.chatId} turnId={turn.id} running={false} open={raw.openRaw.has(turn.id)} onOpenChange={open=>raw.setRaw(turn.id,open)} api={raw.api} bus={raw.bus}/>
-    {listening?.runs?.length?<details className="chat-listen-raw" data-chat-listen-raw="" data-reader-decoration=""><summary>Listening checks · raw output ({listening.runs.length})</summary>
+    {listening?.runs?.length?<Collapsible className="flex w-full min-w-0 basis-full flex-col gap-1" data-chat-listen-raw="" data-reader-decoration=""><CollapsibleTrigger render={<Button variant="ghost" size="xs" className="self-start text-muted-foreground"/>}><ChevronRightIcon data-icon="inline-start" aria-hidden className="transition-transform in-data-[panel-open]:rotate-90"/>Listening checks · raw output ({listening.runs.length})</CollapsibleTrigger><CollapsibleContent className="flex flex-col gap-1">
       {listening.runs.map(run=><RawOutput key={run.turn_id} chatId={raw.chatId} turnId={run.turn_id} running={false} open={raw.openRaw.has(run.turn_id)} onOpenChange={open=>raw.setRaw(run.turn_id,open)} api={raw.api} bus={raw.bus}
-        label={`${run.voice} · ${run.state==='done'?(LISTEN_OUTCOME[run.outcome||'']||run.outcome):(run.failure&&failureLabel[run.failure])||failedLabel[run.state]||run.state}`}/>)}</details>:null}
+        label={`${run.voice} · ${run.state==='done'?(LISTEN_OUTCOME[run.outcome||'']||run.outcome):(run.failure&&failureLabel[run.failure])||failedLabel[run.state]||run.state}`}/>)}</CollapsibleContent></Collapsible>:null}
   </MessageFooter>;
 }
 
@@ -273,7 +279,7 @@ export function ChatPanel(props:ChatProps){
   const isVoice=(m:ChatMessage)=>!!m.turn||!!m.runtime?.manual;
   const isMine=(m:ChatMessage)=>!m.turn&&!m.runtime?.manual;
 
-  return <aside id="chat-panel" className="chat-panel" hidden={!open} aria-labelledby="chat-title" data-reader-decoration="">
+  return <aside data-ui="shadcn" id="chat-panel" className="chat-panel" hidden={!open} aria-labelledby="chat-title" data-reader-decoration="">
     <div className="chat-top">
       <div className="chat-heading"><div className="eyebrow">Chat with the voices</div><h2 id="chat-title" title={title}>{title||'This document'}</h2></div>
       <ButtonGroup>
@@ -291,12 +297,12 @@ export function ChatPanel(props:ChatProps){
       <MessageScroller className="chat-scroller">
         <MessageScrollerViewport>
           <MessageScrollerContent className="chat-messages" aria-live="polite">
-            {!chat?.messages.length&&!pending.length?<p className="chat-empty">{configured?<>Ask about this document. <kbd>@</kbd> chooses who answers{runnable.length?<>: {runnable.map(v=>'@'+(v.mention[0]||v.name)).join(', ')}</>:null}. Without a mention, one voice is chosen at random.</>:<>No voices are configured for chat. Add <code>voices.json</code> to the vault to run them.</>}</p>:null}
+            {!chat?.messages.length&&!pending.length?<Marker className="chat-empty justify-center py-6"><MarkerContent>{configured?<>Ask about this document. <Kbd>@</Kbd> chooses who answers{runnable.length?<>: {runnable.map(v=>'@'+(v.mention[0]||v.name)).join(', ')}</>:null}. Without a mention, one voice is chosen at random.</>:<>No voices are configured for chat. Add <code className="font-mono">voices.json</code> to the vault to run them.</>}</MarkerContent></Marker>:null}
             {chat?.messages.map(message=>message.kind==='hand'?<MessageScrollerItem key={message.id}>
               <Card size="sm" className="chat-hand" data-chat-hand={message.id} data-author={message.author} data-hand-state={handOpen(message)?'raised':message.state}>
-                <p>✋ <strong>{message.author}</strong> has something to add: {message.reason}</p>
-                {handOpen(message)?<ButtonGroup><Button size="xs" onClick={()=>decide(message,'accept')} data-chat-hand-accept="">Let them speak</Button><Button variant="ghost" size="xs" onClick={()=>decide(message,'decline')} data-chat-hand-decline="">Not now</Button></ButtonGroup>
-                  :<span className="chat-hand-state">{handLabel[message.state||'expired']}</span>}
+                <CardHeader><CardTitle className="flex items-center gap-1.5"><HandIcon aria-hidden className="size-4"/>{message.author} has something to add</CardTitle><CardDescription>{message.reason}</CardDescription>
+                  {handOpen(message)?null:<CardAction><Badge variant="outline" data-chat-hand-state="">{handLabel[message.state||'expired']}</Badge></CardAction>}</CardHeader>
+                {handOpen(message)?<CardFooter><ButtonGroup><Button size="xs" onClick={()=>decide(message,'accept')} data-chat-hand-accept="">Let them speak</Button><Button variant="ghost" size="xs" onClick={()=>decide(message,'decline')} data-chat-hand-decline="">Not now</Button></ButtonGroup></CardFooter>:null}
               </Card>
             </MessageScrollerItem>:<MessageScrollerItem key={message.id} scrollAnchor={isMine(message)}>
               <Message align={isMine(message)?'end':'start'} data-chat-message={message.id} data-author={message.author} data-chat-state={message.turn?.state} data-chat-kind={message.kind||'message'}
@@ -304,8 +310,8 @@ export function ChatPanel(props:ChatProps){
                 onKeyDown={event=>{if(event.key==='r'&&!event.metaKey&&!event.ctrlKey&&!event.altKey&&isVoice(message)&&event.target===event.currentTarget){event.preventDefault();reply(message);}}}>
                 <MessageContent>
                   <MessageHeader className="chat-author"><span>{message.author}</span><span className="chat-runtime">{message.kind==='chime_in'?<Badge variant="secondary" className="chat-chimed" title={message.reason?'Raised a hand: '+message.reason:undefined}>chimed in</Badge>:null}{message.runtime?.manual?'pasted by hand':runtimeLabel(message.runtime)}{message.chosen_by==='random'?' · chosen at random':''}</span></MessageHeader>
-                  {message.reply_to&&isMine(message)&&byId.get(message.reply_to)?<button type="button" className="chat-quote" data-chat-quote={message.reply_to} onClick={()=>jump(message.reply_to!)} title="Show the message this replies to">
-                    <span>{byId.get(message.reply_to)!.author}</span> {excerpt(byId.get(message.reply_to)!.body)}</button>:null}
+                  {message.reply_to&&isMine(message)&&byId.get(message.reply_to)?<Button variant="ghost" size="xs" className="chat-quote h-auto max-w-full justify-start whitespace-normal text-left text-muted-foreground" data-chat-quote={message.reply_to} onClick={()=>jump(message.reply_to!)} title="Show the message this replies to">
+                    <CornerUpLeftIcon data-icon="inline-start" aria-hidden/><span className="min-w-0"><span className="font-medium text-foreground">{byId.get(message.reply_to)!.author}</span> {excerpt(byId.get(message.reply_to)!.body)}</span></Button>:null}
                   {message.body?<Bubble variant={isMine(message)?'default':message.turn&&message.turn.state!=='done'?'destructive':'muted'} align={isMine(message)?'end':'start'}><BubbleContent><Markdown text={message.body} markdown={markdown}/></BubbleContent></Bubble>:null}
                   <Footer message={message} retried={retried.has(message.id)} onRetry={()=>retry(message)} onReply={isVoice(message)?()=>reply(message):null} openPath={openPath} raw={{chatId:chat.id,api,bus,openRaw,setRaw}}/>
                 </MessageContent>
@@ -321,25 +327,25 @@ export function ChatPanel(props:ChatProps){
                 </MessageContent>
               </Message>
             </MessageScrollerItem>)}
-            {listening.length?<p className="chat-listening" data-chat-listening="" role="status">Listening: {listening.map(t=>t.voice).join(', ')}… <span>typing stops it</span></p>:null}
+            {listening.length?<Marker variant="separator" className="chat-listening" data-chat-listening="" role="status"><MarkerContent>Listening: {listening.map(t=>t.voice).join(', ')}… typing stops it</MarkerContent></Marker>:null}
           </MessageScrollerContent>
         </MessageScrollerViewport>
         <MessageScrollerButton/>
       </MessageScroller>
     </MessageScrollerProvider>
-    {commit?.status==='failed'?<p className="chat-commit-error" role="status">The last change to this chat isn’t committed: {commit.error}</p>:null}
+    {commit?.status==='failed'?<Notice tone="error" role="status" className="chat-commit-error" title="The last change to this chat isn’t committed">{commit.error}</Notice>:null}
     {pasting&&pasteName?<form className="chat-paste" onSubmit={event=>{event.preventDefault();paste();}}>
       {manual.length>1?<Select items={manual.map(v=>({value:v.name,label:v.name}))} value={pasteName} onValueChange={value=>{if(value)setPasteVoice(value as string);}}>
         <SelectTrigger id="chat-paste-voice" size="sm" aria-label="Whose reply you are pasting"><SelectValue/></SelectTrigger>
         <SelectContent alignItemWithTrigger={false}><SelectGroup>{manual.map(v=><SelectItem key={v.name} value={v.name}>{v.name}</SelectItem>)}</SelectGroup></SelectContent></Select>:null}
-      <label htmlFor="chat-paste-body">{pasteName}’s reply, pasted by hand</label>
+      <FieldLabel htmlFor="chat-paste-body">{pasteName}’s reply, pasted by hand</FieldLabel>
       <InputGroup><InputGroupTextarea id="chat-paste-body" rows={4} maxLength={65536} value={pasteText} onChange={event=>setPasteText(event.target.value)} placeholder={`Paste ${pasteName}’s reply…`}/>
         <InputGroupAddon align="block-end"><InputGroupButton variant="ghost" size="xs" onClick={()=>{setPasting(false);setPasteText('');}}>Cancel</InputGroupButton><InputGroupButton type="submit" variant="default" size="xs" className="ml-auto" disabled={!pasteText.trim()||busy}>Save as {pasteName}</InputGroupButton></InputGroupAddon></InputGroup>
     </form>:null}
     {replyTo?<div className="chat-replying" data-chat-replying={replyTo.id}>
       <span><CornerUpLeftIcon/>Replying to {replyTo.author} · “{excerpt(replyTo.body)}”{replyTo.runtime?.manual?<em> {replyTo.author} answers by paste: use “Paste {manual.length>1?'a':replyTo.author+'’s'} reply” for the answer.</em>:null}</span>
       <Button variant="ghost" size="icon-xs" aria-label="Cancel the reply" onClick={()=>setReplyTo(null)} data-chat-reply-cancel=""><XIcon/></Button></div>:null}
-    {readOnly?<p className="chat-read-only" role="status" data-chat-read-only="">{readOnly}</p>:null}
+    {readOnly?<Notice role="status" className="chat-read-only" data-chat-read-only="" title={readOnly}/>:null}
     <form className="chat-composer" onSubmit={event=>{event.preventDefault();send();}}>
       {/* Base UI Autocomplete is the free-text member of the Combobox family: the textarea keeps the whole message. */}
       <AutocompletePrimitive.Root<Voice> items={items} filteredItems={items} filter={null} mode="none" open={!!mention&&items.length>0} onOpenChange={value=>{if(!value)setMention(null);}}
@@ -363,8 +369,8 @@ export function ChatPanel(props:ChatProps){
         </ComboboxContent>
       </AutocompletePrimitive.Root>
     </form>
-    {staticDemo()&&!offline?<p className="chat-privacy" data-chat-local-note="">The web demo’s voices are scripted: replies are picked by keywords in your browser, nothing is sent anywhere, and this chat is kept only in this browser.</p>
-    :<p className="chat-privacy">Each turn sends this document, the chat and anything the voice reads to that voice’s provider. Voices act with their normal authority in the vault; chats are committed.
-      {logs?<> Every run’s raw output is kept in <code>{logs.path}</code> (<span data-chat-log-usage="">{bytes(logs.bytes)}, {logs.runs} run{logs.runs===1?'':'s'}</span>) and never expires.</>:null}</p>}
+    {staticDemo()&&!offline?<Marker className="chat-privacy text-xs" data-chat-local-note=""><MarkerContent>The web demo’s voices are scripted: replies are picked by keywords in your browser, nothing is sent anywhere, and this chat is kept only in this browser.</MarkerContent></Marker>
+    :<Marker className="chat-privacy text-xs"><MarkerContent>Each turn sends this document, the chat and anything the voice reads to that voice’s provider. Voices act with their normal authority in the vault; chats are committed.
+      {logs?<> Every run’s raw output is kept in <code>{logs.path}</code> (<span data-chat-log-usage="">{bytes(logs.bytes)}, {logs.runs} run{logs.runs===1?'':'s'}</span>) and never expires.</>:null}</MarkerContent></Marker>}
   </aside>;
 }

@@ -128,6 +128,7 @@ lucide-react/dist/esm/icons/git-commit-horizontal.js:
 lucide-react/dist/esm/icons/git-pull-request-arrow.js:
 lucide-react/dist/esm/icons/git-pull-request.js:
 lucide-react/dist/esm/icons/globe.js:
+lucide-react/dist/esm/icons/hand.js:
 lucide-react/dist/esm/icons/image.js:
 lucide-react/dist/esm/icons/inbox.js:
 lucide-react/dist/esm/icons/info.js:
