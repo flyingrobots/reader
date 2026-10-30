@@ -584,9 +584,6 @@ body.two-page .embed-pdf canvas{max-height:65vh;width:auto!important}
 .vim-mode[data-mode=QUIZ]{background:var(--mode-thread)}
 .reading-log-quizzes{list-style:none;padding:0;margin:.5em 0 0;color:var(--muted);font-size:13px;line-height:1.45}
 .reader-quiz-dialog{max-width:min(42rem,calc(100vw - 2rem));max-height:calc(100dvh - 2rem);overflow-y:auto}
-.reader-quiz-score{font-size:2rem;font-variant-numeric:tabular-nums}
-.reader-quiz-feedback{border-inline-start:2px solid var(--accent);padding-inline-start:1rem;line-height:1.45}
-.reader-quiz-task-details{max-height:16rem;overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere;font-size:12px}
 @media(max-width:600px){.reader-quiz-dialog{inset:0;width:100%;max-width:100%;max-height:100dvh;min-height:100dvh;transform:none;translate:none;border-radius:0;align-content:start;padding:1rem}}
 
 /* Writing prompts use Scratch's existing editor and responsive layout. */

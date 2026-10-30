@@ -1,4 +1,6 @@
 import {useSyncExternalStore} from 'react';
+import {Notice} from './theme/molecules/notice';
+import {LoadingState} from './theme/molecules/states';
 import {createRoot} from 'react-dom/client';
 import {Dialog,DialogContent,DialogDescription,DialogFooter,DialogHeader,DialogTitle} from './components/ui/dialog';
 import {Button} from './components/ui/button';
@@ -17,14 +19,14 @@ function WritingPrompt({getSnapshot,subscribe,actions}:Options){
         <Field><FieldLabel htmlFor="writing-prompt-voice">Ask me something</FieldLabel><Select value={model.voice||null} disabled={disabled||!model.voices.length} onValueChange={value=>{if(value)actions.voice(value);}}>
           <SelectTrigger id="writing-prompt-voice"><SelectValue placeholder="Choose a voice"/></SelectTrigger><SelectContent><SelectGroup>{model.voices.map(v=><SelectItem key={v.name} value={v.name}>{v.name}</SelectItem>)}</SelectGroup></SelectContent>
         </Select></Field>
-        {model.busy&&<p role="status">{model.task?.state==='queued'?'Waiting for a voice…':'Thinking of a question…'}</p>}
-        {model.error&&<p role="alert" className="text-destructive">{model.error}</p>}
-        {model.prompt?<><p className="text-muted-foreground">{model.prompt.author}{model.prompt.earlier?' · earlier edition':''}</p><p className="text-xl leading-relaxed">{model.prompt.question}</p>
-          {model.prompt.evidence?<Button variant="link" onClick={actions.evidence}>Show me in the text</Button>:<p className="text-muted-foreground">The question has no verified passage link.</p>}
+        {model.busy&&<LoadingState>{model.task?.state==='queued'?'Waiting for a voice…':'Thinking of a question…'}</LoadingState>}
+        {model.error&&<Notice tone="error" role="alert" title={model.error}/>}
+        {model.prompt?<><figure className="flex flex-col gap-2" data-writing-question=""><figcaption className="text-sm text-muted-foreground">{model.prompt.author}{model.prompt.earlier?' · earlier edition':''}</figcaption><blockquote data-slot="question" className="font-serif text-xl leading-relaxed">{model.prompt.question}</blockquote></figure>
+          {model.prompt.evidence?<Button variant="link" className="self-start px-0" onClick={actions.evidence}>Show me in the text</Button>:<span className="text-sm text-muted-foreground">The question has no verified passage link.</span>}
           <DialogFooter><Button variant="outline" disabled={disabled||!model.voices.length} onClick={()=>actions.generate(true)}>Ask something else</Button><Button disabled={disabled} onClick={actions.write}>Write a response</Button></DialogFooter>
         </>:<Button disabled={disabled||!model.voices.length} onClick={()=>actions.generate()}>Ask a question</Button>}
-        {!model.voices.length&&<p className="text-muted-foreground">Configure an enabled voice to generate a question. Existing saved questions remain readable.</p>}
-        {model.task?.commit?.status==='failed'&&<p role="alert">The question was saved, but its commit failed. {model.task.commit.error}</p>}
+        {!model.voices.length&&<Notice title="Configure an enabled voice to generate a question.">Existing saved questions remain readable.</Notice>}
+        {model.task?.commit?.status==='failed'&&<Notice tone="error" role="alert" title="The question was saved, but its commit failed.">{model.task.commit.error}</Notice>}
       </>}
     </DialogContent>
   </Dialog>;

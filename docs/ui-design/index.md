@@ -11,3 +11,5 @@ Reader Admin's pages have their sheets in [admin-design/](../admin-design/index.
 | Theme Editor | `web/src/theme/theme-editor.tsx` | shadcn: [theme-editor.md](theme-editor.md) |
 | Chat with the voices | `web/src/chat/` | shadcn: [chat.md](chat.md) |
 | Article prompt card | `web/src/jobs/prompt-card.tsx` | shadcn: [prompt-card.md](prompt-card.md) |
+| Quiz | `web/src/quiz.tsx` | shadcn: [quiz.md](quiz.md) |
+| Writing prompt | `web/src/writing-prompt.tsx` | shadcn: [writing-prompt.md](writing-prompt.md) |
