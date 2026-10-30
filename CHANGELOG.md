@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Reader Admin is built from real shadcn components. The stylesheet now imports `shadcn/tailwind.css`, so `data-horizontal` and `data-vertical` variants work and Separators are visible. A `reader-slots` cascade layer keeps legacy prose rules off shadcn slots. Atomic tiers in `web/src/theme/` (atoms, molecules, organisms, templates) compose every page except Library: Overview, Coding jobs, LLM logs, Repositories, Voices, Models, Inbox, Indexes, Artwork, Service & tools and Settings. Hand-rolled lists, fact grids, glyph state marks, raw `<select>` and `<table>` markup, `<details>` panels and `window.confirm` give way to Item, Table, Select, Collapsible, Alert, Empty and AlertDialog. Each page has a design sheet in `docs/admin-design/`, and `tests/web_admin_review.cjs` reviews every section on desktop, tablet and phone in a light and a dark theme. The Library statistics dashboard and the Theme Editor remain to be rebuilt.
+
 - Automatic bookmarks wait for the smooth renderer to catch up before saving, preventing an intermediate animation frame from replacing the place restored after leaving Reader Admin. Navigation and hidden-tab saves remain immediate.
 
 - Inbox activity displays one elapsed-time counter. Running work, completed steps and failures have distinct theme-aware colors, with stronger command text and separate librarian-message surfaces.

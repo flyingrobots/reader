@@ -13,6 +13,7 @@ This corpus describes how Reader works: its architecture, contracts, capabilitie
 - [Obsidian Reader sidebar](obsidian-plugin.md) — relationships, dates, filtering, library search, read-aloud, installation, and recovery.
 - [Demo vault](demo.md) — `reader demo`: a disposable example vault with public-domain texts, scripted voices and every feature seeded.
 - [Library website](web.md) — local dashboard, Vim navigation, two-page reading, automatic bookmarks and shared margins.
+- [Reader Admin design sheets](admin-design/index.md) — each Admin page's focused activity, layout, shadcn composition through the atomic tiers, states and test hooks.
 - [Library search](search.md) — CLI/MCP search, source reading, indexing, local model setup, and recovery.
 - [Versioned document metadata](metadata.md) — frontmatter schema, Obsidian placeholders, SQL mirror, migration, and validation.
 - [Capabilities and boundaries](capabilities.md) — supported behavior and operational limits.
