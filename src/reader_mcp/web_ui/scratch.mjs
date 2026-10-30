@@ -46,9 +46,9 @@ export const drafts={
   async remove(id){return tx('readwrite',s=>{s.delete(id);});},
 };
 
-export function installScratch({state,api,notify,renderMarkdown,navigate,focusMain,updateStatus,openChat,savedChanged=()=>{},registers=()=>null,confirmAction=message=>confirm(message)}){
+export function installScratch({state,api,notify,renderMarkdown,navigate,focusMain,updateStatus,openChat,savedChanged=()=>{},registers=()=>null,mountQuestion=null,confirmAction=message=>confirm(message)}){
   const $=s=>document.querySelector(s);
-  let editor=null,editorModule=null,draft=null,handoff=null,root=null,mode='NORMAL',layout=null,saveState='Unsaved',local=true,dirty=false,autosave=0,previewTimer=0,cursor=0,list=null,lastSaved=null;
+  let editor=null,editorModule=null,question=null,draft=null,handoff=null,root=null,mode='NORMAL',layout=null,saveState='Unsaved',local=true,dirty=false,autosave=0,previewTimer=0,cursor=0,list=null,lastSaved=null;
   const narrow=()=>innerWidth<900;
   const now=()=>new Date().toISOString();
   // A new buffer responds, by default, to the document you came from; the draft keeps that across reloads.
@@ -123,9 +123,12 @@ export function installScratch({state,api,notify,renderMarkdown,navigate,focusMa
       <div class="scratch-panes"><div class="scratch-editor"></div><div class="scratch-preview" tabindex="-1" aria-label="Preview"><div class="article scratch-preview-body"></div></div></div>
       <aside class="scratch-drafts" aria-label="Drafts" hidden></aside></section>`;
     root=main.querySelector('.scratch');
-    if(draft.prompt){const context=document.createElement('aside');context.className='scratch-prompt-context';context.dataset.readerDecoration='';
-      const by=document.createElement('p');by.className='eyebrow';by.textContent='A question from '+draft.prompt.author;
-      const question=document.createElement('p');question.textContent=draft.prompt.question;context.append(by,question);root.querySelector('.scratch-panes').before(context);}
+    // The question sits at the top of the editor pane (a shadcn Collapsible island), so both panes keep the full height.
+    question?.destroy();question=null;
+    if(draft.prompt){const context=document.createElement('div');context.className='scratch-prompt-context';context.dataset.readerDecoration='';
+      root.querySelector('.scratch-editor').prepend(context);
+      if(mountQuestion)question=mountQuestion(context,{author:draft.prompt.author,question:draft.prompt.question});
+      else{const text=document.createElement('p');text.textContent=draft.prompt.question;context.append(text);}}
     root.querySelector('[data-scratch-layout]').onclick=cycle;
     root.querySelector('[data-scratch-drafts]').onclick=()=>toggleDrafts();
     root.querySelector('[data-scratch-new]').onclick=()=>navigate(':scratch='+crypto.randomUUID());
@@ -142,7 +145,7 @@ export function installScratch({state,api,notify,renderMarkdown,navigate,focusMa
   async function leave(){
     if(!editor&&!root)return;clearTimeout(previewTimer);previewTimer=0;
     if(dirty)await persist();
-    editor?.destroy();editor=null;root=null;list=null;
+    editor?.destroy();editor=null;question?.destroy();question=null;root=null;list=null;
   }
   document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden'&&dirty)persist();});
   // Drafts panel ------------------------------------------------------------------------------------

@@ -44,6 +44,7 @@ export {visibleDocumentNodes} from './document-tree';
 export {mountCallouts} from './callouts';
 export {mountQuiz} from './quiz';
 export {mountWritingPrompt} from './writing-prompt';
+export {mountScratchQuestion} from './scratch-question';
 import {ThemeEditor} from './theme/theme-editor';
 import {applyThemes, ensureProseTokens, themeId, type InstalledFont} from './theme/theme-css';
 import type {Theme} from './theme/color';

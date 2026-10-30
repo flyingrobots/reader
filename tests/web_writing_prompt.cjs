@@ -29,10 +29,16 @@ const {chromium}=require(process.env.READER_PLAYWRIGHT||'playwright-core');
   await modal.getByRole('button',{name:'Write a response',exact:true}).click();
   await modal.waitFor({state:'hidden'});await page.locator('.cm-editor').waitFor();await page.locator('.scratch-prompt-context').getByText(question,{exact:true}).waitFor();
   assert.equal(await page.evaluate(()=>!!document.activeElement?.closest('.cm-content')),true,'closing the question must leave the response editor focused');
-  // With the question above it, the editor and preview still take the remaining height, not one line.
-  const fill=await page.evaluate(()=>{const scratch=document.querySelector('.scratch').getBoundingClientRect(),context=document.querySelector('.scratch-prompt-context').getBoundingClientRect();
-    return ['.scratch-editor','.scratch-preview'].filter(s=>document.querySelector(s)?.offsetParent).map(s=>{const r=document.querySelector(s).getBoundingClientRect();return {s,top:r.top>=context.bottom,share:r.height/(scratch.bottom-context.bottom)};});});
-  assert.ok(fill.length&&fill.every(p=>p.top&&p.share>.85),'Scratch panes must fill below the question: '+JSON.stringify(fill));
+  // The question is a collapsible at the top of the editor pane; both panes run the full height below the toolbar.
+  const fill=await page.evaluate(()=>{const scratch=document.querySelector('.scratch').getBoundingClientRect(),bar=document.querySelector('.scratch-bar').getBoundingClientRect();
+    const pane=s=>document.querySelector(s).getBoundingClientRect(),editor=pane('.scratch-editor'),preview=pane('.scratch-preview'),cm=pane('.scratch-editor .cm-editor');
+    return {inside:!!document.querySelector('.scratch-editor > .scratch-prompt-context [data-slot=collapsible-trigger]'),sameTop:Math.abs(editor.top-preview.top)<1,
+      share:Math.min(editor.height,preview.height)/(scratch.bottom-bar.bottom),editorFill:(cm.bottom-editor.top)/editor.height};});
+  assert.ok(fill.inside&&fill.sameTop&&fill.share>.9&&fill.editorFill>.98,'Scratch panes must run the full height: '+JSON.stringify(fill));
+  await page.locator('.scratch-prompt-context').getByRole('button',{name:/^Question from /}).click();
+  await page.locator('.scratch-prompt-context').getByText(question,{exact:true}).waitFor({state:'hidden'});
+  await page.locator('.scratch-prompt-context').getByRole('button',{name:/^Question from /}).click();
+  await page.locator('.scratch-editor .cm-content').click();
   await page.keyboard.press('i');await page.keyboard.type('# On color\n\nI choose red because it catches my eye.');await page.keyboard.press('Escape');
   await page.waitForFunction(()=>document.querySelector('.scratch-state').textContent==='Saved on this device');
   const draftHash=new URL(page.url()).hash;await page.reload();await page.locator('.cm-editor').waitFor();
