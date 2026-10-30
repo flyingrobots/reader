@@ -7,3 +7,4 @@ Reader Admin's pages have their sheets in [admin-design/](../admin-design/index.
 | Surface | Source | Status |
 | --- | --- | --- |
 | Search | `web/src/search-page.tsx` | shadcn: [search.md](search.md) |
+| Reading queue | `web/src/queue-panel.tsx` | shadcn: [queue.md](queue.md) |

@@ -18,7 +18,7 @@ const {sanitizerReport}=require('./web_wait.cjs');  // #151
   const toast=text=>page.locator('[data-sonner-toast]').filter({hasText:text});
   const leader=async key=>{await page.evaluate(()=>{if(!document.querySelector('#queue-panel').contains(document.activeElement))document.querySelector('#main').focus({preventScroll:true});});await page.keyboard.press('Space');await page.keyboard.press(key);};
   const panel=page.locator('#queue-panel');
-  const titles=section=>panel.locator(`[data-section=${section}] .queue-title`).allTextContents();
+  const titles=section=>panel.locator(`[data-section=${section}] [data-queue-title]`).allTextContents();
   const openPanel=async()=>{await leader('r');await panel.waitFor();await panel.locator('[data-section=queued]').waitFor();await page.locator('#queue-panel:not([aria-busy])').waitFor();};
   const read=async path=>{await page.goto(url+'#read='+encodeURIComponent(path));await page.locator('.next-reads .next-read').first().waitFor({state:'visible'});};
 
@@ -27,7 +27,7 @@ const {sanitizerReport}=require('./web_wait.cjs');  // #151
   await openPanel();
   assert.equal(await page.locator('#vim-mode').textContent(),'QUEUE');
   assert.match(await panel.locator('[data-section=queued]').textContent(),/Nothing queued yet\. Press q on anything to add it\./);
-  assert.ok(await panel.locator('[data-section=suggested] .queue-row').count()>0,'new unread works are suggested before any history');
+  assert.ok(await panel.locator('[data-section=suggested] [data-queue-row]').count()>0,'new unread works are suggested before any history');
   await page.keyboard.press('Tab');await panel.locator('#queue-list-history').waitFor({state:'attached'});
   await panel.getByText('No reading history yet.').waitFor();
   await page.keyboard.press('Escape');await panel.waitFor({state:'hidden'});
@@ -49,12 +49,12 @@ const {sanitizerReport}=require('./web_wait.cjs');  // #151
   // Space r: Now reading, then your queue in your order.
   await openPanel();
   assert.deepEqual(await titles('now'),['A quiet thought']);
-  assert.match(await panel.locator('[data-section=now] .queue-time').textContent(),/^\d+% · \d+ min left$/);
+  assert.match(await panel.locator('[data-section=now] [data-queue-time]').textContent(),/^\d+% · \d+ min left$/);
   assert.deepEqual(await titles('queued'),['Another thought','A newer observation']);
   const suggested=await titles('suggested');
   assert.ok(!suggested.includes('Another thought')&&!suggested.includes('A quiet thought'),'queued and open documents are not suggested');
-  assert.ok(await panel.locator('[data-section=suggested] .queue-reason').filter({hasText:/^From another project/}).count()===1,'one cross-project suggestion');
-  assert.ok(await panel.locator('[data-section=suggested] .queue-reason').filter({hasText:'Because you read A quiet thought'}).count()>=1);
+  assert.ok(await panel.locator('[data-section=suggested] [data-queue-reason]').filter({hasText:/^From another project/}).count()===1,'one cross-project suggestion');
+  assert.ok(await panel.locator('[data-section=suggested] [data-queue-reason]').filter({hasText:'Because you read A quiet thought'}).count()>=1);
   for(const theme of ['paper','ink','gruvbox-dark']){await page.evaluate(t=>document.documentElement.dataset.theme=t,theme);await page.waitForTimeout(150);await page.screenshot({path:`.reader/web-dev/queue-${theme}.png`});}
   await page.evaluate(()=>document.documentElement.dataset.theme='paper');
   // Readable in every theme: rendered text against the panel.
@@ -66,7 +66,7 @@ const {sanitizerReport}=require('./web_wait.cjs');  // #151
     const ratio=(a,b)=>{const [lo,hi]=[lum(a),lum(b)].sort((x,y)=>x-y);return (hi+.05)/(lo+.05);};
     const panel=document.querySelector('#queue-panel');
     return THEMES.map(theme=>{document.documentElement.dataset.theme=theme;const bg=rgb(getComputedStyle(panel).backgroundColor);
-      const rows=['.queue-title','.queue-byline','.queue-reason','.queue-time','.queue-section-head .eyebrow','[data-slot=tabs-trigger][data-active]'].map(selector=>{const el=panel.querySelector(selector);return [selector,ratio(rgb(getComputedStyle(el).color),bg)];});
+      const rows=['[data-queue-title]','[data-queue-byline]','[data-queue-reason]','[data-queue-time]','[data-section-label]','[data-slot=tabs-trigger][data-active]'].map(selector=>{const el=panel.querySelector(selector);return [selector,ratio(rgb(getComputedStyle(el).color),bg)];});
       return {theme,minimum:Math.min(...rows.map(r=>r[1])),worst:rows.sort((a,b)=>a[1]-b[1])[0][0]};});
   });
   await page.evaluate(()=>document.documentElement.dataset.theme='paper');
@@ -75,9 +75,9 @@ const {sanitizerReport}=require('./web_wait.cjs');  // #151
   // J/K reorder, persisted across reload.
   assert.equal(await page.evaluate(()=>document.activeElement.id),'queue-list-next','the list has focus');
   await page.keyboard.press('j');await page.keyboard.press('j');
-  assert.equal(await panel.locator('[role=option][aria-selected=true] .queue-title').textContent(),'A newer observation');
-  await page.keyboard.press('K');await page.waitForFunction(()=>document.querySelector('#queue-panel [data-section=queued] .queue-title')?.textContent==='A newer observation');
-  assert.equal(await panel.locator('[role=option][aria-selected=true] .queue-title').textContent(),'A newer observation','the selection follows the moved item');
+  assert.equal(await panel.locator('[role=option][aria-selected=true] [data-queue-title]').textContent(),'A newer observation');
+  await page.keyboard.press('K');await page.waitForFunction(()=>document.querySelector('#queue-panel [data-section=queued] [data-queue-title]')?.textContent==='A newer observation');
+  assert.equal(await panel.locator('[role=option][aria-selected=true] [data-queue-title]').textContent(),'A newer observation','the selection follows the moved item');
   await page.reload();await page.locator('.next-reads').waitFor();
   assert.equal(await page.locator('.next-in-queue .next-read-title').textContent(),'A newer observation','Read next leads with the queue');
   await openPanel();
@@ -97,25 +97,25 @@ const {sanitizerReport}=require('./web_wait.cjs');  // #151
   await leader('n');await toast('Your queue is empty. Press q on anything to add it.').waitFor();
   // Pin a suggestion with p.
   await openPanel();
-  await page.waitForFunction(()=>document.querySelectorAll('#queue-panel [data-section=suggested] .queue-row').length>0);
-  const pinned=await panel.locator('[data-section=suggested] .queue-title').first().textContent();
+  await page.waitForFunction(()=>document.querySelectorAll('#queue-panel [data-section=suggested] [data-queue-row]').length>0);
+  const pinned=await panel.locator('[data-section=suggested] [data-queue-title]').first().textContent();
   const firstSuggestion=await panel.locator('[data-section=suggested] [role=option]').first().getAttribute('id');
   const index=+firstSuggestion.split('-').at(-1);for(let i=0;i<index;i++)await page.keyboard.press('j');
   await page.keyboard.press('p');await toast('Added to your queue · 1st').waitFor();
   assert.deepEqual(await titles('queued'),[pinned]);
   // c clears, after a confirmation.
-  await page.keyboard.press('c');await panel.locator('.queue-confirm').waitFor();
-  assert.match(await panel.locator('.queue-confirm').textContent(),/Clear 1 queued document\?/);
+  await page.keyboard.press('c');await panel.locator('[data-queue-confirm]').waitFor();
+  assert.match(await panel.locator('[data-queue-confirm]').textContent(),/Clear 1 queued document\?/);
   await page.keyboard.press('Enter');await toast('Your queue is clear.').waitFor();
   assert.deepEqual(await titles('queued'),[]);
   // History: today's opens with progress; Enter resumes at the saved position.
   await page.keyboard.press('2');await panel.locator('#queue-list-history').waitFor();
-  assert.equal(await panel.locator('#queue-list-history .eyebrow').first().textContent(),'Today');
-  const history=await panel.locator('#queue-list-history .queue-title').allTextContents();
+  assert.equal(await panel.locator('#queue-list-history [data-section-label]').first().textContent(),'Today');
+  const history=await panel.locator('#queue-list-history [data-queue-title]').allTextContents();
   assert.deepEqual(history.slice(0,3),['Another thought','A newer observation','A quiet thought']);
   const thoughtRow=panel.locator('#queue-list-history [role=option]').filter({hasText:'A quiet thought'});
-  assert.match(await thoughtRow.locator('.queue-time').textContent(),/^(4\d|5\d)% · \d+ min left$/);
-  assert.match(await thoughtRow.locator('.queue-when').textContent(),/\d{1,2}:\d{2}/);
+  assert.match(await thoughtRow.locator('[data-queue-time]').textContent(),/^(4\d|5\d)% · \d+ min left$/);
+  assert.match(await thoughtRow.locator('[data-queue-when]').textContent(),/\d{1,2}:\d{2}/);
   assert.equal(await panel.locator('[data-slot=tabs-trigger][data-active]').textContent(),'History','the History tab is selected');
   await page.screenshot({path:'.reader/web-dev/queue-history.png'});
   await page.keyboard.press('j');await page.keyboard.press('j');await page.keyboard.press('Enter');
@@ -123,20 +123,20 @@ const {sanitizerReport}=require('./web_wait.cjs');  // #151
   const resumed=await page.evaluate(()=>scrollY/(document.documentElement.scrollHeight-innerHeight));
   assert.ok(resumed>.4&&resumed<.6,'resumed near the saved half-way point: '+resumed);
   // Finished filter, then removing a history row keeps the receipt.
-  await openPanel();await page.keyboard.press('Tab');await panel.locator('#queue-list-history .queue-row').first().waitFor();
+  await openPanel();await page.keyboard.press('Tab');await panel.locator('#queue-list-history [data-queue-row]').first().waitFor();
   await page.keyboard.press('f');await panel.getByText('Nothing finished yet.').waitFor();await page.keyboard.press('f');
-  await panel.locator('#queue-list-history .queue-row').first().waitFor();
-  const before=await panel.locator('#queue-list-history .queue-title').allTextContents();
+  await panel.locator('#queue-list-history [data-queue-row]').first().waitFor();
+  const before=await panel.locator('#queue-list-history [data-queue-title]').allTextContents();
   const target=before.indexOf('Another thought');for(let i=0;i<target;i++)await page.keyboard.press('j');
-  await page.keyboard.press('x');await panel.locator('.queue-confirm').waitFor();
-  assert.match(await panel.locator('.queue-confirm').textContent(),/Your read receipt and reading position stay\./);
+  await page.keyboard.press('x');await panel.locator('[data-queue-confirm]').waitFor();
+  assert.match(await panel.locator('[data-queue-confirm]').textContent(),/Your read receipt and reading position stay\./);
   await page.keyboard.press('Enter');await toast('Removed from history').waitFor();
-  await page.waitForFunction(()=>![...document.querySelectorAll('#queue-list-history .queue-title')].some(el=>el.textContent==='Another thought'));
+  await page.waitForFunction(()=>![...document.querySelectorAll('#queue-list-history [data-queue-title]')].some(el=>el.textContent==='Another thought'));
   const library=await page.evaluate(()=>fetch('/api/library').then(r=>r.json()));
   assert.equal(library.works.find(w=>w.primary==='library/other.md').read,true,'the read receipt stays');
   // Phone width: a bottom sheet with 16px gutters and no horizontal scroll.
   await page.setViewportSize({width:390,height:844});await page.keyboard.press('1');await page.waitForTimeout(250);
-  const sheet=await page.evaluate(()=>{const p=document.querySelector('#queue-panel').getBoundingClientRect(),lead=document.querySelector('#queue-panel .queue-row .queue-lead').getBoundingClientRect(),side=document.querySelector('#queue-panel .queue-row .queue-side').getBoundingClientRect();return {left:p.left,right:p.right,top:p.top,rowLeft:lead.left,rowRight:side.right,scroll:document.documentElement.scrollWidth,width:innerWidth};});
+  const sheet=await page.evaluate(()=>{const p=document.querySelector('#queue-panel').getBoundingClientRect(),lead=document.querySelector('#queue-panel [data-queue-row] [data-slot=item-media]').getBoundingClientRect(),side=document.querySelector('#queue-panel [data-queue-row] [data-slot=item-actions]').getBoundingClientRect();return {left:p.left,right:p.right,top:p.top,rowLeft:lead.left,rowRight:side.right,scroll:document.documentElement.scrollWidth,width:innerWidth};});
   assert.ok(sheet.left===0&&sheet.right===390&&sheet.top>100,'bottom sheet: '+JSON.stringify(sheet));
   assert.ok(sheet.rowLeft>=16&&sheet.rowRight<=390-16+0.5,'16px gutters: '+JSON.stringify(sheet));
   assert.ok(sheet.scroll<=sheet.width+1,'no horizontal scroll');

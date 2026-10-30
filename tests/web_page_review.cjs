@@ -8,9 +8,9 @@ const {createInterface}=require('node:readline');
 const {mkdirSync}=require('node:fs');
 const {chromium,devices}=require(process.env.READER_PLAYWRIGHT||'playwright-core');
 const shots=(process.env.READER_SHOTS||'.reader/web-dev')+'/page-review';
-/** Page name → route and a selector that is present once the page has rendered. */
+/** Page name → route, a selector present once the page has rendered, and keys that open a panel on it (optional). */
 const PAGES={home:['#','#home-title'],search:['#search','#search-query'],results:['#search='+encodeURIComponent('q=observation'),'[data-work]'],article:['#read=library%2Fthought.md','#article'],
-  queue:['#read=library%2Fthought.md','#article']};
+  queue:['#read=library%2Fthought.md','#article',['Space','r'],'#queue-panel:not([hidden]) [data-queue-row]']};
 const SECTIONS=process.argv.slice(2).length?process.argv.slice(2):Object.keys(PAGES);
 const PROFILES={desktop:{viewport:{width:1440,height:900}},tablet:devices['iPad Mini'],phone:devices['iPhone 13']};
 const THEMES=['paper','ink'];
@@ -29,7 +29,8 @@ const THEMES=['paper','ink'];
    for(const section of SECTIONS){
     const name=`${section}-${profile}-${theme}`;errors.length=0;
     try{
-     const [route,ready]=PAGES[section];await page.goto(url+'/'+route);await page.locator(ready).first().waitFor({timeout:8000});
+     const [route,ready,keys,opened]=PAGES[section];await page.goto(url+'/'+route);await page.locator(ready).first().waitFor({timeout:8000});
+     if(keys){await page.locator('#main').focus();for(const key of keys)await page.keyboard.press(key);await page.locator(opened).first().waitFor({timeout:8000});}
      await page.waitForTimeout(900);   // Status polls answer and loading states settle.
      const overflow=await page.evaluate(()=>{const doc=document.documentElement,wide=[...document.querySelectorAll('#main *')].filter(el=>el.getBoundingClientRect().right>doc.clientWidth+1).map(el=>el.id||el.getAttribute('data-slot')||el.className.toString().slice(0,60)).slice(0,5);return {scroll:doc.scrollWidth-doc.clientWidth,wide};});
      await page.screenshot({path:`${shots}/${name}.png`,fullPage:true});

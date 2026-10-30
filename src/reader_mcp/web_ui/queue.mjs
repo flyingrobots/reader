@@ -205,7 +205,7 @@ export function installQueue({state, api, navigate, notify, renderPanel, focusMa
       return key !== 'Tab';
     }
     if (key === ' ' || key === ',' || key === 'Escape' || key === '?') return false;
-    if (event.target.closest('[role=tab],.queue-filter')) {
+    if (event.target.closest('[role=tab],[data-queue-filter]')) {
       if (['Enter', 'ArrowLeft', 'ArrowRight'].includes(key)) return false;
     }
     const list = rows(), act = fn => { event.preventDefault(); fn(); return true; };

@@ -47,8 +47,8 @@ const tidal='library/essays/tidal/tidal.md';
    // History groups by the local day of each open, relative to the local today.
    await page.locator('#main').focus();await page.keyboard.press('Space');await page.keyboard.press('r');
    const queue=page.locator('#queue-panel');await queue.waitFor();await queue.getByRole('tab',{name:'History'}).click();
-   await queue.locator('#queue-list-history .queue-row').first().waitFor();
-   const groups=await queue.locator('#queue-list-history [role=group], #queue-list-history section').evaluateAll(els=>els.map(g=>[g.querySelector('.eyebrow')?.textContent,[...g.querySelectorAll('.queue-title')].map(t=>t.textContent)]).filter(([label])=>label));
+   await queue.locator('#queue-list-history [data-queue-row]').first().waitFor();
+   const groups=await queue.locator('#queue-list-history [role=group], #queue-list-history section').evaluateAll(els=>els.map(g=>[g.querySelector('.eyebrow')?.textContent,[...g.querySelectorAll('[data-queue-title]')].map(t=>t.textContent)]).filter(([label])=>label));
    assert.deepEqual(groups,c.history,c.timezoneId+' history groups');
    await context.close();
   }
