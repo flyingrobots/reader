@@ -16,8 +16,8 @@
     "src/activity/reducer.ts": "4446276ef350a166028c02b3dbdcb1add0bc8b251efcf90f67b399c181beecf9",
     "src/activity/transcript.tsx": "eed63085db7d3f013732f6b6ab8defce02c8db2431389bfe07c40b3e25468966",
     "src/admin/admin-shell.tsx": "c3010de2489095b70b70a4c52ffd99d829237854086426f87e6aa89409f17c7d",
-    "src/admin/link.tsx": "717f9b35be950c8623c6a0e3d822deb921ce681c493d273ae8562ca3f60cf027",
-    "src/admin/overview.tsx": "1176b42b37ca8286fa4936ee50a68db552a7bf0e98fedb006dc34a235233a0d9",
+    "src/admin/link.tsx": "1364e49c693a3fdfdfda3b767e4914019c7092ad552a13b14d70fe61af03a714",
+    "src/admin/overview.tsx": "83e13bd6d0d5417ae89fe3a1594b474aa920c32924a4c93481031548193e0d1a",
     "src/admin/pages/inbox.tsx": "0873a1d59f634dde61c8d0ff9d742ff009dbc0943664e3dea19043337cbad85a",
     "src/admin/pages/indexes.tsx": "431ce9e6c419194d6f79035a582f4b7999f99dfbb11d172022a2db7f761b2728",
     "src/admin/panels.tsx": "9a2238b46c835eaf9fb19997dbd97c9a65134c0c8652e9f00b60a92af25b87e7",
@@ -100,7 +100,7 @@
     "src/shape/shape.ts": "9fe4b2b1dd21a2869130afa25aed34e2ea482fc8fe05aa2609193aa24c04b50c",
     "src/speech-control.tsx": "45a7efd449606ea196c7adef281ddadb2bd89dab1b5c9a945f56897cadbb4e0c",
     "src/static-demo.ts": "036a0b4413452d2ec8f7a51248157340082f3c030fc51d3237275021340e8810",
-    "src/styles.css": "770adc732715b7eba5aeda4ece81197f2bcd99e80550a69ad9f1d74ff59c6a1b",
+    "src/styles.css": "0969ba02079adb82bf21293f680c0f582a12fd12b081520a1bb312d6afbd1ee8",
     "src/theme/atoms/run-state-icon.tsx": "7898209e6e1893b71c6c38a94dde6c3a83e1ffd19344382e48dca151cf361b06",
     "src/theme/atoms/status-badge.tsx": "8b6e9f9c0de4921c3cba50a7972392e759f566a4f5b5a6c7580128ebaa959ba3",
     "src/theme/atoms/time.tsx": "0b1a472b95272cc8f2b27000e61aa297229395b46f91be270d12beab83671da4",
@@ -937,16 +937,16 @@
       "sha256": "cb2ee2554fd41ac9f8e2e69c350365f0e1cf9732d27ad161c9c97b20945bbe4c"
     },
     "reader-controls.css": {
-      "bytes": 190641,
-      "sha256": "b2d79f73e2bd2378dbd46da85310fc14f2ff199d97bce02bb5db23b9be6e308c"
+      "bytes": 190402,
+      "sha256": "5b43f55f8ece7e60b26516afff5306196dece91254138355b7b70b0f24e50866"
     },
     "reader-controls.js": {
-      "bytes": 1096409,
-      "sha256": "65d4234631d9551fd251e1742620b68c2973c9c0c1f485dfb83d9088c62b2ebb"
+      "bytes": 1096726,
+      "sha256": "97bacde645a5f1348dd1fa911f3fdadc19e552ca783538452af00dfbf96b6a4c"
     },
     "reader-controls.js.LEGAL.txt": {
-      "bytes": 6106,
-      "sha256": "f2c717d8826e6a77581a8e20d9994b32ada5154a4f028f82a77d7ea5b03e0c96"
+      "bytes": 6150,
+      "sha256": "2a6db7e1353401ca79589998189272b75d8e918c3e9edd524aca1a002de6a716"
     },
     "shape.js": {
       "bytes": 8806,
