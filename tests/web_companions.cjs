@@ -105,7 +105,7 @@ const shots=process.env.READER_SHOTS||'.reader/web-dev';
   await card('colorful').locator('.companion-log summary').click();
   await card('colorful').locator('.companion-log pre').filter({hasText:'Compiling colorful-cli'}).waitFor();
   await page.locator('[data-admin-nav=indexes]').click();await page.locator('#recent-runs').waitFor();
-  await page.locator('.backstage-jobs li[data-job-state=succeeded]').filter({hasText:'Install Colorful Language'}).first().waitFor();
+  await page.locator('#recent-runs [data-job-state=succeeded]').filter({hasText:'Install Colorful Language'}).first().waitFor();
   const tools=readFileSync(root+'/.fake-tools/calls.jsonl','utf8').trim().split('\n').map(l=>JSON.parse(l));
   assert.ok(tools.some(t=>t.tool==='git'&&t.argv.includes('61d0aa8b20837decdb26c92f71b967c7b14578d7')),'the pinned commit is checked out');
   assert.ok(tools.filter(t=>t.tool==='cargo').every(t=>t.argv[0]==='build'&&t.argv.includes('--locked')));

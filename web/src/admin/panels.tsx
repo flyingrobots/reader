@@ -3,7 +3,7 @@
 import {useEffect, useLayoutEffect, useRef} from 'react';
 import {Button} from '../components/ui/button';
 import {Card} from '../components/ui/card';
-import {EditionLinks, Indexes} from '../backstage';
+import {EditionLinks, IndexesPage} from './pages/indexes';
 import {InboxPage} from './pages/inbox';
 import {LocalModelSection} from '../local-model';
 import {CompanionsSection, AgentsCard} from '../companions';
@@ -34,7 +34,7 @@ export function InboxPanel({context:c}:Props){
 export function IndexesPanel({context:c}:Props){
   // Opening Indexes reads its status and, as Behind the scenes did, refreshes a freshness check older than two minutes.
   useEffect(()=>{c.checkIndexes();},[]);  // Once per visit.
-  return <Indexes status={c.maintenance} error={c.maintenanceError} onStart={c.startJob} editions={<EditionLinks api={c.api}/>}/>;
+  return <IndexesPage status={c.maintenance} error={c.maintenanceError} onStart={c.startJob} editions={<EditionLinks api={c.api}/>}/>;
 }
 
 export function ArtworkPanel({context:c}:Props){return <ArtStudio api={c.api} open={c.open}/>;}

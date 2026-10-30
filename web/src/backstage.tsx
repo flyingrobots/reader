@@ -1,18 +1,15 @@
-/* Reader Admin: maintenance and inbox status types and helpers shared with the pages under admin/pages/. */
-import {useEffect, useState, type ReactNode} from 'react';
-import {Loader2Icon} from 'lucide-react';
-import {Badge} from './components/ui/badge';
-import {Button} from './components/ui/button';
-import {ButtonGroup} from './components/ui/button-group';
-import {Card, CardHeader, CardTitle, CardDescription, CardAction, CardContent, CardFooter} from './components/ui/card';
+/* Reader Admin: maintenance and inbox status types, the index catalogue and the helpers the pages under admin/pages/
+   share. No components live here. */
 import {plural} from './plural';
-import {localOnly, needsReader} from './static-demo';
+import type {Tone} from './theme/atoms/status-badge';
+import {when} from './theme/atoms/time';
+export {when};
 
 export type Job={id:string;kind:string;label:string;quiet?:boolean;state:'running'|'succeeded'|'failed';started_at:string;finished_at:string|null;elapsed_seconds:number|null;result:Record<string,unknown>|null;error:string|null;progress?:string|null};
 export type Check={state:string;message?:string;checked_at:string;built_at?:string|null;[key:string]:unknown};
 export type MaintenanceStatus={running:Job|null;jobs:Job[];checks:Record<string,Check>;checking:boolean;kinds:Record<string,string>;local_model?:{running:boolean;runs:import('./local-model').Run[];labels:Record<string,string>}};
 
-type Fact=[label:string,value:(check:Check)=>unknown];
+export type Fact=[label:string,value:(check:Check)=>unknown];
 const count=(v:unknown)=>typeof v==='number'?v.toLocaleString():null;
 /** "61,204 of 400,000" from a [used, limit] pair. */
 export function of(pair:unknown){return Array.isArray(pair)&&typeof pair[0]==='number'?`${count(pair[0])} of ${count(pair[1])}`:null;}
@@ -24,8 +21,8 @@ export function budget(pair:unknown){
 }
 const usage=(key:string,format:(pair:unknown)=>string|null)=>(c:Check)=>format((c.usage as Record<string,unknown>|undefined)?.[key]);
 const item=(key:string)=>(c:Check)=>{const found=(c.items as {key:string;used:number|null;limit:number}[]|undefined)?.find(i=>i.key===key);return found?(found.used===null?'Unknown':of([found.used,found.limit])):null;};
-type Index={key:string;title:string;description:string;note?:string;facts:Fact[];actions:{kind:string;label:string;primary?:boolean}[]};
-const INDEXES:Index[]=[
+export type Index={key:string;title:string;description:string;note?:string;facts:Fact[];actions:{kind:string;label:string;primary?:boolean}[]};
+export const INDEXES:Index[]=[
   {key:'search',title:'Search index',description:'Contents and Semantic search, and the Read next suggestions at the end of an article.',
    facts:[['Built',c=>when(c.built_at)],['Library files',c=>c.files],['Indexed',c=>c.documents],['Passages',usage('passages',of)],
      ['Database',usage('database',budget)],['Embedding cache',usage('cache',budget)],
@@ -46,24 +43,12 @@ const INDEXES:Index[]=[
    facts:[['Works',item('works')],['Inbox files',item('inbox')],['Reading participants',item('participants')],['Annotation threads',item('threads')]],
    actions:[]},
 ];
-const INDEX_OF:Record<string,string>={search:'search','search-keyword':'search','remove-legacy-search':'search',browse:'browse',catalog:'catalog',links:'links'};
-const STATES:Record<string,{label:string;variant:'secondary'|'outline'|'destructive'|'default'}>={
-  current:{label:'Current',variant:'secondary'},stale:{label:'Needs rebuild',variant:'outline'},partial:{label:'Partial',variant:'outline'},
-  missing:{label:'Not built',variant:'outline'},unconfigured:{label:'Not configured',variant:'outline'},error:{label:'Error',variant:'destructive'},
-  ok:{label:'Within limits',variant:'secondary'},near:{label:'Near a limit',variant:'outline'},over:{label:'Over a limit',variant:'destructive'}};
+export const INDEX_OF:Record<string,string>={search:'search','search-keyword':'search','remove-legacy-search':'search',browse:'browse',catalog:'catalog',links:'links'};
+export const STATES:Record<string,{label:string;tone:Tone}>={
+  current:{label:'Current',tone:'ok'},stale:{label:'Needs rebuild',tone:'attention'},partial:{label:'Partial',tone:'attention'},
+  missing:{label:'Not built',tone:'attention'},unconfigured:{label:'Not configured',tone:'neutral'},error:{label:'Error',tone:'error'},
+  ok:{label:'Within limits',tone:'ok'},near:{label:'Near a limit',tone:'attention'},over:{label:'Over a limit',tone:'error'}};
 
-export function when(value:unknown){
-  if(typeof value!=='string'||!value)return null;
-  if(/^\d{4}-\d{2}-\d{2}$/.test(value))return new Date(value+'T12:00:00Z').toLocaleDateString(undefined,{month:'short',day:'numeric',year:'numeric',timeZone:'UTC'});   // a calendar date, as written
-  const date=new Date(value);if(Number.isNaN(+date))return value;
-  const seconds=Math.round((Date.now()-+date)/1000);
-  if(seconds<45)return 'just now';if(seconds<3600)return Math.round(seconds/60)+' min ago';if(seconds<86400)return Math.round(seconds/3600)+' h ago';
-  return date.toLocaleDateString(undefined,{month:'short',day:'numeric',year:'numeric'});
-}
-function Elapsed({since}:{since:string}){
-  const [, tick]=useState(0);useEffect(()=>{const timer=setInterval(()=>tick(n=>n+1),1000);return ()=>clearInterval(timer);},[]);
-  return <>{Math.max(0,Math.round((Date.now()-+new Date(since))/1000))} s</>;
-}
 function summary(job:Job){
   if(job.state==='failed')return job.error;
   const r=job.result||{};
@@ -78,73 +63,13 @@ function summary(job:Job){
   return null;
 }
 
-type EditionStats={stats:{files:number;families:number;unresolved:number;build_ms?:number;partial:boolean;header_bytes:number};unresolved:{path:string;field:string;value:string}[]};
-/** Edition links: families found and the references that could not be resolved (never guessed or repaired). */
-export function EditionLinks({api}:{api:(path:string)=>Promise<any>}){
-  const [data,setData]=useState<EditionStats|null>(null),[error,setError]=useState<string|null>(null);
-  useEffect(()=>{let live=true;api('/api/editions/diagnostics').then(d=>{if(live)setData(d);},e=>{if(live)setError(e instanceof Error?e.message:String(e));});return ()=>{live=false;};},[api]);
-  return <Card size="sm" className="backstage-card" id="edition-links" data-state={data?(data.stats.unresolved?'unresolved':'current'):error?'error':'loading'}>
-    <CardHeader><CardTitle>Edition links</CardTitle><CardDescription>Originals, reading copies and numbered versions, linked from frontmatter and file names. Read-only: nothing is repaired.</CardDescription>
-      <CardAction><Badge variant={error?'destructive':data?.stats.unresolved?'outline':'secondary'} className="backstage-badge">{error?'Error':!data?'Loading…':data.stats.unresolved?`${data.stats.unresolved} unresolved`:'All resolved'}</Badge></CardAction></CardHeader>
-    <CardContent>{error?<p className="backstage-message backstage-error">{error}</p>:data?<>
-      <dl className="backstage-facts"><div><dt>Families</dt><dd>{data.stats.families.toLocaleString()}</dd></div><div><dt>Markdown files</dt><dd>{data.stats.files.toLocaleString()}</dd></div>{data.stats.build_ms!==undefined?<div><dt>Index built in</dt><dd>{Math.round(data.stats.build_ms)} ms</dd></div>:null}{data.stats.partial?<div><dt>Coverage</dt><dd>Partial (limits reached)</dd></div>:null}</dl>
-      {data.unresolved.length?<ul className="backstage-unresolved">{data.unresolved.map(u=><li key={u.path+u.field}><code>{u.path}</code><small>{u.field}: {u.value}</small></li>)}</ul>:null}</>:null}</CardContent></Card>;
-}
-
-type LegacyIndex={format:number;bytes:number;removable:boolean};
-/** The retired format 1 index, which Reader no longer reads. Removal is explicit. */
-function Legacy({legacy,busy,onRemove}:{legacy:LegacyIndex;busy:boolean;onRemove:()=>void}){
-  const mb=Math.max(1,Math.round(legacy.bytes/1e6)).toLocaleString();
-  return <p className="backstage-note backstage-legacy" data-legacy="retired">
-    Old search index (format {legacy.format}, no longer read): {mb} MB · <Button data-job="remove-legacy-search" variant="link" size="xs" className="backstage-legacy-remove" disabled={busy} {...localOnly()}
-      title="Deletes .reader/search.sqlite3 only. Refused while an index run or another process is using it." onClick={onRemove}>Remove</Button>
-  </p>;
-}
-
-/** Reader Admin › Indexes: freshness of each rebuildable index, on-demand rebuilds, this server's recent runs and the
- *  edition-link diagnostics. Unreadable maintenance status is shown as unavailable, never as a set of empty cards. */
-export function Indexes({status,error,onStart,editions}:{status:MaintenanceStatus|null;error:string|null;onStart:(kind:string)=>void;editions?:ReactNode}){
-  const running=status?.running,busy=!!running||!!status?.checking,checkedAt=Object.values(status?.checks||{})[0]?.checked_at,local=needsReader();
-  const unavailable=!status&&!!error;
-  return <section className="backstage-section" id="backstage-indexes" aria-label="Indexes" data-state={unavailable?'unavailable':status?'ready':'loading'}>
-    <div className="backstage-section-head"><span className="backstage-checked" aria-live="polite">{status?.checking||running?.kind==='check'?<><Loader2Icon className="size-3 animate-spin" aria-hidden/> Checking…</>:unavailable?'Index status is unavailable':checkedAt?'Checked '+when(checkedAt):local?'Checks need Reader on your computer':'Not checked yet'}</span>
-      <Button id="maintenance-check" variant="outline" size="sm" disabled={busy} {...localOnly()} onClick={()=>onStart('check')}>Check again</Button></div>
-    {unavailable?<p className="backstage-message backstage-error" id="indexes-unavailable" role="status">Couldn’t read the index status: {error}</p>:null}
-    {status&&error?<p className="backstage-note" id="indexes-stale" role="status">The last status refresh failed ({error}); showing the status read before it.</p>:null}
-    <div className="backstage-grid">{INDEXES.map(index=>{
-      const check=status?.checks?.[index.key],active=running&&INDEX_OF[running.kind]===index.key;
-      const state=active?{label:'Rebuilding…',variant:'default' as const}:check?STATES[check.state]||{label:check.state,variant:'outline' as const}:{label:unavailable?'Unavailable':local?'Not checked':status?'Checking…':'Loading…',variant:unavailable?'destructive' as const:'outline' as const};
-      return <Card key={index.key} size="sm" className="backstage-card" data-index={index.key} data-state={active?'running':check?.state||(unavailable?'unavailable':'unknown')}>
-        <CardHeader><CardTitle role="heading" aria-level={2}>{index.title}</CardTitle><CardDescription>{index.description}</CardDescription>
-          <CardAction><Badge variant={state.variant} className="backstage-badge">{active?<Loader2Icon data-icon="inline-start" className="animate-spin" aria-hidden/>:null}{state.label}</Badge></CardAction></CardHeader>
-        <CardContent>
-          {active?<p className="backstage-message">{running!.label} running for <Elapsed since={running!.started_at}/>.</p>:check?.message?<p className="backstage-message">{check.message}</p>:null}
-          {check?<dl className="backstage-facts">{index.facts.map(([label,value])=>{const v=value(check);return v===undefined||v===null?null:<div key={label} data-fact={label}><dt>{label}</dt><dd>{typeof v==='number'?v.toLocaleString():String(v)}</dd></div>;})}</dl>:null}
-          {index.note?<p className="backstage-note">{index.note}</p>:null}
-          {index.key==='search'&&check?.legacy?<Legacy legacy={check.legacy as LegacyIndex} busy={busy} onRemove={()=>onStart('remove-legacy-search')}/>:null}
-        </CardContent>
-        {index.actions.length?<CardFooter><ButtonGroup>{index.actions.map(action=><Button key={action.kind} data-job={action.kind} variant={action.primary?'default':'outline'} size="sm" disabled={busy||unavailable} {...localOnly()} onClick={()=>onStart(action.kind)}>{action.label}</Button>)}</ButtonGroup></CardFooter>:null}
-      </Card>;})}</div>
-    <RecentRuns status={status} error={error}/>
-    {editions}
-  </section>;
-}
-/** This server's maintenance jobs since it started (the inventory Overview links to). */
-export function RecentRuns({status,error}:{status:MaintenanceStatus|null;error:string|null}){
-  const running=status?.running;
-  return <Card size="sm" className="backstage-card" id="recent-runs"><CardHeader><CardTitle role="heading" aria-level={2}>Recent runs</CardTitle><CardDescription>This server’s jobs since it started. Toasts announce each start, finish and failure.</CardDescription></CardHeader>
-    <CardContent>{status?.jobs.length||running?<ol className="backstage-jobs">{[...(running?[running]:[]),...status!.jobs].slice(0,10).map(job=><li key={job.id+job.state} data-job-state={job.state}>
-      <span className="backstage-job-state">{job.state==='running'?<Loader2Icon className="size-3 animate-spin" aria-label="Running"/>:job.state==='succeeded'?'✓':'✕'}</span>
-      <span><strong>{job.label}</strong><small>{job.state==='running'?<>Started {when(job.started_at)}{job.progress?<> · {job.progress}</>:null}</>:<>{when(job.finished_at)} · {job.elapsed_seconds} s</>}</small>{job.state!=='running'&&summary(job)?<small className={job.state==='failed'?'backstage-error':''}>{summary(job)}</small>:null}</span></li>)}</ol>
-      :status?<p className="backstage-message">No runs yet.</p>:error?<p className="backstage-message backstage-error">Unavailable: {error}</p>:<p className="backstage-message">Loading…</p>}</CardContent></Card>;
-}
-/** The state label and badge variant of one index check, shared with Overview. */
-export function checkState(check:Check|undefined){return check?STATES[check.state]||{label:check.state,variant:'outline' as const}:null;}
+/** The state label and badge tone of one index check, shared with Overview. */
+export function checkState(check:Check|undefined){return check?STATES[check.state]||{label:check.state,tone:'neutral' as const}:null;}
 export const INDEX_TITLES:Record<string,string>=Object.fromEntries(INDEXES.map(index=>[index.key,index.title]));
 /** A job's one-line outcome, shared with Overview. */
 export {summary as jobOutcome};
 
-// Inbox: what is waiting, and You got mail, which starts the existing librarian inbox runner.
+// Inbox status, read by admin/pages/inbox.tsx.
 export type Arrival={id:string;path:string;bundle:boolean;document:string;title:string;source:string|null;project:string|null;author:string|null;report_date:string|null;request_id:string|null;integrity:'intact'|'changed'|null;receipt_error:string|null;files:number;bytes:number;received_at:string|null};
 export type InboxRun={status:string;run_id:string|null;started_at:string|null;updated_at:string|null;finished_at:string|null;message:string;arrivals:number|null;remaining:number|null;exit_code:number|null;sandbox_mode:string|null;event?:string|null;report_md?:string|null;report_truncated?:boolean;commit?:{hash:string;short:string;subject:string}|null};
 export type InboxStatus={arrivals:Arrival[];runner:InboxRun|null;claims_held:string[];codex:{name:string;installed:boolean};errors:string[];blocked:{reason:string;message:string}|null};

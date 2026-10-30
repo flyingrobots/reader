@@ -234,8 +234,6 @@
 /* The static web demo (#107): a control that needs a running Reader stays disabled but keeps its tooltip under the pointer. */
 [data-needs-reader]:disabled { pointer-events: auto; cursor: not-allowed; }
 #backstage-local-only { font-size: 13px; max-width: 70ch; }
-.backstage-legacy { margin-top: 10px; overflow-wrap: anywhere; }
-.backstage-legacy-remove { height: auto; padding: 0; font-size: inherit; vertical-align: baseline; }
 .backstage-facts { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 10px 16px; margin: 0; }
 .backstage-facts dt { font-size: 10px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
 .backstage-facts dd { margin: 2px 0 0; font-size: 14px; font-variant-numeric: tabular-nums; }
@@ -258,8 +256,6 @@
   --activity-error: color-mix(in oklab, var(--warning) 50%, var(--ink));
   --activity-rule: color-mix(in oklab, var(--line) 75%, var(--ink));
 }
-.inbox-card:is([data-run-state=starting], [data-run-state=running]) [data-inbox-badge] { background: color-mix(in oklab, var(--activity-running) 12%, var(--surface)); color: var(--activity-running); border-color: color-mix(in oklab, var(--activity-running) 40%, var(--line)); }
-.inbox-card[data-run-state=finished] [data-inbox-badge] { background: color-mix(in oklab, var(--activity-done) 12%, var(--surface)); color: var(--activity-done); }
 .inbox-report { font-family: var(--serif); font-size: 15px; line-height: 1.55; overflow-wrap: anywhere; max-height: 420px; overflow: auto; margin-top: 8px; }
 .inbox-report :is(h1, h2, h3) { font-size: 17px; margin: 12px 0 6px; }
 .inbox-report :is(ul, ol) { padding-left: 1.3em; margin: 6px 0; }
@@ -447,10 +443,6 @@ body.two-page .reader-diagram-canvas > svg { max-height: 58vh; }
 .reader-math .katex { font-size: 1.08em; }
 body.two-page .reader-math-block { max-height: 60vh; overflow-y: auto; }
 
-.backstage-unresolved { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
-.backstage-unresolved li { display: grid; gap: 1px; font-size: 12px; overflow-wrap: anywhere; }
-.backstage-unresolved code { font-family: var(--mono); font-size: 11px; }
-.backstage-unresolved small { color: var(--muted); }
 
 /* What changed: the changes Sheet */
 .changes-panel { font-family: var(--sans); }

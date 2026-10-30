@@ -5,6 +5,7 @@
 import {useEffect, useState, type ReactNode} from 'react';
 import {Loader2Icon} from 'lucide-react';
 import {Badge} from '../components/ui/badge';
+import {StatusBadge} from '../theme/atoms/status-badge';
 import {Card, CardAction, CardContent, CardHeader, CardTitle} from '../components/ui/card';
 import {AdminLink} from './link';
 import {checkState, INDEX_TITLES, jobOutcome, when} from '../backstage';
@@ -91,7 +92,7 @@ export function Overview({context:c}:{context:AdminContext}){
           :<p className="backstage-message">Nothing needs attention{m&&!checks.length?' that Reader has checked':''}.</p>}
       </Tile>
       <Tile id="indexes" title="Index health and capacity" state={m?'ready':c.maintenanceError?'unavailable':'loading'} linkLabel="Open Indexes" {...link('indexes')}>
-        {m?checks.length?<dl className="backstage-facts admin-health">{checks.map(([key,check])=>{const state=checkState(check)!;return <div key={key} data-check={key} data-state={check.state}><dt>{INDEX_TITLES[key]||key}</dt><dd><Badge variant={state.variant} className="backstage-badge">{state.label}</Badge></dd></div>;})}</dl>
+        {m?checks.length?<dl className="backstage-facts admin-health">{checks.map(([key,check])=>{const state=checkState(check)!;return <div key={key} data-check={key} data-state={check.state}><dt>{INDEX_TITLES[key]||key}</dt><dd><StatusBadge tone={state.tone}>{state.label}</StatusBadge></dd></div>;})}</dl>
             :<p className="backstage-message" data-unchecked="">{c.local?'Index checks need Reader on your computer.':'Not checked yet. Indexes runs a freshness check when you open it.'}</p>
           :c.maintenanceError?<Unavailable what="Index status" error={c.maintenanceError}/>:<Loading/>}
         {m&&checks.length?<p className="backstage-note">Checked {when(Object.values(m.checks)[0]?.checked_at)}.</p>:null}
