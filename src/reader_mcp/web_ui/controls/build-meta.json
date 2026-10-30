@@ -22,8 +22,9 @@
     "src/admin/pages/indexes.tsx": "431ce9e6c419194d6f79035a582f4b7999f99dfbb11d172022a2db7f761b2728",
     "src/admin/pages/jobs.tsx": "f751e53fe3d6b75e57c8df8b371a0ef1047cba2095dc2978ecc9056028a101ea",
     "src/admin/pages/logs.tsx": "ded000bd5ca82dce862fe1e86436383a326660f00be8c366fde7fdd978fb2609",
+    "src/admin/pages/repositories.tsx": "b27c3176025dd93ab4194beff4ec6eb12aca8a62235fb2b1a84c39ef97760c78",
     "src/admin/panels.tsx": "9a2238b46c835eaf9fb19997dbd97c9a65134c0c8652e9f00b60a92af25b87e7",
-    "src/admin/sections.tsx": "9bdda7845c8edea5dba2e28b99d67ba712a3b0eb41b53e059ac3ed1e4a531f5b",
+    "src/admin/sections.tsx": "d6b17abbfea256a0047736e4025e310cdf5a241c3b4844da9678aab0691166d3",
     "src/art-regenerate.tsx": "8d0c621e0239e13fcf89a528747a15a0028e01722585b4156ba5db590fbcd7e9",
     "src/art-studio.tsx": "f03b80591a1593d82c990f930a9ef49fc5e6d77d641569c93820140641e789ec",
     "src/art/art.ts": "cd1242a47eda6306459ef1906116ada99778ea58660ca54e252aecd1106375a2",
@@ -37,6 +38,7 @@
     "src/code-highlight.ts": "36c456df8e9a5277690eb3ee02e49eb0246077a1c8fbbe5873342cfa3afd0063",
     "src/code-languages.ts": "227bc27c91c4f671a5ca8ea95455dbed26dc806852fe6341714a3534b166c45a",
     "src/companions.tsx": "b2d014e75808c5c42f928965c3dfb92ecd723ee40fdfbc47779f6911ccce63da",
+    "src/components/ui/alert-dialog.tsx": "d1811546e2248fe9b04e7cefcd4f0ed3acc4e87cb26a083eb17b3c836707d4d0",
     "src/components/ui/alert.tsx": "f253568242c1c69b343f12474002fdbe229f603158171c59e21c491ab79f2e6e",
     "src/components/ui/badge.tsx": "d9fb280e266119c4b62a4c518e63152de27b094c68d3e5f8929d05bfb0c1bc6c",
     "src/components/ui/breadcrumb.tsx": "cbd2b85e7a0097438855ff1bba8ac0cc3d1229e4c94bda3d52176fd22ea2ac62",
@@ -80,7 +82,7 @@
     "src/diagrams.ts": "6afe727e3302c2d2ddd4a023105a5a6cf36b6ac969e3ceb2d51f0f0712b326ea",
     "src/document-tree.tsx": "9f54593440ed174d2e92e8da2ee951ea62bb5e0d021dbcd12431341b8233d55b",
     "src/hooks/use-mobile.ts": "ad0936f84f1df79d3697bfbff9c18f8ad58431c1cbaf2359c6a853b0fcc9f28b",
-    "src/jobs/admin.tsx": "308c6f659498535e791af27eef1eb97156299dfb1f04fb61cffa44e6a85b9e34",
+    "src/jobs/admin.tsx": "ca2f88a8964493fb71d8851c92634dd02b33bb5655f57472a982644f7436a412",
     "src/jobs/job-detail.tsx": "a04b6694fe926fb26b4c3df6c4d0aa943e128994a8819391ac2de76944ac093e",
     "src/jobs/prompt-card.tsx": "b7cd5ebcad9c4d261c354a548b0e655848d187dc9a258298290df155f14cd82a",
     "src/jobs/store.ts": "a08dabc82b138ac7921592e40772f397aec874e134ef86482a6bf7e34eb3ad24",
@@ -96,13 +98,13 @@
     "src/plural.ts": "4c0d0698a171b39d5683548f00e2e9a8a7c5ea1af28e4067aaa63612476b5fa2",
     "src/queue-panel.tsx": "5ed0363915f6ed4af4a11bd071791e59451f397fffc2246786512598bd177530",
     "src/quiz.tsx": "701461de3797ae331891fcbba4b1462ecd7700b5b83f7208dac3db86041c810f",
-    "src/reader-controls.tsx": "5bbbc9676a62dc0e778723c83f73798308b847b4173ea7c02c85532c21176f7d",
+    "src/reader-controls.tsx": "25cfb6e9f2eabcc0ff6da2127502a5dffd9ffcc388557cd887a7aa3abcd950e4",
     "src/search-page.tsx": "2cd0ec009e41f4dc701efa2ed64edd91e54503d1e880d083df21fff52ef82a5d",
     "src/server-card.tsx": "677721ee033724bbe168e6f566703ddc8df4331d2b046437c1ba91ea4e6a88b0",
     "src/shape/shape.ts": "9fe4b2b1dd21a2869130afa25aed34e2ea482fc8fe05aa2609193aa24c04b50c",
     "src/speech-control.tsx": "45a7efd449606ea196c7adef281ddadb2bd89dab1b5c9a945f56897cadbb4e0c",
     "src/static-demo.ts": "036a0b4413452d2ec8f7a51248157340082f3c030fc51d3237275021340e8810",
-    "src/styles.css": "eb21ba74107a7bbad6c46f7b143853779b36fe19f0aa8278c392a1a4c19ce5af",
+    "src/styles.css": "edc94e05686e70e8f19995be384d7d3ff0d771abce375ece249fa75eea63b361",
     "src/theme/atoms/run-state-icon.tsx": "7898209e6e1893b71c6c38a94dde6c3a83e1ffd19344382e48dca151cf361b06",
     "src/theme/atoms/status-badge.tsx": "8b6e9f9c0de4921c3cba50a7972392e759f566a4f5b5a6c7580128ebaa959ba3",
     "src/theme/atoms/time.tsx": "0b1a472b95272cc8f2b27000e61aa297229395b46f91be270d12beab83671da4",
@@ -115,7 +117,8 @@
     "src/theme/molecules/pager.tsx": "497434f8845abbdf5fa81cbbbe078d4b41063f3925cee4018f70cddb7b123f91",
     "src/theme/molecules/run-row.tsx": "77b5bedddac1e95e38295e04d994bdf51249de6410e1fd7ea5716adf0fa60563",
     "src/theme/molecules/states.tsx": "4fde8991c7b26a200cef60c84f3e4dd72f53bd5486ac02b7bfa970bef1213dc4",
-    "src/theme/molecules/toolbar.tsx": "c8152ef99733281118003f36c3ecfb64cb5f8375863773273dfed6de697ab973",
+    "src/theme/molecules/toolbar.tsx": "7d1bcefa9703486b52f296afa2ba1c117ff1b0dd4aa1b7ea06310c04c367c820",
+    "src/theme/organisms/confirm-action.tsx": "58060e59222fbd53f5f8256a58d814ae4afe048c26ea9672a39ae0ea1387eec0",
     "src/theme/organisms/run-list.tsx": "bb9c9e00679d9e5543644544b9ff404a51d376cbfa1102d7d345eda2f868a951",
     "src/theme/organisms/status-card.tsx": "7ca38aec18e516dec299297258fd60d97f8b25874e4e8b17072611d0532f3a14",
     "src/theme/templates/admin-page.tsx": "554ea5fda922a33157957658874f498561a8ac1d797cf4643f6d7a86fd1a3d04",
@@ -941,12 +944,12 @@
       "sha256": "cb2ee2554fd41ac9f8e2e69c350365f0e1cf9732d27ad161c9c97b20945bbe4c"
     },
     "reader-controls.css": {
-      "bytes": 193116,
-      "sha256": "406aee42cad2a8ed4b898fa0314cbd6bf790459728c56442070aa848dcaf67c5"
+      "bytes": 191915,
+      "sha256": "d2504a1bd8175f2ef2c6c60b8493a5bac65297e94ac3c5f0cf45aed7efeb8193"
     },
     "reader-controls.js": {
-      "bytes": 1100926,
-      "sha256": "06552eb635be2154d683ae7d7668aafd39a92dd2b2ad218fc7d41a166c396c7f"
+      "bytes": 1105103,
+      "sha256": "d4b8fd4f2c16b4634259d7f978527b4d9e73467510313ba1d5defce36e43d84f"
     },
     "reader-controls.js.LEGAL.txt": {
       "bytes": 6150,

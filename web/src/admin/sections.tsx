@@ -14,7 +14,8 @@ import type {LocalModelStatus} from '../local-model';
 import type {CompanionsStatus} from '../companions';
 import {ArtworkPanel, IndexesPanel, InboxPanel, LibraryPanel, ModelsPanel, ServicePanel, SettingsPanel, VoicesPanel} from './panels';
 import {Overview} from './overview';
-import {RepositoriesPanel, type AdminPanelProps} from '../jobs/admin';
+import {type AdminPanelProps} from '../jobs/admin';
+import {RepositoriesPage} from './pages/repositories';
 import {LogPage, LogsPage} from './pages/logs';
 import {JobPage, JobsPage} from './pages/jobs';
 import {jobViewOptions} from '../reader-controls';
@@ -74,7 +75,7 @@ export const ADMIN_SECTIONS:AdminSection[]=[
     params:params=>params.length===3&&/^[a-z-]+$/.test(params[0])&&/^\d{4}-\d{2}-\d{2}$/.test(params[1]),
     render:context=>context.route.params.length?<LogPage params={context.route.params} {...panelProps(context)}/>:<LogsPage {...panelProps(context)}/>},
   {id:'repositories',title:'Repositories',icon:FolderGitIcon,needsReader:true,description:'Which local checkouts article prompts may run in, with their base branch, agents and verification command.',
-    render:context=><RepositoriesPanel {...panelProps(context)}/>},
+    render:context=><RepositoriesPage {...panelProps(context)}/>},
   {id:'voices',title:'Voices',icon:BotIcon,needsReader:true,description:'The agent command lines chat voices and the librarian run. Reader finds them; you install and sign in.',render:context=><VoicesPanel context={context}/>},
   {id:'models',title:'Models',icon:CpuIcon,needsReader:true,description:'A local model for bulk, private work: its provider, server, queue and outputs.',render:context=><ModelsPanel context={context}/>},
   {id:'inbox',title:'Inbox',icon:InboxIcon,description:'Arrivals waiting to be filed, their receipts, and the librarian run that files them.',render:context=><InboxPanel context={context}/>},

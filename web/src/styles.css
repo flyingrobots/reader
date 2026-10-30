@@ -59,6 +59,7 @@
   :where(.reader-admin, [data-slot="alert-dialog-content"]) :where(p, h1, h2, h3, h4, ol, ul, dl, dd, figure)[data-slot] { margin: 0; }
   :where(.reader-admin, [data-slot="alert-dialog-content"]) :where(h1, h2, h3, h4, small)[data-slot] { font: inherit; letter-spacing: inherit; color: inherit; }
   :where(.reader-admin, [data-slot="alert-dialog-content"]) :where(ol, ul)[data-slot] { padding: 0; list-style: none; }
+  :where(.reader-admin, [data-slot="alert-dialog-content"]) :where(fieldset, legend)[data-slot] { margin: 0; padding: 0; min-width: 0; }
   :where(.reader-admin, [data-slot="alert-dialog-content"]) :where(a)[data-slot] { color: inherit; text-decoration: inherit; }
   :where(.reader-admin, [data-slot="alert-dialog-content"]) :where([data-slot], [data-slot]::before, [data-slot]::after) { border-color: var(--line); }
 }
@@ -721,23 +722,7 @@ body:has(#changes-panel[data-side=right]) [data-slot=sheet-overlay] { display: n
 .job-facts dt { font-size: 10px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
 .job-facts dd { margin: 2px 0 0; font-size: 13px; color: var(--ink); overflow-wrap: anywhere; }
 .job-commits { margin: 0; padding-left: 18px; font-size: 13px; }
-.job-commits code, .admin-repositories code, .admin-logs code { font-family: var(--mono); font-size: .9em; }
+.job-commits code { font-family: var(--mono); font-size: .9em; }
 .job-artifacts { display: grid; gap: 8px; min-width: 0; }
 .job-artifact-tabs, .job-artifact-actions { display: flex; flex-wrap: wrap; gap: 4px; }
 .job-artifact { display: grid; gap: 6px; min-width: 0; }
-.admin-filters { display: flex; flex-wrap: wrap; align-items: end; gap: 10px 16px; margin-bottom: 12px; font-size: 12px; color: var(--muted); }
-.admin-filters label { display: grid; gap: 4px; }
-.admin-filters select { min-width: 10em; max-width: 100%; padding: 4px 6px; border: 1px solid var(--line); border-radius: 6px; background: var(--surface); color: var(--ink); font: inherit; }
-.admin-table { width: 100%; border-collapse: collapse; font-size: 13px; }
-.admin-table th { text-align: left; font-size: 10px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); font-weight: 650; padding: 6px 8px; border-bottom: 1px solid var(--line); }
-.admin-table td { padding: 8px; border-bottom: 1px solid var(--line); vertical-align: top; overflow-wrap: anywhere; }
-.admin-table a { color: var(--accent); }
-.admin-pager { display: flex; align-items: center; gap: 8px; margin-top: 8px; font-size: 12px; color: var(--muted); }
-.admin-unavailable { margin: 0; font-size: 13px; color: var(--warning); }
-.admin-repo-list { list-style: none; margin: 12px 0; padding: 0; display: grid; gap: 14px; }
-.admin-repo-list > li { padding: 12px 14px; border: 1px solid var(--line); border-radius: 10px; background: var(--raised); display: grid; gap: 8px; }
-.admin-problems { margin: 0; padding-left: 18px; font-size: 12px; color: var(--warning); }
-.admin-register { display: grid; gap: 12px; max-width: 640px; margin-top: 18px; }
-.admin-checks { display: flex; gap: 16px; font-size: 13px; }
-.admin-checks label { display: inline-flex; align-items: center; gap: 6px; }
-@media (max-width: 640px) { .admin-table thead { display: none; } .admin-table tr { display: grid; padding: 6px 0; border-bottom: 1px solid var(--line); } .admin-table td { border: 0; padding: 2px 0; } }

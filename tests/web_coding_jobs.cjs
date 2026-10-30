@@ -145,8 +145,8 @@ async function fixture(flags){
    await page.waitForFunction(()=>!document.querySelector('[data-prompt-run]')?.disabled,null,{timeout:10000});
    await page.goto(url+'#admin/repositories');
    await page.waitForFunction(()=>document.querySelector('[data-repository="acme/widget"]'),null,{timeout:10000});
-   page.once('dialog',dialog=>dialog.accept());
    await page.locator('[data-repository="acme/widget"]').getByRole('button',{name:/Remove/}).click();
+   await page.getByRole('alertdialog').getByRole('button',{name:'Remove',exact:true}).click();
    await page.waitForFunction(()=>!document.querySelector('[data-repository="acme/widget"]'),null,{timeout:10000});
    await page.goto(url+'#read='+encodeURIComponent(DOC));await card.waitFor();
    await page.waitForFunction(()=>/isn’t set up in Reader yet/.test(document.querySelector('[data-prompt-card="bound-parser-depth"]')?.textContent||''),null,{timeout:10000});
