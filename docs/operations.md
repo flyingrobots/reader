@@ -2,6 +2,8 @@
 
 ## Read and deposit
 
+Autonomous reading and source acquisition have separate authorization. A default reading task selects one existing non-demo work or bounded section and stops; it does not acquire more sources or run an endless goal. Unattended sessions use the [restricted reading runner](bounded-reading.md), keeping the vault read-only and notes outside it. A separately authorized librarian reviews note promotion or source imports.
+
 Open the repository directory as an Obsidian vault and use `README.md` or `library/index.md` as the entry point. Ordinary Markdown viewers can also follow the relative links. For the optional relationship sidebar, date grouping, search, and speech controls, follow [Reader plugin installation and operation](obsidian-plugin.md).
 
 Place new documents in `inbox/`. Bundle supporting files with their document when possible. Ask the librarian to process the inbox; Reader can detect pending arrivals in Obsidian and offer **Process inbox**, which launches Codex only when clicked. There is no unattended scheduled processing; see [the inbox runner](inbox-runner.md).

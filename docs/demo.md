@@ -37,6 +37,10 @@ A demo vault is disposable. Each run without `--keep` refreshes it: everything e
 `.reader/models` is deleted and rebuilt, so the magazine always shows "this week". Do not keep your
 own documents in it.
 
+## Separation from the main library
+
+Demo-marker vaults, this checkout’s `src/reader_mcp/demo/content/`, and demo-labelled documents are excluded from ordinary autonomous reading. A request to read does not authorize importing them into a real vault. Work on the demo only when explicitly requested, keep its marker and provenance, and keep its documents in the demo root. See [bounded reading](bounded-reading.md).
+
 ## What it contains
 
 - **Public-domain texts** from Project Gutenberg: Thoreau, Emerson, Montaigne (tr. Charles Cotton),

@@ -4,6 +4,8 @@ Reader’s Python backend and installed integrations currently require macOS or 
 
 ## Reading and curation
 
+Autonomous reading and source acquisition have separate authorization. A default reading task selects one existing non-demo work or bounded section and stops; it does not acquire more sources or run an endless goal. Unattended sessions use the [restricted reading runner](bounded-reading.md), keeping the vault read-only and notes outside it. A separately authorized librarian reviews note promotion or source imports.
+
 Reader is a plain-file Markdown library intended for Obsidian. Its [catalog](../library/index.md) links documents, original attachments, and librarian-authored reading material. Reading requires no plugin, database, or running service.
 
 Classification, cataloging, connection discovery, and editorial reading happen during librarian sessions. Depositing a file or delivering a bundle does not start that work automatically. The librarian preserves distinct source versions and uses catalog notes for metadata when originals must remain unchanged. See [design and conventions](design.md) and [operations](operations.md).

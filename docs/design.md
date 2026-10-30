@@ -2,6 +2,8 @@
 
 ## Purpose and implementation
 
+Autonomous reading and source acquisition have separate authorization. A default reading task selects one existing non-demo work or bounded section and stops; it does not acquire more sources or run an endless goal. Unattended sessions use the [restricted reading runner](bounded-reading.md), keeping the vault read-only and notes outside it. A separately authorized librarian reviews note promotion or source imports.
+
 Reader is a Git-backed document library intended to be opened directly in Obsidian. Plain files and agent operating instructions remain its reading and cataloging interface. An optional Python delivery layer provides local stdio MCP tools, a CLI, and a reusable agent skill. Reading does not require running it. There is no required Obsidian plugin, scheduled job, or background filing service.
 
 The optional desktop sidebar in `plugins/reader/` projects recorded relationships through Obsidian’s public APIs. It uses the existing CLI for library search and the AI-TTS Unix socket for queued speech. Neither integration replaces or edits original documents. The sidebar also launches explicit [Codex intake jobs](inbox-runner.md), stores shared participant receipts in `engagement/`, and projects separate [shared annotation records](annotations.md). See the [plugin contract](obsidian-plugin.md).

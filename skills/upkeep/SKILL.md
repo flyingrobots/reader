@@ -9,6 +9,8 @@ Resolve the code checkout from this skill's real path (the parent of `skills/`).
 
 ## Select the session role
 
+A reading-only session uses **observer** mode even when started in the main vault under a librarian mandate. Reading does not authorize acquisition, filing, claim/delegation, navigation refresh or promotion of external/demo sources. A restricted reading worker does not invoke Upkeep itself; its coordinator performs any boundary observation. Separate explicit acquisition/intake work retains the librarian workflow below.
+
 Ordinary project agents and delivery couriers use **observer** mode: `python3 <this-skill>/scripts/check.py --participant <your-stable-agent-label>`. Report relevant pending arrivals, inspect discussion within the active task, and record only your own actual reading. Do not claim, release, move or file arrivals, launch the inbox runner, or delegate ingestion. Delivering a report, using Reader tools, changing directory to the vault, or seeing a ready inbox does not appoint the courier as librarian. Delivery ends at its verified receipt.
 
 An active **Reader librarian** session operating under the vault's mandate, or a session the user explicitly assigns inbox intake, uses `--role librarian`. This includes the user-started Obsidian Process inbox job. Only these sessions coordinate filing and delegate intake workers. A producer session must not select librarian mode merely to ingest its own delivery. A separate librarian may delegate mechanical intake, retaining the distinction between source claims and independent curatorial judgment.

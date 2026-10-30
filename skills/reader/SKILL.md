@@ -9,6 +9,8 @@ Reader is the user's local Obsidian document library. Use search for requests to
 
 ## Search and read
 
+Ordinary reading selects existing main-vault holdings and excludes demo-marker roots, Reader demo content directories and demo-labelled documents. “Read whatever you want” permits one finite selection, not external acquisition or an endless reading loop. Downloads/imports need separate explicit acquisition authorization naming a source or bounded batch and destination, recorded with provenance. External fact checks do not by themselves authorize source retention. Use Reflective Reading’s restricted runner for unattended sessions; notes remain outside the vault until separately authorized promotion.
+
 Prefer `reader_search` and `reader_read` on the Reader MCP server. If tools are available through discovery, look for those exact names. If MCP is unavailable, use the colocated [command helper](scripts/reader.py) from any working directory.
 
 Start with hybrid search:

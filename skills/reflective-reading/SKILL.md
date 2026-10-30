@@ -9,6 +9,16 @@ Resolve Reader from this installed skill's real path (the parent of `skills/`). 
 
 ## Begin with a question, leave room for surprise
 
+Reading and acquisition are separate permissions. “Read whatever you want” selects **one existing, non-demo main-library work**, or one named section of a long work. State the exact path/edition, finite coverage and stopping condition before starting. Complete that selection and stop; completion does not require exhausting the library. Automatic continuation must not silently select another work or expand scope. If no suitable unread holding is available, report that and stop. An explicitly requested longer reading program must have a finite list or time bound.
+
+A reading request does not authorize downloading, importing, cataloging or promoting external or demo material. Recommend outside material if useful; acquisition needs separate explicit user authorization naming the source or bounded batch and destination, retained with provenance. An explicitly requested external fact check does not authorize retaining its source. Local original writing remains welcome within the established voice namespaces; it does not authorize new source holdings.
+
+Demo-marker roots (`.reader-demo-vault`), Reader demo content directories, and documents labelled `Fictional: invented for the Reader demo` or `reader-demo.invalid` are excluded from ordinary discovery. Explicitly requested demo work stays in its separate demo root. Never replenish the main library from demo material.
+
+For unattended reading use the colocated `scripts/read_session.py library/path.md`, optionally with `--first-line` and `--last-line`. It runs one offline Codex turn, with a read-only vault, a new writable notes directory outside the vault, and a deadline of at most 30 minutes. User-configured MCP/apps/plugins and web search are disabled. No goal or resume loop. Actual sandbox I/O is checked first; unsupported configurations fail closed. `--check` tests the boundary without starting a model. See the code checkout’s `docs/bounded-reading.md` for requirements, limits and note promotion. Never replace a failed sandbox with host access.
+
+Reading-only sessions use Upkeep observer mode: no filing, navigation refresh or shared vault commits. The restricted reader writes notes only; a separately authorized librarian reviews them before promotion or participant receipts. The ordinary Reader helper remains available for supervised reading and explicitly authorized acquisition.
+
 Identify the exact work and edition, why you are reading it, and what you currently expect or believe. Skim its structure, existing reading record, and relevant discussion. Resume from a recorded stopping point when appropriate. Note prior judgments you might revise; do not treat an earlier reaction as a verdict to defend.
 
 Read a bounded section at a time: a natural argument, several paragraphs, a subsection, or a handful of pages. Adapt the pace to the material. Pause more often around dense reasoning, unfamiliar notation, emotionally significant scenes, or a surprising claim. Do not turn each pause into a formulaic user-facing report.
