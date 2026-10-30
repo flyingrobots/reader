@@ -120,9 +120,8 @@ body.two-page .article.pdf-document{column-gap:var(--book-gap)}body.two-page .pd
 body.two-page .article .reading-log{margin:0 0 1.6em}
 body.two-page .reading-log-details>summary .reading-log-line{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 @media(max-width:700px){.reading-log{margin-bottom:46px}}
-.speech-slot:empty{display:none}.speech-control{display:inline-flex;align-items:center;gap:6px;color:var(--ink);white-space:nowrap}.speech-glyph{color:var(--accent)}.speech-label{font-size:10px;color:var(--muted)}.speech-control:not([data-current]) .speech-glyph{color:var(--muted)}
+.speech-slot:empty{display:none}
 .speak-menu{width:320px}.speak-menu .dialog-heading{padding:14px 16px 0}.speak-menu h2{font-size:15px}.speak-choices{width:auto;margin:12px 16px 0;display:flex}.speak-choices [data-speak]{justify-content:space-between;width:100%}.speak-choices kbd{font-size:10px;color:var(--muted)}.speak-note{margin:10px 16px 14px;font-size:11px}.document-footer .speak-article{margin-top:14px}
-@media(max-width:700px){.speech-label,.speech-control [data-speech-extra]{display:none}}
 
 /* The homepage issue: a magazine cover in the theme's own type and colors. */
 .issue{--gap:72px;padding:40px clamp(40px,4vw,120px) 120px;font-family:var(--sans);color:var(--ink)}
@@ -399,7 +398,7 @@ body:is(.prose-subtle,.prose-clear,.prose-vivid) .textLayer ::highlight(reader-p
    the pass sees) instead of crushing the mode label; only the breadcrumb shrinks, down to a readable current crumb.
    The breakpoints below only compact labels to icons; they never decide which items stay. */
 .statusline>:not(.status-location){flex-shrink:0}.statusline>[data-status-hidden]{display:none!important}
-@media(max-width:520px){.vim-mode{min-width:0;padding-inline:9px}.status-version svg{display:none}.speech-label{display:none}}
+@media(max-width:520px){.vim-mode{min-width:0;padding-inline:9px}.status-version svg{display:none}}
 @media(max-width:340px){.statusline{gap:4px}}
 /* A ghost "+ Queue" keeps its text on the column's left edge (#58). */
 .issue-queue{margin-left:-.5rem}

@@ -71,7 +71,6 @@
 .reader-progress { position: absolute; bottom: 0; left: 0; right: 0; pointer-events: none; }
 .reader-progress [data-slot="progress-track"] { height: 3px; border-radius: 0; }
 .reader-progress [data-slot="progress-indicator"] { transition: none; }
-.theme-toggle { display: flex; align-items: center; gap: 7px; padding: 0 6px; font-size: 10px; cursor: pointer; }
 .quick-theme-controls { display: flex; align-items: center; gap: 4px; }
 #quick-theme { max-width: 190px; font-size: 11px; }
 #quick-theme [data-slot="select-value"] { overflow: hidden; text-overflow: ellipsis; }
@@ -79,7 +78,7 @@
 .page-turn-canvas { position: fixed; inset: 0; width: 100vw; height: 100vh; pointer-events: none; z-index: 6; }
 .page-turning .annotation-pin { visibility: hidden; }
 #pagination-slot:empty { display: none; }
-#pagination-slot { flex-shrink: 0; }
+#pagination-slot, #theme-switch-slot { flex-shrink: 0; }
 #pagination-slot [data-slot="pagination-link"] { height: 26px; min-width: 26px; padding: 0 6px; font-size: 10px; }
 #pagination-slot [data-slot="pagination-item"] { display: flex; align-items: center; }
 #pagination-slot [aria-disabled="true"] { opacity: .35; cursor: default; }
@@ -112,8 +111,6 @@
   #quick-theme { padding: 0 6px; gap: 2px; }
   #quick-theme [data-slot="select-value"] { display: none; }
   #pagination-slot .page-neighbor { display: none; }
-  .theme-toggle { padding: 0 3px; }
-  .theme-toggle span { display: none; }
   /* The breadcrumb never shrinks below Library › … ›, so pagination cannot draw over it; only the current crumb ellipsizes. */
   body.two-page .status-location { min-width: min-content; }
   body.two-page .status-location .breadcrumb-current { contain: inline-size; flex: 1 1 0; }
