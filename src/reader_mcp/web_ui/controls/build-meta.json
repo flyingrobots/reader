@@ -27,7 +27,7 @@
     "src/admin/panels.tsx": "65492447a81f7bf489cc1d0f780abbd1a5913c0da0ea931384b0480d0fba636c",
     "src/admin/sections.tsx": "d6b17abbfea256a0047736e4025e310cdf5a241c3b4844da9678aab0691166d3",
     "src/art-regenerate.tsx": "8d0c621e0239e13fcf89a528747a15a0028e01722585b4156ba5db590fbcd7e9",
-    "src/art-studio.tsx": "f03b80591a1593d82c990f930a9ef49fc5e6d77d641569c93820140641e789ec",
+    "src/art-studio.tsx": "b907a89419ee96cb50620815be4aa207d8fa688060ddd39b3270d9a3326dd302",
     "src/art/art.ts": "cd1242a47eda6306459ef1906116ada99778ea58660ca54e252aecd1106375a2",
     "src/backstage.tsx": "4efff95b2fff855803e752866c9c3879a8456dbc2b72945d589278de30fd28a3",
     "src/callouts.tsx": "fccf6b854b5c95a48ef40d206edfe927718f2ad9e8b59f3b5005548819172584",
@@ -951,8 +951,8 @@
       "sha256": "5a8c1199ec382eb4b52b7487491d77360f6a00c2c22041a89feead511ae54140"
     },
     "reader-controls.js": {
-      "bytes": 1104599,
-      "sha256": "3f305c2228955fc6c82dd0094e719d19e76ca09d4bb1cccaee0fb4399fdd980a"
+      "bytes": 1103913,
+      "sha256": "0098492fdb217f1dd3f1f65acfb95a933c06c366460070aaefae29524eee8bb4"
     },
     "reader-controls.js.LEGAL.txt": {
       "bytes": 6150,
