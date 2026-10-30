@@ -16,7 +16,11 @@ const {chromium}=require(process.env.READER_PLAYWRIGHT||'playwright-core');
   const question='Which color would you choose, and why?';
   await article();await page.locator('#main').focus();await page.keyboard.press('Space');await page.keyboard.press('a');
   const modal=page.locator('[data-reader-writing-prompt]');await modal.waitFor();
-  await modal.getByRole('button',{name:'Ask a question',exact:true}).click();await modal.getByText(question,{exact:true}).waitFor({timeout:15000});
+  // Opening asks at once with the default voice: no voice step and no extra button press.
+  await modal.getByText(question,{exact:true}).waitFor({timeout:15000});
+  assert.equal(await modal.getByRole('button',{name:'Ask a question'}).count(),0);
+  assert.match(await modal.locator('[data-slot=message-header]').textContent(),/\S/);
+  await modal.getByRole('button',{name:/^Question voice: /}).waitFor();
   await modal.getByRole('button',{name:'Show me in the text',exact:true}).click();await modal.waitFor({state:'hidden'});
   await page.waitForFunction(()=>CSS.highlights.get('reader-quiz')?.size===1);
   assert.equal(await page.evaluate(()=>[...CSS.highlights.get('reader-quiz')][0].toString()),'The first color is red.');
@@ -38,7 +42,10 @@ const {chromium}=require(process.env.READER_PLAYWRIGHT||'playwright-core');
   await page.locator('#main').focus();await page.keyboard.press('Space');await page.keyboard.press('h');
   await page.locator('.your-writing').getByRole('link',{name:'On color',exact:true}).waitFor();
   await article();await page.locator('#main').focus();await page.keyboard.press('Space');await page.keyboard.press('a');await modal.waitFor();
-  await modal.getByRole('button',{name:'Write a response',exact:true}).click();await page.locator('.cm-editor').waitFor();
+  // An opening typed in the dialog continues the existing draft for this question in Scratch.
+  await modal.getByRole('textbox',{name:'Your answer'}).fill('Blue also tempts me.');await page.keyboard.press('Enter');
+  await modal.waitFor({state:'hidden'});await page.locator('.cm-editor').waitFor();
+  await page.locator('.scratch-preview').getByText('Blue also tempts me.',{exact:true}).waitFor();
   await page.locator('[data-scratch-vault]').click();await save.waitFor();await save.getByRole('button',{name:'Save and ask for a reply',exact:true}).click();
   await page.locator('.chat-panel').waitFor();await page.locator('.chat-panel').getByText(question,{exact:true}).waitFor({timeout:15000});
   assert.equal(readFileSync(root+'/'+pieces.pieces[0].path,'utf8'),original);

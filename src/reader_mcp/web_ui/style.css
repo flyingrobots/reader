@@ -636,6 +636,7 @@ body.two-page .embed-pdf canvas{max-height:65vh;width:auto!important}
 .reader-quiz-score{font-size:2rem;font-variant-numeric:tabular-nums}
 .reader-quiz-dialog [data-slot=dialog-title]{font:500 1.75rem/1.1 var(--h1-font,var(--serif));letter-spacing:-.01em}
 .reader-quiz-bar [data-slot=progress-indicator]{background:var(--accent)}
+.reader-writing-question{margin:0;font:400 1.375rem/1.4 var(--serif);color:var(--ink);text-wrap:pretty}
 .reader-quiz-dialog{--quiz-correct:color-mix(in oklab,#2e9b4f 72%,var(--ink));--quiz-wrong:var(--warning)}
 .reader-quiz-dialog [data-slot=questionnaire-choice][data-quiz-result]{opacity:1}
 .reader-quiz-dialog [data-slot=questionnaire-choice][data-quiz-result=correct]{border-color:var(--quiz-correct);background:color-mix(in oklab,var(--quiz-correct) 16%,transparent);color:var(--ink)}

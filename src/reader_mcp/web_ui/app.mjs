@@ -1807,7 +1807,7 @@ scratch=installScratch({state,api,notify,navigate,focusMain:()=>$('#main').focus
   renderMarkdown:(container,text)=>renderMarkdown(container,text,'library/notebook/',0)});
 quiz=installQuiz({api,document:()=>state.doc,participant:()=>state.prefs.participant,mount:mountQuiz,showEvidence:showQuizEvidence,changed:refreshReadingLog,available:()=>needsReader()?NEEDS_READER:null,toast,mode:open=>{if(open)keys.enter('quiz');else{keys.leave('quiz');focusMain();}reading?.updateStatus();}});
 keys.defineMode('quiz',{label:()=> 'QUIZ',hints:()=>'<kbd>Tab</kbd> move <kbd>Enter</kbd> choose <kbd>Esc</kbd> return',escape:()=>quiz.close()});
-writingPrompts=installWritingPrompts({api,document:()=>state.doc,participant:()=>state.prefs.participant,mount:mountWritingPrompt,write:prompt=>scratch.forPrompt(prompt),showEvidence:showQuizEvidence,available:()=>needsReader()?NEEDS_READER:null,toast,mode:open=>{if(open)keys.enter('writing-prompt');else{keys.leave('writing-prompt');focusMain();}reading?.updateStatus();}});
+writingPrompts=installWritingPrompts({api,document:()=>state.doc,participant:()=>state.prefs.participant,mount:mountWritingPrompt,write:(prompt,opening)=>scratch.forPrompt(prompt,opening),showEvidence:showQuizEvidence,available:()=>needsReader()?NEEDS_READER:null,toast,mode:open=>{if(open)keys.enter('writing-prompt');else{keys.leave('writing-prompt');focusMain();}reading?.updateStatus();}});
 keys.defineMode('writing-prompt',{label:()=> 'WRITE ABOUT',hints:()=>'<kbd>Tab</kbd> move <kbd>Enter</kbd> choose <kbd>Esc</kbd> return',escape:()=>writingPrompts.close()});
 $('#quiz-open').onclick=()=>quiz.open();
 if(needsReader()){$('#quiz-open').disabled=true;$('#quiz-open').title=NEEDS_READER;}

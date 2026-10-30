@@ -154,6 +154,7 @@ lucide-react/dist/esm/icons/square.js:
 lucide-react/dist/esm/icons/step-back.js:
 lucide-react/dist/esm/icons/step-forward.js:
 lucide-react/dist/esm/icons/terminal.js:
+lucide-react/dist/esm/icons/text-quote.js:
 lucide-react/dist/esm/icons/triangle-alert.js:
 lucide-react/dist/esm/icons/volume-2.js:
 lucide-react/dist/esm/icons/wrench.js:

@@ -248,13 +248,16 @@ export function installScratch({state,api,notify,renderMarkdown,navigate,focusMa
     handoff=record;
     navigate(':scratch='+id);
   }
-  async function forPrompt(prompt){
-    await persist();const participant=state.prefs.participant;
+  async function forPrompt(prompt,opening=''){
+    await persist();const participant=state.prefs.participant;opening=opening.trim();
     const matches=d=>d?.prompt?.id===prompt.id&&d.promptParticipant===participant;
     let previous=matches(draft)?draft:null;
     if(!previous)try{previous=(await drafts.all()).find(matches);}catch{local=false;}
-    const record=previous||{...fresh(),title:'On '+(state.doc?.title||'this article'),responds_to:prompt.document_path,prompt,promptParticipant:participant};
-    if(!previous)try{await drafts.put(record);}catch{local=false;}
+    let record=previous||{...fresh(),title:'On '+(state.doc?.title||'this article'),responds_to:prompt.document_path,prompt,promptParticipant:participant};
+    // An opening typed in the question dialog starts a new draft, or continues an existing one.
+    if(opening)record={...record,body:(record.body.trimEnd()?record.body.trimEnd()+'\n\n':'')+opening,updated:now()};
+    if(opening&&record.body.length>SCRATCH_LIMITS.body)throw new Error('The draft would exceed the 64 KiB Scratch limit.');
+    if(!previous||opening)try{await drafts.put(record);}catch{local=false;}
     // The route may open before a durable write, or with storage unavailable.
     // Keep this handoff and the active draft in memory; neither survives reload.
     handoff=record;
