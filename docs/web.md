@@ -1161,6 +1161,13 @@ stylesheet (`web_ui/style.css`) declares the layers `theme, base, reader-legacy,
 fieldset styles) from shadcn slots inside Admin and its alert dialogs, and still loses to every component utility.
 Tests find parts by ids and `data-*` hooks, never by styling classes.
 
+Outside Admin the same rules apply. Search, the reading queue, the Theme Editor, chat, the article prompt card, the
+quiz, the writing prompt and What changed are composed from shadcn components, and each opts into the slot preflight
+with `data-ui="shadcn"` (shadcn's portaled dialogs, sheets and popovers are always covered). Their design sheets are in
+[`ui-design/`](ui-design/index.md). Surfaces still rendered by the plain-JavaScript modules use the vanilla bridge
+(`web/src/vanilla-buttons.ts`): `data-button` markup takes `buttonVariants`, and plain `<kbd>` in Reader's chrome takes
+Kbd's classes. `node tests/web_page_review.cjs [page …]` reviews these pages like the Admin harness does.
+
 `node tests/web_admin_review.cjs [section …]` opens every Admin section (or the ones named) against the synthetic
 fixture, on desktop (1440 × 900), tablet (iPad Mini) and phone (iPhone 13) profiles in a light and a dark theme. It
 saves a full-page screenshot of each under `READER_SHOTS/admin-review/` (default `.reader/web-dev/`), and fails on a

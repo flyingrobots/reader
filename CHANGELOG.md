@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+- The shadcn sweep continues past Admin:
+  - Search uses InputGroup, ToggleGroup, FieldSet facets and Item passages.
+  - The reading queue uses Item rows in its listbox, Progress, ToggleGroup and Kbd.
+  - The Theme Editor uses InputGroup token rows, a Slider, ToggleGroups, Collapsible checks and one AlertDialog in place of `window.confirm`.
+  - Chat uses Markers for system notes, Notices, a Card for the raised hand, and a Collapsible and ToggleGroup raw output.
+  - The article prompt card is a Card with a shared JobSummary.
+  - The quiz, writing prompt and What changed use Notices, LoadingState, Collapsible, Items and Badges.
+  - The vanilla bridge gives Reader's plain-JavaScript chrome real Kbd classes, and close buttons use lucide's X icon.
+  - `tests/web_page_review.cjs` reviews these pages, and `docs/ui-design/` holds their sheets and an audit of the remaining native dialogs and panels (follow-up #200).
+
 - Reader Admin's Library page is a React page built from the theme tiers, replacing the HTML-string dashboard with its `data-button` imitation buttons. `libraryModel` in `dashboard.mjs` computes the counts and chart rows. Totals and works are Items, each chart is a StatusCard with a Button legend, and the D3 drawing moves to `library-charts.ts`. Selection, Shift-click split opening, chart keyboard access and the high-contrast chart outlines are unchanged. The dashboard's dead CSS leaves `style.css`.
 
 - Reader Admin is built from real shadcn components. The stylesheet now imports `shadcn/tailwind.css`, so `data-horizontal` and `data-vertical` variants work and Separators are visible. A `reader-slots` cascade layer keeps legacy prose rules off shadcn slots. Atomic tiers in `web/src/theme/` (atoms, molecules, organisms, templates) compose every page except Library: Overview, Coding jobs, LLM logs, Repositories, Voices, Models, Inbox, Indexes, Artwork, Service & tools and Settings. Hand-rolled lists, fact grids, glyph state marks, raw `<select>` and `<table>` markup, `<details>` panels and `window.confirm` give way to Item, Table, Select, Collapsible, Alert, Empty and AlertDialog. Each page has a design sheet in `docs/admin-design/`, and `tests/web_admin_review.cjs` reviews every section on desktop, tablet and phone in a light and a dark theme. The Theme Editor remains to be rebuilt.
