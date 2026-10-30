@@ -4125,6 +4125,25 @@ entirely is not listed, and a removed dependency's license disappears with it;
 their editable sources and lockfile. To recover from missing or stale controls,
 rebuild from the lockfile; do not substitute a CDN script or loosen the CSP.
 
+### Merging branches that both rebuilt the bundle
+
+Everything under `controls/` is build output; never merge it line by line.
+`.gitattributes` assigns those files the `reader-bundle` merge driver. Configure it
+once per clone (worktrees share it):
+
+```sh
+git config merge.reader-bundle.name "Keep ours; rebuild web bundle"
+git config merge.reader-bundle.driver true
+```
+
+A merge then keeps the current branch's copy without conflict markers. Run
+`npm run build` in `web/` afterwards and commit the result.
+`tests/test_controls_bundle.py` fails until you do: it compares the SHA-256 register
+in `build-meta.json` with the current sources and with every file under `controls/`,
+so it catches a forgotten rebuild, a hand-edited output and leftover chunk files
+without running the build. Without the driver, Git merges these files as text;
+resolve them with `git checkout --ours` and rebuild.
+
 `scripts/vendor_web.py` refreshes pinned npm tarballs without running install
 scripts. It verifies registry SHA-512 integrity and records SHA-256 asset hashes
 in `web_ui/vendor/manifest.json`. Review dependency changes and retained licenses;

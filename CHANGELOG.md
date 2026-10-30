@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- The committed web bundle is checked against its sources: `tests/test_controls_bundle.py` fails on a forgotten rebuild, a hand-edited output or a leftover chunk, using the hashes `build-meta.json` already records. `.gitattributes` marks `controls/` as generated, with a `reader-bundle` merge driver that keeps one side for a rebuild instead of writing conflict markers (see docs/web.md).
+- Three browser suites pass again on main: the help and command-line tests follow `:themes` and display labels, Read next is checked by order, and palette-only themes may use one mode color.
 - The shadcn sweep continues past Admin:
   - Search uses InputGroup, ToggleGroup, FieldSet facets and Item passages.
   - The reading queue uses Item rows in its listbox, Progress, ToggleGroup and Kbd.
