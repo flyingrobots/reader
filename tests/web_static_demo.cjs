@@ -88,7 +88,7 @@ const TYPES={'.html':'text/html; charset=utf-8','.js':'text/javascript','.mjs':'
   // Keyword search on the search page and the fuzzy picker, both in the browser.
   await page.goto(url+'#search='+encodeURIComponent('q=solitude&mode=words'));
   await page.locator('#search-meta').filter({hasText:/works?/}).waitFor({timeout:15000});
-  assert.ok(await page.locator('.search-works > li').count()>=2,'several works match');
+  assert.ok(await page.locator('[data-work]').count()>=2,'several works match');
   await page.goto(url);await page.locator('#home-title').waitFor();
   const results=await page.evaluate(async()=>(await (await fetch('/api/search?q=montaigne&mode=fuzzy&participant=You')).json()).results.map(r=>r.path));
   assert.ok(results.some(p=>p.includes('montaigne')),'fuzzy search finds titles and paths');
