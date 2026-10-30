@@ -29,6 +29,10 @@ const {chromium}=require(process.env.READER_PLAYWRIGHT||'playwright-core');
   await modal.getByRole('button',{name:'Write a response',exact:true}).click();
   await modal.waitFor({state:'hidden'});await page.locator('.cm-editor').waitFor();await page.locator('.scratch-prompt-context').getByText(question,{exact:true}).waitFor();
   assert.equal(await page.evaluate(()=>!!document.activeElement?.closest('.cm-content')),true,'closing the question must leave the response editor focused');
+  // With the question above it, the editor and preview still take the remaining height, not one line.
+  const fill=await page.evaluate(()=>{const scratch=document.querySelector('.scratch').getBoundingClientRect(),context=document.querySelector('.scratch-prompt-context').getBoundingClientRect();
+    return ['.scratch-editor','.scratch-preview'].filter(s=>document.querySelector(s)?.offsetParent).map(s=>{const r=document.querySelector(s).getBoundingClientRect();return {s,top:r.top>=context.bottom,share:r.height/(scratch.bottom-context.bottom)};});});
+  assert.ok(fill.length&&fill.every(p=>p.top&&p.share>.85),'Scratch panes must fill below the question: '+JSON.stringify(fill));
   await page.keyboard.press('i');await page.keyboard.type('# On color\n\nI choose red because it catches my eye.');await page.keyboard.press('Escape');
   await page.waitForFunction(()=>document.querySelector('.scratch-state').textContent==='Saved on this device');
   const draftHash=new URL(page.url()).hash;await page.reload();await page.locator('.cm-editor').waitFor();

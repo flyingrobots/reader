@@ -653,6 +653,8 @@ body.two-page .embed-pdf canvas{max-height:65vh;width:auto!important}
 @media(max-width:600px){.reader-quiz-dialog{inset:0;width:100%;max-width:100%;max-height:100dvh;min-height:100dvh;transform:none;translate:none;border-radius:0;align-content:start;padding:1rem}}
 
 /* Writing prompts use Scratch's existing editor and responsive layout. */
+/* A question adds a row; the panes keep the remaining height. */
+.scratch:has(>.scratch-prompt-context){grid-template-rows:auto auto minmax(0,1fr)}
 .scratch-prompt-context{padding:1rem 1.4rem;border-bottom:1px solid var(--line);max-width:80ch}.scratch-prompt-context p{margin:.3rem 0}.your-writing{max-width:76rem;margin:2rem auto;padding:0 1.5rem}.your-writing h2{font-size:1.35rem}.your-writing ul{list-style:none;padding:0;display:grid;gap:.65rem}.your-writing li{display:flex;gap:1rem;justify-content:space-between}.your-writing time{color:var(--muted);white-space:nowrap}.reading-log-writing{padding:0;list-style:none}.writing-pin{color:var(--accent)}.article-learning{flex-wrap:wrap}
 /* Docked right panels (dock.mjs): at 1100 px and wider an open panel is a column beside the page, which gives up
    --dock-width on the right. No shadow or backdrop; narrower windows keep the overlay. */
