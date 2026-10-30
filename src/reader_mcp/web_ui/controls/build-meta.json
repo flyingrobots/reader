@@ -90,7 +90,7 @@
     "src/reader-controls.tsx": "fb36c18fa7fb717edd480f52cc763638a4bb6377e5aa757f84610d7d4ee48b1f",
     "src/scratch-question.tsx": "ae90d508a8ca52994fb567380d60bef8644475691754a97fd697b323dcb7e7e3",
     "src/search-page.tsx": "2cd0ec009e41f4dc701efa2ed64edd91e54503d1e880d083df21fff52ef82a5d",
-    "src/server-card.tsx": "65faf033b34502bc98912a94e6b8c00696b4446b4808b031bcf7d1f2a6ce9a70",
+    "src/server-card.tsx": "9d911a1b4bf4914672483e3ba4fc306f847c26577472b8c5205f9f4d94ee2f60",
     "src/shape/shape.ts": "9fe4b2b1dd21a2869130afa25aed34e2ea482fc8fe05aa2609193aa24c04b50c",
     "src/speech-control.tsx": "45a7efd449606ea196c7adef281ddadb2bd89dab1b5c9a945f56897cadbb4e0c",
     "src/static-demo.ts": "036a0b4413452d2ec8f7a51248157340082f3c030fc51d3237275021340e8810",
@@ -915,8 +915,8 @@
       "sha256": "d9dd1fca236a8ef068b56bf1ee26b60a8157c5f3d1449eab92fbf40d93ccc82b"
     },
     "reader-controls.js": {
-      "bytes": 1126707,
-      "sha256": "3ad9acad4cba95d0a96272b0a36a28663629a714dfc133697f88001076465c0e"
+      "bytes": 1126737,
+      "sha256": "891bb7671492de4345164e793b6ece5448b90d7011594974d76e06545d41185d"
     },
     "reader-controls.js.LEGAL.txt": {
       "bytes": 6018,

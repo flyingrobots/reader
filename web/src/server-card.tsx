@@ -49,8 +49,8 @@ export function ServerCard({api}:{api:Api}){
   async function act(action:'update'|'restart'|'pause'|'resume'){
     setBusy(action);
     try{await api('/api/service',{action});if(action==='update'||action==='restart')setPending(true);
-      if(action==='update')toast.loading('Checking for an update…',{id:'service-update',description:'The updater smoke-tests a newer commit before switching to it.',duration:120000,cancel:{label:'Dismiss'}});
-      else if(action==='restart'){restartFrom.current=info?.health.started_at||null;toast.loading('Restarting Reader…',{id:'service-restart',duration:30000,cancel:{label:'Dismiss'}});}
+      if(action==='update')toast.loading('Checking for an update…',{id:'service-update',description:'The updater smoke-tests a newer commit before switching to it.',duration:120000,cancel:{label:'Dismiss',onClick:()=>{}}});
+      else if(action==='restart'){restartFrom.current=info?.health.started_at||null;toast.loading('Restarting Reader…',{id:'service-restart',duration:30000,cancel:{label:'Dismiss',onClick:()=>{}}});}
       else toast.success(action==='pause'?'Updates paused':'Updates resumed');
       await refresh();
     }catch(e){toast.error(`Couldn’t ${action==='update'?'start the update':action}`,{description:e instanceof Error?e.message:String(e),duration:8000});}
