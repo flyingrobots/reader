@@ -40,7 +40,7 @@
     "src/code-blocks.ts": "66716c693b0ae5fef0607913afafc3c9be26bff8aa267c648e8274eff8b89267",
     "src/code-highlight.ts": "36c456df8e9a5277690eb3ee02e49eb0246077a1c8fbbe5873342cfa3afd0063",
     "src/code-languages.ts": "227bc27c91c4f671a5ca8ea95455dbed26dc806852fe6341714a3534b166c45a",
-    "src/companions.tsx": "f04db29b267eab6851244baf73f013c7946ae6ebd9825a497b5fdcef1f288fe2",
+    "src/companions.tsx": "22dd3c0531ec65493b809414eee6e218e784188d4622041c2f9fd16f032353db",
     "src/components/ui/alert-dialog.tsx": "d1811546e2248fe9b04e7cefcd4f0ed3acc4e87cb26a083eb17b3c836707d4d0",
     "src/components/ui/alert.tsx": "f253568242c1c69b343f12474002fdbe229f603158171c59e21c491ab79f2e6e",
     "src/components/ui/badge.tsx": "d9fb280e266119c4b62a4c518e63152de27b094c68d3e5f8929d05bfb0c1bc6c",
@@ -111,7 +111,7 @@
     "src/shape/shape.ts": "9fe4b2b1dd21a2869130afa25aed34e2ea482fc8fe05aa2609193aa24c04b50c",
     "src/speech-control.tsx": "45a7efd449606ea196c7adef281ddadb2bd89dab1b5c9a945f56897cadbb4e0c",
     "src/static-demo.ts": "036a0b4413452d2ec8f7a51248157340082f3c030fc51d3237275021340e8810",
-    "src/styles.css": "806cbc0ef287529e46d9683359764c9c64f3344437737d650ea72fa0f0a320ae",
+    "src/styles.css": "ccc58b62c69afca6cf3a20a5bae579182d90c9c3e52f90a83e4ac878b7d69eb0",
     "src/theme/atoms/run-state-icon.tsx": "7898209e6e1893b71c6c38a94dde6c3a83e1ffd19344382e48dca151cf361b06",
     "src/theme/atoms/section-heading.tsx": "47390df21cea8262baad84426e0af328b55e8f88673edd1833078e9f842b5790",
     "src/theme/atoms/status-badge.tsx": "8b6e9f9c0de4921c3cba50a7972392e759f566a4f5b5a6c7580128ebaa959ba3",
@@ -952,12 +952,12 @@
       "sha256": "cb2ee2554fd41ac9f8e2e69c350365f0e1cf9732d27ad161c9c97b20945bbe4c"
     },
     "reader-controls.css": {
-      "bytes": 174002,
-      "sha256": "5891d00ed9257ecafe3bb4b232e67893b825e388780fbf1388f09a039714444d"
+      "bytes": 173555,
+      "sha256": "6a3b9ccc71d9765545f72f21c28e44e244fc3d10f26fa8cf485f4f9f4267b5df"
     },
     "reader-controls.js": {
-      "bytes": 1151077,
-      "sha256": "9731dda3e9105f3660cc309725e08ea9ff7e897bbf2fb3c685109d496487afa5"
+      "bytes": 1151188,
+      "sha256": "1f452706358ef2f56a1933e6beaf938be1a78f5b15550e86504b014e775b350a"
     },
     "reader-controls.js.LEGAL.txt": {
       "bytes": 6320,

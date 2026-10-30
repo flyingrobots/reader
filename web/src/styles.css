@@ -406,11 +406,6 @@ body:has(#changes-panel[data-side=right]) [data-slot=sheet-overlay] { display: n
 
 /* Server card: the tailnet address and identity can be long; give them the full row. */
 /* Companions (Behind the scenes) and the not-installed prompt. */
-.companion-prompt { width: min(var(--width, 356px), calc(100vw - 32px)); box-sizing: border-box; display: grid; gap: 8px; padding: 14px 16px; background: var(--raised); color: var(--ink); border: 1px solid var(--line); border-radius: 10px; box-shadow: var(--shadow); font-family: var(--sans); }
-.companion-prompt-title { margin: 0; font-weight: 650; font-size: 14px; }
-.companion-prompt-body { margin: 0; font-size: 12px; line-height: 1.5; color: var(--muted); }
-.companion-prompt-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
-.companion-prompt-link { font-size: 12px; color: var(--accent); }
 /* Article prompt cards and coding jobs (RW-44). Theme tokens only; the card is a form inside the article column. */
 .prompt-card { display: block; margin: 1.4em 0; min-width: 0; border-radius: var(--radius-xl); }
 .prompt-card:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }

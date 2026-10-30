@@ -35,7 +35,7 @@ const covered=page=>page.evaluate(()=>Object.fromEntries([...CSS.highlights].fil
    await leader(page,'c');
    // The companion prompt: what is missing and what it adds, its repo, and (without cargo) How to install.
    const prompt=page.locator('[data-companion-prompt=colorful]');await prompt.waitFor();
-   assert.equal(await prompt.locator('.companion-prompt-title').textContent(),'Prose colors needs Colorful Language');
+   assert.equal(await prompt.locator('[data-prompt-title]').textContent(),'Prose colors needs Colorful Language');
    assert.equal(await prompt.locator('a').getAttribute('href'),'https://github.com/flyingrobots/colorful-language');
    assert.equal(await prompt.locator('[data-prompt-action=setup]').count(),1,'no cargo: guided setup, not Install');
    await prompt.locator('[data-prompt-action=dismiss]').click();await prompt.waitFor({state:'detached'});

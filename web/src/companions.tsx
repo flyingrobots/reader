@@ -6,6 +6,7 @@ import {CheckIcon, ChevronRightIcon, CopyIcon, ExternalLinkIcon, ListChecksIcon}
 import {toast} from 'sonner';
 import {Alert, AlertDescription, AlertTitle} from './components/ui/alert';
 import {Button} from './components/ui/button';
+import {Card, CardDescription, CardFooter, CardHeader, CardTitle} from './components/ui/card';
 import {ButtonGroup} from './components/ui/button-group';
 import {CodeBlock, CodeBlockActions, CodeBlockContent, CodeBlockHeader, CodeBlockTitle} from './components/ui/code-block';
 import {Collapsible, CollapsibleContent, CollapsibleTrigger} from './components/ui/collapsible';
@@ -135,15 +136,15 @@ export function CompanionsSection({api,act,status,busy,onRefresh}:{api:Api;act:C
 export function CompanionPrompt({item,id,onInstall,onSetup}:{item:Companion;id:string|number;onInstall:()=>void;onSetup:(panel:string)=>void}){
   const install=item.actions.includes('install')||item.actions.includes('update')?item.actions.includes('install')?'install':'update':null;
   const heading=item.state==='not-running'?`${item.title} isn’t running`:item.state==='too-old'?`${item.feature} needs a newer ${item.title}`:`${item.feature} needs ${item.title}`;
-  return <div className="companion-prompt" data-companion-prompt={item.name} role="status">
-    <p className="companion-prompt-title">{heading}</p>
-    <p className="companion-prompt-body">{item.enables}{item.state==='missing'&&install?' Install builds the pinned release into this vault’s tooling folder; it takes a few minutes.':''}{item.state==='not-running'&&item.start?.available?' Start asks launchd to run its daemon.':''}</p>
-    <div className="companion-prompt-actions">
+  return <Card size="sm" className="companion-prompt w-[min(var(--width,356px),calc(100vw-32px))] font-sans shadow-lg" data-ui="shadcn" data-companion-prompt={item.name} role="status">
+    <CardHeader><CardTitle data-prompt-title="">{heading}</CardTitle>
+      <CardDescription>{item.enables}{item.state==='missing'&&install?' Install builds the pinned release into this vault’s tooling folder; it takes a few minutes.':''}{item.state==='not-running'&&item.start?.available?' Start asks launchd to run its daemon.':''}</CardDescription></CardHeader>
+    <CardFooter className="flex-wrap gap-2">
       {install?<Button size="xs" data-prompt-action="install" onClick={()=>{toast.dismiss(id);onInstall();}}>{install==='install'?'Install':'Update'}</Button>
         :item.state==='not-running'&&item.start?.available?<Button size="xs" data-prompt-action="start" onClick={()=>{toast.dismiss(id);onSetup('confirm');}}>Start…</Button>
         :<Button size="xs" data-prompt-action="setup" onClick={()=>{toast.dismiss(id);onSetup('guide');}}>How to install</Button>}
-      <a href={item.repo} target="_blank" rel="noreferrer" className="companion-prompt-link">About {item.title}</a>
-      <Button size="xs" variant="ghost" data-prompt-action="dismiss" onClick={()=>{setDismissed(item.name);toast.dismiss(id);}}>Don’t show again</Button>
-    </div>
-  </div>;
+      <Button size="xs" variant="link" nativeButton={false} render={<a href={item.repo} target="_blank" rel="noreferrer"/>}>About {item.title}</Button>
+      <Button size="xs" variant="ghost" className="ml-auto" data-prompt-action="dismiss" onClick={()=>{setDismissed(item.name);toast.dismiss(id);}}>Don’t show again</Button>
+    </CardFooter>
+  </Card>;
 }

@@ -64,7 +64,7 @@ const {scrollUntilHeld}=require('./web_wait.cjs');
   // An unavailable daemon is explained, not hidden: the companion prompt names it and offers setup, without an error toast.
   flag('down',true);await page.locator('#speak-article').click();
   await page.locator('[data-companion-prompt=ai-tts]').waitFor();
-  assert.match(await page.locator('[data-companion-prompt=ai-tts] .companion-prompt-title').textContent(),/AI-TTS/);
+  assert.match(await page.locator('[data-companion-prompt=ai-tts] [data-prompt-title]').textContent(),/AI-TTS/);
   assert.equal(await page.locator('[data-sonner-toast][data-type=error]').count(),0);
   await page.locator('[data-companion-prompt=ai-tts] [data-prompt-action=dismiss]').click();await page.evaluate(()=>localStorage.removeItem('reader.companions.dismissed.v1'));
   flag('down',false);

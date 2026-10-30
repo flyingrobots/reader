@@ -31,7 +31,7 @@ const shots=process.env.READER_SHOTS||'.reader/web-dev';
   // Space s without AI-TTS: a calm prompt naming what is missing, what it adds and its repo; never an error toast.
   await leader('s');await page.locator('#speak-menu[open]').waitFor();await page.keyboard.press('a');
   const speakPrompt=page.locator('[data-companion-prompt=ai-tts]');await speakPrompt.waitFor();
-  assert.equal(await speakPrompt.locator('.companion-prompt-title').textContent(),'Read aloud needs AI-TTS');
+  assert.equal(await speakPrompt.locator('[data-prompt-title]').textContent(),'Read aloud needs AI-TTS');
   assert.match(await speakPrompt.textContent(),/local speech daemon/);
   assert.equal(await speakPrompt.locator('a').getAttribute('href'),'https://github.com/flyingrobots/AI-TTS');
   assert.equal(await speakPrompt.locator('[data-prompt-action=install]').count(),0,'AI-TTS is guided, never auto-installed');
@@ -73,7 +73,7 @@ const shots=process.env.READER_SHOTS||'.reader/web-dev';
   await page.goto(doc);await ready();
   await leader('c');
   const colorPrompt=page.locator('[data-companion-prompt=colorful]');await colorPrompt.waitFor();
-  assert.equal(await colorPrompt.locator('.companion-prompt-title').textContent(),'Prose colors needs Colorful Language');
+  assert.equal(await colorPrompt.locator('[data-prompt-title]').textContent(),'Prose colors needs Colorful Language');
   await colorPrompt.locator('[data-prompt-action=install]').click();
   await toast('Install Colorful Language running…').waitFor();
   assert.equal(await toast('Install Colorful Language running…').getAttribute('data-type'),'loading');
