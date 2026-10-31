@@ -42,10 +42,10 @@ const {scrollUntilHeld}=require('./web_wait.cjs');
   await control.waitFor({state:'detached',timeout:12000});
   // Space s opens the menu; a sends the whole article. A hold adds the pause note.
   flag('held',true);
-  await leader('s');await page.locator('#speak-menu[open]').waitFor();
+  await leader('s');await page.locator('#speak-menu').waitFor();
   assert.ok(await page.locator('#speak-menu [data-speak=selection]').isDisabled(),'no selection yet');
   await page.keyboard.press('a');await toast('it plays when the pause ends').waitFor();
-  assert.equal(submits().length,2);assert.equal(await page.locator('#speak-menu[open]').count(),0);
+  assert.equal(submits().length,2);await page.locator('#speak-menu').waitFor({state:'detached'});
   await control.locator('[data-speech-label]',{hasText:'Queued · held'}).waitFor({timeout:6000});
   assert.ok(await control.locator('[data-speech-action]').isDisabled(),'transport waits until this passage is current');
   flag('held',false);await control.waitFor({state:'detached',timeout:12000});

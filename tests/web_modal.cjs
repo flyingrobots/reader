@@ -60,10 +60,10 @@ const highlightText=(page,name)=>page.evaluate(name=>[...(CSS.highlights.get(nam
   // V then c: the comment dialog with the whole block.
   await page.waitForFunction(()=>document.querySelector('.annotation-pin'));
   await press(page,'V');assert.equal((await status(page)).mode,'VISUAL LINE');
-  await press(page,'c');await page.locator('#annotation-dialog[open]').waitFor();
+  await press(page,'c');await page.locator('#annotation-dialog').waitFor();
   const block=await page.evaluate(()=>document.querySelector('#annotation-quote').textContent);
   assert.ok(block.startsWith('A quiet library')&&block.trim().endsWith('different observation.')&&block.length>800,'the whole paragraph: '+block.slice(0,80));
-  await press(page,'Escape');await page.locator('#annotation-dialog[open]').waitFor({state:'detached'});
+  await press(page,'Escape');await page.locator('#annotation-dialog').waitFor({state:'detached'});
 
   // ]c reaches the new thread's margin mark; Enter on it opens the thread.
   await press(page,'g','g');await page.waitForTimeout(100);await press(page,']','c');
@@ -120,7 +120,7 @@ const highlightText=(page,name)=>page.evaluate(name=>[...(CSS.highlights.get(nam
   // Ctrl-r a pastes the citation into a writing box in another document.
   page=await open('library/notes.md');
   await press(page,'v','}','Escape','v','"','b','y');await page.locator('[data-sonner-toast]',{hasText:'register b'}).waitFor();
-  await press(page,'v','c');await page.locator('#annotation-dialog[open]').waitFor();
+  await press(page,'v','c');await page.locator('#annotation-dialog').waitFor();
   await press(page,'Control+r','b');
   const pasted=await page.locator('#annotation-body').inputValue();
   assert.ok(pasted.startsWith('> The first claim needs a source.')&&pasted.includes('— [Field notes](library/notes.md)'),'citation pasted: '+pasted);

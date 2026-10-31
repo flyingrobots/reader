@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- The annotation dialog (Textarea and Button) and the Speak menu (a vertical ButtonGroup with Kbd) are shadcn Dialogs; their native `<dialog>` elements and CSS are removed. Each dialog's first control takes focus as it mounts, so keys typed at once reach it.
 - Keyboard help and the diagram viewer are shadcn Dialogs (`openShellDialog`), replacing native `<dialog>` elements. `modalOpen()` in `web_ui/modal.mjs` replaces seven `dialog[open]` checks and counts both kinds.
 - The versions timeline is built from shadcn components: Badges for its tags, a Collapsible for each edition's history, Kbd hints and Buttons. `timelineModel` replaces the HTML string; the keyboard model and comparisons are unchanged.
 - Link previews are a shadcn HoverCard anchored to the link (a bottom sheet on phones). `links.mjs` still decides when they show; the HTML string and its CSS are gone. Two Linked from order checks in web_links now allow the learning card beside them.

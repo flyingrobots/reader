@@ -1,7 +1,8 @@
 /** Send to AI-TTS: build the request from the open edition, a selection or the reading position. */
 import {codePointOffset} from './logic.mjs';
 
-export function installSpeech({state, api, reading, notify, track, openDialog, closeDialog, companion = null}) {
+export function installSpeech({state, api, reading, notify, track, openMenu: showMenu, companion = null}) {
+  let menu = null;  // The open Speak menu (web/src/shell-dialog.tsx), closed when a choice is sent.
   const $ = selector => document.querySelector(selector);
   const spoken = () => state.doc && (state.doc.text !== null || state.doc.kind === '.pdf');
   const selection = () => state.selected && state.selected.path === state.doc?.path && getSelection()?.isCollapsed === false ? state.selected : null;
@@ -34,7 +35,7 @@ export function installSpeech({state, api, reading, notify, track, openDialog, c
   async function send(scope) {
     if (state.doc?.preview) { notify('Inbox previews can be spoken once they are filed into the library.', 'info'); return; }
     if (state.doc?.historical) { notify('Send to AI-TTS reads the current file; open the current version to listen.', 'info'); return; }
-    closeDialog('speak-menu');
+    menu?.close();
     if (!spoken()) { notify(state.doc ? 'This document has no text to speak.' : 'Open a document to send it to AI-TTS.'); return; }
     let body; try { body = request(scope); } catch (error) { notify(error.message, 'error'); return; }
     try {
@@ -50,23 +51,8 @@ export function installSpeech({state, api, reading, notify, track, openDialog, c
   function openMenu() {
     if (state.doc?.historical) { notify('Send to AI-TTS reads the current file; open the current version to listen.', 'info'); return; }
     if (!spoken()) { notify(state.doc ? 'This document has no text to speak.' : 'Open a document to send it to AI-TTS.'); return; }
-    const menu = $('#speak-menu'), hasSelection = !!selection();
-    menu.querySelector('[data-speak=selection]').disabled = !hasSelection;
-    menu.querySelector('[data-speak=selection]').title = hasSelection ? '' : 'Select a passage to send only that.';
-    openDialog('speak-menu');
-    menu.querySelector(hasSelection ? '[data-speak=selection]' : '[data-speak=article]').focus();
+    menu = showMenu({hasSelection: !!selection(), choose: scope => send(scope), onClosed: () => { menu = null; }});
   }
-  const menu = $('#speak-menu');
-  menu.querySelectorAll('[data-speak]').forEach(button => button.onclick = () => send(button.dataset.speak));
-  menu.addEventListener('keydown', event => {
-    const scope = {a: 'article', f: 'from', s: 'selection'}[event.key];
-    if (scope && !event.metaKey && !event.ctrlKey && !event.altKey) { event.preventDefault(); if (!menu.querySelector(`[data-speak=${scope}]`).disabled) send(scope); return; }
-    if (['j', 'k', 'ArrowDown', 'ArrowUp'].includes(event.key)) {
-      event.preventDefault();
-      const items = [...menu.querySelectorAll('[data-speak]:not(:disabled)')], index = items.indexOf(document.activeElement);
-      items[(index + (['j', 'ArrowDown'].includes(event.key) ? 1 : -1) + items.length) % items.length]?.focus();
-    }
-  });
   $('#speak-selection').onclick = () => { $('#selection-tools').hidden = true; send('selection'); };
   return {send, openMenu};
 }

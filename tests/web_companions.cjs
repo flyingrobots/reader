@@ -29,7 +29,7 @@ const shots=process.env.READER_SHOTS||'.reader/web-dev';
   await page.goto(doc);await ready();
 
   // Space s without AI-TTS: a calm prompt naming what is missing, what it adds and its repo; never an error toast.
-  await leader('s');await page.locator('#speak-menu[open]').waitFor();await page.keyboard.press('a');
+  await leader('s');await page.locator('#speak-menu').waitFor();await page.keyboard.press('a');
   const speakPrompt=page.locator('[data-companion-prompt=ai-tts]');await speakPrompt.waitFor();
   assert.equal(await speakPrompt.locator('[data-prompt-title]').textContent(),'Read aloud needs AI-TTS');
   assert.match(await speakPrompt.textContent(),/local speech daemon/);
@@ -89,11 +89,11 @@ const shots=process.env.READER_SHOTS||'.reader/web-dev';
   await page.waitForFunction(()=>document.body.classList.contains('prose-subtle')&&CSS.highlights?.get('reader-prose-noun')?.size>0);
 
   // Don't show again: the next Space s says what is missing in one line, without the prompt.
-  await leader('s');await page.locator('#speak-menu[open]').waitFor();await page.keyboard.press('a');
+  await leader('s');await page.locator('#speak-menu').waitFor();await page.keyboard.press('a');
   await page.locator('[data-companion-prompt=ai-tts]').waitFor();
   await page.locator('[data-companion-prompt=ai-tts] [data-prompt-action=dismiss]').click();
   await page.locator('[data-companion-prompt=ai-tts]').waitFor({state:'detached'});
-  await leader('s');await page.locator('#speak-menu[open]').waitFor();await page.keyboard.press('a');
+  await leader('s');await page.locator('#speak-menu').waitFor();await page.keyboard.press('a');
   await toast('Read aloud needs AI-TTS.').waitFor();
   assert.equal(await page.locator('[data-companion-prompt]').count(),0);
 

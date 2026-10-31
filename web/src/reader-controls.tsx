@@ -2,7 +2,7 @@ import {useState, useSyncExternalStore, useEffect, type ReactNode} from 'react';
 import {ReadingLog, type ReadingLogActions, type ReadingLogModel} from './reading-log';
 import {LinkPreview, type LinkPreviewState} from './link-preview';
 import {VersionsTimeline, type TimelineModel} from './versions-timeline';
-import {ShellDialog, type ShellDialogOptions} from './shell-dialog';
+import {AnnotationDialog, ShellDialog, SpeakMenu, type AnnotationOptions, type ShellDialogOptions, type SpeakOptions} from './shell-dialog';
 import {createRoot, type Root} from 'react-dom/client';
 import {createPortal, flushSync} from 'react-dom';
 import {Progress} from './components/ui/progress';
@@ -455,17 +455,27 @@ export function mountChangesPanel(container:HTMLElement,options:Omit<ChangesOpti
   mount(container,<ChangesPanel key={Date.now()} {...options} onClose={()=>setTimeout(()=>{if(root&&islands.get(container)===root)clearControlsWithin(container);},250)}/>);
   root=islands.get(container);
 }
-/** Open an app dialog (see shell-dialog.tsx). Opening one with an id that is already open closes that first. */
-const shellDialogs=new Map<string,{container:HTMLElement;close:()=>void}>();
-export function openShellDialog(options:ShellDialogOptions){
-  shellDialogs.get(options.id)?.close();
+/** Open an app dialog (see shell-dialog.tsx): it mounts in its own container and removes itself once closed. Opening one
+    with an id that is already open closes that first. Returns {close}. */
+const appDialogs=new Map<string,{close:()=>void}>();
+function openAppDialog(id:string,onClosed:()=>void,render:(props:{register:(close:()=>void)=>void;onClosed:()=>void})=>ReactNode){
+  appDialogs.get(id)?.close();
   const container=document.createElement('div');document.body.append(container);
-  const entry={container,close:()=>{}};shellDialogs.set(options.id,entry);
-  const onClosed=()=>{if(shellDialogs.get(options.id)===entry)shellDialogs.delete(options.id);clearControlsWithin(container);container.remove();options.onClosed();};
-  mount(container,<ShellDialog options={{...options,onClosed}} register={close=>{entry.close=close;}}/>);
-  return {close:()=>entry.close(),body:()=>document.getElementById(options.bodyId)};
+  const entry={close:()=>{}};appDialogs.set(id,entry);
+  const closed=()=>{if(appDialogs.get(id)===entry)appDialogs.delete(id);clearControlsWithin(container);container.remove();onClosed();};
+  mount(container,render({register:close=>{entry.close=close;},onClosed:closed}));
+  return {close:()=>entry.close()};
 }
-export function shellDialogOpen(id:string){return shellDialogs.has(id);}
+export function openShellDialog(options:ShellDialogOptions){
+  const handle=openAppDialog(options.id,options.onClosed,({register,onClosed})=><ShellDialog options={{...options,onClosed}} register={register}/>);
+  return {...handle,body:()=>document.getElementById(options.bodyId)};
+}
+export function openAnnotationDialog(options:AnnotationOptions){
+  return openAppDialog('annotation-dialog',options.onClosed,({register,onClosed})=><AnnotationDialog options={{...options,onClosed}} register={register}/>);
+}
+export function openSpeakMenu(options:SpeakOptions){
+  return openAppDialog('speak-menu',options.onClosed,({register,onClosed})=><SpeakMenu options={{...options,onClosed}} register={register}/>);
+}
 /** The versions timeline in #versions-body: one persistent root, re-rendered by versions.mjs; `doc` keys it so a new
     document starts with its own history disclosures. */
 export function renderVersionsTimeline(container:HTMLElement,model:TimelineModel|null,doc=''){

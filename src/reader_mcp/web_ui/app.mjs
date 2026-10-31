@@ -20,7 +20,7 @@ import {calloutPlugin} from './callouts.mjs';
 import {drawable,fetchShape,paintShape} from './shapes.mjs';
 import {artJobs,fetchArt,focusArt,forgetArt,hasArt,paintArt,paintArtThumb,paintPlaceholder} from './art.mjs';
 import {closeArtFocus,focusOpen} from './art-focus.mjs';
-import {openShellDialog,renderVersionsTimeline,renderLinkPreview,renderReadingLog,applyThemes,installControls,mountSkeleton,mountCodeBlocks,decorateCodeBlocks,clearControlsWithin,mountDocumentTree,visibleDocumentNodes,revealDocumentRow,mountAdmin,setAdminRoute,mountChangesPanel,mountArtRegenerate,notify as shellNotify,openChat,closeChat,chatOpen,trackSpeech,renderQueuePanel,mountCallouts,mountQuiz,mountWritingPrompt,mountScratchQuestion,startJob,promptCompanion,needsReader,NEEDS_READER,mountPromptCards} from './controls/reader-controls.js';
+import {openAnnotationDialog,openSpeakMenu,openShellDialog,renderVersionsTimeline,renderLinkPreview,renderReadingLog,applyThemes,installControls,mountSkeleton,mountCodeBlocks,decorateCodeBlocks,clearControlsWithin,mountDocumentTree,visibleDocumentNodes,revealDocumentRow,mountAdmin,setAdminRoute,mountChangesPanel,mountArtRegenerate,notify as shellNotify,openChat,closeChat,chatOpen,trackSpeech,renderQueuePanel,mountCallouts,mountQuiz,mountWritingPrompt,mountScratchQuestion,startJob,promptCompanion,needsReader,NEEDS_READER,mountPromptCards} from './controls/reader-controls.js';
 import {promptPlugin,promptMounts} from './prompt-blocks.mjs';
 import {installVersions,chipMarkup,historicalMarkup,splitRef,compareLabel} from './versions.mjs';
 import {installSplit,installPane,cleanRoute} from './split.mjs';
@@ -1136,7 +1136,7 @@ async function createAnnotation(kind,comment=''){
   const selected=state.selected;if(!selected||selected.path!==state.doc?.path&&!embeds.doc(selected.path))throw new Error('Select the passage again.');
   const key=JSON.stringify([kind,comment]);selected.requests[key] ||= crypto.randomUUID();
   const thread=await api('/api/annotations',{operation:'create',path:selected.path,start:selected.start,end:selected.end,owner:state.prefs.participant,comment,expected_sha256:selected.sha256,request_id:selected.requests[key],kind});
-  closeDialog('annotation-dialog');$('#selection-tools').hidden=true;getSelection()?.removeAllRanges();await loadDiscussion();if(comment || kind==='warning')await openThread(thread.id);else toast('Passage highlighted.');
+  annotationDialog?.close();$('#selection-tools').hidden=true;getSelection()?.removeAllRanges();await loadDiscussion();if(comment || kind==='warning')await openThread(thread.id);else toast('Passage highlighted.');
 }
 
 function pickerWorks(source='recent'){
@@ -1319,13 +1319,16 @@ async function applyPreferences(prefs){
   if(state.view==='admin'){controls.update({theme:state.prefs.theme,prefs:{...state.prefs},participants:state.data?.participants||[]});notify('Preferences saved.','success');}
   else if(state.doc)await navigate(state.doc.path,{record:false});else await renderHome(state.issuePath);reading?.updateStatus();
 }
-$('#annotation-form').onsubmit=async event=>{event.preventDefault();const button=event.currentTarget.querySelector('button');button.disabled=true;try{await createAnnotation($('#annotation-dialog').classList.contains('warning')?'warning':'highlight',$('#annotation-body').value);}catch(error){report(error);}finally{button.disabled=false;}};
 $('#selection-tools').onmousedown=event=>event.preventDefault();
 /** Highlight at once, or open the comment / warning dialog for the captured selection. */
 function annotate(kind){
   if(kind==='highlight'){createAnnotation('highlight').catch(report);return;}
-  $('#annotation-dialog').classList.toggle('warning',kind==='warning');$('#annotation-title').textContent=kind==='warning'?'Leave a warning.':'Leave a thought.';$('#annotation-quote').textContent=plainQuote(state.selected?.quote || '');$('#annotation-body').value='';$('#annotation-form button').textContent=kind==='warning'?'Leave warning':'Leave comment';openDialog('annotation-dialog');$('#annotation-body').focus();
+  // A comment is a highlight with a body; a warning keeps its kind.
+  state.smoother?.paused(true);
+  annotationDialog=openAnnotationDialog({kind:kind==='warning'?'warning':'comment',quote:plainQuote(state.selected?.quote || ''),onClosed:()=>{annotationDialog=null;dialogClosed();},
+    submit:text=>createAnnotation(kind==='warning'?'warning':'highlight',text).catch(report)});
 }
+let annotationDialog=null;
 document.querySelectorAll('[data-annotate]').forEach(button=>button.onclick=()=>annotate(button.dataset.annotate));
 $('#chat-open').onclick=toggleChat;
 $('#thread-close').onclick=leaveThreadPanel;
@@ -1812,7 +1815,7 @@ controls=installControls({seek:fraction=>reading.seek(fraction),spread:index=>re
   open:path=>navigate(path),libraryChanged:async()=>{await loadLibrary();if(!state.doc&&state.view!=='admin')renderHome();},
   adminHref:(section,...params)=>adminHash(adminPath(section,...params)),adminGo:(section,...params)=>openAdmin(section,...params),backToLibrary,
   markdown:text=>{const template=document.createElement('template');template.innerHTML=DOMPurify.sanitize(window.markdownit({html:false,linkify:true}).render(text),{USE_PROFILES:{html:true}});decorateCodeBlocks(template.content,{wrap:true,lineNumbers:false});return template.innerHTML;}},state.prefs);
-speech=installSpeech({state,api,reading:{capture:()=>reading.capture(),hasBook:()=>reading.hasBook()},notify,track:trackSpeech,openDialog,closeDialog,companion:promptCompanion});
+speech=installSpeech({state,api,reading:{capture:()=>reading.capture(),hasBook:()=>reading.hasBook()},notify,track:trackSpeech,openMenu:options=>{state.smoother?.paused(true);return openSpeakMenu({...options,onClosed:()=>{options.onClosed();dialogClosed();}});},companion:promptCompanion});
 prose=installProseColors({state,api,notify,companion:promptCompanion});
 queue=installQueue({state,api,navigate,notify,needsReader,renderPanel:renderQueuePanel,focusMain:()=>focusMain(),onChange:()=>reading?.updateStatus()});
 queue.setCloseOthers(()=>{$('#thread-panel').hidden=true;state.activeThread=null;});
