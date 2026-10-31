@@ -19,6 +19,7 @@ Reader Admin's pages have their sheets in [admin-design/](../admin-design/index.
 | Versions timeline | `web/src/versions-timeline.tsx` | shadcn: [versions-timeline.md](versions-timeline.md) |
 | Documents picker, Keyboard help, diagram viewer, annotation, Speak menu, Scratch Save | `web/src/shell-dialog.tsx` | shadcn: [shell-dialog.md](shell-dialog.md) |
 | Find bar | `web/src/find-bar.tsx` | shadcn `InputGroup` and `ButtonGroup`; `app.mjs` drives it by id |
+| Discussions, Versions, Lists panels | `web/src/panel-sheet.tsx` | shadcn: [panels.md](panels.md) |
 | Article art: prompt card, focus view | `web/src/art-prompt-card.tsx`, `web/src/art-focus-chrome.tsx` | shadcn: [art.md](art.md) |
 
 ## React surfaces with their own theming layer
@@ -38,6 +39,5 @@ Much of the reading app is rendered by `src/reader_mcp/web_ui/*.mjs` from templa
 | Home / weekly issue | `magazine.mjs`, `app.mjs` | Editorial layout (masthead, cover story, sections). This is content design, not component UI, and stays as it is. Its actions (Queue, Make cover art, issue navigation) are bridged Buttons. |
 | Article | `reading.mjs`, `app.mjs` | Prose and its margins are content. The *Source* button and banners use bridged Buttons. The outline rail shares its entry list with the React outline popover and sheet, as one navigation design. |
 | Status line | `index.html`, `status-priority.mjs` | A compact, priority-managed bar. Pagination, Progress, Popover, Select and Switch inside it are React shadcn. Its key hints stay compact on purpose. |
-| Discussions, Versions, Lists panels | `index.html`, `app.mjs`, `versions.mjs`, `lists.mjs` | Vanilla panel shells with bridged Buttons and Kbd; the versions timeline inside is shadcn. Moving the shells to shadcn `Sheet`s ([#200](https://github.com/flyingrobots/reader/issues/200)). |
 | Scratch pad | `scratch.mjs` | A CodeMirror editor with bridged chrome. |
 | Outline entries | `web/src/outline.tsx`, `outline.mjs` | A deliberate custom navigation list, shared by the React popover and sheet and the vanilla rail. |

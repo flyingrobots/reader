@@ -75,7 +75,7 @@ const shots=process.env.READER_SHOTS||'.reader/web-dev';
    assert.ok(writes.filter(w=>w.path==='/api/seen'&&w.frame.includes('?pane=1')).length>=2,'receipts post from the panes');
    // A theme change reaches every pane.
    await page.locator('#theme-switch-slot [role=switch]').click();
-   for(const frame of [one,two])await frame.waitForFunction(()=>document.documentElement.dataset.theme!=='paper');
+   for(const frame of [one,two])await frame.waitForFunction(()=>document.documentElement.dataset.theme!=='user-reader-test');
    const theme=await page.evaluate(()=>document.documentElement.dataset.theme);
    assert.equal(await one.evaluate(()=>document.documentElement.dataset.theme),theme);
    // Ctrl-w s stacks, x swaps, = equalizes; a fifth pane is refused.

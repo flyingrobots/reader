@@ -354,3 +354,17 @@ body:has(#changes-panel[data-side=right]) [data-slot=sheet-overlay] { display: n
 /* The Documents picker's content inside its Dialog (shell-dialog.tsx): a column whose results list scrolls. */
 #picker-content { display: flex; flex-direction: column; flex: 1; min-height: 0; }
 #picker-content > .file-results { flex: 1; min-height: 0; overflow: auto; }
+
+/* The right-hand panels' Sheets (panel-sheet.tsx). The geometry the asides had as .thread-panel moves to the popup: above
+   the status line, docked as a column beside the page (dock.mjs), and Versions as a bottom sheet on phones. A popup is
+   shown exactly while its aside is not hidden; the aside inside keeps its padding and scrolling, not its position. */
+[data-panel-sheet] { inset: 0 0 32px auto; height: auto; width: min(410px, 100vw); max-width: none; z-index: 30; gap: 0; overflow: hidden; }
+[data-panel-sheet]:has(> div > [hidden]) { display: none; }
+[data-panel-sheet="versions-panel"] { width: min(440px, 100vw); }
+[data-panel-sheet] > div > .thread-panel { flex: 1; min-height: 0; }
+html.embedded-pane [data-panel-sheet] { bottom: 0; }
+:root[data-dock] [data-panel-sheet] { top: 0; bottom: 0; width: var(--dock-width); box-shadow: none; }
+@media (max-width: 700px) { [data-panel-sheet] { bottom: 38px; } }
+@media (max-width: 640px) {
+  [data-panel-sheet="versions-panel"] { inset: auto 0 38px 0; width: auto; max-height: 72vh; border-left: 0; border-top: 1px solid var(--line); border-radius: 16px 16px 0 0; }
+}

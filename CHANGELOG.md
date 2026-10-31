@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- The Discussions, Versions and Lists panels are non-modal shadcn Sheets around their existing asides. They open and close, dock and handle keys as before; their positioning moved from `.thread-panel` to the Sheet.
 - Browser suites render in a frozen test theme (*Reader test*, copied once from Paper and Ink) instead of product themes, so editing a product theme no longer changes what they assert or screenshot. Suites that test the product themes still name them. See docs/web.md, *The browser suites' test theme*.
 - The art prompt card and the art focus view's chrome are shadcn Cards, CodeBlocks, Collapsibles and a ButtonGroup. web_art_touch dispatches its drag in the page on Playwright's clock instead of relying on CDP touch timing.
 - The Find bar (/) is a shadcn InputGroup with the match count and a ButtonGroup to step or close.

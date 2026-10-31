@@ -19,7 +19,8 @@ const shots=process.env.READER_SHOTS||'.reader/web-dev';
   const leader=async(page,key)=>{await page.locator('#main').focus({preventScroll:true});await page.keyboard.press('Space');await page.keyboard.press(key);};
   // What covers what: the panel's left edge against the page's right-hand parts.
   const layout=(page,selector)=>page.evaluate(selector=>{
-    const panel=document.querySelector(selector),box=panel.getBoundingClientRect(),style=getComputedStyle(panel),right=el=>el?el.getBoundingClientRect().right:-Infinity;
+    // The margins, Versions and Lists panels sit in a Sheet (panel-sheet.tsx), which carries the surface and its shadow.
+    const found=document.querySelector(selector),panel=found.closest('[data-panel-sheet]')||found,box=panel.getBoundingClientRect(),style=getComputedStyle(panel),right=el=>el?el.getBoundingClientRect().right:-Infinity;
     const pins=[...document.querySelectorAll('#article .annotation-pin')].filter(pin=>!pin.hidden&&pin.getClientRects().length).map(pin=>pin.getBoundingClientRect().right);
     const overlay=[...document.querySelectorAll('[data-slot=sheet-overlay]')].some(el=>getComputedStyle(el).display!=='none'&&el.getBoundingClientRect().width>0);
     const book=document.querySelector('.book-viewport');

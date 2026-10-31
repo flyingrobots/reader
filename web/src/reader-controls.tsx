@@ -1,5 +1,6 @@
 import {useState, useSyncExternalStore, useEffect, type ReactNode} from 'react';
 import {FindBar} from './find-bar';
+import {PanelSheet} from './panel-sheet';
 import {ArtPromptCard, type ArtPromptView} from './art-prompt-card';
 import {ArtFocusChrome, type ArtFocusChromeProps} from './art-focus-chrome';
 import {ReadingLog, type ReadingLogActions, type ReadingLogModel} from './reading-log';
@@ -430,6 +431,9 @@ const islands=new Map<HTMLElement,Root>();
 function mount(container:HTMLElement,content:ReactNode){clearControlsWithin(container);const root=createRoot(container);islands.set(container,root);flushSync(()=>root.render(content));}
 // The Find bar's controls render as this module loads, before app.mjs binds its handlers to them by id.
 {const findBar=document.getElementById('find-bar');if(findBar){findBar.dataset.ui='shadcn';mount(findBar,<FindBar/>);}}
+// The right-hand panels become non-modal Sheets around their existing asides (panel-sheet.tsx), also before app.mjs runs.
+for(const id of ['thread-panel','versions-panel','list-panel']){const panel=document.getElementById(id);
+  if(panel){const container=document.createElement('div');container.dataset.panelHost=id;document.body.append(container);mount(container,<PanelSheet panel={panel}/>);}}
 /** The search page, as a route-owned island; search-page.mjs owns its state and calls update(). */
 export function mountSearchPage(container:HTMLElement,initial:SearchModel,actions:SearchActions){
   let current=initial;const watchers=new Set<()=>void>();

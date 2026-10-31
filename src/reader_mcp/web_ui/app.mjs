@@ -1368,8 +1368,9 @@ document.addEventListener('mousemove',event=>{
 // A feature adds keys with keys.map({mode, keys, when, run, help, hint, group}) and commands with keys.command({...}).
 const typing=event=>state.themeEditorOpen||!!event.target.closest?.('input,textarea,select,[contenteditable="true"],dialog,[role=dialog],[role=listbox]:not([data-queue-list]),[data-slot=select-trigger],[data-slot=select-content],[data-slot=popover-content],[role=switch],[data-slot=pagination]');
 function pageEscape(event){
+  // React Sheets (What changed, chat) handle their own Escape; the panel Sheets (panel-sheet.tsx) leave it to the app.
   if(event.target.closest?.('.cm-editor'))return;  // Vim's Escape stays in the scratch editor; Escape in normal mode leaves it.
-  if(state.themeEditorOpen||event.target.closest('[data-slot=popover-content],[data-slot=select-content],[data-slot=sheet-content]')||modalOpen())return;
+  if(state.themeEditorOpen||event.target.closest('[data-slot=popover-content],[data-slot=select-content],[data-slot=sheet-content]:not([data-panel-sheet])')||modalOpen())return;
   event.preventDefault();
   if(!$('#thread-panel').hidden&&$('#thread-panel').contains(document.activeElement)){leaveThreadPanel();return;}
   if(panels.isOpen()&&panels.contains(document.activeElement)){panels.close();return;}
