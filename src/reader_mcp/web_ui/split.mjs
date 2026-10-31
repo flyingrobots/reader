@@ -114,6 +114,7 @@ export function cleanRoute(hash){
   hash=String(hash||'');
   if(hash.startsWith('#read=')){const [value,...rest]=hash.slice(6).split('&');const heading=rest.find(p=>p.startsWith('h='));return value?'#read='+value+(heading&&heading.length<=200?'&'+heading:''):'';}
   if(/^#scratch(=[0-9a-f-]{36})?$/.test(hash))return hash;
+  if(hash.startsWith('#section=')&&hash.length<=2048)return hash;
   if(hash.startsWith('#search'))return '#search';
   if(/^#issue=[0-9]{4}-W[0-9]{2}$/.test(decodeSafe(hash)))return hash;
   return '';

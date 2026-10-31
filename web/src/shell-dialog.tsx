@@ -19,6 +19,7 @@ import {Input} from '@/components/ui/input';
 import {Kbd} from '@/components/ui/kbd';
 import {NativeSelect, NativeSelectOption} from '@/components/ui/native-select';
 import {Notice} from '@/theme/molecules/notice';
+import {SpeechVoice} from './speech-voice';
 import {Textarea} from '@/components/ui/textarea';
 
 export type AppDialogFrame={id:string;title:string;closeLabel:string;className?:string;description?:string;onClosed:()=>void;
@@ -70,22 +71,23 @@ export function AnnotationDialog({options,register}:{options:AnnotationOptions}&
 }
 
 export type SpeakScope='article'|'from'|'selection';
-export type SpeakOptions={hasSelection:boolean;choose:(scope:SpeakScope)=>void;onClosed:()=>void};
+export type SpeakOptions={hasSelection:boolean;api:(path:string,payload?:unknown)=>Promise<any>;choose:(scope:SpeakScope,voice?:string)=>void;onClosed:()=>void};
 const CHOICES:[SpeakScope,string,string][]=[['article','Whole article','a'],['from','From here','f'],['selection','Selection','s']];
 export function SpeakMenu({options,register}:{options:SpeakOptions}&Register){
-  const first=useRef<HTMLButtonElement|null>(null),selection=useRef<HTMLButtonElement|null>(null);
+  const first=useRef<HTMLButtonElement|null>(null),selection=useRef<HTMLButtonElement|null>(null),[voice,setVoice]=useState<string|undefined>();
   return <AppDialog register={register} frame={{id:'speak-menu',title:'Send to AI-TTS',closeLabel:'Close',className:'w-[min(320px,calc(100vw-2rem))] max-w-none p-4 sm:max-w-none',
     initialFocus:options.hasSelection?selection:first,onClosed:options.onClosed}}>{()=><>
     <ButtonGroup orientation="vertical" className="w-full" onKeyDown={event=>{
       const scope=({a:'article',f:'from',s:'selection'} as Record<string,SpeakScope>)[event.key];
-      if(scope&&!event.metaKey&&!event.ctrlKey&&!event.altKey){event.preventDefault();if(scope!=='selection'||options.hasSelection)options.choose(scope);return;}
+      if(scope&&!event.metaKey&&!event.ctrlKey&&!event.altKey){event.preventDefault();if(scope!=='selection'||options.hasSelection)options.choose(scope,voice);return;}
       if(['j','k','ArrowDown','ArrowUp'].includes(event.key)){event.preventDefault();
         const items=[...event.currentTarget.querySelectorAll<HTMLButtonElement>('[data-speak]:not(:disabled)')],index=items.indexOf(document.activeElement as HTMLButtonElement);
         items[(index+(['j','ArrowDown'].includes(event.key)?1:-1)+items.length)%items.length]?.focus();}}}>
       {CHOICES.map(([scope,label,key])=><Button key={scope} ref={scope==='article'?first:scope==='selection'?selection:undefined} autoFocus={scope===(options.hasSelection?'selection':'article')} variant="outline" size="sm" className="w-full justify-between" data-speak={scope}
         disabled={scope==='selection'&&!options.hasSelection} title={scope==='selection'&&!options.hasSelection?'Select a passage to send only that.':undefined}
-        onClick={()=>options.choose(scope)}><span>{label}</span><Kbd>{key}</Kbd></Button>)}
+        onClick={()=>options.choose(scope,voice)}><span>{label}</span><Kbd>{key}</Kbd></Button>)}
     </ButtonGroup>
+    <SpeechVoice api={options.api} onChange={setVoice}/>
     <p className="text-[11px] text-muted-foreground">AI-TTS speaks it through its own queue; holds and other speakers are respected.</p>
   </>}</AppDialog>;
 }

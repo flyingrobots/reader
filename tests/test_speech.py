@@ -61,6 +61,30 @@ def submits(daemon):
     return [r for r in daemon.requests() if r['op'] == 'submit']
 
 
+def test_saved_voice_and_per_reading_override(web, daemon):
+    root, library, request = web
+    assert request('/api/speech-voices') == (200, {'voices': ['fake', 'voice-a', 'voice-b'], 'default_voice': None})
+    assert request('/api/speech-voices', {'voice': 'voice-a'})[1]['default_voice'] == 'voice-a'
+    assert json.loads((root / '.reader/speech.json').read_text())['voice'] == 'voice-a'
+    # A new library instance reads the persisted choice.
+    assert WebLibrary(root).speech.preferred_voice() == 'voice-a'
+    body = {'path': 'library/thought.md', 'source_sha256': library.digest('library/thought.md'), 'scope': 'article'}
+    assert request('/api/speak', body)[1]['voice'] == 'voice-a'
+    assert submits(daemon)[-1]['voice'] == 'voice-a'
+    assert 'source' not in submits(daemon)[-1] and submits(daemon)[-1]['origin'] == 'Reader'
+    assert request('/api/speak', body | {'voice': 'voice-b'})[1]['voice'] == 'voice-b'
+    assert request('/api/speech-voices')[1]['default_voice'] == 'voice-a'
+    assert request('/api/speak', body | {'voice': ''})[0] == 200
+    assert submits(daemon)[-1]['source'] == 'Reader' and 'voice' not in submits(daemon)[-1]
+    count = len(submits(daemon))
+    assert request('/api/speak', body | {'voice': 'missing'})[0] == 400
+    assert request('/api/speech-voices', {'voice': 'missing'})[0] == 400
+    assert len(submits(daemon)) == count
+    assert request('/api/speech-voices')[1]['default_voice'] == 'voice-a'
+    assert request('/api/speech-voices', {'voice': ''})[1]['default_voice'] is None
+    assert not any(r['op'] == 'assign_voice' for r in daemon.requests())
+
+
 def test_submit_payload_and_scopes(web, daemon):
     root, library, request = web
     sha = library.digest('library/thought.md')

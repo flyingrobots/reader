@@ -3,6 +3,7 @@
    Installs run as maintenance jobs on the server (/api/companions); this file only asks for them. */
 import {useEffect, useRef, useState} from 'react';
 import {CheckIcon, ChevronRightIcon, CopyIcon, ExternalLinkIcon, ListChecksIcon} from 'lucide-react';
+import {SpeechVoice} from './speech-voice';
 import {toast} from 'sonner';
 import {Alert, AlertDescription, AlertTitle} from './components/ui/alert';
 import {Button} from './components/ui/button';
@@ -109,6 +110,7 @@ function CompanionCard({item,api,act,busy}:{item:Companion;api:Api;act:Companion
     </ButtonGroup><Button variant="link" size="sm" className="px-0" nativeButton={false} render={<a href={item.repo} target="_blank" rel="noreferrer"/>}>{item.repo.replace('https://github.com/','')}<ExternalLinkIcon data-icon="inline-end" aria-hidden/></Button></div>}>
     {running?<span className="text-sm" aria-live="polite" data-companion-progress="">{running.progress||running.label+'…'}</span>:item.message?<Notice tone={item.state==='error'?'error':'info'} title={item.message}/>:null}
     <FactList layout="rows" facts={facts.map(([label,value])=>({key:label.toLowerCase(),label,value:value&&wide(label)?<code className="font-mono text-xs">{value}</code>:value}))}/>
+    {item.name==='ai-tts'?<SpeechVoice api={api} saveDefault/>:null}
     {item.install&&!item.install.available&&item.state!=='installed'&&item.install.reason?<Notice data-install-blocked="" title="Install isn’t available here">{item.install.reason}{item.install.help?<> <a className="text-primary underline-offset-4 hover:underline" href={item.install.help} target="_blank" rel="noreferrer">{item.install.help.replace('https://','')}</a></>:null}</Notice>:null}
     {error?<Notice tone="error" role="alert" title={error}/>:null}
     {panel==='confirm'&&plan?<Changes title={primary==='start'?'Start AI-TTS':`${ACTION_LABEL[primary!]} ${item.title}${item.install?.pinned?' '+item.install.pinned:''}`} items={[...plan.changes,...(primary==='start'&&item.start?item.start.commands.map(c=>'Runs: '+c):[])]}

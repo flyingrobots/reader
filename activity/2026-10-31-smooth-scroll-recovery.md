@@ -1,0 +1,7 @@
+# Preserve GSAP’s normal glide — 2026-10-31
+
+Reproduced abrupt scrolling with the existing GSAP ScrollSmoother active on the homepage and in continuous article reading. The recovery callback treated normal renderer lag as a broken position and called the immediate `scrollTop()` setter after three GSAP frames. A recorded homepage regression failed when recovery snapped to 1000 pixels after roughly 50 milliseconds. In a separate instrumented pulse, blocking that setter restored gradual movement over the configured 0.8-second interval.
+
+Recovery now restarts a quiet-period clock on each scroll or refresh, waits through the configured smoothing duration plus 100 ms and any active scrub tween, and only resynchronizes an idle renderer that remains misaligned. The three-frame check still prevents correction while GSAP’s ticker is asleep. Removed duplicate event-listener registrations. Bookmark save behavior is unchanged.
+
+Validation: `tests/web_smoothing.cjs` failed on the old code, then passed with the fix for both homepage and article routes. It verifies active GSAP, no immediate recovery setter during ordinary scrolling, visible intermediate positions, and convergence. The existing `web_content_visibility.cjs` glide cases passed, including a jump mid-glide and an article that grows after scrolling. Logs remain local under `.reader/logo-preview/smoothing-{red,green,glide}.log`. JavaScript syntax and whitespace checks passed. Testing uses synthetic fixtures and does not establish the frame rate of the user’s browser or unrelated device performance.

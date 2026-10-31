@@ -1,59 +1,31 @@
 # Design sheet: Admin › Indexes
 
-Route `#admin/indexes`. Source: `web/src/admin/pages/indexes.tsx`; the index catalogue (titles, facts, actions) lives in `web/src/backstage.tsx`.
+Route `#admin/indexes`. The detailed operating reference is [Indexes](../topics/indexes.md). Source: `web/src/admin/pages/indexes.tsx`, `index-charts.tsx` and `index-docs.tsx`; the index catalogue remains in `web/src/backstage.tsx`.
 
 ## Focused activity
 
-**Find the index that drifted and rebuild just that one.** Every index is a rebuildable copy of what the vault holds. The page answers these questions:
-
-1. When were these last checked? Check again if that was too long ago.
-2. Which index is not *Current*, and why (its message)?
-3. What will a rebuild touch (its note), and which action do I want (with embeddings, or keywords only)?
-4. Did my run (or a run another surface started) succeed, and what did it change?
-
-Opening the page runs the light freshness check once if the last check is more than two minutes old. It never rebuilds on its own.
+Inspect freshness, completeness and capacity, start an appropriate rebuild, and consult the relevant technical contract without leaving the page. The dashboard contains measurements, actions and current operational feedback. Explanatory prose belongs in the reference pane.
 
 ## Layout
 
-```mermaid
-flowchart TB
-  page[AdminPage template]
-  page --> tb[Toolbar: Checked … · Check again]
-  page --> n[Notice: status unavailable or stale, only when true]
-  page --> grid[CardGrid of index StatusCards]
-  grid --> c1[Search index] & c2[Browse indexes] & c3[Catalog SQL mirror] & c4[Link graph] & c5[Other inventories]
-  page --> runs[StatusCard Recent runs: RunList]
-  page --> ed[StatusCard Edition links: FactList + unresolved Table]
-```
+The Indexes route uses the available Admin content width. At desktop widths the page splits into equal columns: dashboard left, Markdown reference right. Both have independent vertical scrolling. Other Admin routes retain their bounded page width. On small screens the columns stack, and a documentation action brings the reference into view.
 
-Cards are in a grid that is one column on a phone and as many 20rem columns as fit above that. Each card keeps its actions in its footer, so the eye finds every Rebuild button in the same place.
+The left pane contains status/check controls, current/attention/timing summaries, a conditional search update action, D3 coverage/capacity charts, the health table, selected-index inspector, recent runs and edition diagnostics. Existing admission, error, demo and busy behavior remains in force. Inline indexing essays, the update-policy notice, repeated purpose descriptions and generic metric help popovers are removed.
+
+The right pane is a shadcn Card with a contents selector and a scrolling Markdown region. The source is `docs/topics/indexes.md`, imported as text at frontend build time and recorded in build metadata. It is rendered through the existing sanitized Markdown pipeline. There is no API that exposes arbitrary repository or vault files. Heading IDs are namespaced to avoid collisions with dashboard controls. In-document links and info icons scroll/focus the requested heading without changing the Admin route or the dashboard scroll position. Repository documentation links open outside the application.
 
 ## Atomic composition
 
-| Tier | Parts |
-| --- | --- |
-| Atoms (shadcn) | `Button`, `ButtonGroup`, `Badge`, `Spinner`, `Table` |
-| Atoms (theme) | `StatusBadge` (index state tones: Current = ok, Needs rebuild / Partial / Not built / Near = attention, Error / Over = error), `RelativeTime`, `Elapsed` |
-| Molecules | `Toolbar`, `FactList`, `Notice` (retired-index removal, status errors; an index note is a muted line), `RunRow`, `LoadingState`, `Unavailable` |
-| Organisms | `StatusCard` per index; `RunList` of recent runs; edition-links `StatusCard` with `Table` |
-| Template | `AdminPage`, `CardGrid` |
-| Page | `IndexesPage` binds `context.maintenance`, `startJob`, `checkIndexes`, `api` |
+Shadcn Card, Table, Badge, Button, NativeSelect, Field, Collapsible, Tooltip, Alert and the existing theme molecules compose the page. IndexDocHelp is a contextual reference-navigation button; it does not open an explanatory popup. The separate Overview HelpTip behavior is unchanged. D3 continues to calculate geometry while React owns the SVG. Charts and exact-value tables remain interactive data views rather than documentation substitutes.
 
-## States
+## Status and guarantees
 
-| State | What shows |
-| --- | --- |
-| Loading | Badges read *Loading…*; Recent runs shows `LoadingState` |
-| Status unreadable | `Unavailable` at the top; every card's badge reads *Unavailable*; actions are disabled |
-| Last refresh failed | an info `Notice` saying the cards show the earlier status |
-| Checking or rebuilding | toolbar Spinner *Checking…*; the active card's badge *Rebuilding…* with Spinner and an elapsed counter; all actions disabled |
-| Static demo | toolbar says checks need Reader on your computer; actions are disabled by `localOnly()` |
-| Retired format-1 index present | a `Notice` on the Search card with a *Remove* action |
+Opening Indexes can request a full freshness audit if the previous one is more than two minutes old. It does not schedule a rebuild. The backend still publishes check results together, keeps process-local job history and admits one running maintenance job. The split-view change adds neither a watcher nor a queue, and changes no source/index integrity contract.
 
-## Theme and tokens
+Missing measurements stay unknown; errors preserve their messages. Previous measurements remain visible during an audit. Stale/partial/missing rebuildable states invoke the primary action when allowed. Current/error/capacity-only states remain badges. The reference’s description of the backend verification/admission interval must remain accurate until that implementation changes.
 
-The page uses semantic utilities only. Tones choose a Badge variant; there are no custom colours.
+## Verification and hooks
 
-## Test hooks
+`tests/web_indexes.cjs` covers measured chart geometry and capacities, shadcn composition, keyboard/click inspection without job starts, action dispatch to synthetic maintenance, unknown/over-budget/busy/error states, equal desktop columns, documentation anchors and contents navigation, independent scrolling, unchanged Admin route and mobile bounds.
 
-`#maintenance-check`, `#indexes-unavailable`, `#indexes-stale`, `[data-index=<key>][data-state]`, `[data-job=<kind>]`, `[data-fact=<label>] [data-fact-value]`, `#recent-runs [data-run-list] [data-job-state]`, `#edition-links[data-state]`, `[data-toolbar]`.
+Hooks: `#indexes-workspace`, `#index-dashboard-pane`, `#index-reference-pane[data-doc-section]`, `#index-doc-body`, `#index-doc-contents`, `[data-index-doc-link]`, `#maintenance-check`, `[data-index][data-state]`, `[data-job]`, `[data-index-chart]`, `#index-inspector`, `#recent-runs` and `#edition-links`.

@@ -200,7 +200,7 @@ class WebLibrary:
         self.engagement = Engagement(self.root)
         self.annotations = Annotations(self.root)
         self.bookmarks = Bookmarks(self.root)
-        self.speech = Speech()
+        self.speech = Speech(settings_path=self.root / '.reader/speech.json')
         self.queue = ReadingQueue(self.root, self.path)
         self.suggestions = {}
         self.engine = Search(self.root)
@@ -431,7 +431,7 @@ class WebLibrary:
                 'item': None if preview else {'key': 'document:' + path, 'version': digest},
                 'preview': preview, 'bookmark': None if preview else self.bookmarks.get(participant, path)}
 
-    def speak(self, path, source_sha256, scope='article', start=None, end=None, page=None):
+    def speak(self, path, source_sha256, scope='article', start=None, end=None, page=None, voice=None):
         """Queue the exact viewed edition, or a code-point slice of it, with AI-TTS."""
         if scope not in ('article', 'from', 'selection'):
             raise ValueError('Expected an article, from or selection scope')
@@ -471,7 +471,7 @@ class WebLibrary:
         lead = text.lstrip().lstrip('#').strip()
         if title and not lead.startswith(title):
             text = title + ('' if title[-1] in '.?!:' else '.') + '\n\n' + text
-        return self.speech.submit(text, fmt, scope) | {'scope': scope}
+        return self.speech.submit(text, fmt, scope, voice=voice) | {'scope': scope}
 
     def pdf_text(self, file, digest, page=None):
         from pypdf import PdfReader
@@ -1465,8 +1465,12 @@ class WebHandler(BaseHTTPRequestHandler):
                     self.json(library.bookmarks.save(**request))
                 elif parsed.path == '/api/themes':
                     self.json(library.themes.dispatch(request))
+                elif parsed.path == '/api/speech-voices':
+                    if set(request) != {'voice'}:
+                        raise ValueError('Expected a voice setting')
+                    self.json(library.speech.choose_voice(request['voice']))
                 elif parsed.path == '/api/speak':
-                    if set(request) - {'path', 'source_sha256', 'scope', 'start', 'end', 'page'}:
+                    if set(request) - {'path', 'source_sha256', 'scope', 'start', 'end', 'page', 'voice'}:
                         raise ValueError('Unexpected speech request field')
                     self.json(library.speak(**request))
                 elif parsed.path.startswith('/api/speak/'):
@@ -1575,6 +1579,8 @@ class WebHandler(BaseHTTPRequestHandler):
                 self.json(library.maintenance.status() | {'local_model': library.local_model.brief()})
             elif parsed.path == '/api/readers':
                 self.json(library.readers(args.get('path', ''), args.get('participant', self.server.participant)))
+            elif parsed.path == '/api/speech-voices':
+                self.json(library.speech.voices())
             elif parsed.path.startswith('/api/speak/'):
                 self.json(library.speech.get(parsed.path[len('/api/speak/'):]))
             elif parsed.path == '/api/inbox':

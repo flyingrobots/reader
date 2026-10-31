@@ -1,9 +1,9 @@
 Bundled license information:
 
-react/cjs/react.production.js:
+react/cjs/react-jsx-runtime.production.js:
   /**
    * @license React
-   * react.production.js
+   * react-jsx-runtime.production.js
    *
    * Copyright (c) Meta Platforms, Inc. and affiliates.
    *
@@ -11,10 +11,10 @@ react/cjs/react.production.js:
    * LICENSE file in the root directory of this source tree.
    */
 
-react/cjs/react-jsx-runtime.production.js:
+react/cjs/react.production.js:
   /**
    * @license React
-   * react-jsx-runtime.production.js
+   * react.production.js
    *
    * Copyright (c) Meta Platforms, Inc. and affiliates.
    *
@@ -118,6 +118,7 @@ lucide-react/dist/esm/icons/external-link.js:
 lucide-react/dist/esm/icons/file-minus.js:
 lucide-react/dist/esm/icons/file-pen.js:
 lucide-react/dist/esm/icons/file-plus.js:
+lucide-react/dist/esm/icons/file-text.js:
 lucide-react/dist/esm/icons/file.js:
 lucide-react/dist/esm/icons/flame.js:
 lucide-react/dist/esm/icons/flask-conical.js:

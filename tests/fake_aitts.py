@@ -98,13 +98,15 @@ class FakeDaemon:
 
     def dispatch(self, payload):
         op = payload.get('op')
+        if op == 'voices':
+            return {'ok': True, 'voices': ['fake', 'voice-a', 'voice-b']}
         if op == 'submit':
             if not str(payload.get('text', '')).strip():
                 return {'ok': False, 'error': {'type': 'bad_request', 'message': "submit requires non-empty 'text'"}}
             entry = {'id': 'utt_' + uuid.uuid4().hex, 'text': payload['text'], 'state': 'Queued', 'count': self.segments, 'completed': 0}
             self.items[entry['id']] = entry
             self.order.append(entry['id'])
-            return {'ok': True, 'accepted': True, 'id': entry['id'], 'state': 'Queued', 'voice': 'fake', 'sensitivity': payload.get('sensitivity'),
+            return {'ok': True, 'accepted': True, 'id': entry['id'], 'state': 'Queued', 'voice': payload.get('voice', 'fake'), 'sensitivity': payload.get('sensitivity'),
                     'segment_count': entry['count'], 'composite': True, 'accepting_speech': True, 'playback_held': self.held,
                     'submission_disposition': 'spooled_until_resume' if self.held else 'queued_for_playback'}
         if op == 'status':

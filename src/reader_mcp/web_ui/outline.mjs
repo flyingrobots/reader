@@ -26,9 +26,10 @@ export function installOutline({state,reading,$,controls,scrollToPosition,savePr
     const clear=shell?shell.getBoundingClientRect().left+parseFloat(getComputedStyle(shell).paddingLeft||0):Infinity;
     return Math.min(article.getBoundingClientRect().left-48,clear-16);
   }
+  const leftEdge=()=>$('#picker')&&!$('#picker').hidden?$('#picker').getBoundingClientRect().right:0;
   function railFits(){
     if(!$('#article')||geometry()||phone())return false;
-    return railEdge()>=RAIL_MIN+8;
+    return railEdge()-leftEdge()>=RAIL_MIN+8;
   }
   function chooseMode(){if(!shown.length)return null;if(phone())return 'sheet';if(geometry()||!railFits())return 'popover';return 'rail';}
   const railVisible=()=>mode==='rail'&&state.prefs.outline!==false&&(eligible||pinned);
@@ -77,8 +78,8 @@ export function installOutline({state,reading,$,controls,scrollToPosition,savePr
   }
   function place(){
     if(!$('#article'))return;
-    const edge=railEdge(),width=Math.max(RAIL_MIN,Math.min(RAIL_MAX,edge-24));
-    rail.style.width=width+'px';rail.style.left=Math.max(16,edge-width)+'px';
+    const edge=railEdge(),width=Math.max(RAIL_MIN,Math.min(RAIL_MAX,edge-leftEdge()-24));
+    rail.style.width=width+'px';rail.style.left=Math.max(leftEdge()+16,edge-width)+'px';
   }
   function publish(){
     const minimum=shown.length?Math.min(...shown.map(entry=>entry.level)):1;

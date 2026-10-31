@@ -393,13 +393,13 @@ body.split-active #smooth-wrapper,body.split-active #summon,body.split-active .s
 .command-line{display:flex;align-items:center;gap:4px;flex:1 1 auto;min-width:0;align-self:stretch}
 .command-prompt{font:600 13px var(--mono);color:var(--accent)}
 .command-line input{flex:1 1 12ch;min-width:6ch;border:0;background:none;padding:0;font:13px var(--mono);color:var(--ink);caret-color:var(--accent)}
-.command-menu{display:flex;gap:12px;min-width:0;overflow:hidden;white-space:nowrap;color:var(--muted);font:11px var(--mono)}
-.command-choice[aria-selected=true]{color:var(--ink);text-decoration:underline 1px var(--accent);text-underline-offset:3px}.command-more{color:var(--faint)}
+.command-menu{position:absolute;left:clamp(8px,10vw,160px);bottom:calc(100% + 8px);width:min(640px,calc(100vw - 16px));min-width:0;display:block;white-space:normal;color:var(--ink);font:13px/1.4 var(--sans)}
+.command-choice{font-family:var(--mono)}
 .statusline.commanding :is(.status-location,.status-keys,.search-chip,#pagination-slot,.status-section,.status-position){display:none}
 .list-item small kbd{font:600 10px var(--mono);color:var(--accent);margin-right:4px}.list-item.current{box-shadow:inset 2px 0 0 var(--accent);padding-left:12px}.list-item blockquote{font-size:17px;overflow-wrap:anywhere}
 .help-group{font:650 10px var(--sans);letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin:28px 0 -14px}.help-keys .keymap{margin:24px 0}.help-keys>.quiet{margin:20px 0 -8px}
 .keymap .help-target,.keymap .help-target+dd{background:color-mix(in srgb,var(--accent) 16%,transparent)}
-@media(max-width:700px){.command-menu{display:none}.status-pending{font-size:10px}}
+@media(max-width:700px){.command-menu{left:8px}.status-pending{font-size:10px}}
 /* Bespoke article art (RW-43): the cover, feature thumbnails and an article's art (Space g). Theme tokens only;
    the scene's own colors come from the same tokens through the renderer. */
 .issue-cover:has(>.cover-art){display:flex;flex-direction:column;align-items:flex-start}
@@ -551,3 +551,34 @@ body{margin-right:var(--dock-width,0px);transition-property:none}#smooth-wrapper
 .chart-mount [tabindex]:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 
 
+
+/* Explorer reserves a left column; discussion/chat retain their right dock. */
+@layer reader-legacy {
+body{margin-left:var(--explorer-width,0px)}
+#smooth-wrapper,body.two-page #smooth-wrapper{left:var(--explorer-width,0px)!important;width:auto!important}
+.split-root{left:var(--explorer-width,0px)}
+.file-explorer{position:fixed;inset:0 auto 35px 0;width:var(--explorer-width);min-width:0;z-index:15;border-right:1px solid var(--line);overflow:hidden}
+.file-explorer[hidden]{display:none}
+.file-explorer h2,.file-explorer p{margin:0}
+.file-explorer [data-article-row][aria-current=page]{background:var(--raised)}
+.file-explorer [data-article-row]:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+.file-explorer [data-slot=field-label]{font-size:12px}
+.file-explorer [data-slot=select-trigger]{overflow:hidden}
+.file-explorer [data-slot=item-group]{gap:2px}
+:root:has(.file-explorer:not([hidden])) .article-art.art-hero{width:calc(100vw - var(--dock-width,0px) - var(--explorer-width));margin-left:calc(50% - (100vw - var(--dock-width,0px) - var(--explorer-width))/2)}
+@media(max-width:700px){.file-explorer{bottom:41px}.file-explorer>div>header{padding:12px}.file-explorer [data-slot=field-group]>div:last-child{grid-template-columns:1fr}.file-explorer [data-slot=pagination-content]{flex-wrap:wrap;gap:6px}.file-explorer [data-slot=pagination-item]:nth-child(2){order:-1;width:100%;text-align:center}}
+html.embedded-pane .file-explorer{bottom:0}
+}
+
+@layer reader-legacy {
+.reader-home{flex-shrink:0}
+.reader-home svg>circle:first-child{fill:var(--raised)}
+}
+
+@layer reader-legacy {
+#progress-controls-slot{display:flex;align-items:center;gap:8px;background:var(--surface)}
+.progress-rail{position:relative;flex:1;min-width:0;height:100%}
+.progress-readout{flex:none;padding-right:8px;white-space:nowrap;font:11px/1.2 var(--sans);font-variant-numeric:tabular-nums;color:var(--muted)}
+.status-position:empty{display:none}
+.article-speech{margin:16px 0 24px}
+}

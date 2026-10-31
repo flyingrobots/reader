@@ -2,7 +2,7 @@
    diagnostics. Design sheet: docs/admin-design/indexes.md. Unreadable maintenance status is shown as unavailable, never
    as a set of empty cards. */
 import {useEffect, useState, type ReactNode} from 'react';
-import {DatabaseIcon} from 'lucide-react';
+import {DatabaseIcon, RefreshCwIcon} from 'lucide-react';
 import {Button} from '@/components/ui/button';
 import {ButtonGroup} from '@/components/ui/button-group';
 import {Spinner} from '@/components/ui/spinner';
@@ -16,7 +16,10 @@ import {EmptyState, LoadingState, Unavailable} from '@/theme/molecules/states';
 import {Toolbar} from '@/theme/molecules/toolbar';
 import {RunList} from '@/theme/organisms/run-list';
 import {StatusCard} from '@/theme/organisms/status-card';
-import {CardGrid} from '@/theme/templates/card-grid';
+import {Card, CardContent, CardDescription, CardHeader, CardTitle} from '@/components/ui/card';
+import {IndexDocHelp, IndexWorkspace} from './index-docs';
+import {Tooltip, TooltipContent, TooltipTrigger} from '@/components/ui/tooltip';
+import {IndexCharts} from './index-charts';
 import {INDEXES, INDEX_OF, STATES, jobOutcome, type Job, type MaintenanceStatus} from '../../backstage';
 import {localOnly, needsReader} from '../../static-demo';
 
@@ -25,8 +28,7 @@ type EditionStats={stats:{files:number;families:number;unresolved:number;build_m
 export function EditionLinks({api}:{api:(path:string)=>Promise<any>}){
   const [data,setData]=useState<EditionStats|null>(null),[error,setError]=useState<string|null>(null);
   useEffect(()=>{let live=true;api('/api/editions/diagnostics').then(d=>{if(live)setData(d);},e=>{if(live)setError(e instanceof Error?e.message:String(e));});return ()=>{live=false;};},[api]);
-  return <StatusCard id="edition-links" title="Edition links" data-state={data?(data.stats.unresolved?'unresolved':'current'):error?'error':'loading'}
-    description="Originals, reading copies and numbered versions, linked from frontmatter and file names. Read-only: nothing is repaired."
+  return <StatusCard id="edition-links" title={<>Edition links<IndexDocHelp title="Edition links" section="edition-link-diagnostics"/></>} data-state={data?(data.stats.unresolved?'unresolved':'current'):error?'error':'loading'}
     badge={<StatusBadge tone={error?'error':!data?'neutral':data.stats.unresolved?'attention':'ok'} busy={!data&&!error}>{error?'Error':!data?'Loading…':data.stats.unresolved?`${data.stats.unresolved} unresolved`:'All resolved'}</StatusBadge>}>
     {error?<Unavailable what="Edition links" error={error}/>:!data?<LoadingState/>:<>
       <FactList facts={[{label:'Families',value:data.stats.families},{label:'Markdown files',value:data.stats.files},
@@ -55,34 +57,65 @@ function RunMeta({job}:{job:Job}){
 /** This server's maintenance jobs since it started (the inventory Overview links to). */
 export function RecentRuns({status,error}:{status:MaintenanceStatus|null;error:string|null}){
   const running=status?.running,jobs=status?[...(running?[running]:[]),...status.jobs].slice(0,10):[];
-  return <StatusCard id="recent-runs" title="Recent runs" description="This server’s jobs since it started. Toasts announce each start, finish and failure.">
+  return <StatusCard id="recent-runs" title={<>Recent runs<IndexDocHelp title="Recent runs" section="maintenance-jobs-and-recent-runs"/></>}>
     {jobs.length?<RunList label="Recent runs" runs={jobs} keyOf={job=>job.id+job.state} render={job=><RunRow state={runState(job)} data-job-state={job.state} title={job.label} meta={<RunMeta job={job}/>} outcome={job.state!=='running'?jobOutcome(job):null}/>}/>
       :status?<EmptyState icon={DatabaseIcon} title="No runs yet" description="Rebuilds and checks started here or elsewhere appear as they run."/>
       :error?<Unavailable what="Recent runs" error={error}/>:<LoadingState/>}
   </StatusCard>;
 }
 
-export function IndexesPage({status,error,onStart,editions}:{status:MaintenanceStatus|null;error:string|null;onStart:(kind:string)=>void;editions?:ReactNode}){
+function IndexStatus({indexKey,label,tone,active,needsBuild,disabled,onStart}:{indexKey:string;label:string;tone:Tone;active:boolean;needsBuild:boolean;disabled:boolean;onStart:(kind:string)=>void}){
+  const index=INDEXES.find(row=>row.key===indexKey)!,action=index.actions[0];
+  return !active&&needsBuild&&action?<Tooltip><TooltipTrigger render={<Button variant="outline" size="sm" data-rebuild-status={indexKey} disabled={disabled} {...localOnly()} aria-label={`${action.label}: ${index.title}`} onClick={()=>onStart(action.kind)}/>}><RefreshCwIcon data-icon="inline-start" aria-hidden/>{label}</TooltipTrigger>
+    <TooltipContent>{action.label} updates {index.title.toLowerCase()}. {indexKey==='search'?'Includes embeddings and reuses cached results.':'Source documents stay unchanged.'}</TooltipContent></Tooltip>:<StatusBadge tone={tone} busy={active}>{active?'Rebuilding…':label}</StatusBadge>;
+}
+
+export function IndexesPage({status,error,onStart,editions,markdown}:{markdown:(text:string)=>string;status:MaintenanceStatus|null;error:string|null;onStart:(kind:string)=>void;editions?:ReactNode}){
+  const [selected,setSelected]=useState('search');
   const running=status?.running,busy=!!running||!!status?.checking,checkedAt=Object.values(status?.checks||{})[0]?.checked_at,local=needsReader();
   const unavailable=!status&&!!error,checking=!!status?.checking||running?.kind==='check';
-  return <section className="flex flex-col gap-6" id="backstage-indexes" aria-label="Indexes" data-state={unavailable?'unavailable':status?'ready':'loading'}>
-    <Toolbar media={checking?<Spinner aria-hidden/>:null} status={checking?'Checking…':unavailable?'Index status is unavailable':checkedAt?'Checked '+when(checkedAt):local?'Checks need Reader on your computer':'Not checked yet'}>
-      <Button id="maintenance-check" variant="outline" size="sm" disabled={busy} {...localOnly()} onClick={()=>onStart('check')}>Check again</Button>
+  const measured=INDEXES.filter(index=>status?.checks[index.key]),current=measured.filter(index=>['current','ok'].includes(status!.checks[index.key].state));
+  const attention=measured.filter(index=>!['current','ok','unconfigured'].includes(status!.checks[index.key].state));
+  const lastCheck=status?.jobs.find(job=>job.kind==='check');
+  const index=INDEXES.find(index=>index.key===selected)!,check=status?.checks[selected];
+  const facts=check?index.facts.map(([label,value])=>({label,value:value(check) as ReactNode})).filter(f=>f.value!==null&&f.value!==undefined):[];
+  return <IndexWorkspace markdown={markdown}><section className="flex min-w-0 flex-col gap-5" id="backstage-indexes" aria-label="Indexes" data-state={unavailable?'unavailable':status?'ready':'loading'}>
+    <Toolbar media={checking?<Spinner aria-hidden/>:null} status={checking?<span role="status">{running?.kind==='check'?<>Checking freshness · <Elapsed since={running.started_at}/></>:'Verifying freshness after the rebuild'}</span>:unavailable?'Index status is unavailable':checkedAt?'Last checked '+when(checkedAt):local?'Checks need Reader on your computer':'Waiting for the first freshness check'}>
+      <Button id="maintenance-check" variant="outline" size="sm" disabled={busy||unavailable} {...localOnly()} onClick={()=>onStart('check')}>Check again</Button><IndexDocHelp title="Freshness checks" section="freshness-checks"/><IndexDocHelp title="Index update policy" section="update-policy-and-schedules"/>
     </Toolbar>
     {unavailable?<Unavailable id="indexes-unavailable" what="Index status" error={error!}/>:null}
-    {status&&error?<Notice id="indexes-stale" role="status" title="The last status refresh failed">{error}. Showing the status read before it.</Notice>:null}
-    <CardGrid>{INDEXES.map(index=>{
-      const check=status?.checks?.[index.key],active=!!running&&INDEX_OF[running.kind]===index.key;
-      const state:{label:string;tone:Tone}=active?{label:'Rebuilding…',tone:'active'}:check?STATES[check.state]||{label:check.state,tone:'neutral'}:{label:unavailable?'Unavailable':local?'Not checked':status?'Checking…':'Loading…',tone:unavailable?'error':'neutral'};
-      return <StatusCard key={index.key} data-index={index.key} data-state={active?'running':check?.state||(unavailable?'unavailable':'unknown')}
-        title={index.title} description={index.description} badge={<StatusBadge tone={state.tone} busy={active}>{state.label}</StatusBadge>}
-        footer={index.actions.length?<ButtonGroup>{index.actions.map(action=><Button key={action.kind} data-job={action.kind} variant={action.primary?'default':'outline'} size="sm" disabled={busy||unavailable} {...localOnly()} onClick={()=>onStart(action.kind)}>{action.label}</Button>)}</ButtonGroup>:undefined}>
-        {active?<span className="text-sm">{running!.label} running for <Elapsed since={running!.started_at}/>.</span>:check?.message?<span className="text-sm [overflow-wrap:anywhere]" data-check-message="">{check.message}</span>:null}
-        {check?<FactList facts={index.facts.map(([label,value])=>({label,value:value(check) as ReactNode}))}/>:null}
-        {index.note?<span className="text-xs text-muted-foreground" data-index-note="">{index.note}</span>:null}
-        {index.key==='search'&&check?.legacy?<Legacy legacy={check.legacy as LegacyIndex} busy={busy} onRemove={()=>onStart('remove-legacy-search')}/>:null}
-      </StatusCard>;})}</CardGrid>
-    <RecentRuns status={status} error={error}/>
-    {editions}
-  </section>;
+    {status&&error?<Notice id="indexes-stale" role="status" title="The last status refresh failed">{error}. Showing the previous measurements.</Notice>:null}
+    {busy?<Notice data-index-busy="" title={running?.kind==='check'?'A full freshness audit is running':running?running.label+' is running':'The rebuild finished; verification is running'}>
+      {running?.progress||'Previous measurements remain visible.'}<IndexDocHelp title="Maintenance jobs" section="maintenance-jobs-and-recent-runs"/>
+    </Notice>:null}
+    <div className="grid gap-4 sm:grid-cols-3" data-index-summary="">
+      <Card size="sm"><CardHeader><CardDescription>Current<IndexDocHelp title="Current checks" section="status-and-action-semantics"/></CardDescription><CardTitle className="tabular-nums">{measured.length?`${current.length} / ${INDEXES.length}`:'—'}</CardTitle></CardHeader></Card>
+      <Card size="sm"><CardHeader><CardDescription>Needs attention<IndexDocHelp title="Needs attention" section="status-and-action-semantics"/></CardDescription><CardTitle className="tabular-nums">{measured.length?attention.length:'—'}</CardTitle></CardHeader></Card>
+      <Card size="sm"><CardHeader><CardDescription>Latest full check<IndexDocHelp title="Check timing" section="freshness-checks"/></CardDescription><CardTitle className="tabular-nums">{lastCheck?.elapsed_seconds!==null&&lastCheck?.elapsed_seconds!==undefined?`${lastCheck.elapsed_seconds} s`:'—'}</CardTitle></CardHeader></Card>
+    </div>
+    {['stale','partial','missing'].includes(status?.checks.search?.state||'')?<Notice title="Search needs an update" action={<Button size="sm" disabled={busy||unavailable} {...localOnly()} data-index-primary-action="search" onClick={()=>onStart('search')}><RefreshCwIcon data-icon="inline-start" aria-hidden/>Rebuild search</Button>}>{status?.checks.search?.message||'Update search to include current library content.'}</Notice>:null}
+    <IndexCharts status={status} selected={selected} onSelect={setSelected}/>
+    <Card data-index-fleet="" className="min-w-0">
+      <CardHeader><CardTitle>Index health<IndexDocHelp title="Index states" section="status-and-action-semantics"/></CardTitle></CardHeader>
+      <CardContent><Table>
+        <TableHeader><TableRow><TableHead>Index</TableHead><TableHead>State</TableHead><TableHead>Actions</TableHead></TableRow></TableHeader>
+        <TableBody>{INDEXES.map(row=>{
+          const result=status?.checks?.[row.key],active=!!running&&INDEX_OF[running.kind]===row.key;
+          const state:{label:string;tone:Tone}=active?{label:'Rebuilding…',tone:'active'}:result?STATES[result.state]||{label:result.state,tone:'neutral'}:{label:unavailable?'Unavailable':local?'Not checked':'Not measured',tone:unavailable?'error':'neutral'};
+          return <TableRow key={row.key} data-index={row.key} data-state={active?'running':result?.state||(unavailable?'unavailable':'unknown')} data-selected={row.key===selected||undefined}>
+            <TableCell><Button variant="ghost" size="sm" aria-pressed={selected===row.key} className="justify-start" onClick={()=>setSelected(row.key)}>{row.title}</Button><IndexDocHelp title={row.title} section={({search:'search-index',browse:'browse-indexes',catalog:'catalog-sql-mirror',links:'link-graph',limits:'capacity-limits'} as Record<string,string>)[row.key]}/></TableCell>
+            <TableCell><IndexStatus indexKey={row.key} label={state.label} tone={state.tone} active={active} needsBuild={!active&&['stale','partial','missing'].includes(result?.state||'')} disabled={busy||unavailable} onStart={onStart}/></TableCell>
+            <TableCell><ButtonGroup className="flex-wrap">{row.actions.map(action=><Button key={action.kind} data-job={action.kind} variant="outline" size="sm" disabled={busy||unavailable} {...localOnly()} onClick={()=>onStart(action.kind)}>{action.label}</Button>)}</ButtonGroup></TableCell>
+          </TableRow>;
+        })}</TableBody>
+      </Table></CardContent>
+    </Card>
+    <StatusCard id="index-inspector" title={index.title} data-inspected-index={selected}
+      badge={check?<IndexStatus indexKey={selected} label={(STATES[check.state]||{label:check.state}).label} tone={(STATES[check.state]||{tone:'neutral' as Tone}).tone} active={!!running&&INDEX_OF[running.kind]===selected} needsBuild={['stale','partial','missing'].includes(check.state)} disabled={busy||unavailable} onStart={onStart}/>:undefined}>
+      {check?.message?<p className="text-sm [overflow-wrap:anywhere]" data-check-message="">{check.message}</p>:<p className="text-sm text-muted-foreground">No measurements yet. The full audit publishes its results together.</p>}
+      {facts.length?<Table><TableHeader><TableRow><TableHead>Measurement</TableHead><TableHead>Value</TableHead></TableRow></TableHeader><TableBody>{facts.map(fact=><TableRow key={fact.label} data-fact={fact.label.toLowerCase()}><TableCell>{fact.label}<IndexDocHelp title={fact.label} section={fact.label==='Built'?'checked-versus-built':fact.label==='Text without embeddings'?'embedding-coverage':fact.label==='Embedding cache'?'embedding-model-and-privacy':fact.label==='Passages'?'search-storage-and-schema':'dashboard-measurements'}/></TableCell><TableCell data-fact-value="" className="tabular-nums">{fact.value}</TableCell></TableRow>)}</TableBody></Table>:null}
+      {selected==='search'&&check?.legacy?<Legacy legacy={check.legacy as LegacyIndex} busy={busy} onRemove={()=>onStart('remove-legacy-search')}/>:null}
+    </StatusCard>
+    <div className="grid min-w-0 items-start gap-4 xl:grid-cols-2"><RecentRuns status={status} error={error}/>{editions}</div>
+  </section></IndexWorkspace>;
 }

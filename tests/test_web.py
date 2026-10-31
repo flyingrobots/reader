@@ -90,7 +90,7 @@ def test_host_origin_token_and_path_boundaries(web, tmp_path):
     (root / 'library/link.md').symlink_to(root / 'library/thought.md')
     assert request('/api/file?path=library/link.md')[0] == 400
     status, body, headers = request('/', raw=True)
-    assert status == 200 and b'file-query' in body
+    assert status == 200 and b'<aside id="picker" class="file-explorer"' in body
     assert "script-src 'self'" in headers['Content-Security-Policy']
     # Split view (RW-32) runs panes as same-origin frames of the app: frames from Reader only, framed only by Reader.
     assert "frame-src 'self'" in headers['Content-Security-Policy'] and "frame-ancestors 'self'" in headers['Content-Security-Policy']
@@ -711,7 +711,7 @@ def test_tailscale_identity_allows_only_listed_logins_on_every_route(web):
     assert status == 200 and body['token'] == server.token
     assert request('/api/library', headers=tailnet('User@Example.com'))[0] == 200
     status, body, headers = request('/', headers=tailnet(), raw=True)
-    assert status == 200 and b'file-query' in body
+    assert status == 200 and b'<aside id="picker" class="file-explorer"' in body
     for login in (None, '', 'someone@example.net'):
         for path in ('/', '/assets/style.css', '/api/library', '/api/health', '/api/document?path=library/thought.md'):
             status, body, headers = request(path, headers=tailnet(login), raw=True)

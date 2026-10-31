@@ -1,3 +1,5 @@
+import {CommandSuggestions, type CommandChoices} from './command-suggestions';
+import {SectionItems,SectionPage,type SectionLink,type SectionPageProps} from './library-sections';
 import {useState, useSyncExternalStore, useEffect, type ReactNode} from 'react';
 import {FindBar} from './find-bar';
 import {PanelSheet} from './panel-sheet';
@@ -6,7 +8,7 @@ import {ArtFocusChrome, type ArtFocusChromeProps} from './art-focus-chrome';
 import {ReadingLog, type ReadingLogActions, type ReadingLogModel} from './reading-log';
 import {LinkPreview, type LinkPreviewState} from './link-preview';
 import {VersionsTimeline, type TimelineModel} from './versions-timeline';
-import {AnnotationDialog, PickerDialog, ScratchSaveDialog, ShellDialog, SpeakMenu, type AnnotationOptions, type PickerControl, type ScratchSaveOptions, type ShellDialogOptions, type SpeakOptions} from './shell-dialog';
+import {AnnotationDialog, ScratchSaveDialog, ShellDialog, SpeakMenu, type AnnotationOptions, type ScratchSaveOptions, type ShellDialogOptions, type SpeakOptions} from './shell-dialog';
 import {createRoot, type Root} from 'react-dom/client';
 import {createPortal, flushSync} from 'react-dom';
 import {Progress} from './components/ui/progress';
@@ -36,7 +38,7 @@ export {needsReader, NEEDS_READER};
 import {type MaintenanceStatus, type Job, type InboxStatus} from './backstage';
 import {AdminShell} from './admin/admin-shell';
 import type {AdminContext, AdminRoute} from './admin/sections';
-import {SpeechControl, setSpeechApi} from './speech-control';
+import {ArticleSpeechControl,SpeechControl, setSpeechApi} from './speech-control';
 export {trackSpeech} from './speech-control';
 import {ChatPanel} from './chat/chat-panel';
 import {runSummary, type LocalModelStatus, type Run} from './local-model';
@@ -52,12 +54,12 @@ export {JobsPage as JobsPanel, JobPage as JobPanel} from './admin/pages/jobs';
 import {CompanionPrompt, focusCompanion, isDismissed, type Companion, type CompanionsStatus} from './companions';
 import {useArtProducers} from './art-studio';
 import {ArtRegenerate, type ArtRegenerateOptions} from './art-regenerate';
-import {DocumentTree, revealDocumentNode, type DocumentRow} from './document-tree';
+import {FileExplorer,type ExplorerProps} from './explorer/file-explorer';
 import {ChangesPanel, type ChangesOptions} from './changes-panel';
 import {SearchPage, type SearchModel, type SearchActions} from './search-page';
 export {flatPassages} from './search-page';
 import {QueuePanel, type QueueProps} from './queue-panel';
-export {visibleDocumentNodes} from './document-tree';
+
 export {mountCallouts} from './callouts';
 export {mountQuiz} from './quiz';
 export {mountWritingPrompt} from './writing-prompt';
@@ -160,12 +162,10 @@ function SettingsForm({model,actions}:{model:Model;actions:Actions}){
 function ReadingProgress({model,actions}:{model:Model;actions:Actions}){
   const estimate=(value:number)=>`${Math.round(value*100)}% · ${model.pdfPages===null?`${Math.ceil(model.words*(1-value)/model.pace)} min remaining`:`${plural(Math.ceil(model.pdfPages*(1-value)),'page')} remaining`}`;
   const fraction=(event:React.MouseEvent<HTMLElement>)=>{const rect=event.currentTarget.getBoundingClientRect();return clamp((event.clientX-rect.left)/rect.width);};
-  // The position bubble only informs: it lets the pointer through, so it never covers what is under it or holds itself
-  // open while the pointer passes over it.
-  return <><Popover><PopoverTrigger nativeButton={false} render={<div/>} id="progress-slider" className="progress-slider" role="slider" tabIndex={0} aria-label="Seek reading position" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(model.value*100)} aria-valuetext={estimate(model.value)} openOnHover delay={120} onClick={event=>actions.seek(fraction(event))} onKeyDown={event=>{if(['ArrowLeft','ArrowRight','Home','End'].includes(event.key)){event.preventDefault();event.stopPropagation();if(event.key==='Home')actions.seek(0);else if(event.key==='End')actions.seek(1);else if(model.spreads)actions.spread(model.spread+(event.key==='ArrowRight'?1:-1));else actions.seek(clamp(model.value+(event.key==='ArrowRight'?.05:-.05)));}}}>
+  return <><div className="progress-rail"><div id="progress-slider" className="progress-slider" role="slider" tabIndex={0} aria-label="Seek reading position" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(model.value*100)} aria-valuetext={estimate(model.value)} onClick={event=>actions.seek(fraction(event))} onKeyDown={event=>{if(['ArrowLeft','ArrowRight','Home','End'].includes(event.key)){event.preventDefault();event.stopPropagation();if(event.key==='Home')actions.seek(0);else if(event.key==='End')actions.seek(1);else if(model.spreads)actions.spread(model.spread+(event.key==='ArrowRight'?1:-1));else actions.seek(clamp(model.value+(event.key==='ArrowRight'?.05:-.05)));}}}>
     <Progress value={model.value*100} aria-label="Reading progress" className="reader-progress"/>
-  </PopoverTrigger><PopoverContent id="progress-popover" side="top" initialFocus={false} className="pointer-events-none"><PopoverTitle>Reading position</PopoverTitle><PopoverDescription>{estimate(model.value)}</PopoverDescription></PopoverContent></Popover>
-  <div id="progress-pips" className="progress-pips">{model.pips.map(pip=><Popover key={pip.id}><PopoverTrigger className={'progress-pip'+(pip.kind==='warning'?' warning':pip.own?' own':'')} style={{left:`${pip.fraction*100}%`}} aria-label={`${pip.owner}’s ${pip.kind==='warning'?'warning':'highlight'} at ${Math.round(pip.fraction*100)} percent`} openOnHover delay={120} onClick={()=>actions.thread(pip.id)}/><PopoverContent side="top" initialFocus={false}><PopoverTitle>{pip.owner} · {estimate(model.value)}</PopoverTitle><PopoverDescription>{pip.quote}</PopoverDescription></PopoverContent></Popover>)}</div></>;
+  </div>
+  <div id="progress-pips" className="progress-pips">{model.pips.map(pip=><Popover key={pip.id}><PopoverTrigger className={'progress-pip'+(pip.kind==='warning'?' warning':pip.own?' own':'')} style={{left:`${pip.fraction*100}%`}} aria-label={`${pip.owner}’s ${pip.kind==='warning'?'warning':'highlight'} at ${Math.round(pip.fraction*100)} percent`} openOnHover delay={120} onClick={()=>actions.thread(pip.id)}/><PopoverContent side="top" initialFocus={false}><PopoverTitle>{pip.owner} · {estimate(model.value)}</PopoverTitle><PopoverDescription>{pip.quote}</PopoverDescription></PopoverContent></Popover>)}</div></div><span id="progress-readout" className="progress-readout">{estimate(model.value)}</span></>;
 }
 function Pages({model,actions}:{model:Model;actions:Actions}){
   if(!model.spreads)return null;
@@ -458,7 +458,13 @@ export function mountArtRegenerate(container:HTMLElement,options:ArtRegenerateOp
   mount(container,<ArtRegenerate {...options} close={()=>{options.close();}}/>);
   return {unmount(){clearControlsWithin(container);}};
 }
-export function mountDocumentTree(container:HTMLElement,rows:DocumentRow[],onOpen:(index:number)=>void,onActive:(element:HTMLElement)=>void){mount(container,<DocumentTree rows={rows} onOpen={onOpen} onActive={onActive}/>);}
+export function mountArticleSpeech(container:HTMLElement,props:{path:string;sourceSha:string;onRead:()=>Promise<unknown>}){mount(container,<ArticleSpeechControl {...props}/>);}
+export function mountSectionItems(container:HTMLElement,items:SectionLink[]){container.dataset.ui='shadcn';mount(container,<SectionItems items={items}/>);}
+export function mountSectionPage(container:HTMLElement,props:SectionPageProps){mount(container,<SectionPage {...props}/>);}
+export function renderFileExplorer(container:HTMLElement,props:ExplorerProps){
+  const root=islands.get(container);
+  if(root)flushSync(()=>root.render(<FileExplorer {...props}/>));else mount(container,<FileExplorer {...props}/>);
+}
 /** What changed, as a Sheet island; closing unmounts it. */
 export function mountChangesPanel(container:HTMLElement,options:Omit<ChangesOptions,'onClose'>){
   // Unmount after the close animation, unless a newer panel has been mounted here meanwhile.
@@ -477,18 +483,8 @@ function openAppDialog(id:string,onClosed:()=>void,render:(props:{register:(clos
   mount(container,render({register:close=>{entry.close=close;},onClosed:closed}));
   return {close:()=>entry.close()};
 }
-/** Close every open app dialog (navigation, Escape out of a context); the picker too. */
-export function closeAppDialogs(){for(const entry of [...appDialogs.values()])entry.close();picker?.close();}
-let picker:PickerControl|null=null;
-/** Mount the Documents picker around #picker-content (once); app.mjs opens and closes it through the returned control. */
-export function mountPicker(content:HTMLElement,escape:()=>boolean,onOpenChange:(open:boolean)=>void):PickerControl{
-  if(picker)return picker;
-  const container=document.createElement('div');document.body.append(container);
-  let control:PickerControl={open:()=>{},close:()=>{},isOpen:()=>false};
-  mount(container,<PickerDialog content={content} escape={escape} onOpenChange={onOpenChange} register={next=>{control=next;}}/>);
-  picker={open:()=>flushSync(()=>control.open()),close:()=>control.close(),isOpen:()=>control.isOpen()};
-  return picker;
-}
+/** Close open modal app dialogs on navigation or leaving a context. */
+export function closeAppDialogs(){for(const entry of [...appDialogs.values()])entry.close();}
 export function openShellDialog(options:ShellDialogOptions){
   const handle=openAppDialog(options.id,options.onClosed,({register,onClosed})=><ShellDialog options={{...options,onClosed}} register={register}/>);
   return {...handle,body:()=>document.getElementById(options.bodyId)};
@@ -536,10 +532,14 @@ export function renderQueuePanel(container:HTMLElement,props:QueueProps){
   const root=islands.get(container);
   if(root)flushSync(()=>root.render(<QueuePanel {...props}/>));else mount(container,<QueuePanel {...props}/>);
 }
-export function revealDocumentRow(container:HTMLElement,path:string){revealDocumentNode(container,path,flushSync);}
 export function clearControlsWithin(container:HTMLElement){for(const [element,root] of islands){if(element===container||container.contains(element)){root.unmount();islands.delete(element);}}container.removeAttribute('aria-busy');}
 export function mountSkeleton(container:HTMLElement,kind='document'){
   mount(container,<div className={'reader-skeleton '+kind} role="status" aria-label={kind==='search'?'Searching documents':'Loading '+kind}><span className="sr-only">{kind==='search'?'Searching documents…':'Loading '+kind+'…'}</span><Skeleton className="h-5 w-28"/><Skeleton className="h-12 w-3/4"/><div className="grid gap-4">{Array.from({length:kind==='search'?3:8},(_,i)=><Skeleton key={i} className={i%3===2?'h-4 w-3/4':'h-4 w-full'}/>)}</div></div>);container.setAttribute('aria-busy','true');
 }
 /** Fenced code in a rendered container becomes the shadcn Code Block (see code-blocks.ts). */
 export function mountCodeBlocks(container:HTMLElement,options?:CodeBlockOptions){decorateCodeBlocks(container,options);}
+
+export function renderCommandSuggestions(container:HTMLElement,model:CommandChoices){
+  container.dataset.ui='shadcn';const root=islands.get(container),view=<CommandSuggestions model={model}/>;
+  if(root)flushSync(()=>root.render(view));else mount(container,view);
+}

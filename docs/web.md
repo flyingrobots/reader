@@ -34,10 +34,10 @@ The web server does not rebuild indexes or download models at startup.
 
 | Key or control | Behavior |
 | --- | --- |
-| Space, then e; comma, then e | Documents browser; recent opened works first |
-| Documents: j / k, arrows, Enter | Choose and open a document |
-| Documents: `/` or Filter | Reveal and focus fuzzy/content/semantic filtering |
-| Documents: Escape | Clear/hide an active filter, then close on a second Escape |
+| Space, then e; comma, then e; Space, comma, e | Toggle the left File Explorer column |
+| File Explorer: j / k, arrows, Enter | Choose and open an article beside the explorer |
+| File Explorer: `/` | Focus the article filter |
+| File Explorer: Escape | Close the column; a nested Select closes first |
 | `/`, Enter | Find literal text in the open document and visit the match |
 | n / N | Next / previous occurrence |
 | j / k | Scroll, or next / previous spread in paged reading; on the homepage, next / previous piece of the issue |
@@ -97,24 +97,31 @@ VISUAL shares Thread's color, COMMAND Leader's and the list panels Browse's. Sem
 palette and use separate light/dark lightness levels. The printed mode remains
 the primary label; recognizing a color is not required to use it.
 
-Documents opens with the filter and search-method controls hidden. Keyboard focus
-starts on the document tree, so ordinary browsing never starts typing into a
-search field. Filtering is explicit and retains folder scope when used from a
-breadcrumb. The three search methods appear only while filtering.
+File Explorer is a nonmodal left column, opened with `:files` (`:ls`) and toggled
+with leader-e (Space or comma; Space-comma-e also works). Escape closes it, including
+from its filter input. A nested Select consumes Escape before the explorer. The
+column reserves width in continuous, two-page and split layouts and coexists with
+the right discussion/chat dock. On narrow screens it uses 46% of the viewport.
+Selecting an article loads it in the main content area (or focused split pane),
+leaving the explorer open. Closing and reopening preserves filters, sort and page.
 
-Documents follows the [shadcn File Tree pattern](https://ui.shadcn.com/docs/ai-elements/base/file-tree):
-Collapsible folders and Button file rows, grouped by their actual library paths.
-Recent files remain the default selection; grouping retains first appearance in
-the recent or search ranking. Folders initially expand to expose those files.
-Use j/k or Up/Down through visible folders/files, h/l or Left/Right to collapse,
-expand or move to the parent/child, and Enter to toggle a folder or open a file.
-Search-field arrows continue to select matching files and reveal their parents.
+The flat article list uses the complete grouped library inventory, independent of
+the recent-files preference. It filters title, author, project, type and path by
+case-insensitive words, with optional Read/Unread status. Sort by newest, oldest,
+title or author; missing dates follow dated articles. Filtering and sorting happen
+before pagination into 20-article pages. The count states the visible range and
+total matches. This is metadata filtering; `:search` remains the full-text,
+fuzzy and semantic search interface, also reached through **Search contents** at
+the bottom of the explorer. Browsing never creates read receipts; opening
+a document retains the existing exact-version receipt behavior.
 
-Read files use muted title text and a check mark. Unread files keep normal text
-and an unread pip. This uses the selected participant's exact-version receipt,
-including fuzzy, content and semantic search results and nonprimary attachments.
-A changed source returns to unread styling. Browsing, collapsing folders and
-searching do not mark documents read; opening a document does.
+Atomic composition lives in `web/src/explorer/`: existing shadcn Button, Input,
+Select, Field, Badge, Item, Separator, Empty and Pagination primitives are the
+atoms. ArticleRow, ExplorerFilters and ExplorerPagination are molecules. The
+FileExplorer organism composes them and owns filter/page state. The shell reserves
+the column and routes article opening through the existing navigation boundary.
+Rows are native buttons, with j/k or arrows to move, Enter to open, `/` to focus
+the filter and q to queue the focused article. Tab reaches every control.
 
 Settings offers paired palettes including **Monocolor · Light / Dark**, **Ink / Paper**, **Orchid · Light / Dark**,
 and **Harvest · Light / Dark**. The footer's light/dark control preserves the
@@ -218,11 +225,18 @@ stay read-only. A pointer press anywhere outside the status line leaves VISUAL.
 **Command line (`:`).** The key hints give way to an input with the mode label
 COMMAND. Tab completes command names and arguments (themes, layouts, speech
 scopes, rebuild kinds, documents through fuzzy search, help topics), repeated Tab
-cycles, and up to six choices show quietly beside the input. Up / Down (or Ctrl-p /
-Ctrl-n) recall earlier commands that start with what is typed; 100 are kept per
+cycles. A shadcn suggestion list opens above the status line and filters as you
+type, showing command descriptions and contextual arguments. Up / Down selects a
+suggestion; Tab or a pointer press fills it without running. Enter runs the selected
+complete command; selecting a command name that takes arguments first fills its
+name and opens argument suggestions. With no selected suggestion, Enter runs the
+typed command. Ctrl-p / Ctrl-n recall earlier commands that start with what is typed;
+Up on an empty input also recalls history. Up to 100 commands are kept per
 device (`reader.commands.v1`). Enter runs, Escape (or Backspace on an empty line)
 cancels. A unique prefix runs its command (`:chan`), an unknown name toasts the
-closest match ("Did you mean :changes?"). Commands: `:open <document>` (`:e`),
+closest match (“Did you mean :changes?”). Document argument queries are debounced,
+and late completion answers cannot overwrite a newer query or reopen a closed line.
+The input exposes combobox/listbox semantics and the same suggestions work on phones. Commands: `:open <document>` (`:e`),
 `:theme <id>`, `:layout scroll|spread`, `:speak [article|here|selection]`,
 `:rebuild search|keywords|browse|catalog|links`, `:check`, `:changes`, `:versions`,
 `:outline`, `:chat`, `:threads`, `:queue`, `:next`, `:home`, `:files`, `:search
@@ -423,14 +437,15 @@ explicit search or Add does. Without network access, the catalog and downloads f
 with an error, and installed fonts keep working. Other scripts (Cyrillic, Greek,
 Vietnamese) are not downloaded; those characters fall back to the role's stack.
 
-Beside the mode indicator, a breadcrumb trail shows **Library**, the containing
-folders and the current filename. Library returns home; a folder opens the file
-picker scoped to that path. The scope applies before ranking in fuzzy search and
-is passed to content/semantic search as well. **All folders** removes the scope.
-Folder browsing uses the same catalog/search coverage as the picker, rather than
-promising a complete filesystem listing. Deep paths collapse older ancestors into
+Immediately after the mode indicator, the circular Reader logo returns home.
+The breadcrumb omits the duplicate Library label and shows containing folders and
+the current filename; it is hidden on the homepage. A folder opens the file
+explorer scoped to that path. Scope uses a path-segment boundary and applies
+before metadata filtering and paging. **All folders** removes it. Folder browsing
+uses the same grouped library coverage as the explorer, rather than promising a
+complete filesystem listing. Deep paths collapse older ancestors into
 an ellipsis menu; narrow screens put all containing folders in that menu. Arrow
-keys choose a parent, Enter opens its picker, and Escape closes the menu and
+keys choose a parent, Enter opens its explorer, and Escape closes the menu and
 returns focus. The current filename has `aria-current="page"` and exposes the full
 path on hover. The trail follows the composition in the
 [shadcn breadcrumb reference](https://ui.shadcn.com/docs/components/base/breadcrumb),
@@ -453,7 +468,7 @@ never bring items back. The current ranks:
 | 2 | search chip, location list, pagination, speech, version chip, layout switch |
 | 3 | outline button |
 | 4 | prose-color chip |
-| 5 | position percentage (the progress rail shows it) |
+| 5 | scratchpad cursor position |
 | 6 | section label (the outline button lists the sections) |
 | 7 | keys hint |
 | none declared | gives way before every declared item |
@@ -469,10 +484,10 @@ scroll, because the breadcrumb's folder menu opens above it. `tests/web_status_p
 injects an extra item and checks 700, 390 and 320 px in both layouts.
 
 The rail directly above the sticky footer uses shadcn Base UI **Progress**. Its separate seek target supports
-click, Left/Right, Home and End. A shadcn **Popover** on hover or keyboard focus shows position
-and estimated minutes remaining above the rail, based on visible text and the selected reading
-pace. These values follow the current reading position, independently of the
-pointer location. PDF estimates use pages remaining. Highlight/warning pips identify an owner
+click, Left/Right, Home and End. A persistent readout at the right end shows
+percentage and estimated minutes remaining, based on visible text and the selected
+reading pace. The seek track has no hover popup. The readout follows the current
+reading position, independently of the pointer location. PDF estimates use pages remaining. Highlight/warning pips identify an owner
 and open the corresponding thread. Seeking uses the document's scroll range or
 the discrete spread index; it is a layout position, not a measure of comprehension.
 
@@ -573,6 +588,16 @@ step to the previous or next issue that holds pieces. Space e, the picker and se
 behave as elsewhere. The entrance animation is skipped under reduced motion. The
 layout uses only theme tokens and the theme's `--serif`/`--sans`.
 
+**Section pages.** The Sections index uses shadcn Item links with the section name
+and total library article count. `#section=<encoded name>` opens a shareable page
+with that section’s complete grouped-library inventory, including older articles,
+newest first. Sections retain the magazine’s first named project or top-folder
+fallback. The index includes sections represented by cover stories and features,
+as well as the contents, and exposes real section names instead of the editorial
+Elsewhere aggregate. Section pages filter title/author/path metadata and paginate
+20 articles at a time. Opening an article uses normal document navigation;
+browser Back returns to the section route.
+
 **Layout by window width.** The issue fills the window, with outer margins that scale
 from 40 to 120px (`clamp(…, 4vw, …)`); added width becomes columns, not longer lines.
 
@@ -581,7 +606,7 @@ from 40 to 120px (`clamp(…, 4vw, …)`); added width becomes columns, not long
   with the cover's byline; the other features share the next row in equal spans. The
   rail is sticky and scrolls on its own when taller than the window. It holds the
   counts, the newsletter link and a **Sections** index of the contents groups; a
-  section button scrolls to that group and focuses it without changing the route.
+  section Item opens a dedicated article list for that section.
   Contents columns are at least 280px wide, so wider windows gain columns (four at
   1920px, five at 2560px). Prose stays within its measure: the cover standfirst is
   capped at 58ch and feature standfirsts at 64ch. Headline sizes follow the cover's
@@ -1191,9 +1216,19 @@ New sections are added in one place: the section registry in
 on this computer, which route parameters it accepts, and its page). The route
 syntax, `#admin/<section>[/<param>…]`, is parsed by `web_ui/admin-routes.mjs`.
 
-**Indexes** shows one shadcn **Card** per rebuildable index, with a
-state **Badge** (Current, Needs rebuild, Partial, Not built, Not configured, Error), its facts, and its rebuild
-actions in the card footer:
+**Indexes** splits the available page width equally between the dashboard and an
+independently scrolling Markdown reference. Info buttons navigate directly to
+reference headings. The right pane renders the same [technical reference](topics/indexes.md)
+that is maintained in the repository, bundled with the frontend release. Its contents
+selector and internal links preserve the Admin route and dashboard scroll position.
+On narrow screens the panes stack. Other Admin pages keep their existing width.
+
+The dashboard contains summary Cards, interactive D3 charts, an index health Table
+and a selected-index inspector. Shadcn components provide controls, data surfaces
+and the reference frame. Chart controls and View chart data remain on the left;
+static operating explanations live on the right. See the [design contract](admin-design/indexes.md).
+
+The checks and rebuilds are:
 
 | Index | Freshness check | Rebuild |
 | --- | --- | --- |
@@ -1218,7 +1253,7 @@ minutes (the Overview never does). **Check again** reruns it, and every rebuild 
 large vault the browse check takes about ten seconds. A catalog check can refuse
 outright: for example, an inventory over the 50,000-file / 2 GiB catalog limit, or
 a duplicate `document_id`, shows as Error with that message. Jobs run one at a time in a background thread of
-the web server. While one runs, every rebuild button is disabled. A second start
+the web server. While one runs, every rebuild button is disabled. The page explains this shared job slot and shows elapsed time for a running freshness check; cached measurements stay visible. This layout does not change the cost of the full audit or introduce a maintenance queue. A second start
 is refused with HTTP 429. **Recent runs** lists this server process's last 20 jobs
 with their results or errors. Job history is not persisted; freshness is always
 measured again.
@@ -1846,8 +1881,13 @@ to read next and shows them in a **Read next** aside after the article:
 3. **Order.** Unread works (for the current participant and current edition) come
    first, then the latest by date.
 4. **Diversity.** A pick within cosine 0.97 of an earlier pick is skipped.
+   Picks also have unique source paths and unique title/author combinations
+   (case-insensitive titles before a trailing parenthetical, ignoring author order).
+   This keeps revisions from taking multiple slots even without embeddings;
+   different authors may still have works with the same title.
 5. **Fill.** With fewer than three, the newest unread works fill the list as
-   *New in the library*.
+   *New in the library*, using the same duplicate and diversity checks. The list
+   stays shorter when no distinct candidate remains.
 
 Each entry shows its title, an unread mark, author and date, and the reasons it
 was chosen: *Similar ideas* and up to two shared projects/topics.
@@ -1914,6 +1954,19 @@ line says who has a read receipt for the document and when, for example
 
 ### Send to AI-TTS
 
+**Reading voice.** Settings → Services & Tools → AI-TTS provides a default reading
+voice from the running engine’s catalog. It applies to new readings, including
+Read aloud below the article title. The Space s popup provides the same chooser
+for a single reading; its override does not change the saved default. Automatic
+uses AI-TTS’s existing Reader source voice. Explicit choices retain origin Reader
+without claiming or changing registered agent voices. Choices are stored atomically
+in the vault’s `.reader/speech.json`; clear the choice to return to Automatic.
+If the daemon is unavailable, the selector explains the failure. If a saved voice
+is missing after an engine change, choose an available voice or Automatic before
+starting a new reading. GET `/api/speech-voices` returns the catalog and default;
+POST with `{voice: "name"}` saves the default (`""` clears it). POST `/api/speak`
+accepts an optional `voice` override with the same empty-string behavior.
+
 Reader can hand the open document to the local AI-TTS
 daemon, which speaks it through its own serialized playback queue. Reader never
 plays audio itself, so AI-TTS holds, microphone interruption and other agents'
@@ -1921,8 +1974,9 @@ speech stay in force.
 
 - **Entry points.** **Space s** opens a small menu: **Whole article** (`a`),
   **From here** (`f`) and **Selection** (`s`, enabled while a passage is
-  selected). The document footer's **Send to AI-TTS** button sends the whole
-  article (the footer is hidden in two-page reading; use Space s there). The
+  selected). **Read aloud**, below the article title and metadata, sends the whole
+  article. It switches to playback controls for that article and edition while queued
+  or playing, then returns when the utterance finishes. The
   selection toolbar's **Speak** sends only the selected passage.
 - **What is spoken.** Markdown sends its source after the frontmatter with
   `content_format: "markdown"`; the daemon segments and strips the markup. Plain
@@ -3396,10 +3450,24 @@ from read receipts. Last-moment saves on browser termination are best effort;
 waiting for the short scroll debounce or navigating normally allows a confirmed
 save. Back up this directory with the rest of the private vault.
 
+## Continuous scrolling
+
+Reader uses GSAP ScrollSmoother for the homepage and continuous article reading,
+with a 0.8-second catch-up duration. Reduced-motion preferences, the Smooth
+scrolling setting, two-page reading and Reader Admin disable this smoother.
+The File Explorer list scrolls natively inside its own column.
+
+The renderer may intentionally trail the native scroll position during a glide.
+Recovery after a layout refresh waits for a quiet period covering the configured
+smoothing duration and for the scrub tween to stop. It only corrects an idle
+renderer that remains misaligned; it must not snap normal wheel or trackpad
+scrolling. Bookmark saves retain their existing visual-settling rules and immediate
+navigation, visibility-change and pagehide paths.
+
 ## Search page
 
-**Space /** opens Search from anywhere (the route is `#search=…`). The picker's `/`
-filter stays for quick navigation by name. The page remembers its query and filters
+**Space /** opens Search from anywhere (the route is `#search=…`). The explorer’s `/`
+focuses metadata filtering for quick navigation. The page remembers its query and filters
 for the browser session, and the URL carries them, so a search is linkable:
 `#search=` holds an encoded query string with `q`, `mode` (`words` or `meaning`;
 Best is the default and is omitted), repeated `project`, `author` and `type`,
@@ -3524,10 +3592,10 @@ and errors. A missing, stale or resource-blocked index is not silently rebuilt o
 substituted with fake semantic results. Search results are capped at 30.
 The server runs one content or semantic search at a time (the index engine is not
 shared between concurrent queries); another waits up to 8 seconds (`SEARCH_WAIT`)
-for it and is then refused with HTTP 429. The Documents picker retries a 429 after
-0.5, 1, 2, 4 and 8 seconds, showing *Another search is running; retrying…*, and,
-if the search never runs, says so instead of showing the no-results note. The search
-page waits and retries the same way (see `GET /api/search/page` above).
+for it and is then refused with HTTP 429. The search page retries after 0.5, 1,
+2, 4 and 8 seconds and reports a failure if contention persists, rather than
+showing a no-results note (see `GET /api/search/page` above). Explorer metadata
+filtering runs locally and does not contend for this search worker.
 
 Opening a document automatically records the displayed source version as read for
 the selected participant. Opening a thread records its inspected current highlight,
@@ -4107,8 +4175,8 @@ The small React/Base UI controls layer lives in `web/`; the document renderer,
 dashboard, source coordinates and persistence remain in the existing modules.
 `web/components.json` selects the official `base-nova` registry. Generated component
 sources are retained under `web/src/components/ui/` and composed in
-`web/src/reader-controls.tsx`; the Documents tree composition lives in
-`web/src/document-tree.tsx`. Existing theme tokens feed Tailwind semantic colors;
+`web/src/reader-controls.tsx`; the File Explorer composition lives in
+`web/src/explorer/`. Existing theme tokens feed Tailwind semantic colors;
 Tailwind preflight is not enabled. Explicit cascade layers keep legacy styles
 from overriding the component utilities.
 

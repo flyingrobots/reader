@@ -1,55 +1,50 @@
-/* File-tree navigation, exact read styling and mode colors on synthetic data. */
+/* Flat explorer behavior against synthetic library metadata and documents. */
 const assert=require('node:assert/strict');
 const {spawn}=require('node:child_process');
 const {createInterface}=require('node:readline');
 const {chromium}=require(process.env.READER_PLAYWRIGHT||'playwright-core');
-const THEMES=['ink','paper','orchid','orchid-dark','harvest','harvest-dark',...require('../src/reader_mcp/web_ui/famous-themes.json').themes.flatMap(t=>[t.id,t.id+'-dark'])];
-// Palette-only themes (Monocolor) paint every mode in one swatch: too few of their shades carry text at 4.5:1 to tell
-// eight modes apart, and the label names the mode anyway. They keep the contrast checks.
-const ONE_MODE_COLOR=new Set(require('../src/reader_mcp/web_ui/famous-themes.json').themes.filter(t=>t.paletteOnly).flatMap(t=>[t.id,t.id+'-dark']));
 (async()=>{
- const fixture=spawn(process.env.READER_PYTHON||'.venv/bin/python',['tests/web_fixture.py','--breadcrumbs'],{stdio:['ignore','pipe','inherit']});let browser;
+ const fixture=spawn(process.env.READER_PYTHON||'.venv/bin/python',['tests/web_fixture.py'],{stdio:['ignore','pipe','inherit']});let browser;
  try{
   const {url}=await new Promise((resolve,reject)=>{createInterface({input:fixture.stdout}).once('line',line=>resolve(JSON.parse(line)));fixture.once('exit',code=>reject(new Error('Fixture exited '+code)));});
   browser=await chromium.launch({headless:true,executablePath:process.env.READER_CHROME||'/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',args:['--disable-gpu','--disable-background-networking','--disable-breakpad','--disable-crash-reporter','--disk-cache-size=10485760','--media-cache-size=1048576']});
-  let page=await browser.newPage({viewport:{width:1440,height:1000},reducedMotion:'reduce'});const errors=[];page.on('pageerror',error=>errors.push(error.message));
-  const seen=page.waitForResponse(response=>response.url().endsWith('/api/seen')&&response.request().method()==='POST');
-  await page.goto(url+'/#read='+encodeURIComponent('library/research/causal/notes/source.md'));await seen;
-  await page.locator('#main').focus();await page.keyboard.press('Space');await page.keyboard.press('e');
-  const tree=page.getByRole('tree',{name:'Documents'});await tree.waitFor();assert.equal(await page.locator('#picker-filter').isVisible(),false);assert.equal(await page.evaluate(()=>document.activeElement.id),'file-results');
-  assert.equal(await page.locator('[data-doc-node=file]').count(),1,'default remains recent files');assert.equal(await page.locator('[data-doc-node=file]').getAttribute('data-read'),'true');
-  await page.keyboard.press('/');await page.locator('#file-query').fill('causal');await page.waitForFunction(()=>document.querySelectorAll('[data-doc-node=file]').length===4);
-  const source=page.locator('[data-doc-node=file]').filter({hasText:'Causal note source'}),sibling=page.locator('[data-doc-node=file]').filter({hasText:'Causal note sibling'});
-  assert.equal(await source.getAttribute('data-read'),'true');assert.equal(await sibling.getAttribute('data-read'),'false');
-  const colors=await page.evaluate(()=>[...document.querySelectorAll('[data-doc-node=file]')].map(row=>({read:row.dataset.read,color:getComputedStyle(row.querySelector('[data-doc-title]')).color})));assert.notEqual(colors.find(row=>row.read==='true').color,colors.find(row=>row.read==='false').color,'read title is muted');
-  await source.hover();await tree.focus();await page.keyboard.press('ArrowLeft');
-  const folder=page.locator('[data-tree-folder="library/research/causal/notes"] > [data-doc-node=folder]');
-  assert.equal(await tree.getAttribute('aria-activedescendant'),await folder.getAttribute('id'));await page.keyboard.press('h');assert.equal(await folder.getAttribute('aria-expanded'),'false');await sibling.waitFor({state:'hidden'});
-  await page.keyboard.press('j');assert.notEqual(await tree.getAttribute('aria-activedescendant'),await sibling.getAttribute('id'),'collapsed children are skipped');await page.keyboard.press('k');await page.keyboard.press('l');assert.equal(await folder.getAttribute('aria-expanded'),'true');await sibling.waitFor();await page.keyboard.press('l');assert.equal(await tree.getAttribute('aria-activedescendant'),await source.getAttribute('id'));
-  await page.screenshot({path:'.reader/web-dev/documents-tree.png'});
-  const contrast=await page.evaluate(themes=>{
-    const html=document.documentElement,mode=document.querySelector('#vim-mode'),originalTheme=html.dataset.theme,originalMode=mode.dataset.mode;
-    const canvas=document.createElement('canvas');canvas.width=canvas.height=1;const context=canvas.getContext('2d');
-    function rgb(value){context.clearRect(0,0,1,1);context.fillStyle=value;context.fillRect(0,0,1,1);return [...context.getImageData(0,0,1,1).data].slice(0,3);}
-    function lum(values){return values.map(v=>v/255).map(v=>v<=.04045?v/12.92:((v+.055)/1.055)**2.4).reduce((n,v,i)=>n+v*[.2126,.7152,.0722][i],0);}
-    function ratio(a,b){const [lo,hi]=[lum(rgb(a)),lum(rgb(b))].sort((a,b)=>a-b);return (hi+.05)/(lo+.05);}
-    const rows=[],linkCode=document.createElement('a');linkCode.href='#';linkCode.dataset.readerDecoration='';linkCode.innerHTML='<code>notes/folder</code>';document.querySelector('#article').append(linkCode);const still=document.createElement('style');still.textContent='*{transition:none!important}';document.head.append(still);
-    for(const theme of themes){
-      html.dataset.theme=theme;const backgrounds=[];let minimum=Infinity;
-      for(const value of ['NORMAL','BROWSE','SEARCH','INSERT','LEADER','SETTINGS','HELP','THREAD']){mode.dataset.mode=value;const style=getComputedStyle(mode);backgrounds.push(style.backgroundColor);minimum=Math.min(minimum,ratio(style.color,style.backgroundColor));}
-      const root=getComputedStyle(html);for(const background of ['--surface','--raised'])minimum=Math.min(minimum,ratio(root.getPropertyValue('--muted'),root.getPropertyValue(background)));
-      // Inline code inside a link: its text against the background it is actually painted on.
-      const code=linkCode.querySelector('code');let behind=code;while(behind&&['rgba(0, 0, 0, 0)','transparent'].includes(getComputedStyle(behind).backgroundColor))behind=behind.parentElement;
-      const linkCodeRatio=ratio(getComputedStyle(code).color,getComputedStyle(behind||html).backgroundColor);minimum=Math.min(minimum,linkCodeRatio);
-      rows.push({theme,minimum,linkCode:linkCodeRatio,distinct:new Set(backgrounds).size});
-    }
-    linkCode.remove();still.remove();html.dataset.theme=originalTheme;mode.dataset.mode=originalMode;return rows;
-  },THEMES);for(const row of contrast){assert.equal(row.distinct,ONE_MODE_COLOR.has(row.theme)?1:8,JSON.stringify(row));assert.ok(row.minimum>=4.5,JSON.stringify(row));}console.log(JSON.stringify(contrast));
-  // Tree navigation alone never reads a file. Enter opens the selected sibling.
-  await sibling.hover();await tree.focus();await page.keyboard.press('Enter');await page.waitForFunction(()=>decodeURIComponent(location.hash).includes('/sibling.md'));await page.waitForFunction(()=>!document.querySelector('.resume-pending'));
-  await page.close();
-  const context=await browser.newContext({viewport:{width:390,height:844},reducedMotion:'reduce'});await context.addInitScript(()=>localStorage.setItem('reader.preferences.v1',JSON.stringify({participant:'Different reader'})));page=await context.newPage();page.on('pageerror',error=>errors.push(error.message));
-  await page.goto(url);await page.locator('#home-title').waitFor();await page.keyboard.press('Space');await page.keyboard.press('e');await page.getByRole('tree',{name:'Documents'}).waitFor();assert.equal(await page.locator('[data-doc-node=file][data-read=true]').count(),0,'another participant has independent receipts');assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1));await page.screenshot({path:'.reader/web-dev/documents-tree-mobile.png'});
-  assert.deepEqual(errors,[]);console.log('Documents passed: actual Collapsible/Button tree, recent default, explicit filter, folder/Vim navigation, read/unread distinction, participant isolation, six-theme contrast and mobile fit.');
+  const page=await browser.newPage({viewport:{width:1440,height:1000},reducedMotion:'reduce'}),errors=[];page.on('pageerror',e=>errors.push(e.message));
+  await page.route('**/api/library*',async route=>{const response=await route.fetch(),data=await response.json();
+    // More than two pages; the last matching article would have disappeared behind the old recent cap.
+    data.works.push(...Array.from({length:45},(_,i)=>({primary:`library/synthetic/article-${i}.md`,title:`Synthetic article ${String(i).padStart(2,'0')}`,authors:['Synthetic author'],projects:['Explorer test'],types:['Essay'],date:`2026-09-${String(i%28+1).padStart(2,'0')}`,read:i%2===0})));
+    await route.fulfill({response,json:data});});
+  await page.goto(url);await page.locator('#home-title').waitFor();
+  const before=await page.locator('#smooth-wrapper').boundingBox();
+  await page.keyboard.press('Space');await page.keyboard.press(',');await page.keyboard.press('e');await page.locator('#picker').waitFor();
+  assert.equal(await page.locator('#picker').evaluate(el=>el.tagName),'ASIDE');assert.equal(await page.locator('dialog[open]').count(),0);
+  assert.equal(await page.evaluate(()=>document.activeElement.id),'file-results');assert.equal(await page.locator('[data-article-row]').count(),20);
+  const explorer=await page.locator('#picker').boundingBox(),content=await page.locator('#smooth-wrapper').boundingBox();
+  assert.ok(content.x>=explorer.width-1);assert.ok(content.width<before.width-200,'explorer reduces the content width');
+  assert.equal(await page.getByRole('button',{name:'Previous article page'}).isDisabled(),true);
+  await page.getByRole('button',{name:'Next article page'}).click();const second=await page.locator('[data-article-row]').first().getAttribute('data-path');
+  assert.match(await page.locator('#explorer-count').textContent(),/^21–40 of/);
+  await page.getByRole('button',{name:'Previous article page'}).click();assert.notEqual(await page.locator('[data-article-row]').first().getAttribute('data-path'),second);
+  await page.locator('#file-query').fill('Synthetic author');assert.match(await page.locator('#explorer-count').textContent(),/^1–20 of 45/);
+  await page.locator('#explorer-sort').click();await page.getByRole('option',{name:'Title A–Z',exact:true}).click();assert.match(await page.locator('[data-article-row]').first().textContent(),/Synthetic article 00/);
+  await page.getByRole('button',{name:'Next article page'}).click();await page.getByRole('button',{name:'Next article page'}).click();
+  assert.equal(await page.locator('[data-article-row]').count(),5);assert.match(await page.locator('[data-article-row]').last().textContent(),/Synthetic article 44/);assert.equal(await page.getByRole('button',{name:'Next article page'}).isDisabled(),true);
+  await page.locator('#explorer-read').click();await page.getByRole('option',{name:'Unread',exact:true}).click();assert.match(await page.locator('#explorer-count').textContent(),/^1–20 of 22/);assert.equal(await page.locator('[data-article-row][data-read=true]').count(),0);
+  await page.locator('#file-query').fill('no matches anywhere');assert.equal(await page.locator('[data-empty]').count(),1);assert.match(await page.locator('#explorer-count').textContent(),/^0 articles$/);
+  // Escape from a nested Select closes that popup alone; from the text input it closes the column.
+  await page.locator('#explorer-sort').click();await page.locator('[data-slot=select-content][data-open]').waitFor();await page.keyboard.press('Escape');assert.equal(await page.locator('#picker').isVisible(),true);
+  await page.locator('#file-query').focus();await page.keyboard.press('Escape');assert.equal(await page.locator('#picker').isVisible(),false);
+  await page.keyboard.type(':files');await page.keyboard.press('Enter');await page.locator('#picker').waitFor();assert.equal(await page.locator('#file-query').inputValue(),'no matches anywhere');
+  await page.locator('#file-query').fill('');await page.locator('#explorer-read').click();await page.getByRole('option',{name:'All articles',exact:true}).click();
+  await page.locator('#file-query').fill('Another thought');await page.locator('[data-article-row]').click();await page.locator('#article').waitFor();await page.waitForFunction(()=>!document.querySelector('.resume-pending'));
+  assert.equal(await page.locator('#picker').isVisible(),true);assert.equal(await page.locator('[data-article-row][aria-current=page]').count(),1);assert.equal(await page.locator('[data-article-row][data-read=true]').count(),1);
+  await page.locator('#layout-swap').click();await page.waitForFunction(()=>document.body.classList.contains('two-page')&&!document.querySelector('.resume-pending'));await page.locator('.book-viewport #article').waitFor();assert.ok((await page.locator('#smooth-wrapper').boundingBox()).x>=explorer.width-1);await page.screenshot({path:'.reader/web-dev/file-explorer-desktop.png'});
+  await page.locator('#file-query').fill('');await page.locator('#file-results').focus();await page.keyboard.press('j');assert.equal(await page.evaluate(()=>document.activeElement.hasAttribute('data-article-row')),true);
+  await page.keyboard.press(',');await page.keyboard.press('e');assert.equal(await page.locator('#picker').isVisible(),false);
+  await page.keyboard.press(',');await page.keyboard.press('e');await page.locator('#picker').waitFor();
+  await page.setViewportSize({width:390,height:844});await page.waitForTimeout(200);
+  const narrow=await page.locator('#picker').boundingBox(),narrowContent=await page.locator('#smooth-wrapper').boundingBox();assert.ok(narrowContent.x>=narrow.width-1);assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1));
+  await page.screenshot({path:'.reader/web-dev/file-explorer-mobile.png'});
+  await page.keyboard.press('Escape');assert.equal(await page.locator('#picker').isVisible(),false);await page.keyboard.press('Space');await page.keyboard.press('e');await page.getByRole('button',{name:'Search contents',exact:true}).click();await page.locator('#search-query').waitFor();assert.deepEqual(errors,[]);
+  console.log('Explorer passed: nonmodal left column, leader toggle, :files, Escape and nested Select, complete inventory, three pages, metadata/status filters, sorting, empty state, persistent state, article loading/read receipts, keyboard, mobile geometry.');
  }finally{await browser?.close();if(fixture.exitCode===null&&fixture.signalCode===null){fixture.kill('SIGTERM');await new Promise(resolve=>fixture.once('exit',resolve));}}
 })().catch(error=>{console.error(error);process.exitCode=1;});

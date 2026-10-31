@@ -52,5 +52,24 @@ def test_embeddings_skip_near_copies_and_repeat_picks(tmp_path):
     result = Related(tmp_path).suggest('library/current.md', works, lambda w: False)
     paths = [i['primary'] for i in result['items']]
     assert 'library/copy.md' not in paths, 'near-identical text is another edition'
-    assert paths[:2] == ['library/twin-a.md', 'library/other.md'], 'twin-b repeats twin-a'
+    assert paths == ['library/twin-a.md', 'library/other.md'], 'fallback must not restore the rejected twin'
     assert result['items'][0]['reasons'] == ['Similar ideas'] and result['embedded'] is True
+
+
+def test_metadata_duplicates_are_skipped_and_slots_refilled(tmp_path):
+    original = work('essay', '2026-10-08', title='One essay')
+    revision = work('essay.v2', '2026-10-09', title='One essay')
+    distinct = work('other-author', '2026-10-07', title='One essay') | {'authors': ['Grace']}
+    works = [work('current', '2026-10-01'), revision, original, distinct, work('other', '2026-10-06')]
+    result = Related(tmp_path).suggest('library/current.md', works, lambda w: False)
+    assert [i['primary'] for i in result['items']] == [revision['primary'], distinct['primary'], 'library/other.md']
+
+
+def test_fallback_does_not_reintroduce_duplicate_editions(tmp_path):
+    works = [work('current', '2026-10-01'),
+             work('essay', '2026-10-09', projects=(), topics=(), title='One essay'),
+             work('essay.v2', '2026-10-08', projects=(), topics=(), title='One essay'),
+             work('other', '2026-10-07', projects=(), topics=()),
+             work('last', '2026-10-06', projects=(), topics=())]
+    result = Related(tmp_path).suggest('library/current.md', works, lambda w: False)
+    assert [i['primary'] for i in result['items']] == ['library/essay.md', 'library/other.md', 'library/last.md']
