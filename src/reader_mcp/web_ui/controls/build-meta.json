@@ -145,7 +145,7 @@
     "src/theme/theme-css.ts": "2c78098cd36c2ae0009313fc483463733f541aca45ecc0e5150f2b19c4809327",
     "src/theme/theme-editor.tsx": "b33809853471121d6b8700b4bb2745bf10825d09628c3164fec6902b0a4d9dab",
     "src/vanilla-buttons.ts": "23836ca88f55f1d49b6111005d3538f48832297a6a5baff30d791bf3a6edde79",
-    "src/versions-timeline.tsx": "e690fc440dff86ced21899c1f59cbf681555cc81cb7bde69671b400cb797ef40",
+    "src/versions-timeline.tsx": "60b06dfa67c83da7c79860dec88523f24b7672ccef3620639e7a8afaa633ddba",
     "src/writing-prompt.tsx": "3c26d2467f2cef11cac517898e9b384264416c256095840285317b0d2b0a96d3"
   },
   "dependencies": {
@@ -968,8 +968,8 @@
       "sha256": "cff685bf2b61ee8210f5b9c3ba49df746664aa6f13f53b15f098eb3540880d2c"
     },
     "reader-controls.js": {
-      "bytes": 1222375,
-      "sha256": "7c66b94f31f3f2e107212a0a70278d9705cebd95561feef79396c862b646e7cc"
+      "bytes": 1222446,
+      "sha256": "c69e44dc62fc5cd1fc61be498116745fb5d2ac1435688f470cd62ff8a351c448"
     },
     "reader-controls.js.LEGAL.txt": {
       "bytes": 6412,

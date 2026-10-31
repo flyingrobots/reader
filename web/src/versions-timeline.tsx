@@ -49,7 +49,7 @@ export function VersionsTimeline({model}:{model:TimelineModel|null}){
     <ol aria-label="Editions and their history" className="m-0 flex list-none flex-col gap-1 p-0">
       {model.editions.map(edition=><li key={edition.ref} data-vt-edition="" data-here={edition.here||undefined} data-newest={edition.newest||undefined}>
         <div className="flex items-start gap-1">
-          <button type="button" data-vt-item="file" data-ref={edition.ref} aria-current={edition.here?'true':'false'} data-marked={edition.marked||undefined} className={row}>
+          <button type="button" data-vt-item="file" data-vt-key={edition.ref} data-ref={edition.ref} aria-current={edition.here?'true':'false'} data-marked={edition.marked||undefined} className={row}>
             <span aria-hidden data-vt-mark="" className={cn('w-3 shrink-0 text-center',edition.here?'text-primary':'text-muted-foreground')}>{edition.mark}</span>
             <span className="flex min-w-0 flex-col">
               <span data-vt-name="" className="font-medium">{edition.name}{edition.where?<small className="font-normal text-muted-foreground"> · {edition.where}</small>:null}</span>
@@ -60,13 +60,13 @@ export function VersionsTimeline({model}:{model:TimelineModel|null}){
           <Compare target={edition.ref} label={edition.compareLabel}/>
         </div>
         {edition.commits.length?<Collapsible defaultOpen={edition.historyOpen} className="ml-5">
-          <CollapsibleTrigger data-vt-item="history" className="group/history flex w-full items-center gap-1 rounded-md px-2 py-1 text-left text-xs text-muted-foreground outline-none hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring">
+          <CollapsibleTrigger data-vt-item="history" data-vt-key={"history:"+edition.ref} className="group/history flex w-full items-center gap-1 rounded-md px-2 py-1 text-left text-xs text-muted-foreground outline-none hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring">
             <ChevronRightIcon aria-hidden className="size-3 transition-transform group-data-[panel-open]/history:rotate-90"/>{edition.historyLabel}
           </CollapsibleTrigger>
           <CollapsibleContent keepMounted>
             <ol className="m-0 flex list-none flex-col p-0">
               {edition.commits.map(commit=><li key={commit.ref} className="flex items-start gap-1">
-                <button type="button" data-vt-item="commit" data-ref={commit.ref} aria-current={commit.here?'true':'false'} data-marked={commit.marked||undefined} className={row}>
+                <button type="button" data-vt-item="commit" data-vt-key={commit.ref} data-ref={commit.ref} aria-current={commit.here?'true':'false'} data-marked={commit.marked||undefined} className={row}>
                   <span aria-hidden data-vt-mark="" className="w-3 shrink-0 text-center text-muted-foreground">{commit.mark}</span>
                   <span className="flex min-w-0 flex-col"><span data-vt-when="" className="text-xs text-muted-foreground tabular-nums">{commit.when}</span><span data-vt-subject="" className="text-xs [overflow-wrap:anywhere]">{commit.subject}</span></span>
                   <span className="ml-auto flex shrink-0 flex-col items-end gap-1"><Tags tags={commit.tags} readers={commit.readers}/><code className="font-mono text-[10px] text-muted-foreground">{commit.short}</code></span>

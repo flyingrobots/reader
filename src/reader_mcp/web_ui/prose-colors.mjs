@@ -92,6 +92,8 @@ export function installProseColors({state,api,notify,companion=null,onChange=()=
     // A re-rendered page replaces its layer: drop the old page's ranges first.
     for(const range of pageRanges.get(page)||[])for(const h of Object.values(highlights))h?.delete(range);
     pageRanges.set(page,[]);for(const [block] of blocks)if(!block.isConnected)blocks.delete(block);
+    // A layer seen before its text arrived was finished with nothing to color: forget it, so the filled layer is colored.
+    blocks.delete(layer);done.delete(layer);
     register(layer,true);if(on())pump();
   }
   function segment(block){

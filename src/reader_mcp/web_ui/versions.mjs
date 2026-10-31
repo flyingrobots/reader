@@ -112,9 +112,10 @@ export function installVersions({state,api,navigate,openCompare,openSideBySide,n
       historical:!!state.doc?.historical,sideBySide:!!openSideBySide,labelOf}),state.doc?.path||'');
   }
   const items=()=>[...body.querySelectorAll('[data-vt-item]')].filter(el=>el.offsetParent!==null);
+  /** Focus a row by its key (data-vt-key: a reference, or `history:<path>` for a History toggle), else where you are. */
   function focus(ref){
     const all=items();
-    const target=(ref&&all.find(el=>el.dataset.ref===ref))||all.find(el=>el.getAttribute('aria-current')==='true')||all[0];
+    const target=(ref&&all.find(el=>el.dataset.vtKey===ref||el.dataset.ref===ref))||all.find(el=>el.getAttribute('aria-current')==='true')||all[0];
     target?.focus({preventScroll:false});target?.scrollIntoView({block:'nearest'});
   }
   async function choose(ref){
@@ -140,7 +141,8 @@ export function installVersions({state,api,navigate,openCompare,openSideBySide,n
     if(hashedFor!==key&&state.versions.git){
       try{const fresh=await api('/api/versions?path='+param(key)+'&participant='+param(state.prefs.participant)+'&hashes=1');
         if(state.doc?.path!==key)return;hashedFor=key;state.versions=fresh;
-        const active=document.activeElement?.dataset?.ref;if(!panel.hidden){render();focus(active||here());}update();}
+        // The re-render keeps the keyboard where it was, a History toggle included.
+        const active=document.activeElement?.dataset?.vtKey;if(!panel.hidden){render();focus(active||here());}update();}
       catch{/* The timeline stays usable without read markers on old revisions. */}
     }
   }
