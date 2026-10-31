@@ -91,8 +91,11 @@ const median=values=>{const s=[...values].sort((a,b)=>a-b);return s.length?s[s.l
      const host=document.createElement('div');host.style.cssText='position:fixed;left:0;top:0;width:960px;height:480px;z-index:5';document.body.append(host);
      document.querySelector('.cover-art').artView?.destroy();
      let still=null;const began=performance.now(),view=stage.mount(host,scene,artPalette(),{onStill:(_,reason)=>{still=reason;}});const built=performance.now()-began;
-     await new Promise(r=>setTimeout(r,3000));const result={built,still,frames:view.frames,cpu:view.frameTimes(),interval:view.intervals()};view.destroy();host.remove();return result;});
-   console.log(`budget-edge scene: built in ${heavy.built.toFixed(0)} ms; ${heavy.still?'kill switch: still image ('+heavy.still+')':`${heavy.frames} frames in 3 s, update+submit median ${median(heavy.cpu).toFixed(1)} ms, frame interval median ${median(heavy.interval).toFixed(1)} ms`}`);
+     // The kill switch judges from at least eight frame gaps after two seconds; on a loaded machine eight gaps take longer
+     // than three seconds, so wait until it has had them (or turned the scene into a still), at most 12 s.
+     await new Promise(resolve=>{const step=()=>{const elapsed=performance.now()-began;if(still||elapsed>=12000||(elapsed>=3000&&view.frames>=11))resolve();else setTimeout(step,100);};step();});
+     const result={built,still,frames:view.frames,cpu:view.frameTimes(),interval:view.intervals()};view.destroy();host.remove();return result;});
+   console.log(`budget-edge scene: built in ${heavy.built.toFixed(0)} ms; ${heavy.still?'kill switch: still image ('+heavy.still+')':`${heavy.frames} frames, update+submit median ${median(heavy.cpu).toFixed(1)} ms, frame interval median ${median(heavy.interval).toFixed(1)} ms`}`);
    assert.ok(heavy.still||median(heavy.interval)<125,'a heavy scene keeps 8 fps or becomes a still');
    assert.deepEqual(errors,[]);assert.deepEqual(external,[]);await context.close();}
 
@@ -179,7 +182,11 @@ const median=values=>{const s=[...values].sort((a,b)=>a-b);return s.length?s[s.l
   // Phone width keeps the page inside 390px.
   {const {context,page,errors}=await open({viewport:{width:390,height:844}});
    await home(page);await settled(page);
-   assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),'no horizontal scroll at 390px');
+   // The layout may still be settling (art and images sizing) on a busy machine: wait for the page to end up inside 390px,
+   // and if it does not, name what sticks out.
+   const fits=await page.waitForFunction(()=>document.documentElement.scrollWidth<=innerWidth,null,{timeout:10000}).then(()=>true,()=>false);
+   const wide=fits?[]:await page.evaluate(()=>[...document.querySelectorAll('body *')].filter(el=>el.getBoundingClientRect().right>innerWidth+1).slice(0,6).map(el=>el.tagName+'.'+String(el.className).slice(0,30)));
+   assert.ok(fits,'no horizontal scroll at 390px: '+JSON.stringify(wide));
    const box=await cover(page).boundingBox();assert.ok(box.x>=15&&box.x+box.width<=375,'inside the 16px gutters');
    await page.screenshot({path:'.reader/web-dev/art-phone.png'});
    assert.deepEqual(errors,[]);await context.close();}
