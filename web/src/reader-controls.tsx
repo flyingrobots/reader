@@ -460,7 +460,10 @@ export function mountArtRegenerate(container:HTMLElement,options:ArtRegenerateOp
 }
 export function mountArticleSpeech(container:HTMLElement,props:{path:string;sourceSha:string;onRead:()=>Promise<unknown>}){mount(container,<ArticleSpeechControl {...props}/>);}
 export function mountSectionItems(container:HTMLElement,items:SectionLink[]){container.dataset.ui='shadcn';mount(container,<SectionItems items={items}/>);}
-export function mountSectionPage(container:HTMLElement,props:SectionPageProps){mount(container,<SectionPage {...props}/>);}
+export function mountSectionPage(container:HTMLElement,props:SectionPageProps){
+  const root=islands.get(container);
+  if(root)flushSync(()=>root.render(<SectionPage {...props}/>));else mount(container,<SectionPage {...props}/>);
+}
 export function renderFileExplorer(container:HTMLElement,props:ExplorerProps){
   const root=islands.get(container);
   if(root)flushSync(()=>root.render(<FileExplorer {...props}/>));else mount(container,<FileExplorer {...props}/>);

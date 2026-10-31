@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Background section refreshes preserve the filter, page and active input focus.
+
 - Setup cleanup terminates the whole CLI process group even when its leader has already exited.
 
 - The setup experiment applies one deadline and output budget to image preparation, CLI setup, probes and teardown.

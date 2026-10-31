@@ -134,7 +134,7 @@
     "src/plural.ts": "4c0d0698a171b39d5683548f00e2e9a8a7c5ea1af28e4067aaa63612476b5fa2",
     "src/queue-panel.tsx": "f94dbf25fb0b53288a3de2b9ae46029eab1b9522a2ebe3655cb32a3b65d816bb",
     "src/quiz.tsx": "da429b5617a6c905d376cea263c1901325c2e1d43890957e294114492a852cb2",
-    "src/reader-controls.tsx": "ed4ce244c69518caa6d9469ef1c89b1dc262de134f80b78aed23148265a9e886",
+    "src/reader-controls.tsx": "9e2cb2d7b1ae9e49f5e102054d145131edbfa48a7c65b3d121ecc7a16fd5c628",
     "src/reading-log.tsx": "1981dbb7da8a7c010d38d588992ba1b9afc5ef9c611badb247d6f8fadc8a4fda",
     "src/scratch-question.tsx": "ae90d508a8ca52994fb567380d60bef8644475691754a97fd697b323dcb7e7e3",
     "src/search-page.tsx": "b63ecad9ec576f5375ecced55c54670cd69af9380e70542ae941f4065e8f3323",
@@ -990,8 +990,8 @@
       "sha256": "0ed9bc43b2ce452a09f619c7e8b89cfb2af5c04fab44ca50528a60dbb20c405b"
     },
     "reader-controls.js": {
-      "bytes": 1327201,
-      "sha256": "0d9c08398f64c245bffdc4583da7f1459d66be9cbc01acc447408e2d303ac1bb"
+      "bytes": 1327273,
+      "sha256": "7c2727185edbdc0699fce62a66ecaab9d388edf133f7e19fb32c96917afe22c0"
     },
     "reader-controls.js.LEGAL.txt": {
       "bytes": 6553,

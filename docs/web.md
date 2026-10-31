@@ -596,7 +596,8 @@ fallback. The index includes sections represented by cover stories and features,
 as well as the contents, and exposes real section names instead of the editorial
 Elsewhere aggregate. Section pages filter title/author/path metadata and paginate
 20 articles at a time. Opening an article uses normal document navigation;
-browser Back returns to the section route.
+browser Back returns to the section route. Inbox completion refreshes its article
+inventory while preserving the active filter, page and input focus.
 
 **Layout by window width.** The issue fills the window, with outer margins that scale
 from 40 to 120px (`clamp(…, 4vw, …)`); added width becomes columns, not longer lines.
