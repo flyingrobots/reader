@@ -33,7 +33,7 @@ def measure(container):
     host = info['HostConfig']
     mounts = info['Mounts']
     if (not host['ReadonlyRootfs'] or host['Memory'] != 4 * GIB or host['NanoCpus'] != 2_000_000_000
-            or host['PidsLimit'] != 256 or host['Privileged'] or host.get('Binds')
+            or host['PidsLimit'] != 256 or host['ShmSize'] != 64*1024**2 or host['Privileged'] or host.get('Binds')
             or any(m['Type'] != 'tmpfs' for m in mounts)
             or host['LogConfig'] != {'Type': 'local', 'Config': {'max-size':'4m','max-file':'1','compress':'false'}}):
         raise RuntimeError('Container resource/mount contract differs from the approved trial')
@@ -42,7 +42,7 @@ def measure(container):
     free = int(call('docker', 'exec', NAME, 'df', '-Pk', '/').stdout.splitlines()[-1].split()[3]) * 1024
     if free < 50 * GIB:
         raise RuntimeError('Docker VM free space below 50 GiB')
-    for path, expected in [('/work', 1536 * 1024**2), ('/tmp', 512 * 1024**2), ('/etc', 16 * 1024**2)]:
+    for path, expected in [('/work', 1536 * 1024**2), ('/tmp', 512 * 1024**2), ('/etc', 16 * 1024**2), ('/dev/shm', 64 * 1024**2)]:
         actual = int(call('docker', 'exec', NAME, 'df', '-Pk', path).stdout.splitlines()[-1].split()[1]) * 1024
         if actual != expected:
             raise RuntimeError('Unexpected tmpfs capacity for ' + path)
@@ -69,7 +69,7 @@ def trial():
         raise RuntimeError('Unexpected startup hook; review before running it')
     args = ['--name=reader-development','--read-only','--cpus=2','--memory=4g','--memory-swap=4g',
             '--pids-limit=256','--tmpfs=/tmp:rw,exec,size=536870912','--log-driver=local',
-            '--log-opt=max-size=4m','--log-opt=max-file=1','--log-opt=compress=false','--tmpfs=/etc:rw,exec,size=16777216']
+            '--log-opt=max-size=4m','--log-opt=max-file=1','--log-opt=compress=false','--tmpfs=/etc:rw,exec,size=16777216','--shm-size=64m']
     if data.get('runArgs') != args or data.get('overrideCommand') is not False:
         raise RuntimeError('Unexpected runtime limits')
     if call('docker', 'inspect', NAME, check=False).returncode == 0:
@@ -84,7 +84,7 @@ def trial():
         raise RuntimeError('The Dev Container CLI is not installed')
     contract = dict(worker=NAME, image=data['image'], workspace='tmpfs /work: 1536 MiB',
                     temporary='tmpfs /tmp: 512 MiB; /etc: 16 MiB', host_free=shutil.disk_usage(ROOT).free,
-                    read_only_root=True, mounts='no host source or socket', cpus=2, memory='4 GiB',
+                    read_only_root=True, shared_memory='64 MiB', mounts='no host source or socket', cpus=2, memory='4 GiB',
                     logs='4 MiB Docker + 16 MiB CLI', build='existing Node base, small public /etc copy and entrypoint; no compiler output',
                     timeout=TIMEOUT, stop='docker rm -f reader-development; kill CLI process group',
                     lock='host/docker/reader-development/ in workstation store')

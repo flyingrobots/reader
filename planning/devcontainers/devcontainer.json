@@ -22,7 +22,8 @@
     "--log-opt=max-size=4m",
     "--log-opt=max-file=1",
     "--log-opt=compress=false",
-    "--tmpfs=/etc:rw,exec,size=16777216"
+    "--tmpfs=/etc:rw,exec,size=16777216",
+    "--shm-size=64m"
   ],
   "onCreateCommand": [
     "bash",

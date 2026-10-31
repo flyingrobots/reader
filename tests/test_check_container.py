@@ -69,3 +69,39 @@ def test_built_controls_extract_without_a_deprecation_warning(tmp_path):
 def test_built_controls_refuse_entries_outside_the_folder(tmp_path):
     with pytest.raises(RuntimeError, match='Unexpected entry'):
         check_container.extract_controls(controls_archive('../escape.js'), tmp_path)
+
+
+def capture_worker_start(tmp_path, monkeypatch, stop_at):
+    """Capture the real launch/archive boundary with no Docker daemon effects."""
+    from types import SimpleNamespace
+    root = tmp_path / 'source'
+    (root / 'docs/topics').mkdir(parents=True)
+    (root / 'docs/topics/indexes.md').write_text('# Canonical index reference\n')
+    monkeypatch.setattr(check_container, 'ROOT', root)
+    monkeypatch.setattr(check_container, 'RUNTIME', tmp_path / 'runtime')
+    monkeypatch.setattr(sys, 'argv', ['check_container.py', 'web'])
+    monkeypatch.setattr(check_container.shutil, 'disk_usage', lambda _: SimpleNamespace(free=10**12))
+    monkeypatch.setattr(check_container.subprocess, 'run', lambda *a, **k: SimpleNamespace(returncode=1))
+    captured = {}
+
+    def docker(*args, **kwargs):
+        if args[0] == 'run':
+            captured['argv'] = args
+            if stop_at == 'run':
+                raise RuntimeError('captured boundary')
+        if args[:3] == ('exec', check_container.worker_name('web'), 'df'):
+            return SimpleNamespace(stdout='Filesystem 1024-blocks Used Available Capacity Mounted\nroot 999999999 0 999999999 0% /\n')
+        if 'input' in kwargs:
+            captured['archive'] = kwargs['input']
+            raise RuntimeError('captured boundary')
+        return SimpleNamespace(stdout='')
+    monkeypatch.setattr(check_container, 'docker', docker)
+    with pytest.raises(RuntimeError, match='captured boundary'):
+        check_container.main()
+    return captured
+
+
+def test_worker_explicitly_bounds_shared_memory(tmp_path, monkeypatch):
+    argv = capture_worker_start(tmp_path, monkeypatch, 'run')['argv']
+    assert '--shm-size' in argv, 'A daemon default must not escape the declared data budget'
+    assert argv[argv.index('--shm-size') + 1] == '64m'

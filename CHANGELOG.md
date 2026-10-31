@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Container checks and the development setup experiment explicitly cap shared memory at 64 MiB instead of inheriting an unbounded daemon default.
+
 - Browser suites run in parallel: `python3 scripts/run_browser_suites.py` takes about two minutes on an idle 18-core machine instead of about twenty run one after another. It sizes itself to the machine's free capacity, runs performance suites on a quiet machine first, and reports failures with log tails. Slow suites got faster: the reviews 81 s to 17 s and 64 s to 16 s, search retry 35 s to 12 s, and content visibility split into four parallel parts. Timing assumptions in a dozen suites became checks of outcomes.
 - Fixed bugs the parallel runs exposed:
   - Smooth scrolling could keep showing the end of a document after `gg`.
