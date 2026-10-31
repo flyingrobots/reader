@@ -18,7 +18,7 @@ const {waitFor,watch}=require('./web_wait.cjs');
   await page.goto(url);await page.locator('#home-title').waitFor();await page.locator('#main').focus();
   await page.keyboard.press('Space');await page.keyboard.press('p');await page.locator('#backstage-settings').waitFor();await page.waitForFunction(()=>document.activeElement?.id==='admin-title');
   assert.notEqual(await page.locator('#vim-mode').textContent(),'INSERT');const name=await page.locator('#profile-name').inputValue();
-  await page.keyboard.press('Space');await page.keyboard.press('e');await page.locator('#picker[data-open]').waitFor();await page.keyboard.press('Escape');
+  await page.keyboard.press('Space');await page.keyboard.press('e');await page.locator('#picker:not([hidden])').waitFor();await page.keyboard.press('Escape');
   assert.equal(await page.locator('#profile-name').inputValue(),name,'the participant field is untouched');
   // #59: saving Settings keeps focus on the form, not <body>.
   await page.locator('#preferences-form button[type=submit]').click();await page.locator('[data-sonner-toast]').filter({hasText:'Preferences saved.'}).waitFor();await page.waitForTimeout(300);

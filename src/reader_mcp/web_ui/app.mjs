@@ -20,7 +20,7 @@ import {calloutPlugin} from './callouts.mjs';
 import {drawable,fetchShape,paintShape} from './shapes.mjs';
 import {artJobs,fetchArt,focusArt,forgetArt,hasArt,paintArt,paintArtThumb,paintPlaceholder} from './art.mjs';
 import {closeArtFocus,focusOpen} from './art-focus.mjs';
-import {openScratchSave,closeAppDialogs,mountPicker,openAnnotationDialog,openSpeakMenu,openShellDialog,renderVersionsTimeline,renderLinkPreview,renderReadingLog,applyThemes,installControls,mountSkeleton,mountCodeBlocks,decorateCodeBlocks,clearControlsWithin,mountDocumentTree,visibleDocumentNodes,revealDocumentRow,mountAdmin,setAdminRoute,mountChangesPanel,mountArtRegenerate,notify as shellNotify,openChat,closeChat,chatOpen,trackSpeech,renderQueuePanel,mountCallouts,mountQuiz,mountWritingPrompt,mountScratchQuestion,startJob,promptCompanion,needsReader,NEEDS_READER,mountPromptCards} from './controls/reader-controls.js';
+import {openScratchSave,closeAppDialogs,openAnnotationDialog,openSpeakMenu,openShellDialog,renderVersionsTimeline,renderLinkPreview,renderReadingLog,applyThemes,installControls,mountSkeleton,mountCodeBlocks,decorateCodeBlocks,clearControlsWithin,renderFileExplorer,mountAdmin,setAdminRoute,mountChangesPanel,mountArtRegenerate,notify as shellNotify,openChat,closeChat,chatOpen,trackSpeech,renderQueuePanel,mountCallouts,mountQuiz,mountWritingPrompt,mountScratchQuestion,startJob,promptCompanion,needsReader,NEEDS_READER,mountPromptCards} from './controls/reader-controls.js';
 import {promptPlugin,promptMounts} from './prompt-blocks.mjs';
 import {installVersions,chipMarkup,historicalMarkup,splitRef,compareLabel} from './versions.mjs';
 import {installSplit,installPane,cleanRoute} from './split.mjs';
@@ -71,7 +71,7 @@ function passageFromHash(){
 let reading,controls,links,outline,speech,versions,search,prose,queue,scratch,quiz,writingPrompts,keys,visual,registers,quickfix,marks,jumps,panels;
 let saved = {};
 try { saved = JSON.parse(localStorage.getItem('reader.preferences.v1') || '{}'); } catch {}
-const state = {prefs:{...defaults,...saved}, data:null, doc:null, threads:[], attention:[], token:null, mode:'fuzzy', results:[], resultIndex:0, searchId:0, routeId:0, pdf:null, smoother:null, find:[], findIndex:-1, selected:null, activeThread:null, replyTo:null, visits:[null], cursor:0, ranges:[], leader:null,themeEditorOpen:false,view:null};
+const state = {prefs:{...defaults,...saved}, data:null, doc:null, threads:[], attention:[], token:null, routeId:0, pdf:null, smoother:null, find:[], findIndex:-1, selected:null, activeThread:null, replyTo:null, visits:[null], cursor:0, ranges:[], leader:null,themeEditorOpen:false,view:null};
 const fetchRequest=createTokenFetch({getToken:()=>state.token,setToken:token=>{state.token=token;}});
 // Custom theme CSS is cached so a saved custom theme paints before /api/themes answers.
 let themeCache={css:'',links:[],ids:[]};
@@ -241,10 +241,10 @@ async function loadLibrary() {
   const profile = state.prefs.participant ? '?participant=' + param(state.prefs.participant) : '';
   const data = await api('/api/library' + profile);
   state.data = localizeLibrary(data); state.token = data.token; state.prefs.participant = data.participant;
+  if(!$('#picker').hidden)updateExplorer();
   return data;
 }
 function savePrefs() { const url=new URL(location.href);if(url.searchParams.has('theme') && url.searchParams.get('theme')!==state.prefs.theme){url.searchParams.delete('theme');history.replaceState(history.state,'',url);}try { localStorage.setItem('reader.preferences.v1', JSON.stringify(state.prefs)); } catch {} if(split?.active())split.broadcast({type:'prefs-changed'}); }
-function latestWorks() { return [...state.data.works].sort((a,b) => (b.date || '').localeCompare(a.date || '') || a.title.localeCompare(b.title)); }
 function issueOptions(){return {today:state.data.today,exclude:state.prefs.issueExclude};}
 async function renderHome(path=null,id=state.routeId) {
   state.issuePath=path;
@@ -490,10 +490,7 @@ function wireDocumentLinks(root) {
   });
   root.querySelectorAll('[data-home]').forEach(el=>el.addEventListener('click',e=>{e.preventDefault();navigate(null);}));
 }
-// The Documents picker: a shadcn Dialog (web/src/shell-dialog.tsx) around #picker-content. The first Escape hides an
-// open filter; closing resumes reading.
-const picker=mountPicker($('#picker-content'),()=>{if($('#picker-filter').hidden)return false;hidePickerFilter();return true;},open=>{if(!open)dialogClosed();});
-const pickerOpen=()=>picker.isOpen();
+
 function closeContext() {
   quiz?.close();writingPrompts?.close();
   if(visual?.active())visual.exit();panels?.close(false);keys?.closeLine(false);
@@ -606,6 +603,7 @@ async function navigate(path,{thread=null,fragment='',record=true,commit=null,at
     if(fragment)showHeading(article,fragment);
     if(at)await secondary('Passage',()=>revealPassage(at));
     if(thread)openThread(thread);
+    if(!$('#picker').hidden)updateExplorer();
     settleFocus();
     // Historical versions are read-only views of the past: no Read next or Linked from for them.
     if(!historical){placeQuizControl();showNextReads(path,id).catch(error=>console.warn('Read next',error));links?.backlinks(path,id)?.catch(error=>console.warn('Linked from',error));}
@@ -1175,81 +1173,22 @@ async function createAnnotation(kind,comment=''){
   annotationDialog?.close();$('#selection-tools').hidden=true;getSelection()?.removeAllRanges();await loadDiscussion();if(comment || kind==='warning')await openThread(thread.id);else toast('Passage highlighted.');
 }
 
-function pickerWorks(source='recent'){
-  const works=state.pickerFolder?latestWorks().filter(work=>work.primary.startsWith(state.pickerFolder)):source==='all'?latestWorks():state.data.recent;
-  return (works.length || state.pickerFolder?works:latestWorks()).slice(0,+state.prefs.recent);
+function updateExplorer(){
+  if(!state.data)return;
+  renderFileExplorer($('#picker'),{articles:[...state.data.works],current:state.doc?.path||null,folder:state.pickerFolder||null,
+    onOpen:path=>navigate(path),onClose:closePicker,onSearch:()=>{closePicker();openSearch();},onQueue:path=>queue.add(path),
+    onClearFolder:()=>{state.pickerFolder=null;updateExplorer();}});
 }
-function pickerLabel(){return state.pickerFolder?'In '+state.pickerFolder:state.data.recent.length?'Recently opened':'Start with a recent addition';}
-function openPicker(source='recent',folder=null){
-  clearTimeout(searchTimer);state.pickerFolder=folder;$('#folder-scope').hidden=!folder;$('#folder-path').textContent=folder || '';$('#picker-title').textContent='Documents';$('#picker-filter').hidden=true;$('#picker-filter-toggle').setAttribute('aria-expanded','false');$('#picker-filter-toggle').innerHTML='Filter <kbd>/</kbd>';
-  $('#file-query').value='';$('#search-status').textContent='';state.searchId++;state.resultIndex=0;
-  state.results=pickerWorks(source);
-  $('#search-label').textContent=source==='all'&&!folder?'The stacks':pickerLabel();
-  drawResults();state.smoother?.paused(true);picker.open();$('#file-results').focus();selectResult(state.resultIndex,true);
+function closePicker(){
+  $('#picker').hidden=true;document.documentElement.style.removeProperty('--explorer-width');
+  $('#summon').setAttribute('aria-expanded','false');dispatchEvent(new Event('resize'));refreshScroll();focusMain();reading?.updateStatus();
 }
-function activateDocumentNode(node,scroll=false){
-  if(!node)return;const root=$('#file-results');
-  root.querySelectorAll('[data-doc-node]').forEach(item=>{const active=item===node;item.toggleAttribute('data-active',active);item.setAttribute('aria-selected',String(active));});
-  if(node.dataset.index!==undefined)state.resultIndex=+node.dataset.index;
-  root.setAttribute('aria-activedescendant',node.id);$('#file-query').setAttribute('aria-activedescendant',node.id);
-  if(scroll)node.scrollIntoView({block:'nearest'});
+function openPicker(source='all',folder=null){
+  state.pickerFolder=folder;updateExplorer();$('#picker').hidden=false;
+  document.documentElement.style.setProperty('--explorer-width','min(22rem, 46vw)');
+  $('#summon').setAttribute('aria-expanded','true');dispatchEvent(new Event('resize'));refreshScroll();$('#file-results').focus({preventScroll:true});reading?.updateStatus();
 }
-function drawResults(){
-  const root=$('#file-results');clearControlsWithin(root);
-  if(state.results.length){mountDocumentTree(root,state.results,openResult,node=>activateDocumentNode(node));selectResult(state.resultIndex,pickerOpen());}
-  else {root.innerHTML='<p class="empty-note">Nothing here yet. Try another phrase.</p>';root.removeAttribute('aria-activedescendant');$('#file-query').removeAttribute('aria-activedescendant');}
-  $('#file-query').setAttribute('aria-controls','file-results');
-}
-function selectResult(index,scroll=true){
-  if(!state.results.length)return;state.resultIndex=(index+state.results.length)%state.results.length;
-  const work=state.results[state.resultIndex];revealDocumentRow($('#file-results'),work.path||work.primary);
-  activateDocumentNode($('#file-option-'+state.resultIndex),scroll);
-}
-function openResult(index=state.resultIndex){const w=state.results[index];if(!w)return;picker.close();navigate(w.path || w.primary);}
-const SEARCH_RETRIES = 5; // a 429 (another search running) retries after 0.5, 1, 2, 4 and 8 s
-async function runSearch(attempt=0){
-  const q=$('#file-query').value.trim(),id=++state.searchId;
-  if(!q){state.results=pickerWorks();$('#search-label').textContent=pickerLabel();$('#search-status').textContent='';state.resultIndex=0;drawResults();return;}
-  $('#search-label').textContent=state.mode==='semantic'?'Following the meaning…':'Searching…';
-  mountSkeleton($('#file-results'),'search');
-  try{const data=await api('/api/search?q='+param(q)+'&mode='+state.mode+'&participant='+param(state.prefs.participant)+(state.pickerFolder?'&path_prefix='+param(state.pickerFolder):''));if(id!==state.searchId||!pickerOpen())return;state.results=data.results;state.resultIndex=0;$('#search-label').textContent=`${plural(data.results.length,'result')} · ${state.mode==='fuzzy'?'catalog':'index '+formatDate(data.indexed_at)}`;$('#search-status').textContent=(data.warnings || []).slice(0,2).join(' ');drawResults();}
-  catch(error){if(id!==state.searchId)return;
-    if(error.status===429&&attempt<SEARCH_RETRIES){$('#search-label').textContent='Another search is running; retrying…';$('#search-status').textContent='';
-      searchTimer=setTimeout(()=>{if(id===state.searchId&&pickerOpen())runSearch(attempt+1);},500*2**attempt);return;}
-    state.results=[];drawResults();$('#file-results').innerHTML='<p class="empty-note">The search didn’t run, so there is nothing to show yet.</p>';
-    $('#search-label').textContent='Search unavailable';$('#search-status').textContent=error.message;}
-}
-$('#clear-folder').onclick=()=>{state.pickerFolder=null;$('#folder-scope').hidden=true;$('#picker-title').textContent='Documents';runSearch();($('#picker-filter').hidden?$('#file-results'):$('#file-query')).focus();};
-let searchTimer;
-function showPickerFilter(){
-  $('#picker-filter').hidden=false;$('#picker-filter-toggle').setAttribute('aria-expanded','true');$('#picker-filter-toggle').textContent='Hide filter';$('#file-query').focus();
-}
-function hidePickerFilter(){
-  clearTimeout(searchTimer);state.searchId++;$('#picker-filter').hidden=true;$('#picker-filter-toggle').setAttribute('aria-expanded','false');$('#picker-filter-toggle').innerHTML='Filter <kbd>/</kbd>';$('#file-query').value='';$('#search-status').textContent='';state.results=pickerWorks();state.resultIndex=0;$('#search-label').textContent=pickerLabel();drawResults();$('#file-results').focus();reading?.updateStatus();
-}
-$('#picker-filter-toggle').onclick=()=>$('#picker-filter').hidden?showPickerFilter():hidePickerFilter();
-$('#file-results').addEventListener('keydown',event=>{
-  if(event.defaultPrevented)return;
-  const root=event.currentTarget,nodes=visibleDocumentNodes(root),active=document.getElementById(root.getAttribute('aria-activedescendant')),index=nodes.indexOf(active);
-  if(event.key==='/'){event.preventDefault();showPickerFilter();}
-  else if(['j','k','ArrowDown','ArrowUp','Home','End'].includes(event.key)||event.ctrlKey&&['n','p'].includes(event.key)){
-    event.preventDefault();event.stopPropagation();const next=event.key==='Home'?0:event.key==='End'?nodes.length-1:(index+(['j','ArrowDown','n'].includes(event.key)?1:-1)+nodes.length)%nodes.length;activateDocumentNode(nodes[next],true);
-  }else if(['h','ArrowLeft','l','ArrowRight'].includes(event.key)){
-    event.preventDefault();event.stopPropagation();if(!active)return;
-    const right=['l','ArrowRight'].includes(event.key),folder=active.dataset.docNode==='folder',expanded=active.getAttribute('aria-expanded')==='true';
-    if(folder&&(right?!expanded:expanded))active.click();
-    else if(right&&folder)activateDocumentNode(nodes[index+1],true);
-    else if(!right){const parent=root.querySelector('[data-tree-folder="'+CSS.escape(active.dataset.parentFolder||'')+'"] > [data-doc-node]');activateDocumentNode(parent,true);}
-  }else if(event.key==='Enter'||event.key===' '){event.preventDefault();event.stopPropagation();active?.click();}
-  else if(event.key==='q'){event.preventDefault();event.stopPropagation();const work=active?.dataset.index!==undefined?state.results[+active.dataset.index]:null;if(work)queue.add(work.path||work.primary);}
-});
-$('#file-query').addEventListener('input',()=>{clearTimeout(searchTimer);state.searchId++;searchTimer=setTimeout(runSearch,state.mode==='semantic'?450:140);});
-$('#file-query').addEventListener('keydown',event=>{
-  if(event.key==='ArrowDown'||event.ctrlKey&&['j','n'].includes(event.key)){event.preventDefault();selectResult(state.resultIndex+1);}
-  else if(event.key==='ArrowUp'||event.ctrlKey&&['k','p'].includes(event.key)){event.preventDefault();selectResult(state.resultIndex-1);}
-  else if(event.key==='Enter'){event.preventDefault();openResult();}
-});
-document.querySelectorAll('[data-mode]').forEach(el=>el.onclick=()=>{state.mode=el.dataset.mode;document.querySelectorAll('[data-mode]').forEach(button=>button.setAttribute('aria-pressed',String(button===el)));runSearch();});
+function togglePicker(){if($('#picker').hidden)openPicker();else closePicker();}
 
 function clearFind(){state.pdf?.cancelFind();state.find=[];state.findMore=false;state.findIndex=-1;CSS.highlights?.delete('reader-find');CSS.highlights?.delete('reader-current');$('#find-query').value='';$('#find-count').textContent='0 / 0';state.fromSearch=null;searchChip();}
 function searchChip(){
@@ -1374,8 +1313,7 @@ $('#thread-body').addEventListener('keydown',event=>{
   if(index<0||event.ctrlKey||event.metaKey||event.altKey||!['j','k','ArrowDown','ArrowUp'].includes(event.key))return;
   event.preventDefault();items[(index+(['j','ArrowDown'].includes(event.key)?1:-1)+items.length)%items.length].focus();
 });
-$('#summon').onclick=()=>openPicker();
-document.querySelectorAll('[data-close=picker]').forEach(button=>button.onclick=()=>picker.close());
+$('#summon').onclick=togglePicker;
 let mouseSelecting=false,selectionTimer;
 document.addEventListener('pointerdown',event=>{if(event.pointerType==='mouse')mouseSelecting=true;},true);
 document.addEventListener('mouseup',event=>{mouseSelecting=false;if(!event.target.closest('#selection-tools,dialog,#thread-panel'))setTimeout(captureSelection,0);});
@@ -1396,12 +1334,16 @@ document.addEventListener('mousemove',event=>{
 // Keyboard ------------------------------------------------------------------------------------------
 // Every page key is a row in the keymap table (keys.mjs); the help dialog and the leader hints are generated from it.
 // A feature adds keys with keys.map({mode, keys, when, run, help, hint, group}) and commands with keys.command({...}).
-const typing=event=>state.themeEditorOpen||!!event.target.closest?.('input,textarea,select,[contenteditable="true"],dialog,[role=dialog],[role=listbox]:not([data-queue-list]),[data-slot=select-trigger],[data-slot=select-content],[data-slot=popover-content],[role=switch],[data-slot=pagination]');
+const typing=event=>state.themeEditorOpen||!!event.target.closest?.('input,textarea,select,[contenteditable="true"],dialog,[role=dialog],[role=listbox]:not([data-queue-list]),[data-slot=select-trigger],[data-slot=select-content],[data-slot=popover-content],[role=switch],[data-slot=pagination]:not([data-explorer-pagination])');
+const nestedEscapes=new WeakSet();
+document.addEventListener('keydown',event=>{if(event.key==='Escape'&&document.querySelector('[data-slot="select-content"][data-open],[data-slot="popover-content"][data-open]'))nestedEscapes.add(event);},true);
 function pageEscape(event){
+  if(nestedEscapes.has(event))return;
   // React Sheets (What changed, chat) handle their own Escape; the panel Sheets (panel-sheet.tsx) leave it to the app.
   if(event.target.closest?.('.cm-editor'))return;  // Vim's Escape stays in the scratch editor; Escape in normal mode leaves it.
   if(state.themeEditorOpen||event.target.closest('[data-slot=popover-content],[data-slot=select-content],[data-slot=sheet-content]:not([data-panel-sheet])')||modalOpen())return;
   event.preventDefault();
+  if(!$('#picker').hidden){closePicker();return;}
   if(!$('#thread-panel').hidden&&$('#thread-panel').contains(document.activeElement)){leaveThreadPanel();return;}
   if(panels.isOpen()&&panels.contains(document.activeElement)){panels.close();return;}
   if(state.view==='search'){if(!search.escape())goBack();return;}
@@ -1516,7 +1458,8 @@ keys.map(
   {mode:['normal','visual'],keys:'<F10>',global:true,run(){keys.clear();if(visual.active())visual.exit();if(!state.themeEditorOpen)closeContext();setThemeEditorOpen(!state.themeEditorOpen);}},
   // Leader, in the order the status line lists it.
   {keys:'<Space>/',run:()=>openSearch(),hint:'search',group:L,help:'Search every passage: exact words or meaning'},
-  {keys:'<Space>e',run:()=>openPicker(),hint:'files',group:L,help:'Open files; filter by name or contents'},
+  {keys:'<Space>,e',run:togglePicker,hint:'files',group:L},
+  {keys:'<Space>e',run:togglePicker,hint:'files',group:L,help:'Toggle the File Explorer column'},
   {keys:'<Space>h',run:()=>navigate(null),hint:'home',group:L,help:'Return to your homepage'},
   {keys:'<Space>r',run:inShell('r',()=>queue.toggle()),hint:'queue',group:L,help:'Reading queue: Up next and History (`Tab` switches)'},
   {keys:'<Space>n',run:inShell('n',()=>queue.next()),hint:'next',group:L,help:'Open the next document in your queue'},
@@ -1627,7 +1570,7 @@ keys.intercept(event=>{
 keys.intercept(event=>{
   if(!split?.active()||event.ctrlKey||event.metaKey||event.altKey||typing(event)||keys.mode()!=='normal'||keys.pending().keys.length)return false;
   if([' ',',','?',':','Escape','F10','Shift','Control','Alt','Meta','CapsLock'].includes(event.key))return false;
-  if(!$('#queue-panel').hidden||chatOpen()||modalOpen())return false;
+  if(!$('#picker').hidden||!$('#queue-panel').hidden||chatOpen()||modalOpen())return false;
   event.preventDefault();split.refocus();return true;
 });
 keys.intercept(event=>{
@@ -1719,7 +1662,7 @@ keys.command({name:'threads',aliases:['margins'],help:'This document’s margin 
 keys.command({name:'queue',help:'Your reading queue',run:()=>queue.toggle()});
 keys.command({name:'next',help:'The next document in your queue',run:()=>queue.next()});
 keys.command({name:'home',help:'Your homepage',run:()=>navigate(null)});
-keys.command({name:'files',aliases:['ls'],help:'The stacks: every document, by folder',run:()=>openPicker('all')});
+keys.command({name:'files',aliases:['ls'],help:'Open the File Explorer column',run:()=>openPicker('all')});
 keys.command({name:'search',args:'[words]',help:'Search every passage; with words, search for them',run(text){if(!text){openSearch();return;}location.hash='#search='+param(new URLSearchParams({q:text.slice(0,1000)}).toString());}});
 keys.command({name:'backstage',aliases:['admin'],help:'Reader Admin: its Overview of running work, the inbox and index health',run:()=>openAdmin()});
 keys.command({name:'settings',help:'Settings, in Reader Admin',run:()=>openSettings()});
@@ -1827,7 +1770,7 @@ function paneStatus(){
 }
 /** While split, the one status bar shows the focused pane: its mode, breadcrumb, place and number. */
 function paintSplitStatus(){
-  if(modalOpen()||!$('#queue-panel').hidden||chatOpen())return false;
+  if(!$('#picker').hidden||modalOpen()||!$('#queue-panel').hidden||chatOpen())return false;
   const focused=split.focused();if(!focused)return false;
   // The shell's own keymap state (Ctrl-w, the leader, the command line) comes before the pane's mode.
   const owned=keys.status(),mode=owned?.mode||focused.status?.mode||'NORMAL';

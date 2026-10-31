@@ -34,10 +34,10 @@ The web server does not rebuild indexes or download models at startup.
 
 | Key or control | Behavior |
 | --- | --- |
-| Space, then e; comma, then e | Documents browser; recent opened works first |
-| Documents: j / k, arrows, Enter | Choose and open a document |
-| Documents: `/` or Filter | Reveal and focus fuzzy/content/semantic filtering |
-| Documents: Escape | Clear/hide an active filter, then close on a second Escape |
+| Space, then e; comma, then e; Space, comma, e | Toggle the left File Explorer column |
+| File Explorer: j / k, arrows, Enter | Choose and open an article beside the explorer |
+| File Explorer: `/` | Focus the article filter |
+| File Explorer: Escape | Close the column; a nested Select closes first |
 | `/`, Enter | Find literal text in the open document and visit the match |
 | n / N | Next / previous occurrence |
 | j / k | Scroll, or next / previous spread in paged reading; on the homepage, next / previous piece of the issue |
@@ -97,24 +97,31 @@ VISUAL shares Thread's color, COMMAND Leader's and the list panels Browse's. Sem
 palette and use separate light/dark lightness levels. The printed mode remains
 the primary label; recognizing a color is not required to use it.
 
-Documents opens with the filter and search-method controls hidden. Keyboard focus
-starts on the document tree, so ordinary browsing never starts typing into a
-search field. Filtering is explicit and retains folder scope when used from a
-breadcrumb. The three search methods appear only while filtering.
+File Explorer is a nonmodal left column, opened with `:files` (`:ls`) and toggled
+with leader-e (Space or comma; Space-comma-e also works). Escape closes it, including
+from its filter input. A nested Select consumes Escape before the explorer. The
+column reserves width in continuous, two-page and split layouts and coexists with
+the right discussion/chat dock. On narrow screens it uses 46% of the viewport.
+Selecting an article loads it in the main content area (or focused split pane),
+leaving the explorer open. Closing and reopening preserves filters, sort and page.
 
-Documents follows the [shadcn File Tree pattern](https://ui.shadcn.com/docs/ai-elements/base/file-tree):
-Collapsible folders and Button file rows, grouped by their actual library paths.
-Recent files remain the default selection; grouping retains first appearance in
-the recent or search ranking. Folders initially expand to expose those files.
-Use j/k or Up/Down through visible folders/files, h/l or Left/Right to collapse,
-expand or move to the parent/child, and Enter to toggle a folder or open a file.
-Search-field arrows continue to select matching files and reveal their parents.
+The flat article list uses the complete grouped library inventory, independent of
+the recent-files preference. It filters title, author, project, type and path by
+case-insensitive words, with optional Read/Unread status. Sort by newest, oldest,
+title or author; missing dates follow dated articles. Filtering and sorting happen
+before pagination into 20-article pages. The count states the visible range and
+total matches. This is metadata filtering; `:search` remains the full-text,
+fuzzy and semantic search interface, also reached through **Search contents** at
+the bottom of the explorer. Browsing never creates read receipts; opening
+a document retains the existing exact-version receipt behavior.
 
-Read files use muted title text and a check mark. Unread files keep normal text
-and an unread pip. This uses the selected participant's exact-version receipt,
-including fuzzy, content and semantic search results and nonprimary attachments.
-A changed source returns to unread styling. Browsing, collapsing folders and
-searching do not mark documents read; opening a document does.
+Atomic composition lives in `web/src/explorer/`: existing shadcn Button, Input,
+Select, Field, Badge, Item, Separator, Empty and Pagination primitives are the
+atoms. ArticleRow, ExplorerFilters and ExplorerPagination are molecules. The
+FileExplorer organism composes them and owns filter/page state. The shell reserves
+the column and routes article opening through the existing navigation boundary.
+Rows are native buttons, with j/k or arrows to move, Enter to open, `/` to focus
+the filter and q to queue the focused article. Tab reaches every control.
 
 Settings offers paired palettes including **Monocolor · Light / Dark**, **Ink / Paper**, **Orchid · Light / Dark**,
 and **Harvest · Light / Dark**. The footer's light/dark control preserves the
@@ -425,12 +432,12 @@ Vietnamese) are not downloaded; those characters fall back to the role's stack.
 
 Beside the mode indicator, a breadcrumb trail shows **Library**, the containing
 folders and the current filename. Library returns home; a folder opens the file
-picker scoped to that path. The scope applies before ranking in fuzzy search and
-is passed to content/semantic search as well. **All folders** removes the scope.
-Folder browsing uses the same catalog/search coverage as the picker, rather than
-promising a complete filesystem listing. Deep paths collapse older ancestors into
+explorer scoped to that path. Scope uses a path-segment boundary and applies
+before metadata filtering and paging. **All folders** removes it. Folder browsing
+uses the same grouped library coverage as the explorer, rather than promising a
+complete filesystem listing. Deep paths collapse older ancestors into
 an ellipsis menu; narrow screens put all containing folders in that menu. Arrow
-keys choose a parent, Enter opens its picker, and Escape closes the menu and
+keys choose a parent, Enter opens its explorer, and Escape closes the menu and
 returns focus. The current filename has `aria-current="page"` and exposes the full
 path on hover. The trail follows the composition in the
 [shadcn breadcrumb reference](https://ui.shadcn.com/docs/components/base/breadcrumb),
@@ -3398,8 +3405,8 @@ save. Back up this directory with the rest of the private vault.
 
 ## Search page
 
-**Space /** opens Search from anywhere (the route is `#search=…`). The picker's `/`
-filter stays for quick navigation by name. The page remembers its query and filters
+**Space /** opens Search from anywhere (the route is `#search=…`). The explorer’s `/`
+focuses metadata filtering for quick navigation. The page remembers its query and filters
 for the browser session, and the URL carries them, so a search is linkable:
 `#search=` holds an encoded query string with `q`, `mode` (`words` or `meaning`;
 Best is the default and is omitted), repeated `project`, `author` and `type`,
@@ -3524,10 +3531,10 @@ and errors. A missing, stale or resource-blocked index is not silently rebuilt o
 substituted with fake semantic results. Search results are capped at 30.
 The server runs one content or semantic search at a time (the index engine is not
 shared between concurrent queries); another waits up to 8 seconds (`SEARCH_WAIT`)
-for it and is then refused with HTTP 429. The Documents picker retries a 429 after
-0.5, 1, 2, 4 and 8 seconds, showing *Another search is running; retrying…*, and,
-if the search never runs, says so instead of showing the no-results note. The search
-page waits and retries the same way (see `GET /api/search/page` above).
+for it and is then refused with HTTP 429. The search page retries after 0.5, 1,
+2, 4 and 8 seconds and reports a failure if contention persists, rather than
+showing a no-results note (see `GET /api/search/page` above). Explorer metadata
+filtering runs locally and does not contend for this search worker.
 
 Opening a document automatically records the displayed source version as read for
 the selected participant. Opening a thread records its inspected current highlight,
@@ -4107,8 +4114,8 @@ The small React/Base UI controls layer lives in `web/`; the document renderer,
 dashboard, source coordinates and persistence remain in the existing modules.
 `web/components.json` selects the official `base-nova` registry. Generated component
 sources are retained under `web/src/components/ui/` and composed in
-`web/src/reader-controls.tsx`; the Documents tree composition lives in
-`web/src/document-tree.tsx`. Existing theme tokens feed Tailwind semantic colors;
+`web/src/reader-controls.tsx`; the File Explorer composition lives in
+`web/src/explorer/`. Existing theme tokens feed Tailwind semantic colors;
 Tailwind preflight is not enabled. Explicit cascade layers keep legacy styles
 from overriding the component utilities.
 
