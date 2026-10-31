@@ -13,17 +13,23 @@ const PROFILES={desktop:{viewport:{width:1440,height:900}},tablet:devices['iPad 
 // The frozen test theme pair (tests/test_theme_fixture.py), so screenshots do not change when product themes do.
 const THEMES=['user-reader-test','user-reader-test-dark'];
 (async()=>{
- const fixture=spawn(process.env.READER_PYTHON||'.venv/bin/python',['tests/web_fixture.py','--maintenance','--inbox','--dashboard'],{stdio:['ignore','pipe','inherit']});let browser;
+ // One fixture per profile: its two themes run side by side, and three servers keep each within the admission
+ // limits a single reader's server enforces (more pages on one server meet 429s).
+ const fixtures=[];
+ const start=()=>{const fixture=spawn(process.env.READER_PYTHON||'.venv/bin/python',['tests/web_fixture.py','--maintenance','--inbox','--dashboard'],{stdio:['ignore','pipe','inherit']});fixtures.push(fixture);
+  return new Promise((resolve,reject)=>{createInterface({input:fixture.stdout}).once('line',line=>resolve(JSON.parse(line).url));fixture.once('exit',code=>reject(new Error('Fixture exited '+code)));});};
+ let browser;
  const failures=[];
  try{
-  const {url}=await new Promise((resolve,reject)=>{createInterface({input:fixture.stdout}).once('line',line=>resolve(JSON.parse(line)));fixture.once('exit',code=>reject(new Error('Fixture exited '+code)));});
   browser=await chromium.launch({headless:true,executablePath:process.env.READER_CHROME||'/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',args:['--disable-gpu','--disable-background-networking','--disable-breakpad','--disable-crash-reporter','--disk-cache-size=10485760']});
   mkdirSync(shots,{recursive:true});
-  for(const [profile,options] of Object.entries(PROFILES))for(const theme of THEMES){
+  await Promise.all(Object.entries(PROFILES).map(async([profile,options])=>{const url=await start();await Promise.all(THEMES.map(async theme=>{
    const context=await browser.newContext({...options,reducedMotion:'reduce'});
    await context.addInitScript(value=>{try{localStorage.setItem('reader.preferences.v1',value);}catch{}},JSON.stringify({smooth:false,theme,nextReads:false,backlinks:false}));
    const page=await context.newPage(),errors=[];
-   page.on('pageerror',e=>errors.push(e.message));page.on('console',m=>{if(m.type()==='error'&&!/status of 50[03]/.test(m.text()))errors.push(m.text());});
+   // 503 and 500 are states some pages show; 429 is the server's admission control refusing a poll while suites run
+   // side by side, which the next poll recovers from. Page errors and other console errors still fail the review.
+   page.on('pageerror',e=>errors.push(e.message));page.on('console',m=>{if(m.type()==='error'&&!/status of (50[03]|429)/.test(m.text()))errors.push(m.text());});
    for(const section of SECTIONS){
     const name=`${section}-${profile}-${theme}`;errors.length=0;
     try{
@@ -33,13 +39,13 @@ const THEMES=['user-reader-test','user-reader-test-dark'];
      const overflow=await page.evaluate(()=>{const doc=document.documentElement,wide=[...document.querySelectorAll('#admin-content *')].filter(el=>el.getBoundingClientRect().right>doc.clientWidth+1).map(el=>el.id||el.getAttribute('data-slot')||el.className.toString().slice(0,60)).slice(0,5);return {scroll:doc.scrollWidth-doc.clientWidth,wide};});
      await page.screenshot({path:`${shots}/${name}.png`,fullPage:true});
      assert.ok(overflow.scroll<=1,`horizontal page overflow ${overflow.scroll}px: ${overflow.wide.join(', ')}`);
-     assert.deepEqual(errors,[]);
+     assert.deepEqual(errors,[],"page or console errors: "+JSON.stringify(errors));
      console.log('ok   '+name);
     }catch(error){failures.push(name);console.log('FAIL '+name+': '+String(error?.message||error).split('\n')[0].slice(0,300));}
    }
    await context.close();
-  }
+  }));}));
   console.log(`Screenshots: ${shots}`);
- }finally{await browser?.close();fixture.kill();}
+ }finally{await browser?.close();for(const fixture of fixtures)fixture.kill();}
  if(failures.length){console.log(failures.length+' failed');process.exit(1);}
 })().catch(error=>{console.error(error);process.exit(1);});

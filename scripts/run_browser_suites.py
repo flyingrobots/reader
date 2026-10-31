@@ -29,7 +29,9 @@ TIMES = OUT / 'durations.json'
 
 
 def suites(patterns):
-    found = sorted(path.stem for path in (ROOT / 'tests').glob('web_*.cjs'))
+    # Shared helpers (web_wait.cjs, web_clock.cjs) export functions and never launch a browser.
+    found = sorted(path.stem for path in (ROOT / 'tests').glob('web_*.cjs')
+                   if 'chromium' in (text := path.read_text()) or 'module.exports' not in text)
     return [name for name in found if not patterns or any(pattern in name for pattern in patterns)]
 
 

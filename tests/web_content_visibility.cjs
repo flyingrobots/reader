@@ -11,6 +11,10 @@ const {sanitizerReport,waitFor,settled}=require('./web_wait.cjs');  // #151
 // Lays every block out, as before the rule: the baseline each check compares against.
 const LAID_OUT='#article>*{content-visibility:visible!important;contain-intrinsic-size:none!important}';
 const PATH='library/large.md';
+// Three independent parts, so the runner can run them side by side: this file runs `layout`, and
+// web_content_visibility_glide.cjs and web_content_visibility_sees{,_smooth}.cjs run the others (READER_CV_PART; READER_CV_SMOOTH
+// picks native or smooth scrolling for `sees`, each against the same laid-out reference).
+const PART=process.env.READER_CV_PART||'layout',part=name=>PART===name;
 (async()=>{
  const fixture=spawn(process.env.READER_PYTHON||'.venv/bin/python',['tests/web_fixture.py','--perf'],{stdio:['ignore','pipe','inherit']});let browser;
  try{
@@ -35,7 +39,7 @@ const PATH='library/large.md';
     await page.waitForFunction(()=>document.querySelector('#find-count').textContent==='1 / 1',null,{timeout:10000});await page.keyboard.press('Enter');};
 
   // Scope: continuous reading only; margin pins stay visible; two-page columns lay out every block.
-  {const {context,page,errors}=await open({layout:'scroll',smooth:false});
+  if(part('layout')){const {context,page,errors}=await open({layout:'scroll',smooth:false});
    await page.waitForFunction(()=>document.querySelectorAll('.annotation-pin').length===1,null,{timeout:10000});
    const scope=await page.evaluate(()=>({block:getComputedStyle(document.querySelector('#article > p[data-source-start]')).contentVisibility,pin:getComputedStyle(document.querySelector('.annotation-pin')).contentVisibility}));
    // Warm opens inside the app, alternating with and without the rule: the document is shown at least 20% sooner.
@@ -52,14 +56,14 @@ const PATH='library/large.md';
    assert.ok(skipped<=laidOut*.8,`time to visible improves by at least 20%: ${skipped} ms vs ${laidOut} ms`);
    assert.deepEqual(scope,{block:'auto',pin:'visible'},'scroll-mode blocks skip offscreen layout; pins never do');
    assert.deepEqual(errors,[]);await context.close();}
-  {const {context,page,errors}=await open({layout:'spread',smooth:false,pageTurn:'slide'});
+  if(part('layout')){const {context,page,errors}=await open({layout:'spread',smooth:false,pageTurn:'slide'});
    assert.ok(await page.evaluate(()=>document.body.classList.contains('two-page')));
    assert.equal(await page.evaluate(()=>getComputedStyle(document.querySelector('#article > p[data-source-start]')).contentVisibility),'visible','two-page reading lays out every block');
    assert.deepEqual(errors,[]);await context.close();}
 
   // Spacing is unchanged: blocks whose children's margins collapse through them (quotes, lists, embeds, figures,
   // wrappers) are never contained, and every block keeps its top and height once laid out.
-  {const {context,page,errors}=await open({layout:'scroll',smooth:false});
+  if(part('layout')){const {context,page,errors}=await open({layout:'scroll',smooth:false});
    const rows=await page.evaluate(async css=>{
      const article=document.querySelector('#article'),t=document.createElement('template');
      t.innerHTML='<blockquote><p>Quoted one.</p><p>Quoted two.</p></blockquote><ul><li><p>Loose one.</p></li><li><p>Loose two.</p></li></ul><ul><li>Tight <ul><li>nested</li></ul></li></ul><ol><li>One</li></ol><table><tr><td>a</td></tr></table><hr><details><summary>More</summary><p>Inside</p></details><div class="document-embed"><h1>Embedded</h1><p>Para</p></div><figure><figcaption>Caption</figcaption></figure><div><p>Wrapped</p></div><h2>Heading</h2><p>Paragraph</p><pre>code</pre>';
@@ -75,7 +79,7 @@ const PATH='library/large.md';
   // Smooth scrolling shows the page a little behind its scroll position while it glides (#156). A jump made then
   // measures what is shown, so it lands at its line however far the glide still has to go. GSAP's ticker is put
   // to sleep to hold the glide still: the shown page stays where it is while the scroll position moves 3000 px.
-  {const {context,page,errors}=await open({layout:'scroll',smooth:true});
+  if(part('glide')){const {context,page,errors}=await open({layout:'scroll',smooth:true});
    await page.waitForFunction(()=>document.querySelectorAll('.annotation-pin').length===1,null,{timeout:10000});
    const hit=()=>{const current=CSS.highlights.get('reader-current');return current?.size?Math.round([...current][0].getBoundingClientRect().top):null;};
    await find(page,'distinct observation for section 390');await steady(page,hit);
@@ -93,7 +97,7 @@ const PATH='library/large.md';
   // article stops changing height. Here the article grows by 30000 px and keeps changing for 2.5 s after G, as far
   // blocks do while they are laid out during a long glide, so the smoother measures again only after its glide has
   // ended. The page must still arrive where it is scrolled to, not wait at the old end (#156).
-  {const {context,page,errors}=await open({layout:'scroll',smooth:true},{path:'library/other.md'});
+  if(part('glide')){const {context,page,errors}=await open({layout:'scroll',smooth:true},{path:'library/other.md'});
    const caughtUp=()=>{const content=document.querySelector('#smooth-content').getBoundingClientRect();return {shown:Math.abs(content.top+scrollY)<1,_y:scrollY,_shown:-content.top,_page:document.documentElement.scrollHeight,_window:innerHeight};};
    await waitFor(page,'the smoother is at rest',caughtUp);await settled(page,'opened');
    await page.evaluate(()=>{const tall=document.createElement('div');tall.id='late-growth';tall.style.height='30000px';document.querySelector('#article').append(tall);
@@ -103,6 +107,7 @@ const PATH='library/large.md';
    await waitFor(page,'the page arrives at the end it was sent to',()=>{const content=document.querySelector('#smooth-content').getBoundingClientRect(),end=document.documentElement.scrollHeight-innerHeight;
      return {end:Math.abs(scrollY-end)<2,shown:Math.abs(content.top+scrollY)<1,_y:scrollY,_shown:-content.top,_end:end};},{timeout:10000});
    assert.deepEqual(errors,[]);await context.close();}
+  if(part('sees')){
   // What the reader sees, with the rule and with every block laid out, in native and smooth scrolling.
   const facts=async(smooth,laidOut)=>{
     const {context,page,errors}=await open({layout:'scroll',smooth},{laidOut});const out={};
@@ -146,7 +151,7 @@ const PATH='library/large.md';
   };
   // The reference: native scrolling with every block laid out (smooth scrolling glides, so it gets a little slack).
   const reference=await facts(false,true);
-  for(const smooth of [false,true]){
+  for(const smooth of [false,true].filter(mode=>!process.env.READER_CV_SMOOTH||String(mode)===process.env.READER_CV_SMOOTH)){
     const label=smooth?'smooth scrolling':'native scrolling',skipped=await facts(smooth,false),slack=smooth?8:2;
     console.log(label,JSON.stringify({skipped:{...skipped,sources:skipped.sources.length},reference:{...reference,sources:reference.sources.length}}));
     assert.equal(skipped.sources,reference.sources,label+': the data-source-* sequence is unchanged');
@@ -162,6 +167,7 @@ const PATH='library/large.md';
     assert.deepEqual(skipped.errors,[]);
   }
   assert.deepEqual(reference.errors,[]);
-  console.log('Content visibility passed: shown sooner, same source coordinates, pins, find, heading and outline jumps, bookmark and reading cursor; smooth scrolling keeps its place; two-page unaffected.');
+  }
+  console.log('Content visibility ('+PART+') passed: '+({layout:'shown sooner, scope, two-page columns and spacing unchanged',glide:'jumps during a smooth glide and a growing article land where scrolled',sees:'same source coordinates, pins, find, heading and outline jumps, bookmark and reading cursor in native and smooth scrolling'})[PART]+'.');
  }finally{await browser?.close();if(fixture.exitCode===null&&fixture.signalCode===null){fixture.kill('SIGTERM');await new Promise(resolve=>fixture.once('exit',resolve));}}
 })().catch(error=>{console.error(error);process.exitCode=1;});

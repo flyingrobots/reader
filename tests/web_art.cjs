@@ -18,7 +18,7 @@ const median=values=>{const s=[...values].sort((a,b)=>a-b);return s.length?s[s.l
 (async()=>{
  let browser,fixture,auto;
  try{
-  const first=await start([]);fixture=first.fixture;const url=first.url,now=first.now;
+  const first=await start(['--art-delay','0.05']);fixture=first.fixture;const url=first.url,now=first.now;
   browser=await chromium.launch({headless:true,executablePath:process.env.READER_CHROME||'/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',args:['--use-angle=swiftshader','--enable-unsafe-swiftshader','--disable-background-networking','--disable-breakpad','--disable-crash-reporter','--disk-cache-size=10485760']});
   mkdirSync('.reader/web-dev',{recursive:true});
   const open=async({motion='reduce',prefs={},viewport={width:1300,height:900},webgl=true,base=url}={})=>{

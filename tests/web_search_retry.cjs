@@ -25,9 +25,13 @@ const {chromium}=require(process.env.READER_PLAYWRIGHT||'playwright-core');
   assert.equal(calls,3,'two refusals, then the retried search');
   assert.match(await page.locator('#search-label').textContent(),/^1 result /);
   // A server that stays busy: after the retries, say the search did not run rather than "try another phrase".
+  // The backoff (0.5 + 1 + 2 + 4 + 8 s) runs on Playwright's clock: virtual time advances in steps until the outcome, and
+  // the requests in between are real. The suite takes a second here instead of sixteen.
+  await page.clock.install();
+  const until=async(test,why)=>{for(let i=0;i<200;i++){if(await page.evaluate(test))return;await page.clock.runFor(250);await new Promise(resolve=>setTimeout(resolve,15));}throw new Error('Timed out: '+why);};
   busy=99;calls=0;
   await page.locator('#file-query').fill('another phrase');
-  await page.waitForFunction(()=>document.querySelector('#search-label').textContent==='Search unavailable',null,{timeout:25000});
+  await until(()=>document.querySelector('#search-label').textContent==='Search unavailable','the picker gives up');
   assert.equal(calls,6,'the first try and five retries');
   assert.match(await page.locator('#file-results').textContent(),/The search didn’t run/);
   assert.doesNotMatch(await page.locator('#file-results').textContent(),/Try another phrase/);
@@ -41,8 +45,9 @@ const {chromium}=require(process.env.READER_PLAYWRIGHT||'playwright-core');
   assert.equal(await page.locator('[data-search-empty], [data-search-results] [data-empty]').count(),0,'no empty or error state after the retry');
   // A page server that stays busy: say the search couldn’t finish, never that nothing matched or to try another phrase.
   pageBusy=99;pageCalls=0;
+  await page.clock.install();
   await page.locator('#search-query').fill('another observation');
-  await page.locator('[data-search-results] [data-state=error]').waitFor({timeout:25000});
+  await until(()=>!!document.querySelector('[data-search-results] [data-state=error]'),'the search page gives up');
   assert.equal(pageCalls,6,'the first try and five retries');
   const said=await page.locator('[data-search-results]').textContent();
   assert.match(said,/Search couldn’t finish/);assert.doesNotMatch(said,/Nothing matched|another phrase/i);
