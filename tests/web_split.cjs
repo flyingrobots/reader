@@ -61,6 +61,8 @@ const shots=process.env.READER_SHOTS||'.reader/web-dev';
    await page.keyboard.press('Space');await page.keyboard.press('e');await one.locator('#picker:not([hidden])').waitFor();
    await page.keyboard.press('/');await page.keyboard.type('Another');await one.locator('[data-article-row]',{hasText:'Another thought'}).first().waitFor();await page.keyboard.press('Enter');
    await one.waitForFunction(()=>document.querySelector('.document-title')?.textContent==='Another thought'&&!document.querySelector('.resume-pending'));
+   assert.ok(await one.locator('#picker').isVisible(),'the nonmodal Explorer stays open after selecting an article');
+   await page.keyboard.press('Escape');await one.waitForFunction(()=>document.querySelector('#picker').hidden);
    await page.waitForFunction(()=>document.querySelector('#status-location').textContent.includes('other.md'));
    assert.equal(await title(two),'A quiet thought');
    assert.equal(await page.evaluate(()=>history.length),lengthBefore+1,'only the split itself added a history entry; panes replace theirs');
