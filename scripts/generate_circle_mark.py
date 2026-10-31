@@ -28,7 +28,7 @@ def main():
     left, bottom, right, top = bounds.bounds
     scale = 132 / (top - bottom)
     width = (right - left) * scale
-    dot_radius, gap = 22, 14
+    dot_radius, gap = 24, 10
     start = (256 - (width + gap + dot_radius * 2)) / 2 + 3
     path = SVGPathPen(glyphs, ntos=lambda n: format(n, '.3f').rstrip('0').rstrip('.') if n else '0')
     glyph.draw(TransformPen(path, (scale, 0, 0, -scale, start - left * scale, 62 + top * scale)))

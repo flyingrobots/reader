@@ -2,13 +2,13 @@
    Polls GET /api/speak/<id> every two seconds while the page is visible and hides
    itself when the daemon reports a terminal state. Transport buttons are enabled
    only while this utterance is the one AI-TTS is playing (the server enforces it too). */
-import {useSyncExternalStore} from 'react';
+import {useState,useSyncExternalStore} from 'react';
 import {Pause, Play, SkipForward, StepBack, StepForward, Volume2} from 'lucide-react';
 import {toast} from 'sonner';
 import {Button} from './components/ui/button';
 import {ButtonGroup} from './components/ui/button-group';
 
-export type Speaking={id:string;state:string|null;held:boolean;current:boolean;segment_count?:number|null;completed_segments?:number|null;segment?:{number:number;count:number}|null;error?:string|null;terminal?:boolean};
+export type Speaking={id:string;path?:string;source_sha256?:string;state:string|null;held:boolean;current:boolean;segment_count?:number|null;completed_segments?:number|null;segment?:{number:number;count:number}|null;error?:string|null;terminal?:boolean};
 type Api=(path:string,payload?:unknown)=>Promise<any>;
 const TERMINAL=new Set(['Played','Skipped','Cancelled','Failed']);
 let speaking:Speaking|null=null,api:Api|null=null,timer:ReturnType<typeof setTimeout>|undefined,failures=0,generation=0;
@@ -29,7 +29,7 @@ async function poll(){
       if(next.state==='Failed')toast.error('AI-TTS couldn’t speak that',{description:next.error||undefined,duration:8000});
       set(null);return;
     }
-    set(next);
+    set({...next,path:speaking?.path,source_sha256:speaking?.source_sha256});
   }catch(error){
     if(mine!==generation)return;
     if(++failures>=3){toast.error('Lost track of AI-TTS playback',{description:error instanceof Error?error.message:String(error),duration:8000});set(null);return;}
@@ -52,18 +52,25 @@ function label(s:Speaking){
   if(s.state==='Synthesizing')return 'Preparing speech';
   return s.held?'Queued · held':'Queued';
 }
-export function SpeechControl(){
+export function SpeechControl({expanded=false}:{expanded?:boolean}={}){
   const s=useSyncExternalStore(subscribe,()=>speaking);
   if(!s)return null;
   const paused=s.state==='Paused'||(s.current&&s.held),text=label(s);
-  return <span className="inline-flex items-center gap-1.5 whitespace-nowrap text-foreground" data-speech-control="" data-speech-state={s.state||''} data-current={s.current?'':undefined} role="group" aria-label="AI-TTS playback">
+  return <span className={expanded?"inline-flex flex-wrap items-center gap-1.5 text-foreground":"inline-flex items-center gap-1.5 whitespace-nowrap text-foreground"} data-speech-control="" data-speech-state={s.state||''} data-current={s.current?'':undefined} role="group" aria-label="AI-TTS playback">
     <Volume2 aria-hidden="true" className="size-3.5 text-primary max-[520px]:text-muted-foreground"/>
-    <span className="text-[10px] text-muted-foreground max-[700px]:hidden" data-speech-label="" aria-live="polite">{text}</span>
+    <span className={expanded?"text-sm text-muted-foreground":"text-[10px] text-muted-foreground max-[700px]:hidden"} data-speech-label="" aria-live="polite">{text}</span>
     <ButtonGroup>
-      <Button variant="ghost" size="icon-xs" data-speech-extra="" className="max-[700px]:hidden" aria-label="Previous segment" title="Previous segment" disabled={!s.current} onClick={()=>act('previous_segment')}><StepBack/></Button>
-      <Button variant="ghost" size="icon-xs" data-speech-action={paused?'resume':'pause'} aria-label={paused?'Resume speech':'Pause speech'} title={paused?'Resume':'Pause'} disabled={!s.current} onClick={()=>act(paused?'resume':'pause')}>{paused?<Play/>:<Pause/>}</Button>
-      <Button variant="ghost" size="icon-xs" data-speech-extra="" className="max-[700px]:hidden" aria-label="Next segment" title="Next segment" disabled={!s.current} onClick={()=>act('next_segment')}><StepForward/></Button>
-      <Button variant="ghost" size="icon-xs" data-speech-extra="" className="max-[700px]:hidden" aria-label={s.current?'Skip this speech':'Cancel queued speech'} title={s.current?'Skip':'Cancel'} onClick={()=>act(s.current?'skip':'cancel')}><SkipForward/></Button>
+      <Button variant="ghost" size={expanded?"icon-sm":"icon-xs"} data-speech-extra="" className={expanded?undefined:"max-[700px]:hidden"} aria-label="Previous segment" title="Previous segment" disabled={!s.current} onClick={()=>act('previous_segment')}><StepBack/></Button>
+      <Button variant="ghost" size={expanded?"icon-sm":"icon-xs"} data-speech-action={paused?'resume':'pause'} aria-label={paused?'Resume speech':'Pause speech'} title={paused?'Resume':'Pause'} disabled={!s.current} onClick={()=>act(paused?'resume':'pause')}>{paused?<Play/>:<Pause/>}</Button>
+      <Button variant="ghost" size={expanded?"icon-sm":"icon-xs"} data-speech-extra="" className={expanded?undefined:"max-[700px]:hidden"} aria-label="Next segment" title="Next segment" disabled={!s.current} onClick={()=>act('next_segment')}><StepForward/></Button>
+      <Button variant="ghost" size={expanded?"icon-sm":"icon-xs"} data-speech-extra="" className={expanded?undefined:"max-[700px]:hidden"} aria-label={s.current?'Skip this speech':'Cancel queued speech'} title={s.current?'Skip':'Cancel'} onClick={()=>act(s.current?'skip':'cancel')}><SkipForward/></Button>
     </ButtonGroup>
   </span>;
+}
+
+/** The article-title action shares the footer's exact utterance and transport store. */
+export function ArticleSpeechControl({path,sourceSha,onRead}:{path:string;sourceSha:string;onRead:()=>Promise<unknown>}){
+  const s=useSyncExternalStore(subscribe,()=>speaking),[pending,setPending]=useState(false);
+  if(s?.path===path&&s.source_sha256===sourceSha)return <SpeechControl expanded/>;
+  return <Button id="speak-article" variant="outline" size="sm" disabled={pending} onClick={async()=>{setPending(true);try{await onRead();}finally{setPending(false);}}}><Volume2 data-icon="inline-start"/>{pending?'Queuing…':'Read aloud'}</Button>;
 }

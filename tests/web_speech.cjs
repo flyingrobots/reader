@@ -26,8 +26,9 @@ const {scrollUntilHeld}=require('./web_wait.cjs');
   const toast=text=>page.locator('[data-sonner-toast]').filter({hasText:text}).last();
   const leader=async key=>{await page.locator('#main').focus();await page.keyboard.press('Space');await page.keyboard.press(key);};
   await page.goto(url+'#read='+encodeURIComponent('library/thought.md'));await page.locator('#article [data-source-start]').first().waitFor();await page.waitForFunction(()=>!document.querySelector('.resume-pending'));
-  // Footer button: the whole article, Markdown after the frontmatter, Reader's stable source.
-  await page.locator('#speak-article').click();await toast('Queued for AI-TTS.').waitFor();
+  // Article-title button: the whole article, Markdown after the frontmatter, Reader's stable source.
+  assert.equal(await page.locator('#article-speech #speak-article').textContent(),'Read aloud');await page.locator('#speak-article').click();await toast('Queued for AI-TTS.').waitFor();
+  await page.locator('#article-speech [data-speech-control]').waitFor();assert.equal(await page.locator('#article-speech #speak-article').count(),0);
   let sent=submits().at(-1);
   assert.deepEqual({origin:sent.origin,source:sent.source,sensitivity:sent.sensitivity,priority:sent.priority,content_format:sent.content_format},{origin:'Reader',source:'Reader',sensitivity:'confidential',priority:'normal',content_format:'markdown'});
   assert.ok(sent.text.trimStart().startsWith('# A quiet thought')&&!sent.text.includes('author: Ada')&&sent.text.includes('chapter 44'),'whole body, no frontmatter');

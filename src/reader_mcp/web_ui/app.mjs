@@ -1,3 +1,4 @@
+import {sectionsForIssue,sectionArticles} from './section-groups.mjs';
 import {bodyOf, codePointIndex, escapeHTML as esc, findFragment, formatDate, localizeLibrary, normalize, scopeOf, slugHeadings, occurrences, plainQuote, plural, projectSource, projectText, rawCodePoints, sourceRangeForQuote, visibleQuote} from './logic.mjs';
 import {installReading} from './reading.mjs';
 import {createTokenFetch} from './request.mjs';
@@ -20,7 +21,7 @@ import {calloutPlugin} from './callouts.mjs';
 import {drawable,fetchShape,paintShape} from './shapes.mjs';
 import {artJobs,fetchArt,focusArt,forgetArt,hasArt,paintArt,paintArtThumb,paintPlaceholder} from './art.mjs';
 import {closeArtFocus,focusOpen} from './art-focus.mjs';
-import {openScratchSave,closeAppDialogs,openAnnotationDialog,openSpeakMenu,openShellDialog,renderVersionsTimeline,renderLinkPreview,renderReadingLog,applyThemes,installControls,mountSkeleton,mountCodeBlocks,decorateCodeBlocks,clearControlsWithin,renderFileExplorer,mountAdmin,setAdminRoute,mountChangesPanel,mountArtRegenerate,notify as shellNotify,openChat,closeChat,chatOpen,trackSpeech,renderQueuePanel,mountCallouts,mountQuiz,mountWritingPrompt,mountScratchQuestion,startJob,promptCompanion,needsReader,NEEDS_READER,mountPromptCards} from './controls/reader-controls.js';
+import {openScratchSave,closeAppDialogs,openAnnotationDialog,openSpeakMenu,openShellDialog,renderVersionsTimeline,renderLinkPreview,renderReadingLog,applyThemes,installControls,mountSkeleton,mountCodeBlocks,decorateCodeBlocks,clearControlsWithin,renderFileExplorer,mountArticleSpeech,mountSectionItems,mountSectionPage,mountAdmin,setAdminRoute,mountChangesPanel,mountArtRegenerate,notify as shellNotify,openChat,closeChat,chatOpen,trackSpeech,renderQueuePanel,mountCallouts,mountQuiz,mountWritingPrompt,mountScratchQuestion,startJob,promptCompanion,needsReader,NEEDS_READER,mountPromptCards} from './controls/reader-controls.js';
 import {promptPlugin,promptMounts} from './prompt-blocks.mjs';
 import {installVersions,chipMarkup,historicalMarkup,splitRef,compareLabel} from './versions.mjs';
 import {installSplit,installPane,cleanRoute} from './split.mjs';
@@ -47,11 +48,11 @@ const defaults = {theme:'ink', participant:null, recent:20, atlas:true, activity
 // ':admin' and ':admin/<section>/…' (admin-routes.mjs); legacy #backstage opens its Overview.
 const SEARCH=':search',SCRATCH=':scratch';  // A scratch buffer: ':scratch' (the latest draft) or ':scratch=<id>'.
 // Past issues use ':issue=<ISO week>'; the bare homepage (null) is the current issue.
-const ISSUE=':issue=';
+const ISSUE=':issue=',SECTION=':section=';
 const isIssue=path=>!path||path.startsWith(ISSUE);
 // A passage link carries its line, page and terms: #read=<path>&at=<json>; a heading link #read=<path>&h=<heading id>.
-const routeHash=(path,at=null,heading='')=>isAdminPath(path)?adminHash(path):path?.startsWith(SCRATCH)?'#scratch'+path.slice(SCRATCH.length):path===SEARCH?search.hash():path?.startsWith(ISSUE)?'#issue='+param(path.slice(ISSUE.length)):path?'#read='+param(path)+(at?'&at='+param(JSON.stringify(at)):'')+(heading?'&h='+param(heading):''):location.pathname;
-const routeFromHash=()=>adminPathFromHash(location.hash)??(/^#scratch(=[0-9a-f-]{36})?$/.test(location.hash)?SCRATCH+location.hash.slice(8):location.hash.startsWith('#search')?SEARCH:location.hash.startsWith('#issue=')?ISSUE+decodeURIComponent(location.hash.slice(7)):location.hash.startsWith('#read=')?readRoute().path:null);
+const routeHash=(path,at=null,heading='')=>isAdminPath(path)?adminHash(path):path?.startsWith(SCRATCH)?'#scratch'+path.slice(SCRATCH.length):path===SEARCH?search.hash():path?.startsWith(SECTION)?'#section='+param(path.slice(SECTION.length)):path?.startsWith(ISSUE)?'#issue='+param(path.slice(ISSUE.length)):path?'#read='+param(path)+(at?'&at='+param(JSON.stringify(at)):'')+(heading?'&h='+param(heading):''):location.pathname;
+const routeFromHash=()=>adminPathFromHash(location.hash)??(/^#scratch(=[0-9a-f-]{36})?$/.test(location.hash)?SCRATCH+location.hash.slice(8):location.hash.startsWith('#search')?SEARCH:location.hash.startsWith('#section=')?SECTION+decode(location.hash.slice(9)):location.hash.startsWith('#issue=')?ISSUE+decodeURIComponent(location.hash.slice(7)):location.hash.startsWith('#read=')?readRoute().path:null);
 /** Path and heading of a #read= route. Hand-made `#read=<path>#<heading>` (raw or %23) also works; a malformed escape never throws. */
 const decode=text=>{try{return decodeURIComponent(text);}catch{return text;}};
 function readRoute(){
@@ -260,6 +261,7 @@ async function renderHome(path=null,id=state.routeId) {
   const artwork=await issueArt(issue);if(id!==state.routeId)return;
   clearControlsWithin($('#main'));
   state.magazine=mountMagazine({root:$('#main'),issue,weeks:issueWeeks(works,{exclude:options.exclude,through:isoWeek(state.data.today).end}),signals,prefs:state.prefs,api,wireDocumentLinks,openIssue,motion:()=>!reduced.matches,art:artwork,artMake:state.prefs.art!==false&&!!artProducer()});
+  const sections=$('#issue-sections');if(sections)mountSectionItems(sections,sectionsForIssue(issue,works));
   prose?.attach($('#main'),{kind:'issue',issue:issue.id});  // Space c colors the issue's standfirsts and note.
   $('#main').querySelectorAll('.issue [data-art-generate]').forEach(button=>{if(needsReader('art')){localOnly(button);return;}
     button.onclick=event=>{event.preventDefault();button.disabled=true;button.textContent='Making art…';commissionArt(button.dataset.artGenerate);};});
@@ -521,9 +523,15 @@ async function navigate(path,{thread=null,fragment='',record=true,commit=null,at
     if(EMBEDDED)history.replaceState({reader:true,path},'',routeHash(path,at,fragment));else history.pushState({reader:true,path},'',routeHash(path,at,fragment));}
   clearFind();prose?.detach();await state.pdf?.destroy();state.pdf=null;state.ranges=[];state.writingRecords=[];placeKeeper.watch(null);CSS.highlights?.delete('reader-own');CSS.highlights?.delete('reader-other');CSS.highlights?.delete('reader-warning');CSS.highlights?.delete('reader-quiz');
   const quick=isIssue(path)&&state.view==='issue'&&!!state.data,inAdmin=state.view==='admin';
-  state.view=isAdminPath(path)?'admin':path===SEARCH?'search':path?.startsWith(SCRATCH)?'scratch':isIssue(path)?'issue':null;
+  state.view=isAdminPath(path)?'admin':path===SEARCH?'search':path?.startsWith(SECTION)?'section':path?.startsWith(SCRATCH)?'scratch':isIssue(path)?'issue':null;
   state.editions=null;state.versions=null;state.changes=null;versions?.reset();versions?.update();
   if(path===SEARCH){state.doc=null;reading?.prepare();clearControlsWithin($('#main'));search.render($('#main'),record?null:location.hash);resetScroll();reading?.updateStatus();return;}
+  if(path?.startsWith(SECTION)){
+    state.doc=null;state.sectionLabel=path.slice(SECTION.length);reading?.prepare();clearControlsWithin($('#main'));
+    if(!state.data)await loadLibrary();if(id!==state.routeId)return;
+    mountSectionPage($('#main'),{label:state.sectionLabel,articles:sectionArticles(state.data.works,state.sectionLabel),onOpen:path=>navigate(path),onHome:()=>navigate(null)});
+    resetScroll();$('#section-title')?.focus({preventScroll:true});reading?.updateStatus();return;
+  }
   if(path?.startsWith(SCRATCH)){state.doc=null;reading?.prepare();clearControlsWithin($('#main'));resetScroll();await scratch.open($('#main'),path.slice(SCRATCH.length+1)||null);reading?.updateStatus();return;}
   if(state.view==='admin'){state.doc=null;reading?.prepare();renderAdmin(path,inAdmin);return;}
   if(isIssue(path)){state.doc=null;reading?.prepare();if(!quick){mountSkeleton($('#main'),'library');await loadLibrary();}if(id===state.routeId)await renderHome(path,id);return;}
@@ -553,15 +561,16 @@ async function navigate(path,{thread=null,fragment='',record=true,commit=null,at
     const title=doc.metadata.title || known?.title || doc.title;
     clearControlsWithin($('#main'));
     const chip=doc.preview?'':chipMarkup(state.versions,doc,param);
-    $('#main').innerHTML=`<div class="document-shell resume-pending${historical?' historical':''}"><div class="eyebrow document-kicker">${esc(doc.preview?'Inbox preview · not yet filed':known?.projects?.[0] || 'From the library')}</div><h1 class="document-title">${esc(title)}</h1><div class="document-meta">${author?`<span class="by">${esc(author)}</span>`:''}${doc.metadata.created||doc.metadata.added?`<span>${formatDate(doc.metadata.created||doc.metadata.added)}</span>`:''}${doc.metadata.document_revision&&!chip?`<span class="document-edition">Edition ${esc(doc.metadata.document_revision)}</span>`:''}${historical?'':`<a class="document-source" data-button="outline sm" href="${esc(doc.file_url)}" target="_blank" rel="noopener noreferrer" title="Open the raw source file · Space u">Source</a>`}</div>${historical?historicalMarkup(doc,param):chip}${changeMarkup(changes)}<div class="reading-log" data-reader-decoration aria-live="polite"></div><article id="article" class="article"></article><footer class="document-footer">${esc(path)}${historical?` @ ${esc(doc.short)}<br>Historical text from the vault’s git history · <a href="${esc('#read='+param(path))}" data-path="${esc(path)}">Open the current file</a>`:`<br>Original source preserved · <a href="${esc(doc.file_url)}" target="_blank" rel="noopener noreferrer">Open original</a>${doc.text!==null||doc.kind==='.pdf'?'<br><button type="button" id="speak-article" data-button="outline sm" class="speak-article" title="Send to AI-TTS · Space s">Send to AI-TTS</button>':''}${/^library\/notebook\/[^/]+\.md$/.test(path)&&doc.text!==null?' <button type="button" id="edit-scratch" data-button="outline sm" title="Open this piece in the scratch pad; saving writes a new version">Edit in scratch</button>':''}`}</footer></div>`;
+    $('#main').innerHTML=`<div class="document-shell resume-pending${historical?' historical':''}"><div class="eyebrow document-kicker">${esc(doc.preview?'Inbox preview · not yet filed':known?.projects?.[0] || 'From the library')}</div><h1 class="document-title">${esc(title)}</h1><div class="document-meta">${author?`<span class="by">${esc(author)}</span>`:''}${doc.metadata.created||doc.metadata.added?`<span>${formatDate(doc.metadata.created||doc.metadata.added)}</span>`:''}${doc.metadata.document_revision&&!chip?`<span class="document-edition">Edition ${esc(doc.metadata.document_revision)}</span>`:''}${historical?'':`<a class="document-source" data-button="outline sm" href="${esc(doc.file_url)}" target="_blank" rel="noopener noreferrer" title="Open the raw source file · Space u">Source</a>`}</div><div id="article-speech" class="article-speech" data-reader-decoration></div>${historical?historicalMarkup(doc,param):chip}${changeMarkup(changes)}<div class="reading-log" data-reader-decoration aria-live="polite"></div><article id="article" class="article"></article><footer class="document-footer">${esc(path)}${historical?` @ ${esc(doc.short)}<br>Historical text from the vault’s git history · <a href="${esc('#read='+param(path))}" data-path="${esc(path)}">Open the current file</a>`:`<br>Original source preserved · <a href="${esc(doc.file_url)}" target="_blank" rel="noopener noreferrer">Open original</a>${/^library\/notebook\/[^/]+\.md$/.test(path)&&doc.text!==null?' <button type="button" id="edit-scratch" data-button="outline sm" title="Open this piece in the scratch pad; saving writes a new version">Edit in scratch</button>':''}`}</footer></div>`;
     // A historical view keeps the reading log of the current file (it never adds you: nothing is marked read).
-    const article=$('#article');$('#speak-article')?.addEventListener('click',()=>speech.send('article'));$('#edit-scratch')?.addEventListener('click',()=>scratch.editSaved(doc,bodyOf(doc.text).text.replace(/^\r?\n/,'')));if(doc.preview){$('.reading-log')?.remove();$('#speak-article')?.remove();}else loadReadingLog(doc,id);
+    const article=$('#article');$('#edit-scratch')?.addEventListener('click',()=>scratch.editSaved(doc,bodyOf(doc.text).text.replace(/^\r?\n/,'')));if(doc.preview){$('.reading-log')?.remove();$('#speak-article')?.remove();}else loadReadingLog(doc,id);
     if(doc.kind==='.md' || doc.kind==='.markdown'){
       await renderMarkdown(article,doc.text,path,0,{defer:true,prompts:promptContext(doc)});
     } else if(doc.kind==='.pdf') {
       const controller=await openPDF(article,doc.file_url);if(id!==state.routeId){await controller.destroy();return;}state.pdf=controller;
     } else if(doc.text===null){article.innerHTML=`<img class="document-image" src="${esc(doc.file_url)}" alt="${esc(title)}">`;}
     else {const pre=document.createElement('pre');pre.textContent=doc.text;article.append(pre);}
+    const speechSlot=$('#article-speech');if(!historical&&!doc.preview&&(doc.text!==null||doc.kind==='.pdf'))mountArticleSpeech(speechSlot,{path:doc.path,sourceSha:doc.sha256,onRead:()=>speech.send('article')});else speechSlot?.remove();
     if(doc.text!==null){
       const placeholder=$('.document-title'),first=article.firstElementChild;
       // Keep the source heading and its coordinates; generate a title only if absent.
@@ -570,7 +579,7 @@ async function navigate(path,{thread=null,fragment='',record=true,commit=null,at
       if(heading!==placeholder)placeholder.remove();else heading.dataset.readerDecoration='';
       const kicker=$('.document-kicker'),meta=$('.document-meta');
       kicker.dataset.readerDecoration='';meta.dataset.readerDecoration='';
-      article.prepend(kicker,heading,meta,$('.reading-log'),...$('#main').querySelectorAll('.document-shell>.version-line,.document-shell>.historical-banner,.document-shell>.change-banner'));
+      article.prepend(kicker,heading,meta,...(speechSlot?.isConnected?[speechSlot]:[]),$('.reading-log'),...$('#main').querySelectorAll('.document-shell>.version-line,.document-shell>.historical-banner,.document-shell>.change-banner'));
     }
     if(id!==state.routeId)return;
     // Show shape is on for this session: reserve the figure before the reading position is restored.
@@ -1292,7 +1301,7 @@ async function applyPreferences(prefs){
   await reading?.leave();if(prefs.proseColors!==state.prefs.proseColors)state.proseStyles?.clear();state.prefs={...state.prefs,...prefs};savePrefs();document.documentElement.dataset.theme=state.prefs.theme;
   await loadLibrary();
   if(state.view==='admin'){controls.update({theme:state.prefs.theme,prefs:{...state.prefs},participants:state.data?.participants||[]});notify('Preferences saved.','success');}
-  else if(state.doc)await navigate(state.doc.path,{record:false});else await renderHome(state.issuePath);reading?.updateStatus();
+  else if(state.doc)await navigate(state.doc.path,{record:false});else if(state.view==='section')await navigate(SECTION+state.sectionLabel,{record:false});else await renderHome(state.issuePath);reading?.updateStatus();
 }
 $('#selection-tools').onmousedown=event=>event.preventDefault();
 /** Highlight at once, or open the comment / warning dialog for the captured selection. */
@@ -1792,7 +1801,7 @@ reduced.addEventListener('change',resetScroll);
 search=installSearch({api,state,navigate,back:goBack,backstage:()=>openAdmin('indexes'),notify,queue:path=>queue.add(path)});
 $('#reader-home').onclick=()=>navigate(null);
 installStatusPriority($('#statusline'));
-const breadcrumbs=installBreadcrumbs({container:$('#status-location'),home:()=>navigate(null),openFolder:folder=>openPicker('all',folder),onChange:()=>reading?.updateStatus()});
+const breadcrumbs=installBreadcrumbs({container:$('#status-location'),openFolder:folder=>openPicker('all',folder),onChange:()=>reading?.updateStatus()});
 controls=installControls({seek:fraction=>reading.seek(fraction),spread:index=>reading.seekSpread(index),thread:id=>{const hit=state.ranges.find(entry=>entry.thread.id===id);if(hit)moveToRange(hit.range);openThread(id);},theme:()=>{state.prefs.theme=oppositeTheme(state.prefs.theme);document.documentElement.dataset.theme=state.prefs.theme;savePrefs();reading.updateStatus();},save:applyPreferences,error:report,outlineToggle:()=>outline.toggle(),outlineOpen:open=>outline.setOpen(open),outlineGo:index=>outline.go(index),themeEditor:setThemeEditorOpen,themeEditorClosed,api,themesChanged,useTheme,previewFont,chatMarkdown,openPath:path=>navigate(path),chatChanged:()=>reading?.updateStatus(),
   open:path=>navigate(path),libraryChanged:async()=>{await loadLibrary();if(!state.doc&&state.view!=='admin')renderHome();},
   adminHref:(section,...params)=>adminHash(adminPath(section,...params)),adminGo:(section,...params)=>openAdmin(section,...params),backToLibrary,

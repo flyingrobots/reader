@@ -430,8 +430,9 @@ explicit search or Add does. Without network access, the catalog and downloads f
 with an error, and installed fonts keep working. Other scripts (Cyrillic, Greek,
 Vietnamese) are not downloaded; those characters fall back to the role's stack.
 
-Beside the mode indicator, a breadcrumb trail shows **Library**, the containing
-folders and the current filename. Library returns home; a folder opens the file
+Immediately after the mode indicator, the circular Reader logo returns home.
+The breadcrumb omits the duplicate Library label and shows containing folders and
+the current filename; it is hidden on the homepage. A folder opens the file
 explorer scoped to that path. Scope uses a path-segment boundary and applies
 before metadata filtering and paging. **All folders** removes it. Folder browsing
 uses the same grouped library coverage as the explorer, rather than promising a
@@ -460,7 +461,7 @@ never bring items back. The current ranks:
 | 2 | search chip, location list, pagination, speech, version chip, layout switch |
 | 3 | outline button |
 | 4 | prose-color chip |
-| 5 | position percentage (the progress rail shows it) |
+| 5 | scratchpad cursor position |
 | 6 | section label (the outline button lists the sections) |
 | 7 | keys hint |
 | none declared | gives way before every declared item |
@@ -476,10 +477,10 @@ scroll, because the breadcrumb's folder menu opens above it. `tests/web_status_p
 injects an extra item and checks 700, 390 and 320 px in both layouts.
 
 The rail directly above the sticky footer uses shadcn Base UI **Progress**. Its separate seek target supports
-click, Left/Right, Home and End. A shadcn **Popover** on hover or keyboard focus shows position
-and estimated minutes remaining above the rail, based on visible text and the selected reading
-pace. These values follow the current reading position, independently of the
-pointer location. PDF estimates use pages remaining. Highlight/warning pips identify an owner
+click, Left/Right, Home and End. A persistent readout at the right end shows
+percentage and estimated minutes remaining, based on visible text and the selected
+reading pace. The seek track has no hover popup. The readout follows the current
+reading position, independently of the pointer location. PDF estimates use pages remaining. Highlight/warning pips identify an owner
 and open the corresponding thread. Seeking uses the document's scroll range or
 the discrete spread index; it is a layout position, not a measure of comprehension.
 
@@ -580,6 +581,16 @@ step to the previous or next issue that holds pieces. Space e, the picker and se
 behave as elsewhere. The entrance animation is skipped under reduced motion. The
 layout uses only theme tokens and the theme's `--serif`/`--sans`.
 
+**Section pages.** The Sections index uses shadcn Item links with the section name
+and total library article count. `#section=<encoded name>` opens a shareable page
+with that section’s complete grouped-library inventory, including older articles,
+newest first. Sections retain the magazine’s first named project or top-folder
+fallback. The index includes sections represented by cover stories and features,
+as well as the contents, and exposes real section names instead of the editorial
+Elsewhere aggregate. Section pages filter title/author/path metadata and paginate
+20 articles at a time. Opening an article uses normal document navigation;
+browser Back returns to the section route.
+
 **Layout by window width.** The issue fills the window, with outer margins that scale
 from 40 to 120px (`clamp(…, 4vw, …)`); added width becomes columns, not longer lines.
 
@@ -588,7 +599,7 @@ from 40 to 120px (`clamp(…, 4vw, …)`); added width becomes columns, not long
   with the cover's byline; the other features share the next row in equal spans. The
   rail is sticky and scrolls on its own when taller than the window. It holds the
   counts, the newsletter link and a **Sections** index of the contents groups; a
-  section button scrolls to that group and focuses it without changing the route.
+  section Item opens a dedicated article list for that section.
   Contents columns are at least 280px wide, so wider windows gain columns (four at
   1920px, five at 2560px). Prose stays within its measure: the cover standfirst is
   capped at 58ch and feature standfirsts at 64ch. Headline sizes follow the cover's
@@ -1928,8 +1939,9 @@ speech stay in force.
 
 - **Entry points.** **Space s** opens a small menu: **Whole article** (`a`),
   **From here** (`f`) and **Selection** (`s`, enabled while a passage is
-  selected). The document footer's **Send to AI-TTS** button sends the whole
-  article (the footer is hidden in two-page reading; use Space s there). The
+  selected). **Read aloud**, below the article title and metadata, sends the whole
+  article. It switches to playback controls for that article and edition while queued
+  or playing, then returns when the utterance finishes. The
   selection toolbar's **Speak** sends only the selected passage.
 - **What is spoken.** Markdown sends its source after the frontmatter with
   `content_format: "markdown"`; the daemon segments and strips the markup. Plain

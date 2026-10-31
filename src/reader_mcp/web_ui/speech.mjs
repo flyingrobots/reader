@@ -41,7 +41,7 @@ export function installSpeech({state, api, reading, notify, track, openMenu: sho
     try {
       const queued = await api('/api/speak', body);
       notify(queued.held ? 'Queued for AI-TTS; it plays when the pause ends.' : 'Queued for AI-TTS.', 'success', queued.id);
-      track(queued);
+      track({...queued,path:body.path,source_sha256:body.source_sha256});
     } catch (error) {
       // A missing or stopped daemon is a setup question, not an error: name it and offer setup.
       if (error.data?.unavailable) companion ? companion('ai-tts', error.message) : notify('AI-TTS isn’t running', 'error', error.message);

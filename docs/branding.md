@@ -1,10 +1,10 @@
 # Reader marks
 
-The homepage keeps the full **Reader.** wordmark. The [circular r. mark](../src/reader_mcp/web_ui/mark-circle.svg) appears at the left of the sticky footer as a **Back to library** button. It stays visible at narrow widths and returns through Reader’s normal home navigation. Favicons and installed-app icons retain their existing assets.
+The homepage keeps the full **Reader.** wordmark. The [circular r. mark](../src/reader_mcp/web_ui/mark-circle.svg) appears immediately after the mode indicator in the sticky footer as a **Back to library** button. It stays visible at narrow widths and returns through Reader’s normal home navigation. Favicons and installed-app icons retain their existing assets.
 
 ## Shapes and theme tokens
 
-The SVG has a 256 × 256 viewBox, a borderless circular background, an outlined serif r and a separate circular dot. The dot diameter is one third of the letter height, aligned to its baseline. The r is the bundled Newsreader glyph at weight 600 converted to an SVG path. It contains no `<text>`, embedded font, script or external resource.
+The SVG has a 256 × 256 viewBox, a borderless circular background, an outlined serif r and a separate circular dot. The dot is 48 units across against a 132-unit letter height, with a 10-unit gap and aligned to the letter’s baseline. The r is the bundled Newsreader glyph at weight 600 converted to an SVG path. It contains no `<text>`, embedded font, script or external resource.
 
 - Background: `--surface` in the standalone asset, `--raised` in the footer so the circle remains distinct from the footer surface.
 - Letter: `--ink`.

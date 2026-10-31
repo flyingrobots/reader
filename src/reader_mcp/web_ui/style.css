@@ -571,6 +571,14 @@ html.embedded-pane .file-explorer{bottom:0}
 }
 
 @layer reader-legacy {
-.reader-home{margin-left:4px;flex-shrink:0}
+.reader-home{flex-shrink:0}
 .reader-home svg>circle:first-child{fill:var(--raised)}
+}
+
+@layer reader-legacy {
+#progress-controls-slot{display:flex;align-items:center;gap:8px;background:var(--surface)}
+.progress-rail{position:relative;flex:1;min-width:0;height:100%}
+.progress-readout{flex:none;padding-right:8px;white-space:nowrap;font:11px/1.2 var(--sans);font-variant-numeric:tabular-nums;color:var(--muted)}
+.status-position:empty{display:none}
+.article-speech{margin:16px 0 24px}
 }

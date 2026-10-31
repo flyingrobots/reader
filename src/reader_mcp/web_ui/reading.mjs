@@ -53,8 +53,8 @@ export function installReading({scratchStatus, statusOverride, onStatus, mayCurl
     // Mode changes are announced once, for screen readers; the label itself is not a live region.
     if($('#vim-mode').dataset.mode&&$('#vim-mode').dataset.mode!==mode&&$('#mode-live'))$('#mode-live').textContent=mode==='NORMAL'?'Normal mode':mode.charAt(0)+mode.slice(1).toLowerCase()+' mode';
     $('#vim-mode').textContent=mode;$('#vim-mode').dataset.mode=mode;$('#status-keys').innerHTML=keys;
-    updateBreadcrumbs(state.doc?.path || (state.view==='admin'?state.adminPath:state.view==='search'?':search':null));
-    $('#status-position').textContent=state.doc?Math.round(progress()*100)+'%':scratch?scratch.position:'';
+    updateBreadcrumbs(state.doc?.path || (state.view==='admin'?state.adminPath:state.view==='search'?':search':state.view==='section'?':section='+state.sectionLabel:null));
+    $('#status-position').textContent=scratch?scratch.position:'';
     controls.update({value:clamp(progress()),words,pdfPages:state.doc?.kind==='.pdf'?(state.pdf?.count||0):null,pace:state.prefs.pace||220,spread:book?Math.round(book.viewport.scrollLeft/book.stride):0,spreads:book?.spreads||0,pages:book?.pages||0,columns:book?.columns||2,theme:state.prefs.theme});
 
     $('#layout-swap').textContent=state.prefs.layout==='spread'?'Scroll':'2 pages';$('#layout-swap').setAttribute('aria-label',state.prefs.layout==='spread'?'Switch to continuous reading':'Switch to two-page reading');

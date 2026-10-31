@@ -38,7 +38,7 @@ const {chromium}=require(process.env.READER_PLAYWRIGHT || 'playwright-core');
   const wheeled=await page.locator('.book-viewport').evaluate(el=>el.scrollLeft);assert.ok(wheeled>advanced,'wheel advances another spread');
   await page.waitForTimeout(700);await page.reload();await page.waitForTimeout(1000);
   const resumed=await page.locator('.book-viewport').evaluate(el=>el.scrollLeft);assert.ok(Math.abs(resumed-wheeled)<3,'same edition restores spread on reload');
-  await page.locator('#progress-slider').hover({position:{x:700,y:7}});await page.locator('#progress-popover').waitFor();assert.match(await page.locator('#progress-popover').textContent(),/% · \d+ min remaining/);
+  await page.locator('#progress-slider').hover({position:{x:700,y:7}});assert.equal(await page.locator('#progress-popover').count(),0);assert.match(await page.locator('#progress-readout').textContent(),/% · \d+ min remaining/);
   await page.getByRole('switch',{name:'Dark mode',exact:true}).click();assert.equal(await page.locator('html').getAttribute('data-theme'),'user-reader-test');
   await page.locator('#settings-open').click();await page.locator('#reader-admin').waitFor();await page.waitForFunction(()=>document.activeElement?.id==='admin-title'&&location.hash==='#admin');
   await page.goBack();await page.locator('#article').waitFor();await page.waitForFunction(()=>!document.querySelector('.resume-pending'));

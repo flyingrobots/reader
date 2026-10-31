@@ -15,7 +15,8 @@ const {chromium}=require(process.env.READER_PLAYWRIGHT || 'playwright-core');
   await page.locator('#article p').first().waitFor();await page.waitForTimeout(500);
   const nav=page.getByRole('navigation',{name:'Document breadcrumb'});
   assert.equal(await nav.locator('[aria-current=page]').textContent(),'source.md');
-  assert.equal(await nav.getByRole('link',{name:'Library',exact:true}).count(),1);
+  assert.equal(await nav.getByRole('link',{name:'Library',exact:true}).count(),0);
+  assert.equal(await page.locator('#vim-mode + #reader-home').count(),1);
   assert.equal(await nav.getByRole('button',{name:'notes',exact:true}).count(),1);
   await nav.getByRole('button',{name:'notes',exact:true}).click();await page.locator('#picker').waitFor();
   assert.equal(await page.locator('#explorer-folder').textContent(),'library/research/causal/notes/');
@@ -50,13 +51,13 @@ const {chromium}=require(process.env.READER_PLAYWRIGHT || 'playwright-core');
     const items=[...document.querySelectorAll('#statusline > :not(#reading-progress)')].filter(e=>getComputedStyle(e).display!=='none'&&box(e).width>0);
     const overlaps=[];for(let i=0;i<items.length;i++)for(let j=i+1;j<items.length;j++){const a=box(items[i]),b=box(items[j]);if(Math.min(a.right,b.right)-Math.max(a.left,b.left)>.5)overlaps.push(items[i].id+'/'+items[j].id);}
     const escaped=[...document.querySelectorAll('#status-location .breadcrumb-item > *, #status-location .breadcrumb-separator')].filter(e=>box(e).width>0&&(box(e).right>location.right+.5||box(e).left<location.left-.5)).map(e=>e.textContent||e.className);
-    return {overlaps,escaped,offscreen:items.filter(e=>box(e).right>innerWidth+.5).map(e=>e.id),library:box(document.querySelector('#status-location [data-library-home]')).width};});
+    return {overlaps,escaped,offscreen:items.filter(e=>box(e).right>innerWidth+.5).map(e=>e.id),home:box(document.querySelector('#reader-home')).width};});
   for(const width of [390,320]){await page.setViewportSize({width,height:844});await page.waitForTimeout(200);const crowd=await statusCrowd();
-    assert.deepEqual(crowd,{overlaps:[],escaped:[],offscreen:[],library:crowd.library},width+' px two-page status line: breadcrumb stays inside its slot and nothing overlaps');assert.ok(crowd.library>20,'the Library crumb stays readable');}
+    assert.deepEqual(crowd,{overlaps:[],escaped:[],offscreen:[],home:crowd.home},width+' px two-page status line: breadcrumb stays inside its slot and nothing overlaps');assert.ok(crowd.home>20,'the logo home button stays visible');}
   await page.setViewportSize({width:390,height:844});await page.waitForTimeout(200);
   await page.screenshot({path:'.reader/web-dev/breadcrumbs-mobile.png'});await page.keyboard.press('Escape');
-  await nav.getByRole('link',{name:'Library',exact:true}).click();await page.locator('#home-title').waitFor();
-  assert.equal(await nav.locator('[aria-current=page]').textContent(),'Library');assert.equal(await nav.locator('details').count(),0);
+  await page.getByRole('button',{name:'Back to library',exact:true}).click();await page.locator('#home-title').waitFor();
+  assert.equal(await nav.isVisible(),false);assert.equal(await nav.locator('details').count(),0);
   assert.deepEqual(errors,[]);
   console.log('Breadcrumb acceptance passed: parent-scoped search, all-folders reset, keyboard menu, stable focus, two-page overlay, mobile bounds, home navigation.');
  } finally {await browser?.close();if(fixture.exitCode===null&&fixture.signalCode===null){fixture.kill('SIGTERM');await new Promise(resolve=>fixture.once('exit',resolve));}}

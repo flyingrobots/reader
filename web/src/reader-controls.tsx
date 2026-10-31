@@ -1,3 +1,4 @@
+import {SectionItems,SectionPage,type SectionLink,type SectionPageProps} from './library-sections';
 import {useState, useSyncExternalStore, useEffect, type ReactNode} from 'react';
 import {FindBar} from './find-bar';
 import {PanelSheet} from './panel-sheet';
@@ -36,7 +37,7 @@ export {needsReader, NEEDS_READER};
 import {type MaintenanceStatus, type Job, type InboxStatus} from './backstage';
 import {AdminShell} from './admin/admin-shell';
 import type {AdminContext, AdminRoute} from './admin/sections';
-import {SpeechControl, setSpeechApi} from './speech-control';
+import {ArticleSpeechControl,SpeechControl, setSpeechApi} from './speech-control';
 export {trackSpeech} from './speech-control';
 import {ChatPanel} from './chat/chat-panel';
 import {runSummary, type LocalModelStatus, type Run} from './local-model';
@@ -160,12 +161,10 @@ function SettingsForm({model,actions}:{model:Model;actions:Actions}){
 function ReadingProgress({model,actions}:{model:Model;actions:Actions}){
   const estimate=(value:number)=>`${Math.round(value*100)}% · ${model.pdfPages===null?`${Math.ceil(model.words*(1-value)/model.pace)} min remaining`:`${plural(Math.ceil(model.pdfPages*(1-value)),'page')} remaining`}`;
   const fraction=(event:React.MouseEvent<HTMLElement>)=>{const rect=event.currentTarget.getBoundingClientRect();return clamp((event.clientX-rect.left)/rect.width);};
-  // The position bubble only informs: it lets the pointer through, so it never covers what is under it or holds itself
-  // open while the pointer passes over it.
-  return <><Popover><PopoverTrigger nativeButton={false} render={<div/>} id="progress-slider" className="progress-slider" role="slider" tabIndex={0} aria-label="Seek reading position" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(model.value*100)} aria-valuetext={estimate(model.value)} openOnHover delay={120} onClick={event=>actions.seek(fraction(event))} onKeyDown={event=>{if(['ArrowLeft','ArrowRight','Home','End'].includes(event.key)){event.preventDefault();event.stopPropagation();if(event.key==='Home')actions.seek(0);else if(event.key==='End')actions.seek(1);else if(model.spreads)actions.spread(model.spread+(event.key==='ArrowRight'?1:-1));else actions.seek(clamp(model.value+(event.key==='ArrowRight'?.05:-.05)));}}}>
+  return <><div className="progress-rail"><div id="progress-slider" className="progress-slider" role="slider" tabIndex={0} aria-label="Seek reading position" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(model.value*100)} aria-valuetext={estimate(model.value)} onClick={event=>actions.seek(fraction(event))} onKeyDown={event=>{if(['ArrowLeft','ArrowRight','Home','End'].includes(event.key)){event.preventDefault();event.stopPropagation();if(event.key==='Home')actions.seek(0);else if(event.key==='End')actions.seek(1);else if(model.spreads)actions.spread(model.spread+(event.key==='ArrowRight'?1:-1));else actions.seek(clamp(model.value+(event.key==='ArrowRight'?.05:-.05)));}}}>
     <Progress value={model.value*100} aria-label="Reading progress" className="reader-progress"/>
-  </PopoverTrigger><PopoverContent id="progress-popover" side="top" initialFocus={false} className="pointer-events-none"><PopoverTitle>Reading position</PopoverTitle><PopoverDescription>{estimate(model.value)}</PopoverDescription></PopoverContent></Popover>
-  <div id="progress-pips" className="progress-pips">{model.pips.map(pip=><Popover key={pip.id}><PopoverTrigger className={'progress-pip'+(pip.kind==='warning'?' warning':pip.own?' own':'')} style={{left:`${pip.fraction*100}%`}} aria-label={`${pip.owner}’s ${pip.kind==='warning'?'warning':'highlight'} at ${Math.round(pip.fraction*100)} percent`} openOnHover delay={120} onClick={()=>actions.thread(pip.id)}/><PopoverContent side="top" initialFocus={false}><PopoverTitle>{pip.owner} · {estimate(model.value)}</PopoverTitle><PopoverDescription>{pip.quote}</PopoverDescription></PopoverContent></Popover>)}</div></>;
+  </div>
+  <div id="progress-pips" className="progress-pips">{model.pips.map(pip=><Popover key={pip.id}><PopoverTrigger className={'progress-pip'+(pip.kind==='warning'?' warning':pip.own?' own':'')} style={{left:`${pip.fraction*100}%`}} aria-label={`${pip.owner}’s ${pip.kind==='warning'?'warning':'highlight'} at ${Math.round(pip.fraction*100)} percent`} openOnHover delay={120} onClick={()=>actions.thread(pip.id)}/><PopoverContent side="top" initialFocus={false}><PopoverTitle>{pip.owner} · {estimate(model.value)}</PopoverTitle><PopoverDescription>{pip.quote}</PopoverDescription></PopoverContent></Popover>)}</div></div><span id="progress-readout" className="progress-readout">{estimate(model.value)}</span></>;
 }
 function Pages({model,actions}:{model:Model;actions:Actions}){
   if(!model.spreads)return null;
@@ -458,6 +457,9 @@ export function mountArtRegenerate(container:HTMLElement,options:ArtRegenerateOp
   mount(container,<ArtRegenerate {...options} close={()=>{options.close();}}/>);
   return {unmount(){clearControlsWithin(container);}};
 }
+export function mountArticleSpeech(container:HTMLElement,props:{path:string;sourceSha:string;onRead:()=>Promise<unknown>}){mount(container,<ArticleSpeechControl {...props}/>);}
+export function mountSectionItems(container:HTMLElement,items:SectionLink[]){container.dataset.ui='shadcn';mount(container,<SectionItems items={items}/>);}
+export function mountSectionPage(container:HTMLElement,props:SectionPageProps){mount(container,<SectionPage {...props}/>);}
 export function renderFileExplorer(container:HTMLElement,props:ExplorerProps){
   const root=islands.get(container);
   if(root)flushSync(()=>root.render(<FileExplorer {...props}/>));else mount(container,<FileExplorer {...props}/>);
