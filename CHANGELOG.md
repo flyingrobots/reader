@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Finishing inbox work refreshes an open section in place instead of replacing it with the homepage.
+
 - Split-view breadcrumbs retain the focused section’s identity.
 
 - Split-view footers derive the focused article’s percentage from reading state, preserving progress while embedded footers are hidden.

@@ -500,6 +500,9 @@ function closeContext() {
   closeAppDialogs();
   queue?.close(false);state.smoother?.paused(false);
 }
+function renderSectionPage(){
+  mountSectionPage($('#main'),{label:state.sectionLabel,articles:sectionArticles(state.data.works,state.sectionLabel),onOpen:path=>navigate(path),onHome:()=>navigate(null)});
+}
 async function navigate(path,{thread=null,fragment='',record=true,commit=null,at=null,jump=true}={}) {
   if(commit&&path)path=path+'@'+commit;
   if(isAdminPath(path)){
@@ -529,7 +532,7 @@ async function navigate(path,{thread=null,fragment='',record=true,commit=null,at
   if(path?.startsWith(SECTION)){
     state.doc=null;state.sectionLabel=path.slice(SECTION.length);reading?.prepare();clearControlsWithin($('#main'));
     if(!state.data)await loadLibrary();if(id!==state.routeId)return;
-    mountSectionPage($('#main'),{label:state.sectionLabel,articles:sectionArticles(state.data.works,state.sectionLabel),onOpen:path=>navigate(path),onHome:()=>navigate(null)});
+    renderSectionPage();
     resetScroll();$('#section-title')?.focus({preventScroll:true});reading?.updateStatus();return;
   }
   if(path?.startsWith(SCRATCH)){state.doc=null;reading?.prepare();clearControlsWithin($('#main'));resetScroll();await scratch.open($('#main'),path.slice(SCRATCH.length+1)||null);reading?.updateStatus();return;}
@@ -1803,7 +1806,7 @@ $('#reader-home').onclick=()=>navigate(null);
 installStatusPriority($('#statusline'));
 const breadcrumbs=installBreadcrumbs({container:$('#status-location'),openFolder:folder=>openPicker('all',folder),onChange:()=>reading?.updateStatus()});
 controls=installControls({seek:fraction=>reading.seek(fraction),spread:index=>reading.seekSpread(index),thread:id=>{const hit=state.ranges.find(entry=>entry.thread.id===id);if(hit)moveToRange(hit.range);openThread(id);},theme:()=>{state.prefs.theme=oppositeTheme(state.prefs.theme);document.documentElement.dataset.theme=state.prefs.theme;savePrefs();reading.updateStatus();},save:applyPreferences,error:report,outlineToggle:()=>outline.toggle(),outlineOpen:open=>outline.setOpen(open),outlineGo:index=>outline.go(index),themeEditor:setThemeEditorOpen,themeEditorClosed,api,themesChanged,useTheme,previewFont,chatMarkdown,openPath:path=>navigate(path),chatChanged:()=>reading?.updateStatus(),
-  open:path=>navigate(path),libraryChanged:async()=>{await loadLibrary();if(!state.doc&&state.view!=='admin')renderHome();},
+  open:path=>navigate(path),libraryChanged:async()=>{await loadLibrary();if(!state.doc){if(state.view==='section')renderSectionPage();else if(state.view==='issue')renderHome();}},
   adminHref:(section,...params)=>adminHash(adminPath(section,...params)),adminGo:(section,...params)=>openAdmin(section,...params),backToLibrary,
   markdown:text=>{const template=document.createElement('template');template.innerHTML=DOMPurify.sanitize(window.markdownit({html:false,linkify:true}).render(text),{USE_PROFILES:{html:true}});decorateCodeBlocks(template.content,{wrap:true,lineNumbers:false});return template.innerHTML;}},state.prefs);
 speech=installSpeech({state,api,reading:{capture:()=>reading.capture(),hasBook:()=>reading.hasBook()},notify,track:trackSpeech,openMenu:options=>{state.smoother?.paused(true);return openSpeakMenu({...options,onClosed:()=>{options.onClosed();dialogClosed();}});},companion:promptCompanion});
