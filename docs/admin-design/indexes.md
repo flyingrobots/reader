@@ -8,7 +8,7 @@ Inspect freshness, completeness and capacity, start an appropriate rebuild, and 
 
 ## Layout
 
-The Indexes route uses the available Admin content width. At desktop widths the page splits into equal columns: dashboard left, Markdown reference right. Both have independent vertical scrolling. Other Admin routes retain their bounded page width. On small screens the columns stack, and a documentation action brings the reference into view.
+The Indexes route uses the available Admin content width. At desktop widths the page splits into equal columns: dashboard left, Markdown reference right. Both have independent vertical scrolling. Hide documentation expands the dashboard to full width; Show documentation restores the split. The browser remembers this preference. The reference remains mounted to preserve its position, and info buttons reopen it before focusing the target heading. Other Admin routes retain their bounded page width. On small screens the columns stack, and a documentation action brings the reference into view.
 
 The left pane contains status/check controls, current/attention/timing summaries, a conditional search update action, D3 coverage/capacity charts, the health table, selected-index inspector, recent runs and edition diagnostics. Existing admission, error, demo and busy behavior remains in force. Inline indexing essays, the update-policy notice, repeated purpose descriptions and generic metric help popovers are removed.
 

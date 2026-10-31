@@ -145,6 +145,8 @@ lucide-react/dist/esm/icons/monitor.js:
 lucide-react/dist/esm/icons/octagon-x.js:
 lucide-react/dist/esm/icons/palette.js:
 lucide-react/dist/esm/icons/panel-left.js:
+lucide-react/dist/esm/icons/panel-right-close.js:
+lucide-react/dist/esm/icons/panel-right-open.js:
 lucide-react/dist/esm/icons/pause.js:
 lucide-react/dist/esm/icons/pencil.js:
 lucide-react/dist/esm/icons/play.js:
