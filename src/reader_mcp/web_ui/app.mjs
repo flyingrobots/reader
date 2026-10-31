@@ -178,6 +178,28 @@ function resetScroll() {
   }
   requestAnimationFrame(refreshScroll);
 }
+/** ScrollSmoother draws the page from its own copy of the scroll position. A jump that lands while ScrollTrigger
+ *  re-measures a page whose height is still changing (Read next arriving just after G, then gg) can leave that copy
+ *  behind: the window is at the top while the page still shows the end, and stays so until the next scroll. When the
+ *  copy and the window disagree after a scroll or a re-measure, put the copy back; in normal reading they never do.
+ *  Runs a frame later, after ScrollTrigger's own scroll listener. */
+let smootherCheck=0;
+function resyncSmoother(){
+  if(smootherCheck)return;
+  smootherCheck=requestAnimationFrame(()=>{smootherCheck=0;const smoother=state.smoother;
+    if(smoother&&!smoother.paused()&&Math.abs(smoother.scrollTop()-scrollY)>1){smoother.scrollTop(scrollY);settleAfterResync(smoother);}});
+}
+/** After a resync the page glides to the scroll position without a scroll event; once it arrives, the section label,
+ *  outline and pins measure again. */
+function settleAfterResync(smoother,started=performance.now()){
+  requestAnimationFrame(()=>{
+    if(state.smoother!==smoother)return;
+    const shown=-gsap.getProperty('#smooth-content','y');
+    if(Math.abs(shown-scrollY)<1||performance.now()-started>4000)reading?.update();else settleAfterResync(smoother,started);
+  });
+}
+addEventListener('scroll',resyncSmoother,{passive:true});
+window.ScrollTrigger?.addEventListener('refresh',resyncSmoother);
 /** ScrollSmoother maps the scroll position onto the page height it measured when it last refreshed, and refreshes
  *  only once the article has stopped changing height. Far blocks laid out taller than their estimates move a jump's
  *  target past that measure: the page would glide to the old end and, if the refresh came after the glide, stay there,
