@@ -21,7 +21,7 @@
     "src/admin/pages/gallery-model.ts": "9682e5a75aeaa7fb3400a5f6489b28775560f10136580488e246c9ecddd5fbd7",
     "src/admin/pages/inbox.tsx": "0873a1d59f634dde61c8d0ff9d742ff009dbc0943664e3dea19043337cbad85a",
     "src/admin/pages/index-charts.tsx": "db730acac5a1c801e879c2bcf94d478e38b0fa14769fdcd388b5aa196af904ac",
-    "src/admin/pages/indexes.tsx": "2d4b90523b1937e2b1f6ba3a81cc9d648ef09af66737e8e1c0a8e09de2764e4d",
+    "src/admin/pages/indexes.tsx": "f42f5424e98d0bfcc4e0b82afebe07beeddd208d2b37ec244e5cf64119d25517",
     "src/admin/pages/jobs.tsx": "4f149ab3445d1eb9770059937a34458750f792508be888b24cadd8ba86c0ce17",
     "src/admin/pages/library-charts.ts": "934c246bde1dd47a99dd19ac3c4ba0ae6df98e98bb62ddd1912e39f211bfc902",
     "src/admin/pages/library.tsx": "1c4ee11da3a6491bf35261d747c9296251513d9e53e02ffff5b7288ba9c209e0",
@@ -45,6 +45,7 @@
     "src/code-blocks.ts": "66716c693b0ae5fef0607913afafc3c9be26bff8aa267c648e8274eff8b89267",
     "src/code-highlight.ts": "36c456df8e9a5277690eb3ee02e49eb0246077a1c8fbbe5873342cfa3afd0063",
     "src/code-languages.ts": "227bc27c91c4f671a5ca8ea95455dbed26dc806852fe6341714a3534b166c45a",
+    "src/command-suggestions.tsx": "d081b3f6179e14e3a1b9f4dd9132e049feda5fd11d34af6c6a99f1f8c414238a",
     "src/companions.tsx": "8eedc8948c9971b0aaff93e9d8d1fb1681f7e7539f4827a7e3c922887d7c2df1",
     "src/components/ui/alert-dialog.tsx": "d1811546e2248fe9b04e7cefcd4f0ed3acc4e87cb26a083eb17b3c836707d4d0",
     "src/components/ui/alert.tsx": "f253568242c1c69b343f12474002fdbe229f603158171c59e21c491ab79f2e6e",
@@ -119,7 +120,7 @@
     "src/plural.ts": "4c0d0698a171b39d5683548f00e2e9a8a7c5ea1af28e4067aaa63612476b5fa2",
     "src/queue-panel.tsx": "f94dbf25fb0b53288a3de2b9ae46029eab1b9522a2ebe3655cb32a3b65d816bb",
     "src/quiz.tsx": "da429b5617a6c905d376cea263c1901325c2e1d43890957e294114492a852cb2",
-    "src/reader-controls.tsx": "45db23e49e77ba9402a1f47425362915cecc8fb83d1aaad321674dca3544d3a2",
+    "src/reader-controls.tsx": "ed4ce244c69518caa6d9469ef1c89b1dc262de134f80b78aed23148265a9e886",
     "src/reading-log.tsx": "1981dbb7da8a7c010d38d588992ba1b9afc5ef9c611badb247d6f8fadc8a4fda",
     "src/scratch-question.tsx": "ae90d508a8ca52994fb567380d60bef8644475691754a97fd697b323dcb7e7e3",
     "src/search-page.tsx": "b63ecad9ec576f5375ecced55c54670cd69af9380e70542ae941f4065e8f3323",
@@ -139,7 +140,7 @@
     "src/theme/famous.ts": "b63ea13dd519d5c3e364d3c71161b86cf838b403c648cd01c95fe8a36780d690",
     "src/theme/molecules/fact-list.tsx": "7629025349f7ef8d17ba533754a7c3a58f69624e765d07064c7feba5c6f5e4aa",
     "src/theme/molecules/filter-select.tsx": "c2887c77e468c1eef3194cf419c3ab16d2a50c72e0e4dc69d425229223515a59",
-    "src/theme/molecules/help-tip.tsx": "e48535518db5211c8d9409f18baefc69fb323cec8dca738f5b6c097651b51747",
+    "src/theme/molecules/help-tip.tsx": "61331bf7b30ffa6749f89278c11aafcd1fbe2a8b96005382ed2e4f847f284f3b",
     "src/theme/molecules/notice.tsx": "29a1ff3e16c6e39ffa823114db80ad089f94978a087cda38e14f524d5cfd52d6",
     "src/theme/molecules/pager.tsx": "497434f8845abbdf5fa81cbbbe078d4b41063f3925cee4018f70cddb7b123f91",
     "src/theme/molecules/run-row.tsx": "77b5bedddac1e95e38295e04d994bdf51249de6410e1fd7ea5716adf0fa60563",
@@ -972,16 +973,16 @@
       "sha256": "cb2ee2554fd41ac9f8e2e69c350365f0e1cf9732d27ad161c9c97b20945bbe4c"
     },
     "reader-controls.css": {
-      "bytes": 181467,
-      "sha256": "b426162daf10230f5dcdfa1c22eb330da21a35d64b1893fb732d551a52392bd7"
+      "bytes": 181524,
+      "sha256": "42a8f3936a07fdb7220e5623c1621800d2ae8df7ce2ddacb7c3c15f82c2e7923"
     },
     "reader-controls.js": {
-      "bytes": 1245224,
-      "sha256": "9b0daefb11c03a4fb34c437d5dd74f739eb40295204e9497442c890015d60ff9"
+      "bytes": 1246662,
+      "sha256": "66758ab740e872ea9ffb382564b723d34a082b56a6dfb83843c7a46bb80cf275"
     },
     "reader-controls.js.LEGAL.txt": {
       "bytes": 6454,
-      "sha256": "a99afdfaca5137dbb23beceb87d481e345e26c110ecb217d5889bdf1b39c7dbf"
+      "sha256": "65258059b282b50c152f749f9bb9e756b81c0659796563a5a1d9f797e717b89d"
     },
     "shape.js": {
       "bytes": 8806,

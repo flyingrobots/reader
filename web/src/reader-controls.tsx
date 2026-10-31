@@ -1,3 +1,4 @@
+import {CommandSuggestions, type CommandChoices} from './command-suggestions';
 import {SectionItems,SectionPage,type SectionLink,type SectionPageProps} from './library-sections';
 import {useState, useSyncExternalStore, useEffect, type ReactNode} from 'react';
 import {FindBar} from './find-bar';
@@ -537,3 +538,8 @@ export function mountSkeleton(container:HTMLElement,kind='document'){
 }
 /** Fenced code in a rendered container becomes the shadcn Code Block (see code-blocks.ts). */
 export function mountCodeBlocks(container:HTMLElement,options?:CodeBlockOptions){decorateCodeBlocks(container,options);}
+
+export function renderCommandSuggestions(container:HTMLElement,model:CommandChoices){
+  container.dataset.ui='shadcn';const root=islands.get(container),view=<CommandSuggestions model={model}/>;
+  if(root)flushSync(()=>root.render(view));else mount(container,view);
+}

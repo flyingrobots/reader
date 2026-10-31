@@ -74,8 +74,8 @@ const INDEX_HELP:Record<string,string>={
 };
 function IndexStatus({indexKey,label,tone,active,needsBuild,disabled,onStart}:{indexKey:string;label:string;tone:Tone;active:boolean;needsBuild:boolean;disabled:boolean;onStart:(kind:string)=>void}){
   const index=INDEXES.find(row=>row.key===indexKey)!,action=index.actions[0];
-  return needsBuild&&action?<Tooltip><TooltipTrigger render={<Button variant="outline" size="sm" data-rebuild-status={indexKey} disabled={disabled} {...localOnly()} aria-label={`${action.label}: ${index.title}`} onClick={()=>onStart(action.kind)}/>}><RefreshCwIcon data-icon="inline-start" aria-hidden/>{label}</TooltipTrigger>
-    <TooltipContent>{action.label} updates {index.title.toLowerCase()}. {indexKey==='search'?'Includes embeddings and reuses cached results.':'Source documents stay unchanged.'}</TooltipContent></Tooltip>:<StatusBadge tone={tone} busy={active}>{label}</StatusBadge>;
+  return !active&&needsBuild&&action?<Tooltip><TooltipTrigger render={<Button variant="outline" size="sm" data-rebuild-status={indexKey} disabled={disabled} {...localOnly()} aria-label={`${action.label}: ${index.title}`} onClick={()=>onStart(action.kind)}/>}><RefreshCwIcon data-icon="inline-start" aria-hidden/>{label}</TooltipTrigger>
+    <TooltipContent>{action.label} updates {index.title.toLowerCase()}. {indexKey==='search'?'Includes embeddings and reuses cached results.':'Source documents stay unchanged.'}</TooltipContent></Tooltip>:<StatusBadge tone={tone} busy={active}>{active?'Rebuilding…':label}</StatusBadge>;
 }
 
 export function IndexesPage({status,error,onStart,editions}:{status:MaintenanceStatus|null;error:string|null;onStart:(kind:string)=>void;editions?:ReactNode}){

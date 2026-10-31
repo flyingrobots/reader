@@ -225,11 +225,18 @@ stay read-only. A pointer press anywhere outside the status line leaves VISUAL.
 **Command line (`:`).** The key hints give way to an input with the mode label
 COMMAND. Tab completes command names and arguments (themes, layouts, speech
 scopes, rebuild kinds, documents through fuzzy search, help topics), repeated Tab
-cycles, and up to six choices show quietly beside the input. Up / Down (or Ctrl-p /
-Ctrl-n) recall earlier commands that start with what is typed; 100 are kept per
+cycles. A shadcn suggestion list opens above the status line and filters as you
+type, showing command descriptions and contextual arguments. Up / Down selects a
+suggestion; Tab or a pointer press fills it without running. Enter runs the selected
+complete command; selecting a command name that takes arguments first fills its
+name and opens argument suggestions. With no selected suggestion, Enter runs the
+typed command. Ctrl-p / Ctrl-n recall earlier commands that start with what is typed;
+Up on an empty input also recalls history. Up to 100 commands are kept per
 device (`reader.commands.v1`). Enter runs, Escape (or Backspace on an empty line)
 cancels. A unique prefix runs its command (`:chan`), an unknown name toasts the
-closest match ("Did you mean :changes?"). Commands: `:open <document>` (`:e`),
+closest match (“Did you mean :changes?”). Document argument queries are debounced,
+and late completion answers cannot overwrite a newer query or reopen a closed line.
+The input exposes combobox/listbox semantics and the same suggestions work on phones. Commands: `:open <document>` (`:e`),
 `:theme <id>`, `:layout scroll|spread`, `:speak [article|here|selection]`,
 `:rebuild search|keywords|browse|catalog|links`, `:check`, `:changes`, `:versions`,
 `:outline`, `:chat`, `:threads`, `:queue`, `:next`, `:home`, `:files`, `:search
