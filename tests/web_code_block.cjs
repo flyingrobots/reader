@@ -140,7 +140,10 @@ const {chromium}=require(process.env.READER_PLAYWRIGHT||'playwright-core');
      return {near,png:canvas.toDataURL('image/png')};});
    writeFileSync('.reader/web-dev/code-block-texture.png',Buffer.from(texture.png.split(',')[1],'base64'));
    assert.ok(texture.near>20,'the page-turn texture paints keyword ink: '+texture.near+' pixels');
-   await page.waitForFunction(()=>import('/assets/controls/page-turn.js').then(()=>true));await page.locator('#main').focus();await page.keyboard.press('j');await page.waitForTimeout(350);assert.ok(await page.evaluate(()=>!!document.querySelector('.page-turn-canvas')),'the sheet turns');
+   await page.waitForFunction(()=>import('/assets/controls/page-turn.js').then(()=>true));await page.locator('#main').focus();
+   // The turn's canvas exists only while the sheet turns: note its arrival from before the key, however late or brief.
+   await page.evaluate(()=>{window.__turned=false;const seen=new MutationObserver(()=>{if(document.querySelector('.page-turn-canvas')){window.__turned=true;seen.disconnect();}});seen.observe(document.body,{childList:true,subtree:true});});
+   await page.keyboard.press('j');await page.waitForFunction(()=>window.__turned,null,{timeout:5000}).catch(()=>{});assert.ok(await page.evaluate(()=>window.__turned),'the sheet turns');
    await page.screenshot({path:'.reader/web-dev/code-block-turn.png'});await page.waitForFunction(()=>!document.querySelector('.page-turn-canvas'),null,{timeout:3000});
    assert.deepEqual(errors,[]);assert.deepEqual(external,[]);await context.close();}
 

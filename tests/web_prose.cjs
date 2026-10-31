@@ -25,7 +25,8 @@ const covered=page=>page.evaluate(()=>Object.fromEntries([...CSS.highlights].fil
     return {page,context,errors,external,posts};
   };
   const leader=async(page,key)=>{await page.locator('#main').focus();await page.keyboard.press('Space');await page.keyboard.press(key);};
-  const settled=page=>page.waitForFunction(()=>{const s=CSS.highlights.get('reader-prose-function');return s&&s.size>0;},null,{timeout:8000});
+  // Coloring is real work (the Colorful pass over the text); it is waited for, with Playwright's usual 30 s ceiling.
+  const settled=page=>page.waitForFunction(()=>{const s=CSS.highlights.get('reader-prose-function');return s&&s.size>0;});
 
   // 1. Without Colorful, the toggle explains how to install it and the page is unchanged.
   ({fixture,url}=await start('--prose-missing'));
@@ -54,6 +55,8 @@ const covered=page=>page.evaluate(()=>Object.fromEntries([...CSS.highlights].fil
    // Layout estimates (place.mjs sets each block's contain-intrinsic-size as it is measured) may land at any time; they
    // are not the article's content, so the DOM comparisons below leave them out.
    const content=async()=>(await page.locator('#article').innerHTML()).replace(/ style="contain-intrinsic-size:[^"]*"/g,'');
+   // Decoration the page adds by itself (lazy syntax highlighting, diagram drawing) finishes before the snapshot.
+   await page.waitForFunction(()=>!document.querySelector('#article [data-highlight=pending], #article .reader-diagram-canvas:not([data-state=ready]):not([data-state=error])'));
    const markup=await content();
    await leader(page,'c');await settled(page);
    await page.waitForFunction(()=>document.body.classList.contains('prose-subtle'));
@@ -96,7 +99,15 @@ const covered=page=>page.evaluate(()=>Object.fromEntries([...CSS.highlights].fil
   {const {page,context,errors}=await open({proseColors:'skim'},'library/thought.md');
    await settled(page);assert.ok(await page.evaluate(()=>document.body.classList.contains('prose-subtle')),'skim reads as Subtle');await page.waitForFunction(()=>CSS.highlights.get('reader-warning')?.size===1);
    assert.equal(await page.locator('.annotation-pin.warning').count(),1,'margin annotation still anchors');
-   const selected=await page.evaluate(()=>{const p=[...document.querySelectorAll('#article p')].find(el=>el.textContent.includes('distinct observation for chapter 3'));const node=[...p.childNodes].find(n=>n.nodeType===3);const range=document.createRange();const at=node.data.indexOf('distinct observation');range.setStart(node,at);range.setEnd(node,at+'distinct observation for chapter 3'.length);getSelection().removeAllRanges();getSelection().addRange(range);p.dispatchEvent(new MouseEvent('mouseup',{bubbles:true}));return getSelection().toString();});
+   // On screen first: continuous reading skips rendering off-screen blocks (content-visibility), and a reader selects
+   // what they can see.
+   const target=()=>[...document.querySelectorAll('#article p')].find(el=>el.textContent.includes('distinct observation for chapter 3'));
+   await page.evaluate(`(${target})().scrollIntoView({block:'center'})`);
+   await page.waitForFunction(`(${target})().checkVisibility({contentVisibilityAuto:true})`);
+   const selected=await page.evaluate(()=>{const p=[...document.querySelectorAll('#article p')].find(el=>el.textContent.includes('distinct observation for chapter 3'));const node=[...p.childNodes].find(n=>n.nodeType===3);const range=document.createRange();const at=node.data.indexOf('distinct observation');range.setStart(node,at);range.setEnd(node,at+'distinct observation for chapter 3'.length);getSelection().removeAllRanges();getSelection().addRange(range);p.dispatchEvent(new MouseEvent('mouseup',{bubbles:true}));
+     // The selection's own range, not Selection.toString(): that serializes rendered text, which a loaded machine can
+     // report empty for a moment inside the smooth-scroll layer while the selection holds the passage.
+     const selection=getSelection();return selection.rangeCount?selection.getRangeAt(0).toString():'';});
    assert.equal(selected,'distinct observation for chapter 3');await page.locator('#selection-tools').waitFor();
    await leader(page,'p');await page.locator('#prose-status').filter({hasText:'Using Colorful 0.4.0'}).waitFor();
    assert.match(await page.locator('#prose-colors').textContent(),/^Subtle: function words fade a little/);
