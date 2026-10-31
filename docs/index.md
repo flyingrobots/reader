@@ -35,3 +35,5 @@ Code and content are separate repositories. Start with [separate-vault setup](se
 - [Server port: the TypeScript package](port/server-package.md) — `server/`, its packed-install test, Node versions, and the lock adapter that shares `flock` locks with Python.
 
 - [Bounded reading and acquisition](bounded-reading.md) — finite vault-only selection, restricted notes runner, demo exclusion and separately authorized promotion.
+
+- [Reader marks](branding.md) — the homepage wordmark and optional theme-aware circular SVG, shape provenance and regeneration.
