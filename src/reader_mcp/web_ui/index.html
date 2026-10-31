@@ -32,21 +32,11 @@
     </main>
   </div></div>
 
-  <button type="button" id="summon" data-button="outline icon-lg round" class="summon" aria-label="Open file picker. Space then e." title="Open library · Space e">⌘</button>
+  <button type="button" id="summon" data-button="outline icon-lg round" class="summon" aria-label="Toggle File Explorer. Space then e." title="Toggle File Explorer · Space e">⌘</button>
   <div id="chart-tooltip" class="chart-tooltip" role="status"></div>
   <div id="passage-tooltip" class="passage-tooltip"></div>
 
-  <dialog id="picker" class="picker" aria-labelledby="picker-title">
-    <div class="picker-top"><h2 id="picker-title">Documents</h2><div class="picker-actions"><button id="picker-filter-toggle" data-button="ghost sm" type="button" aria-expanded="false" aria-controls="picker-filter">Filter <kbd>/</kbd></button><button data-close="picker" data-button="ghost icon-sm" class="close-button" aria-label="Close file picker"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" data-icon="x"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button></div></div>
-    <div id="picker-filter" hidden>
-    <div class="query-line"><span aria-hidden="true">/</span><input id="file-query" autocomplete="off" spellcheck="false" placeholder="Filter documents…" aria-label="Search the library"></div>
-    <div class="search-controls"><div class="mode-switch" data-button-group role="group" aria-label="Search method"><button type="button" data-button="outline xs" data-mode="fuzzy" aria-pressed="true">Fuzzy</button><button type="button" data-button="outline xs" data-mode="keyword" aria-pressed="false">Contents</button><button type="button" data-button="outline xs" data-mode="semantic" aria-pressed="false">Semantic</button></div><span id="search-label">Recently opened</span></div>
-    </div>
-    <div id="folder-scope" class="folder-scope" hidden><span id="folder-path"></span><button type="button" data-button="ghost xs" id="clear-folder">All folders</button></div>
-    <div id="search-status" class="search-status" role="status"></div>
-    <div id="file-results" class="file-results" role="tree" tabindex="0" aria-label="Documents"></div>
-    <div class="picker-foot"><span><kbd>j k</kbd> move <kbd>h l</kbd> folders <kbd>/</kbd> filter <kbd>q</kbd> queue</span><span><kbd>↵</kbd> open <kbd>Esc</kbd> close</span></div>
-  </dialog>
+  <aside id="picker" class="file-explorer" aria-labelledby="picker-title" hidden></aside>
 
   <dialog id="help" class="help-dialog" aria-labelledby="help-title">
     <div class="dialog-heading"><h2 id="help-title">A small map.</h2><button data-close="help" data-button="ghost icon-sm" class="close-button" aria-label="Close keyboard help"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" data-icon="x"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button></div>

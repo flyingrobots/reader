@@ -44,12 +44,12 @@ export {JobsPage as JobsPanel, JobPage as JobPanel} from './admin/pages/jobs';
 import {CompanionPrompt, focusCompanion, isDismissed, type Companion, type CompanionsStatus} from './companions';
 import {useArtProducers} from './art-studio';
 import {ArtRegenerate, type ArtRegenerateOptions} from './art-regenerate';
-import {DocumentTree, revealDocumentNode, type DocumentRow} from './document-tree';
+import {FileExplorer,type ExplorerProps} from './explorer/file-explorer';
 import {ChangesPanel, type ChangesOptions} from './changes-panel';
 import {SearchPage, type SearchModel, type SearchActions} from './search-page';
 export {flatPassages} from './search-page';
 import {QueuePanel, type QueueProps} from './queue-panel';
-export {visibleDocumentNodes} from './document-tree';
+
 export {mountCallouts} from './callouts';
 export {mountQuiz} from './quiz';
 export {mountWritingPrompt} from './writing-prompt';
@@ -443,7 +443,10 @@ export function mountArtRegenerate(container:HTMLElement,options:ArtRegenerateOp
   mount(container,<ArtRegenerate {...options} close={()=>{options.close();}}/>);
   return {unmount(){clearControlsWithin(container);}};
 }
-export function mountDocumentTree(container:HTMLElement,rows:DocumentRow[],onOpen:(index:number)=>void,onActive:(element:HTMLElement)=>void){mount(container,<DocumentTree rows={rows} onOpen={onOpen} onActive={onActive}/>);}
+export function renderFileExplorer(container:HTMLElement,props:ExplorerProps){
+  const root=islands.get(container);
+  if(root)flushSync(()=>root.render(<FileExplorer {...props}/>));else mount(container,<FileExplorer {...props}/>);
+}
 /** What changed, as a Sheet island; closing unmounts it. */
 export function mountChangesPanel(container:HTMLElement,options:Omit<ChangesOptions,'onClose'>){
   // Unmount after the close animation, unless a newer panel has been mounted here meanwhile.
@@ -456,7 +459,6 @@ export function renderQueuePanel(container:HTMLElement,props:QueueProps){
   const root=islands.get(container);
   if(root)flushSync(()=>root.render(<QueuePanel {...props}/>));else mount(container,<QueuePanel {...props}/>);
 }
-export function revealDocumentRow(container:HTMLElement,path:string){revealDocumentNode(container,path,flushSync);}
 export function clearControlsWithin(container:HTMLElement){for(const [element,root] of islands){if(element===container||container.contains(element)){root.unmount();islands.delete(element);}}container.removeAttribute('aria-busy');}
 export function mountSkeleton(container:HTMLElement,kind='document'){
   mount(container,<div className={'reader-skeleton '+kind} role="status" aria-label={kind==='search'?'Searching documents':'Loading '+kind}><span className="sr-only">{kind==='search'?'Searching documents…':'Loading '+kind+'…'}</span><Skeleton className="h-5 w-28"/><Skeleton className="h-12 w-3/4"/><div className="grid gap-4">{Array.from({length:kind==='search'?3:8},(_,i)=><Skeleton key={i} className={i%3===2?'h-4 w-3/4':'h-4 w-full'}/>)}</div></div>);container.setAttribute('aria-busy','true');

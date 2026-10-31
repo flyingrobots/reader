@@ -117,6 +117,7 @@ lucide-react/dist/esm/icons/external-link.js:
 lucide-react/dist/esm/icons/file-minus.js:
 lucide-react/dist/esm/icons/file-pen.js:
 lucide-react/dist/esm/icons/file-plus.js:
+lucide-react/dist/esm/icons/file-text.js:
 lucide-react/dist/esm/icons/file.js:
 lucide-react/dist/esm/icons/flame.js:
 lucide-react/dist/esm/icons/flask-conical.js:

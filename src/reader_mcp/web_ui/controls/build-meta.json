@@ -87,7 +87,11 @@
     "src/components/ui/tooltip.tsx": "f83d5f511812573f4ac98b866d397a46fda0f27eeb0af0ea89af01969eefbc5a",
     "src/components/ui/trace.tsx": "f03ab1824e7312d00623f052a611497372a654cb33f5e6683b19ac53952f93e0",
     "src/diagrams.ts": "6afe727e3302c2d2ddd4a023105a5a6cf36b6ac969e3ceb2d51f0f0712b326ea",
-    "src/document-tree.tsx": "51d1b05c42d1fd0a74565412be530f6bee410ddd630996197ffc7ed2cedef45d",
+    "src/explorer/article-row.tsx": "1d4f2a4306a3f3f4772f74265222d862e902874e6dd6621b4c02ccee1217c126",
+    "src/explorer/explorer-filters.tsx": "2749c3721c31b2931e05e2561b932da8fc4dd95fe83f09a6ab09eeabf90d78a9",
+    "src/explorer/explorer-pagination.tsx": "8874f2573718afa34bbf22476c6b397e601b6f06c5672202287b0b7890dea460",
+    "src/explorer/file-explorer.tsx": "3983c8497cd42eec1f1b223fbc904b303678669f73a017c1d5bb0f770b7cac72",
+    "src/explorer/model.ts": "e6d4d46c7d7c80b53d63a638353daa44541f5a9b379d78cc08d7cb409d8522a0",
     "src/hooks/use-mobile.ts": "ad0936f84f1df79d3697bfbff9c18f8ad58431c1cbaf2359c6a853b0fcc9f28b",
     "src/jobs/admin.tsx": "ca2f88a8964493fb71d8851c92634dd02b33bb5655f57472a982644f7436a412",
     "src/jobs/job-detail.tsx": "d08f4f8c58b0358ef557610bc41f5f1d3b05a42c5a7e5758295b9dae2477d7bf",
@@ -105,7 +109,7 @@
     "src/plural.ts": "4c0d0698a171b39d5683548f00e2e9a8a7c5ea1af28e4067aaa63612476b5fa2",
     "src/queue-panel.tsx": "f94dbf25fb0b53288a3de2b9ae46029eab1b9522a2ebe3655cb32a3b65d816bb",
     "src/quiz.tsx": "da429b5617a6c905d376cea263c1901325c2e1d43890957e294114492a852cb2",
-    "src/reader-controls.tsx": "4cbbf2ec1c5a5f3d5ee3462f3f97083f5459482e0ae4d884bee31d2a5741d124",
+    "src/reader-controls.tsx": "267175bd27a758e8f6ffd98a3d6fdca13ccfc68cd43112c9d98788d569a7a430",
     "src/scratch-question.tsx": "ae90d508a8ca52994fb567380d60bef8644475691754a97fd697b323dcb7e7e3",
     "src/search-page.tsx": "b63ecad9ec576f5375ecced55c54670cd69af9380e70542ae941f4065e8f3323",
     "src/server-card.tsx": "1dab12f3cde047b9f069ff785dd777aba138e9ad4256329d10d07311f54d8116",
@@ -953,16 +957,16 @@
       "sha256": "cb2ee2554fd41ac9f8e2e69c350365f0e1cf9732d27ad161c9c97b20945bbe4c"
     },
     "reader-controls.css": {
-      "bytes": 175563,
-      "sha256": "bf9979f2b3f5d0cddb9ad4f21be74463d33436896e2126389756278b8835aedc"
+      "bytes": 175197,
+      "sha256": "e5f76214f194573405e4a3bc0b2508fbea5020f533103c3044676dbb6ea16607"
     },
     "reader-controls.js": {
-      "bytes": 1181649,
-      "sha256": "15ad97bbfe164f5c15129816fab1a8ef3153092461d83c5973b1ba498fe2df08"
+      "bytes": 1185113,
+      "sha256": "0e430d92c5afa68a68c817cf209ca9b6db06b58b9987b9866aa02a80744f8469"
     },
     "reader-controls.js.LEGAL.txt": {
-      "bytes": 6363,
-      "sha256": "bea5a4d5c56a687c2fb49dbc6f59b7806582510adad07accc31cf39a100787d3"
+      "bytes": 6405,
+      "sha256": "d3b836f71ef40c5b8e6009f3bf437bdb84921e9253bc74982ef0f939fa4fd5dd"
     },
     "shape.js": {
       "bytes": 8806,

@@ -31,7 +31,7 @@ export function installReading({scratchStatus, statusOverride, onStatus, mayCurl
     const owned=keyStatus();
     if(owned){mode=owned.mode;keys=owned.keys;}
     else if(scratch&&!document.querySelector('dialog[open]')){mode=scratch.mode;keys=scratch.keys;}
-    else if($('#picker').open){mode=$('#picker-filter').hidden?'BROWSE':'SEARCH';keys=$('#picker-filter').hidden?'<kbd>j k</kbd> choose <kbd>/</kbd> filter <kbd>Enter</kbd> open <kbd>Esc</kbd> close':'<kbd>↑ ↓</kbd> choose <kbd>Enter</kbd> open <kbd>Esc</kbd> clear filter';}
+    else if(!$('#picker').hidden&&$('#picker').contains(active)){mode='BROWSE';keys='<kbd>j k</kbd> choose <kbd>/</kbd> filter <kbd>Enter</kbd> open <kbd>Esc</kbd> close';}
     else if($('#status-location details[open]')){mode='BROWSE';keys='<kbd>↑ ↓</kbd> folders <kbd>Enter</kbd> browse <kbd>Esc</kbd> close';}
     else if(!$('#find-bar').hidden){mode='SEARCH';keys='<kbd>Enter</kbd> find <kbd>n N</kbd> next / previous <kbd>Esc</kbd> close';}
     else if(active?.closest('#chat-panel')&&!$('#chat-panel').hidden){mode='CHAT';keys=active.matches('textarea,input')?'<kbd>@</kbd> mention <kbd>Enter</kbd> send <kbd>Shift Enter</kbd> new line <kbd>Esc</kbd> close':'<kbd>Tab</kbd> move <kbd>Esc</kbd> close';}

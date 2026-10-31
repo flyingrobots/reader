@@ -31,12 +31,11 @@ const THEMES=['ink','paper','orchid','orchid-dark','harvest','harvest-dark',...r
   await browser.close();browser=await launch();page=await browser.newPage({viewport:{width:1440,height:1100},reducedMotion:'reduce'});page.on('pageerror',error=>errors.push(error.message));
   await page.goto(url+'/?theme=orchid-dark#admin/library');await page.locator('[data-statistics-grid]').waitFor();
   await page.keyboard.press('Space');await page.keyboard.press('e');await page.locator('#picker').waitFor();
-  assert.equal(await page.locator('#picker-title').textContent(),'Documents');assert.equal(await page.locator('#picker-filter').isVisible(),false);assert.equal(await page.evaluate(()=>document.activeElement.id),'file-results');
-  await page.keyboard.press('j');assert.equal(await page.locator('#file-results').getAttribute('aria-activedescendant'),'file-option-1');
-  await page.keyboard.press('/');assert.equal(await page.locator('#picker-filter').isVisible(),true);assert.equal(await page.evaluate(()=>document.activeElement.id),'file-query');
-  await page.locator('#file-query').fill('quie thoght');await page.waitForTimeout(350);assert.match(await page.locator('#file-results').textContent(),/A quiet thought/);
-  await page.keyboard.press('Escape');assert.equal(await page.locator('#picker').evaluate(el=>el.open),true);assert.equal(await page.locator('#picker-filter').isVisible(),false);assert.equal(await page.evaluate(()=>document.activeElement.id),'file-results');
-  await page.keyboard.press('Escape');assert.equal(await page.locator('#picker').evaluate(el=>el.open),false);
+  assert.equal(await page.locator('#picker-title').textContent(),'File Explorer');assert.equal(await page.evaluate(()=>document.activeElement.id),'file-results');
+  await page.keyboard.press('j');assert.equal(await page.evaluate(()=>document.activeElement.hasAttribute('data-article-row')),true);
+  await page.keyboard.press('/');assert.equal(await page.evaluate(()=>document.activeElement.id),'file-query');
+  await page.locator('#file-query').fill('quiet thought');assert.match(await page.locator('#file-results').textContent(),/A quiet thought/);
+  await page.keyboard.press('Escape');assert.equal(await page.locator('#picker').isVisible(),false);
   await browser.close();browser=await launch();page=await browser.newPage({viewport:{width:1440,height:1100},reducedMotion:'reduce'});page.on('pageerror',error=>errors.push(error.message));
   await page.goto(url+'/?theme=harvest-dark#admin/library');await page.locator('#backstage-library [data-statistics-grid]').waitFor();await page.getByRole('switch',{name:'Dark mode',exact:true}).click();assert.equal(await page.locator('html').getAttribute('data-theme'),'harvest');assert.equal(new URL(page.url()).searchParams.has('theme'),false);
   await page.getByRole('switch',{name:'Dark mode',exact:true}).click();assert.equal(await page.locator('html').getAttribute('data-theme'),'harvest-dark');
