@@ -74,7 +74,10 @@ export function createKeys({guard=()=>false,escape=()=>{},changed=()=>{},notify=
   function enter(name){if(mode()!==name)stack.push(name);clearPending();emit();}
   function leave(name){const i=stack.lastIndexOf(name);if(i>0)stack.splice(i);clearPending();emit();}
   const live=(entry,event)=>entry.run&&(!entry.when||entry.when(event));
-  function clearPending(){clearTimeout(timer);timer=0;pending=[];count='';register=null;}
+  function clearPending(){clearTimeout(timer);timer=0;pending=[];count='';register=null;lapsed=null;}
+  // A sequence the timer gave up on, and until when its next key still counts. The timer can run late, after a key that
+  // was typed in time but is still queued behind a busy page; that key's own timestamp decides, not when it is handled.
+  let lapsed=null;
   function call(entry,args,event){
     const context={count:count?Math.min(LIMITS.count,+count):0,register,args,event,keys:api};
     clearPending();
@@ -98,6 +101,8 @@ export function createKeys({guard=()=>false,escape=()=>{},changed=()=>{},notify=
       if(/^[1-9]$/.test(token)||count&&/^[0-9]$/.test(token)){count+=token;emit();return true;}
     }
     if(!pending.length&&token===','&&mode()==='normal')token='<Space>';
+    if(!pending.length&&lapsed&&Number.isFinite(event?.timeStamp)&&event.timeStamp<=lapsed.until)({keys:pending,count,register}=lapsed);
+    lapsed=null;
     const typed=[...pending,token],found=candidates(typed,event);
     const exact=found.filter(c=>c.kind==='exact'),longer=found.filter(c=>c.kind==='prefix');
     if(!found.length){
@@ -107,7 +112,9 @@ export function createKeys({guard=()=>false,escape=()=>{},changed=()=>{},notify=
     }
     if(exact.length&&!longer.length){const ran=runExact(exact,event);emit();if(!ran&&typed.length===1)return false;return true;}
     pending=typed;clearTimeout(timer);
-    timer=setTimeout(()=>{timer=0;const waiting=candidates(pending,event).filter(c=>c.kind==='exact');if(waiting.length)runExact(waiting,event);else clearPending();emit();},pending[0]==='<Space>'?LIMITS.leaderMs:prefixes.get(pending[0])?.ms??LIMITS.sequenceMs);
+    const ms=pending[0]==='<Space>'?LIMITS.leaderMs:prefixes.get(pending[0])?.ms??LIMITS.sequenceMs,until=Number.isFinite(event?.timeStamp)?event.timeStamp+ms:-Infinity;
+    timer=setTimeout(()=>{timer=0;const waiting=candidates(pending,event).filter(c=>c.kind==='exact');
+      if(waiting.length)runExact(waiting,event);else{const kept={keys:pending,count,register,until};clearPending();lapsed=kept;}emit();},ms);
     emit();return true;
   }
   /** The page's keydown listener. */

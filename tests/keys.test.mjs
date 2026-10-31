@@ -144,3 +144,17 @@ test('a prefix family (Ctrl-w) labels the status line, waits its own time and sw
   keys.map({keys:'<Space>W',run:()=>{keys.feed('<C-w>');}});
   type(' ','W','s');assert.deepEqual(calls.map(c=>c.name),['vsplit','j','split']);
 });
+
+test('a key typed in time continues its sequence even when the timeout ran first', async () => {
+  const {keys,calls,log,type}=setup();
+  keys.map([{keys:'gg',run:log('top')},{keys:'G',run:log('end')}]);
+  // A busy page: the second g was pressed 10 ms after the first but is handled after the 40 ms timeout has run.
+  type(key('g',{timeStamp:1000}));await wait(LIMITS.sequenceMs+20);
+  assert.deepEqual(keys.pending().keys,[],'the timeout cleared the pending g');
+  type(key('g',{timeStamp:1010}));
+  assert.deepEqual(calls.map(c=>c.name),['top'],'gg still runs: the second key was typed before the deadline');
+  // A key typed after the deadline starts afresh.
+  type(key('g',{timeStamp:5000}));await wait(LIMITS.sequenceMs+20);type(key('g',{timeStamp:5000+LIMITS.sequenceMs+1}));
+  assert.deepEqual(calls.map(c=>c.name),['top'],'too late: no second gg');
+  assert.deepEqual(keys.pending().keys,['g'],'the late g is pending on its own');
+});
