@@ -14,3 +14,5 @@ Deployment uses the existing service and live worktree, with the supported sourc
 The operator must verify the exact health commit, served asset hashes and actual explorer behavior after activation. Deployment output and verification receipts are retained locally under `.reader/explorer-deployment/`; this candidate record does not claim activation before those checks run.
 
 Resource measurements: host free space 584 GiB; candidate frontend dependencies 280 MiB; focused browser screenshots 652 KiB. Dependencies use the existing npm package cache, with a local install to keep bundle source paths canonical. No Docker worker, image, volume or background validation campaign was created.
+
+The initial activation gate retained the previous server after two Python tests expected the retired filter input in the raw HTML shell. Those assertions now check the nonmodal explorer mount; its React-rendered controls are exercised by the browser suite. The gate is rerun rather than bypassed.
