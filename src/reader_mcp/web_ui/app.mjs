@@ -594,7 +594,7 @@ async function navigate(path,{thread=null,fragment='',record=true,commit=null,at
     if(artFigure)paintArticleArt(artFigure,artData).catch(error=>console.warn('Article art',error));
     if(id!==state.routeId)return;drawLate(article,id).catch(error=>console.error(error));await outline?.refresh(article);
     // Inbox previews are plain reading: no discussion, read receipt, recents or Read next.
-    if(doc.preview){if(fragment)article.querySelector('#'+CSS.escape(fragment))?.scrollIntoView({block:'start'});focusMain();return;}
+    if(doc.preview){if(fragment)article.querySelector('#'+CSS.escape(fragment))?.scrollIntoView({block:'start'});settleFocus();return;}
     if(!historical&&(doc.kind==='.md' || doc.kind==='.markdown'))await secondary('Margins',loadDiscussion);
     if(id!==state.routeId)return;
     if(!historical)prose.attach(article,doc);  // Prose colors are for the current edition only.
@@ -604,7 +604,7 @@ async function navigate(path,{thread=null,fragment='',record=true,commit=null,at
     if(fragment)showHeading(article,fragment);
     if(at)await secondary('Passage',()=>revealPassage(at));
     if(thread)openThread(thread);
-    focusMain();
+    settleFocus();
     // Historical versions are read-only views of the past: no Read next or Linked from for them.
     if(!historical){placeQuizControl();showNextReads(path,id).catch(error=>console.warn('Read next',error));links?.backlinks(path,id)?.catch(error=>console.warn('Linked from',error));}
   } catch(error){if(id!==state.routeId)return;if(rendered&&state.doc?.path===path){console.warn(error);notify(error.message || String(error));return;}outline?.clear();clearControlsWithin($('#main'));
@@ -1806,8 +1806,13 @@ function openRoute(route){
 }
 /** A background pane never takes the keyboard by itself (focus() in a frame would move the window's focus into it). */
 function focusMain(){if(!pane||pane.focused())$('#main').focus({preventScroll:true});}
+/** Focus the page because something finished on its own (a document rendered, a pane gained focus), not because the
+ *  reader asked: never take focus from the command line or a field being typed in, which would close or interrupt it
+ *  (#111). */
+const typingSomewhere=()=>keys?.mode()==='command'||!!document.activeElement?.matches?.('input,textarea,select,[contenteditable="true"]');
+function settleFocus(){if(!typingSomewhere())focusMain();}
 function paneFocus(focused,move){
-  if(focused&&move&&!modalOpen()&&!$('#main').contains(document.activeElement))$('#main').focus({preventScroll:true});
+  if(focused&&move&&!modalOpen()&&!typingSomewhere()&&!$('#main').contains(document.activeElement))$('#main').focus({preventScroll:true});
   reading?.paneFocus(focused);
 }
 let lastPaneDoc='',lastPaneStatus='';

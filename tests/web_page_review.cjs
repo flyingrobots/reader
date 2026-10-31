@@ -28,6 +28,7 @@ const THEMES=['user-reader-test','user-reader-test-dark'];
  try{
   browser=await chromium.launch({headless:true,executablePath:process.env.READER_CHROME||'/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',args:['--disable-gpu','--disable-background-networking','--disable-breakpad','--disable-crash-reporter','--disk-cache-size=10485760']});
   mkdirSync(shots,{recursive:true});
+  // Page-load ceilings (20 s): suites share the machine when they run side by side; nothing here waits on a timer.
   await Promise.all(Object.entries(PROFILES).map(async([profile,options])=>{const url=await start();await Promise.all(THEMES.map(async theme=>{
    const context=await browser.newContext({...options,reducedMotion:'reduce'});
    await context.addInitScript(value=>{try{localStorage.setItem('reader.preferences.v1',value);}catch{}},JSON.stringify({smooth:false,theme,nextReads:false,backlinks:false}));
@@ -38,8 +39,8 @@ const THEMES=['user-reader-test','user-reader-test-dark'];
    for(const section of SECTIONS){
     const name=`${section}-${profile}-${theme}`;errors.length=0;
     try{
-     const [route,ready,keys,opened]=PAGES[section];await page.goto(url+'/'+route);await page.locator(ready).first().waitFor({timeout:8000});
-     if(keys){await page.locator('#main').focus();for(const key of keys)await page.keyboard.press(key);await page.locator(opened).first().waitFor({timeout:8000});}
+     const [route,ready,keys,opened]=PAGES[section];await page.goto(url+'/'+route);await page.locator(ready).first().waitFor({timeout:20000});
+     if(keys){await page.locator('#main').focus();for(const key of keys)await page.keyboard.press(key);await page.locator(opened).first().waitFor({timeout:20000});}
      await page.waitForTimeout(900);   // Status polls answer and loading states settle.
      const overflow=await page.evaluate(()=>{const doc=document.documentElement,wide=[...document.querySelectorAll('#main *')].filter(el=>el.getBoundingClientRect().right>doc.clientWidth+1).map(el=>el.id||el.getAttribute('data-slot')||el.className.toString().slice(0,60)).slice(0,5);return {scroll:doc.scrollWidth-doc.clientWidth,wide};});
      await page.screenshot({path:`${shots}/${name}.png`,fullPage:true});
