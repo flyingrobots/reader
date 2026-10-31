@@ -26,3 +26,9 @@ Cached measurements remain visible during audits. Initial missing status has no 
 ## Verification
 
 `tests/web_indexes.cjs` checks measured SVG values, shadcn composition, keyboard/click inspection without job starts, data tabs, unknown and over-budget usage, checking/unavailable states and mobile bounds. Existing hooks remain: `#maintenance-check`, `[data-index][data-state]`, `[data-job]`, `#recent-runs`, `#edition-links`. Added hooks: `[data-index-charts]`, `[data-index-chart]`, `[data-index-fleet]`, `#index-inspector` and `[data-inspected-index]`.
+
+## Actions and contextual help
+
+Stale, partial and missing rebuildable indexes show their state as a shadcn Button in both the health table and inspector. It invokes that index’s primary action; Search uses the guarded embeddings rebuild. Current, error and inventory-limit states remain badges, since rebuilding is not a universal repair. Busy/demo/unavailable restrictions apply to these controls too. Search also gets a prominent action above the charts, including on narrow screens.
+
+Reusable HelpTip popovers explain index purposes, measurement semantics and the manual update policy. They open on hover, keyboard focus or tap and close with Escape. Overview tiles use the same help component. No scheduled rebuild or file watcher is introduced; the service updater updates software rather than index content.
