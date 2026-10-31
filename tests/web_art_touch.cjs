@@ -13,17 +13,23 @@ const {pinDate}=require('./web_clock.cjs');
   const context=await browser.newContext({viewport:{width:390,height:844},hasTouch:true,reducedMotion:'no-preference'});await pinDate(context,now);
   await context.addInitScript(()=>localStorage.setItem('reader.preferences.v1',JSON.stringify({smooth:false,theme:'paper'})));
   const page=await context.newPage(),errors=[];page.on('pageerror',error=>errors.push(error.message));
-  await page.goto(url);await page.locator('.cover-art .art-focus-toggle').click();
+  // Open the view with a touch tap, as a phone would: a mouse click would leave a mouse pointer resting over the art, and
+  // its desktop hover card would open on its own timer in the middle of the gesture under test.
+  await page.goto(url);await page.locator('.cover-art .art-focus-toggle').tap();
   await page.waitForFunction(()=>['live','still','image','unavailable'].includes(document.querySelector('.art-focus')?.dataset.state));
   const input=await context.newCDPSession(page);
   const touch=(type,x,y)=>input.send('Input.dispatchTouchEvent',{type,touchPoints:type==='touchEnd'?[]:[{x,y,id:0}]});
+  // The gesture runs on Playwright's clock, so the 550 ms long-press timer only advances when the test says: exactly
+  // 170 ms between moves, however late a loaded machine delivers the touch events. Real time resumes afterwards.
+  await page.clock.install();
   await touch('touchStart',64,300);
-  for(const x of [94,124,154,184]){await page.waitForTimeout(170);await touch('touchMove',x,300);}
+  for(const x of [94,124,154,184]){await page.clock.runFor(170);await touch('touchMove',x,300);}
   await touch('touchEnd');
   assert.equal(await page.locator('#art-prompt-card:visible').count(),0,'a continuous touch drag past the long-press delay must not open the card');
   // A fresh stationary gesture, allowing slight finger jitter, still opens the prompt.
-  await touch('touchStart',80,300);await touch('touchMove',84,303);await page.waitForTimeout(700);
+  await touch('touchStart',80,300);await touch('touchMove',84,303);await page.clock.runFor(700);
   await page.locator('#art-prompt-card').waitFor({state:'visible'});await touch('touchEnd');
+  await page.clock.resume();
   assert.ok(await page.locator('.art-focus').isVisible());
   mkdirSync('.reader/web-dev',{recursive:true});await page.screenshot({path:'.reader/web-dev/art-focus-touch.png'});
   await page.keyboard.press('Escape');await page.locator('#art-prompt-card').waitFor({state:'hidden'});
