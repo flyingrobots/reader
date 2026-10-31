@@ -132,15 +132,18 @@ def trial():
                     os.killpg(process.pid, signal.SIGTERM)
                 except ProcessLookupError:
                     pass
-            result = call('docker', 'rm', '-f', NAME, check=False)
-            if call('docker', 'inspect', NAME, check=False).returncode == 0:
-                raise RuntimeError('Could not terminate the owned trial container: ' + result.stderr[-1000:])
-            if process:
-                try:
-                    process.wait(timeout=5)
-                except subprocess.TimeoutExpired:
-                    os.killpg(process.pid, signal.SIGKILL)
-                    process.wait(timeout=5)
+            try:
+                result = call('docker', 'rm', '-f', NAME, check=False)
+                if call('docker', 'inspect', NAME, check=False).returncode == 0:
+                    raise RuntimeError('Could not terminate the owned trial container: ' + result.stderr[-1000:])
+            finally:
+                # Docker failure must not skip local CLI/child termination and reaping.
+                if process:
+                    try:
+                        process.wait(timeout=5)
+                    except subprocess.TimeoutExpired:
+                        os.killpg(process.pid, signal.SIGKILL)
+                        process.wait(timeout=5)
 
 
 if __name__ == '__main__':

@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- The development setup experiment reaps its CLI even when Docker cleanup fails.
+
 - Finishing inbox work refreshes an open section in place instead of replacing it with the homepage.
 
 - Split-view breadcrumbs retain the focused section’s identity.
