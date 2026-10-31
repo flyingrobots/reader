@@ -19,6 +19,7 @@ import {StatusCard} from '@/theme/organisms/status-card';
 import {Card, CardContent, CardDescription, CardHeader, CardTitle} from '@/components/ui/card';
 import {HelpTip} from '@/theme/molecules/help-tip';
 import {Tooltip, TooltipContent, TooltipTrigger} from '@/components/ui/tooltip';
+import {IndexingGuide} from './indexing-guide';
 import {IndexCharts} from './index-charts';
 import {INDEXES, INDEX_OF, STATES, jobOutcome, type Job, type MaintenanceStatus} from '../../backstage';
 import {localOnly, needsReader} from '../../static-demo';
@@ -105,6 +106,7 @@ export function IndexesPage({status,error,onStart,editions}:{status:MaintenanceS
       Rebuilds are manual. Checking freshness does not update an index. Use a status button below to rebuild stale or incomplete data.
     </Notice>
     {['stale','partial','missing'].includes(status?.checks.search?.state||'')?<Notice title="Search needs an update" action={<Button size="sm" disabled={busy||unavailable} {...localOnly()} data-index-primary-action="search" onClick={()=>onStart('search')}><RefreshCwIcon data-icon="inline-start" aria-hidden/>Rebuild search</Button>}>{status?.checks.search?.message||'Update search to include current library content.'}</Notice>:null}
+    <IndexingGuide/>
     <IndexCharts status={status} selected={selected} onSelect={setSelected}/>
     <Card data-index-fleet="" className="min-w-0">
       <CardHeader><CardTitle>Index health</CardTitle><CardDescription>Choose an index to inspect its measurements. Rebuilds update derived data; they do not file or read documents.</CardDescription></CardHeader>

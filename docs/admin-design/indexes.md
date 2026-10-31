@@ -32,3 +32,7 @@ Cached measurements remain visible during audits. Initial missing status has no 
 Stale, partial and missing rebuildable indexes show their state as a shadcn Button in both the health table and inspector. It invokes that index’s primary action; Search uses the guarded embeddings rebuild. Current, error and inventory-limit states remain badges, since rebuilding is not a universal repair. Busy/demo/unavailable restrictions apply to these controls too. Search also gets a prominent action above the charts, including on narrow screens.
 
 Reusable HelpTip popovers explain index purposes, measurement semantics and the manual update policy. They open on hover, keyboard focus or tap and close with Escape. Overview tiles use the same help component. No scheduled rebuild or file watcher is introduced; the service updater updates software rather than index content.
+
+## Indexing explanation
+
+The visible How indexing works Card distinguishes rule-based extraction/navigation/catalog/link operations from semantic embedding inference. It explains that indexing does not launch chat generation, summarization or tagging. A Collapsible gives the fixed-input determinism boundary, non-identical database bytes, floating-point/provider variability, text/model-signature vector caching and local-default versus configured-provider privacy. The explanation is visible without hover; details expand by pointer or keyboard.
