@@ -1932,6 +1932,19 @@ line says who has a read receipt for the document and when, for example
 
 ### Send to AI-TTS
 
+**Reading voice.** Settings → Services & Tools → AI-TTS provides a default reading
+voice from the running engine’s catalog. It applies to new readings, including
+Read aloud below the article title. The Space s popup provides the same chooser
+for a single reading; its override does not change the saved default. Automatic
+uses AI-TTS’s existing Reader source voice. Explicit choices retain origin Reader
+without claiming or changing registered agent voices. Choices are stored atomically
+in the vault’s `.reader/speech.json`; clear the choice to return to Automatic.
+If the daemon is unavailable, the selector explains the failure. If a saved voice
+is missing after an engine change, choose an available voice or Automatic before
+starting a new reading. GET `/api/speech-voices` returns the catalog and default;
+POST with `{voice: "name"}` saves the default (`""` clears it). POST `/api/speak`
+accepts an optional `voice` override with the same empty-string behavior.
+
 Reader can hand the open document to the local AI-TTS
 daemon, which speaks it through its own serialized playback queue. Reader never
 plays audio itself, so AI-TTS holds, microphone interruption and other agents'

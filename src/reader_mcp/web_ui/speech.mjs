@@ -32,12 +32,12 @@ export function installSpeech({state, api, reading, notify, track, openMenu: sho
     }
     return base;
   }
-  async function send(scope) {
+  async function send(scope, voice) {
     if (state.doc?.preview) { notify('Inbox previews can be spoken once they are filed into the library.', 'info'); return; }
     if (state.doc?.historical) { notify('Send to AI-TTS reads the current file; open the current version to listen.', 'info'); return; }
     menu?.close();
     if (!spoken()) { notify(state.doc ? 'This document has no text to speak.' : 'Open a document to send it to AI-TTS.'); return; }
-    let body; try { body = request(scope); } catch (error) { notify(error.message, 'error'); return; }
+    let body; try { body = request(scope); if (voice !== undefined) body.voice = voice; } catch (error) { notify(error.message, 'error'); return; }
     try {
       const queued = await api('/api/speak', body);
       notify(queued.held ? 'Queued for AI-TTS; it plays when the pause ends.' : 'Queued for AI-TTS.', 'success', queued.id);
@@ -51,7 +51,7 @@ export function installSpeech({state, api, reading, notify, track, openMenu: sho
   function openMenu() {
     if (state.doc?.historical) { notify('Send to AI-TTS reads the current file; open the current version to listen.', 'info'); return; }
     if (!spoken()) { notify(state.doc ? 'This document has no text to speak.' : 'Open a document to send it to AI-TTS.'); return; }
-    menu = showMenu({hasSelection: !!selection(), choose: scope => send(scope), onClosed: () => { menu = null; }});
+    menu = showMenu({hasSelection: !!selection(), api, choose: (scope, voice) => send(scope, voice), onClosed: () => { menu = null; }});
   }
   $('#speak-selection').onclick = () => { $('#selection-tools').hidden = true; send('selection'); };
   return {send, openMenu};

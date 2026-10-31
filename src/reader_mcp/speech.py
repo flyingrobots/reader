@@ -6,6 +6,8 @@ operations are limited to utterances this process submitted.
 """
 from collections import OrderedDict
 import json
+import fcntl
+import tempfile
 import os
 from pathlib import Path
 import re
@@ -36,8 +38,9 @@ def default_socket():
 
 
 class Speech:
-    def __init__(self, socket_path=None):
+    def __init__(self, socket_path=None, settings_path=None):
         self.socket_path = Path(socket_path).expanduser() if socket_path else None
+        self.settings_path = Path(settings_path) if settings_path else None
         self.submitted = OrderedDict()
         self.lock = threading.Lock()
 
@@ -89,7 +92,52 @@ class Speech:
             raise ValueError('AI-TTS refused: ' + str(error.get('message') or error.get('type') or 'unknown error'))
         return response
 
-    def submit(self, text, fmt, scope):
+    def preferred_voice(self):
+        path = self.settings_path
+        if path is None or not path.exists():
+            return None
+        if path.is_symlink() or path.stat().st_size > 4096:
+            raise ValueError('Invalid Reader speech settings file')
+        try:
+            data = json.loads(path.read_text())
+        except (OSError, ValueError):
+            raise ValueError('Reader speech settings are unreadable') from None
+        voice = data.get('voice') if isinstance(data, dict) else None
+        if voice is not None and (not isinstance(voice, str) or len(voice) > 128):
+            raise ValueError('Invalid saved speech voice')
+        return voice or None
+
+    def voices(self):
+        values = self.request({'op': 'voices'}).get('voices')
+        if not isinstance(values, list) or len(values) > 1024 or any(not isinstance(v, str) or not v or len(v) > 128 for v in values):
+            raise ValueError('AI-TTS returned an invalid voice catalog')
+        return {'voices': list(dict.fromkeys(values)), 'default_voice': self.preferred_voice()}
+
+    def choose_voice(self, voice):
+        if not isinstance(voice, str) or len(voice) > 128:
+            raise ValueError('Expected a voice name or an empty string for the default')
+        data = self.voices()
+        if voice and voice not in data['voices']:
+            raise ValueError('The selected voice is not available in AI-TTS')
+        path = self.settings_path
+        if path is None:
+            raise ValueError('Reader speech settings are not configured')
+        path.parent.mkdir(parents=True, exist_ok=True)
+        if path.parent.is_symlink() or path.is_symlink():
+            raise ValueError('Refusing symlinked speech settings')
+        with path.with_suffix('.lock').open('a') as lock:
+            fcntl.flock(lock, fcntl.LOCK_EX)
+            fd, temporary = tempfile.mkstemp(prefix='speech-', dir=path.parent)
+            try:
+                with os.fdopen(fd, 'w') as stream:
+                    json.dump({'version': 1, 'voice': voice or None}, stream)
+                    stream.write('\n')
+                os.replace(temporary, path)
+            finally:
+                Path(temporary).unlink(missing_ok=True)
+        return data | {'default_voice': voice or None}
+
+    def submit(self, text, fmt, scope, voice=None):
         if fmt not in ('markdown', 'plain_text') or scope not in ('article', 'from', 'selection'):
             raise ValueError('Expected markdown or plain_text text and an article, from or selection scope')
         if not isinstance(text, str) or not text.strip():
@@ -98,8 +146,19 @@ class Speech:
             raise ValueError('Binary text cannot be spoken.')
         if len(text.encode('utf-8', 'surrogatepass')) > MAX_TEXT:
             raise ValueError('This text exceeds the 512 KiB AI-TTS limit. Use From here or select a passage.')
-        response = self.request({'op': 'submit', 'origin': 'Reader', 'text': text, 'content_format': fmt,
-                                 'source': 'Reader', 'sensitivity': 'confidential', 'priority': 'normal'})
+        selected = self.preferred_voice() if voice is None else voice
+        if selected is not None and (not isinstance(selected, str) or len(selected) > 128):
+            raise ValueError('Expected a voice name')
+        payload = {'op': 'submit', 'origin': 'Reader', 'text': text, 'content_format': fmt,
+                   'source': 'Reader', 'sensitivity': 'confidential', 'priority': 'normal'}
+        if selected:
+            if selected not in self.voices()['voices']:
+                raise ValueError('The selected voice is not available in AI-TTS')
+            # This is an explicit human reading choice, not an agent voice claim.
+            # Omitting source lets the daemon honor it without changing any registered agent assignment.
+            payload.pop('source')
+            payload['voice'] = selected
+        response = self.request(payload)
         utterance = response.get('id')
         if not isinstance(utterance, str) or not UTTERANCE_ID.fullmatch(utterance):
             raise SpeechUnavailable('AI-TTS accepted the text without a usable utterance id.')
