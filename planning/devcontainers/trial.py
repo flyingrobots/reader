@@ -73,7 +73,13 @@ def reap(process):
     try:
         process.wait(timeout=5)
     except subprocess.TimeoutExpired:
-        os.killpg(process.pid, signal.SIGKILL)
+        pass
+    finally:
+        # A reaped leader does not prove that its process group is empty.
+        try:
+            os.killpg(process.pid, signal.SIGKILL)
+        except ProcessLookupError:
+            pass
         process.wait(timeout=5)
 
 

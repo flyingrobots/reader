@@ -126,3 +126,38 @@ def test_unreviewed_image_commands_never_start_a_build(tmp_path, monkeypatch):
     with pytest.raises(RuntimeError, match='Image configuration changed'):
         trial.build_image(config, 'reader-development:local', scratch, trial.time.monotonic() + 1, lambda: None)
     assert started == []
+
+
+def test_exited_cli_leader_does_not_leave_a_live_descendant(tmp_path, monkeypatch):
+    pid_file = tmp_path / 'descendant.pid'
+    children = []
+    actual_popen = subprocess.Popen
+
+    def record(*args, **kwargs):
+        child = actual_popen(*args, **kwargs)
+        children.append(child)
+        return child
+
+    monkeypatch.setattr(trial.subprocess, 'Popen', record)
+    descendant = ('import os,signal,sys,time;from pathlib import Path;'
+                  'signal.signal(signal.SIGTERM,signal.SIG_IGN);'
+                  'Path(sys.argv[1]).write_text(str(os.getpid()));time.sleep(30)')
+    leader = ('import subprocess,sys,time;from pathlib import Path;'
+              f'subprocess.Popen([sys.executable,"-c",{descendant!r},{str(pid_file)!r}]);'
+              f'\nwhile not Path({str(pid_file)!r}).exists():time.sleep(.01)')
+    try:
+        with pytest.raises(TimeoutError, match='deadline'):
+            trial.watch([sys.executable, '-c', leader], tmp_path / 'command.log', trial.time.monotonic() + 1)
+        pid = int(pid_file.read_text())
+        stat = Path(f'/proc/{pid}/stat')
+        until = trial.time.monotonic() + 2
+        while stat.exists() and stat.read_text().rsplit(')', 1)[1].split()[0] != 'Z' and trial.time.monotonic() < until:
+            trial.time.sleep(.01)
+        assert not stat.exists() or stat.read_text().rsplit(')', 1)[1].split()[0] == 'Z', 'CLI descendant survived group cleanup'
+    finally:
+        for child in children:
+            try:
+                os.killpg(child.pid, signal.SIGKILL)
+            except ProcessLookupError:
+                pass
+            child.wait(timeout=5)
