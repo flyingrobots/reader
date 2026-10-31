@@ -1864,8 +1864,13 @@ to read next and shows them in a **Read next** aside after the article:
 3. **Order.** Unread works (for the current participant and current edition) come
    first, then the latest by date.
 4. **Diversity.** A pick within cosine 0.97 of an earlier pick is skipped.
+   Picks also have unique source paths and unique title/author combinations
+   (case-insensitive titles before a trailing parenthetical, ignoring author order).
+   This keeps revisions from taking multiple slots even without embeddings;
+   different authors may still have works with the same title.
 5. **Fill.** With fewer than three, the newest unread works fill the list as
-   *New in the library*.
+   *New in the library*, using the same duplicate and diversity checks. The list
+   stays shorter when no distinct candidate remains.
 
 Each entry shows its title, an unread mark, author and date, and the reasons it
 was chosen: *Similar ideas* and up to two shared projects/topics.
