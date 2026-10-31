@@ -65,7 +65,7 @@ const {chromium}=require(process.env.READER_PLAYWRIGHT||'playwright-core');
   assert.equal(await log.getAttribute('role'),'log');assert.equal(await log.getAttribute('aria-live'),'polite');
   assert.equal(await page.locator('#inbox .activity').getAttribute('data-reader-decoration'),'');
   assert.match(await item('item_0').textContent(),/I’ll file the three synthetic arrivals/);
-  assert.equal(await item('item_0').locator('[data-slot=message]').count(),1,'agent messages are Message');
+  assert.equal(await item('item_0').locator('[data-slot=item][data-activity-message]').count(),1,'agent messages are a shadcn Item');
   assert.match(await item('item_2').textContent(),/^Thought/,'reasoning is collapsed to its line');
   assert.match(await item('item_1').textContent(),/Plan1 of 3 done/);
   assert.match(await page.locator('[data-activity-step-label]').textContent(),/Step 2 of 3: File the documents/);

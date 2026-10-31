@@ -8,6 +8,7 @@ import {Button} from '@/components/ui/button';
 import {Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle} from '@/components/ui/card';
 import {CodeBlock, CodeBlockContent} from '@/components/ui/code-block';
 import {Collapsible, CollapsibleContent, CollapsibleTrigger} from '@/components/ui/collapsible';
+import {Item, ItemContent, ItemTitle} from '@/components/ui/item';
 
 type Part={kind:string;text:string;chars:number};
 type Stage={name:string;parts:Part[];truncated?:boolean};
@@ -57,8 +58,8 @@ export function ArtPromptCard({view,layout}:{view:ArtPromptView;layout:()=>void}
       {meta?<CardDescription className="text-[11px] [overflow-wrap:anywhere]">{meta}</CardDescription>:null}
     </CardHeader>
     <CardContent className="flex flex-col gap-3">
-      {note?<blockquote data-art-prompt-note="" className="m-0 rounded-r-md border-l-2 bg-muted/50 px-3 py-2 font-serif text-sm leading-relaxed">
-        <span className="mb-1 block font-sans text-[9px] font-semibold tracking-[.12em] text-muted-foreground uppercase">Artist’s note</span>{note}</blockquote>:null}
+      {note?<Item variant="muted" size="sm" render={<blockquote/>} data-art-prompt-note="" className="m-0">
+        <ItemContent><ItemTitle className="text-xs text-muted-foreground">Artist’s note</ItemTitle><p className="m-0 font-serif text-sm leading-relaxed">{note}</p></ItemContent></Item>:null}
       {prompt.handcrafted?<Message>{prompt.message||''}</Message>
         :!prompt.recorded?<Message>{prompt.message||'Prompt not recorded for this version.'}</Message>
         :prompt.stages.map(stage=><StageSection key={stage.name} stage={stage} layout={layout}/>)}

@@ -283,9 +283,9 @@ body.two-page .historical-banner{margin:0 0 1.4em}
 .versions-panel .thread-top{margin-bottom:6px}
 @media(max-width:640px){.versions-panel{padding:16px}.versions-panel .thread-top h2{font-size:22px}}
 /* What changed since you read it: banner under the title and the target of a clicked change. */
-.change-banner{display:flex;flex-wrap:wrap;align-items:center;gap:6px 14px;font-family:var(--sans);font-size:12px;line-height:1.5;color:var(--ink);border-left:2px solid var(--warning);padding:6px 0 6px 12px;margin:0 0 40px;break-inside:avoid}
+.change-banner{display:flex;flex-wrap:wrap;align-items:center;gap:6px 14px;font-family:var(--sans);font-size:12px;line-height:1.5;color:var(--ink);background:var(--surface);border-radius:8px;padding:8px 12px;margin:0 0 40px;break-inside:avoid}
 .change-banner>span:not(:first-child){color:var(--muted)}.change-banner>span:first-child{font-weight:600}
-.change-banner.quiet{border-left-color:var(--line);color:var(--muted)}.change-banner.quiet>span:first-child{font-weight:400}
+.change-banner.quiet{color:var(--muted)}.change-banner.quiet>span:first-child{font-weight:400}
 .compare-successor{margin-left:6px}
 body.two-page .change-banner{margin:0 0 1.4em}
 .article .change-target{outline:2px solid var(--accent);outline-offset:6px;border-radius:2px;transition:outline-color 1.6s ease-out}
@@ -415,7 +415,7 @@ body.two-page .article-art{break-inside:avoid}body.two-page .article-art .art-su
 .art-caption .art-note-toggle{font:inherit;letter-spacing:inherit;text-transform:inherit;color:var(--muted);padding-inline:0}
 .art-caption .art-note-toggle:hover,.art-caption .art-note-toggle[aria-expanded=true]{color:var(--ink)}
 .art-credit{color:var(--faint);text-align:right}
-.art-note{margin:12px 0 0;padding:16px 18px;border-left:2px solid var(--line);background:var(--surface);border-radius:0 4px 4px 0;font:400 15px/1.55 var(--serif);color:var(--ink);max-width:68ch}
+.art-note{margin:12px 0 0;padding:16px 18px;background:var(--surface);border-radius:8px;font:400 15px/1.55 var(--serif);color:var(--ink);max-width:68ch}
 .art-note p{margin:0 0 .7em}.art-note .art-note-title{font:600 11px/1.3 var(--sans);letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:0 0 10px}
 .art-note .art-provenance{font:400 11px/1.5 var(--sans);color:var(--muted);margin:12px 0 0}
 .art-actions{display:flex;flex-wrap:wrap;gap:6px;margin-top:12px}

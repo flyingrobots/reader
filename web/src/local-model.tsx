@@ -138,7 +138,7 @@ function NowCard({status,act}:{status:LocalModelStatus;act:Act}){
     {now?<>
       <UiItem size="xs" className="px-0"><ItemContent className="min-w-0"><ItemTitle className="[overflow-wrap:anywhere]">{now.title}</ItemTitle><ItemDescription className={mono+' [overflow-wrap:anywhere]'}>{now.path}</ItemDescription></ItemContent></UiItem>
       <FactList facts={[{label:'Model',value:shortModel(now.model)},{label:'Elapsed',value:<Ticking since={now.started_at}/>},{key:'Speed',label:'Speed',value:<span id="lm-rate">{now.tokens_per_second?`${now.tokens_per_second} tok/s`:'—'}</span>},{label:'Tokens',value:now.tokens}]}/>
-      <div className="lm-preview" id="lm-preview" aria-live="off" data-reader-decoration="">{now.preview?<p>{now.preview}<span className="lm-caret" aria-hidden/></p>:<p className="lm-thinking" data-lm="thinking">{now.thinking?'Thinking… '+now.thinking.slice(-160):'Waiting for the first token…'}</p>}<MachineMark model={now.model}/></div>
+      <UiItem variant="muted" size="sm" className="lm-preview" id="lm-preview" aria-live="off" data-reader-decoration=""><ItemContent className="min-w-0">{now.preview?<p>{now.preview}<span className="lm-caret" aria-hidden/></p>:<p className="lm-thinking" data-lm="thinking">{now.thinking?'Thinking… '+now.thinking.slice(-160):'Waiting for the first token…'}</p>}<MachineMark model={now.model}/></ItemContent></UiItem>
     </>:<>
       <span className="text-sm text-muted-foreground">{waiting?`Nothing running. ${waiting.toLocaleString()} waiting; press Run on a task below.`:'Nothing running and nothing waiting.'}</span>
       {last?<UiItem size="xs" variant="muted" data-last-run={last.state}><ItemContent><ItemDescription className="text-xs">Last run · {ago(last.finished_at)}</ItemDescription>
@@ -180,7 +180,7 @@ function RecentCard({items}:{items:Item[]}){
         <CollapsibleContent className="flex flex-col gap-3 pb-3 pl-8">
           <FactList facts={[{label:'Prompt',value:item.prompt_version},{label:'Source',value:<span className={mono+' [overflow-wrap:anywhere]'}>{item.path}</span>},{label:'Speed',value:item.tokens_per_second?`${item.tokens_per_second} tok/s`:null},{label:'Input',value:item.truncated?'Truncated at a heading':null}]}/>
           {item.error?<Notice data-lm="reason" tone={item.state==='cancelled'?'info':'error'} title={(item.state==='rejected'?'Rejected: ':'')+item.error}/>:null}
-          {item.display||item.output?<blockquote className="lm-output" data-lm="output" data-reader-decoration="">{item.display||item.output}<MachineMark model={item.model}/></blockquote>:null}
+          {item.display||item.output?<UiItem variant="muted" size="sm" render={<blockquote/>} className="lm-output m-0" data-lm="output" data-reader-decoration=""><ItemContent className="min-w-0">{item.display||item.output}<MachineMark model={item.model}/></ItemContent></UiItem>:null}
         </CollapsibleContent>
       </Collapsible></Fragment>)}</ItemGroup>:<span className="text-sm text-muted-foreground">No local-model items have finished yet.</span>}
   </StatusCard>;
@@ -192,7 +192,7 @@ function OutputsCard({outputs,act}:{outputs:Outputs;act:Act}){
     <ItemGroup className="gap-4">{Object.entries(outputs.tasks).map(([task,o])=><div key={task} role="listitem" className="flex flex-col gap-2" data-outputs={task}>
       <div className="flex flex-wrap items-center justify-between gap-2"><span className="text-sm font-medium">{o.label}</span>{o.stale?<Button size="xs" variant="outline" data-prune={task} onClick={()=>act('prune',{task})}>Remove {o.stale} stale</Button>:null}</div>
       <FactList facts={[{label:'Current',value:<span data-current={o.current}>{o.current.toLocaleString()}</span>},{label:'Stale',value:<span data-stale={o.stale}>{o.stale.toLocaleString()}</span>},{label:'Cached',value:o.cached}]}/>
-      {o.samples.slice(0,2).map(s=><blockquote key={s.path+s.created_at} className="lm-output" data-lm="sample" data-reader-decoration=""><small>{s.path}</small>{s.text}<MachineMark model={s.model}/></blockquote>)}</div>)}</ItemGroup>
+      {o.samples.slice(0,2).map(s=><UiItem key={s.path+s.created_at} variant="muted" size="sm" render={<blockquote/>} className="lm-output m-0" data-lm="sample" data-reader-decoration=""><ItemContent className="min-w-0"><ItemDescription className="font-mono text-[10px]">{s.path}</ItemDescription>{s.text}<MachineMark model={s.model}/></ItemContent></UiItem>)}</div>)}</ItemGroup>
   </StatusCard>;
 }
 
