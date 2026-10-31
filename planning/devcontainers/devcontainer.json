@@ -1,0 +1,42 @@
+{
+  "name": "Reader development",
+  "image": "reader-development:local",
+  "workspaceMount": "type=tmpfs,target=/work,tmpfs-size=1610612736,tmpfs-mode=1777",
+  "workspaceFolder": "/work",
+  "containerEnv": {
+    "HOME": "/work/home",
+    "npm_config_cache": "/work/cache/npm",
+    "TMPDIR": "/tmp",
+    "XDG_CACHE_HOME": "/work/cache"
+  },
+  "remoteUser": "root",
+  "runArgs": [
+    "--name=reader-development",
+    "--read-only",
+    "--cpus=2",
+    "--memory=4g",
+    "--memory-swap=4g",
+    "--pids-limit=256",
+    "--tmpfs=/tmp:rw,exec,size=536870912",
+    "--log-driver=local",
+    "--log-opt=max-size=4m",
+    "--log-opt=max-file=1",
+    "--log-opt=compress=false",
+    "--tmpfs=/etc:rw,exec,size=16777216"
+  ],
+  "onCreateCommand": [
+    "bash",
+    "-euc",
+    "mkdir -p /work/home /work/cache; if [ ! -e /work/reader ]; then git clone --filter=blob:none --single-branch https://github.com/flyingrobots/reader.git /work/reader; fi; test \"$(git -C /work/reader remote get-url origin)\" = https://github.com/flyingrobots/reader.git"
+  ],
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "dbaeumer.vscode-eslint",
+        "ms-python.python"
+      ]
+    }
+  },
+  "userEnvProbe": "none",
+  "overrideCommand": false
+}
