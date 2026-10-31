@@ -1,4 +1,5 @@
 import {useState, useSyncExternalStore, useEffect, type ReactNode} from 'react';
+import {FindBar} from './find-bar';
 import {ReadingLog, type ReadingLogActions, type ReadingLogModel} from './reading-log';
 import {LinkPreview, type LinkPreviewState} from './link-preview';
 import {VersionsTimeline, type TimelineModel} from './versions-timeline';
@@ -425,6 +426,8 @@ export function setAdminRoute(route:AdminRoute){flushSync(()=>update({admin:rout
 // Route-owned roots are always disposed before the vanilla renderer replaces DOM.
 const islands=new Map<HTMLElement,Root>();
 function mount(container:HTMLElement,content:ReactNode){clearControlsWithin(container);const root=createRoot(container);islands.set(container,root);flushSync(()=>root.render(content));}
+// The Find bar's controls render as this module loads, before app.mjs binds its handlers to them by id.
+{const findBar=document.getElementById('find-bar');if(findBar){findBar.dataset.ui='shadcn';mount(findBar,<FindBar/>);}}
 /** The search page, as a route-owned island; search-page.mjs owns its state and calls update(). */
 export function mountSearchPage(container:HTMLElement,initial:SearchModel,actions:SearchActions){
   let current=initial;const watchers=new Set<()=>void>();

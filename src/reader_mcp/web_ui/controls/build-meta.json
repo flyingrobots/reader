@@ -91,6 +91,7 @@
     "src/components/ui/trace.tsx": "f03ab1824e7312d00623f052a611497372a654cb33f5e6683b19ac53952f93e0",
     "src/diagrams.ts": "6afe727e3302c2d2ddd4a023105a5a6cf36b6ac969e3ceb2d51f0f0712b326ea",
     "src/document-tree.tsx": "51d1b05c42d1fd0a74565412be530f6bee410ddd630996197ffc7ed2cedef45d",
+    "src/find-bar.tsx": "eaeae263a6adff8a5c813841b2a24aba861fe8beff48308e444d1c226c191cb8",
     "src/hooks/use-mobile.ts": "ad0936f84f1df79d3697bfbff9c18f8ad58431c1cbaf2359c6a853b0fcc9f28b",
     "src/jobs/admin.tsx": "ca2f88a8964493fb71d8851c92634dd02b33bb5655f57472a982644f7436a412",
     "src/jobs/job-detail.tsx": "d08f4f8c58b0358ef557610bc41f5f1d3b05a42c5a7e5758295b9dae2477d7bf",
@@ -109,7 +110,7 @@
     "src/plural.ts": "4c0d0698a171b39d5683548f00e2e9a8a7c5ea1af28e4067aaa63612476b5fa2",
     "src/queue-panel.tsx": "f94dbf25fb0b53288a3de2b9ae46029eab1b9522a2ebe3655cb32a3b65d816bb",
     "src/quiz.tsx": "da429b5617a6c905d376cea263c1901325c2e1d43890957e294114492a852cb2",
-    "src/reader-controls.tsx": "d8f5077d5cccccba1a418e53e8ecd0ba0cb5b0bf2044d52f532429d8eedcc044",
+    "src/reader-controls.tsx": "2d0bce0c32622f91c71f0916da2e00f5790c165bebbe4c7ccbeab59e8b65c8bf",
     "src/reading-log.tsx": "1981dbb7da8a7c010d38d588992ba1b9afc5ef9c611badb247d6f8fadc8a4fda",
     "src/scratch-question.tsx": "ae90d508a8ca52994fb567380d60bef8644475691754a97fd697b323dcb7e7e3",
     "src/search-page.tsx": "b63ecad9ec576f5375ecced55c54670cd69af9380e70542ae941f4065e8f3323",
@@ -964,8 +965,8 @@
       "sha256": "04a59f71efe777b4b17174c4c5e4bf6809216531438bebcb5f60e5e0c6022035"
     },
     "reader-controls.js": {
-      "bytes": 1214368,
-      "sha256": "d695b71677c214e78e376c1661f4454419ab3540f3745410abcf88ebaf441df3"
+      "bytes": 1215576,
+      "sha256": "b46ec693371654cbb13f4a13a810726883e266904b4b9e3a8ab6f61f5ec80d46"
     },
     "reader-controls.js.LEGAL.txt": {
       "bytes": 6412,

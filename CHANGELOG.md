@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- The Find bar (/) is a shadcn InputGroup with the match count and a ButtonGroup to step or close.
 - The Scratch pad's Save dialog is a shadcn form (Field, Input, NativeSelect, Notice) in a Dialog; Reader has no native `<dialog>` left, and the `dialog` element CSS is removed.
 - The Documents picker is a shadcn Dialog that keeps its plain-JavaScript content mounted. Focus leaves every app dialog as soon as it starts closing, as it did from a native dialog, and returns to the document when nothing else had it.
 - The annotation dialog (Textarea and Button) and the Speak menu (a vertical ButtonGroup with Kbd) are shadcn Dialogs; their native `<dialog>` elements and CSS are removed. Each dialog's first control takes focus as it mounts, so keys typed at once reach it.
