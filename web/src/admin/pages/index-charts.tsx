@@ -6,7 +6,7 @@ import {Tabs, TabsList, TabsTrigger, TabsContent} from '@/components/ui/tabs';
 import {Collapsible, CollapsibleContent, CollapsibleTrigger} from '@/components/ui/collapsible';
 import {Table, TableBody, TableCell, TableHead, TableHeader, TableRow} from '@/components/ui/table';
 import {Skeleton} from '@/components/ui/skeleton';
-import {IndexDocHelp} from './index-docs';
+import {AdminDocHelp as IndexDocHelp} from '../documentation';
 import type {Check, MaintenanceStatus} from '../../backstage';
 
 declare const d3:any;

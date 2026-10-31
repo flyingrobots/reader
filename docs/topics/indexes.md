@@ -292,7 +292,7 @@ A missing value is unknown. Different inventory rules and units explain many dif
 | Code | Responsibility |
 | --- | --- |
 | `web/src/admin/pages/indexes.tsx` | Dashboard state, actions and inspector |
-| `web/src/admin/pages/index-docs.tsx` | Reference pane, Markdown rendering and section navigation |
+| `web/src/admin/documentation.tsx` | Reference pane, Markdown rendering and section navigation |
 | `web/src/admin/pages/index-charts.tsx` | D3 coverage/capacity geometry and interactions |
 | `web/src/reader-controls.tsx` | Status polling, check age, job start and toasts |
 | `src/reader_mcp/maintenance.py` | Job admission, background execution and probes |

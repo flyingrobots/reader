@@ -1216,12 +1216,12 @@ New sections are added in one place: the section registry in
 on this computer, which route parameters it accepts, and its page). The route
 syntax, `#admin/<section>[/<param>…]`, is parsed by `web_ui/admin-routes.mjs`.
 
-**Indexes** splits the available page width equally between the dashboard and an
+Every registered **Admin section** splits the available page width equally between the dashboard and an
 independently scrolling Markdown reference. Info buttons navigate directly to
-reference headings. The right pane renders the same [technical reference](topics/indexes.md)
+reference headings. The right pane renders that section’s canonical [technical reference](admin-documentation.md)
 that is maintained in the repository, bundled with the frontend release. Its contents
 selector and internal links preserve the Admin route and dashboard scroll position.
-On narrow screens the panes stack. Other Admin pages keep their existing width.
+On narrow screens the panes stack. Hide documentation expands the dashboard to full width; this preference is shared across Admin pages. Reference positions are saved per section for the browser session.
 
 The dashboard contains summary Cards, interactive D3 charts, an index health Table
 and a selected-index inspector. Shadcn components provide controls, data surfaces

@@ -17,7 +17,7 @@ import {Toolbar} from '@/theme/molecules/toolbar';
 import {RunList} from '@/theme/organisms/run-list';
 import {StatusCard} from '@/theme/organisms/status-card';
 import {Card, CardContent, CardDescription, CardHeader, CardTitle} from '@/components/ui/card';
-import {IndexDocHelp, IndexWorkspace} from './index-docs';
+import {AdminDocHelp as IndexDocHelp} from '../documentation';
 import {Tooltip, TooltipContent, TooltipTrigger} from '@/components/ui/tooltip';
 import {IndexCharts} from './index-charts';
 import {INDEXES, INDEX_OF, STATES, jobOutcome, type Job, type MaintenanceStatus} from '../../backstage';
@@ -70,7 +70,7 @@ function IndexStatus({indexKey,label,tone,active,needsBuild,disabled,onStart}:{i
     <TooltipContent>{action.label} updates {index.title.toLowerCase()}. {indexKey==='search'?'Includes embeddings and reuses cached results.':'Source documents stay unchanged.'}</TooltipContent></Tooltip>:<StatusBadge tone={tone} busy={active}>{active?'Rebuilding…':label}</StatusBadge>;
 }
 
-export function IndexesPage({status,error,onStart,editions,markdown}:{markdown:(text:string)=>string;status:MaintenanceStatus|null;error:string|null;onStart:(kind:string)=>void;editions?:ReactNode}){
+export function IndexesPage({status,error,onStart,editions}:{status:MaintenanceStatus|null;error:string|null;onStart:(kind:string)=>void;editions?:ReactNode}){
   const [selected,setSelected]=useState('search');
   const running=status?.running,busy=!!running||!!status?.checking,checkedAt=Object.values(status?.checks||{})[0]?.checked_at,local=needsReader();
   const unavailable=!status&&!!error,checking=!!status?.checking||running?.kind==='check';
@@ -79,7 +79,7 @@ export function IndexesPage({status,error,onStart,editions,markdown}:{markdown:(
   const lastCheck=status?.jobs.find(job=>job.kind==='check');
   const index=INDEXES.find(index=>index.key===selected)!,check=status?.checks[selected];
   const facts=check?index.facts.map(([label,value])=>({label,value:value(check) as ReactNode})).filter(f=>f.value!==null&&f.value!==undefined):[];
-  return <IndexWorkspace markdown={markdown}><section className="flex min-w-0 flex-col gap-5" id="backstage-indexes" aria-label="Indexes" data-state={unavailable?'unavailable':status?'ready':'loading'}>
+  return <section className="flex min-w-0 flex-col gap-5" id="backstage-indexes" aria-label="Indexes" data-state={unavailable?'unavailable':status?'ready':'loading'}>
     <Toolbar media={checking?<Spinner aria-hidden/>:null} status={checking?<span role="status">{running?.kind==='check'?<>Checking freshness · <Elapsed since={running.started_at}/></>:'Verifying freshness after the rebuild'}</span>:unavailable?'Index status is unavailable':checkedAt?'Last checked '+when(checkedAt):local?'Checks need Reader on your computer':'Waiting for the first freshness check'}>
       <Button id="maintenance-check" variant="outline" size="sm" disabled={busy||unavailable} {...localOnly()} onClick={()=>onStart('check')}>Check again</Button><IndexDocHelp title="Freshness checks" section="freshness-checks"/><IndexDocHelp title="Index update policy" section="update-policy-and-schedules"/>
     </Toolbar>
@@ -117,5 +117,5 @@ export function IndexesPage({status,error,onStart,editions,markdown}:{markdown:(
       {selected==='search'&&check?.legacy?<Legacy legacy={check.legacy as LegacyIndex} busy={busy} onRemove={()=>onStart('remove-legacy-search')}/>:null}
     </StatusCard>
     <div className="grid min-w-0 items-start gap-4 xl:grid-cols-2"><RecentRuns status={status} error={error}/>{editions}</div>
-  </section></IndexWorkspace>;
+  </section>;
 }
