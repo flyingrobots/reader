@@ -10,7 +10,8 @@ const {chromium,devices}=require(process.env.READER_PLAYWRIGHT||'playwright-core
 const shots=(process.env.READER_SHOTS||'.reader/web-dev')+'/admin-review';
 const SECTIONS=process.argv.slice(2).length?process.argv.slice(2):['overview','jobs','logs','repositories','voices','models','inbox','indexes','artwork','library','service','settings'];
 const PROFILES={desktop:{viewport:{width:1440,height:900}},tablet:devices['iPad Mini'],phone:devices['iPhone 13']};
-const THEMES=['paper','ink'];
+// The frozen test theme pair (tests/test_theme_fixture.py), so screenshots do not change when product themes do.
+const THEMES=['user-reader-test','user-reader-test-dark'];
 (async()=>{
  const fixture=spawn(process.env.READER_PYTHON||'.venv/bin/python',['tests/web_fixture.py','--maintenance','--inbox','--dashboard'],{stdio:['ignore','pipe','inherit']});let browser;
  const failures=[];

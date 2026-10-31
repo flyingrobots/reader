@@ -17,7 +17,7 @@ const shots=process.env.READER_SHOTS||'.reader/web-dev';
   const open=async(prefs={},viewport={width:1280,height:900})=>{
     const context=await browser.newContext({viewport,reducedMotion:'reduce'});
     // Only the first document of the context seeds preferences, so panes and reloads keep what the test changes.
-    await context.addInitScript(value=>{try{if(!localStorage.getItem('reader.preferences.v1'))localStorage.setItem('reader.preferences.v1',value);}catch{}},JSON.stringify({smooth:false,theme:'paper',nextReads:false,...prefs}));
+    await context.addInitScript(value=>{try{if(!localStorage.getItem('reader.preferences.v1'))localStorage.setItem('reader.preferences.v1',value);}catch{}},JSON.stringify({smooth:false,theme:'user-reader-test',nextReads:false,...prefs}));
     const page=await context.newPage();watch(page);
     page.on('pageerror',e=>errors.push(e.message));page.on('console',m=>{if(m.type()==='error'&&!sanitizerReport(m))errors.push(m.text()+' '+(m.location()?.url||''));});
     page.on('request',r=>{if(!r.url().startsWith(url))external.push(r.url());else if(r.method()==='POST')writes.push({path:new URL(r.url()).pathname,body:r.postData(),frame:r.frame()?.url()||''});});

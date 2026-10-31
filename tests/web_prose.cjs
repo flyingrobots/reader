@@ -17,7 +17,7 @@ const covered=page=>page.evaluate(()=>Object.fromEntries([...CSS.highlights].fil
   let url;
   const open=async(prefs,path='library/prose.md',viewport={width:1200,height:900})=>{
     const context=await browser.newContext({viewport,reducedMotion:prefs.reducedMotion||'reduce'});
-    await context.addInitScript(value=>{try{localStorage.setItem('reader.preferences.v1',value);}catch{}},JSON.stringify({smooth:false,theme:'paper',...prefs}));
+    await context.addInitScript(value=>{try{localStorage.setItem('reader.preferences.v1',value);}catch{}},JSON.stringify({smooth:false,theme:'user-reader-test',...prefs}));
     const page=await context.newPage(),errors=[],external=[],posts=[];
     page.on('pageerror',e=>errors.push(e.message));page.on('console',m=>{if(m.type()==='error'&&!/status of 409/.test(m.text()))errors.push(m.text());});
     page.on('request',r=>{if(!r.url().startsWith(url))external.push(r.url());if(r.method()==='POST'&&r.url().endsWith('/api/prose'))posts.push(r.postDataJSON());});
@@ -189,7 +189,7 @@ const covered=page=>page.evaluate(()=>Object.fromEntries([...CSS.highlights].fil
    assert.deepEqual(errors,[]);await context.close();}
   // 8. The home issue: Space c colors its standfirsts and note under the issue's week, never titles or controls.
   {const context=await browser.newContext({viewport:{width:1200,height:900},reducedMotion:'reduce'});
-   await context.addInitScript(value=>{try{localStorage.setItem('reader.preferences.v1',value);}catch{}},JSON.stringify({smooth:false,theme:'paper',art:false,proseColors:'off'}));
+   await context.addInitScript(value=>{try{localStorage.setItem('reader.preferences.v1',value);}catch{}},JSON.stringify({smooth:false,theme:'user-reader-test',art:false,proseColors:'off'}));
    const page=await context.newPage(),errors=[],posts=[];page.on('pageerror',e=>errors.push(e.message));
    page.on('request',r=>{if(r.method()==='POST'&&r.url().endsWith('/api/prose'))posts.push(r.postDataJSON());});
    await page.goto(url+'#');await page.locator('.issue').waitFor();

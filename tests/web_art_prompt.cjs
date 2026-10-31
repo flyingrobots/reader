@@ -19,7 +19,7 @@ const {pinDate}=require('./web_clock.cjs');  // the fixture's pinned clock (#131
   const open=async({prefs={},viewport={width:1300,height:900},touch=false}={})=>{
     const context=await browser.newContext({viewport,reducedMotion:'reduce',hasTouch:touch});await pinDate(context,now);
     await context.grantPermissions(['clipboard-read','clipboard-write'],{origin:url});
-    await context.addInitScript(value=>{try{localStorage.setItem('reader.preferences.v1',value);}catch{}},JSON.stringify({smooth:false,theme:'paper',...prefs}));
+    await context.addInitScript(value=>{try{localStorage.setItem('reader.preferences.v1',value);}catch{}},JSON.stringify({smooth:false,theme:'user-reader-test',...prefs}));
     const page=await context.newPage(),errors=[],external=[];
     page.on('pageerror',e=>errors.push(e.message));page.on('console',m=>{if(m.type()==='error')errors.push(m.text());});page.on('request',r=>{if(!r.url().startsWith(url))external.push(r.url());});
     return {context,page,errors,external};

@@ -21,7 +21,7 @@ const DELAY=2000;
       window.fetch=function(input,...rest){const href=String(input?.url||input);const versions=href.includes('/api/versions?');if(versions)marks.versionsAsked??=performance.now();
         const done=fetch.call(this,input,...rest);if(versions)done.then(()=>{marks.versionsAnswered??=performance.now();},()=>{});return done;};
       new MutationObserver(()=>{if(marks.visible===undefined&&document.querySelector('#article')&&!document.querySelector('.resume-pending')){marks.visible=performance.now();marks.chipAtVisible=!!document.querySelector('.version-line');}}).observe(document,{subtree:true,childList:true,attributes:true,attributeFilter:['class']});
-    },JSON.stringify({smooth:false,theme:'paper',nextReads:false,...prefs}));
+    },JSON.stringify({smooth:false,theme:'user-reader-test',nextReads:false,...prefs}));
     if(slow)await context.route('**/api/versions?*',async route=>{await new Promise(resolve=>setTimeout(resolve,DELAY));await route.continue().catch(()=>{});});
     const page=await context.newPage();page.on('pageerror',e=>errors.push(e.message));page.on('console',m=>{if(m.type()==='error')errors.push(m.text()+' '+(m.location()?.url||''));});
     return {page,context};

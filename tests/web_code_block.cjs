@@ -15,7 +15,7 @@ const {chromium}=require(process.env.READER_PLAYWRIGHT||'playwright-core');
   const path='library/code.md',source=(await (await fetch(url+'/api/document?path='+encodeURIComponent(path))).json()).text;
   const cp=offset=>Array.from(source.slice(0,offset)).length;
   const open=async(prefs,viewport={width:1300,height:860},target=path)=>{
-    const context=await browser.newContext({viewport});await context.addInitScript(value=>{try{localStorage.setItem('reader.preferences.v1',value);}catch{}},JSON.stringify({smooth:false,theme:'paper',...prefs}));
+    const context=await browser.newContext({viewport});await context.addInitScript(value=>{try{localStorage.setItem('reader.preferences.v1',value);}catch{}},JSON.stringify({smooth:false,theme:'user-reader-test',...prefs}));
     const page=await context.newPage(),errors=[],external=[],requests=[];page.on('pageerror',e=>errors.push(e.message));page.on('console',m=>{if(m.type()==='error')errors.push(m.text());});page.on('request',r=>{requests.push(r.url());if(!r.url().startsWith(url))external.push(r.url());});
     await page.goto(url+'#read='+encodeURIComponent(target));await page.waitForFunction(()=>document.querySelector('#article')&&!document.querySelector('.resume-pending'));
     return {page,errors,external,requests,context};};
@@ -77,7 +77,7 @@ const {chromium}=require(process.env.READER_PLAYWRIGHT||'playwright-core');
    await page.waitForFunction(()=>document.querySelector('#article [data-code-copy]').getAttribute('aria-label')==='Copy code',null,{timeout:4000});
    // Theme switch recolors through CSS variables: same ranges, new ink.
    const before=await page.evaluate(()=>{window.__keyword=CSS.highlights.get('reader-syntax-keyword');const probe=document.createElement('span');probe.style.color='var(--code-keyword)';document.body.append(probe);const color=getComputedStyle(probe).color;probe.remove();return color;});
-   await page.getByRole('switch',{name:'Dark mode',exact:true}).click();assert.equal(await page.locator('html').getAttribute('data-theme'),'ink');
+   await page.getByRole('switch',{name:'Dark mode',exact:true}).click();assert.equal(await page.locator('html').getAttribute('data-theme'),'user-reader-test-dark');
    const after=await page.evaluate(()=>{const probe=document.createElement('span');probe.style.color='var(--code-keyword)';document.body.append(probe);const color=getComputedStyle(probe).color;probe.remove();return {color,same:CSS.highlights.get('reader-syntax-keyword')===window.__keyword&&window.__keyword.size>0};});
    assert.notEqual(after.color,before,'keyword ink follows the theme');assert.ok(after.same,'no re-highlighting on theme change');
    await page.locator('.reader-code-block').first().scrollIntoViewIfNeeded();await page.screenshot({path:'.reader/web-dev/code-block-ink.png'});

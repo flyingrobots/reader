@@ -17,7 +17,7 @@ const {chromium}=require(process.env.READER_PLAYWRIGHT||'playwright-core');
   mkdirSync('.reader/web-dev',{recursive:true});
   const open=async({prefs={},viewport={width:1300,height:900},motion='reduce'}={})=>{
     const context=await browser.newContext({viewport,reducedMotion:motion});
-    await context.addInitScript(value=>{try{if(!sessionStorage.getItem('focus-test')){localStorage.setItem('reader.preferences.v1',value);sessionStorage.setItem('focus-test','1');}}catch{}},JSON.stringify({smooth:false,theme:'paper',...prefs}));
+    await context.addInitScript(value=>{try{if(!sessionStorage.getItem('focus-test')){localStorage.setItem('reader.preferences.v1',value);sessionStorage.setItem('focus-test','1');}}catch{}},JSON.stringify({smooth:false,theme:'user-reader-test',...prefs}));
     const page=await context.newPage(),errors=[],external=[];
     page.on('pageerror',e=>errors.push(e.message));page.on('console',m=>{if(m.type()==='error')errors.push(m.text());});page.on('request',r=>{if(!r.url().startsWith(url))external.push(r.url());});
     return {context,page,errors,external};
@@ -124,7 +124,7 @@ const {chromium}=require(process.env.READER_PLAYWRIGHT||'playwright-core');
    assert.deepEqual(errors,[]);assert.deepEqual(external,[]);await context.close();}
 
   // Phone width and a dark theme: the view and the form fit.
-  {const {context,page,errors}=await open({viewport:{width:390,height:844},prefs:{theme:'ink'}});
+  {const {context,page,errors}=await open({viewport:{width:390,height:844},prefs:{theme:'user-reader-test-dark'}});
    await read(page,'library/issue/keep.md');await settled(page);
    await page.locator('#article .art-hero .art-focus-toggle').click();await opened(page);
    await page.locator('.art-focus [data-focus-regenerate]').click();await page.locator('#art-direction').waitFor();

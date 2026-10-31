@@ -13,7 +13,7 @@ const {chromium}=require(process.env.READER_PLAYWRIGHT || 'playwright-core');
    const context=await browser.newContext({viewport:{width:1280,height:900},reducedMotion:'reduce'});
    try{
     await context.addInitScript(failure=>{
-     localStorage.setItem('reader.preferences.v1',JSON.stringify({theme:'paper',smooth:false,art:false,shapes:false,nextReads:false,participant:'Storage '+failure}));
+     localStorage.setItem('reader.preferences.v1',JSON.stringify({theme:'user-reader-test',smooth:false,art:false,shapes:false,nextReads:false,participant:'Storage '+failure}));
      if(failure==='blocked')Object.defineProperty(globalThis,'indexedDB',{get(){throw new DOMException('Storage blocked for regression','SecurityError');}});
      else IDBObjectStore.prototype.put=function(){throw new DOMException('Storage quota for regression','QuotaExceededError');};
     },failure);

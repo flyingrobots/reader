@@ -11,7 +11,7 @@ const {chromium}=require(process.env.READER_PLAYWRIGHT||'playwright-core');
   browser=await chromium.launch({headless:true,executablePath:process.env.READER_CHROME||'/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',args:['--disable-gpu','--disable-background-networking','--disable-breakpad','--disable-crash-reporter','--disk-cache-size=10485760']});
   const errors=[];
   const context=await browser.newContext({viewport:{width:1300,height:900},reducedMotion:'reduce'});
-  await context.addInitScript(()=>{try{if(!localStorage.getItem('reader.preferences.v1'))localStorage.setItem('reader.preferences.v1',JSON.stringify({smooth:false,theme:'paper',layout:'scroll'}));}catch{}});
+  await context.addInitScript(()=>{try{if(!localStorage.getItem('reader.preferences.v1'))localStorage.setItem('reader.preferences.v1',JSON.stringify({smooth:false,theme:'user-reader-test',layout:'scroll'}));}catch{}});
   const doc=url+'#read='+encodeURIComponent('library/thought.md');
   const tab=async()=>{const page=await context.newPage();page.on('pageerror',e=>errors.push(e.message));
     await page.goto(doc);await page.locator('#article h1').waitFor();

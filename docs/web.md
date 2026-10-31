@@ -4133,6 +4133,14 @@ entirely is not listed, and a removed dependency's license disappears with it;
 their editable sources and lockfile. To recover from missing or stale controls,
 rebuild from the lockfile; do not substitute a CDN script or loosen the CSP.
 
+### The browser suites' test theme
+
+The browser suites render in their own frozen theme, not in a product theme someone may edit. `tests/fixtures/reader-test-theme.json` is a user theme, *Reader test*: its light and dark variants (`user-reader-test`, `user-reader-test-dark`) were copied once from Paper and Ink and are never updated with them. `tests/fixtures/reader-test-theme.css` is the stylesheet the app builds from that JSON.
+
+`tests/web_fixture.py` installs the JSON into the synthetic vault, so `/api/themes` lists it. It also serves a script (`tests/test_theme_fixture.py`) that runs before `app.mjs`. The script seeds the browser's theme cache with the frozen stylesheet, so the first paint is already themed, and gives preferences without a theme `user-reader-test-dark`. A suite that names a theme, in the URL or in its preferences, keeps it. That is how the theme suites, the contrast sweeps across every palette and the Dark switch pairing still test the product themes. `--product-theme` leaves the app's own default (`ink`).
+
+`tests/web_test_theme.cjs` checks the default from the first paint, that explicit themes win, and that the app still builds the frozen stylesheet. If it reports a different stylesheet (the app's CSS generation changed), regenerate the CSS with `node tests/fixtures/make_test_theme.cjs`. Never regenerate the JSON (`--from-builtins`) because a product theme changed; its independence is the point.
+
 ### Merging branches that both rebuilt the bundle
 
 Everything under `controls/` is build output; never merge it line by line.

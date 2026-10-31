@@ -11,7 +11,7 @@ const {pinDate}=require('./web_clock.cjs');
   const {url,now}=await new Promise((resolve,reject)=>{createInterface({input:fixture.stdout}).once('line',line=>resolve(JSON.parse(line)));fixture.once('exit',code=>reject(new Error('Fixture exited '+code)));});
   browser=await chromium.launch({headless:true,executablePath:process.env.READER_CHROME||'/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',args:['--use-angle=swiftshader','--enable-unsafe-swiftshader','--disable-background-networking','--disable-breakpad','--disable-crash-reporter','--disk-cache-size=10485760']});
   const context=await browser.newContext({viewport:{width:390,height:844},hasTouch:true,reducedMotion:'no-preference'});await pinDate(context,now);
-  await context.addInitScript(()=>localStorage.setItem('reader.preferences.v1',JSON.stringify({smooth:false,theme:'paper'})));
+  await context.addInitScript(()=>localStorage.setItem('reader.preferences.v1',JSON.stringify({smooth:false,theme:'user-reader-test'})));
   const page=await context.newPage(),errors=[];page.on('pageerror',error=>errors.push(error.message));
   // Open the view with a touch tap, as a phone would: a mouse click would leave a mouse pointer resting over the art, and
   // its desktop hover card would open on its own timer in the middle of the gesture under test.

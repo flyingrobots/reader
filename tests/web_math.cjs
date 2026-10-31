@@ -16,7 +16,7 @@ const {chromium}=require(process.env.READER_PLAYWRIGHT||'playwright-core');
     const context=await browser.newContext({viewport});await context.addInitScript(value=>{try{localStorage.setItem('reader.preferences.v1',value);}catch{}
       // The moment the document is shown: how many formulas were still waiting for KaTeX.
       new MutationObserver((_,observer)=>{if(!document.querySelector('#article')||document.querySelector('.resume-pending'))return;observer.disconnect();
-        window.__shown={formulas:document.querySelectorAll('.reader-math').length,pending:document.querySelectorAll('.reader-math:not([data-state])').length};}).observe(document,{subtree:true,childList:true,attributes:true,attributeFilter:['class']});},JSON.stringify({smooth:false,theme:'paper',...prefs}));
+        window.__shown={formulas:document.querySelectorAll('.reader-math').length,pending:document.querySelectorAll('.reader-math:not([data-state])').length};}).observe(document,{subtree:true,childList:true,attributes:true,attributeFilter:['class']});},JSON.stringify({smooth:false,theme:'user-reader-test',...prefs}));
     const page=await context.newPage(),errors=[],external=[],requests=[];page.on('pageerror',e=>errors.push(e.message));page.on('console',m=>{if(m.type()==='error')errors.push(m.text());});page.on('request',r=>{requests.push(r.url());if(!r.url().startsWith(url))external.push(r.url());});
     await page.goto(url+'#read='+encodeURIComponent(path)+suffix);await page.waitForFunction(()=>document.querySelector('#article')&&!document.querySelector('.resume-pending'));
     return {page,errors,external,requests,context};};

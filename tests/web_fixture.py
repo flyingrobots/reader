@@ -8,7 +8,8 @@ from uuid import uuid4
 
 from reader_mcp import clock
 from reader_mcp.annotations import Annotations
-from reader_mcp.web import WebLibrary, WebServer
+from reader_mcp.web import WebHandler, WebLibrary, WebServer
+import test_theme_fixture
 
 
 FAKE_CODEX = """import json, pathlib, shutil, sys, time
@@ -765,6 +766,11 @@ def main():
         if '--search-page' in sys.argv:
             search_page_fixture(root, works, library)
         server = WebServer(('127.0.0.1', 0), library, 'Browser tester')
+        # Suites render in the frozen test theme unless they name one (tests/test_theme_fixture.py); --product-theme
+        # leaves the app's own default.
+        if '--product-theme' not in sys.argv:
+            test_theme_fixture.install(root)
+            server.RequestHandlerClass = test_theme_fixture.handler(WebHandler)
         if '--chat-heartbeat' in sys.argv:
             server.chat_heartbeat = float(sys.argv[sys.argv.index('--chat-heartbeat') + 1])
         print(json.dumps({'url':f'http://127.0.0.1:{server.server_port}', 'speech':speech_folder, 'root': str(root), 'providers': providers, 'now': os.environ.get(clock.ENV)}), flush=True)

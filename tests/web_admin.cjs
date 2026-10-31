@@ -23,7 +23,7 @@ const shots=process.env.READER_SHOTS||'.reader/web-dev';
       window.__scrollIntoView=[];const original=Element.prototype.scrollIntoView;
       Element.prototype.scrollIntoView=function(...args){window.__scrollIntoView.push(this.id||this.className||this.tagName);return original.apply(this,args);};
       window.__sections=[];new MutationObserver(()=>{const el=document.getElementById('admin-content');const id=el?.dataset.adminSection;if(id&&window.__sections.at(-1)!==id)window.__sections.push(id);}).observe(document,{subtree:true,childList:true,attributes:true,attributeFilter:['data-admin-section']});
-    },JSON.stringify({smooth:false,theme:'paper',nextReads:false,backlinks:false,...prefs}));
+    },JSON.stringify({smooth:false,theme:'user-reader-test',nextReads:false,backlinks:false,...prefs}));
     const page=await context.newPage();
     page.on('pageerror',e=>errors.push(e.message));page.on('console',m=>{if(m.type()==='error'&&!/status of 50[03]/.test(m.text()))errors.push(m.text());});
     page.on('request',r=>{if(!r.url().startsWith(url))external.push(r.url());});

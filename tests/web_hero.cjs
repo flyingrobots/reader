@@ -16,7 +16,7 @@ const {chromium}=require(process.env.READER_PLAYWRIGHT||'playwright-core');
   mkdirSync('.reader/web-dev',{recursive:true});
   const open=async({motion='reduce',prefs={},viewport={width:1300,height:900}}={})=>{
     const context=await browser.newContext({viewport,reducedMotion:motion});
-    await context.addInitScript(value=>{try{if(!sessionStorage.getItem('hero-test')){localStorage.setItem('reader.preferences.v1',value);sessionStorage.setItem('hero-test','1');}}catch{}},JSON.stringify({smooth:false,theme:'paper',...prefs}));
+    await context.addInitScript(value=>{try{if(!sessionStorage.getItem('hero-test')){localStorage.setItem('reader.preferences.v1',value);sessionStorage.setItem('hero-test','1');}}catch{}},JSON.stringify({smooth:false,theme:'user-reader-test',...prefs}));
     const page=await context.newPage(),errors=[],external=[];
     page.on('pageerror',e=>errors.push(e.message));page.on('console',m=>{if(m.type()==='error')errors.push(m.text());});page.on('request',r=>{if(!r.url().startsWith(url))external.push(r.url());});
     return {context,page,errors,external};

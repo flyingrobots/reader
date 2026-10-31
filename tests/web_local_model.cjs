@@ -12,7 +12,7 @@ const {chromium}=require(process.env.READER_PLAYWRIGHT||'playwright-core');
   mkdirSync('.reader/web-dev',{recursive:true});
   const errors=[],external=[];
   const context=await browser.newContext({viewport:{width:1300,height:900},reducedMotion:'reduce'});
-  await context.addInitScript(()=>{try{localStorage.setItem('reader.preferences.v1',JSON.stringify({smooth:false,theme:'paper'}));}catch{}});
+  await context.addInitScript(()=>{try{localStorage.setItem('reader.preferences.v1',JSON.stringify({smooth:false,theme:'user-reader-test'}));}catch{}});
   const page=await context.newPage();page.on('pageerror',e=>errors.push(e.message));page.on('console',m=>{if(m.type()==='error')errors.push(m.text());});page.on('request',r=>{if(!r.url().startsWith(url))external.push(r.url());});
   const toast=text=>page.locator('[data-sonner-toast]').filter({hasText:text});
   await page.goto(url+'#admin/models');await page.locator('#local-model').waitFor();

@@ -11,7 +11,7 @@ const {waitFor,watch,sanitizerReport}=require('./web_wait.cjs');
   const {url}=await new Promise((resolve,reject)=>{createInterface({input:fixture.stdout}).once('line',line=>resolve(JSON.parse(line)));fixture.once('exit',code=>reject(new Error('Fixture exited '+code)));});
   browser=await chromium.launch({headless:true,executablePath:process.env.READER_CHROME||'/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',args:['--use-angle=swiftshader','--enable-unsafe-swiftshader','--disable-background-networking','--disable-breakpad','--disable-crash-reporter','--disk-cache-size=10485760']});
   mkdirSync('.reader/web-dev',{recursive:true});
-  const open=async(reducedMotion,prefs,path)=>{const context=await browser.newContext({viewport:{width:1300,height:820},reducedMotion});await context.addInitScript(value=>{try{localStorage.setItem('reader.preferences.v1',value);}catch{}},JSON.stringify({layout:'spread',smooth:false,theme:'paper',...prefs}));
+  const open=async(reducedMotion,prefs,path)=>{const context=await browser.newContext({viewport:{width:1300,height:820},reducedMotion});await context.addInitScript(value=>{try{localStorage.setItem('reader.preferences.v1',value);}catch{}},JSON.stringify({layout:'spread',smooth:false,theme:'user-reader-test',...prefs}));
     const page=await context.newPage(),errors=[],external=[];page.on('pageerror',e=>errors.push(e.message));page.on('console',m=>{if(m.type()==='error'&&!sanitizerReport(m))errors.push(m.text());});page.on('request',r=>{if(!r.url().startsWith(url))external.push(r.url());});
     watch(page);await page.goto(url+'#read='+encodeURIComponent(path));
     // #76: say which half is missing when a loaded machine is slow to lay out the spread or to resume.

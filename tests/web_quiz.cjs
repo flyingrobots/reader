@@ -11,7 +11,7 @@ const {chromium}=require(process.env.READER_PLAYWRIGHT||'playwright-core');
   browser=await chromium.launch({headless:true,executablePath:process.env.READER_CHROME||'/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',args:['--no-sandbox','--disable-gpu','--disable-dev-shm-usage','--disable-background-networking']});
   const context=await browser.newContext({viewport:{width:1280,height:900},reducedMotion:'reduce'}),page=await context.newPage(),errors=[];
   page.on('pageerror',error=>errors.push(error.message));
-  await context.addInitScript(()=>localStorage.setItem('reader.preferences.v1',JSON.stringify({theme:'paper',smooth:false,art:false,shapes:false,nextReads:false,participant:'Browser tester'})));
+  await context.addInitScript(()=>localStorage.setItem('reader.preferences.v1',JSON.stringify({theme:'user-reader-test',smooth:false,art:false,shapes:false,nextReads:false,participant:'Browser tester'})));
   await page.goto(url+'#read='+encodeURIComponent('library/thought.md'));
   await page.waitForSelector('#article:not(.resume-pending)');
   await page.locator('#main').focus();await page.keyboard.press('Space');await page.keyboard.press('x');

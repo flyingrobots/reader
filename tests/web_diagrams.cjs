@@ -12,7 +12,7 @@ const {chromium}=require(process.env.READER_PLAYWRIGHT||'playwright-core');
   browser=await chromium.launch({headless:true,executablePath:process.env.READER_CHROME||'/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',args:['--use-angle=swiftshader','--enable-unsafe-swiftshader','--disable-background-networking','--disable-breakpad','--disable-crash-reporter','--disk-cache-size=10485760']});
   mkdirSync('.reader/web-dev',{recursive:true});
   const open=async(prefs,path,viewport={width:1300,height:860})=>{
-    const context=await browser.newContext({viewport});await context.addInitScript(value=>{try{localStorage.setItem('reader.preferences.v1',value);}catch{}},JSON.stringify({smooth:false,theme:'paper',...prefs}));
+    const context=await browser.newContext({viewport});await context.addInitScript(value=>{try{localStorage.setItem('reader.preferences.v1',value);}catch{}},JSON.stringify({smooth:false,theme:'user-reader-test',...prefs}));
     const page=await context.newPage(),errors=[],external=[],requests=[];page.on('pageerror',e=>errors.push(e.message));page.on('console',m=>{if(m.type()==='error')errors.push(m.text());});page.on('request',r=>{requests.push(r.url());if(!r.url().startsWith(url))external.push(r.url());});
     await page.goto(url+'#read='+encodeURIComponent(path));await page.waitForFunction(()=>document.querySelector('#article')&&!document.querySelector('.resume-pending'));
     return {page,errors,external,requests,context};};
@@ -32,7 +32,7 @@ const {chromium}=require(process.env.READER_PLAYWRIGHT||'playwright-core');
    await page.screenshot({path:'.reader/web-dev/diagrams-scroll.png',fullPage:true});
    // Theme change recolors through CSS variables, without re-rendering (same nodes).
    const before=await page.evaluate(()=>{window.__diagramNode=document.querySelector('.pele-flowchart .pele-node rect');window.__diagramSvg=document.querySelector('.pele-flowchart');return getComputedStyle(window.__diagramNode).stroke;});
-   await page.getByRole('switch',{name:'Dark mode',exact:true}).click();assert.equal(await page.locator('html').getAttribute('data-theme'),'ink');
+   await page.getByRole('switch',{name:'Dark mode',exact:true}).click();assert.equal(await page.locator('html').getAttribute('data-theme'),'user-reader-test-dark');
    const after=await page.evaluate(()=>({stroke:getComputedStyle(window.__diagramNode).stroke,same:document.querySelector('.pele-flowchart .pele-node rect')===window.__diagramNode&&document.querySelector('.pele-flowchart')===window.__diagramSvg}));
    assert.notEqual(after.stroke,before,'stroke follows the theme');assert.ok(after.same,'no re-render on theme change');
    await page.screenshot({path:'.reader/web-dev/diagrams-ink.png',fullPage:true});

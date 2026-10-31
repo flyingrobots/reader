@@ -14,7 +14,7 @@ const THEMES=['ink','paper','orchid','orchid-dark','harvest','harvest-dark',...r
   mkdirSync('.reader/web-dev',{recursive:true});
   const errors=[],external=[];
   const context=await browser.newContext({viewport:{width:1440,height:1000},reducedMotion:'reduce'});await pinDate(context,now);
-  await context.addInitScript(()=>{try{if(!localStorage.getItem('reader.preferences.v1'))localStorage.setItem('reader.preferences.v1',JSON.stringify({smooth:false,theme:'paper'}));}catch{}});
+  await context.addInitScript(()=>{try{if(!localStorage.getItem('reader.preferences.v1'))localStorage.setItem('reader.preferences.v1',JSON.stringify({smooth:false,theme:'user-reader-test'}));}catch{}});
   const page=await context.newPage();page.on('pageerror',e=>errors.push(e.message));page.on('console',m=>{if(m.type()==='error')errors.push(m.text());});page.on('request',r=>{if(!r.url().startsWith(url))external.push(r.url());});
   await page.goto(url);await page.locator('#home-title').waitFor();await page.locator('.issue-cover').waitFor();
   // Masthead, one cover, up to five features, contents; excluded types and newsletter papers stay out.

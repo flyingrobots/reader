@@ -20,7 +20,7 @@ const tidal='library/essays/tidal/tidal.md';
     other:['Early bird','Oct 17'],history:[['Today',['The tidal archive']],['Yesterday',['A quiet thought']],['Oct 20',['Another thought']]]}];
   for(const c of cases){
    const context=await browser.newContext({viewport:{width:1300,height:900},reducedMotion:'reduce',timezoneId:c.timezoneId});
-   await context.addInitScript(value=>{try{localStorage.setItem('reader.preferences.v1',value);}catch{}},JSON.stringify({smooth:false,theme:'paper',nextReads:false,layout:'scroll',participant:c.participant}));
+   await context.addInitScript(value=>{try{localStorage.setItem('reader.preferences.v1',value);}catch{}},JSON.stringify({smooth:false,theme:'user-reader-test',nextReads:false,layout:'scroll',participant:c.participant}));
    const page=await context.newPage();await page.clock.setFixedTime(new Date(c.now));
    page.on('pageerror',e=>errors.push(e.message));page.on('console',m=>{if(m.type()==='error')errors.push(m.text());});
    page.on('request',r=>{if(!r.url().startsWith(url))external.push(r.url());});

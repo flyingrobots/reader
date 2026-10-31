@@ -13,7 +13,7 @@ const {waitFor,watch:watchResponses}=require('./web_wait.cjs');
   mkdirSync('.reader/web-dev',{recursive:true});
   const errors=[],external=[];
   const watch=page=>{watchResponses(page);page.on('pageerror',e=>errors.push(e.message));page.on('console',m=>{if(m.type()==='error')errors.push(m.text());});page.on('request',r=>{if(!r.url().startsWith(url))external.push(r.url());});};
-  const start=async(prefs,viewport={width:1300,height:900})=>{const context=await browser.newContext({viewport,reducedMotion:'reduce'});await context.addInitScript(p=>{try{if(!sessionStorage.getItem('seeded')){localStorage.setItem('reader.preferences.v1',JSON.stringify(p));sessionStorage.setItem('seeded','1');}}catch{}},{smooth:false,theme:'paper',...prefs});const page=await context.newPage();watch(page);return {context,page};};
+  const start=async(prefs,viewport={width:1300,height:900})=>{const context=await browser.newContext({viewport,reducedMotion:'reduce'});await context.addInitScript(p=>{try{if(!sessionStorage.getItem('seeded')){localStorage.setItem('reader.preferences.v1',JSON.stringify(p));sessionStorage.setItem('seeded','1');}}catch{}},{smooth:false,theme:'user-reader-test',...prefs});const page=await context.newPage();watch(page);return {context,page};};
   const highlighted=(page,name)=>page.evaluate(n=>[...(CSS.highlights.get(n)||[])].map(r=>r.toString()),name);
   const currentMatch=page=>page.evaluate(()=>{const r=[...(CSS.highlights.get('reader-current')||[])][0];if(!r)return null;const b=r.getBoundingClientRect();return {text:r.toString(),top:b.top,left:b.left,right:b.right,bottom:b.bottom,width:innerWidth,height:innerHeight};});
 
@@ -134,7 +134,7 @@ const {waitFor,watch:watchResponses}=require('./web_wait.cjs');
   await context.close();
 
   // Phone width: one column, filters in a sheet, no horizontal scroll.
-  ({context,page}=await start({theme:'paper'},{width:390,height:844}));
+  ({context,page}=await start({theme:'user-reader-test'},{width:390,height:844}));
   await page.goto(url+'#search='+encodeURIComponent('q=observation'));
   await page.locator('[data-work]').first().waitFor();
   assert.match(await page.locator('[data-work="library/reports/ledger/ledger-report.md"] [data-excerpt]').textContent(),/[0-9a-f]{200}/,'an excerpt holds a long unbroken token');

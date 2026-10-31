@@ -27,7 +27,7 @@ async function fixture(flags){
   const open=async url=>{
     const context=await browser.newContext({viewport:{width:1300,height:900},reducedMotion:'reduce'});
     await context.grantPermissions(['clipboard-read','clipboard-write'],{origin:url});
-    await context.addInitScript(()=>{try{localStorage.setItem('reader.preferences.v1',JSON.stringify({smooth:false,theme:'paper',art:false}));}catch{}});
+    await context.addInitScript(()=>{try{localStorage.setItem('reader.preferences.v1',JSON.stringify({smooth:false,theme:'user-reader-test',art:false}));}catch{}});
     const page=await context.newPage(),errors=[],posts=[];
     page.on('pageerror',e=>errors.push(e.message));page.on('console',m=>{if(m.type()==='error')errors.push(m.text());});
     page.on('request',r=>{if(r.method()==='POST'&&r.url().includes('/api/jobs'))posts.push(r.postDataJSON());});

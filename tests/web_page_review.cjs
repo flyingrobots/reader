@@ -15,7 +15,8 @@ const PAGES={home:['#','#home-title'],search:['#search','#search-query'],results
   issue:['#issue=2026-W43','.issue-cover']};
 const SECTIONS=process.argv.slice(2).length?process.argv.slice(2):Object.keys(PAGES);
 const PROFILES={desktop:{viewport:{width:1440,height:900}},tablet:devices['iPad Mini'],phone:devices['iPhone 13']};
-const THEMES=['paper','ink'];
+// The frozen test theme pair (tests/test_theme_fixture.py), so screenshots do not change when product themes do.
+const THEMES=['user-reader-test','user-reader-test-dark'];
 (async()=>{
  const fixture=spawn(process.env.READER_PYTHON||'.venv/bin/python',['tests/web_fixture.py','--maintenance','--inbox','--dashboard','--search-page','--queue','--magazine'],{stdio:['ignore','pipe','inherit']});let browser;
  const failures=[];

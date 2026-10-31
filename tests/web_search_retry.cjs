@@ -9,7 +9,7 @@ const {chromium}=require(process.env.READER_PLAYWRIGHT||'playwright-core');
   const {url}=await new Promise((resolve,reject)=>{createInterface({input:fixture.stdout}).once('line',line=>resolve(JSON.parse(line)));fixture.once('exit',code=>reject(new Error('Fixture exited '+code)));});
   browser=await chromium.launch({headless:true,executablePath:process.env.READER_CHROME||'/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',args:['--disable-gpu','--disable-background-networking','--disable-breakpad','--disable-crash-reporter','--disk-cache-size=10485760']});
   const context=await browser.newContext({viewport:{width:1300,height:900},reducedMotion:'reduce'});
-  await context.addInitScript(()=>{try{localStorage.setItem('reader.preferences.v1',JSON.stringify({smooth:false,theme:'paper',layout:'scroll'}));}catch{}});
+  await context.addInitScript(()=>{try{localStorage.setItem('reader.preferences.v1',JSON.stringify({smooth:false,theme:'user-reader-test',layout:'scroll'}));}catch{}});
   const page=await context.newPage(),errors=[];page.on('pageerror',e=>errors.push(e.message));
   // The server answers the first two content searches as busy, then with a result.
   let busy=2,calls=0;

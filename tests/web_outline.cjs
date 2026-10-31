@@ -13,7 +13,7 @@ const THEMES=['ink','paper','orchid','orchid-dark','harvest','harvest-dark',...r
   browser=await chromium.launch({headless:true,executablePath:process.env.READER_CHROME||'/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',args:['--use-angle=swiftshader','--enable-unsafe-swiftshader','--disable-background-networking','--disable-breakpad','--disable-crash-reporter','--disk-cache-size=10485760']});
   mkdirSync('.reader/web-dev',{recursive:true});
   const errors=[],external=[];
-  const context=async(viewport,prefs={})=>{const ctx=await browser.newContext({viewport,reducedMotion:'reduce'});await ctx.addInitScript(value=>{try{if(!sessionStorage.getItem('seeded')){localStorage.setItem('reader.preferences.v1',value);sessionStorage.setItem('seeded','1');}}catch{}},JSON.stringify({smooth:false,theme:'paper',...prefs}));return ctx;};
+  const context=async(viewport,prefs={})=>{const ctx=await browser.newContext({viewport,reducedMotion:'reduce'});await ctx.addInitScript(value=>{try{if(!sessionStorage.getItem('seeded')){localStorage.setItem('reader.preferences.v1',value);sessionStorage.setItem('seeded','1');}}catch{}},JSON.stringify({smooth:false,theme:'user-reader-test',...prefs}));return ctx;};
   const watch=page=>{watchResponses(page);page.on('pageerror',e=>errors.push(e.message));page.on('console',m=>{if(m.type()==='error')errors.push(m.text());});page.on('request',r=>{if(!r.url().startsWith(url))external.push(r.url());});return page;};
   const open=async(page,path)=>{await page.evaluate(()=>document.querySelector('#article')?.setAttribute('data-stale','')).catch(()=>{});await page.goto(url+'/#read='+encodeURIComponent(path));
     // #77: name the half that is missing if a loaded machine is slow to render the new document or resume it.

@@ -31,7 +31,7 @@ const opening=text=>new RegExp(text.replace(/\*\*/g,'').split(/\s+/).slice(0,4).
   // Everything the page asks of the network: only GETs of exported files under /reader/ may leave the page.
   const requests=[];context.on('request',r=>requests.push([r.method(),r.url(),r.resourceType()]));
   await context.route('**/*',route=>route.request().url().startsWith(origin+'/')?route.continue():route.abort());
-  await context.addInitScript(()=>{try{localStorage.setItem('reader.preferences.v1',JSON.stringify({smooth:false,theme:'paper',layout:'scroll'}));}catch{}});
+  await context.addInitScript(()=>{try{localStorage.setItem('reader.preferences.v1',JSON.stringify({smooth:false,theme:'user-reader-test',layout:'scroll'}));}catch{}});
   // An unaddressed message goes to a voice chosen at random: a fixed seed makes that choice the same on every run.
   await context.addInitScript(()=>{let seed=0x2f6e2b1;Math.random=()=>{seed=(seed+0x6d2b79f5)|0;let t=Math.imul(seed^(seed>>>15),1|seed);t=(t+Math.imul(t^(t>>>7),61|t))^t;return ((t^(t>>>14))>>>0)/4294967296;};});
   // The chat panel's stream events as the page's EventSource dispatches them, in order.

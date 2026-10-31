@@ -43,7 +43,7 @@ const PATH='library/callouts.md';
   }
 
   // Annotations: an existing thread anchors inside a callout body; a new selection there is exact.
-  {const {page,errors,context}=await open({theme:'paper'});
+  {const {page,errors,context}=await open({theme:'user-reader-test'});
    await page.waitForFunction(()=>[...(CSS.highlights.get('reader-other')||[])].some(r=>r.toString()==='a callout observation'));
    assert.equal(await page.locator('#article .annotation-pin').count(),1);
    await page.evaluate(()=>{const p=[...document.querySelectorAll('.callout[data-callout=tip] .callout-content p')][0],node=p.firstChild,at=node.data.indexOf('expanded hint body'),range=document.createRange();range.setStart(node,at);range.setEnd(node,at+'expanded hint body'.length);const s=getSelection();s.removeAllRanges();s.addRange(range);p.dispatchEvent(new MouseEvent('mouseup',{bubbles:true}));});
@@ -65,7 +65,7 @@ const PATH='library/callouts.md';
    assert.deepEqual(errors,[]);await context.close();}
 
   // Contrast: callout title and body against the callout's own background, in every theme.
-  {const {page,context}=await open({theme:'paper'});
+  {const {page,context}=await open({theme:'user-reader-test'});
    const rows=await page.evaluate(themes=>{
     const html=document.documentElement,canvas=document.createElement('canvas');canvas.width=canvas.height=1;const ctx=canvas.getContext('2d');
     const rgb=(...layers)=>{ctx.clearRect(0,0,1,1);for(const layer of layers){ctx.fillStyle=layer;ctx.fillRect(0,0,1,1);}return [...ctx.getImageData(0,0,1,1).data].slice(0,3);};
@@ -81,7 +81,7 @@ const PATH='library/callouts.md';
    await context.close();}
 
   // Two-page: the page-turn rasterizer draws the callout box and its icon.
-  {const {page,errors,context}=await open({theme:'paper',layout:'spread'});
+  {const {page,errors,context}=await open({theme:'user-reader-test',layout:'spread'});
    await page.waitForFunction(()=>document.body.classList.contains('two-page')&&!document.querySelector('.resume-pending'));
    const drawn=await page.evaluate(async()=>{const {rasterize}=await import('/assets/controls/page-turn.js');const article=document.querySelector('#article');
      const aside=document.querySelector('aside.callout'),icon=aside.querySelector('.callout-icon svg').getBoundingClientRect(),box=aside.getBoundingClientRect();
@@ -94,7 +94,7 @@ const PATH='library/callouts.md';
    await page.screenshot({path:'.reader/web-dev/callouts-spread.png'});assert.deepEqual(errors,[]);await context.close();}
 
   // Phone width: no horizontal page scroll.
-  {const {page,context}=await open({theme:'ink'},{width:390,height:844});
+  {const {page,context}=await open({theme:'user-reader-test-dark'},{width:390,height:844});
    assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),'fits phone width');
    await page.screenshot({path:'.reader/web-dev/callouts-phone.png'});await context.close();}
   console.log('Callouts passed: 13 types, aliases, unknown fallback, titles, folding, nesting, decoration, exact body offsets in 3 themes; existing and new annotations in a callout body; find opens a fold and skips titles; contrast in 22 themes; two-page rasterizer draws box and icon; phone width.');

@@ -19,7 +19,7 @@ const {scrollUntilHeld}=require('./web_wait.cjs');
   mkdirSync('.reader/web-dev',{recursive:true});
   const errors=[],external=[];
   const context=await browser.newContext({viewport:{width:1300,height:900},reducedMotion:'reduce'});
-  await context.addInitScript(value=>{try{localStorage.setItem('reader.preferences.v1',value);}catch{}},JSON.stringify({smooth:false,theme:'paper',layout:'scroll'}));
+  await context.addInitScript(value=>{try{localStorage.setItem('reader.preferences.v1',value);}catch{}},JSON.stringify({smooth:false,theme:'user-reader-test',layout:'scroll'}));
   const page=await context.newPage();
   // A 503 from the unavailable-daemon case is expected; Chrome logs it as a failed resource.
   page.on('pageerror',e=>errors.push(e.message));page.on('console',m=>{if(m.type()==='error'&&!/status of 503/.test(m.text()))errors.push(m.text());});page.on('request',r=>{if(!r.url().startsWith(url))external.push(r.url());});

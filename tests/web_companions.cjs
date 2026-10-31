@@ -17,7 +17,7 @@ const shots=process.env.READER_SHOTS||'.reader/web-dev';
   const errors=[],external=[];
   const context=await browser.newContext({viewport:{width:1300,height:900},reducedMotion:'reduce'});
   await context.grantPermissions(['clipboard-read','clipboard-write'],{origin:url});
-  await context.addInitScript(()=>{try{if(!localStorage.getItem('reader.preferences.v1'))localStorage.setItem('reader.preferences.v1',JSON.stringify({smooth:false,theme:'paper',layout:'scroll'}));}catch{}});
+  await context.addInitScript(()=>{try{if(!localStorage.getItem('reader.preferences.v1'))localStorage.setItem('reader.preferences.v1',JSON.stringify({smooth:false,theme:'user-reader-test',layout:'scroll'}));}catch{}});
   const page=await context.newPage();
   // Expected refusals Chrome logs as failed resources: the missing daemon (503), missing Colorful (409), the bad path (400), the second install (429).
   page.on('pageerror',e=>errors.push(e.message));page.on('console',m=>{if(m.type()==='error'&&!/status of (400|409|429|503)/.test(m.text()))errors.push(m.text());});

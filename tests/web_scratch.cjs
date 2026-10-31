@@ -15,7 +15,7 @@ const shots=process.env.READER_SHOTS||'.reader/web-dev';
   mkdirSync(shots,{recursive:true});
   const git=(...args)=>execFileSync('git',['-C',root,...args],{encoding:'utf8',env:{PATH:process.env.PATH,GIT_CONFIG_GLOBAL:'/dev/null',HOME:'/dev/null'}});
   const context=await browser.newContext({viewport:{width:1280,height:900},reducedMotion:'reduce'});
-  await context.addInitScript(value=>{try{if(!localStorage.getItem('reader.preferences.v1'))localStorage.setItem('reader.preferences.v1',value);}catch{}},JSON.stringify({smooth:false,theme:'paper',nextReads:false}));
+  await context.addInitScript(value=>{try{if(!localStorage.getItem('reader.preferences.v1'))localStorage.setItem('reader.preferences.v1',value);}catch{}},JSON.stringify({smooth:false,theme:'user-reader-test',nextReads:false}));
   const page=await context.newPage();
   page.on('pageerror',e=>errors.push(e.message));page.on('console',m=>{if(m.type()==='error')errors.push(m.text()+' '+(m.location()?.url||''));});
   page.on('request',r=>{if(!r.url().startsWith(url))external.push(r.url());else requested.push(new URL(r.url()).pathname);});
