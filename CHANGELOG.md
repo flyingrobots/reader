@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- The versions timeline is built from shadcn components: Badges for its tags, a Collapsible for each edition's history, Kbd hints and Buttons. `timelineModel` replaces the HTML string; the keyboard model and comparisons are unchanged.
 - Link previews are a shadcn HoverCard anchored to the link (a bottom sheet on phones). `links.mjs` still decides when they show; the HTML string and its CSS are gone. Two Linked from order checks in web_links now allow the learning card beside them.
 - On phones the status line keeps the version chip, which says which edition you are reading, and lets the outline button and then the layout switch give way first. The chip had disappeared at 390 px since the quick theme picker joined the always-shown items. The priority table in docs/web.md lists the current ranks.
 - The reading log under a document's title is a shadcn component: a Collapsible line and Item rows, with the folded task agents in a nested Collapsible. `readingLogModel` replaces the HTML string builder, and its legacy CSS is removed.

@@ -35,8 +35,8 @@ const tidal='library/essays/tidal/tidal.md';
    const read=page.locator('.version-line .version-read');await read.waitFor();
    assert.equal((await read.textContent()).trim(),c.chip,c.timezoneId+' chip');
    await page.locator('#main').focus();await page.keyboard.press('Space');await page.keyboard.press('v');
-   const panel=page.locator('#versions-panel');await panel.locator('.vt-tag.read').first().waitFor();
-   assert.equal(await panel.locator('.vt-file .vt-tag.read').first().textContent(),c.tag,c.timezoneId+' timeline tag');
+   const panel=page.locator('#versions-panel');await panel.locator('[data-vt-tag=read]').first().waitFor();
+   assert.equal(await panel.locator('[data-vt-item=file] [data-vt-tag=read]').first().textContent(),c.tag,c.timezoneId+' timeline tag');
    await page.keyboard.press('Escape');await panel.waitFor({state:'hidden'});
    // Reading log: another reader's mark from more than a week ago shows its local date; the title has the local zone.
    const log=page.locator('.reading-log');await log.locator('[data-reading-log-details]').waitFor();

@@ -1,6 +1,7 @@
 import {useState, useSyncExternalStore, useEffect, type ReactNode} from 'react';
 import {ReadingLog, type ReadingLogActions, type ReadingLogModel} from './reading-log';
 import {LinkPreview, type LinkPreviewState} from './link-preview';
+import {VersionsTimeline, type TimelineModel} from './versions-timeline';
 import {createRoot, type Root} from 'react-dom/client';
 import {createPortal, flushSync} from 'react-dom';
 import {Progress} from './components/ui/progress';
@@ -452,6 +453,13 @@ export function mountChangesPanel(container:HTMLElement,options:Omit<ChangesOpti
   let root:Root|undefined;
   mount(container,<ChangesPanel key={Date.now()} {...options} onClose={()=>setTimeout(()=>{if(root&&islands.get(container)===root)clearControlsWithin(container);},250)}/>);
   root=islands.get(container);
+}
+/** The versions timeline in #versions-body: one persistent root, re-rendered by versions.mjs; `doc` keys it so a new
+    document starts with its own history disclosures. */
+export function renderVersionsTimeline(container:HTMLElement,model:TimelineModel|null,doc=''){
+  container.dataset.ui='shadcn';
+  const root=islands.get(container),view=<VersionsTimeline key={doc} model={model}/>;
+  if(root)flushSync(()=>root.render(view));else mount(container,view);
 }
 /** The link preview card: one persistent root in its own container; links.mjs passes null to close it. */
 let linkPreviewRoot:HTMLElement|null=null;

@@ -38,13 +38,13 @@ const shots=process.env.READER_SHOTS||'.reader/web-dev';
    await leader(page,'v');const panel=page.locator('#versions-panel');await panel.waitFor();
    assert.equal(await page.locator('#vim-mode').textContent(),'VERSIONS');
    assert.equal(await focused(page),essay+'tidal.md','focus starts on the version you are reading');
-   assert.deepEqual(await panel.locator('.vt-file .vt-name').allTextContents(),['v1','v2','Reading copy of v2','v3']);
-   assert.deepEqual(await panel.locator('.vt-file .vt-mark').allTextContents(),['●','○','○','★']);
-   const history=panel.locator('.vt-edition').first().locator('.vt-commit');
-   assert.deepEqual(await history.locator('.vt-subject').allTextContents(),['Revise v1; add v2, v3 and a reading copy','File The tidal archive']);
-   assert.deepEqual(await history.locator('.vt-when').allTextContents(),['Oct 15','Oct 12']);
-   await panel.locator('.vt-commit .vt-reader.own').first().waitFor();   // Hashes arrive: your read lands on the matching commit.
-   assert.match(await panel.locator('.vt-file').first().textContent(),/reading/);
+   assert.deepEqual(await panel.locator('[data-vt-item=file] [data-vt-name]').allTextContents(),['v1','v2','Reading copy of v2','v3']);
+   assert.deepEqual(await panel.locator('[data-vt-item=file] [data-vt-mark]').allTextContents(),['●','○','○','★']);
+   const history=panel.locator('[data-vt-edition]').first().locator('[data-vt-item=commit]');
+   assert.deepEqual(await history.locator('[data-vt-subject]').allTextContents(),['Revise v1; add v2, v3 and a reading copy','File The tidal archive']);
+   assert.deepEqual(await history.locator('[data-vt-when]').allTextContents(),['Oct 15','Oct 12']);
+   await panel.locator('[data-vt-item=commit] [data-vt-reader=own]').first().waitFor();   // Hashes arrive: your read lands on the matching commit.
+   assert.match(await panel.locator('[data-vt-item=file]').first().textContent(),/reading/);
    await page.screenshot({path:shots+'/versions-panel.png'});
    // j/k move; Enter on the older commit opens it read-only.
    await page.keyboard.press('j');assert.equal(await focused(page),'History · 2 revisions');
@@ -86,9 +86,9 @@ const shots=process.env.READER_SHOTS||'.reader/web-dev';
    await page.reload();await banner.waitFor();await ready(page);assert.match(await page.locator('#article').textContent(),/kept an early thought/);
    // Compare v1 with v3: c on each.
    await leader(page,'v');await panel.waitFor();
-   await panel.locator(`.vt-file[data-ref="${essay}tidal.md"]`).focus();await page.keyboard.press('c');
-   assert.match(await panel.locator('.versions-hint').textContent(),/Comparing from v1/);
-   await panel.locator(`.vt-file[data-ref="${essay}tidal.v3.md"]`).focus();await page.keyboard.press('c');
+   await panel.locator(`[data-vt-item=file][data-ref="${essay}tidal.md"]`).focus();await page.keyboard.press('c');
+   assert.match(await panel.locator('[data-versions-hint]').textContent(),/Comparing from v1/);
+   await panel.locator(`[data-vt-item=file][data-ref="${essay}tidal.v3.md"]`).focus();await page.keyboard.press('c');
    const changes=page.locator('#changes-panel');await changes.waitFor();
    assert.equal(await changes.locator('[data-slot=sheet-title]').textContent(),'v1 → v3');
    assert.ok(await changes.locator('[data-op=replace]').count()>=1);
@@ -96,8 +96,8 @@ const shots=process.env.READER_SHOTS||'.reader/web-dev';
    await page.keyboard.press('Escape');await changes.waitFor({state:'hidden'});
    // The other direction, from the newer to the historical one, and Compare with current.
    await leader(page,'v');await panel.waitFor();
-   await panel.locator(`.vt-file[data-ref="${essay}tidal.v3.md"] + .vt-compare`).click();
-   await panel.locator(`.vt-commit[data-ref="${older}"] + .vt-compare`).click();
+   await panel.locator(`[data-vt-item=file][data-ref="${essay}tidal.v3.md"] + [data-compare-ref]`).click();
+   await panel.locator(`[data-vt-item=commit][data-ref="${older}"] + [data-compare-ref]`).click();
    await changes.waitFor();assert.match(await changes.locator('[data-slot=sheet-title]').textContent(),/^v3 → v1 @ Oct 12$/);
    await page.keyboard.press('Escape');await changes.waitFor({state:'hidden'});
    await leader(page,'v');await panel.waitFor();await panel.locator('[data-compare-current]').click();

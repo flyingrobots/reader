@@ -109,7 +109,7 @@
     "src/plural.ts": "4c0d0698a171b39d5683548f00e2e9a8a7c5ea1af28e4067aaa63612476b5fa2",
     "src/queue-panel.tsx": "f94dbf25fb0b53288a3de2b9ae46029eab1b9522a2ebe3655cb32a3b65d816bb",
     "src/quiz.tsx": "da429b5617a6c905d376cea263c1901325c2e1d43890957e294114492a852cb2",
-    "src/reader-controls.tsx": "f6af216bac385cfb3c641ddb7860aeac7888154d45081335169374ecbaf15e35",
+    "src/reader-controls.tsx": "1de8f4db2ac7249994dff0959a955f75854267f9168b5026d3da6cf51f2f0799",
     "src/reading-log.tsx": "1981dbb7da8a7c010d38d588992ba1b9afc5ef9c611badb247d6f8fadc8a4fda",
     "src/scratch-question.tsx": "ae90d508a8ca52994fb567380d60bef8644475691754a97fd697b323dcb7e7e3",
     "src/search-page.tsx": "b63ecad9ec576f5375ecced55c54670cd69af9380e70542ae941f4065e8f3323",
@@ -140,6 +140,7 @@
     "src/theme/theme-css.ts": "2c78098cd36c2ae0009313fc483463733f541aca45ecc0e5150f2b19c4809327",
     "src/theme/theme-editor.tsx": "b33809853471121d6b8700b4bb2745bf10825d09628c3164fec6902b0a4d9dab",
     "src/vanilla-buttons.ts": "23836ca88f55f1d49b6111005d3538f48832297a6a5baff30d791bf3a6edde79",
+    "src/versions-timeline.tsx": "e690fc440dff86ced21899c1f59cbf681555cc81cb7bde69671b400cb797ef40",
     "src/writing-prompt.tsx": "3c26d2467f2cef11cac517898e9b384264416c256095840285317b0d2b0a96d3"
   },
   "dependencies": {
@@ -958,16 +959,16 @@
       "sha256": "cb2ee2554fd41ac9f8e2e69c350365f0e1cf9732d27ad161c9c97b20945bbe4c"
     },
     "reader-controls.css": {
-      "bytes": 177590,
-      "sha256": "0caa7d07b00590c7802cae77750a583f46a84dc6e63f98b419dd798bdd739a83"
+      "bytes": 178465,
+      "sha256": "fc71f1419994def6e27b9842c6b93d5e2988e13b8132d0249969682c0513a16e"
     },
     "reader-controls.js": {
-      "bytes": 1198185,
-      "sha256": "c917cf9d89380d91c87142227115223f5e34a38d7e65f64ae9a8ab8e1427f524"
+      "bytes": 1204533,
+      "sha256": "fdb3ec88eff99d12e83e379d6bfc9049e0052302a5e5e6a3ad96bf3aa64b86f1"
     },
     "reader-controls.js.LEGAL.txt": {
-      "bytes": 6363,
-      "sha256": "3fac7e4f67b4aec1fff1f13a153fd43b46cd12e17fd9c4fc3b1fed4cd676420c"
+      "bytes": 6412,
+      "sha256": "b8cbcfad8a1a0d97d80d2da9930622bea7acb8f8b06a3a265cc67f591e831262"
     },
     "shape.js": {
       "bytes": 8806,

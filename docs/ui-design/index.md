@@ -16,6 +16,7 @@ Reader Admin's pages have their sheets in [admin-design/](../admin-design/index.
 | What changed | `web/src/changes-panel.tsx` | shadcn: [changes.md](changes.md) |
 | Reading log | `web/src/reading-log.tsx` | shadcn: [reading-log.md](reading-log.md) |
 | Link previews | `web/src/link-preview.tsx` | shadcn: [link-preview.md](link-preview.md) |
+| Versions timeline | `web/src/versions-timeline.tsx` | shadcn: [versions-timeline.md](versions-timeline.md) |
 
 ## React surfaces with their own theming layer
 
@@ -37,6 +38,5 @@ Much of the reading app is rendered by `src/reader_mcp/web_ui/*.mjs` from templa
 | Documents picker, Keyboard help, Speak menu, Annotation, Diagram viewer | `index.html`, `app.mjs`, `keys.mjs` | Native `<dialog>` shells holding bridged Buttons and Kbd. Moving them to shadcn `Dialog`/`Sheet` means taking their open/close, focus and key handling out of `app.mjs` one dialog at a time. Tracked in [#200](https://github.com/flyingrobots/reader/issues/200). |
 | Discussions, Versions, Lists panels; Find bar | `index.html`, `app.mjs`, `versions.mjs`, `lists.mjs` | Vanilla panels with bridged Buttons and Kbd. The same follow-up as the dialogs, as shadcn `Sheet`s ([#200](https://github.com/flyingrobots/reader/issues/200)). |
 | Scratch pad | `scratch.mjs` | A CodeMirror editor with bridged chrome. |
-| Versions timeline and edition chips | `versions.mjs` | Hand-built timeline rows and `vt-tag` chips around bridged Buttons. The chips should be shadcn Badges and the timeline a Sheet with Items. Tracked in [#200](https://github.com/flyingrobots/reader/issues/200). |
 | Article art panels (cover, artist's note, prompt stages, full-screen focus) | `art.mjs`, `art-prompt.mjs`, `art-focus.mjs` | The art itself is content (canvas and scene). The surrounding note, stage list and focus header are hand-built around bridged Buttons. The Regenerate this form inside is React shadcn ([art-regenerate](../../web/src/art-regenerate.tsx)). Tracked in #200. |
 | Outline entries | `web/src/outline.tsx`, `outline.mjs` | A deliberate custom navigation list, shared by the React popover and sheet and the vanilla rail. |

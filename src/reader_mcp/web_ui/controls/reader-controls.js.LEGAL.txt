@@ -86,6 +86,7 @@ lucide-react/dist/esm/shared/src/utils/hasA11yProp.js:
 lucide-react/dist/esm/Icon.js:
 lucide-react/dist/esm/createLucideIcon.js:
 lucide-react/dist/esm/icons/arrow-down.js:
+lucide-react/dist/esm/icons/arrow-left-right.js:
 lucide-react/dist/esm/icons/arrow-left.js:
 lucide-react/dist/esm/icons/arrow-right.js:
 lucide-react/dist/esm/icons/arrow-up-right.js:

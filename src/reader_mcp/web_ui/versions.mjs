@@ -11,7 +11,6 @@ export const splitRef=ref=>{const m=REF.exec(ref||'');return m?{path:m[1],commit
 const day=iso=>iso?formatDate(String(iso)):'';
 const plural=(n,word)=>`${n} ${word}${n===1?'':'s'}`;
 const topRevision=v=>Math.max(0,...(v?.family||[]).filter(e=>e.role==='version').map(e=>e.revision));
-const SWAP='<svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><path d="M3 5.5h9.5M10 3l2.5 2.5L10 8M13 10.5H3.5M6 8l-2.5 2.5L6 13"/></svg>';
 const readingCopyLabel=e=>e.label==='Reading copy'?'Reading copy of the original':e.label;
 
 /** What the chip and its twin say: {chip, twin, title, newer} or null when there is nothing to tell. */
@@ -50,7 +49,39 @@ export function historicalMarkup(doc,param){
   return `<aside class="historical-banner" data-reader-decoration role="note"><span><strong>Historical version</strong> · ${esc(day(doc.date))} · commit <code>${esc(doc.short)}</code>${doc.subject?` · ${esc(doc.subject)}`:''}</span><span class="historical-note">Read-only: no read marks, bookmarks or annotations.</span><a href="${esc('#read='+param(doc.path))}" data-path="${esc(doc.path)}">Return to current</a></aside>`;
 }
 
-export function installVersions({state,api,navigate,openCompare,openSideBySide,notify,param,onChange}){
+/** Everything the timeline shows (web/src/versions-timeline.tsx), as plain data. `at` is the open reference, `marked` the
+    version chosen to compare from, `labelOf` names a reference. */
+export function timelineModel(v,{at,marked,participant,title,historical,sideBySide,labelOf}){
+  const top=topRevision(v),read=v.read;
+  const readRef=read?(read.where==='commit'?read.path+'@'+read.commit:read.where==='current'?read.path:null):null;
+  const commits=Object.values(v.history||{}).reduce((n,list)=>n+list.length,0);
+  const readers=names=>{
+    if(!names?.length)return null;
+    const mine=names.includes(participant),others=names.filter(n=>n!==participant);
+    return {label:'Read by '+[mine&&'you',...others].filter(Boolean).join(', '),own:mine,others:Math.min(5,others.length)};
+  };
+  const editions=v.family.map(e=>{
+    const newest=e.role==='version'&&e.revision===top&&v.family.some(x=>x.role==='version'&&x.revision<top);
+    const isHere=at===e.path,isRead=readRef===e.path,history=v.history?.[e.path]||[];
+    const tags=[isHere&&{kind:'here',text:'reading'},isRead&&{kind:'read',text:'you read '+day(read.at)},newest&&{kind:'newest',text:'newest'},e.uncommitted&&{kind:'edited',text:'edited since last commit'}].filter(Boolean);
+    const status=v.history_status?.[e.path];
+    return {ref:e.path,here:isHere,newest,marked:marked===e.path,mark:isHere?'●':isRead?'◐':newest?'★':'○',
+      name:e.role==='version'?'v'+e.revision:e.label,where:e.where||null,
+      meta:[e.role==='version'?null:e.role==='reading-copy'?'Reading copy':null,e.date?day(e.date):null,e.author].filter(Boolean).join(' · '),
+      tags,readers:readers(e.readers),compareLabel:'Compare '+labelOf(e.path),
+      historyOpen:!!history.length&&(isHere||history.some(c=>at===e.path+'@'+c.commit)),historyLabel:'History · '+plural(history.length,'revision'),
+      historyNote:status==='truncated'?'Older revisions not shown':status==='timeout'?'History took too long to read':null,
+      commits:history.map(c=>{const ref=e.path+'@'+c.commit,isAt=at===ref,isR=readRef===ref;
+        return {ref,here:isAt,marked:marked===ref,mark:isAt?'●':isR?'◐':'·',when:day(c.date),subject:c.subject,short:c.short,
+          tags:[isAt&&{kind:'here',text:'reading'},isR&&{kind:'read',text:'you read'},c.matches_current&&{kind:'same',text:'same as file'}].filter(Boolean),
+          readers:readers(c.readers),compareLabel:'Compare '+labelOf(ref)};})};
+  });
+  return {title,counts:(v.family.length>1?plural(v.family.length,'edition')+' · ':'')+plural(commits,'revision')+' in the vault history'+(v.git?'':' (no git history)'),
+    sideBySide:!!sideBySide,openNewer:v.newer&&!historical&&at!==v.newer.path?{ref:v.newer.path,label:'Open v'+v.newer.revision}:null,
+    marked:marked?labelOf(marked):null,editions,more:v.more||0,catalog:v.catalog||null};
+}
+
+export function installVersions({state,api,navigate,openCompare,openSideBySide,notify,param,onChange,renderTimeline}){
   const $=s=>document.querySelector(s);
   const panel=$('#versions-panel'),body=$('#versions-body'),twin=$('#status-version');
   let marked=null,focusRef=null,hashedFor=null,lastItem=null;
@@ -75,46 +106,12 @@ export function installVersions({state,api,navigate,openCompare,openSideBySide,n
   // Opening the current file's newest commit is the same as opening the file.
   const resolve=ref=>{const {path,commit}=splitRef(ref);if(!commit)return ref;const c=state.versions?.history?.[path]?.find(x=>x.commit.startsWith(commit));return c?.matches_current&&!state.versions.family.find(e=>e.path===path)?.uncommitted?path:ref;};
 
-  function readers(names){
-    if(!names?.length)return '';
-    const mine=names.includes(state.prefs.participant),others=names.filter(n=>n!==state.prefs.participant);
-    const label='Read by '+[mine&&'you',...others].filter(Boolean).join(', ');
-    return `<span class="vt-readers" title="${esc(label)}" aria-label="${esc(label)}">${mine?'<span class="vt-reader own"></span>':''}${others.slice(0,5).map(()=>'<span class="vt-reader"></span>').join('')}</span>`;
-  }
   function render(){
-    const v=state.versions;if(!v){body.innerHTML='';return;}
-    const at=here(),top=topRevision(v),read=v.read;
-    const readRef=read?(read.where==='commit'?read.path+'@'+read.commit:read.where==='current'?read.path:null):null;
-    const commits=Object.values(v.history||{}).reduce((n,list)=>n+list.length,0);
-    const title=state.doc?.metadata?.title||state.doc?.title||'';
-    const rows=v.family.map(e=>{
-      const newest=e.role==='version'&&e.revision===top&&v.family.some(x=>x.role==='version'&&x.revision<top);
-      const isHere=at===e.path,isRead=readRef===e.path;
-      const mark=isHere?'●':isRead?'◐':newest?'★':'○';
-      const tags=[isHere&&'<span class="vt-tag here">reading</span>',isRead&&`<span class="vt-tag read">you read ${esc(day(read.at))}</span>`,newest&&'<span class="vt-tag newest">newest</span>',e.uncommitted&&'<span class="vt-tag">edited since last commit</span>'].filter(Boolean).join('');
-      const name=e.role==='version'?'v'+e.revision:e.label;
-      const history=v.history?.[e.path]||[];
-      const open=history.length&&(isHere||history.some(c=>at===e.path+'@'+c.commit));
-      const list=history.map(c=>{
-        const ref=e.path+'@'+c.commit,isAt=at===ref,isR=readRef===ref;
-        return `<li><button type="button" class="vt-item vt-commit${isAt?' is-here':''}" data-ref="${esc(ref)}" aria-current="${isAt?'true':'false'}"><span class="vt-mark" aria-hidden="true">${isAt?'●':isR?'◐':'·'}</span><span class="vt-main"><span class="vt-when">${esc(day(c.date))}</span><span class="vt-subject">${esc(c.subject)}</span></span><span class="vt-side">${isAt?'<span class="vt-tag here">reading</span>':''}${isR?'<span class="vt-tag read">you read</span>':''}${c.matches_current?'<span class="vt-tag">same as file</span>':''}<code>${esc(c.short)}</code>${readers(c.readers)}</span></button><button type="button" data-button="ghost icon-xs" class="vt-compare" data-compare-ref="${esc(ref)}" aria-label="Compare ${esc(labelOf(ref))}" title="Compare (c)">${SWAP}</button></li>`;
-      }).join('');
-      const status=v.history_status?.[e.path];
-      const more=status==='truncated'?'<li class="vt-note">Older revisions not shown</li>':status==='timeout'?'<li class="vt-note">History took too long to read</li>':'';
-      return `<li class="vt-edition${isHere?' is-here':''}${newest?' is-newest':''}"><div class="vt-row"><button type="button" class="vt-item vt-file" data-ref="${esc(e.path)}" aria-current="${isHere?'true':'false'}"><span class="vt-mark" aria-hidden="true">${mark}</span><span class="vt-main"><span class="vt-name">${esc(name)}${e.where?` <small>· ${esc(e.where)}</small>`:''}</span><span class="vt-meta">${esc([e.role==='version'?null:e.role==='reading-copy'?'Reading copy':null,e.date?day(e.date):null,e.author].filter(Boolean).join(' · '))}</span></span><span class="vt-side">${tags}${readers(e.readers)}</span></button><button type="button" data-button="ghost icon-xs" class="vt-compare" data-compare-ref="${esc(e.path)}" aria-label="Compare ${esc(labelOf(e.path))}" title="Compare (c)">${SWAP}</button></div>${history.length?`<details class="vt-history"${open?' open':''}><summary class="vt-item vt-summary">History · ${plural(history.length,'revision')}</summary><ol>${list}${more}</ol></details>`:''}</li>`;
-    }).join('');
-    const hint=marked?`Comparing from <strong>${esc(labelOf(marked))}</strong>. Choose another version and press <kbd>c</kbd>, or <button type="button" data-button="link sm" data-unmark>cancel</button>.`:`<kbd>j</kbd> <kbd>k</kbd> move · <kbd>Enter</kbd> open · <kbd>c</kbd> compare two`;
-    body.innerHTML=`<p class="versions-sub">${esc(title)}<br>${v.family.length>1?plural(v.family.length,'edition')+' · ':''}${plural(commits,'revision')} in the vault history${v.git?'':' (no git history)'}</p>
-      <div class="versions-actions"><button type="button" data-button="outline xs" data-compare-current>Compare with current</button>${openSideBySide?'<button type="button" data-button="outline xs" data-compare-split title="Open the selected version beside this one, scrolling together">Compare side by side</button>':''}${v.newer&&!state.doc?.historical&&at!==v.newer.path?`<button type="button" data-button="outline xs" data-open-ref="${esc(v.newer.path)}">Open v${esc(v.newer.revision)}</button>`:''}</div>
-      <p class="versions-hint" aria-live="polite">${hint}</p>
-      <ol class="versions-timeline" aria-label="Editions and their history">${rows}</ol>
-      ${v.more?`<p class="vt-note">+${v.more} more editions not shown</p>`:''}
-      ${v.catalog?`<p class="vt-note">Catalog note (describes this file; not an edition): <code>${esc(v.catalog)}</code></p>`:''}
-      <p class="vt-legend" aria-hidden="true"><span>● reading</span><span>◐ you read</span><span>★ newest</span></p>`;
-    if(marked)body.querySelectorAll(`[data-ref="${CSS.escape(marked)}"]`).forEach(el=>el.classList.add('is-marked'));
-    body.querySelector('[data-unmark]')?.addEventListener('click',()=>{marked=null;render();focus(focusRef);});
+    const v=state.versions;if(!v){renderTimeline(body,null);return;}
+    renderTimeline(body,timelineModel(v,{at:here(),marked,participant:state.prefs.participant,title:state.doc?.metadata?.title||state.doc?.title||'',
+      historical:!!state.doc?.historical,sideBySide:!!openSideBySide,labelOf}),state.doc?.path||'');
   }
-  const items=()=>[...body.querySelectorAll('.vt-item')].filter(el=>el.offsetParent!==null||el.matches('summary'));
+  const items=()=>[...body.querySelectorAll('[data-vt-item]')].filter(el=>el.offsetParent!==null);
   function focus(ref){
     const all=items();
     const target=(ref&&all.find(el=>el.dataset.ref===ref))||all.find(el=>el.getAttribute('aria-current')==='true')||all[0];
@@ -151,6 +148,7 @@ export function installVersions({state,api,navigate,openCompare,openSideBySide,n
   function reset(){hashedFor=null;marked=null;lastItem=null;}
 
   panel.addEventListener('click',event=>{
+    if(event.target.closest('[data-unmark]')){marked=null;render();focus(focusRef);return;}
     const compareButton=event.target.closest('[data-compare-ref]');if(compareButton){choose(compareButton.dataset.compareRef);return;}
     const openButton=event.target.closest('[data-open-ref]');if(openButton){go(openButton.dataset.openRef);return;}
     if(event.target.closest('[data-compare-split]')){
@@ -164,9 +162,9 @@ export function installVersions({state,api,navigate,openCompare,openSideBySide,n
       if(!from){notify('Select another version on the timeline, then Compare with current.');return;}
       marked=null;close();compare(from,base);return;
     }
-    const item=event.target.closest('.vt-item[data-ref]');if(item)go(item.dataset.ref);
+    const item=event.target.closest('[data-vt-item][data-ref]');if(item)go(item.dataset.ref);
   });
-  panel.addEventListener('focusin',event=>{if(event.target.matches('.vt-item[data-ref]'))lastItem=event.target.dataset.ref;});
+  panel.addEventListener('focusin',event=>{if(event.target.matches('[data-vt-item][data-ref]'))lastItem=event.target.dataset.ref;});
   panel.addEventListener('keydown',event=>{
     if(event.isComposing||event.metaKey||event.ctrlKey||event.altKey)return;
     const all=items(),index=all.indexOf(document.activeElement);
@@ -180,7 +178,7 @@ export function installVersions({state,api,navigate,openCompare,openSideBySide,n
     }else if(event.key==='Escape'){
       event.preventDefault();if(marked){marked=null;render();focus(focusRef);return;}
       close();$('#main').focus({preventScroll:true});
-    }else if(event.key==='Enter'&&document.activeElement?.matches('summary')){/* Native toggle. */}
+    }
   });
   twin.addEventListener('click',()=>panel.hidden?open():close());
   $('#versions-close').addEventListener('click',()=>{close();$('#main').focus({preventScroll:true});});

@@ -19,7 +19,7 @@ import {calloutPlugin} from './callouts.mjs';
 import {drawable,fetchShape,paintShape} from './shapes.mjs';
 import {artJobs,fetchArt,focusArt,forgetArt,hasArt,paintArt,paintArtThumb,paintPlaceholder} from './art.mjs';
 import {closeArtFocus,focusOpen} from './art-focus.mjs';
-import {renderLinkPreview,renderReadingLog,applyThemes,installControls,mountSkeleton,mountCodeBlocks,decorateCodeBlocks,clearControlsWithin,mountDocumentTree,visibleDocumentNodes,revealDocumentRow,mountAdmin,setAdminRoute,mountChangesPanel,mountArtRegenerate,notify as shellNotify,openChat,closeChat,chatOpen,trackSpeech,renderQueuePanel,mountCallouts,mountQuiz,mountWritingPrompt,mountScratchQuestion,startJob,promptCompanion,needsReader,NEEDS_READER,mountPromptCards} from './controls/reader-controls.js';
+import {renderVersionsTimeline,renderLinkPreview,renderReadingLog,applyThemes,installControls,mountSkeleton,mountCodeBlocks,decorateCodeBlocks,clearControlsWithin,mountDocumentTree,visibleDocumentNodes,revealDocumentRow,mountAdmin,setAdminRoute,mountChangesPanel,mountArtRegenerate,notify as shellNotify,openChat,closeChat,chatOpen,trackSpeech,renderQueuePanel,mountCallouts,mountQuiz,mountWritingPrompt,mountScratchQuestion,startJob,promptCompanion,needsReader,NEEDS_READER,mountPromptCards} from './controls/reader-controls.js';
 import {promptPlugin,promptMounts} from './prompt-blocks.mjs';
 import {installVersions,chipMarkup,historicalMarkup,splitRef,compareLabel} from './versions.mjs';
 import {installSplit,installPane,cleanRoute} from './split.mjs';
@@ -1817,7 +1817,7 @@ writingPrompts=installWritingPrompts({api,document:()=>state.doc,participant:()=
 keys.defineMode('writing-prompt',{label:()=> 'WRITE ABOUT',hints:()=>'<kbd>Tab</kbd> move <kbd>Enter</kbd> choose <kbd>Esc</kbd> return',escape:()=>writingPrompts.close()});
 $('#quiz-open').onclick=()=>quiz.open();
 if(needsReader()){$('#quiz-open').disabled=true;$('#quiz-open').title=NEEDS_READER;}
-versions=installVersions({state,api,navigate:ref=>navigate(ref),openCompare:openComparison,openSideBySide:(older,newer)=>{if(pane)pane.post({type:'open-in-split',compare:{a:older,b:newer}});else split.compare(older,newer,cleanRoute(location.hash)).catch(report);},notify,param,onChange:()=>reading?.updateStatus()});
+versions=installVersions({state,api,navigate:ref=>navigate(ref),openCompare:openComparison,openSideBySide:(older,newer)=>{if(pane)pane.post({type:'open-in-split',compare:{a:older,b:newer}});else split.compare(older,newer,cleanRoute(location.hash)).catch(report);},notify,param,onChange:()=>reading?.updateStatus(),renderTimeline:renderVersionsTimeline});
 if(EMBEDDED)pane=installPane({open:openRoute,save:()=>reading.save(),onFocus:paneFocus,
   reveal:element=>{if(!reading.hasBook())return false;const range=document.createRange();range.selectNodeContents(element);return reading.reveal(range,false);},
   scrollBy:delta=>{if(Math.abs(delta)>=1)scrollToPosition(scrollY+delta,false);},seek:fraction=>reading.seek(fraction,false),docFraction:()=>reading.progress()});

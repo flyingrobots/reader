@@ -282,33 +282,7 @@ body.two-page .version-line{margin:0 0 1.2em}
 body.two-page .historical-banner{margin:0 0 1.4em}
 .status-version{gap:5px}.status-version span{font-variant-numeric:tabular-nums;font-weight:600}.status-version.newer{color:var(--accent)}.status-version.historical{color:var(--warning)}
 .versions-panel{width:min(440px,100vw)}.versions-panel .thread-top{margin-bottom:6px}
-.versions-sub{font:13px/1.45 var(--sans);color:var(--muted);margin:0 0 14px}
-.versions-actions{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 10px}
-.versions-hint{font:11px/1.6 var(--sans);color:var(--muted);margin:0 0 16px;min-height:18px}.versions-hint [data-button]{height:auto;padding:0;font-size:11px}
-.versions-timeline{list-style:none;margin:0;padding:0;position:relative}
-.versions-timeline::before{content:'';position:absolute;left:11px;top:14px;bottom:14px;border-left:1px solid var(--line)}
-.vt-edition{position:relative;margin:0 0 4px}.vt-row,.vt-history li{display:flex;align-items:center;gap:2px}
-.vt-item{display:flex;align-items:flex-start;gap:10px;width:100%;min-width:0;text-align:left;background:transparent;border:0;border-radius:8px;padding:7px 8px 7px 2px;color:var(--ink);font:13px/1.4 var(--sans);cursor:pointer}
-.vt-item:hover{background:var(--raised)}.vt-item:focus-visible{outline:0;box-shadow:inset 2px 0 0 var(--accent);background:var(--raised)}
-.vt-item.is-marked{box-shadow:inset 0 0 0 1px var(--accent);background:var(--raised)}.vt-item.is-marked:focus-visible{box-shadow:inset 2px 0 0 var(--accent),inset 0 0 0 1px var(--accent)}
-.vt-mark{flex:none;width:20px;text-align:center;color:var(--faint);background:var(--surface);position:relative;z-index:1;border-radius:50%}
-.vt-item:hover .vt-mark,.vt-item:focus-visible .vt-mark,.vt-item.is-marked .vt-mark{background:var(--raised)}
-.vt-edition.is-here>.vt-row .vt-mark,.vt-commit.is-here .vt-mark{color:var(--accent)}.vt-edition.is-newest>.vt-row .vt-mark{color:var(--ink)}
-.vt-main{display:grid;gap:1px;min-width:0;flex:1}.vt-name{font-weight:650}.vt-name small{font-weight:400;color:var(--muted)}
-.vt-meta,.vt-when{font-size:11px;color:var(--muted)}.vt-subject{overflow-wrap:anywhere}
-.vt-side{display:flex;flex-wrap:wrap;gap:4px;justify-content:flex-end;align-items:center;flex:0 1 auto;max-width:48%}
-.vt-tag{font-size:10px;line-height:1.5;padding:0 6px;border-radius:999px;border:1px solid var(--line);color:var(--muted);white-space:nowrap}
-.vt-tag.here{border-color:var(--accent);color:var(--accent)}.vt-tag.read{border-color:var(--own);color:var(--ink)}.vt-tag.newest{border-color:var(--muted);color:var(--ink)}
-.vt-side code{font:10px var(--mono);color:var(--faint)}
-.vt-history{margin:0 0 4px 22px}.vt-history ol{list-style:none;margin:0;padding:0}
-.vt-summary{font-size:11px;color:var(--muted);padding:4px 8px;list-style:none;display:block}.vt-summary::-webkit-details-marker{display:none}
-.vt-summary::before{content:'▸';display:inline-block;width:14px}.vt-history[open]>.vt-summary::before{content:'▾'}
-.vt-commit{font-size:12px;padding-block:5px}.vt-commit .vt-mark{width:14px;background:transparent}
-.vt-compare{flex:none;color:var(--faint)}.vt-compare:hover,.vt-compare:focus-visible,.is-marked+.vt-compare{color:var(--accent)}
-.vt-readers{display:inline-flex;gap:3px;padding:0 2px}.vt-reader{width:7px;height:7px;border-radius:50%;background:var(--other)}.vt-reader.own{background:var(--own)}
-.vt-note{font-size:11px;color:var(--muted);padding:4px 8px;margin:0;overflow-wrap:anywhere}.vt-note code{font:10px var(--mono)}
-.vt-legend{display:flex;flex-wrap:wrap;gap:6px 16px;font-size:10px;color:var(--faint);margin:16px 0 0;border-top:1px solid var(--line);padding-top:10px}
-@media(max-width:640px){.versions-panel{inset:auto 0 38px 0;width:auto;max-height:72vh;border-left:0;border-top:1px solid var(--line);border-radius:16px 16px 0 0;padding:16px}.versions-panel .thread-top h2{font-size:22px}.vt-side{max-width:46%}}
+@media(max-width:640px){.versions-panel{inset:auto 0 38px 0;width:auto;max-height:72vh;border-left:0;border-top:1px solid var(--line);border-radius:16px 16px 0 0;padding:16px}.versions-panel .thread-top h2{font-size:22px}}
 /* What changed since you read it: banner under the title and the target of a clicked change. */
 .change-banner{display:flex;flex-wrap:wrap;align-items:center;gap:6px 14px;font-family:var(--sans);font-size:12px;line-height:1.5;color:var(--ink);border-left:2px solid var(--warning);padding:6px 0 6px 12px;margin:0 0 40px;break-inside:avoid}
 .change-banner>span:not(:first-child){color:var(--muted)}.change-banner>span:first-child{font-weight:600}
