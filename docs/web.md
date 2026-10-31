@@ -4133,6 +4133,35 @@ entirely is not listed, and a removed dependency's license disappears with it;
 their editable sources and lockfile. To recover from missing or stale controls,
 rebuild from the lockfile; do not substitute a CDN script or loosen the CSP.
 
+### Running the browser suites
+
+`tests/web_*.cjs` are the browser suites. Each starts its own fixture (a synthetic vault on a free port) and its own
+browser, so they run side by side:
+
+```sh
+python3 scripts/run_browser_suites.py              # every suite, as many at a time as the machine has room for
+python3 scripts/run_browser_suites.py -j 8         # eight at a time
+python3 scripts/run_browser_suites.py dock split   # suites whose names contain "dock" or "split"
+```
+
+Rebuild `web/` first when it changed. The runner:
+
+- **Sizes itself to the machine.** By default it runs two thirds of the cores at a time, less the current one-minute load, and at least two. On a shared workstation, other work can starve the browsers, and timing-sensitive suites then fail for that reason alone. `-j` overrides the default.
+- **Starts slow suites early.** It starts suites slowest first, using the durations recorded in `.reader/web-dev/suites/durations.json`.
+- **Contains each suite.** Each suite runs in its own process group and is killed with its fixture and browser after `--timeout` (600 s).
+- **Reports.** Logs go to `.reader/web-dev/suites/<suite>.log`. It prints a failure report with each log's tail and exits 1 if any suite failed.
+- **Gives performance suites a quiet machine.** A suite that measures performance (frame rates, load times) declares `// suite: exclusive` near its top: `web_art` and `web_content_visibility` do. Those run first, together, before the parallel batch.
+- **Skips shared helpers.** `web_wait.cjs` and `web_clock.cjs` are not suites.
+
+On an idle 18-core machine, all suites take about two minutes, against about twenty run one after another.
+
+Write suites that hold under that load:
+
+- **Wait for outcomes, not durations.** Wait for a condition, or record that a brief state occurred with a MutationObserver set up beforehand, never `waitForTimeout` followed by a check.
+- **Drive timers with Playwright's clock.** Backoffs, long presses and hover delays advance under `page.clock`; real time spent waiting for them is wasted and flaky.
+- **Assert the property, not this machine's speed.** For example, embed requests carry at most a batch, rather than "at most five requests".
+- **Report what the page looked like.** When a wait fails, include the relevant state in the error.
+
 ### The browser suites' test theme
 
 The browser suites render in their own frozen theme, not in a product theme someone may edit. `tests/fixtures/reader-test-theme.json` is a user theme, *Reader test*: its light and dark variants (`user-reader-test`, `user-reader-test-dark`) were copied once from Paper and Ink and are never updated with them. `tests/fixtures/reader-test-theme.css` is the stylesheet the app builds from that JSON.

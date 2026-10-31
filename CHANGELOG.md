@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+- Browser suites run in parallel: `python3 scripts/run_browser_suites.py` takes about two minutes on an idle 18-core machine instead of about twenty run one after another. It sizes itself to the machine's free capacity, runs performance suites on a quiet machine first, and reports failures with log tails. Slow suites got faster: the reviews 81 s to 17 s and 64 s to 16 s, search retry 35 s to 12 s, and content visibility split into four parallel parts. Timing assumptions in a dozen suites became checks of outcomes.
+- Fixed bugs the parallel runs exposed:
+  - Smooth scrolling could keep showing the end of a document after `gg`.
+  - Key sequences like `gg` lost a key typed in time on a busy page.
+  - A finishing render closed the command line (#111).
+  - `Space v` said a document had one version while its timeline was still loading.
+  - The versions timeline lost the keyboard place when it re-rendered.
+  - PDF prose colors skipped pages whose text arrived late.
+  - Escape left the art focus view open when focus was outside it.
+  - The reading-position bubble blocked clicks under it.
 - The Discussions, Versions and Lists panels are non-modal shadcn Sheets around their existing asides. They open and close, dock and handle keys as before; their positioning moved from `.thread-panel` to the Sheet.
 - Browser suites render in a frozen test theme (*Reader test*, copied once from Paper and Ink) instead of product themes, so editing a product theme no longer changes what they assert or screenshot. Suites that test the product themes still name them. See docs/web.md, *The browser suites' test theme*.
 - The art prompt card and the art focus view's chrome are shadcn Cards, CodeBlocks, Collapsibles and a ButtonGroup. web_art_touch dispatches its drag in the page on Playwright's clock instead of relying on CDP touch timing.
