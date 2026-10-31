@@ -2,7 +2,7 @@
 const assert=require('node:assert/strict');const {spawn}=require('node:child_process');const {createInterface}=require('node:readline');const {chromium}=require(process.env.READER_PLAYWRIGHT||'playwright-core');const {mkdirSync}=require('node:fs');
 (async()=>{let browser;const fixture=spawn(process.env.READER_PYTHON||'.venv/bin/python',['tests/web_fixture.py'],{stdio:['ignore','pipe','inherit']});try{
 const {url}=await new Promise((resolve,reject)=>{createInterface({input:fixture.stdout}).once('line',s=>resolve(JSON.parse(s)));fixture.once('exit',c=>reject(Error('fixture '+c)));});
-browser=await chromium.launch({headless:true,executablePath:'/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',args:['--disable-gpu','--disable-background-networking','--disk-cache-size=10485760']});
+browser=await chromium.launch({headless:true,executablePath:process.env.READER_CHROME||'/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',args:['--disable-gpu','--disable-background-networking','--disk-cache-size=10485760']});
 const page=await browser.newPage({viewport:{width:1300,height:900},reducedMotion:'reduce'}),errors=[],posts=[];page.on('pageerror',e=>errors.push(e.message));page.on('request',r=>{if(r.method()==='POST'&&r.url().endsWith('/api/maintenance'))posts.push(r.postDataJSON());});
 await page.goto(url);await page.locator('#home-title').waitFor();const input=page.locator('#command-input'),menu=page.locator('#command-menu');
 const open=async()=>{await page.locator('#main').focus();await page.keyboard.press(':');await input.waitFor({state:'visible'});};

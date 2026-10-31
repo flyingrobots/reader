@@ -10,6 +10,6 @@ export function CommandSuggestions({model}:{model:CommandChoices}){
         <ItemContent><ItemTitle><span className="command-choice">{choice.label||choice.value}</span></ItemTitle>{choice.description?<ItemDescription className="line-clamp-2">{choice.description}</ItemDescription>:null}</ItemContent>
       </Item>)}</ItemGroup>}
     </CardContent>
-    <CardFooter className="flex-wrap gap-2"><span>{model.total} suggestions</span><span><Kbd>↑</Kbd><Kbd>↓</Kbd> select · <Kbd>Tab</Kbd> fill · <Kbd>Enter</Kbd> run · <Kbd>Esc</Kbd> cancel</span></CardFooter>
+    <CardFooter className="flex-wrap gap-2"><span>{model.total} suggestions</span><span><Kbd>↑</Kbd><Kbd>↓</Kbd> select · <Kbd>Tab</Kbd> fill · <Kbd>Enter</Kbd> complete or run · <Kbd>Esc</Kbd> cancel</span></CardFooter>
   </Card>;
 }
