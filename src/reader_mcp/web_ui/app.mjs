@@ -1771,7 +1771,7 @@ function paneFocus(focused,move){
 }
 let lastPaneDoc='',lastPaneStatus='';
 function paneStatus(){
-  const status={type:'status',mode:$('#vim-mode').textContent,position:state.doc?Math.round(reading.progress()*100)+'%':$('#status-position').textContent,path:state.doc?.path||(state.view==='admin'?state.adminPath:state.view==='search'?SEARCH:null)};
+  const status={type:'status',mode:$('#vim-mode').textContent,position:state.doc?Math.round(reading.progress()*100)+'%':$('#status-position').textContent,path:state.doc?.path||(state.view==='admin'?state.adminPath:state.view==='search'?SEARCH:state.view==='section'?SECTION+state.sectionLabel:null)};
   const now=JSON.stringify(status);if(now!==lastPaneStatus){lastPaneStatus=now;pane.post(status);}
   const doc=state.doc,ref=doc?(doc.historical?doc.path+'@'+doc.commit:doc.path):null;
   const message={type:'doc',hash:location.hash,ref,path:doc?.path||null,title:doc?String(doc.metadata?.title||doc.title||''):'',preview:!!doc?.preview,historical:!!doc?.historical};

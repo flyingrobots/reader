@@ -14,5 +14,8 @@ const {chromium}=require(process.env.READER_PLAYWRIGHT||'playwright-core');
  const before=Number((await page.locator('#status-position').textContent()).replace('%',''));for(let i=0;i<8;i++)await page.keyboard.press('j');await frame.waitForFunction(()=>scrollY>300);
  await page.waitForFunction(before=>Number(document.querySelector('#status-position').textContent.replace('%',''))>before,before);
  await page.keyboard.press('Control+w');await page.keyboard.press('h');await page.waitForFunction(()=>document.querySelector('#split-indicator').textContent==='1/2');assert.equal(await page.locator('#status-position').textContent(),'0%','focused-pane switch restores its own progress');
+ const left=await (await page.locator('iframe[title^="Pane 1 of"]').elementHandle()).contentFrame();await left.evaluate(()=>{location.hash='#section='+encodeURIComponent('Library and reading');});await left.locator('#section-title').waitFor();
+ await page.waitForFunction(()=>!document.querySelector('#status-location').textContent.includes('thought.md'));
+ assert.ok((await page.locator('#status-location').textContent()).includes('Library and reading'),'focused section keeps its identity in the outer breadcrumb');
  assert.deepEqual(errors,[]);console.log('Split status passed: visible model-based progress updates and follows focused pane.');
 }finally{await browser?.close();if(fixture.exitCode===null){fixture.kill('SIGTERM');await new Promise(resolve=>fixture.once('exit',resolve));}}})().catch(error=>{console.error(error);process.exitCode=1;});

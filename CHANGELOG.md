@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Split-view breadcrumbs retain the focused section’s identity.
+
 - Split-view footers derive the focused article’s percentage from reading state, preserving progress while embedded footers are hidden.
 
 - Admin documentation preserves its reading position when hidden across section navigation and page reload.
