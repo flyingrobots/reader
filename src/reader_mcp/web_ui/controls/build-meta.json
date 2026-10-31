@@ -125,7 +125,7 @@
     "src/search-page.tsx": "b63ecad9ec576f5375ecced55c54670cd69af9380e70542ae941f4065e8f3323",
     "src/server-card.tsx": "1dab12f3cde047b9f069ff785dd777aba138e9ad4256329d10d07311f54d8116",
     "src/shape/shape.ts": "9fe4b2b1dd21a2869130afa25aed34e2ea482fc8fe05aa2609193aa24c04b50c",
-    "src/shell-dialog.tsx": "d51c7bba6a95300dedaccbbed39fe421168d94dcb716a51fd96f3a086c13e126",
+    "src/shell-dialog.tsx": "ef6889ff79a28ecda5e202370d1514a6af9d42e3a3f6750e252452f45341edde",
     "src/speech-control.tsx": "8c83611a936b87f5fa062fb6104a9d85608e6dd24c300292050dd234c0b44d83",
     "src/speech-voice.tsx": "258de97551cea6ec0da8c421ce9d2cfc221fba05b3b9e5649ec3a56c2a92de18",
     "src/static-demo.ts": "036a0b4413452d2ec8f7a51248157340082f3c030fc51d3237275021340e8810",
@@ -972,12 +972,12 @@
       "sha256": "cb2ee2554fd41ac9f8e2e69c350365f0e1cf9732d27ad161c9c97b20945bbe4c"
     },
     "reader-controls.css": {
-      "bytes": 180747,
-      "sha256": "5cc8d2c83cfa037daa85bb50d7502b88fe3bc0a2742406c29ed4349900c5e202"
+      "bytes": 180674,
+      "sha256": "425521a0f64ec470a5d37e11829d1cd4698993de14e10032ef668d47222f6bf9"
     },
     "reader-controls.js": {
-      "bytes": 1245618,
-      "sha256": "e77a6b34f66f692b9c6d1fccf8297920477f4fe72bf6ca1aad06b9f9cc1da55d"
+      "bytes": 1245635,
+      "sha256": "cfa9b136d8f95d79c38f1530278e42b9e5ca7cb79f6e970150b26acb81aa51a1"
     },
     "reader-controls.js.LEGAL.txt": {
       "bytes": 6454,
