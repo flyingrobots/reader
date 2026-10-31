@@ -1209,9 +1209,17 @@ New sections are added in one place: the section registry in
 on this computer, which route parameters it accepts, and its page). The route
 syntax, `#admin/<section>[/<param>…]`, is parsed by `web_ui/admin-routes.mjs`.
 
-**Indexes** shows one shadcn **Card** per rebuildable index, with a
-state **Badge** (Current, Needs rebuild, Partial, Not built, Not configured, Error), its facts, and its rebuild
-actions in the card footer:
+**Indexes** combines summary Cards, interactive D3 charts, an index health Table
+and a selected-index inspector. Shadcn Card, Table, Badge, Button, Tabs,
+Collapsible and Alert components provide the interface. The health table keeps
+rebuild actions beside each index; selecting an index shows its measurements in
+the inspector. Charts show semantic completeness of indexed text and resource
+headroom against the configured budgets. Click or keyboard-activate a segment or
+bar to inspect its index; capacity tabs switch Storage and Inventories, and
+View chart data exposes exact values in a table. Unknown usage is not plotted as
+zero, and over-budget percentages remain explicit. See the [design contract](admin-design/indexes.md).
+
+The checks and rebuilds are:
 
 | Index | Freshness check | Rebuild |
 | --- | --- | --- |
@@ -1236,7 +1244,7 @@ minutes (the Overview never does). **Check again** reruns it, and every rebuild 
 large vault the browse check takes about ten seconds. A catalog check can refuse
 outright: for example, an inventory over the 50,000-file / 2 GiB catalog limit, or
 a duplicate `document_id`, shows as Error with that message. Jobs run one at a time in a background thread of
-the web server. While one runs, every rebuild button is disabled. A second start
+the web server. While one runs, every rebuild button is disabled. The page explains this shared job slot and shows elapsed time for a running freshness check; cached measurements stay visible. This layout does not change the cost of the full audit or introduce a maintenance queue. A second start
 is refused with HTTP 429. **Recent runs** lists this server process's last 20 jobs
 with their results or errors. Job history is not persisted; freshness is always
 measured again.

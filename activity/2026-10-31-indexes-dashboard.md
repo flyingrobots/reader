@@ -1,0 +1,7 @@
+# Index health dashboard — 2026-10-31
+
+Replaced the uneven index-card grid with shadcn summary Cards, interactive D3 semantic coverage and capacity charts, an index health Table, and a selected-index inspector. Retained existing rebuild admission and error behavior. Added elapsed freshness checking and a shared-job explanation. D3 uses the vendored runtime; no dependency was added. Geometry and labels respond to container width and use existing theme tokens.
+
+Checks: frontend typecheck and production build passed; the focused browser suite passed measured coverage/budget values, chart selection by pointer and keyboard without starting jobs, Storage/Inventories tabs, unknown/over-budget values, busy cached/error states and mobile bounds. Rendered desktop/mobile screenshots were inspected and token/legend sizing issues corrected. The Indexes/Settings portion of the older web_backstage script ran successfully; its later unrelated reading-layout assertion expects pagination “1” while the existing range display returns “1–2”, so the full older script did not pass. This work does not change reading pagination.
+
+A separate read-only live investigation recorded a prior full audit at 25.91 seconds and a cached Tailnet page visit at 1.35 seconds. Individually timed probes took search 1.304 s, browse 13.979 s, catalog 11.428 s, links 0.223 s and limits 0.006 s. The explanation and backend recommendations are delivered separately to the private Reader inbox; the audit/scheduler implementation is unchanged.

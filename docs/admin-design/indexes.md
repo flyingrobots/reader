@@ -1,59 +1,28 @@
 # Design sheet: Admin › Indexes
 
-Route `#admin/indexes`. Source: `web/src/admin/pages/indexes.tsx`; the index catalogue (titles, facts, actions) lives in `web/src/backstage.tsx`.
+Route `#admin/indexes`. `web/src/admin/pages/indexes.tsx` composes the page; `index-charts.tsx` computes interactive SVG geometry with the existing vendored D3. Index titles, actions and measurements come from `web/src/backstage.tsx`.
 
 ## Focused activity
 
-**Find the index that drifted and rebuild just that one.** Every index is a rebuildable copy of what the vault holds. The page answers these questions:
+Inspect freshness, semantic completeness and resource headroom, then rebuild a selected projection. The page uses measured status snapshots. Opening it requests a full freshness check when the previous check is more than two minutes old; it does not automatically rebuild indexes.
 
-1. When were these last checked? Check again if that was too long ago.
-2. Which index is not *Current*, and why (its message)?
-3. What will a rebuild touch (its note), and which action do I want (with embeddings, or keywords only)?
-4. Did my run (or a run another surface started) succeed, and what did it change?
+## Layout and composition
 
-Opening the page runs the light freshness check once if the last check is more than two minutes old. It never rebuilds on its own.
+A shadcn toolbar gives the last check time, a running freshness check’s elapsed time and Check again. An Alert explains the shared maintenance job slot when it is occupied. Three shadcn Cards summarize current checks, checks needing attention, and the latest completed audit duration.
 
-## Layout
+Two chart Cards contain:
 
-```mermaid
-flowchart TB
-  page[AdminPage template]
-  page --> tb[Toolbar: Checked … · Check again]
-  page --> n[Notice: status unavailable or stale, only when true]
-  page --> grid[CardGrid of index StatusCards]
-  grid --> c1[Search index] & c2[Browse indexes] & c3[Catalog SQL mirror] & c4[Link graph] & c5[Other inventories]
-  page --> runs[StatusCard Recent runs: RunList]
-  page --> ed[StatusCard Edition links: FactList + unresolved Table]
-```
+- Semantic coverage: a D3 pie/arc layout of indexed text documents, divided into Fully embedded and Needs embeddings. The latter includes documents with any unembedded chunks; path-only files are excluded. Segment labels retain exact counts, support keyboard/click selection and inspect Search.
+- Capacity & headroom: a D3 linear scale renders usage against individual limits. Shadcn Tabs switch Storage and Inventories. Hover/focus exposes exact values; activation inspects the corresponding index. A shadcn Collapsible/Table provides all plotted values as text. Over-budget percentages remain visible above 100%, even though bar geometry stops at the limit. Unknown measurements are omitted instead of plotted as zero.
 
-Cards are in a grid that is one column on a phone and as many 20rem columns as fit above that. Each card keeps its actions in its footer, so the eye finds every Rebuild button in the same place.
+A shadcn Table compares index states and rebuild actions. Selecting an index changes the inspector Card below it, whose measurements use a shadcn Table. Recent runs and Edition links form the final responsive grid. Existing legacy-index removal remains in the Search inspector.
 
-## Atomic composition
+## Behavior and limits
 
-| Tier | Parts |
-| --- | --- |
-| Atoms (shadcn) | `Button`, `ButtonGroup`, `Badge`, `Spinner`, `Table` |
-| Atoms (theme) | `StatusBadge` (index state tones: Current = ok, Needs rebuild / Partial / Not built / Near = attention, Error / Over = error), `RelativeTime`, `Elapsed` |
-| Molecules | `Toolbar`, `FactList`, `Notice` (retired-index removal, status errors; an index note is a muted line), `RunRow`, `LoadingState`, `Unavailable` |
-| Organisms | `StatusCard` per index; `RunList` of recent runs; edition-links `StatusCard` with `Table` |
-| Template | `AdminPage`, `CardGrid` |
-| Page | `IndexesPage` binds `context.maintenance`, `startJob`, `checkIndexes`, `api` |
+D3 computes geometry and React owns the SVG; no second DOM renderer, animation loop, network chart library or new dependency is introduced. A ResizeObserver sizes capacity labels and bars to their container and disconnects on unmount. SVG controls have names, focus targets and Enter/Space support. Charts use the existing Reader theme/chart tokens. The coverage legend wraps below the ring on small screens. Tables scroll within their cards.
 
-## States
+Cached measurements remain visible during audits. Initial missing status has no fabricated percentages. Unavailable status disables rebuilds; failed refreshes retain the previous snapshot with an explicit warning. The backend still checks the five domains sequentially and publishes results together, and still runs one admitted maintenance job at a time. The UI does not add job queueing, phase telemetry or parallel rebuilds.
 
-| State | What shows |
-| --- | --- |
-| Loading | Badges read *Loading…*; Recent runs shows `LoadingState` |
-| Status unreadable | `Unavailable` at the top; every card's badge reads *Unavailable*; actions are disabled |
-| Last refresh failed | an info `Notice` saying the cards show the earlier status |
-| Checking or rebuilding | toolbar Spinner *Checking…*; the active card's badge *Rebuilding…* with Spinner and an elapsed counter; all actions disabled |
-| Static demo | toolbar says checks need Reader on your computer; actions are disabled by `localOnly()` |
-| Retired format-1 index present | a `Notice` on the Search card with a *Remove* action |
+## Verification
 
-## Theme and tokens
-
-The page uses semantic utilities only. Tones choose a Badge variant; there are no custom colours.
-
-## Test hooks
-
-`#maintenance-check`, `#indexes-unavailable`, `#indexes-stale`, `[data-index=<key>][data-state]`, `[data-job=<kind>]`, `[data-fact=<label>] [data-fact-value]`, `#recent-runs [data-run-list] [data-job-state]`, `#edition-links[data-state]`, `[data-toolbar]`.
+`tests/web_indexes.cjs` checks measured SVG values, shadcn composition, keyboard/click inspection without job starts, data tabs, unknown and over-budget usage, checking/unavailable states and mobile bounds. Existing hooks remain: `#maintenance-check`, `[data-index][data-state]`, `[data-job]`, `#recent-runs`, `#edition-links`. Added hooks: `[data-index-charts]`, `[data-index-chart]`, `[data-index-fleet]`, `#index-inspector` and `[data-inspected-index]`.

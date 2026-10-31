@@ -16,7 +16,8 @@ import {EmptyState, LoadingState, Unavailable} from '@/theme/molecules/states';
 import {Toolbar} from '@/theme/molecules/toolbar';
 import {RunList} from '@/theme/organisms/run-list';
 import {StatusCard} from '@/theme/organisms/status-card';
-import {CardGrid} from '@/theme/templates/card-grid';
+import {Card, CardContent, CardDescription, CardHeader, CardTitle} from '@/components/ui/card';
+import {IndexCharts} from './index-charts';
 import {INDEXES, INDEX_OF, STATES, jobOutcome, type Job, type MaintenanceStatus} from '../../backstage';
 import {localOnly, needsReader} from '../../static-demo';
 
@@ -63,26 +64,51 @@ export function RecentRuns({status,error}:{status:MaintenanceStatus|null;error:s
 }
 
 export function IndexesPage({status,error,onStart,editions}:{status:MaintenanceStatus|null;error:string|null;onStart:(kind:string)=>void;editions?:ReactNode}){
+  const [selected,setSelected]=useState('search');
   const running=status?.running,busy=!!running||!!status?.checking,checkedAt=Object.values(status?.checks||{})[0]?.checked_at,local=needsReader();
   const unavailable=!status&&!!error,checking=!!status?.checking||running?.kind==='check';
-  return <section className="flex flex-col gap-6" id="backstage-indexes" aria-label="Indexes" data-state={unavailable?'unavailable':status?'ready':'loading'}>
-    <Toolbar media={checking?<Spinner aria-hidden/>:null} status={checking?'Checking…':unavailable?'Index status is unavailable':checkedAt?'Checked '+when(checkedAt):local?'Checks need Reader on your computer':'Not checked yet'}>
-      <Button id="maintenance-check" variant="outline" size="sm" disabled={busy} {...localOnly()} onClick={()=>onStart('check')}>Check again</Button>
+  const measured=INDEXES.filter(index=>status?.checks[index.key]),current=measured.filter(index=>['current','ok'].includes(status!.checks[index.key].state));
+  const attention=measured.filter(index=>!['current','ok','unconfigured'].includes(status!.checks[index.key].state));
+  const lastCheck=status?.jobs.find(job=>job.kind==='check');
+  const index=INDEXES.find(index=>index.key===selected)!,check=status?.checks[selected];
+  const facts=check?index.facts.map(([label,value])=>({label,value:value(check) as ReactNode})).filter(f=>f.value!==null&&f.value!==undefined):[];
+  return <section className="flex min-w-0 flex-col gap-5" id="backstage-indexes" aria-label="Indexes" data-state={unavailable?'unavailable':status?'ready':'loading'}>
+    <Toolbar media={checking?<Spinner aria-hidden/>:null} status={checking?<span role="status">{running?.kind==='check'?<>Checking freshness · <Elapsed since={running.started_at}/></>:'Verifying freshness after the rebuild'}</span>:unavailable?'Index status is unavailable':checkedAt?'Last checked '+when(checkedAt):local?'Checks need Reader on your computer':'Waiting for the first freshness check'}>
+      <Button id="maintenance-check" variant="outline" size="sm" disabled={busy||unavailable} {...localOnly()} onClick={()=>onStart('check')}>Check again</Button>
     </Toolbar>
     {unavailable?<Unavailable id="indexes-unavailable" what="Index status" error={error!}/>:null}
-    {status&&error?<Notice id="indexes-stale" role="status" title="The last status refresh failed">{error}. Showing the status read before it.</Notice>:null}
-    <CardGrid>{INDEXES.map(index=>{
-      const check=status?.checks?.[index.key],active=!!running&&INDEX_OF[running.kind]===index.key;
-      const state:{label:string;tone:Tone}=active?{label:'Rebuilding…',tone:'active'}:check?STATES[check.state]||{label:check.state,tone:'neutral'}:{label:unavailable?'Unavailable':local?'Not checked':status?'Checking…':'Loading…',tone:unavailable?'error':'neutral'};
-      return <StatusCard key={index.key} data-index={index.key} data-state={active?'running':check?.state||(unavailable?'unavailable':'unknown')}
-        title={index.title} description={index.description} badge={<StatusBadge tone={state.tone} busy={active}>{state.label}</StatusBadge>}
-        footer={index.actions.length?<ButtonGroup>{index.actions.map(action=><Button key={action.kind} data-job={action.kind} variant={action.primary?'default':'outline'} size="sm" disabled={busy||unavailable} {...localOnly()} onClick={()=>onStart(action.kind)}>{action.label}</Button>)}</ButtonGroup>:undefined}>
-        {active?<span className="text-sm">{running!.label} running for <Elapsed since={running!.started_at}/>.</span>:check?.message?<span className="text-sm [overflow-wrap:anywhere]" data-check-message="">{check.message}</span>:null}
-        {check?<FactList facts={index.facts.map(([label,value])=>({label,value:value(check) as ReactNode}))}/>:null}
-        {index.note?<span className="text-xs text-muted-foreground" data-index-note="">{index.note}</span>:null}
-        {index.key==='search'&&check?.legacy?<Legacy legacy={check.legacy as LegacyIndex} busy={busy} onRemove={()=>onStart('remove-legacy-search')}/>:null}
-      </StatusCard>;})}</CardGrid>
-    <RecentRuns status={status} error={error}/>
-    {editions}
+    {status&&error?<Notice id="indexes-stale" role="status" title="The last status refresh failed">{error}. Showing the previous measurements.</Notice>:null}
+    {busy?<Notice data-index-busy="" title={running?.kind==='check'?'A full freshness audit is running':running?running.label+' is running':'The rebuild finished; verification is running'}>
+      {running?.progress||'The current measurements stay visible while this completes.'} Reader currently runs one maintenance job at a time; rebuild controls return when it is finished. You can keep reading.
+    </Notice>:null}
+    <div className="grid gap-4 sm:grid-cols-3" data-index-summary="">
+      <Card size="sm"><CardHeader><CardDescription>Current</CardDescription><CardTitle className="tabular-nums">{measured.length?`${current.length} / ${INDEXES.length}`:'—'}</CardTitle></CardHeader><CardContent><p className="text-sm text-muted-foreground">Indexes and inventories with a current check.</p></CardContent></Card>
+      <Card size="sm"><CardHeader><CardDescription>Needs attention</CardDescription><CardTitle className="tabular-nums">{measured.length?attention.length:'—'}</CardTitle></CardHeader><CardContent><p className="text-sm text-muted-foreground">Stale, partial, missing, over budget, or failed.</p></CardContent></Card>
+      <Card size="sm"><CardHeader><CardDescription>Latest full check</CardDescription><CardTitle className="tabular-nums">{lastCheck?.elapsed_seconds!==null&&lastCheck?.elapsed_seconds!==undefined?`${lastCheck.elapsed_seconds} s`:'—'}</CardTitle></CardHeader><CardContent><p className="text-sm text-muted-foreground">{lastCheck?.state==='failed'?'The last audit failed.':lastCheck?'Measured audit duration, excluding polling delay.':'No completed audit in this server session yet.'}</p></CardContent></Card>
+    </div>
+    <IndexCharts status={status} selected={selected} onSelect={setSelected}/>
+    <Card data-index-fleet="" className="min-w-0">
+      <CardHeader><CardTitle>Index health</CardTitle><CardDescription>Choose an index to inspect its measurements. Rebuilds update derived data; they do not file or read documents.</CardDescription></CardHeader>
+      <CardContent><Table>
+        <TableHeader><TableRow><TableHead>Index</TableHead><TableHead>State</TableHead><TableHead>Actions</TableHead></TableRow></TableHeader>
+        <TableBody>{INDEXES.map(row=>{
+          const result=status?.checks?.[row.key],active=!!running&&INDEX_OF[running.kind]===row.key;
+          const state:{label:string;tone:Tone}=active?{label:'Rebuilding…',tone:'active'}:result?STATES[result.state]||{label:result.state,tone:'neutral'}:{label:unavailable?'Unavailable':local?'Not checked':'Not measured',tone:unavailable?'error':'neutral'};
+          return <TableRow key={row.key} data-index={row.key} data-state={active?'running':result?.state||(unavailable?'unavailable':'unknown')} data-selected={row.key===selected||undefined}>
+            <TableCell><Button variant="ghost" size="sm" aria-pressed={selected===row.key} className="justify-start" onClick={()=>setSelected(row.key)}>{row.title}</Button></TableCell>
+            <TableCell><StatusBadge tone={state.tone} busy={active}>{state.label}</StatusBadge></TableCell>
+            <TableCell><ButtonGroup className="flex-wrap">{row.actions.map(action=><Button key={action.kind} data-job={action.kind} variant="outline" size="sm" disabled={busy||unavailable} {...localOnly()} onClick={()=>onStart(action.kind)}>{action.label}</Button>)}</ButtonGroup></TableCell>
+          </TableRow>;
+        })}</TableBody>
+      </Table></CardContent>
+    </Card>
+    <StatusCard id="index-inspector" title={index.title} description={index.description} data-inspected-index={selected}
+      badge={check?<StatusBadge tone={(STATES[check.state]||{tone:'neutral' as Tone}).tone}>{(STATES[check.state]||{label:check.state}).label}</StatusBadge>:undefined}>
+      {check?.message?<p className="text-sm [overflow-wrap:anywhere]" data-check-message="">{check.message}</p>:<p className="text-sm text-muted-foreground">No measurements yet. The full audit publishes its results together.</p>}
+      {facts.length?<Table><TableHeader><TableRow><TableHead>Measurement</TableHead><TableHead>Value</TableHead></TableRow></TableHeader><TableBody>{facts.map(fact=><TableRow key={fact.label} data-fact={fact.label.toLowerCase()}><TableCell>{fact.label}</TableCell><TableCell data-fact-value="" className="tabular-nums">{fact.value}</TableCell></TableRow>)}</TableBody></Table>:null}
+      {index.note?<p className="text-sm text-muted-foreground" data-index-note="">{index.note}</p>:null}
+      {selected==='search'&&check?.legacy?<Legacy legacy={check.legacy as LegacyIndex} busy={busy} onRemove={()=>onStart('remove-legacy-search')}/>:null}
+    </StatusCard>
+    <div className="grid min-w-0 items-start gap-4 xl:grid-cols-2"><RecentRuns status={status} error={error}/>{editions}</div>
   </section>;
 }
