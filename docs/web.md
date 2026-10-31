@@ -449,10 +449,10 @@ never bring items back. The current ranks:
 
 | Priority | Items |
 |---|---|
-| 1 (always shown) | mode, split indicator, pending keys, command line, breadcrumb, Backstage |
-| 2 | search chip, location list, pagination, speech, layout switch |
-| 3 | outline button, version chip |
-| 4 | prose-color chip, dark-mode switch |
+| 1 (always shown) | mode, split indicator, pending keys, command line, breadcrumb, quick theme picker (with the Dark switch, which CSS hides below 700 px), Backstage |
+| 2 | search chip, location list, pagination, speech, version chip, layout switch |
+| 3 | outline button |
+| 4 | prose-color chip |
 | 5 | position percentage (the progress rail shows it) |
 | 6 | section label (the outline button lists the sections) |
 | 7 | keys hint |
