@@ -350,3 +350,7 @@ body:has(#changes-panel[data-side=right]) [data-slot=sheet-overlay] { display: n
 [data-library] .shelf-cell { cursor: pointer; }
 [data-library] .shelf-cell text { font: 11px var(--sans); fill: var(--ink); }
 [data-library] :is(.topic-reading-segment, .calendar-day)[aria-pressed=true] { stroke: var(--accent); stroke-width: 2px; }
+
+/* The Documents picker's content inside its Dialog (shell-dialog.tsx): a column whose results list scrolls. */
+#picker-content { display: flex; flex-direction: column; flex: 1; min-height: 0; }
+#picker-content > .file-results { flex: 1; min-height: 0; overflow: auto; }

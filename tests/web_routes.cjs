@@ -45,7 +45,7 @@ const {chromium}=require(process.env.READER_PLAYWRIGHT||'playwright-core');
   await page.getByRole('heading',{name:'Link target not found'}).waitFor();await page.waitForTimeout(500);
   assert.equal(await page.locator('[data-sonner-toast]').count(),0,'no toast on top of the page message');
   assert.ok((await page.locator('#main').textContent()).includes('library/no-such-folder/missing.md'));
-  await page.locator('#missing-find').click();await page.locator('#picker[open]').waitFor();
+  await page.locator('#missing-find').click();await page.locator('#picker[data-open]').waitFor();
   assert.deepEqual(errors,[]);console.log('Routes passed: heading in #read= URLs across links, reload, history and hand-made links; h after hash arrival; one missing-document message.');
  }finally{await browser?.close();if(fixture.exitCode===null&&fixture.signalCode===null){fixture.kill('SIGTERM');await new Promise(resolve=>fixture.once('exit',resolve));}}
 })().catch(error=>{console.error(error);process.exitCode=1;});

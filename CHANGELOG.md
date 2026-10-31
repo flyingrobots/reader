@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- The Documents picker is a shadcn Dialog that keeps its plain-JavaScript content mounted. Focus leaves every app dialog as soon as it starts closing, as it did from a native dialog, and returns to the document when nothing else had it.
 - The annotation dialog (Textarea and Button) and the Speak menu (a vertical ButtonGroup with Kbd) are shadcn Dialogs; their native `<dialog>` elements and CSS are removed. Each dialog's first control takes focus as it mounts, so keys typed at once reach it.
 - Keyboard help and the diagram viewer are shadcn Dialogs (`openShellDialog`), replacing native `<dialog>` elements. `modalOpen()` in `web_ui/modal.mjs` replaces seven `dialog[open]` checks and counts both kinds.
 - The versions timeline is built from shadcn components: Badges for its tags, a Collapsible for each edition's history, Kbd hints and Buttons. `timelineModel` replaces the HTML string; the keyboard model and comparisons are unchanged.

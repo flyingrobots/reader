@@ -2,7 +2,7 @@ import {useState, useSyncExternalStore, useEffect, type ReactNode} from 'react';
 import {ReadingLog, type ReadingLogActions, type ReadingLogModel} from './reading-log';
 import {LinkPreview, type LinkPreviewState} from './link-preview';
 import {VersionsTimeline, type TimelineModel} from './versions-timeline';
-import {AnnotationDialog, ShellDialog, SpeakMenu, type AnnotationOptions, type ShellDialogOptions, type SpeakOptions} from './shell-dialog';
+import {AnnotationDialog, PickerDialog, ShellDialog, SpeakMenu, type AnnotationOptions, type PickerControl, type ShellDialogOptions, type SpeakOptions} from './shell-dialog';
 import {createRoot, type Root} from 'react-dom/client';
 import {createPortal, flushSync} from 'react-dom';
 import {Progress} from './components/ui/progress';
@@ -465,6 +465,18 @@ function openAppDialog(id:string,onClosed:()=>void,render:(props:{register:(clos
   const closed=()=>{if(appDialogs.get(id)===entry)appDialogs.delete(id);clearControlsWithin(container);container.remove();onClosed();};
   mount(container,render({register:close=>{entry.close=close;},onClosed:closed}));
   return {close:()=>entry.close()};
+}
+/** Close every open app dialog (navigation, Escape out of a context); the picker too. */
+export function closeAppDialogs(){for(const entry of [...appDialogs.values()])entry.close();picker?.close();}
+let picker:PickerControl|null=null;
+/** Mount the Documents picker around #picker-content (once); app.mjs opens and closes it through the returned control. */
+export function mountPicker(content:HTMLElement,escape:()=>boolean,onOpenChange:(open:boolean)=>void):PickerControl{
+  if(picker)return picker;
+  const container=document.createElement('div');document.body.append(container);
+  let control:PickerControl={open:()=>{},close:()=>{},isOpen:()=>false};
+  mount(container,<PickerDialog content={content} escape={escape} onOpenChange={onOpenChange} register={next=>{control=next;}}/>);
+  picker={open:()=>flushSync(()=>control.open()),close:()=>control.close(),isOpen:()=>control.isOpen()};
+  return picker;
 }
 export function openShellDialog(options:ShellDialogOptions){
   const handle=openAppDialog(options.id,options.onClosed,({register,onClosed})=><ShellDialog options={{...options,onClosed}} register={register}/>);

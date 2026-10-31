@@ -20,7 +20,7 @@ import {calloutPlugin} from './callouts.mjs';
 import {drawable,fetchShape,paintShape} from './shapes.mjs';
 import {artJobs,fetchArt,focusArt,forgetArt,hasArt,paintArt,paintArtThumb,paintPlaceholder} from './art.mjs';
 import {closeArtFocus,focusOpen} from './art-focus.mjs';
-import {openAnnotationDialog,openSpeakMenu,openShellDialog,renderVersionsTimeline,renderLinkPreview,renderReadingLog,applyThemes,installControls,mountSkeleton,mountCodeBlocks,decorateCodeBlocks,clearControlsWithin,mountDocumentTree,visibleDocumentNodes,revealDocumentRow,mountAdmin,setAdminRoute,mountChangesPanel,mountArtRegenerate,notify as shellNotify,openChat,closeChat,chatOpen,trackSpeech,renderQueuePanel,mountCallouts,mountQuiz,mountWritingPrompt,mountScratchQuestion,startJob,promptCompanion,needsReader,NEEDS_READER,mountPromptCards} from './controls/reader-controls.js';
+import {closeAppDialogs,mountPicker,openAnnotationDialog,openSpeakMenu,openShellDialog,renderVersionsTimeline,renderLinkPreview,renderReadingLog,applyThemes,installControls,mountSkeleton,mountCodeBlocks,decorateCodeBlocks,clearControlsWithin,mountDocumentTree,visibleDocumentNodes,revealDocumentRow,mountAdmin,setAdminRoute,mountChangesPanel,mountArtRegenerate,notify as shellNotify,openChat,closeChat,chatOpen,trackSpeech,renderQueuePanel,mountCallouts,mountQuiz,mountWritingPrompt,mountScratchQuestion,startJob,promptCompanion,needsReader,NEEDS_READER,mountPromptCards} from './controls/reader-controls.js';
 import {promptPlugin,promptMounts} from './prompt-blocks.mjs';
 import {installVersions,chipMarkup,historicalMarkup,splitRef,compareLabel} from './versions.mjs';
 import {installSplit,installPane,cleanRoute} from './split.mjs';
@@ -462,13 +462,15 @@ function wireDocumentLinks(root) {
   });
   root.querySelectorAll('[data-home]').forEach(el=>el.addEventListener('click',e=>{e.preventDefault();navigate(null);}));
 }
-function closeDialog(id) { const el=$('#'+id);if(el.open)el.close();state.smoother?.paused(false); }
-function openDialog(id) { const el=$('#'+id); if(!el.open)el.showModal();state.smoother?.paused(true); }
+// The Documents picker: a shadcn Dialog (web/src/shell-dialog.tsx) around #picker-content. The first Escape hides an
+// open filter; closing resumes reading.
+const picker=mountPicker($('#picker-content'),()=>{if($('#picker-filter').hidden)return false;hidePickerFilter();return true;},open=>{if(!open)dialogClosed();});
+const pickerOpen=()=>picker.isOpen();
 function closeContext() {
   quiz?.close();writingPrompts?.close();
   if(visual?.active())visual.exit();panels?.close(false);keys?.closeLine(false);
   closeChat();links?.hide();hideChartTooltip();$('#passage-tooltip').classList.remove('visible');$('#selection-tools').hidden=true;$('#thread-panel').hidden=true;$('#find-bar').hidden=true;versions?.close();
-  for(const dialog of document.querySelectorAll('dialog[open]'))dialog.close();
+  closeAppDialogs();
   queue?.close(false);state.smoother?.paused(false);
 }
 async function navigate(path,{thread=null,fragment='',record=true,commit=null,at=null,jump=true}={}) {
@@ -805,7 +807,11 @@ function openDiagram(canvas){
     bodyId:'diagram-body',bodyClassName:'max-h-[calc(85vh-80px)] bg-background p-3 [&>svg]:mx-auto [&>svg]:block',fill:body=>body.replaceChildren(copy),focusBody:true,onClosed:dialogClosed});
 }
 /** After an app dialog has closed: reading resumes, and a split view takes the focus back. */
-function dialogClosed(){state.smoother?.paused(false);if(split?.active()&&!modalOpen())split.refocus();}
+function dialogClosed(){
+  state.smoother?.paused(false);if(split?.active()&&!modalOpen()){split.refocus();return;}
+  // Nothing to return to (a new split pane opens on the picker): the document takes the keys, not the void.
+  requestAnimationFrame(()=>{if(!modalOpen()&&(!document.activeElement||document.activeElement===document.body))$('#main')?.focus({preventScroll:true});});
+}
 document.addEventListener('click',event=>{const canvas=event.target.closest?.('#main .reader-diagram-canvas[data-state=ready]');if(canvas&&getSelection()?.isCollapsed!==false)openDiagram(canvas);});
 document.addEventListener('keydown',event=>{if(event.key==='Enter'&&!event.defaultPrevented&&event.target.matches?.('.reader-diagram-canvas[data-state=ready]')){event.preventDefault();openDiagram(event.target);}},true);
 /** Resolve many links from one document in batched requests; failed targets map to null. */
@@ -1149,7 +1155,7 @@ function openPicker(source='recent',folder=null){
   $('#file-query').value='';$('#search-status').textContent='';state.searchId++;state.resultIndex=0;
   state.results=pickerWorks(source);
   $('#search-label').textContent=source==='all'&&!folder?'The stacks':pickerLabel();
-  drawResults();openDialog('picker');$('#file-results').focus();selectResult(state.resultIndex,true);
+  drawResults();state.smoother?.paused(true);picker.open();$('#file-results').focus();selectResult(state.resultIndex,true);
 }
 function activateDocumentNode(node,scroll=false){
   if(!node)return;const root=$('#file-results');
@@ -1160,7 +1166,7 @@ function activateDocumentNode(node,scroll=false){
 }
 function drawResults(){
   const root=$('#file-results');clearControlsWithin(root);
-  if(state.results.length){mountDocumentTree(root,state.results,openResult,node=>activateDocumentNode(node));selectResult(state.resultIndex,$('#picker').open);}
+  if(state.results.length){mountDocumentTree(root,state.results,openResult,node=>activateDocumentNode(node));selectResult(state.resultIndex,pickerOpen());}
   else {root.innerHTML='<p class="empty-note">Nothing here yet. Try another phrase.</p>';root.removeAttribute('aria-activedescendant');$('#file-query').removeAttribute('aria-activedescendant');}
   $('#file-query').setAttribute('aria-controls','file-results');
 }
@@ -1169,17 +1175,17 @@ function selectResult(index,scroll=true){
   const work=state.results[state.resultIndex];revealDocumentRow($('#file-results'),work.path||work.primary);
   activateDocumentNode($('#file-option-'+state.resultIndex),scroll);
 }
-function openResult(index=state.resultIndex){const w=state.results[index];if(!w)return;closeDialog('picker');navigate(w.path || w.primary);}
+function openResult(index=state.resultIndex){const w=state.results[index];if(!w)return;picker.close();navigate(w.path || w.primary);}
 const SEARCH_RETRIES = 5; // a 429 (another search running) retries after 0.5, 1, 2, 4 and 8 s
 async function runSearch(attempt=0){
   const q=$('#file-query').value.trim(),id=++state.searchId;
   if(!q){state.results=pickerWorks();$('#search-label').textContent=pickerLabel();$('#search-status').textContent='';state.resultIndex=0;drawResults();return;}
   $('#search-label').textContent=state.mode==='semantic'?'Following the meaning…':'Searching…';
   mountSkeleton($('#file-results'),'search');
-  try{const data=await api('/api/search?q='+param(q)+'&mode='+state.mode+'&participant='+param(state.prefs.participant)+(state.pickerFolder?'&path_prefix='+param(state.pickerFolder):''));if(id!==state.searchId||!$('#picker').open)return;state.results=data.results;state.resultIndex=0;$('#search-label').textContent=`${plural(data.results.length,'result')} · ${state.mode==='fuzzy'?'catalog':'index '+formatDate(data.indexed_at)}`;$('#search-status').textContent=(data.warnings || []).slice(0,2).join(' ');drawResults();}
+  try{const data=await api('/api/search?q='+param(q)+'&mode='+state.mode+'&participant='+param(state.prefs.participant)+(state.pickerFolder?'&path_prefix='+param(state.pickerFolder):''));if(id!==state.searchId||!pickerOpen())return;state.results=data.results;state.resultIndex=0;$('#search-label').textContent=`${plural(data.results.length,'result')} · ${state.mode==='fuzzy'?'catalog':'index '+formatDate(data.indexed_at)}`;$('#search-status').textContent=(data.warnings || []).slice(0,2).join(' ');drawResults();}
   catch(error){if(id!==state.searchId)return;
     if(error.status===429&&attempt<SEARCH_RETRIES){$('#search-label').textContent='Another search is running; retrying…';$('#search-status').textContent='';
-      searchTimer=setTimeout(()=>{if(id===state.searchId&&$('#picker').open)runSearch(attempt+1);},500*2**attempt);return;}
+      searchTimer=setTimeout(()=>{if(id===state.searchId&&pickerOpen())runSearch(attempt+1);},500*2**attempt);return;}
     state.results=[];drawResults();$('#file-results').innerHTML='<p class="empty-note">The search didn’t run, so there is nothing to show yet.</p>';
     $('#search-label').textContent='Search unavailable';$('#search-status').textContent=error.message;}
 }
@@ -1339,11 +1345,7 @@ $('#thread-body').addEventListener('keydown',event=>{
   event.preventDefault();items[(index+(['j','ArrowDown'].includes(event.key)?1:-1)+items.length)%items.length].focus();
 });
 $('#summon').onclick=()=>openPicker();
-document.querySelectorAll('[data-close]').forEach(button=>button.onclick=()=>closeDialog(button.dataset.close));
-document.querySelectorAll('dialog').forEach(dialog=>{
-  dialog.addEventListener('cancel',event=>{event.preventDefault();if(dialog.id==='picker'&&!$('#picker-filter').hidden)hidePickerFilter();else closeDialog(dialog.id);});
-  dialog.addEventListener('click',event=>{if(event.target===dialog){const r=dialog.getBoundingClientRect();if(event.clientX<r.left||event.clientX>r.right||event.clientY<r.top||event.clientY>r.bottom)closeDialog(dialog.id);}});
-});
+document.querySelectorAll('[data-close=picker]').forEach(button=>button.onclick=()=>picker.close());
 let mouseSelecting=false,selectionTimer;
 document.addEventListener('pointerdown',event=>{if(event.pointerType==='mouse')mouseSelecting=true;},true);
 document.addEventListener('mouseup',event=>{mouseSelecting=false;if(!event.target.closest('#selection-tools,dialog,#thread-panel'))setTimeout(captureSelection,0);});
@@ -1838,7 +1840,6 @@ if(EMBEDDED)pane=installPane({open:openRoute,save:()=>reading.save(),onFocus:pan
 else{
   split=installSplit({notify,api,param,paint:()=>reading?.updateStatus(),suspend:suspendShell,resume:resumeShell,openAdmin:route=>{const path=adminPathFromHash(route);if(path)navigate(path);}});
   split.setShellCommands({'?':()=>openHelp(),m:toggleChat,r:()=>queue.toggle(),n:()=>queue.next()});
-  document.querySelectorAll('dialog').forEach(dialog=>dialog.addEventListener('close',()=>{if(split.active()&&!modalOpen())split.refocus();}));
 }
 // Theme and preference changes made in another pane (or the shell) arrive as a storage event.
 function prefsFromStorage(){

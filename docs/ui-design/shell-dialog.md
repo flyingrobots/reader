@@ -1,4 +1,4 @@
-# Design sheet: App dialogs (Keyboard help, diagram viewer, annotation, Speak menu)
+# Design sheet: App dialogs (Documents picker, Keyboard help, diagram viewer, annotation, Speak menu)
 
 Source: `web/src/shell-dialog.tsx`, opened from `app.mjs` and `speech.mjs` through `openShellDialog`, `openAnnotationDialog` and `openSpeakMenu` (`reader-controls.tsx`).
 
@@ -17,6 +17,17 @@ Source: `web/src/shell-dialog.tsx`, opened from `app.mjs` and `speech.mjs` throu
 
 The popup carries `data-reader-modal`, so `modalOpen()` in `web_ui/modal.mjs` counts it like a native `<dialog>`: no selection capture, no reading keys, no scratch status. Base UI unmounts a closed dialog, so the help exists only while open.
 
+## The Documents picker
+
+`PickerDialog` is the same Dialog, kept mounted (`keepMounted`, passed through `DialogContent`). Its content is `#picker-content` from `index.html`: the filter, folder scope, document tree and key hints, which `app.mjs` drives by id. The popup takes that node once at startup and keeps it, with its handlers, between openings. `app.mjs` opens and closes it with `mountPicker`'s control. The first Escape hides an open filter: Base UI's close is cancelled when `escape()` handles it.
+
+Focus works as it did with the native dialog:
+- it moves to the results when the picker opens;
+- it returns the moment the picker starts closing, not after Base UI's exit animation. Otherwise a key typed during the animation (`/`) would land in the closing picker;
+- it returns to what had focus, or to `#main` when nothing did. Base UI's own final focus is off, because with no opener (a new split pane opens on the picker) it picked the first tabbable element, a margin pin.
+
+`AppDialog` returns focus the same way as soon as it starts closing.
+
 ## Test hooks
 
-`#help`, `#help-keys`, `#diagram-dialog`, `#diagram-body`, `#annotation-dialog` (with `data-kind`), `#annotation-quote`, `#annotation-form`, `#annotation-body`, `#speak-menu`, `[data-speak=article|from|selection]`. The close buttons are labelled *Close keyboard help*, *Close diagram*, *Close annotation* and *Close*.
+`#picker` (with `data-open` while open), `#picker-content`, `#file-results`, `#picker-filter`, `#help`, `#help-keys`, `#diagram-dialog`, `#diagram-body`, `#annotation-dialog` (with `data-kind`), `#annotation-quote`, `#annotation-form`, `#annotation-body`, `#speak-menu`, `[data-speak=article|from|selection]`. The close buttons are labelled *Close keyboard help*, *Close diagram*, *Close annotation* and *Close*.

@@ -22,10 +22,14 @@ export type AppDialogFrame={id:string;title:string;closeLabel:string;className?:
 type Register={register:(close:()=>void)=>void};
 
 export function AppDialog({frame,register,children}:{frame:AppDialogFrame;children:(close:()=>void)=>ReactNode}&Register){
-  const [open,setOpen]=useState(true),close=useCallback(()=>setOpen(false),[]);
+  const [open,setOpen]=useState(true);
+  // Focus returns as the dialog starts closing, not after Base UI's exit animation, so keys typed then reach the page.
+  const opener=useRef<Element|null>(document.activeElement),popup=useRef<HTMLDivElement|null>(null);
+  const close=useCallback(()=>{setOpen(false);const active=document.activeElement,back=opener.current;
+    if((!active||active===document.body||popup.current?.contains(active))&&back instanceof HTMLElement&&back!==document.body&&back.isConnected)back.focus({preventScroll:true});},[]);
   register(close);
-  return <Dialog open={open} onOpenChange={setOpen} onOpenChangeComplete={next=>{if(!next)frame.onClosed();}}>
-    <DialogContent id={frame.id} data-reader-modal="" data-ui="shadcn" showCloseButton={false} aria-labelledby={frame.id+'-title'} {...frame.attributes}
+  return <Dialog open={open} onOpenChange={next=>{if(next)setOpen(true);else close();}} onOpenChangeComplete={next=>{if(!next)frame.onClosed();}}>
+    <DialogContent ref={popup} id={frame.id} data-reader-modal="" data-ui="shadcn" showCloseButton={false} aria-labelledby={frame.id+'-title'} {...frame.attributes}
       initialFocus={frame.initialFocus} className={cn('flex max-h-[90vh] flex-col gap-3',frame.className)}>
       <DialogHeader className="flex-row items-center justify-between gap-2">
         <DialogTitle id={frame.id+'-title'} className="font-serif text-xl font-medium">{frame.title}</DialogTitle>
@@ -80,4 +84,30 @@ export function SpeakMenu({options,register}:{options:SpeakOptions}&Register){
     </ButtonGroup>
     <p className="text-[11px] text-muted-foreground">AI-TTS speaks it through its own queue; holds and other speakers are respected.</p>
   </>}</AppDialog>;
+}
+
+/** The Documents picker's shell. Its content (filter, folder scope, the document tree, the key hints) is the plain-JavaScript
+    #picker-content from index.html, which app.mjs drives by id; the popup adopts that node once and stays mounted, so the
+    content and its handlers persist between openings. The first Escape hides an open filter instead of closing. */
+export type PickerControl={open:()=>void;close:()=>void;isOpen:()=>boolean};
+export function PickerDialog({content,escape,onOpenChange,register}:{content:HTMLElement;escape:()=>boolean;onOpenChange:(open:boolean)=>void;
+  register:(control:PickerControl)=>void}){
+  const [open,setOpen]=useState(false),state=useRef(open),back=useRef<HTMLElement|null>(null);state.current=open;
+  // Closing returns focus to what had it, or to the document. Without an opener (a new split pane opens on the picker)
+  // Base UI would fall back to the first tabbable element, such as a margin pin, which keeps the keys for itself.
+  // Focus leaves as the picker starts closing, as it did from a native dialog: during Base UI's exit animation the popup
+  // would otherwise keep it, and a key typed then (/ opens the filter in #file-results) would land in the closing picker.
+  const release=()=>{const active=document.activeElement;if(!active||active===document.body||document.getElementById('picker')?.contains(active))back.current?.focus({preventScroll:true});};
+  const close=()=>{setOpen(false);release();};
+  register({open:()=>{const element=document.activeElement;back.current=element instanceof HTMLElement&&element!==document.body?element:document.getElementById('main');setOpen(true);},
+    close,isOpen:()=>state.current});
+  const adopt=useCallback((element:HTMLDivElement|null)=>{if(element&&content.parentElement!==element){element.append(content);content.hidden=false;}},[content]);
+  // Base UI's own return (finalFocus) is off: with no opener it picked the first tabbable element, such as a margin pin.
+  return <Dialog open={open} onOpenChange={(next,details)=>{if(!next&&details.reason==='escape-key'&&escape()){details.cancel();return;}if(next)setOpen(true);else close();}}
+    onOpenChangeComplete={onOpenChange}>
+    <DialogContent keepMounted id="picker" data-reader-modal="" data-ui="shadcn" showCloseButton={false} aria-labelledby="picker-title"
+      initialFocus={false} finalFocus={false} className="flex max-h-[min(86vh,760px)] w-[min(720px,calc(100vw-2rem))] max-w-none flex-col gap-0 p-0 sm:max-w-none">
+      <div ref={adopt} className="flex min-h-0 flex-1 flex-col"/>
+    </DialogContent>
+  </Dialog>;
 }
