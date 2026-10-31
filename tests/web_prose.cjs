@@ -26,7 +26,10 @@ const covered=page=>page.evaluate(()=>Object.fromEntries([...CSS.highlights].fil
   };
   const leader=async(page,key)=>{await page.locator('#main').focus();await page.keyboard.press('Space');await page.keyboard.press(key);};
   // Coloring is real work (the Colorful pass over the text); it is waited for, with Playwright's usual 30 s ceiling.
-  const settled=page=>page.waitForFunction(()=>{const s=CSS.highlights.get('reader-prose-function');return s&&s.size>0;});
+  const settled=page=>page.waitForFunction(()=>{const s=CSS.highlights.get('reader-prose-function');return s&&s.size>0;}).catch(async error=>{
+    const state=await page.evaluate(()=>({layers:document.querySelectorAll('.textLayer').length,spans:document.querySelectorAll('.textLayer span').length,body:document.body.className,
+      highlights:[...CSS.highlights.keys()].filter(k=>k.startsWith('reader-prose')).map(k=>k+':'+CSS.highlights.get(k).size),toasts:[...document.querySelectorAll('[data-sonner-toast]')].map(t=>t.textContent.slice(0,80))})).catch(()=>null);
+    throw new Error('prose colors never arrived: '+JSON.stringify(state)+' — '+error.message.split('\n')[0]);});
 
   // 1. Without Colorful, the toggle explains how to install it and the page is unchanged.
   ({fixture,url}=await start('--prose-missing'));

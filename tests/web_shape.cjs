@@ -66,7 +66,10 @@ const stop=async fixture=>{if(fixture&&fixture.exitCode===null&&fixture.signalCo
    // Two articles, two shapes; :shape again hides it.
    await read(page,'library/issue/keep.md');await settled(page,'library/issue/keep.md');
    assert.notEqual(await page.locator('.article-shape img').getAttribute('src'),still,'two articles, two shapes');
-   await command(page,'shape');await page.waitForFunction(()=>!document.querySelector('.article-shape'));
+   await command(page,'shape');await page.waitForFunction(()=>!document.querySelector('.article-shape')).catch(async error=>{
+     const state=await page.evaluate(()=>({shape:!!document.querySelector('.article-shape'),line:document.querySelector('#command-input')?.value,lineOpen:!document.querySelector('#command-line')?.hidden,
+       mode:document.querySelector('#vim-mode')?.textContent,active:document.activeElement?.tagName+'#'+document.activeElement?.id,toasts:[...document.querySelectorAll('[data-sonner-toast]')].map(t=>t.textContent.slice(0,80))}));
+     throw new Error(':shape did not hide the shape: '+JSON.stringify(state)+' — '+error.message.split('\n')[0]);});
    // A short piece has no shape to show.
    await read(page,'library/issue/bijou.md');await command(page,'shape');
    await page.waitForFunction(()=>document.body.textContent.includes('too short to have a shape'));
