@@ -59,7 +59,7 @@
     "src/components/ui/dropdown-menu.tsx": "38eb2d79c390295e7038ed4c016543afdd5441611e9692f10c85f78434752a3f",
     "src/components/ui/empty.tsx": "e339e4d7659e7225968edc5c2cea047eb6946e723ea0591cde93877000bc1808",
     "src/components/ui/field.tsx": "d7c372e8df76de0b4714c02497fefba29299e6baefb7c12fba289a2a374362bb",
-    "src/components/ui/hover-card.tsx": "ca6d242bebfe31dc067aa2e6c96c0e5898762c56fea6cc2bf17d1a1d100604d8",
+    "src/components/ui/hover-card.tsx": "d83144b9e9c2aebf5b9beaad67d02b7ba5cdbc482ea212418a871f98c6a03939",
     "src/components/ui/input-group.tsx": "7e768d41f247b1a4a3b0d214453dbeb1c2150aba500f5c0037b0285dfbe6a899",
     "src/components/ui/input.tsx": "dab990dfefa0ba78854ab6602ad074270dba9d7d1262184d9bfbb62bd990903b",
     "src/components/ui/item.tsx": "08cc237a727e1b0d1de24ca60ca49fcf44ad3923620c71b6c70ab16ac2f575b6",
@@ -96,6 +96,7 @@
     "src/jobs/job-detail.tsx": "d08f4f8c58b0358ef557610bc41f5f1d3b05a42c5a7e5758295b9dae2477d7bf",
     "src/jobs/prompt-card.tsx": "62094c8ed1597ca8b87af2e79e466cbf67e2c9a2440e5a898de1ed261b26bc10",
     "src/jobs/store.ts": "a08dabc82b138ac7921592e40772f397aec874e134ef86482a6bf7e34eb3ad24",
+    "src/link-preview.tsx": "88af44ccac760a52abc419a82f9f3828c60b8cb15c641891c9632db8d5ec61f9",
     "src/local-model.tsx": "b03e6c8487ec006264a80598c6a6d260a8246bf7d86a867b63d87b640e304611",
     "src/log-block.tsx": "514b773a5291e22a958b25a92ffc0e81f48d3caae3507cefefeda57bc0cd3b9a",
     "src/markdown-editor.ts": "88b1c43e194e5efe4c0a87824ad238df80640f48fafa180a6349ec11752eb1da",
@@ -108,7 +109,7 @@
     "src/plural.ts": "4c0d0698a171b39d5683548f00e2e9a8a7c5ea1af28e4067aaa63612476b5fa2",
     "src/queue-panel.tsx": "f94dbf25fb0b53288a3de2b9ae46029eab1b9522a2ebe3655cb32a3b65d816bb",
     "src/quiz.tsx": "da429b5617a6c905d376cea263c1901325c2e1d43890957e294114492a852cb2",
-    "src/reader-controls.tsx": "8c4f4d2a5c949bd75d4cf8e4a6ad84b144113c32d83bfa06c21edc16a7a715f5",
+    "src/reader-controls.tsx": "f6af216bac385cfb3c641ddb7860aeac7888154d45081335169374ecbaf15e35",
     "src/reading-log.tsx": "1981dbb7da8a7c010d38d588992ba1b9afc5ef9c611badb247d6f8fadc8a4fda",
     "src/scratch-question.tsx": "ae90d508a8ca52994fb567380d60bef8644475691754a97fd697b323dcb7e7e3",
     "src/search-page.tsx": "b63ecad9ec576f5375ecced55c54670cd69af9380e70542ae941f4065e8f3323",
@@ -957,16 +958,16 @@
       "sha256": "cb2ee2554fd41ac9f8e2e69c350365f0e1cf9732d27ad161c9c97b20945bbe4c"
     },
     "reader-controls.css": {
-      "bytes": 176887,
-      "sha256": "5dd346e58f31f72c46f0306365c7aa848258ce1e6b7928b94856b18ee6d24e62"
+      "bytes": 177590,
+      "sha256": "0caa7d07b00590c7802cae77750a583f46a84dc6e63f98b419dd798bdd739a83"
     },
     "reader-controls.js": {
-      "bytes": 1195777,
-      "sha256": "b0dbae915aaaeba7fcd9487bdea790d8e2bee326219ef02dfd77f6ff22d3aefe"
+      "bytes": 1198185,
+      "sha256": "c917cf9d89380d91c87142227115223f5e34a38d7e65f64ae9a8ab8e1427f524"
     },
     "reader-controls.js.LEGAL.txt": {
       "bytes": 6363,
-      "sha256": "b2581712c5576d43f90a25201a3e8d3d1a279b93bcd09a5ca62207b93186cfba"
+      "sha256": "3fac7e4f67b4aec1fff1f13a153fd43b46cd12e17fd9c4fc3b1fed4cd676420c"
     },
     "shape.js": {
       "bytes": 8806,

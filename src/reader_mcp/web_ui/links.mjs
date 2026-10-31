@@ -4,10 +4,12 @@ import {escapeHTML as esc} from './logic.mjs';
 const VISIBLE=12;
 const plural=(n,one,many)=>n===1?one:many;
 
-export function installLinks({state,api,reading,navigate,openBackstage}){
+export function installLinks({state,api,reading,navigate,openBackstage,renderPreview}){
   const $=selector=>document.querySelector(selector);
   const param=encodeURIComponent;
-  const tip=document.createElement('div');tip.id='link-preview';tip.className='link-preview';tip.setAttribute('role','tooltip');tip.dataset.readerDecoration='';tip.hidden=true;document.body.append(tip);
+  // The card itself is web/src/link-preview.tsx (a shadcn HoverCard); this module decides when it shows.
+  const tip=()=>document.getElementById('link-preview');
+  const inTip=node=>!!node&&!!tip()?.contains(node);
   const cache=new Map();let timer=0,current=null,token=0;
   // Only links written in the document: not Read next, Linked from, margin pins or embedded copies' chrome.
   const previewable=a=>!!a?.closest('#article')&&!a.closest('[data-reader-decoration],.annotation-pin,.embed-note')&&!!a.getAttribute('href')&&!a.getAttribute('href').startsWith('#');
@@ -26,38 +28,25 @@ export function installLinks({state,api,reading,navigate,openBackstage}){
     }
     return cache.get(key);
   }
-  function render(data){
-    if(data.type==='external')return `<div class="link-preview-kicker">External link</div><div class="link-preview-host">${esc(data.host)}</div>`;
-    if(data.type==='missing')return `<div class="link-preview-kicker">Not in the library</div><p class="link-preview-excerpt">${esc(data.message)}</p>`;
-    return `<div class="link-preview-kicker">${esc(data.project||(data.kind==='.pdf'?'PDF':'From the library'))}</div><div class="link-preview-title">${esc(data.title)}${!data.read?'<span class="unread-pip" title="Unread edition" aria-label="Unread edition"></span>':''}</div>${data.authors?.length?`<div class="link-preview-byline">${esc(data.authors.join(' · '))}</div>`:''}${data.heading?`<div class="link-preview-heading">§ ${esc(data.heading)}</div>`:''}${data.excerpt?`<p class="link-preview-excerpt">${esc(data.excerpt)}</p>`:''}`;
-  }
-  function position(a){
-    const rect=[...a.getClientRects()][0]||a.getBoundingClientRect();
-    tip.classList.toggle('sheet',innerWidth<=640);
-    if(innerWidth<=640){tip.style.left='';tip.style.top='';return;}
-    const width=tip.offsetWidth,height=tip.offsetHeight;
-    tip.style.left=Math.max(12,Math.min(innerWidth-width-12,rect.left))+'px';
-    tip.style.top=(rect.bottom+8+height>innerHeight-48&&rect.top-height-8>8?rect.top-height-8:rect.bottom+8)+'px';
-  }
   async function show(a){
     if(blocked())return;const id=++token;current=a;
     const data=await load(a);if(id!==token||current!==a||blocked()||!a.isConnected)return;
-    tip.innerHTML=render(data);tip.hidden=false;a.setAttribute('aria-describedby','link-preview');position(a);
+    shown=true;renderPreview({anchor:a,data,sheet:innerWidth<=640},next=>{if(!current?.contains(next))hide();});a.setAttribute('aria-describedby','link-preview');
   }
-  function hide(){token++;clearTimeout(timer);current?.removeAttribute('aria-describedby');current=null;tip.hidden=true;}
+  let shown=false;
+  function hide(){token++;clearTimeout(timer);current?.removeAttribute('aria-describedby');current=null;if(shown){shown=false;renderPreview(null,()=>{});}}
   document.addEventListener('mouseover',event=>{
     const a=event.target.closest?.('a[href]');if(!previewable(a)||a===current)return;
     clearTimeout(timer);timer=setTimeout(()=>show(a),350);
   });
   document.addEventListener('mouseout',event=>{
     const a=event.target.closest?.('a[href]');if(!a||a.contains(event.relatedTarget))return;
-    clearTimeout(timer);if(a===current&&!tip.contains(event.relatedTarget))hide();
+    clearTimeout(timer);if(a===current&&!inTip(event.relatedTarget))hide();
   });
-  tip.addEventListener('mouseleave',event=>{if(!current?.contains(event.relatedTarget))hide();});
   document.addEventListener('focusin',event=>{const a=event.target.closest?.('a[href]');if(previewable(a)){clearTimeout(timer);show(a);}});
   document.addEventListener('focusout',event=>{if(current&&event.target===current)hide();});
-  document.addEventListener('keydown',event=>{if(event.key==='Escape'&&(current||!tip.hidden))hide();},true);
-  document.addEventListener('mousedown',event=>{if(!tip.contains(event.target))hide();},true);
+  document.addEventListener('keydown',event=>{if(event.key==='Escape'&&(current||shown))hide();},true);
+  document.addEventListener('mousedown',event=>{if(!inTip(event.target))hide();},true);
   document.addEventListener('scroll',()=>{if(current)hide();},{capture:true,passive:true});
   document.addEventListener('selectionchange',()=>{if(current&&!getSelection()?.isCollapsed)hide();});
 

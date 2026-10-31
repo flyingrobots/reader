@@ -23,7 +23,8 @@ const {sanitizerReport}=require('./web_wait.cjs');  // #151
    assert.match(await page.locator('.linked-from').textContent(),/Building the link graph…/);
    await page.locator('.linked-from[data-state=ready]').waitFor({timeout:20000});
    assert.equal(await page.locator('[data-sonner-toast]').filter({hasText:'Link graph'}).count(),0,'the first build is quiet');
-   assert.ok(await page.evaluate(()=>document.querySelector('#article + .linked-from + .document-footer')!==null),'between the article and its footer');
+   // Read next and the learning card may sit alongside; Linked from comes right after the article and before its footer.
+   assert.ok(await page.evaluate(()=>{const kids=[...document.querySelector('#article').parentElement.children],at=el=>kids.indexOf(document.querySelector(el));return at('.linked-from')===at('#article')+1&&at('.linked-from')<at('.document-footer');}),'between the article and its footer');
    assert.ok(await page.locator('.linked-from').evaluate(el=>el.hasAttribute('data-reader-decoration')));
    assert.equal(await page.locator('.linked-from-count').textContent(),'14');
    assert.equal(await page.locator('.linked-from-row').count(),12);
@@ -48,21 +49,21 @@ const {sanitizerReport}=require('./web_wait.cjs');  // #151
    const link=page.locator('#article a',{hasText:'a quiet thought'});
    await link.hover();await page.waitForTimeout(150);assert.ok(await preview(page).isHidden(),'no preview before the pause');
    await preview(page).waitFor({state:'visible'});
-   assert.match(await preview(page).locator('.link-preview-title').textContent(),/^A quiet thought/);
-   assert.equal(await preview(page).locator('.unread-pip').count(),0,'read earlier in this run');
-   assert.equal(await preview(page).locator('.link-preview-heading').textContent(),'§ Chapter 2');
-   const excerpt=await preview(page).locator('.link-preview-excerpt').textContent();
+   assert.match(await preview(page).locator('[data-link-preview-title]').textContent(),/^A quiet thought/);
+   assert.equal(await preview(page).locator('[data-unread]').count(),0,'read earlier in this run');
+   assert.equal(await preview(page).locator('[data-link-preview-heading]').textContent(),'§ Chapter 2');
+   const excerpt=await preview(page).locator('[data-link-preview-excerpt]').textContent();
    assert.match(excerpt,/^A quiet library holds room for careful thought/);assert.ok(excerpt.length<=330);
    assert.equal(await link.getAttribute('aria-describedby'),'link-preview');
    await page.screenshot({path:'.reader/web-dev/link-preview.png'});
    await page.keyboard.press('Escape');await preview(page).waitFor({state:'hidden'});
    await page.mouse.move(5,5);
    await page.locator('#article a',{hasText:'other'}).first().focus();
-   await preview(page).waitFor({state:'visible',timeout:1500});assert.match(await preview(page).locator('.link-preview-title').textContent(),/^Another thought/);assert.equal(await preview(page).locator('.unread-pip').count(),1,'an unread edition');
+   await preview(page).waitFor({state:'visible',timeout:1500});assert.match(await preview(page).locator('[data-link-preview-title]').textContent(),/^Another thought/);assert.equal(await preview(page).locator('[data-unread]').count(),1,'an unread edition');
    await page.keyboard.press('Escape');await preview(page).waitFor({state:'hidden'});
    await page.locator('#article a',{hasText:'external page'}).focus();await preview(page).waitFor({state:'visible'});
-   assert.equal(await preview(page).locator('.link-preview-host').textContent(),'example.com');
-   await page.locator('#article a',{hasText:'missing note'}).focus();await page.waitForFunction(()=>document.querySelector('#link-preview .link-preview-kicker')?.textContent==='Not in the library');
+   assert.equal(await preview(page).locator('[data-link-preview-host]').textContent(),'example.com');
+   await page.locator('#article a',{hasText:'missing note'}).focus();await page.waitForFunction(()=>document.querySelector('#link-preview [data-link-preview-kicker]')?.textContent==='Not in the library');
    await page.locator('#main').focus();await preview(page).waitFor({state:'hidden'});
    // No preview while a selection is active.
    await page.evaluate(()=>{const p=document.querySelector('#article p');const r=document.createRange();r.selectNodeContents(p);getSelection().removeAllRanges();getSelection().addRange(r);});
@@ -71,7 +72,9 @@ const {sanitizerReport}=require('./web_wait.cjs');  // #151
    // Phone width: a bottom sheet, no horizontal scroll.
    await page.setViewportSize({width:390,height:844});await page.waitForTimeout(200);
    await link.focus();await preview(page).waitFor({state:'visible'});
-   const sheet=await preview(page).evaluate(el=>{const r=el.getBoundingClientRect();return {sheet:el.classList.contains('sheet'),left:r.left,right:r.right,bottom:r.bottom};});
+   // The HoverCard positions itself within a frame of opening.
+   await page.waitForFunction(()=>document.querySelector('#link-preview')?.getBoundingClientRect().left>=15,null,{timeout:1000});
+   const sheet=await preview(page).evaluate(el=>{const r=el.getBoundingClientRect();return {sheet:el.hasAttribute('data-sheet'),left:r.left,right:r.right,bottom:r.bottom};});
    assert.ok(sheet.sheet&&sheet.left>=15&&sheet.right<=375+1&&sheet.bottom<=844,'a bottom sheet inside 16 px gutters: '+JSON.stringify(sheet));
    assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),'no horizontal scroll at phone width');
    await page.screenshot({path:'.reader/web-dev/link-preview-phone.png'});
@@ -97,7 +100,7 @@ const {sanitizerReport}=require('./web_wait.cjs');  // #151
   // With Read next on, Linked from comes first, whichever answers first.
   {const {page,context}=await open({nextReads:true});
    await page.goto(doc('library/thought.md'));await page.locator('.next-reads').waitFor();await page.locator('.linked-from[data-state=ready]').waitFor();
-   assert.ok(await page.evaluate(()=>document.querySelector('#article + .linked-from + .next-reads + .document-footer')!==null),'article, Linked from, Read next, footer');
+   assert.ok(await page.evaluate(()=>{const kids=[...document.querySelector('#article').parentElement.children],at=el=>kids.indexOf(document.querySelector(el));return at('.linked-from')===at('#article')+1&&at('.next-reads')===at('.linked-from')+1&&at('.next-reads')<at('.document-footer');}),'article, Linked from, Read next, footer');
    await context.close();}
   // Link graph anchors are the renderer's heading slugs: setext paragraphs, HTML headings, repeats; indented code has no links.
   {const {page,context}=await open({});

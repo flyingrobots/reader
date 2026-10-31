@@ -1,5 +1,6 @@
 import {useState, useSyncExternalStore, useEffect, type ReactNode} from 'react';
 import {ReadingLog, type ReadingLogActions, type ReadingLogModel} from './reading-log';
+import {LinkPreview, type LinkPreviewState} from './link-preview';
 import {createRoot, type Root} from 'react-dom/client';
 import {createPortal, flushSync} from 'react-dom';
 import {Progress} from './components/ui/progress';
@@ -451,6 +452,13 @@ export function mountChangesPanel(container:HTMLElement,options:Omit<ChangesOpti
   let root:Root|undefined;
   mount(container,<ChangesPanel key={Date.now()} {...options} onClose={()=>setTimeout(()=>{if(root&&islands.get(container)===root)clearControlsWithin(container);},250)}/>);
   root=islands.get(container);
+}
+/** The link preview card: one persistent root in its own container; links.mjs passes null to close it. */
+let linkPreviewRoot:HTMLElement|null=null;
+export function renderLinkPreview(preview:LinkPreviewState,onLeave:(next:EventTarget|null)=>void){
+  if(!linkPreviewRoot){linkPreviewRoot=document.createElement('div');linkPreviewRoot.id='link-preview-root';document.body.append(linkPreviewRoot);}
+  const root=islands.get(linkPreviewRoot),view=<LinkPreview preview={preview} onLeave={onLeave}/>;
+  if(root)flushSync(()=>root.render(view));else mount(linkPreviewRoot,view);
 }
 /** The reading log in an article's `.reading-log` slot: one persistent root per slot, so an open log stays open when
     app.mjs repaints it (your own read arriving, a refresh). A null model shows that the log is unavailable. */
