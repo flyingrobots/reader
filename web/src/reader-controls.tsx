@@ -2,6 +2,7 @@ import {useState, useSyncExternalStore, useEffect, type ReactNode} from 'react';
 import {ReadingLog, type ReadingLogActions, type ReadingLogModel} from './reading-log';
 import {LinkPreview, type LinkPreviewState} from './link-preview';
 import {VersionsTimeline, type TimelineModel} from './versions-timeline';
+import {ShellDialog, type ShellDialogOptions} from './shell-dialog';
 import {createRoot, type Root} from 'react-dom/client';
 import {createPortal, flushSync} from 'react-dom';
 import {Progress} from './components/ui/progress';
@@ -454,6 +455,17 @@ export function mountChangesPanel(container:HTMLElement,options:Omit<ChangesOpti
   mount(container,<ChangesPanel key={Date.now()} {...options} onClose={()=>setTimeout(()=>{if(root&&islands.get(container)===root)clearControlsWithin(container);},250)}/>);
   root=islands.get(container);
 }
+/** Open an app dialog (see shell-dialog.tsx). Opening one with an id that is already open closes that first. */
+const shellDialogs=new Map<string,{container:HTMLElement;close:()=>void}>();
+export function openShellDialog(options:ShellDialogOptions){
+  shellDialogs.get(options.id)?.close();
+  const container=document.createElement('div');document.body.append(container);
+  const entry={container,close:()=>{}};shellDialogs.set(options.id,entry);
+  const onClosed=()=>{if(shellDialogs.get(options.id)===entry)shellDialogs.delete(options.id);clearControlsWithin(container);container.remove();options.onClosed();};
+  mount(container,<ShellDialog options={{...options,onClosed}} register={close=>{entry.close=close;}}/>);
+  return {close:()=>entry.close(),body:()=>document.getElementById(options.bodyId)};
+}
+export function shellDialogOpen(id:string){return shellDialogs.has(id);}
 /** The versions timeline in #versions-body: one persistent root, re-rendered by versions.mjs; `doc` keys it so a new
     document starts with its own history disclosures. */
 export function renderVersionsTimeline(container:HTMLElement,model:TimelineModel|null,doc=''){

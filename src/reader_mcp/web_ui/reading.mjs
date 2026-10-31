@@ -1,4 +1,5 @@
 /** Quiet reading chrome, real column pagination, and version-bound resume positions. */
+import {modalOpen} from './modal.mjs';
 import {codePointOffset} from './logic.mjs';
 import {shownTop} from './place.mjs';
 export function installReading({scratchStatus, statusOverride, onStatus, mayCurl, controls, state, api, toast, openAdmin, openThread, revealRange, scrollToPosition, savePrefs, reloadDocument, positionPins, updateBreadcrumbs, keyStatus = () => null}) {
@@ -30,14 +31,14 @@ export function installReading({scratchStatus, statusOverride, onStatus, mayCurl
     // The keymap owns LEADER, WINDOW (Ctrl-w), VISUAL and COMMAND, and generates their hints from its table.
     const owned=keyStatus();
     if(owned){mode=owned.mode;keys=owned.keys;}
-    else if(scratch&&!document.querySelector('dialog[open]')){mode=scratch.mode;keys=scratch.keys;}
+    else if(scratch&&!modalOpen()){mode=scratch.mode;keys=scratch.keys;}
     else if($('#picker').open){mode=$('#picker-filter').hidden?'BROWSE':'SEARCH';keys=$('#picker-filter').hidden?'<kbd>j k</kbd> choose <kbd>/</kbd> filter <kbd>Enter</kbd> open <kbd>Esc</kbd> close':'<kbd>↑ ↓</kbd> choose <kbd>Enter</kbd> open <kbd>Esc</kbd> clear filter';}
     else if($('#status-location details[open]')){mode='BROWSE';keys='<kbd>↑ ↓</kbd> folders <kbd>Enter</kbd> browse <kbd>Esc</kbd> close';}
     else if(!$('#find-bar').hidden){mode='SEARCH';keys='<kbd>Enter</kbd> find <kbd>n N</kbd> next / previous <kbd>Esc</kbd> close';}
     else if(active?.closest('#chat-panel')&&!$('#chat-panel').hidden){mode='CHAT';keys=active.matches('textarea,input')?'<kbd>@</kbd> mention <kbd>Enter</kbd> send <kbd>Shift Enter</kbd> new line <kbd>Esc</kbd> close':'<kbd>Tab</kbd> move <kbd>Esc</kbd> close';}
     else if(active?.matches('textarea,input,[contenteditable=true]')&&!(state.view==='search'&&active.id==='search-query')){mode='INSERT';keys='<kbd>⌘ Enter</kbd> send <kbd>Esc</kbd> normal';}
     else if(state.themeEditorOpen){mode='SETTINGS';keys='<kbd>Tab</kbd> move <kbd>F10</kbd> <kbd>Esc</kbd> close';}
-    else if($('#help').open){mode='HELP';keys='<kbd>Esc</kbd> return to reading';}
+    else if($('#help')?.matches('[data-open]')){mode='HELP';keys='<kbd>Esc</kbd> return to reading';}
     else if(!$('#queue-panel').hidden){mode='QUEUE';keys='<kbd>j k</kbd> move <kbd>Enter</kbd> open <kbd>Tab</kbd> up next / history <kbd>Esc</kbd> close';}
     else if(!$('#list-panel').hidden){mode=$('#list-panel').dataset.mode||'LIST';keys='<kbd>j k</kbd> move <kbd>Enter</kbd> open <kbd>Esc</kbd> close';}
     else if(!$('#versions-panel').hidden){mode='VERSIONS';keys='<kbd>j k</kbd> move <kbd>Enter</kbd> open <kbd>c</kbd> compare <kbd>Esc</kbd> close';}

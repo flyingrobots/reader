@@ -69,7 +69,9 @@ const {scrollUntilHeld}=require('./web_wait.cjs');
   await page.locator('[data-companion-prompt=ai-tts] [data-prompt-action=dismiss]').click();await page.evaluate(()=>localStorage.removeItem('reader.companions.dismissed.v1'));
   flag('down',false);
   // Help lists the key; phone width keeps the glyph and pause/resume only.
+  await page.locator('#main').focus();await page.keyboard.press('?');await page.locator('#help-keys dt').first().waitFor();
   assert.ok((await page.locator('#help').textContent()).includes('Send to AI-TTS'));
+  await page.keyboard.press('Escape');await page.locator('#help').waitFor({state:'detached'});
   await page.locator('#speak-article').click();await control.waitFor();
   await page.setViewportSize({width:390,height:844});await page.waitForTimeout(200);
   assert.ok(await control.locator('[data-speech-action]').isVisible());assert.ok(!(await control.locator('[data-speech-label]').isVisible()));assert.ok(!(await control.locator('[data-speech-extra]').first().isVisible()));

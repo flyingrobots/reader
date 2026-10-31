@@ -42,10 +42,10 @@ const {chromium}=require(process.env.READER_PLAYWRIGHT||'playwright-core');
    assert.ok(await page.evaluate(()=>!!CSS.highlights.get('reader-current')&&[...CSS.highlights.get('reader-current')][0].startContainer.parentElement.closest('details.reader-diagram-source')),'find lands on the source line');
    await page.keyboard.press('Escape');
    // Enlarge: click, then Enter from the keyboard.
-   await page.locator('.reader-diagram-canvas').first().click();await page.locator('#diagram-dialog[open] #diagram-body > svg').waitFor();
+   await page.locator('.reader-diagram-canvas').first().click();await page.locator('#diagram-dialog #diagram-body > svg').waitFor();
    assert.ok(await page.evaluate(()=>{const s=document.querySelector('#diagram-body > svg');return s.getBoundingClientRect().width>=+s.getAttribute('width')-1;}),'dialog shows the diagram at least full size');
-   await page.keyboard.press('Escape');await page.waitForFunction(()=>!document.querySelector('#diagram-dialog[open]'));
-   await page.locator('.reader-diagram-canvas').nth(2).focus();await page.keyboard.press('Enter');await page.locator('#diagram-dialog[open] #diagram-body > svg.pele-pie').waitFor();
+   await page.keyboard.press('Escape');await page.waitForFunction(()=>!document.querySelector('#diagram-dialog'));
+   await page.locator('.reader-diagram-canvas').nth(2).focus();await page.keyboard.press('Enter');await page.locator('#diagram-dialog #diagram-body > svg.pele-pie').waitFor();
    await page.keyboard.press('Escape');
    // A highlight on the paragraph after a diagram keeps its exact source offsets.
    const sentence='The paragraph after the flowchart carries a careful observation.';

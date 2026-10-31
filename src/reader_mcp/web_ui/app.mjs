@@ -7,6 +7,7 @@ import {openPDF,pdfPage} from './pdf.mjs';
 import {embedPlugin,installEmbeds} from './embeds.mjs';
 import {installBreadcrumbs} from './breadcrumbs.mjs';
 import {readingLogModel,withYou} from './reading-log.mjs';
+import {modalOpen} from './modal.mjs';
 import {installSpeech} from './speech.mjs';
 import {installOutline} from './outline.mjs';
 import {installSearch} from './search-page.mjs';
@@ -19,7 +20,7 @@ import {calloutPlugin} from './callouts.mjs';
 import {drawable,fetchShape,paintShape} from './shapes.mjs';
 import {artJobs,fetchArt,focusArt,forgetArt,hasArt,paintArt,paintArtThumb,paintPlaceholder} from './art.mjs';
 import {closeArtFocus,focusOpen} from './art-focus.mjs';
-import {renderVersionsTimeline,renderLinkPreview,renderReadingLog,applyThemes,installControls,mountSkeleton,mountCodeBlocks,decorateCodeBlocks,clearControlsWithin,mountDocumentTree,visibleDocumentNodes,revealDocumentRow,mountAdmin,setAdminRoute,mountChangesPanel,mountArtRegenerate,notify as shellNotify,openChat,closeChat,chatOpen,trackSpeech,renderQueuePanel,mountCallouts,mountQuiz,mountWritingPrompt,mountScratchQuestion,startJob,promptCompanion,needsReader,NEEDS_READER,mountPromptCards} from './controls/reader-controls.js';
+import {openShellDialog,renderVersionsTimeline,renderLinkPreview,renderReadingLog,applyThemes,installControls,mountSkeleton,mountCodeBlocks,decorateCodeBlocks,clearControlsWithin,mountDocumentTree,visibleDocumentNodes,revealDocumentRow,mountAdmin,setAdminRoute,mountChangesPanel,mountArtRegenerate,notify as shellNotify,openChat,closeChat,chatOpen,trackSpeech,renderQueuePanel,mountCallouts,mountQuiz,mountWritingPrompt,mountScratchQuestion,startJob,promptCompanion,needsReader,NEEDS_READER,mountPromptCards} from './controls/reader-controls.js';
 import {promptPlugin,promptMounts} from './prompt-blocks.mjs';
 import {installVersions,chipMarkup,historicalMarkup,splitRef,compareLabel} from './versions.mjs';
 import {installSplit,installPane,cleanRoute} from './split.mjs';
@@ -799,8 +800,12 @@ function openDiagram(canvas){
   // Full size, or larger when the natural size is small, up to three times.
   const scale=Math.max(1,Math.min(3,(innerWidth*.9-48)/width,(innerHeight*.82-90)/height));
   copy.style.width=Math.round(width*scale)+'px';copy.style.maxWidth='none';copy.style.height='auto';copy.removeAttribute('aria-hidden');copy.setAttribute('role','img');copy.setAttribute('aria-label',canvas.getAttribute('aria-label')||'Diagram');
-  $('#diagram-body').replaceChildren(copy);openDialog('diagram-dialog');$('#diagram-body').focus();
+  state.smoother?.paused(true);
+  openShellDialog({id:'diagram-dialog',title:'Diagram',closeLabel:'Close diagram',className:'w-[min(96vw,1400px)] max-w-none p-5 sm:max-w-none',
+    bodyId:'diagram-body',bodyClassName:'max-h-[calc(85vh-80px)] bg-background p-3 [&>svg]:mx-auto [&>svg]:block',fill:body=>body.replaceChildren(copy),focusBody:true,onClosed:dialogClosed});
 }
+/** After an app dialog has closed: reading resumes, and a split view takes the focus back. */
+function dialogClosed(){state.smoother?.paused(false);if(split?.active()&&!modalOpen())split.refocus();}
 document.addEventListener('click',event=>{const canvas=event.target.closest?.('#main .reader-diagram-canvas[data-state=ready]');if(canvas&&getSelection()?.isCollapsed!==false)openDiagram(canvas);});
 document.addEventListener('keydown',event=>{if(event.key==='Enter'&&!event.defaultPrevented&&event.target.matches?.('.reader-diagram-canvas[data-state=ready]')){event.preventDefault();openDiagram(event.target);}},true);
 /** Resolve many links from one document in batched requests; failed targets map to null. */
@@ -1345,7 +1350,7 @@ document.addEventListener('selectionchange',()=>{
   // VISUAL mirrors its selection into the page; its own keys act on it, without the toolbar.
   if(state.visual)return;
   clearTimeout(selectionTimer);if(getSelection()?.isCollapsed){$('#selection-tools').hidden=true;captureSelection.failed=null;return;}
-  selectionTimer=setTimeout(()=>{if(!mouseSelecting&&!document.querySelector('dialog[open]'))captureSelection();},450);
+  selectionTimer=setTimeout(()=>{if(!mouseSelecting&&!modalOpen())captureSelection();},450);
 });
 let hoverFrame;
 document.addEventListener('mousemove',event=>{
@@ -1359,7 +1364,7 @@ document.addEventListener('mousemove',event=>{
 const typing=event=>state.themeEditorOpen||!!event.target.closest?.('input,textarea,select,[contenteditable="true"],dialog,[role=dialog],[role=listbox]:not([data-queue-list]),[data-slot=select-trigger],[data-slot=select-content],[data-slot=popover-content],[role=switch],[data-slot=pagination]');
 function pageEscape(event){
   if(event.target.closest?.('.cm-editor'))return;  // Vim's Escape stays in the scratch editor; Escape in normal mode leaves it.
-  if(state.themeEditorOpen||event.target.closest('[data-slot=popover-content],[data-slot=select-content],[data-slot=sheet-content]')||document.querySelector('dialog[open]'))return;
+  if(state.themeEditorOpen||event.target.closest('[data-slot=popover-content],[data-slot=select-content],[data-slot=sheet-content]')||modalOpen())return;
   event.preventDefault();
   if(!$('#thread-panel').hidden&&$('#thread-panel').contains(document.activeElement)){leaveThreadPanel();return;}
   if(panels.isOpen()&&panels.contains(document.activeElement)){panels.close();return;}
@@ -1586,7 +1591,7 @@ keys.intercept(event=>{
 keys.intercept(event=>{
   if(!split?.active()||event.ctrlKey||event.metaKey||event.altKey||typing(event)||keys.mode()!=='normal'||keys.pending().keys.length)return false;
   if([' ',',','?',':','Escape','F10','Shift','Control','Alt','Meta','CapsLock'].includes(event.key))return false;
-  if(!$('#queue-panel').hidden||chatOpen()||document.querySelector('dialog[open]'))return false;
+  if(!$('#queue-panel').hidden||chatOpen()||modalOpen())return false;
   event.preventDefault();split.refocus();return true;
 });
 keys.intercept(event=>{
@@ -1696,8 +1701,14 @@ keys.command({name:'marks',help:'Your marks, in this document first',run:()=>pan
 keys.command({name:'registers',aliases:['reg','display','di'],help:'What you have yanked, with citations',run:()=>panels.open('registers')});
 keys.command({name:'help',aliases:['h'],args:'[command]',help:'This map; `:help grep` jumps to a command',complete:typed=>prefixed(keys.commands(),typed),run:topic=>openHelp(topic)});
 $('#status-qf').onclick=()=>panels.open('quickfix');
+// The key map's surroundings; keys.renderHelp() writes the generated lists into #help-keys.
+const HELP_INTRO='Space is your leader. Comma works too. <kbd>v</kbd> selects from the keyboard and <kbd>:</kbd> takes a command. No commands run while you’re writing.';
+const HELP_NOTE='Hover over or Tab to a library link to preview it; Escape closes the preview. Each article ends with the documents that link to it. Select a passage to highlight, comment, or leave a warning. Click a passage’s margin mark or a pip on the progress rail to open its thread. The footer switches between continuous and two-page reading. On narrow screens, pages appear one at a time. Your place is saved automatically for this participant and edition. PDF text can be selected and searched; passage annotations currently support Markdown.';
 function openHelp(topic=''){
-  openDialog('help');
+  state.smoother?.paused(true);
+  openShellDialog({id:'help',title:'A small map.',closeLabel:'Close keyboard help',className:'w-[min(570px,calc(100vw-2rem))] max-w-none p-6 sm:max-w-none',
+    bodyId:'help-body',bodyClassName:'flex flex-col gap-3 pr-1',onClosed:dialogClosed,
+    fill:body=>{body.innerHTML=`<p class="text-[13px] leading-snug text-muted-foreground">${HELP_INTRO}</p><div id="help-keys" class="help-keys"></div><p class="quiet">${HELP_NOTE}</p>`;keys.renderHelp();}});
   const row=topic&&$(`#help [data-command="${CSS.escape(topic.replace(/^:/,''))}"]`);
   if(row){row.scrollIntoView({block:'center'});row.classList.add('help-target');setTimeout(()=>row.classList.remove('help-target'),1800);}
 }
@@ -1762,7 +1773,7 @@ function openRoute(route){
 /** A background pane never takes the keyboard by itself (focus() in a frame would move the window's focus into it). */
 function focusMain(){if(!pane||pane.focused())$('#main').focus({preventScroll:true});}
 function paneFocus(focused,move){
-  if(focused&&move&&!document.querySelector('dialog[open]')&&!$('#main').contains(document.activeElement))$('#main').focus({preventScroll:true});
+  if(focused&&move&&!modalOpen()&&!$('#main').contains(document.activeElement))$('#main').focus({preventScroll:true});
   reading?.paneFocus(focused);
 }
 let lastPaneDoc='',lastPaneStatus='';
@@ -1775,7 +1786,7 @@ function paneStatus(){
 }
 /** While split, the one status bar shows the focused pane: its mode, breadcrumb, place and number. */
 function paintSplitStatus(){
-  if(document.querySelector('dialog[open]')||!$('#queue-panel').hidden||chatOpen())return false;
+  if(modalOpen()||!$('#queue-panel').hidden||chatOpen())return false;
   const focused=split.focused();if(!focused)return false;
   // The shell's own keymap state (Ctrl-w, the leader, the command line) comes before the pane's mode.
   const owned=keys.status(),mode=owned?.mode||focused.status?.mode||'NORMAL';
@@ -1824,7 +1835,7 @@ if(EMBEDDED)pane=installPane({open:openRoute,save:()=>reading.save(),onFocus:pan
 else{
   split=installSplit({notify,api,param,paint:()=>reading?.updateStatus(),suspend:suspendShell,resume:resumeShell,openAdmin:route=>{const path=adminPathFromHash(route);if(path)navigate(path);}});
   split.setShellCommands({'?':()=>openHelp(),m:toggleChat,r:()=>queue.toggle(),n:()=>queue.next()});
-  document.querySelectorAll('dialog').forEach(dialog=>dialog.addEventListener('close',()=>{if(split.active()&&!document.querySelector('dialog[open]'))split.refocus();}));
+  document.querySelectorAll('dialog').forEach(dialog=>dialog.addEventListener('close',()=>{if(split.active()&&!modalOpen())split.refocus();}));
 }
 // Theme and preference changes made in another pane (or the shell) arrive as a storage event.
 function prefsFromStorage(){

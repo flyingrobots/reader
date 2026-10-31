@@ -17,6 +17,7 @@ Reader Admin's pages have their sheets in [admin-design/](../admin-design/index.
 | Reading log | `web/src/reading-log.tsx` | shadcn: [reading-log.md](reading-log.md) |
 | Link previews | `web/src/link-preview.tsx` | shadcn: [link-preview.md](link-preview.md) |
 | Versions timeline | `web/src/versions-timeline.tsx` | shadcn: [versions-timeline.md](versions-timeline.md) |
+| Keyboard help, diagram viewer | `web/src/shell-dialog.tsx` | shadcn: [shell-dialog.md](shell-dialog.md) |
 
 ## React surfaces with their own theming layer
 
@@ -35,7 +36,7 @@ Much of the reading app is rendered by `src/reader_mcp/web_ui/*.mjs` from templa
 | Home / weekly issue | `magazine.mjs`, `app.mjs` | Editorial layout (masthead, cover story, sections). This is content design, not component UI, and stays as it is. Its actions (Queue, Make cover art, issue navigation) are bridged Buttons. |
 | Article | `reading.mjs`, `app.mjs` | Prose and its margins are content. The *Source* button and banners use bridged Buttons. The outline rail shares its entry list with the React outline popover and sheet, as one navigation design. |
 | Status line | `index.html`, `status-priority.mjs` | A compact, priority-managed bar. Pagination, Progress, Popover, Select and Switch inside it are React shadcn. Its key hints stay compact on purpose. |
-| Documents picker, Keyboard help, Speak menu, Annotation, Diagram viewer | `index.html`, `app.mjs`, `keys.mjs` | Native `<dialog>` shells holding bridged Buttons and Kbd. Moving them to shadcn `Dialog`/`Sheet` means taking their open/close, focus and key handling out of `app.mjs` one dialog at a time. Tracked in [#200](https://github.com/flyingrobots/reader/issues/200). |
+| Documents picker, Speak menu, Annotation | `index.html`, `app.mjs`, `keys.mjs` | Native `<dialog>` shells holding bridged Buttons and Kbd. Keyboard help and the diagram viewer have moved to shadcn `Dialog` through `openShellDialog` ([shell-dialog.md](shell-dialog.md)); the rest follow one dialog at a time. Tracked in [#200](https://github.com/flyingrobots/reader/issues/200). |
 | Discussions, Versions, Lists panels; Find bar | `index.html`, `app.mjs`, `versions.mjs`, `lists.mjs` | Vanilla panels with bridged Buttons and Kbd. The same follow-up as the dialogs, as shadcn `Sheet`s ([#200](https://github.com/flyingrobots/reader/issues/200)). |
 | Scratch pad | `scratch.mjs` | A CodeMirror editor with bridged chrome. |
 | Article art panels (cover, artist's note, prompt stages, full-screen focus) | `art.mjs`, `art-prompt.mjs`, `art-focus.mjs` | The art itself is content (canvas and scene). The surrounding note, stage list and focus header are hand-built around bridged Buttons. The Regenerate this form inside is React shadcn ([art-regenerate](../../web/src/art-regenerate.tsx)). Tracked in #200. |
