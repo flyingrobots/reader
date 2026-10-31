@@ -180,15 +180,21 @@ function resetScroll() {
 }
 /** ScrollSmoother draws the page from its own copy of the scroll position. A jump that lands while ScrollTrigger
  *  re-measures a page whose height is still changing (Read next arriving just after G, then gg) can leave that copy
- *  behind: the window is at the top while the page still shows the end, and stays so until the next scroll. When the
- *  copy and the window disagree after a scroll or a re-measure, put the copy back; in normal reading they never do.
- *  Runs a frame later, after ScrollTrigger's own scroll listener. */
+ *  behind: the window is at the top while the page still shows the end, and stays so until the next scroll. The copy
+ *  may trail the window for a frame or two (a late frame), so it is put back only when it still differs after the
+ *  ticker has run three frames: by then it should have caught up. */
 let smootherCheck=0;
 function resyncSmoother(){
-  if(smootherCheck)return;
-  smootherCheck=requestAnimationFrame(()=>{smootherCheck=0;const smoother=state.smoother;
-    if(smoother&&!smoother.paused()&&Math.abs(smoother.scrollTop()-scrollY)>1){smoother.scrollTop(scrollY);settleAfterResync(smoother);}});
+  if(smootherCheck||!window.gsap)return;
+  const from=gsap.ticker.frame;
+  const check=()=>{smootherCheck=0;const smoother=state.smoother;
+    if(!smoother||smoother.paused()||Math.abs(smoother.scrollTop()-scrollY)<=1)return;
+    if(gsap.ticker.frame-from<3){smootherCheck=requestAnimationFrame(check);return;}
+    smoother.scrollTop(scrollY);settleAfterResync(smoother);};
+  smootherCheck=requestAnimationFrame(check);
 }
+addEventListener('scroll',resyncSmoother,{passive:true});
+window.ScrollTrigger?.addEventListener('refresh',resyncSmoother);
 /** After a resync the page glides to the scroll position without a scroll event; once it arrives, the section label,
  *  outline and pins measure again. */
 function settleAfterResync(smoother,started=performance.now()){
