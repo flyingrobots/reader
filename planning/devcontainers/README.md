@@ -6,10 +6,10 @@ The candidate uses Reader's GitHub CI Node image, `node:24.18.0`, and clones the
 
 ## Reproduce the bounded trial
 
-With the image already present and the Dev Container CLI installed, acquire the shared workstation key and run:
+With the image already present and the Dev Container CLI installed, set `READER_WORKSTATION_LOCKS_STORE` to the shared authority documented by your workstation. Acquire its resource key with the command below; an unset variable is rejected.
 
 ```sh
-GIT_LOCKS_STORE=/Users/Shared/git-locks/workstation.git git locks with \
+GIT_LOCKS_STORE="${READER_WORKSTATION_LOCKS_STORE:?Set the workstation git-locks store}" git locks with \
   --job "reader-development-$(uuidgen)" --holder reader-development \
   --ttl 420 --wait 5 --note 'Bounded Reader devcontainer experiment' \
   host/docker/reader-development/ -- python3 planning/devcontainers/trial.py
