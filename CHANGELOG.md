@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Split-view footers derive the focused article’s percentage from reading state, preserving progress while embedded footers are hidden.
+
 - Admin documentation preserves its reading position when hidden across section navigation and page reload.
 
 - Guarded frontend builds include canonical Admin Markdown inputs, and CI runs the frontend checks and build.
