@@ -28,7 +28,7 @@ def main():
     left, bottom, right, top = bounds.bounds
     scale = 132 / (top - bottom)
     width = (right - left) * scale
-    dot_radius, gap = 11, 14
+    dot_radius, gap = 22, 14
     start = (256 - (width + gap + dot_radius * 2)) / 2 + 3
     path = SVGPathPen(glyphs, ntos=lambda n: format(n, '.3f').rstrip('0').rstrip('.') if n else '0')
     glyph.draw(TransformPen(path, (scale, 0, 0, -scale, start - left * scale, 62 + top * scale)))
@@ -41,9 +41,9 @@ def main():
        Bundled source: vendor/newsreader.woff2 (SIL Open Font License 1.1).
        Source SHA-256: {sha256(FONT.read_bytes()).hexdigest()}
        Regenerate with scripts/generate_circle_mark.py. -->
-  <circle cx="128" cy="128" r="123" fill="var(--surface, #21252b)" stroke="var(--line, #3e4451)" stroke-width="2"/>
+  <circle cx="128" cy="128" r="123" fill="var(--surface, #21252b)"/>
   <path fill="var(--ink, #bfc5cf)" d="{path.getCommands()}"/>
-  <circle cx="{dot_x:.3f}" cy="183" r="11" fill="var(--accent, #61afef)"/>
+  <circle cx="{dot_x:.3f}" cy="{194 - dot_radius}" r="{dot_radius}" fill="var(--accent, #61afef)"/>
 </svg>
 '''
     OUTPUT.write_text(svg)

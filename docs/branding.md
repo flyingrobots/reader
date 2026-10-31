@@ -4,10 +4,9 @@ The homepage keeps the full **Reader.** wordmark. The [circular r. mark](../src/
 
 ## Shapes and theme tokens
 
-The SVG has a 256 × 256 viewBox, a circular background, an outlined serif r and a separate circular dot. The r is the bundled Newsreader glyph at weight 600 converted to an SVG path. It contains no `<text>`, embedded font, script or external resource.
+The SVG has a 256 × 256 viewBox, a borderless circular background, an outlined serif r and a separate circular dot. The dot diameter is one third of the letter height, aligned to its baseline. The r is the bundled Newsreader glyph at weight 600 converted to an SVG path. It contains no `<text>`, embedded font, script or external resource.
 
 - Background: `--surface` in the standalone asset, `--raised` in the footer so the circle remains distinct from the footer surface.
-- Thin circular border: `--line`; the footer uses a non-scaling one-pixel stroke so it remains visible at icon size.
 - Letter: `--ink`.
 - Dot: `--accent`.
 

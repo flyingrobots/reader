@@ -572,5 +572,5 @@ html.embedded-pane .file-explorer{bottom:0}
 
 @layer reader-legacy {
 .reader-home{margin-left:4px;flex-shrink:0}
-.reader-home svg>circle:first-child{fill:var(--raised);stroke-width:1px;vector-effect:non-scaling-stroke}
+.reader-home svg>circle:first-child{fill:var(--raised)}
 }
