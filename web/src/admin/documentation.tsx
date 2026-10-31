@@ -20,7 +20,7 @@ export function AdminDocumentationWorkspace({topic,markdown,children}:{topic:str
   const body=useRef<HTMLDivElement|null>(null),panel=useRef<HTMLDivElement|null>(null),[section,setSection]=useState('overview');
   const topicDocument=ADMIN_DOCUMENTS[topic],reference=topicDocument.source;
   const headings=useMemo(()=>[...reference.matchAll(/^#{2,3} (.+)$/gm)].map(match=>({title:match[1],id:slug(match[1])})),[reference]);
-  const sectionRef=useRef(section);sectionRef.current=section;
+  const sectionRef=useRef(section),position=useRef(0);sectionRef.current=section;
   const [visible,setVisible]=useState(()=>{try{return (localStorage.getItem('reader.admin.docs.visible.v1')??localStorage.getItem('reader.indexes.docs.visible.v1'))!=='false';}catch{return true;}}),jumpFrame=useRef(0);
   useEffect(()=>{try{localStorage.setItem('reader.admin.docs.visible.v1',String(visible));}catch{}},[visible]);
   useEffect(()=>()=>cancelAnimationFrame(jumpFrame.current),[]);
@@ -35,16 +35,18 @@ export function AdminDocumentationWorkspace({topic,markdown,children}:{topic:str
   },[]);
   useLayoutEffect(()=>{
     const element=body.current;if(!element)return;
-    try{const saved=JSON.parse(sessionStorage.getItem('reader.admin.docs.position.'+topic)||'null');if(saved&&Number.isFinite(saved.top)&&saved.top>=0&&saved.top<1e7){element.scrollTop=saved.top;setSection(headings.some(h=>h.id===saved.section)?saved.section:'overview');}else{element.scrollTop=0;setSection('overview');}}catch{element.scrollTop=0;setSection('overview');}
+    try{const saved=JSON.parse(sessionStorage.getItem('reader.admin.docs.position.'+topic)||'null');if(saved&&Number.isFinite(saved.top)&&saved.top>=0&&saved.top<1e7){position.current=saved.top;setSection(headings.some(h=>h.id===saved.section)?saved.section:'overview');}else{position.current=0;setSection('overview');}}catch{position.current=0;setSection('overview');}
     for(const heading of element.querySelectorAll<HTMLElement>('h1,h2,h3')){heading.id='admin-doc-'+slug(heading.textContent||'');heading.tabIndex=-1;}
     for(const table of element.querySelectorAll('table')){if(table.parentElement?.classList.contains('admin-doc-table'))continue;const wrap=document.createElement('div');wrap.className='admin-doc-table';table.before(wrap);wrap.append(table);}
     for(const link of element.querySelectorAll<HTMLAnchorElement>('a[href]')){const href=link.getAttribute('href')||'';if(!href.startsWith('#')){link.href=new URL(href,'https://github.com/flyingrobots/reader/blob/main/docs/topics/'+topic+'.md').href;link.target='_blank';link.rel='noreferrer noopener';}}
-    const save=()=>{try{sessionStorage.setItem('reader.admin.docs.position.'+topic,JSON.stringify({top:element.scrollTop,section:sectionRef.current}));}catch{}};
+    const referencePanel=panel.current;
+    const save=()=>{if(referencePanel?.hidden===false)position.current=element.scrollTop;try{sessionStorage.setItem('reader.admin.docs.position.'+topic,JSON.stringify({top:position.current,section:sectionRef.current}));}catch{}};
     window.addEventListener('pagehide',save);return ()=>{save();window.removeEventListener('pagehide',save);cancelAnimationFrame(jumpFrame.current);};
   },[html,topic,headings]);
+  useLayoutEffect(()=>{if(visible&&body.current)body.current.scrollTop=position.current;},[visible,html]);
   return <DocumentationContext.Provider value={{jump,ids:new Set(headings.map(h=>h.id)),aliases:topicDocument.aliases||{}}}>
     <div className="flex min-w-0 flex-col gap-3">
-      <div className="flex items-center justify-end gap-2"><AdminDocHelp title={topicDocument.title+' reference'} section="overview"/><Button id="admin-doc-toggle" variant="outline" size="sm" aria-controls="admin-reference-pane" aria-expanded={visible} onClick={()=>{cancelAnimationFrame(jumpFrame.current);setVisible(value=>!value);}}>
+      <div className="flex items-center justify-end gap-2"><AdminDocHelp title={topicDocument.title+' reference'} section="overview"/><Button id="admin-doc-toggle" variant="outline" size="sm" aria-controls="admin-reference-pane" aria-expanded={visible} onClick={()=>{cancelAnimationFrame(jumpFrame.current);if(visible&&body.current)position.current=body.current.scrollTop;setVisible(value=>!value);}}>
         {visible?<PanelRightCloseIcon data-icon="inline-start" aria-hidden/>:<PanelRightOpenIcon data-icon="inline-start" aria-hidden/>}{visible?'Hide documentation':'Show documentation'}
       </Button></div>
       <div id="admin-workspace" data-docs-visible={visible} className={cn('grid min-w-0 gap-4',visible?'lg:grid-cols-2':'grid-cols-1')}>
@@ -54,6 +56,7 @@ export function AdminDocumentationWorkspace({topic,markdown,children}:{topic:str
           <Field><FieldLabel htmlFor="admin-doc-contents">Contents</FieldLabel><NativeSelect id="admin-doc-contents" className="w-full" value={headings.some(h=>h.id===section)?section:'overview'} onChange={event=>jump(event.target.value)}>{headings.map(heading=><NativeSelectOption key={heading.id} value={heading.id}>{heading.title}</NativeSelectOption>)}</NativeSelect></Field>
         </CardHeader>
         <CardContent ref={body} id="admin-doc-body" className="admin-doc-body relative max-h-[75dvh] min-h-0 flex-1 overflow-auto overscroll-contain" role="region" aria-label={topicDocument.title+' documentation'} tabIndex={0}
+          onScroll={event=>{if(panel.current?.hidden===false)position.current=event.currentTarget.scrollTop;}}
           onClick={event=>{const link=(event.target as Element).closest<HTMLAnchorElement>('a[href^="#"]');if(!link)return;event.preventDefault();jump(decodeURIComponent(link.hash.slice(1)));}}
           dangerouslySetInnerHTML={{__html:html}}/>
       </Card>

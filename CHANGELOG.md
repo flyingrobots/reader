@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Admin documentation preserves its reading position when hidden across section navigation and page reload.
+
 - Guarded frontend builds include canonical Admin Markdown inputs, and CI runs the frontend checks and build.
 
 - Container checks and the development setup experiment explicitly cap shared memory at 64 MiB instead of inheriting an unbounded daemon default.
