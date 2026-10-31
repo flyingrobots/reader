@@ -148,7 +148,8 @@ const shots=process.env.READER_SHOTS||'.reader/web-dev';
    await page.goto(url+'#read='+encodeURIComponent('library/essays/tidal/tidal.md'));await ready(page.mainFrame());
    await page.locator('#main').focus();await page.keyboard.press('Space');await page.keyboard.press('v');await page.locator('#versions-panel').waitFor();
    for(let i=0;i<3;i++)await page.keyboard.press('j');  // Past the History summary to the file's first commit.
-   assert.match(await page.evaluate(()=>document.activeElement.dataset.ref),/tidal\.md@[0-9a-f]{40}$/);
+   {const at=await page.evaluate(()=>({ref:document.activeElement.dataset.ref,key:document.activeElement.dataset.vtKey,item:document.activeElement.dataset.vtItem,tag:document.activeElement.tagName,id:document.activeElement.id}));
+    assert.match(String(at.ref),/tidal\.md@[0-9a-f]{40}$/,'j moves to the first commit: '+JSON.stringify(at));}
    await page.locator('#versions-panel [data-compare-split]').click();
    await page.waitForFunction(()=>document.querySelectorAll('.split-pane iframe').length===2);
    const [old,now]=[await pane(page,1),await pane(page,2)];await ready(old);await ready(now);

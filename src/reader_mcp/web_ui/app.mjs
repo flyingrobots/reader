@@ -545,6 +545,8 @@ async function navigate(path,{thread=null,fragment='',record=true,commit=null,at
     if(heroWanted()&&!atCommit&&!preview&&TEXTUAL.test(path))fetchArt(api,path).catch(()=>{});
     let editions=LATE;
     const pending=preview?Promise.resolve(null):secondary('Versions',()=>api('/api/versions?path='+param(path)+'&participant='+param(state.prefs.participant))).then(found=>editions=found??null);
+    // Space v pressed before a late timeline arrives waits for it (versions.mjs) instead of reporting a single version.
+    state.versionsPending={path,timeline:pending.catch(()=>null)};
     const [doc,changes]=await Promise.all([atCommit?api('/api/version?path='+param(path)+'&commit='+param(atCommit)):api('/api/document?path='+param(path)+'&participant='+param(state.prefs.participant)),
       !atCommit&&!preview&&TEXTUAL.test(path)?api('/api/changes?path='+param(path)+'&participant='+param(state.prefs.participant)).catch(()=>null):null]); if(id!==state.routeId)return;
     const inLayout=editions!==LATE;state.editions=state.versions=inLayout?editions:null;state.changes=changes;const historical=!!doc.historical;

@@ -134,6 +134,9 @@ export function installVersions({state,api,navigate,openCompare,openSideBySide,n
     focusRef=target;close();await navigate(target);open({focus:target});
   }
   async function open({focus:ref}={}){
+    // The timeline may still be on its way for this document (it can arrive after the first render): wait for it.
+    const waiting=state.versionsPending;
+    if(state.doc&&!state.versions&&waiting?.path===state.doc.path){const late=await waiting.timeline;if(late&&!state.versions&&state.doc?.path===waiting.path){state.versions=late;update();}}
     if(!state.doc||!describe(state.versions,state.doc)){notify(state.doc?'This document has one version and no earlier revisions in the vault history.':'Open a document to see its versions.');return;}
     panel.hidden=false;render();focus(ref||here());onChange?.();
     // Content hashes place your read marker (and other readers) on historical revisions; fetched on demand.
