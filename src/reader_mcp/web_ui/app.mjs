@@ -178,23 +178,23 @@ function resetScroll() {
   }
   requestAnimationFrame(refreshScroll);
 }
-/** ScrollSmoother draws the page from its own copy of the scroll position. A jump that lands while ScrollTrigger
- *  re-measures a page whose height is still changing (Read next arriving just after G, then gg) can leave that copy
- *  behind: the window is at the top while the page still shows the end, and stays so until the next scroll. The copy
- *  may trail the window for a frame or two (a late frame), so it is put back only when it still differs after the
- *  ticker has run three frames: by then it should have caught up. */
-let smootherCheck=0;
+/** Recover a renderer stranded after a layout refresh without interrupting GSAP's intentional lag.
+ * Every scroll/refresh restarts a quiet period at least as long as the configured smoothing duration.
+ * An active scrub tween owns its glide; only an idle, still-misaligned renderer may be snapped. */
+let smootherCheck=0,lastSmootherSignal=0;
 function resyncSmoother(){
+  lastSmootherSignal=performance.now();
   if(smootherCheck||!window.gsap)return;
   const from=gsap.ticker.frame;
   const check=()=>{smootherCheck=0;const smoother=state.smoother;
     if(!smoother||smoother.paused()||Math.abs(smoother.scrollTop()-scrollY)<=1)return;
-    if(gsap.ticker.frame-from<3){smootherCheck=requestAnimationFrame(check);return;}
+    const quietFor=performance.now()-lastSmootherSignal,grace=(smoother.smooth()+.1)*1000;
+    if(gsap.ticker.frame-from<3||quietFor<grace||smoother.scrollTrigger.getTween()?.isActive()){
+      smootherCheck=requestAnimationFrame(check);return;
+    }
     smoother.scrollTop(scrollY);settleAfterResync(smoother);};
   smootherCheck=requestAnimationFrame(check);
 }
-addEventListener('scroll',resyncSmoother,{passive:true});
-window.ScrollTrigger?.addEventListener('refresh',resyncSmoother);
 /** After a resync the page glides to the scroll position without a scroll event; once it arrives, the section label,
  *  outline and pins measure again. */
 function settleAfterResync(smoother,started=performance.now()){

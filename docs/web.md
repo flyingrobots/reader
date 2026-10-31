@@ -3403,6 +3403,20 @@ from read receipts. Last-moment saves on browser termination are best effort;
 waiting for the short scroll debounce or navigating normally allows a confirmed
 save. Back up this directory with the rest of the private vault.
 
+## Continuous scrolling
+
+Reader uses GSAP ScrollSmoother for the homepage and continuous article reading,
+with a 0.8-second catch-up duration. Reduced-motion preferences, the Smooth
+scrolling setting, two-page reading and Reader Admin disable this smoother.
+The File Explorer list scrolls natively inside its own column.
+
+The renderer may intentionally trail the native scroll position during a glide.
+Recovery after a layout refresh waits for a quiet period covering the configured
+smoothing duration and for the scrub tween to stop. It only corrects an idle
+renderer that remains misaligned; it must not snap normal wheel or trackpad
+scrolling. Bookmark saves retain their existing visual-settling rules and immediate
+navigation, visibility-change and pagehide paths.
+
 ## Search page
 
 **Space /** opens Search from anywhere (the route is `#search=…`). The explorer’s `/`
