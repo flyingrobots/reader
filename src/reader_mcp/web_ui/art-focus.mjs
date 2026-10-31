@@ -56,7 +56,12 @@ export function openArtFocus(data,{api,stage,palette,motion,stillUrl,restore,reg
     event.stopPropagation();  // the reader's keys stay with the page behind
   });
   view.addEventListener('wheel',event=>event.preventDefault(),{passive:false});
-  open={view,live,back,scroll,restore,close:()=>{island?.unmount();live?.destroy();}};
+  // Escape closes the view wherever focus is: a click on the page behind, or a focus that had not arrived yet, must not
+  // leave a full-screen overlay that ignores it. Keys inside the view keep the handler above.
+  const outside=event=>{if(event.key!=='Escape'||view.contains(event.target)||event.artPromptClosed||event.artFormClosed)return;
+    event.preventDefault();event.stopPropagation();if(!panel.hidden)closePanel();else closeArtFocus();};
+  document.addEventListener('keydown',outside,true);
+  open={view,live,back,scroll,restore,close:()=>{document.removeEventListener('keydown',outside,true);island?.unmount();live?.destroy();}};
   host.focus({preventScroll:true});
   return view;
 }
