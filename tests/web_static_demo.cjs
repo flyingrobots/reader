@@ -53,8 +53,10 @@ const TYPES={'.html':'text/html; charset=utf-8','.js':'text/javascript','.mjs':'
   // The focus view (#147) works here; Regenerate this needs Reader on your computer.
   await cover.locator('.art-focus-toggle').click();await page.locator('.art-focus').waitFor();
   // The click leaves the pointer over the art, whose hover card opens after 350 ms and takes the first Escape (by design).
-  // Rest it on the heading instead, so Escape below closes the view however long the checks take.
-  {const box=await page.locator('.art-focus-heading').boundingBox();await page.mouse.move(box.x+box.width/2,box.y+box.height/2);}
+  // Rest it on the heading instead, and let a card that already opened close on leaving, so Escape below closes the view
+  // however long the checks take.
+  {const box=await page.locator('.art-focus-heading').boundingBox();await page.mouse.move(box.x+box.width/2,box.y+box.height/2);
+   await page.locator('#art-prompt-card').waitFor({state:'hidden'});}
   const regenerate=page.locator('.art-focus [data-focus-regenerate]');
   assert.equal(await regenerate.isDisabled(),true);assert.equal(await regenerate.getAttribute('title'),'Needs Reader on your computer');
   await page.keyboard.press('Escape');await page.locator('.art-focus').waitFor({state:'detached'});

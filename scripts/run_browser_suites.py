@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Run the browser suites (tests/web_*.cjs) in parallel and report the result.
 
-    python3 scripts/run_browser_suites.py                 # every suite, half the cores at a time
+    python3 scripts/run_browser_suites.py                 # every suite, two thirds of the cores at a time
     python3 scripts/run_browser_suites.py -j 8            # eight at a time
     python3 scripts/run_browser_suites.py dock threads    # suites whose names contain "dock" or "threads"
 
@@ -63,7 +63,7 @@ def tail(log, lines=12):
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__.split('\n', 1)[0])
     parser.add_argument('patterns', nargs='*', help='Run only suites whose names contain one of these')
-    parser.add_argument('-j', '--jobs', type=int, default=max(1, (os.cpu_count() or 2) // 2), help='Suites at a time (default: half the cores)')
+    parser.add_argument('-j', '--jobs', type=int, default=max(1, (os.cpu_count() or 3) * 2 // 3), help='Suites at a time (default: two thirds of the cores)')
     parser.add_argument('--timeout', type=float, default=600, help='Seconds before a suite is killed (default 600)')
     args = parser.parse_args(argv)
     names = suites(args.patterns)

@@ -51,7 +51,10 @@ const covered=page=>page.evaluate(()=>Object.fromEntries([...CSS.highlights].fil
    assert.deepEqual(await covered(page),{},'off when Settings say Off');
    // Diagrams draw after first paint; compare against the settled article.
    await page.waitForFunction(()=>!document.querySelector('#article .reader-diagram-canvas[data-state=loading]'));
-   const markup=await page.locator('#article').innerHTML();
+   // Layout estimates (place.mjs sets each block's contain-intrinsic-size as it is measured) may land at any time; they
+   // are not the article's content, so the DOM comparisons below leave them out.
+   const content=async()=>(await page.locator('#article').innerHTML()).replace(/ style="contain-intrinsic-size:[^"]*"/g,'');
+   const markup=await content();
    await leader(page,'c');await settled(page);
    await page.waitForFunction(()=>document.body.classList.contains('prose-subtle'));
    assert.equal(await page.locator('#prose-chip').isVisible(),true);assert.equal(await page.locator('#prose-chip').getAttribute('aria-label'),'Prose colors: Subtle');
@@ -83,7 +86,7 @@ const covered=page=>page.evaluate(()=>Object.fromEntries([...CSS.highlights].fil
    // Find still works over colored text, and the DOM is unchanged.
    await page.keyboard.press('/');await page.locator('#find-query').fill('careful thought');
    await page.waitForFunction(()=>CSS.highlights.get('reader-find')?.size>0);
-   assert.equal(await page.locator('#article').innerHTML(),markup,'the article DOM is unchanged');
+   assert.equal(await content(),markup,'the article DOM is unchanged');
    await page.keyboard.press('Escape');
    assert.match(await page.locator('#status-keys').innerHTML(),/kbd/);
    await leader(page,'?');assert.ok((await page.locator('#help').textContent()).includes('Prose colors: Off, Subtle, Clear, Vivid'));await page.keyboard.press('Escape');
