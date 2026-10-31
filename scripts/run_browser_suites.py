@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Run the browser suites (tests/web_*.cjs) in parallel and report the result.
 
-    python3 scripts/run_browser_suites.py                 # every suite, two thirds of the cores at a time
+    python3 scripts/run_browser_suites.py                 # every suite, as many at a time as the machine has room for
     python3 scripts/run_browser_suites.py -j 8            # eight at a time
     python3 scripts/run_browser_suites.py dock threads    # suites whose names contain "dock" or "threads"
 
@@ -34,6 +34,17 @@ def suites(patterns):
     found = sorted(path.stem for path in (ROOT / 'tests').glob('web_*.cjs')
                    if 'chromium' in (text := path.read_text()) or 'module.exports' not in text)
     return [name for name in found if not patterns or any(pattern in name for pattern in patterns)]
+
+
+def default_jobs():
+    """Two thirds of the cores, less what other work on the machine already uses (the one-minute load), at least two.
+    A busy shared machine starves browsers, and their timing then fails suites that pass on a quiet one."""
+    cores = os.cpu_count() or 3
+    try:
+        load = os.getloadavg()[0]
+    except OSError:
+        load = 0
+    return max(2, int(cores * 2 // 3 - load))
 
 
 def exclusive(name):
@@ -70,9 +81,10 @@ def tail(log, lines=12):
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__.split('\n', 1)[0])
     parser.add_argument('patterns', nargs='*', help='Run only suites whose names contain one of these')
-    parser.add_argument('-j', '--jobs', type=int, default=max(1, (os.cpu_count() or 3) * 2 // 3), help='Suites at a time (default: two thirds of the cores)')
+    parser.add_argument('-j', '--jobs', type=int, default=None, help='Suites at a time (default: two thirds of the cores, less the current load)')
     parser.add_argument('--timeout', type=float, default=600, help='Seconds before a suite is killed (default 600)')
     args = parser.parse_args(argv)
+    args.jobs = args.jobs or default_jobs()
     names = suites(args.patterns)
     if not names:
         sys.exit('No browser suites match ' + ' '.join(args.patterns))
