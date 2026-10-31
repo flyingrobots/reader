@@ -1,5 +1,7 @@
 import {useState, useSyncExternalStore, useEffect, type ReactNode} from 'react';
 import {FindBar} from './find-bar';
+import {ArtPromptCard, type ArtPromptView} from './art-prompt-card';
+import {ArtFocusChrome, type ArtFocusChromeProps} from './art-focus-chrome';
 import {ReadingLog, type ReadingLogActions, type ReadingLogModel} from './reading-log';
 import {LinkPreview, type LinkPreviewState} from './link-preview';
 import {VersionsTimeline, type TimelineModel} from './versions-timeline';
@@ -500,6 +502,14 @@ export function renderVersionsTimeline(container:HTMLElement,model:TimelineModel
   container.dataset.ui='shadcn';
   const root=islands.get(container),view=<VersionsTimeline key={doc} model={model}/>;
   if(root)flushSync(()=>root.render(view));else mount(container,view);
+}
+/** The art focus view's chrome, rendered once into `container` before art-focus.mjs wires it by its hooks. */
+export function mountArtFocusChrome(container:HTMLElement,props:ArtFocusChromeProps){container.dataset.ui='shadcn';mount(container,<ArtFocusChrome {...props}/>);}
+/** The art prompt card's body (#art-prompt-card): one persistent root, re-rendered by art-prompt.mjs as the answer loads. */
+export function renderArtPrompt(container:HTMLElement,view:ArtPromptView,layout:()=>void){
+  container.dataset.ui='shadcn';
+  const root=islands.get(container),card=<ArtPromptCard view={view} layout={layout}/>;
+  if(root)flushSync(()=>root.render(card));else mount(container,card);
 }
 /** The link preview card: one persistent root in its own container; links.mjs passes null to close it. */
 let linkPreviewRoot:HTMLElement|null=null;

@@ -30,6 +30,8 @@
     "src/admin/pages/voices.tsx": "066a7971b8460c9133bc29382d4f5356978cefdb216f4d21ff86f51a4904cb8f",
     "src/admin/panels.tsx": "158aa93d7cbde9adf0ecc97a4ade5ed9082f6e9bc363422afc338f1017cfefa0",
     "src/admin/sections.tsx": "3a3c193d3939ab98af817fef09ebef41e37bb8d25697c35ba2f561f436049d3b",
+    "src/art-focus-chrome.tsx": "51fd02526aea995a20a91490da61ca3d31cf25d06eda9fb30e8bce82fed457fa",
+    "src/art-prompt-card.tsx": "6cd9e2d4c4f1b9a2469841b87038dfd19e0e7f9e986fd80141e2a7b8950b154a",
     "src/art-regenerate.tsx": "1d1187b7482efb4ce0ba829e1bfb94fe8f1af72d9a90f6e525edb59e1be76f2f",
     "src/art-studio.tsx": "b907a89419ee96cb50620815be4aa207d8fa688060ddd39b3270d9a3326dd302",
     "src/art/art.ts": "cd1242a47eda6306459ef1906116ada99778ea58660ca54e252aecd1106375a2",
@@ -110,7 +112,7 @@
     "src/plural.ts": "4c0d0698a171b39d5683548f00e2e9a8a7c5ea1af28e4067aaa63612476b5fa2",
     "src/queue-panel.tsx": "f94dbf25fb0b53288a3de2b9ae46029eab1b9522a2ebe3655cb32a3b65d816bb",
     "src/quiz.tsx": "da429b5617a6c905d376cea263c1901325c2e1d43890957e294114492a852cb2",
-    "src/reader-controls.tsx": "2d0bce0c32622f91c71f0916da2e00f5790c165bebbe4c7ccbeab59e8b65c8bf",
+    "src/reader-controls.tsx": "e3bb7a0ab325c080a80fa3afac224bcb429ffa0fe6f679ffd7adf7aa579bf390",
     "src/reading-log.tsx": "1981dbb7da8a7c010d38d588992ba1b9afc5ef9c611badb247d6f8fadc8a4fda",
     "src/scratch-question.tsx": "ae90d508a8ca52994fb567380d60bef8644475691754a97fd697b323dcb7e7e3",
     "src/search-page.tsx": "b63ecad9ec576f5375ecced55c54670cd69af9380e70542ae941f4065e8f3323",
@@ -961,12 +963,12 @@
       "sha256": "cb2ee2554fd41ac9f8e2e69c350365f0e1cf9732d27ad161c9c97b20945bbe4c"
     },
     "reader-controls.css": {
-      "bytes": 178795,
-      "sha256": "04a59f71efe777b4b17174c4c5e4bf6809216531438bebcb5f60e5e0c6022035"
+      "bytes": 180419,
+      "sha256": "47fda83454c0ab56721accdd7ae47476eabdc74efddf44728023d56873cfcb98"
     },
     "reader-controls.js": {
-      "bytes": 1215576,
-      "sha256": "b46ec693371654cbb13f4a13a810726883e266904b4b9e3a8ab6f61f5ec80d46"
+      "bytes": 1221658,
+      "sha256": "38ee1b876eda96dd9b6233577bef1606c72e0f895a5bc2a10b7328d22d2e7e21"
     },
     "reader-controls.js.LEGAL.txt": {
       "bytes": 6412,

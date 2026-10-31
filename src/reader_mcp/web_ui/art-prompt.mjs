@@ -4,10 +4,9 @@
     brief and scene-language reference are collapsed. Handcrafted art says so; versions made before run logs
     existed say the prompt was not recorded. One card per page, outside the article (it is never searched,
     selected or rasterized), closed by Esc, a click elsewhere, or leaving both the art and the card. */
+import {renderArtPrompt} from './controls/reader-controls.js';
+
 const answers=new Map();
-const esc=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-const STAGES={brief:'Brief prompt',scene:'Scene prompt',repair:'Repair prompt'};
-const PARTS={article:'The article, as quoted',brief:'The brief, as quoted',reference:'The scene language reference'};
 const HOVER=350,LEAVE=220,PRESS=550,PRESS_MOVE=10;
 let card=null,current=null,showTimer=0,hideTimer=0,pinned=false,opener=null;
 
@@ -29,25 +28,6 @@ export function loadPrompt(api,path,art){
   if(!answers.has(key))answers.set(key,api(promptUrl(path,art)).catch(error=>{answers.delete(key);throw error;}));
   return answers.get(key);
 }
-const day=value=>{const d=value?new Date(value):null;return d&&!isNaN(d)?d.toLocaleDateString(undefined,{month:'short',day:'numeric',year:'numeric'}):null;};
-const count=n=>Number(n).toLocaleString();
-
-/** The card's body for one answer: who, when, which prompt versions, the note, then each stage's prompt. */
-export function promptMarkup(prompt,art){
-  const who=prompt.producer||{},versions=Object.entries(prompt.prompts||{}).filter(([,v])=>v).map(([,v])=>v);
-  const head=[who.label?`Made by ${who.label}${who.model?` (${who.model})`:''}`:null,day(prompt.created_at),versions.length?'prompts '+versions.join(' · '):null].filter(Boolean).join(' · ');
-  const note=(art?.brief||'').split(/\n{2,}/)[0];
-  let body;
-  if(prompt.handcrafted)body=`<p class="art-prompt-message">${esc(prompt.message)}</p>`;
-  else if(!prompt.recorded)body=`<p class="art-prompt-message">${esc(prompt.message||'Prompt not recorded for this version.')}</p>`;
-  else body=prompt.stages.map((stage,index)=>`<section class="art-prompt-stage" data-stage="${esc(stage.name)}"><div class="art-prompt-stage-head"><h4>${esc(STAGES[stage.name]||stage.name)}</h4><button type="button" data-button="outline xs" data-copy="${index}">Copy</button></div>`
-    +stage.parts.map(part=>part.kind==='instructions'?`<pre class="art-prompt-text">${esc(part.text.trim())}</pre>`
-      :`<details class="art-prompt-quote" data-part="${esc(part.kind)}"><summary>${esc(PARTS[part.kind]||part.kind)} <span>${count(part.chars)} characters</span></summary><pre class="art-prompt-text">${esc(part.text)}</pre></details>`).join('')
-    +(stage.truncated?'<p class="art-prompt-message">The rest of this prompt is in the run log.</p>':'')+'</section>').join('');
-  return `<div class="art-prompt-head"><p class="art-prompt-kicker">How this art was made</p><h3 class="art-prompt-title">${esc(prompt.title||art?.title||'Untitled')}</h3><p class="art-prompt-meta">${esc(head)}</p></div>`
-    +(note?`<p class="art-prompt-note"><span>Artist’s note</span> ${esc(note)}</p>`:'')+body
-    +(prompt.recorded&&prompt.log?`<p class="art-prompt-log">Run log <code>${esc(prompt.log)}</code></p>`:'');
-}
 
 function place(anchor){
   const rect=anchor.getBoundingClientRect(),gutter=16,width=Math.min(460,innerWidth-2*gutter);card.style.width=width+'px';
@@ -63,18 +43,15 @@ async function show(target,{focus=false}={}){
   ensureCard();clearTimeout(hideTimer);clearTimeout(showTimer);
   if(current&&current!==target)current.button?.setAttribute('aria-expanded','false');
   current=target;pinned=pinned||focus;card.hidden=false;card.dataset.state='loading';card.dataset.art=target.path;
-  card.innerHTML='<p class="art-prompt-message">Reading the run log…</p>';place(target.anchor);target.button?.setAttribute('aria-expanded','true');
+  // The body is web/src/art-prompt-card.tsx; opening a collapsed quote re-places the card.
+  const layout=()=>{if(current===target&&!card.hidden)place(target.anchor);};
+  renderArtPrompt(card,{state:'loading'},layout);place(target.anchor);target.button?.setAttribute('aria-expanded','true');
   if(focus){opener=document.activeElement;card.focus({preventScroll:true});}
   let prompt;
   try{prompt=await loadPrompt(target.api,target.path,target.art);}
-  catch(error){if(current!==target)return;card.dataset.state='error';card.innerHTML=`<p class="art-prompt-message">${esc(error.message||'The prompt could not be read.')}</p>`;return;}
+  catch(error){if(current!==target)return;card.dataset.state='error';renderArtPrompt(card,{state:'error',message:error.message||'The prompt could not be read.'},layout);return;}
   if(current!==target||card.hidden)return;
-  card.innerHTML=promptMarkup(prompt,target.art);card.dataset.state=prompt.handcrafted?'handcrafted':prompt.recorded?'recorded':'unrecorded';
-  card.querySelectorAll('[data-copy]').forEach(button=>button.onclick=async event=>{event.preventDefault();
-    const text=prompt.stages[+button.dataset.copy].parts.map(p=>p.text).join('');
-    try{await navigator.clipboard.writeText(text);button.textContent='Copied';}catch{button.textContent='Copy failed';}
-    setTimeout(()=>{if(button.isConnected)button.textContent='Copy';},1600);});
-  card.querySelectorAll('details').forEach(d=>d.addEventListener('toggle',()=>place(target.anchor)));
+  renderArtPrompt(card,{state:'ready',prompt,title:target.art?.title,brief:target.art?.brief},layout);card.dataset.state=prompt.handcrafted?'handcrafted':prompt.recorded?'recorded':'unrecorded';
   place(target.anchor);
 }
 function scheduleHide(){clearTimeout(hideTimer);hideTimer=setTimeout(()=>hide(),LEAVE);}

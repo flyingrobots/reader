@@ -438,35 +438,17 @@ html.art-focusing,html.art-focusing body{overflow:hidden}
 .art-focus-stage .art-message{position:absolute;inset:0;display:grid;place-items:center;margin:0;font:400 14px/1.5 var(--sans);color:var(--muted)}
 .art-focus-bar{position:absolute;z-index:2;left:clamp(12px,3vw,32px);right:clamp(12px,3vw,32px);top:clamp(12px,3vw,28px);display:flex;flex-wrap:wrap;align-items:flex-start;justify-content:space-between;gap:12px;pointer-events:none}
 .art-focus-bar>*{pointer-events:auto}
-.art-focus-heading{padding:10px 16px;border-radius:8px;background:color-mix(in oklab,var(--bg) 82%,transparent);backdrop-filter:blur(8px);max-width:min(60ch,100%)}
-.art-focus-kicker{margin:0;font:600 9px/1.3 var(--sans);letter-spacing:.14em;text-transform:uppercase;color:var(--accent)}
-.art-focus-title{margin:2px 0 0;font:500 clamp(20px,2.6vw,32px)/1.15 var(--serif);color:var(--ink)}
-.art-focus-credit{margin:4px 0 0;font:400 11px/1.4 var(--sans);color:var(--muted)}
-.art-focus-actions{display:flex;flex-wrap:wrap;gap:6px;padding:8px;border-radius:8px;background:color-mix(in oklab,var(--bg) 82%,transparent);backdrop-filter:blur(8px)}
-.art-focus-note{position:absolute;z-index:2;left:clamp(12px,3vw,32px);bottom:clamp(12px,3vw,28px);width:min(62ch,calc(100% - 24px));max-height:45vh;overflow:auto;margin:0;padding:16px 18px;background:var(--surface);border-left:2px solid var(--line);border-radius:0 6px 6px 0;box-shadow:var(--shadow);font:400 15px/1.55 var(--serif)}
-.art-focus-note h3{font:600 11px/1.3 var(--sans);letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:0 0 10px}.art-focus-note p{margin:0 0 .7em}
+.art-focus-note{position:absolute;z-index:2;left:clamp(12px,3vw,32px);bottom:clamp(12px,3vw,28px);width:min(62ch,calc(100% - 24px));max-height:45vh;overflow:auto}
 .art-focus-regenerate{position:absolute;z-index:3;right:clamp(12px,3vw,32px);bottom:clamp(12px,3vw,28px);width:min(560px,calc(100% - 24px));max-height:calc(100% - 120px);overflow:auto;padding:16px;background:var(--raised);border:1px solid var(--line);border-radius:10px;box-shadow:var(--shadow)}
-.art-focus-status{position:absolute;z-index:2;right:clamp(12px,3vw,32px);bottom:clamp(12px,3vw,28px);margin:0;max-width:min(52ch,calc(100% - 24px));padding:8px 12px;border-radius:6px;background:color-mix(in oklab,var(--bg) 82%,transparent);font:400 12px/1.45 var(--sans);color:var(--ink)}.art-focus-status:empty{display:none}
+.art-focus-status{position:absolute;z-index:2;right:clamp(12px,3vw,32px);bottom:clamp(12px,3vw,28px);max-width:min(52ch,calc(100% - 24px))}.art-focus-status:empty{display:none}
 .art-regenerate textarea{font:400 14px/1.5 var(--serif);color:var(--ink);min-height:8em;max-height:40vh}
 @media(max-width:640px){.art-focus-actions{width:100%}.art-focus-regenerate{left:12px;right:12px;width:auto;bottom:12px}}
 /* How this art was made (#146): the prompt card on hover, focus (the caption's Prompt button) or long-press. */
 .art-caption .art-prompt-toggle{font:inherit;letter-spacing:inherit;text-transform:inherit;color:var(--muted);padding-inline:0;margin-right:auto}
 .art-caption .art-prompt-toggle:hover,.art-caption .art-prompt-toggle[aria-expanded=true]{color:var(--ink)}
 .art-caption{column-gap:14px}
-.art-prompt-card{position:fixed;z-index:88;overflow:auto;overscroll-behavior:contain;padding:16px 18px 14px;background:var(--raised);color:var(--ink);border:1px solid var(--line);border-radius:8px;box-shadow:var(--shadow);font:400 12px/1.5 var(--sans)}
+.art-prompt-card{position:fixed;z-index:88;display:flex;flex-direction:column}
 .art-prompt-card[hidden]{display:none}.art-prompt-card:focus{outline:none}.art-prompt-card:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
-.art-prompt-kicker{font:600 9px/1.3 var(--sans);letter-spacing:.14em;text-transform:uppercase;color:var(--accent);margin:0 0 6px}
-.art-prompt-title{font:500 19px/1.25 var(--serif);margin:0 0 4px;color:var(--ink)}
-.art-prompt-meta,.art-prompt-log{margin:0;color:var(--muted);font-size:11px;overflow-wrap:anywhere}.art-prompt-log{margin-top:12px}.art-prompt-log code{font:10px var(--mono)}
-.art-prompt-note{margin:12px 0 0;padding:10px 12px;border-left:2px solid var(--line);background:var(--surface);border-radius:0 4px 4px 0;font:400 14px/1.5 var(--serif);color:var(--ink)}
-.art-prompt-note span{display:block;font:600 9px/1.3 var(--sans);letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-bottom:4px}
-.art-prompt-message{margin:12px 0 0;color:var(--muted);font-style:italic}
-.art-prompt-stage{margin-top:14px;padding-top:12px;border-top:1px solid var(--line)}
-.art-prompt-stage-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:6px}
-.art-prompt-stage h4{font:600 11px/1.3 var(--sans);letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin:0}
-.art-prompt-text{margin:0;padding:8px 10px;max-height:none;white-space:pre-wrap;overflow-wrap:anywhere;font:11px/1.5 var(--mono);color:var(--ink);background:var(--surface);border-radius:4px}
-.art-prompt-quote{margin:6px 0}.art-prompt-quote>summary{cursor:pointer;color:var(--muted);font-size:11px;padding:4px 0}.art-prompt-quote>summary span{color:var(--faint);margin-left:6px}
-.art-prompt-quote>pre{max-height:260px;overflow:auto}
 /* The hero (#145): an article with art opens on it, full width above the title in continuous reading; in two-page
    reading it covers the whole first spread (the empty .art-hero-spacer pages keep the text off it). */
 #main:has(.has-hero){overflow-x:clip}body:not(.two-page) .document-shell.has-hero{padding-top:0}

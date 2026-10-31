@@ -46,12 +46,12 @@ const {pinDate}=require('./web_clock.cjs');  // the fixture's pinned clock (#131
    const text=await card(page).textContent();
    assert.match(text,/How this art was made/);assert.match(text,/A synthetic artwork/);assert.match(text,/Made by Painter \(fake-model-1\)/);
    assert.match(text,/prompts brief\.v1 · scene\.v1 · dsl\.v1/);assert.match(text,/Artist’s note/);assert.match(text,/Two slow forms circle a quiet center/);
-   assert.deepEqual(await page.locator('#art-prompt-card .art-prompt-stage h4').allTextContents(),['Brief prompt','Scene prompt']);
-   assert.match(await page.locator('#art-prompt-card [data-stage=brief] > pre').first().textContent(),/Reader art brief \(prompt brief\.v1\)/,'the instructions show first');
-   const quoted=page.locator('#art-prompt-card [data-stage=brief] details[data-part=article]');
-   assert.equal(await quoted.count(),1);assert.equal(await quoted.evaluate(d=>d.open),false,'the article is collapsed');
-   assert.match(await quoted.locator('summary').textContent(),/The article, as quoted [\d,]+ characters/);
-   assert.equal(await page.locator('#art-prompt-card [data-stage=scene] details[data-part=reference]').count(),1,'the scene language reference is collapsed');
+   assert.deepEqual(await page.locator('#art-prompt-card [data-art-stage-title]').allTextContents(),['Brief prompt','Scene prompt']);
+   assert.match(await page.locator('#art-prompt-card [data-stage=brief] [data-prompt-text]').first().textContent(),/Reader art brief \(prompt brief\.v1\)/,'the instructions show first');
+   const quoted=page.locator('#art-prompt-card [data-stage=brief] [data-part=article]');
+   assert.equal(await quoted.count(),1);assert.equal(await quoted.locator('[aria-expanded]').getAttribute('aria-expanded'),'false','the article is collapsed');
+   assert.match(await quoted.locator('[aria-expanded]').textContent(),/The article, as quoted [\d,]+ characters/);
+   assert.equal(await page.locator('#art-prompt-card [data-stage=scene] [data-part=reference]').count(),1,'the scene language reference is collapsed');
    const box=await card(page).boundingBox();assert.ok(box.y>=0&&box.y+box.height<=900&&box.x>=0&&box.x+box.width<=1300,'the card stays on screen');
    assert.equal(await card(page).evaluate(el=>el.closest('#article')===null&&el.hasAttribute('data-reader-decoration')),true,'outside the article, decoration');
    // Moving into the card keeps it; Copy copies the stage's whole prompt as sent.
@@ -116,7 +116,7 @@ const {pinDate}=require('./web_clock.cjs');  // the fixture's pinned clock (#131
    await page.locator('#article .article-art .art-surface').hover();await ready(page);
    assert.equal(await card(page).getAttribute('data-state'),'handcrafted');
    assert.match(await card(page).textContent(),/Handcrafted for the Reader demo; no model was run\./);
-   assert.equal(await page.locator('#art-prompt-card .art-prompt-stage').count(),0);
+   assert.equal(await page.locator('#art-prompt-card [data-art-prompt-stage]').count(),0);
    assert.deepEqual(errors,[]);await context.close();}
 
   // Touch: a long press opens the card; phone width keeps it on screen.

@@ -19,12 +19,16 @@ const {pinDate}=require('./web_clock.cjs');
   await page.waitForFunction(()=>['live','still','image','unavailable'].includes(document.querySelector('.art-focus')?.dataset.state));
   const input=await context.newCDPSession(page);
   const touch=(type,x,y)=>input.send('Input.dispatchTouchEvent',{type,touchPoints:type==='touchEnd'?[]:[{x,y,id:0}]});
-  // The gesture runs on Playwright's clock, so the 550 ms long-press timer only advances when the test says: exactly
-  // 170 ms between moves, however late a loaded machine delivers the touch events. Real time resumes afterwards.
+  // The drag is dispatched in the page as touch pointer events, in order, on Playwright's clock: CDP's touch events reach
+  // a loaded renderer late (the first move ~390 ms after the start), so a real drag could legitimately look like a
+  // 550 ms stationary press. In-page events and virtual time leave only the app's decision to test. Real time resumes
+  // after the gesture.
   await page.clock.install();
-  await touch('touchStart',64,300);
-  for(const x of [94,124,154,184]){await page.clock.runFor(170);await touch('touchMove',x,300);}
-  await touch('touchEnd');
+  const pointer=(type,x,y)=>page.evaluate(([type,x,y])=>document.querySelector('.art-focus-stage canvas, .art-focus-stage img, .art-focus-stage')
+    .dispatchEvent(new PointerEvent(type,{bubbles:true,cancelable:true,pointerType:'touch',pointerId:7,isPrimary:true,clientX:x,clientY:y})),[type,x,y]);
+  await pointer('pointerdown',64,300);
+  for(const x of [94,124,154,184]){await page.clock.runFor(170);await pointer('pointermove',x,300);}
+  await pointer('pointerup',184,300);await page.clock.runFor(700);
   assert.equal(await page.locator('#art-prompt-card:visible').count(),0,'a continuous touch drag past the long-press delay must not open the card');
   // A fresh stationary gesture, allowing slight finger jitter, still opens the prompt.
   await touch('touchStart',80,300);await touch('touchMove',84,303);await page.clock.runFor(700);

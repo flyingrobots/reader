@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- The art prompt card and the art focus view's chrome are shadcn Cards, CodeBlocks, Collapsibles and a ButtonGroup. web_art_touch dispatches its drag in the page on Playwright's clock instead of relying on CDP touch timing.
 - The Find bar (/) is a shadcn InputGroup with the match count and a ButtonGroup to step or close.
 - The Scratch pad's Save dialog is a shadcn form (Field, Input, NativeSelect, Notice) in a Dialog; Reader has no native `<dialog>` left, and the `dialog` element CSS is removed.
 - The Documents picker is a shadcn Dialog that keeps its plain-JavaScript content mounted. Focus leaves every app dialog as soon as it starts closing, as it did from a native dialog, and returns to the document when nothing else had it.
