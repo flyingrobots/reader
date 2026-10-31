@@ -3,6 +3,7 @@
    Esc or Close returns to the same place in both layouts with focus restored. Regenerate this opens the Prompt
    Input prefilled with the version's direction (or its Artist's note), with the Art made by menu; submitting queues
    a new version with the edited direction (a fake voice), and the note then counts two versions. Synthetic only. */
+// suite: exclusive (drives the live 3D scene, which the art kill switch turns into a still on a starved machine; run_browser_suites.py runs it on a quiet machine)
 const assert=require('node:assert/strict');
 const {spawn}=require('node:child_process');
 const {createInterface}=require('node:readline');
@@ -76,8 +77,12 @@ const {chromium}=require(process.env.READER_PLAYWRIGHT||'playwright-core');
    if(state==='live'){
      const yaw=()=>page.evaluate(()=>document.querySelector('.art-focus').artView?.view?.yaw);
      assert.equal(await yaw(),0);
+     await page.evaluate(()=>{window.__drag=[];const canvas=document.querySelector('.art-focus canvas');for(const type of ['pointerdown','pointermove','pointerup','pointercancel','lostpointercapture'])canvas?.addEventListener(type,e=>window.__drag.push(type[7]+Math.round(e.clientX)+(e.target===canvas?'':'!')));});
      await page.mouse.move(650,450);await page.mouse.down();await page.mouse.move(520,430,{steps:6});await page.mouse.up();
-     const dragged=await yaw();assert.ok(Math.abs(dragged)>.2,`dragging turns the view (${dragged})`);
+     // Playwright returns once the input is sent; on a busy machine the page handles it later. Read the turn once the
+     // canvas has seen the release.
+     await page.waitForFunction(()=>window.__drag.some(entry=>entry.startsWith('u')),null,{timeout:10000}).catch(()=>{});
+     const dragged=await yaw();assert.ok(Math.abs(dragged)>.2,`dragging turns the view (${dragged}); canvas saw ${await page.evaluate(()=>window.__drag.join(' '))}; card ${await page.evaluate(()=>!document.querySelector('#art-prompt-card')?.hidden)}`);
      assert.equal(await page.locator('#art-prompt-card:visible').count(),0,'dragging the artwork does not open a hover card');
      await page.locator('.art-focus-stage').focus();await page.keyboard.press('ArrowLeft');assert.ok(await yaw()>dragged,'arrow keys turn it');
      await page.keyboard.press('-');assert.ok(await page.evaluate(()=>document.querySelector('.art-focus').artView.view.zoom)>1,'− zooms out');
