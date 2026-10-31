@@ -105,3 +105,10 @@ def test_worker_explicitly_bounds_shared_memory(tmp_path, monkeypatch):
     argv = capture_worker_start(tmp_path, monkeypatch, 'run')['argv']
     assert '--shm-size' in argv, 'A daemon default must not escape the declared data budget'
     assert argv[argv.index('--shm-size') + 1] == '64m'
+
+
+def test_web_archive_contains_canonical_markdown_dependencies(tmp_path, monkeypatch):
+    data = capture_worker_start(tmp_path, monkeypatch, 'archive')['archive']
+    with tarfile.open(fileobj=io.BytesIO(data)) as archive:
+        assert 'docs/topics/indexes.md' in archive.getnames(), 'The frontend imports its reference at build time'
+        assert archive.extractfile('docs/topics/indexes.md').read() == b'# Canonical index reference\n'
