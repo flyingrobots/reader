@@ -39,9 +39,9 @@ const tidal='library/essays/tidal/tidal.md';
    assert.equal(await panel.locator('.vt-file .vt-tag.read').first().textContent(),c.tag,c.timezoneId+' timeline tag');
    await page.keyboard.press('Escape');await panel.waitFor({state:'hidden'});
    // Reading log: another reader's mark from more than a week ago shows its local date; the title has the local zone.
-   const log=page.locator('.reading-log');await log.locator('.reading-log-details').waitFor();
-   await log.locator('.reading-log-details>summary').click();await log.locator('.reading-log-agents>summary').click();
-   const row=log.locator('.reading-log-agents .reading-log-row',{hasText:c.other[0]});
+   const log=page.locator('.reading-log');await log.locator('[data-reading-log-details]').waitFor();
+   await log.locator('[data-reading-log-toggle]').click();await log.locator('[data-reading-log-agents-toggle]').click();
+   const row=log.locator('[data-reading-log-agents] [data-reading-log-row]',{hasText:c.other[0]});
    assert.equal(await row.locator('time').textContent(),c.other[1],c.timezoneId+' reading log');
    assert.match(await row.locator('time').getAttribute('title'),new RegExp(`· ${c.other[0]} · ${c.other[1]}, 2026, \\d+:16\\s[AP]M (GMT[+-]\\d+|[A-Z]{3,4})$`));
    // History groups by the local day of each open, relative to the local today.

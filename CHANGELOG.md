@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- The reading log under a document's title is a shadcn component: a Collapsible line and Item rows, with the folded task agents in a nested Collapsible. `readingLogModel` replaces the HTML string builder, and its legacy CSS is removed.
 - The Library's gallery charts moved into TypeScript. Their data helpers are in `gallery-model.ts` (still unit-tested from Node), the calendar and reading-by-topic charts are in `library-charts.ts`, and the shelves are a React component with a shadcn Breadcrumb and NativeSelect. `web_ui/library-charts.mjs`, the chart callbacks `app.mjs` passed to the page, the unused atlas and their legacy CSS are removed.
 - `scripts/stray_work.py` reports finished work that has not reached `origin/main`: unpushed or unmerged branches, squash-landed branches that are safe to delete, and clean, merged worktrees that can be removed. It never deletes anything. See docs/stray-work.md.
 - The Reader service follows `origin/main` by default and fetches it before each install and update, so the preview shows what was pushed. Fetches take the repo `.git/` lock; offline, the updater keeps the last fetched commit and logs `fetch-failed`. Previously it followed the local `preview/integration` branch and never fetched.

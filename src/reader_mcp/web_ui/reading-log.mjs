@@ -1,5 +1,5 @@
 /** The reading log under a document title: who read this edition, or an earlier one, and when. */
-import {escapeHTML as esc, formatDate, formatDateTime, localDay, daysBetween} from './logic.mjs';
+import {formatDate, formatDateTime, localDay, daysBetween} from './logic.mjs';
 
 // Names in the collapsed line before "+N more".
 export const LOG_NAMES=4;
@@ -30,27 +30,22 @@ export function withYou(data,at=new Date().toISOString()){
   const readers=data.readers.filter(r=>r!==mine);const at0=readers.findIndex(r=>r.group!=='voice');
   readers.splice(at0<0?readers.length:at0,0,you);return {...data,readers};
 }
-function row(r,now){
-  const threads=r.threads?`<button type="button" data-button="link xs" class="reading-log-threads" data-reader-threads="${esc(r.participant)}">${r.threads} ${r.threads===1?'thread':'threads'}</button>`:'';
-  // The change view (RW-06) attaches to [data-against] when it is installed.
-  const against=r.state==='earlier'&&r.version?` data-against="${esc(r.version)}"`:'';
-  return `<li class="reading-log-row" data-state="${r.state}" data-group="${r.group}"${against}><span class="reading-log-mark" aria-hidden="true">${MARK[r.state]}</span><span class="reading-log-name">${esc(label(r))}</span><time datetime="${esc(r.at)}" title="${esc(stamp(r))}">${esc(readWhen(r.at,now))}</time>${threads}</li>`;
-}
-function quizLogHTML(data,now){
-  const results=data.quiz_results||[];if(!results.length)return '';
-  return '<ul class="reading-log-quizzes">'+results.map(r=>`<li>${esc(r.group==='you'?'You':r.participant)} took the quiz · ${esc(r.score)}/${esc(r.total)} · ${esc(readWhen(r.at,now))}${r.state==='earlier'?' · earlier edition':''}</li>`).join('')+'</ul>';
-}
-export function readingLogHTML(data,now=new Date()){
-  const quizzes=quizLogHTML(data,now)+(data.writing?.length?'<ul class="reading-log-writing">'+data.writing.map(piece=>`<li><a href="#read=${encodeURIComponent(piece.path)}" data-path="${esc(piece.path)}">You wrote about this · ${esc(formatDate(piece.date))}</a></li>`).join('')+'</ul>':'');
-  if(!data.readers.length)return '<p class="reading-log-empty">Not yet read by anyone. You’ll be first.</p>'+quizzes;
+/** Everything the reading log shows, as plain strings and numbers for web/src/reading-log.tsx. */
+export function readingLogModel(data,now=new Date()){
+  const word=n=>n===1?'task agent':'task agents';
+  const row=r=>({participant:r.participant,label:label(r),group:r.group,state:r.state,at:r.at,when:readWhen(r.at,now),stamp:stamp(r),
+    threads:r.threads||0,against:r.state==='earlier'&&r.version?r.version:null});
+  const quizzes=(data.quiz_results||[]).map(r=>`${r.group==='you'?'You':r.participant} took the quiz · ${r.score}/${r.total} · ${readWhen(r.at,now)}${r.state==='earlier'?' · earlier edition':''}`);
+  const writing=(data.writing||[]).map(piece=>({path:piece.path,label:'You wrote about this · '+formatDate(piece.date)}));
+  if(!data.readers.length)return {empty:true,entries:[],more:0,summary:'',groups:[],agents:null,quizzes,writing};
   const entries=logEntries(data),visible=entries.slice(0,LOG_NAMES),rest=entries.slice(LOG_NAMES);
   const more=rest.reduce((n,e)=>n+(e.folded?e.folded.length:1),0);
-  const word=n=>n===1?'task agent':'task agents';
-  const line=visible.map(e=>e.folded?`<span class="reading-log-entry" data-folded="${e.folded.length}">${e.folded.length} ${word(e.folded.length)}</span>`
-    :`<span class="reading-log-entry" data-state="${e.reader.state}" title="${esc(stamp(e.reader))}"><span class="reading-log-mark" aria-hidden="true">${MARK[e.reader.state]}</span> ${esc(label(e.reader))}${e.reader.state==='earlier'?' <span class="reading-log-earlier">(earlier edition)</span>':''} ${esc(readWhen(e.reader.at,now))}</span>`).join('<span class="reading-log-dot" aria-hidden="true"> · </span>');
+  const line=visible.map(e=>e.folded?{folded:e.folded.length,text:`${e.folded.length} ${word(e.folded.length)}`}
+    :{state:e.reader.state,mark:MARK[e.reader.state],label:label(e.reader),earlier:e.reader.state==='earlier',when:readWhen(e.reader.at,now),stamp:stamp(e.reader)});
+  const summary='Reading log: '+visible.map(e=>e.folded?e.folded.length+' '+word(e.folded.length):label(e.reader)+(e.reader.state==='earlier'?', earlier edition':'')).join(', ')+(more?`, and ${more} more`:'');
   const newest=list=>[...list].sort((a,b)=>b.at.localeCompare(a.at));
-  const groups=['current','earlier'].map(state=>{const list=newest(data.readers.filter(r=>!r.folded&&r.state===state));return list.length?`<section class="reading-log-group" data-group-state="${state}"><div class="eyebrow" role="heading" aria-level="3">${STATE[state]}</div><ul>${list.map(r=>row(r,now)).join('')}</ul></section>`:'';}).join('');
+  const groups=['current','earlier'].map(state=>({state,title:STATE[state],mark:MARK[state],rows:newest(data.readers.filter(r=>!r.folded&&r.state===state)).map(row)})).filter(group=>group.rows.length);
   const folded=data.readers.filter(r=>r.folded);
-  const agents=folded.length?`<details class="reading-log-agents"><summary>${folded.length} ${word(folded.length)} <span class="reading-log-hint">fewer than ${data.one_off_threshold} documents read</span></summary><ul>${newest(folded).map(r=>row(r,now)).join('')}</ul></details>`:'';
-  return `<details class="reading-log-details"><summary aria-label="Reading log: ${esc(visible.map(e=>e.folded?e.folded.length+' '+word(e.folded.length):label(e.reader)+(e.reader.state==='earlier'?', earlier edition':'')).join(', '))}${more?esc(`, and ${more} more`):''}"><span class="reading-log-line">${line}${more?`<span class="reading-log-dot" aria-hidden="true"> · </span><span class="reading-log-more">+${more} more</span>`:''}</span><span class="reading-log-caret" aria-hidden="true">▾</span></summary><div class="reading-log-body">${groups}${agents}</div></details>`+quizzes;
+  const agents=folded.length?{title:`${folded.length} ${word(folded.length)}`,hint:`fewer than ${data.one_off_threshold} documents read`,rows:newest(folded).map(row)}:null;
+  return {empty:false,entries:line,more,summary,groups,agents,quizzes,writing};
 }

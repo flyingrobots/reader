@@ -60,7 +60,7 @@ const {chromium}=require(process.env.READER_PLAYWRIGHT||'playwright-core');
   assert.equal(await modal.locator('.reader-quiz-running').textContent(),'Score 4 of 5');
   await modal.getByRole('button',{name:'Save results',exact:true}).click();
   await modal.getByText('4 of 5',{exact:true}).waitFor();
-  await page.locator('.reading-log-quizzes',{hasText:'You took the quiz · 4/5'}).waitFor();
+  await page.locator('[data-reading-log-quizzes]',{hasText:'You took the quiz · 4/5'}).waitFor();
   const data=await page.evaluate(async()=>await(await fetch('/api/quiz?path=library/thought.md&participant=Browser%20tester')).json());
   const original=readFileSync(root+`/quizzes/${data.quiz.document_sha256}/${data.quiz.id}.json`,'utf8');
   await modal.getByRole('button',{name:'Retake the same quiz',exact:true}).click();

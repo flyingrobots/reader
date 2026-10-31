@@ -1,4 +1,5 @@
 import {useState, useSyncExternalStore, useEffect, type ReactNode} from 'react';
+import {ReadingLog, type ReadingLogActions, type ReadingLogModel} from './reading-log';
 import {createRoot, type Root} from 'react-dom/client';
 import {createPortal, flushSync} from 'react-dom';
 import {Progress} from './components/ui/progress';
@@ -450,6 +451,13 @@ export function mountChangesPanel(container:HTMLElement,options:Omit<ChangesOpti
   let root:Root|undefined;
   mount(container,<ChangesPanel key={Date.now()} {...options} onClose={()=>setTimeout(()=>{if(root&&islands.get(container)===root)clearControlsWithin(container);},250)}/>);
   root=islands.get(container);
+}
+/** The reading log in an article's `.reading-log` slot: one persistent root per slot, so an open log stays open when
+    app.mjs repaints it (your own read arriving, a refresh). A null model shows that the log is unavailable. */
+export function renderReadingLog(container:HTMLElement,model:ReadingLogModel|null,actions:ReadingLogActions){
+  container.dataset.ui='shadcn';
+  const root=islands.get(container);
+  if(root)flushSync(()=>root.render(<ReadingLog model={model} actions={actions}/>));else mount(container,<ReadingLog model={model} actions={actions}/>);
 }
 /** The reading queue panel: one persistent root, re-rendered with fresh props from queue.mjs. */
 export function renderQueuePanel(container:HTMLElement,props:QueueProps){

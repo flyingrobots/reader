@@ -102,28 +102,12 @@ body.two-page .article.pdf-document{column-gap:var(--book-gap)}body.two-page .pd
 .next-read-title{font:600 15px/1.35 var(--serif);overflow-wrap:anywhere}
 .next-read-byline{font-size:11px;color:var(--muted)}
 .next-read-reasons{display:flex;flex-wrap:wrap;gap:5px}
-.next-read-reasons span{font-size:10px;line-height:1.5;padding:0 7px;border:1px solid var(--line);border-radius:999px;color:var(--muted)}
-/* Reading log under the document meta. Its slot reserves one line before /api/readers answers. */
+.next-read-reasons span{font-size:10px;line-height:1.5;padding:0 7px;border:1px solid var(--line);border-radius:999px;color:var(--muted)}.document-meta{align-items:center}.document-meta .document-source{text-decoration:none;color:var(--ink)}
+/* Reading log under the document meta. Its slot reserves one line before /api/readers answers; web/src/reading-log.tsx styles the log itself. */
 .document-meta:has(+.reading-log){margin-bottom:14px}
-.document-meta{align-items:center}.document-meta .document-source{text-decoration:none;color:var(--ink)}
 .reading-log{font:11px/1.5 var(--sans);color:var(--muted);margin:0 0 64px;min-height:1.5em;max-width:100%;break-inside:avoid}
 .article .reading-log{font-family:var(--sans);font-size:11px;line-height:1.5}
-.reading-log summary{display:flex;align-items:baseline;gap:8px;cursor:pointer;list-style:none;border-radius:3px}
-.reading-log summary::-webkit-details-marker{display:none}
-.reading-log summary:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
-.reading-log-line{min-width:0}.reading-log-entry{white-space:nowrap}
-.reading-log-mark{color:var(--muted)}.reading-log [data-state=current] .reading-log-mark{color:var(--accent)}
-.reading-log-more{color:var(--ink)}.reading-log-caret{flex:none;transition:transform .2s}.reading-log-details[open]>summary .reading-log-caret{transform:rotate(180deg)}
-.reading-log-body{display:grid;gap:18px;padding:16px 0 4px}
-.reading-log ul,.article .reading-log ul{list-style:none;margin:8px 0 0;padding:0}
-.reading-log-row,.article .reading-log-row{display:flex;flex-wrap:wrap;align-items:baseline;gap:2px 10px;margin:0;padding:7px 0;border-top:1px solid var(--line)}
-.reading-log-name{color:var(--ink);overflow-wrap:anywhere}.reading-log-row time{font-variant-numeric:tabular-nums}
-.reading-log-threads{margin-left:auto}
-.reading-log-agents summary{padding:7px 0;border-top:1px solid var(--line);color:var(--ink)}.reading-log-hint{color:var(--muted)}
-.reading-log-agents ul{padding-left:14px!important}
-.article .reading-log-empty,.reading-log-empty{margin:0;font-style:italic}
 body.two-page .article .reading-log{margin:0 0 1.6em}
-body.two-page .reading-log-details>summary .reading-log-line{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 @media(max-width:700px){.reading-log{margin-bottom:46px}}
 .speech-slot:empty{display:none}
 .speak-menu{width:320px}.speak-menu .dialog-heading{padding:14px 16px 0}.speak-menu h2{font-size:15px}.speak-choices{width:auto;margin:12px 16px 0;display:flex}.speak-choices [data-speak]{justify-content:space-between;width:100%}.speak-choices kbd{font-size:10px;color:var(--muted)}.speak-note{margin:10px 16px 14px;font-size:11px}.document-footer .speak-article{margin-top:14px}
@@ -582,9 +566,7 @@ body.two-page .embed-pdf canvas{max-height:65vh;width:auto!important}
 /* Article learning controls share Read next's last-spread fit rule. */
 .article-learning{display:flex;gap:12px;align-items:center;margin:28px 0;break-inside:avoid}
 ::highlight(reader-quiz){background-color:var(--accent);color:var(--accent-ink)}
-.vim-mode[data-mode=QUIZ]{background:var(--mode-thread)}
-.reading-log-quizzes{list-style:none;padding:0;margin:.5em 0 0;color:var(--muted);font-size:13px;line-height:1.45}
-.reader-quiz-dialog{max-width:min(42rem,calc(100vw - 2rem));max-height:calc(100dvh - 2rem);overflow-y:auto}
+.vim-mode[data-mode=QUIZ]{background:var(--mode-thread)}.reader-quiz-dialog{max-width:min(42rem,calc(100vw - 2rem));max-height:calc(100dvh - 2rem);overflow-y:auto}
 .reader-quiz-score{font-size:2rem;font-variant-numeric:tabular-nums}
 .reader-quiz-dialog [data-slot=dialog-title]{font:500 1.75rem/1.1 var(--h1-font,var(--serif));letter-spacing:-.01em}
 .reader-quiz-bar [data-slot=progress-indicator]{background:var(--accent)}
@@ -606,7 +588,7 @@ body.two-page .embed-pdf canvas{max-height:65vh;width:auto!important}
 /* A question sits at the top of the editor pane; the editor takes the rest of the pane. */
 .scratch-editor:has(>.scratch-prompt-context){display:flex;flex-direction:column}.scratch-editor:has(>.scratch-prompt-context) .cm-editor{flex:1;min-height:0;height:auto}
 .scratch-prompt-context{padding:.5rem .75rem .75rem;border-bottom:1px solid var(--line)}
-.reader-scratch-question{margin:0;padding:0 .5rem;font:400 1.0625rem/1.45 var(--serif);color:var(--ink);text-wrap:pretty}.your-writing{max-width:76rem;margin:2rem auto;padding:0 1.5rem}.your-writing h2{font-size:1.35rem}.your-writing ul{list-style:none;padding:0;display:grid;gap:.65rem}.your-writing li{display:flex;gap:1rem;justify-content:space-between}.your-writing time{color:var(--muted);white-space:nowrap}.reading-log-writing{padding:0;list-style:none}.writing-pin{color:var(--accent)}.article-learning{flex-wrap:wrap}
+.reader-scratch-question{margin:0;padding:0 .5rem;font:400 1.0625rem/1.45 var(--serif);color:var(--ink);text-wrap:pretty}.your-writing{max-width:76rem;margin:2rem auto;padding:0 1.5rem}.your-writing h2{font-size:1.35rem}.your-writing ul{list-style:none;padding:0;display:grid;gap:.65rem}.your-writing li{display:flex;gap:1rem;justify-content:space-between}.your-writing time{color:var(--muted);white-space:nowrap}.writing-pin{color:var(--accent)}.article-learning{flex-wrap:wrap}
 /* Docked right panels (dock.mjs): at 1100 px and wider an open panel is a column beside the page, which gives up
    --dock-width on the right. No shadow or backdrop; narrower windows keep the overlay. */
 .thread-panel{--panel-width:410px}.queue-panel{--panel-width:420px}

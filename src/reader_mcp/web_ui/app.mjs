@@ -6,7 +6,7 @@ import {mathPlugin,mathOptions} from './math.mjs';
 import {openPDF,pdfPage} from './pdf.mjs';
 import {embedPlugin,installEmbeds} from './embeds.mjs';
 import {installBreadcrumbs} from './breadcrumbs.mjs';
-import {readingLogHTML,withYou} from './reading-log.mjs';
+import {readingLogModel,withYou} from './reading-log.mjs';
 import {installSpeech} from './speech.mjs';
 import {installOutline} from './outline.mjs';
 import {installSearch} from './search-page.mjs';
@@ -19,7 +19,7 @@ import {calloutPlugin} from './callouts.mjs';
 import {drawable,fetchShape,paintShape} from './shapes.mjs';
 import {artJobs,fetchArt,focusArt,forgetArt,hasArt,paintArt,paintArtThumb,paintPlaceholder} from './art.mjs';
 import {closeArtFocus,focusOpen} from './art-focus.mjs';
-import {applyThemes,installControls,mountSkeleton,mountCodeBlocks,decorateCodeBlocks,clearControlsWithin,mountDocumentTree,visibleDocumentNodes,revealDocumentRow,mountAdmin,setAdminRoute,mountChangesPanel,mountArtRegenerate,notify as shellNotify,openChat,closeChat,chatOpen,trackSpeech,renderQueuePanel,mountCallouts,mountQuiz,mountWritingPrompt,mountScratchQuestion,startJob,promptCompanion,needsReader,NEEDS_READER,mountPromptCards} from './controls/reader-controls.js';
+import {renderReadingLog,applyThemes,installControls,mountSkeleton,mountCodeBlocks,decorateCodeBlocks,clearControlsWithin,mountDocumentTree,visibleDocumentNodes,revealDocumentRow,mountAdmin,setAdminRoute,mountChangesPanel,mountArtRegenerate,notify as shellNotify,openChat,closeChat,chatOpen,trackSpeech,renderQueuePanel,mountCallouts,mountQuiz,mountWritingPrompt,mountScratchQuestion,startJob,promptCompanion,needsReader,NEEDS_READER,mountPromptCards} from './controls/reader-controls.js';
 import {promptPlugin,promptMounts} from './prompt-blocks.mjs';
 import {installVersions,chipMarkup,historicalMarkup,splitRef,compareLabel} from './versions.mjs';
 import {installSplit,installPane,cleanRoute} from './split.mjs';
@@ -850,7 +850,7 @@ function loadReadingLog(doc,id){
   const key=readingLogKey(doc);
   if(!readingLogs.has(key))readingLogs.set(key,api('/api/readers?path='+param(doc.path)+'&participant='+param(state.prefs.participant)).catch(error=>{readingLogs.delete(key);throw error;}));
   readingLogs.get(key).then(data=>paintReadingLog(data,id),error=>{
-    if(id!==state.routeId)return;const slot=$('#main .reading-log');if(slot){slot.innerHTML='<p class="reading-log-empty">Reading log unavailable</p>';slot.dataset.ready='error';}
+    if(id!==state.routeId)return;const slot=$('#main .reading-log');if(slot){renderReadingLog(slot,null,readingLogActions);slot.dataset.ready='error';}
     console.warn(error);notify('Reading log unavailable: '+(error.message||error));
   });
 }
@@ -858,14 +858,14 @@ function youReadNow(doc,id){
   const key=readingLogKey(doc),pending=readingLogs.get(key);if(!pending)return;
   const updated=pending.then(data=>withYou(data));readingLogs.set(key,updated);updated.then(data=>paintReadingLog(data,id),()=>{});
 }
+const readingLogActions={
+  threads:participant=>openThreadList(participant),
+  open:(path,split)=>{if(split&&path.startsWith('library/')){openInSplit('#read='+param(path));return;}navigate(path);},
+  layout:()=>{refreshScroll();positionPins();},
+};
 function paintReadingLog(data,id){
   const slot=$('#main .reading-log');if(id!==state.routeId||!slot||state.doc?.path!==data.path)return;
-  const open=slot.querySelector('.reading-log-details')?.open,agents=slot.querySelector('.reading-log-agents')?.open;
-  slot.innerHTML=readingLogHTML(data);slot.dataset.ready='true';state.writingRecords=data.writing||[];wireDocumentLinks(slot);
-  const details=slot.querySelector('.reading-log-details');
-  if(details){details.open=!!open;const nested=slot.querySelector('.reading-log-agents');if(nested)nested.open=!!agents;}
-  slot.querySelectorAll('details').forEach(el=>el.addEventListener('toggle',()=>{refreshScroll();positionPins();}));
-  slot.querySelectorAll('[data-reader-threads]').forEach(button=>button.onclick=()=>openThreadList(button.dataset.readerThreads));
+  renderReadingLog(slot,readingLogModel(data),readingLogActions);slot.dataset.ready='true';state.writingRecords=data.writing||[];
   refreshScroll();positionPins();
 }
 

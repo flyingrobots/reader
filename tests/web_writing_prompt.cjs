@@ -48,7 +48,7 @@ const {chromium}=require(process.env.READER_PLAYWRIGHT||'playwright-core');
   await save.getByRole('button',{name:'Save and commit',exact:true}).click();await save.waitFor({state:'hidden'});
   const pieces=await page.evaluate(async()=>await(await fetch('/api/writing?participant=Browser%20tester')).json());assert.equal(pieces.pieces.length,1);
   const original=readFileSync(root+'/'+pieces.pieces[0].path,'utf8');assert.match(original,/prompt_id:/);assert.match(original,/Reader|prompt:/);
-  await article();await page.locator('.reading-log-writing a').waitFor();await page.locator('[data-writing-pin]').waitFor();
+  await article();await page.locator('[data-reading-log-writing] a').waitFor();await page.locator('[data-writing-pin]').waitFor();
   await page.locator('#main').focus();await page.keyboard.press('Space');await page.keyboard.press('h');
   await page.locator('.your-writing').getByRole('link',{name:'On color',exact:true}).waitFor();
   await article();await page.locator('#main').focus();await page.keyboard.press('Space');await page.keyboard.press('a');await modal.waitFor();

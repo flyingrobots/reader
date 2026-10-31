@@ -14,6 +14,7 @@ Reader Admin's pages have their sheets in [admin-design/](../admin-design/index.
 | Quiz | `web/src/quiz.tsx` | shadcn: [quiz.md](quiz.md) |
 | Writing prompt | `web/src/writing-prompt.tsx` | shadcn: [writing-prompt.md](writing-prompt.md) |
 | What changed | `web/src/changes-panel.tsx` | shadcn: [changes.md](changes.md) |
+| Reading log | `web/src/reading-log.tsx` | shadcn: [reading-log.md](reading-log.md) |
 
 ## React surfaces with their own theming layer
 
@@ -38,5 +39,4 @@ Much of the reading app is rendered by `src/reader_mcp/web_ui/*.mjs` from templa
 | Versions timeline and edition chips | `versions.mjs` | Hand-built timeline rows and `vt-tag` chips around bridged Buttons. The chips should be shadcn Badges and the timeline a Sheet with Items. Tracked in [#200](https://github.com/flyingrobots/reader/issues/200). |
 | Article art panels (cover, artist's note, prompt stages, full-screen focus) | `art.mjs`, `art-prompt.mjs`, `art-focus.mjs` | The art itself is content (canvas and scene). The surrounding note, stage list and focus header are hand-built around bridged Buttons. The Regenerate this form inside is React shadcn ([art-regenerate](../../web/src/art-regenerate.tsx)). Tracked in #200. |
 | Link previews | `links.mjs` | A hover preview card built from HTML strings (kicker, title, byline, excerpt). It should be a shadcn HoverCard. Tracked in #200. |
-| Reading log | `reading-log.mjs` | A hand-built list of reading sessions; it should be shadcn Items. Tracked in #200. |
 | Outline entries | `web/src/outline.tsx`, `outline.mjs` | A deliberate custom navigation list, shared by the React popover and sheet and the vanilla rail. |
