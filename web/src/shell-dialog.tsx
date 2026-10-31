@@ -14,7 +14,11 @@ import {cn} from 'cn';
 import {Button} from '@/components/ui/button';
 import {ButtonGroup} from '@/components/ui/button-group';
 import {Dialog, DialogClose, DialogContent, DialogDescription, DialogHeader, DialogTitle} from '@/components/ui/dialog';
+import {Field, FieldDescription, FieldGroup, FieldLabel} from '@/components/ui/field';
+import {Input} from '@/components/ui/input';
 import {Kbd} from '@/components/ui/kbd';
+import {NativeSelect, NativeSelectOption} from '@/components/ui/native-select';
+import {Notice} from '@/theme/molecules/notice';
 import {Textarea} from '@/components/ui/textarea';
 
 export type AppDialogFrame={id:string;title:string;closeLabel:string;className?:string;description?:string;onClosed:()=>void;
@@ -110,4 +114,46 @@ export function PickerDialog({content,escape,onOpenChange,register}:{content:HTM
       <div ref={adopt} className="flex min-h-0 flex-1 flex-col"/>
     </DialogContent>
   </Dialog>;
+}
+
+/** The Scratch pad's Save to vault (or Save a new version) form. scratch.mjs computes the defaults, saves through the API
+    and closes the dialog on success; a failure comes back as {error, slug?}, where a suggested free slug replaces the
+    typed one. The slug follows the title until it is edited by hand. */
+export type ScratchSaveFields={title:string;slug?:string;shifted?:string;status:string;responds_to:string};
+export type ScratchSaveOptions={revising:boolean;title:string;slug:string;responds:string;prompt:boolean;pathFor:(slug:string)=>string;
+  slugify:(title:string)=>string;submit:(fields:ScratchSaveFields,reply:boolean)=>Promise<{error:string;slug?:string}|void>;onClosed:()=>void};
+export function ScratchSaveDialog({options,register}:{options:ScratchSaveOptions}&Register){
+  const [title,setTitle]=useState(options.title),[slug,setSlug]=useState(options.slug),[edited,setEdited]=useState(false);
+  const [shifted,setShifted]=useState(''),[status,setStatus]=useState('draft'),[responds,setResponds]=useState(options.responds);
+  const [error,setError]=useState<string|null>(null),[busy,setBusy]=useState(false),titleInput=useRef<HTMLInputElement|null>(null);
+  const select=useCallback((element:HTMLInputElement|null)=>{if(element&&titleInput.current!==element){titleInput.current=element;element.focus();element.select();}},[]);
+  return <AppDialog register={register} frame={{id:'scratch-save',title:options.revising?'Save a new version':'Save to vault',closeLabel:'Close',initialFocus:titleInput,
+    className:'w-[min(520px,calc(100vw-2rem))] max-w-none p-6 sm:max-w-none',onClosed:options.onClosed}}>{close=>
+    <form className="flex flex-col gap-4" onSubmit={async event=>{
+      event.preventDefault();setError(null);setBusy(true);
+      const reply=(event.nativeEvent as SubmitEvent).submitter?.getAttribute('value')==='yes';
+      const failure=await options.submit({title,status,responds_to:responds,...(options.revising?{shifted}:{slug})},reply);
+      setBusy(false);if(failure){setError(failure.error);if(failure.slug){setSlug(failure.slug);setEdited(true);}}}}>
+      <FieldGroup className="gap-3">
+        <Field><FieldLabel htmlFor="scratch-save-name">Title</FieldLabel>
+          <Input ref={select} id="scratch-save-name" name="title" maxLength={200} required value={title} onChange={event=>{setTitle(event.target.value);if(!edited)setSlug(options.slugify(event.target.value));}}/></Field>
+        {options.revising?<Field><FieldLabel htmlFor="scratch-save-shifted">What shifted (optional)</FieldLabel>
+            <Input id="scratch-save-shifted" name="shifted" maxLength={2000} value={shifted} onChange={event=>setShifted(event.target.value)}/></Field>
+          :<Field><FieldLabel htmlFor="scratch-save-slug">Slug</FieldLabel>
+            <Input id="scratch-save-slug" name="slug" maxLength={60} pattern="[a-z0-9\-]{1,60}" required value={slug} onChange={event=>{setSlug(event.target.value);setEdited(true);}}/></Field>}
+        <Field><FieldLabel htmlFor="scratch-save-status">Status</FieldLabel>
+          <NativeSelect id="scratch-save-status" name="status" className="w-full" value={status} onChange={event=>setStatus(event.target.value)}>
+            <NativeSelectOption value="draft">Draft</NativeSelectOption><NativeSelectOption value="published">Published</NativeSelectOption></NativeSelect></Field>
+        <Field><FieldLabel htmlFor="scratch-save-responds">Responds to (optional)</FieldLabel>
+          <Input id="scratch-save-responds" name="responds_to" placeholder="library/…" spellCheck={false} value={responds} onChange={event=>setResponds(event.target.value)}/></Field>
+      </FieldGroup>
+      <FieldDescription>Saves <code data-save-path="" className="font-mono">{options.pathFor(slug)}</code> as your own writing and commits only that file.</FieldDescription>
+      {error?<Notice tone="error" role="alert" data-save-error="" title={error}/>:null}
+      <div className="flex flex-wrap justify-end gap-2">
+        <Button type="button" variant="ghost" size="sm" data-save-close="" onClick={close}>Cancel</Button>
+        <Button type="submit" size="sm" disabled={busy}>Save and commit</Button>
+        {options.prompt?<Button type="submit" variant="outline" size="sm" name="reply" value="yes" disabled={busy}>Save and ask for a reply</Button>:null}
+      </div>
+    </form>}
+  </AppDialog>;
 }

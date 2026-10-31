@@ -46,7 +46,7 @@ export const drafts={
   async remove(id){return tx('readwrite',s=>{s.delete(id);});},
 };
 
-export function installScratch({state,api,notify,renderMarkdown,navigate,focusMain,updateStatus,openChat,savedChanged=()=>{},registers=()=>null,mountQuestion=null,confirmAction=message=>confirm(message)}){
+export function installScratch({openSaveDialog,state,api,notify,renderMarkdown,navigate,focusMain,updateStatus,openChat,savedChanged=()=>{},registers=()=>null,mountQuestion=null,confirmAction=message=>confirm(message)}){
   const $=s=>document.querySelector(s);
   let editor=null,editorModule=null,question=null,draft=null,handoff=null,root=null,mode='NORMAL',layout=null,saveState='Unsaved',local=true,dirty=false,autosave=0,previewTimer=0,cursor=0,list=null,lastSaved=null;
   const narrow=()=>innerWidth<900;
@@ -190,35 +190,21 @@ export function installScratch({state,api,notify,renderMarkdown,navigate,focusMa
     const body=editor.text();
     if(!body.trim()){notify('Write something first.');return;}
     if(new TextEncoder().encode(body).length>SCRATCH_LIMITS.body){notify('A piece can be at most 64 KiB; this one is longer.','error');return;}
-    let dialog=$('#scratch-save');
-    if(!dialog){dialog=document.createElement('dialog');dialog.id='scratch-save';dialog.className='scratch-save-dialog';dialog.setAttribute('aria-labelledby','scratch-save-title');document.body.append(dialog);}
     const revising=!!draft.base,title=draft.title&&draft.title!=='Untitled'?draft.title:titleOf(body),responds=draft.responds_to??state.lastDocPath??'';
-    dialog.innerHTML=`<div class="dialog-heading"><h2 id="scratch-save-title">${revising?'Save a new version':'Save to vault'}</h2><button type="button" data-button="ghost icon-sm" class="close-button" aria-label="Close" data-save-close><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" data-icon="x"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button></div>
-      <form class="scratch-save-form" method="dialog">
-        <label>Title<input name="title" maxlength="200" required value="${esc(title)}"></label>
-        ${revising?`<label>What shifted (optional)<input name="shifted" maxlength="2000"></label>`:`<label>Slug<input name="slug" maxlength="60" pattern="[a-z0-9\\-]{1,60}" required value="${esc(slugify(title))}"></label>`}
-        <label>Status<select name="status"><option value="draft">Draft</option><option value="published">Published</option></select></label>
-        <label>Responds to (optional)<input name="responds_to" value="${esc(responds)}" placeholder="library/…" spellcheck="false"></label>
-        <p class="scratch-save-path">Saves <code data-save-path></code> as your own writing and commits only that file.</p>
-        <p class="scratch-save-error" role="alert" hidden></p>
-        <div class="scratch-save-actions"><button type="button" data-button="ghost sm" data-save-close>Cancel</button><button type="submit" data-button="default sm">Save and commit</button>${draft.prompt?'<button type="submit" data-button="outline sm" name="reply" value="yes">Save and ask for a reply</button>':''}</div>
-      </form>`;
-    const form=dialog.querySelector('form'),slug=form.elements.slug,error=dialog.querySelector('.scratch-save-error');
-    let slugEdited=false;
-    const showPath=()=>{dialog.querySelector('[data-save-path]').textContent=revising?nextVersion(draft.base.path):`library/notebook/${today()}-${slug.value||'…'}.md`;};
-    form.elements.title.addEventListener('input',()=>{if(slug&&!slugEdited){slug.value=slugify(form.elements.title.value);showPath();}});
-    slug?.addEventListener('input',()=>{slugEdited=true;showPath();});showPath();
-    dialog.querySelectorAll('[data-save-close]').forEach(b=>b.onclick=()=>dialog.close());
-    dialog.onclose=()=>editor?.focus();
     const requestId=crypto.randomUUID();
-    form.onsubmit=async event=>{
-      event.preventDefault();error.hidden=true;const buttons=[...form.querySelectorAll('[type=submit]')];buttons.forEach(button=>button.disabled=true);
-      const fields=Object.fromEntries(new FormData(form));
-      const payload={action:'save',request_id:requestId,body:editor.text(),title:fields.title.trim(),status:fields.status,participant:state.prefs.participant,...(fields.responds_to?.trim()?{responds_to:fields.responds_to.trim()}:{}),
-        ...(draft.prompt?{prompt_id:draft.prompt.id,ask_reply:event.submitter?.value==='yes'}:{}),
-        ...(revising?{base:draft.base,...(fields.shifted?.trim()?{shifted:fields.shifted.trim()}:{})}:{slug:fields.slug})};
-      try{
-        const result=await api('/api/writing',payload);
+    // The form is web/src/shell-dialog.tsx's ScratchSaveDialog; this saves through the API and reports back.
+    const dialog=openSaveDialog({revising,title,slug:slugify(title),responds,prompt:!!draft.prompt,slugify,onClosed:()=>editor?.focus(),
+      pathFor:slug=>revising?nextVersion(draft.base.path):`library/notebook/${today()}-${slug||'…'}.md`,
+      submit:async(fields,reply)=>{
+        const payload={action:'save',request_id:requestId,body:editor.text(),title:fields.title.trim(),status:fields.status,participant:state.prefs.participant,...(fields.responds_to?.trim()?{responds_to:fields.responds_to.trim()}:{}),
+          ...(draft.prompt?{prompt_id:draft.prompt.id,ask_reply:reply}:{}),
+          ...(revising?{base:draft.base,...(fields.shifted?.trim()?{shifted:fields.shifted.trim()}:{})}:{slug:fields.slug})};
+        let result;
+        try{result=await api('/api/writing',payload);}
+        catch(failure){
+          if(failure.status===409&&failure.data?.suggestion&&!revising)return {error:failure.message+'. The slug now suggests a free name.',slug:failure.data.suggestion};
+          return {error:failure.message||String(failure)};
+        }
         draft={...draft,title:payload.title,vault_path:result.path,base:{path:result.path,sha256:result.sha256},responds_to:payload.responds_to||null};lastSaved=payload.body;dirty=false;
         try{await drafts.put({...draft,body:payload.body,updated:now()});}catch{local=false;}
         saveState='In vault';dialog.close();paint();
@@ -228,13 +214,7 @@ export function installScratch({state,api,notify,renderMarkdown,navigate,focusMa
         savedChanged();
         if(result.reply_error)notify(result.reply_error,'error');
         if(result.chat_id&&openChat){await navigate(draft.prompt.document_path);openChat(draft.prompt.document_path,fields.title.trim(),state.prefs.participant,result.chat_id);}
-      }catch(failure){
-        buttons.forEach(button=>button.disabled=false);error.hidden=false;
-        if(failure.status===409&&failure.data?.suggestion&&slug){slug.value=failure.data.suggestion;slugEdited=true;showPath();error.textContent=failure.message+'. The slug now suggests a free name.';}
-        else error.textContent=failure.message||String(failure);
-      }
-    };
-    dialog.showModal();form.elements.title.focus();form.elements.title.select();
+      }});
   }
   function nextVersion(path){const m=/^(.*?)(?:\.v(\d+))?\.md$/.exec(path);return m?`${m[1]}.v${(+m[2]||1)+1}.md`:path;}
   function askVoice(){

@@ -2,7 +2,7 @@ import {useState, useSyncExternalStore, useEffect, type ReactNode} from 'react';
 import {ReadingLog, type ReadingLogActions, type ReadingLogModel} from './reading-log';
 import {LinkPreview, type LinkPreviewState} from './link-preview';
 import {VersionsTimeline, type TimelineModel} from './versions-timeline';
-import {AnnotationDialog, PickerDialog, ShellDialog, SpeakMenu, type AnnotationOptions, type PickerControl, type ShellDialogOptions, type SpeakOptions} from './shell-dialog';
+import {AnnotationDialog, PickerDialog, ScratchSaveDialog, ShellDialog, SpeakMenu, type AnnotationOptions, type PickerControl, type ScratchSaveOptions, type ShellDialogOptions, type SpeakOptions} from './shell-dialog';
 import {createRoot, type Root} from 'react-dom/client';
 import {createPortal, flushSync} from 'react-dom';
 import {Progress} from './components/ui/progress';
@@ -484,6 +484,9 @@ export function openShellDialog(options:ShellDialogOptions){
 }
 export function openAnnotationDialog(options:AnnotationOptions){
   return openAppDialog('annotation-dialog',options.onClosed,({register,onClosed})=><AnnotationDialog options={{...options,onClosed}} register={register}/>);
+}
+export function openScratchSave(options:ScratchSaveOptions){
+  return openAppDialog('scratch-save',options.onClosed,({register,onClosed})=><ScratchSaveDialog options={{...options,onClosed}} register={register}/>);
 }
 export function openSpeakMenu(options:SpeakOptions){
   return openAppDialog('speak-menu',options.onClosed,({register,onClosed})=><SpeakMenu options={{...options,onClosed}} register={register}/>);
