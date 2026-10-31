@@ -1954,7 +1954,7 @@ line says who has a read receipt for the document and when, for example
 
 ### Send to AI-TTS
 
-**Reading voice.** Settings → Services & Tools → AI-TTS provides a default reading
+**Reading voice.** Admin → Service & tools → AI-TTS provides a default reading
 voice from the running engine’s catalog. It applies to new readings, including
 Read aloud below the article title. The Space s popup provides the same chooser
 for a single reading; its override does not change the saved default. Automatic
