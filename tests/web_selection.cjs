@@ -21,6 +21,9 @@ const select=(page,marker,quote,nth,which=0)=>page.evaluate(({marker,quote,nth,w
   await select(page,'chapter 1 waits','The distinct observation for chapter 1 waits here.',0);
   await page.locator('#article p',{hasText:'chapter 1 waits'}).dispatchEvent('touchend');
   await page.locator('#selection-tools').waitFor({timeout:3000});
+  // The toolbar may first be placed for the selection as it was still settling; the touchend capture then moves it.
+  // Wait for where it ends up (a toolbar that never moves below still fails), then read the placement.
+  await page.waitForFunction(()=>{const tools=document.querySelector('#selection-tools').getBoundingClientRect(),range=getSelection().getRangeAt(0).getBoundingClientRect();return tools.top>=range.bottom;},null,{timeout:3000}).catch(()=>{});
   const placement=await page.evaluate(()=>{const tools=document.querySelector('#selection-tools').getBoundingClientRect(),range=getSelection().getRangeAt(0).getBoundingClientRect();return {toolsTop:tools.top,selectionBottom:range.bottom,width:document.documentElement.scrollWidth,inner:innerWidth};});
   assert.ok(placement.toolsTop>=placement.selectionBottom,'on touch the toolbar sits below the native selection menu: '+JSON.stringify(placement));
   await page.evaluate(()=>getSelection().removeAllRanges());await page.locator('#selection-tools').waitFor({state:'hidden'});
