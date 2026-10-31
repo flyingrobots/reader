@@ -76,7 +76,7 @@ def main():
         # Only selected software paths. No host mount and no vault files enter the worker.
         stream = io.BytesIO()
         with tarfile.open(fileobj=stream, mode='w') as archive:
-            tops = ['src','tests','templates','scripts','skills','schemas','plugins','server','web','docs','activity','README.md','CHANGELOG.md','AGENTS.md','package.json','package-lock.json','pyproject.toml','uv.lock','LICENSE','.reader/tooling/bin/wide-md','.reader/tooling/installed.json']
+            tops = ['src','tests','templates','scripts','skills','schemas','plugins','server','web','docs','planning/devcontainers','activity','README.md','CHANGELOG.md','AGENTS.md','package.json','package-lock.json','pyproject.toml','uv.lock','LICENSE','.reader/tooling/bin/wide-md','.reader/tooling/installed.json']
             if kind == 'web':
                 tops = ['src','tests','web','docs/topics','package.json','package-lock.json','LICENSE']
             for top in tops:

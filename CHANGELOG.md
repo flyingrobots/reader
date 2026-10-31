@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- The setup experiment applies one deadline and output budget to image preparation, CLI setup, probes and teardown.
+
 - The development setup experiment reaps its CLI even when Docker cleanup fails.
 
 - Finishing inbox work refreshes an open section in place instead of replacing it with the homepage.
