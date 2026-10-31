@@ -21,7 +21,7 @@ export function AdminHeader({trigger,home,current,actions}:{trigger:ReactNode;ho
 }
 
 export function AdminPage({title,lede,children,...props}:{title:ReactNode;lede:ReactNode;children:ReactNode;id?:string}&Record<`data-${string}`,string>){
-  return <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 pt-6 pb-24 md:px-8 md:pt-8 lg:px-12" {...props}>
+  return <div className={'mx-auto flex w-full flex-col gap-6 px-4 pt-6 pb-24 md:px-8 md:pt-8 lg:px-12 '+(props['data-admin-section']==='indexes'?'max-w-none':'max-w-6xl')} {...props}>
     <div className="flex flex-col gap-2">
       <h1 id="admin-title" tabIndex={-1} data-slot="admin-title" className="scroll-mt-16 font-serif text-3xl leading-tight font-normal tracking-tight outline-none focus-visible:ring-3 focus-visible:ring-ring/50 md:text-4xl">{title}</h1>
       <p data-slot="admin-lede" className="max-w-prose text-sm text-muted-foreground">{lede}</p>

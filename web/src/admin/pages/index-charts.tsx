@@ -6,6 +6,7 @@ import {Tabs, TabsList, TabsTrigger, TabsContent} from '@/components/ui/tabs';
 import {Collapsible, CollapsibleContent, CollapsibleTrigger} from '@/components/ui/collapsible';
 import {Table, TableBody, TableCell, TableHead, TableHeader, TableRow} from '@/components/ui/table';
 import {Skeleton} from '@/components/ui/skeleton';
+import {IndexDocHelp} from './index-docs';
 import type {Check, MaintenanceStatus} from '../../backstage';
 
 declare const d3:any;
@@ -40,7 +41,7 @@ export function IndexCharts({status,selected,onSelect}:{status:MaintenanceStatus
   const picked=parts[segment];
   return <div className="grid min-w-0 gap-4 lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)]" data-index-charts="">
     <Card className="min-w-0" data-index-chart="coverage">
-      <CardHeader><CardTitle>Semantic coverage</CardTitle><CardDescription>Indexed text documents whose chunks have embeddings for semantic search and related reading.</CardDescription></CardHeader>
+      <CardHeader><CardTitle>Semantic coverage<IndexDocHelp title="Semantic coverage" section="embedding-coverage"/></CardTitle></CardHeader>
       <CardContent className="flex flex-wrap items-center justify-center gap-4">
         {known&&text>0&&available?<svg viewBox="0 0 240 240" className="w-52 max-w-full shrink-0" role="group" aria-label="Semantic coverage of indexed text documents">
           <title>Semantic coverage</title><desc>Share of indexed text documents with embeddings. Select a segment or its label to inspect Search.</desc>
@@ -54,12 +55,12 @@ export function IndexCharts({status,selected,onSelect}:{status:MaintenanceStatus
         </svg>:status&&search?<p className="text-sm text-muted-foreground">{known&&text===0?'No indexed text documents yet.':'Coverage has not been measured yet.'}</p>:<Skeleton className="size-48 rounded-full"/>}
         <div className="flex min-w-[12rem] max-w-full flex-1 flex-col gap-2">{parts.map((part,index)=><Button key={part.label} variant={segment===index?'secondary':'ghost'} className="h-auto justify-between gap-4 py-3" aria-pressed={segment===index} onClick={()=>{setSegment(index);onSelect('search');}}>
           <span className="flex items-center gap-2"><span aria-hidden className="size-2 rounded-full" style={{background:`var(--chart-${index+1})`}}/>{part.label}</span><span className="tabular-nums">{number(part.value)}</span>
-        </Button>)}<p className="text-xs text-muted-foreground">Path-only files are excluded from this text-document measure.</p></div>
+        </Button>)}</div>
       </CardContent>
-      <CardFooter><p className="text-sm text-muted-foreground" role="status">{picked?`${number(picked.value)} ${picked.label.toLowerCase()} · select a segment to inspect Search.`:'Counts appear after the search freshness check finishes.'}</p></CardFooter>
+      <CardFooter><p className="text-sm text-muted-foreground" role="status">{picked?`${number(picked.value)} ${picked.label.toLowerCase()}`:'Not measured'}</p></CardFooter>
     </Card>
     <Card className="min-w-0" data-index-chart="capacity">
-      <CardHeader><CardTitle>Capacity & headroom</CardTitle><CardDescription>Actual usage against each configured limit. Select a bar to inspect its index.</CardDescription></CardHeader>
+      <CardHeader><CardTitle>Capacity & headroom<IndexDocHelp title="Capacity charts" section="interactive-charts"/></CardTitle></CardHeader>
       <CardContent ref={plot}><Tabs value={mode} onValueChange={value=>{setMode(String(value));setHover(null);}}>
         <TabsList aria-label="Capacity measure"><TabsTrigger value="storage">Storage</TabsTrigger><TabsTrigger value="inventories">Inventories</TabsTrigger></TabsList>
         {['storage','inventories'].map(tab=><TabsContent key={tab} value={tab}>
@@ -82,7 +83,7 @@ export function IndexCharts({status,selected,onSelect}:{status:MaintenanceStatus
         <CollapsibleContent><Table><TableHeader><TableRow><TableHead>Budget</TableHead><TableHead>Used</TableHead><TableHead>Limit</TableHead></TableRow></TableHeader><TableBody>{rows.map(row=><TableRow key={row.key}><TableCell>{row.label}</TableCell><TableCell className="tabular-nums">{row.bytes?bytes(row.used):number(row.used)}</TableCell><TableCell className="tabular-nums">{row.bytes?bytes(row.limit):number(row.limit)}</TableCell></TableRow>)}</TableBody></Table></CollapsibleContent>
       </Collapsible>:null}
       </CardContent>
-      <CardFooter><p className="text-sm text-muted-foreground" role="status">{hover||'Each bar has its own limit; percentages make different budgets comparable.'}</p></CardFooter>
+      <CardFooter><p className="text-sm text-muted-foreground" role="status">{hover||'Usage / configured limit'}</p></CardFooter>
     </Card>
   </div>;
 }

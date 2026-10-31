@@ -1216,15 +1216,17 @@ New sections are added in one place: the section registry in
 on this computer, which route parameters it accepts, and its page). The route
 syntax, `#admin/<section>[/<param>…]`, is parsed by `web_ui/admin-routes.mjs`.
 
-**Indexes** combines summary Cards, interactive D3 charts, an index health Table
-and a selected-index inspector. Shadcn Card, Table, Badge, Button, Tabs,
-Collapsible and Alert components provide the interface. The health table keeps
-rebuild actions beside each index; selecting an index shows its measurements in
-the inspector. Charts show semantic completeness of indexed text and resource
-headroom against the configured budgets. Click or keyboard-activate a segment or
-bar to inspect its index; capacity tabs switch Storage and Inventories, and
-View chart data exposes exact values in a table. Unknown usage is not plotted as
-zero, and over-budget percentages remain explicit. See the [design contract](admin-design/indexes.md).
+**Indexes** splits the available page width equally between the dashboard and an
+independently scrolling Markdown reference. Info buttons navigate directly to
+reference headings. The right pane renders the same [technical reference](topics/indexes.md)
+that is maintained in the repository, bundled with the frontend release. Its contents
+selector and internal links preserve the Admin route and dashboard scroll position.
+On narrow screens the panes stack. Other Admin pages keep their existing width.
+
+The dashboard contains summary Cards, interactive D3 charts, an index health Table
+and a selected-index inspector. Shadcn components provide controls, data surfaces
+and the reference frame. Chart controls and View chart data remain on the left;
+static operating explanations live on the right. See the [design contract](admin-design/indexes.md).
 
 The checks and rebuilds are:
 

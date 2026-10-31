@@ -7,7 +7,7 @@ import {createHash} from 'node:crypto';
 const out='../src/reader_mcp/web_ui/controls';
 const hash=path=>createHash('sha256').update(readFileSync(path)).digest('hex');
 mkdirSync(out,{recursive:true});
-const result=await build({entryPoints:{'reader-controls':'src/reader-controls.tsx'},bundle:true,format:'esm',target:'es2022',minify:true,jsx:'automatic',outdir:out,entryNames:'[name]',define:{'process.env.NODE_ENV':'"production"'},metafile:true,legalComments:'linked'});
+const result=await build({entryPoints:{'reader-controls':'src/reader-controls.tsx'},bundle:true,loader:{'.md':'text'},format:'esm',target:'es2022',minify:true,jsx:'automatic',outdir:out,entryNames:'[name]',define:{'process.env.NODE_ENV':'"production"'},metafile:true,legalComments:'linked'});
 // Three.js entries: the page turn, article art and the article-shape data view load on demand and share one Three.js chunk
 // under controls/three/. Stale chunks are removed.
 rmSync(out+'/three',{recursive:true,force:true});for(const name of ['page-turn','shape','art'])rmSync(out+'/'+name+'.js.LEGAL.txt',{force:true});

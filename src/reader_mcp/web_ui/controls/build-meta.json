@@ -6,10 +6,11 @@
     "url": "https://ui.shadcn.com"
   },
   "sources": {
+    "../docs/topics/indexes.md": "c39fc43627515f81602882583825db644d061ffb220f85b094a929f68d2cd28d",
     "../src/reader_mcp/web_ui/art-scene.v1.json": "704fc555d474df965a7c676d9dbe518f532149a1e65132e2c72c1859a3521eb1",
     "../src/reader_mcp/web_ui/famous-themes.json": "8069753f622d2f35e21e64409880729aa9eb19dd13fb50e59af217ad53c92135",
     "../src/reader_mcp/web_ui/theme-tokens.json": "9100bd322a5e007c6f60923c297b4a456fce0e57899a3b06627b89280d6c5f9e",
-    "build.mjs": "5d34fa8b12872fa1d31500cf79d1699cca69fe82f9b6fa7aafc08680c9d5b681",
+    "build.mjs": "20af033bc29e2fe37d821e53c28b341806719e411d15fe4f9e7645ca1a6c6dcb",
     "components.json": "6bcabb7870c5c5634cf69e9138a782ca7242f00cfc94e2cc3de981dc84cb6f6b",
     "licenses.mjs": "6d68777363b8fa9c496a32b60fab061ea62145c1a0f033014607a9ace9aa45da",
     "package-lock.json": "a4d06be3ac3f58f0947355ea9b737a0eef8475a3ba4d3bbcecfd2fbe943f095e",
@@ -20,9 +21,9 @@
     "src/admin/overview.tsx": "55b3644901c1551afaf0bedcd729da640a8d3af66f469256e55b2012518d466e",
     "src/admin/pages/gallery-model.ts": "9682e5a75aeaa7fb3400a5f6489b28775560f10136580488e246c9ecddd5fbd7",
     "src/admin/pages/inbox.tsx": "0873a1d59f634dde61c8d0ff9d742ff009dbc0943664e3dea19043337cbad85a",
-    "src/admin/pages/index-charts.tsx": "db730acac5a1c801e879c2bcf94d478e38b0fa14769fdcd388b5aa196af904ac",
-    "src/admin/pages/indexes.tsx": "a748e29c9820d4249de2b8f230c78db1814370e003de75908b16d7cba5e4eb23",
-    "src/admin/pages/indexing-guide.tsx": "d05a972b38a3266d2ba8ec1b08fe216fdd097c40cf37d9a521dc12ca0bc7ec62",
+    "src/admin/pages/index-charts.tsx": "d48c7c0dba26e3cbd47fdcad4feb782f09b083edfe2e3dd20842035be0f2f378",
+    "src/admin/pages/index-docs.tsx": "5b8aae08e2c7d3dbf03bbc317a3bf18644afd66d099d892027d4f02a875ccae2",
+    "src/admin/pages/indexes.tsx": "4ceaa7cc46988e69990471c2a44c61f58fb89b688e69310822b4fda3056d9be0",
     "src/admin/pages/jobs.tsx": "4f149ab3445d1eb9770059937a34458750f792508be888b24cadd8ba86c0ce17",
     "src/admin/pages/library-charts.ts": "934c246bde1dd47a99dd19ac3c4ba0ae6df98e98bb62ddd1912e39f211bfc902",
     "src/admin/pages/library.tsx": "1c4ee11da3a6491bf35261d747c9296251513d9e53e02ffff5b7288ba9c209e0",
@@ -30,7 +31,7 @@
     "src/admin/pages/repositories.tsx": "b27c3176025dd93ab4194beff4ec6eb12aca8a62235fb2b1a84c39ef97760c78",
     "src/admin/pages/shelves.tsx": "fe7173d11af9e4f0d05fee9afa631f3265438845426211ae4e6b0b05cde2159a",
     "src/admin/pages/voices.tsx": "066a7971b8460c9133bc29382d4f5356978cefdb216f4d21ff86f51a4904cb8f",
-    "src/admin/panels.tsx": "158aa93d7cbde9adf0ecc97a4ade5ed9082f6e9bc363422afc338f1017cfefa0",
+    "src/admin/panels.tsx": "918d36c0427e986b1b0893d55ba2ad9f6a85e7964d225c79e02e24ad50ebdffc",
     "src/admin/sections.tsx": "3a3c193d3939ab98af817fef09ebef41e37bb8d25697c35ba2f561f436049d3b",
     "src/art-focus-chrome.tsx": "51fd02526aea995a20a91490da61ca3d31cf25d06eda9fb30e8bce82fed457fa",
     "src/art-prompt-card.tsx": "6cd9e2d4c4f1b9a2469841b87038dfd19e0e7f9e986fd80141e2a7b8950b154a",
@@ -131,7 +132,7 @@
     "src/speech-control.tsx": "8c83611a936b87f5fa062fb6104a9d85608e6dd24c300292050dd234c0b44d83",
     "src/speech-voice.tsx": "258de97551cea6ec0da8c421ce9d2cfc221fba05b3b9e5649ec3a56c2a92de18",
     "src/static-demo.ts": "036a0b4413452d2ec8f7a51248157340082f3c030fc51d3237275021340e8810",
-    "src/styles.css": "125878c03a487fee0d64602907e8213214ced055ef9c91ad1494d5ff82c996ea",
+    "src/styles.css": "d41d81c86fedc1d8b66f56fe0708b2b70724a4c010f768c7625f301427a766d9",
     "src/theme/atoms/run-state-icon.tsx": "7898209e6e1893b71c6c38a94dde6c3a83e1ffd19344382e48dca151cf361b06",
     "src/theme/atoms/section-heading.tsx": "47390df21cea8262baad84426e0af328b55e8f88673edd1833078e9f842b5790",
     "src/theme/atoms/status-badge.tsx": "8b6e9f9c0de4921c3cba50a7972392e759f566a4f5b5a6c7580128ebaa959ba3",
@@ -150,7 +151,7 @@
     "src/theme/organisms/confirm-action.tsx": "4cf659336c8903df901e8c35a416eb893175519946a43180b1fa77264ebbc8b6",
     "src/theme/organisms/run-list.tsx": "bb9c9e00679d9e5543644544b9ff404a51d376cbfa1102d7d345eda2f868a951",
     "src/theme/organisms/status-card.tsx": "7ca38aec18e516dec299297258fd60d97f8b25874e4e8b17072611d0532f3a14",
-    "src/theme/templates/admin-page.tsx": "554ea5fda922a33157957658874f498561a8ac1d797cf4643f6d7a86fd1a3d04",
+    "src/theme/templates/admin-page.tsx": "b517ed360b6ea83a79fbabf3ba8e2b07ba7ac225623b25585c9358d6e84cf013",
     "src/theme/templates/card-grid.tsx": "5824ab5a84257d55feb2827f0a611ecdd1ae3fbfd490684feb8928bb69bfbf87",
     "src/theme/theme-css.ts": "2c78098cd36c2ae0009313fc483463733f541aca45ecc0e5150f2b19c4809327",
     "src/theme/theme-editor.tsx": "b33809853471121d6b8700b4bb2745bf10825d09628c3164fec6902b0a4d9dab",
@@ -974,12 +975,12 @@
       "sha256": "cb2ee2554fd41ac9f8e2e69c350365f0e1cf9732d27ad161c9c97b20945bbe4c"
     },
     "reader-controls.css": {
-      "bytes": 181524,
-      "sha256": "42a8f3936a07fdb7220e5623c1621800d2ae8df7ce2ddacb7c3c15f82c2e7923"
+      "bytes": 182916,
+      "sha256": "e4d1cbe3a2f9cc5698ccdb2bb61cf12e2ef43d5c1124f2eeb670f773ba30d6b5"
     },
     "reader-controls.js": {
-      "bytes": 1250342,
-      "sha256": "de6caba59dbd195035cf7fa4ec3b2b8bf0eeb2466e76f7fca7ed6eb65ab25ec1"
+      "bytes": 1282965,
+      "sha256": "8b4d118bfcf03b0ee3602d4f96c14da6bc96293ea058574e9a915c131b655a5f"
     },
     "reader-controls.js.LEGAL.txt": {
       "bytes": 6454,

@@ -1,38 +1,31 @@
 # Design sheet: Admin › Indexes
 
-Route `#admin/indexes`. `web/src/admin/pages/indexes.tsx` composes the page; `index-charts.tsx` computes interactive SVG geometry with the existing vendored D3. Index titles, actions and measurements come from `web/src/backstage.tsx`.
+Route `#admin/indexes`. The detailed operating reference is [Indexes](../topics/indexes.md). Source: `web/src/admin/pages/indexes.tsx`, `index-charts.tsx` and `index-docs.tsx`; the index catalogue remains in `web/src/backstage.tsx`.
 
 ## Focused activity
 
-Inspect freshness, semantic completeness and resource headroom, then rebuild a selected projection. The page uses measured status snapshots. Opening it requests a full freshness check when the previous check is more than two minutes old; it does not automatically rebuild indexes.
+Inspect freshness, completeness and capacity, start an appropriate rebuild, and consult the relevant technical contract without leaving the page. The dashboard contains measurements, actions and current operational feedback. Explanatory prose belongs in the reference pane.
 
-## Layout and composition
+## Layout
 
-A shadcn toolbar gives the last check time, a running freshness check’s elapsed time and Check again. An Alert explains the shared maintenance job slot when it is occupied. Three shadcn Cards summarize current checks, checks needing attention, and the latest completed audit duration.
+The Indexes route uses the available Admin content width. At desktop widths the page splits into equal columns: dashboard left, Markdown reference right. Both have independent vertical scrolling. Other Admin routes retain their bounded page width. On small screens the columns stack, and a documentation action brings the reference into view.
 
-Two chart Cards contain:
+The left pane contains status/check controls, current/attention/timing summaries, a conditional search update action, D3 coverage/capacity charts, the health table, selected-index inspector, recent runs and edition diagnostics. Existing admission, error, demo and busy behavior remains in force. Inline indexing essays, the update-policy notice, repeated purpose descriptions and generic metric help popovers are removed.
 
-- Semantic coverage: a D3 pie/arc layout of indexed text documents, divided into Fully embedded and Needs embeddings. The latter includes documents with any unembedded chunks; path-only files are excluded. Segment labels retain exact counts, support keyboard/click selection and inspect Search.
-- Capacity & headroom: a D3 linear scale renders usage against individual limits. Shadcn Tabs switch Storage and Inventories. Hover/focus exposes exact values; activation inspects the corresponding index. A shadcn Collapsible/Table provides all plotted values as text. Over-budget percentages remain visible above 100%, even though bar geometry stops at the limit. Unknown measurements are omitted instead of plotted as zero.
+The right pane is a shadcn Card with a contents selector and a scrolling Markdown region. The source is `docs/topics/indexes.md`, imported as text at frontend build time and recorded in build metadata. It is rendered through the existing sanitized Markdown pipeline. There is no API that exposes arbitrary repository or vault files. Heading IDs are namespaced to avoid collisions with dashboard controls. In-document links and info icons scroll/focus the requested heading without changing the Admin route or the dashboard scroll position. Repository documentation links open outside the application.
 
-A shadcn Table compares index states and rebuild actions. Selecting an index changes the inspector Card below it, whose measurements use a shadcn Table. Recent runs and Edition links form the final responsive grid. Existing legacy-index removal remains in the Search inspector.
+## Atomic composition
 
-## Behavior and limits
+Shadcn Card, Table, Badge, Button, NativeSelect, Field, Collapsible, Tooltip, Alert and the existing theme molecules compose the page. IndexDocHelp is a contextual reference-navigation button; it does not open an explanatory popup. The separate Overview HelpTip behavior is unchanged. D3 continues to calculate geometry while React owns the SVG. Charts and exact-value tables remain interactive data views rather than documentation substitutes.
 
-D3 computes geometry and React owns the SVG; no second DOM renderer, animation loop, network chart library or new dependency is introduced. A ResizeObserver sizes capacity labels and bars to their container and disconnects on unmount. SVG controls have names, focus targets and Enter/Space support. Charts use the existing Reader theme/chart tokens. The coverage legend wraps below the ring on small screens. Tables scroll within their cards.
+## Status and guarantees
 
-Cached measurements remain visible during audits. Initial missing status has no fabricated percentages. Unavailable status disables rebuilds; failed refreshes retain the previous snapshot with an explicit warning. The backend still checks the five domains sequentially and publishes results together, and still runs one admitted maintenance job at a time. The UI does not add job queueing, phase telemetry or parallel rebuilds.
+Opening Indexes can request a full freshness audit if the previous one is more than two minutes old. It does not schedule a rebuild. The backend still publishes check results together, keeps process-local job history and admits one running maintenance job. The split-view change adds neither a watcher nor a queue, and changes no source/index integrity contract.
 
-## Verification
+Missing measurements stay unknown; errors preserve their messages. Previous measurements remain visible during an audit. Stale/partial/missing rebuildable states invoke the primary action when allowed. Current/error/capacity-only states remain badges. The reference’s description of the backend verification/admission interval must remain accurate until that implementation changes.
 
-`tests/web_indexes.cjs` checks measured SVG values, shadcn composition, keyboard/click inspection without job starts, data tabs, unknown and over-budget usage, checking/unavailable states and mobile bounds. Existing hooks remain: `#maintenance-check`, `[data-index][data-state]`, `[data-job]`, `#recent-runs`, `#edition-links`. Added hooks: `[data-index-charts]`, `[data-index-chart]`, `[data-index-fleet]`, `#index-inspector` and `[data-inspected-index]`.
+## Verification and hooks
 
-## Actions and contextual help
+`tests/web_indexes.cjs` covers measured chart geometry and capacities, shadcn composition, keyboard/click inspection without job starts, action dispatch to synthetic maintenance, unknown/over-budget/busy/error states, equal desktop columns, documentation anchors and contents navigation, independent scrolling, unchanged Admin route and mobile bounds.
 
-Stale, partial and missing rebuildable indexes show their state as a shadcn Button in both the health table and inspector. It invokes that index’s primary action; Search uses the guarded embeddings rebuild. Current, error and inventory-limit states remain badges, since rebuilding is not a universal repair. Busy/demo/unavailable restrictions apply to these controls too. Search also gets a prominent action above the charts, including on narrow screens.
-
-Reusable HelpTip popovers explain index purposes, measurement semantics and the manual update policy. They open on hover, keyboard focus or tap and close with Escape. Overview tiles use the same help component. No scheduled rebuild or file watcher is introduced; the service updater updates software rather than index content.
-
-## Indexing explanation
-
-The visible How indexing works Card distinguishes rule-based extraction/navigation/catalog/link operations from semantic embedding inference. It explains that indexing does not launch chat generation, summarization or tagging. A Collapsible gives the fixed-input determinism boundary, non-identical database bytes, floating-point/provider variability, text/model-signature vector caching and local-default versus configured-provider privacy. The explanation is visible without hover; details expand by pointer or keyboard.
+Hooks: `#indexes-workspace`, `#index-dashboard-pane`, `#index-reference-pane[data-doc-section]`, `#index-doc-body`, `#index-doc-contents`, `[data-index-doc-link]`, `#maintenance-check`, `[data-index][data-state]`, `[data-job]`, `[data-index-chart]`, `#index-inspector`, `#recent-runs` and `#edition-links`.
