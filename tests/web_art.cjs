@@ -2,6 +2,7 @@
    voice, a background job, toasts), versions and a favorite, live motion at most 30 fps and paused off-screen,
    frame time, reduced motion, the WebGL-less still, client-side validation, themes, settings, the Art studio
    card, automatic commissions and phone width. Synthetic fixture only; never a real model. */
+// suite: exclusive (measures frame rates; run_browser_suites.py runs it on a quiet machine)
 const assert=require('node:assert/strict');
 const {spawn}=require('node:child_process');
 const {createInterface}=require('node:readline');

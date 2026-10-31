@@ -7,8 +7,9 @@
 
 Each suite starts its own fixture (a synthetic vault on a free port) and its own browser, so suites are independent and
 can run side by side. Suites start slowest first, from the durations of earlier runs, so a long suite does not
-straggle at the end. A suite runs in its own process group and is killed with its fixture and browser when it
-overruns. Logs, durations and the summary go to .reader/web-dev/suites/; the exit status is 1 if any suite failed.
+straggle at the end. A suite that measures performance (frame rates, load times) declares `// suite: exclusive` near
+its top; those run first, together, on a quiet machine, and the rest follow in parallel. A suite runs in its own
+process group and is killed with its fixture and browser when it overruns. Logs, durations and the summary go to .reader/web-dev/suites/; the exit status is 1 if any suite failed.
 
 Run the web build first when web/ changed (`npm run build` in web/). Set READER_PYTHON to the interpreter whose
 reader_mcp is this checkout (default .venv/bin/python) and READER_CHROME to override the browser.
@@ -33,6 +34,12 @@ def suites(patterns):
     found = sorted(path.stem for path in (ROOT / 'tests').glob('web_*.cjs')
                    if 'chromium' in (text := path.read_text()) or 'module.exports' not in text)
     return [name for name in found if not patterns or any(pattern in name for pattern in patterns)]
+
+
+def exclusive(name):
+    """A suite that measures performance: it runs before the parallel batch, on a quiet machine."""
+    head = (ROOT / 'tests' / f'{name}.cjs').read_text().splitlines()[:12]
+    return any('suite: exclusive' in line for line in head)
 
 
 def run(name, timeout, env):
@@ -77,16 +84,19 @@ def main(argv=None):
     # Slowest first; a suite never timed goes early too, since it might be slow.
     names.sort(key=lambda name: -known.get(name, 60))
     env = os.environ | {'READER_PYTHON': os.environ.get('READER_PYTHON', str(ROOT / '.venv/bin/python'))}
-    print(f'{len(names)} suites, {args.jobs} at a time', flush=True)
+    quiet = [name for name in names if exclusive(name)]
+    rest = [name for name in names if name not in quiet]
+    print(f'{len(names)} suites: {len(quiet)} exclusive first, then {len(rest)} at {args.jobs} at a time', flush=True)
     started, failed, durations = time.monotonic(), [], {}
-    with ThreadPoolExecutor(max_workers=args.jobs) as pool:
-        for future in as_completed([pool.submit(run, name, args.timeout, env) for name in names]):
-            name, code, seconds, log = future.result()
-            durations[name] = round(seconds, 1)
-            verdict = 'ok' if code == 0 else 'TIMEOUT' if code is None else f'FAIL ({code})'
-            print(f'{verdict:>9} {seconds:6.1f}s  {name}', flush=True)
-            if code != 0:
-                failed.append((name, verdict, log))
+    for batch, jobs in ((quiet, max(1, len(quiet))), (rest, args.jobs)):
+        with ThreadPoolExecutor(max_workers=jobs) as pool:
+            for future in as_completed([pool.submit(run, name, args.timeout, env) for name in batch]):
+                name, code, seconds, log = future.result()
+                durations[name] = round(seconds, 1)
+                verdict = 'ok' if code == 0 else 'TIMEOUT' if code is None else f'FAIL ({code})'
+                print(f'{verdict:>9} {seconds:6.1f}s  {name}', flush=True)
+                if code != 0:
+                    failed.append((name, verdict, log))
     TIMES.write_text(json.dumps(known | durations, indent=1, sort_keys=True) + '\n')
     total = time.monotonic() - started
     print(f'\n{len(names) - len(failed)}/{len(names)} passed in {total:.0f}s (suite time {sum(durations.values()):.0f}s)')

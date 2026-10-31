@@ -3,6 +3,7 @@
    passages, find, heading and outline jumps, the bookmark and the reading cursor land as they do with every
    block laid out. Smooth scrolling keeps the place while blocks above the window settle. Two-page reading is
    unaffected. */
+// suite: exclusive (times how much sooner the document is shown; run_browser_suites.py runs it on a quiet machine)
 const assert=require('node:assert/strict');
 const {spawn}=require('node:child_process');
 const {createInterface}=require('node:readline');
