@@ -569,3 +569,7 @@ body{margin-left:var(--explorer-width,0px)}
 @media(max-width:700px){.file-explorer{bottom:41px}.file-explorer>div>header{padding:12px}.file-explorer [data-slot=field-group]>div:last-child{grid-template-columns:1fr}.file-explorer [data-slot=pagination-content]{flex-wrap:wrap;gap:6px}.file-explorer [data-slot=pagination-item]:nth-child(2){order:-1;width:100%;text-align:center}}
 html.embedded-pane .file-explorer{bottom:0}
 }
+
+@layer reader-legacy {
+.reader-home{margin-left:4px;flex-shrink:0}
+}

@@ -7,6 +7,7 @@ The resulting SVG needs no font, script or runtime dependency.
 """
 from pathlib import Path
 from hashlib import sha256
+import re
 from fontTools.ttLib import TTFont
 from fontTools.varLib.instancer import instantiateVariableFont
 from fontTools.pens.boundsPen import BoundsPen
@@ -46,6 +47,13 @@ def main():
 </svg>
 '''
     OUTPUT.write_text(svg)
+    # Keep the inline footer copy on the same geometry as the standalone asset.
+    page = ROOT / 'src/reader_mcp/web_ui/index.html'
+    markup = page.read_text()
+    shapes = svg[svg.index('  <circle'):svg.rindex('</svg>')].strip()
+    inline = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" class="size-6" aria-hidden="true" focusable="false">' + shapes + '</svg>'
+    markup = re.sub(r'(?<=<!-- reader:circle-mark:start -->).*?(?=<!-- reader:circle-mark:end -->)', lambda _: inline, markup, flags=re.S)
+    page.write_text(markup)
     print(OUTPUT.relative_to(ROOT))
 
 

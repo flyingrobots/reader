@@ -1790,6 +1790,7 @@ window.addEventListener('resize',()=>{clearTimeout(positionPins.timer);positionP
 document.fonts.ready.then(()=>{refreshScroll();positionPins();});
 reduced.addEventListener('change',resetScroll);
 search=installSearch({api,state,navigate,back:goBack,backstage:()=>openAdmin('indexes'),notify,queue:path=>queue.add(path)});
+$('#reader-home').onclick=()=>navigate(null);
 installStatusPriority($('#statusline'));
 const breadcrumbs=installBreadcrumbs({container:$('#status-location'),home:()=>navigate(null),openFolder:folder=>openPicker('all',folder),onChange:()=>reading?.updateStatus()});
 controls=installControls({seek:fraction=>reading.seek(fraction),spread:index=>reading.seekSpread(index),thread:id=>{const hit=state.ranges.find(entry=>entry.thread.id===id);if(hit)moveToRange(hit.range);openThread(id);},theme:()=>{state.prefs.theme=oppositeTheme(state.prefs.theme);document.documentElement.dataset.theme=state.prefs.theme;savePrefs();reading.updateStatus();},save:applyPreferences,error:report,outlineToggle:()=>outline.toggle(),outlineOpen:open=>outline.setOpen(open),outlineGo:index=>outline.go(index),themeEditor:setThemeEditorOpen,themeEditorClosed,api,themesChanged,useTheme,previewFont,chatMarkdown,openPath:path=>navigate(path),chatChanged:()=>reading?.updateStatus(),

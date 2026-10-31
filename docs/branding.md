@@ -1,6 +1,6 @@
 # Reader marks
 
-The homepage keeps the full **Reader.** wordmark. The optional [circular r. mark](../src/reader_mcp/web_ui/mark-circle.svg) is an editable vector candidate for compact uses such as favicons, installed app icons and a compact library/home action. The candidate is not wired into those surfaces.
+The homepage keeps the full **Reader.** wordmark. The [circular r. mark](../src/reader_mcp/web_ui/mark-circle.svg) appears at the left of the sticky footer as a **Back to library** button. It stays visible at narrow widths and returns through Reader’s normal home navigation. Favicons and installed-app icons retain their existing assets.
 
 ## Shapes and theme tokens
 
@@ -21,4 +21,4 @@ Run from the code repository:
 uv run --no-project --with 'fonttools[woff]==4.66.1' python scripts/generate_circle_mark.py
 ```
 
-This uses fontTools and its WOFF decoder as authoring tools, not Reader runtime dependencies. The generator reads the retained Newsreader font, instantiates weight 600, converts its r glyph to the final coordinate space and writes `src/reader_mcp/web_ui/mark-circle.svg`. The SVG records the source font hash and license; the original font and license remain under `web_ui/vendor/`. The asset can also be edited directly as ordinary vector paths and circles; regeneration replaces such manual changes.
+This uses fontTools and its WOFF decoder as authoring tools, not Reader runtime dependencies. The generator reads the retained Newsreader font, instantiates weight 600, converts its r glyph to the final coordinate space and writes `src/reader_mcp/web_ui/mark-circle.svg`, and synchronizes the marked inline SVG inside the footer in `index.html`. The SVG records the source font hash and license; the original font and license remain under `web_ui/vendor/`. The asset can also be edited directly as ordinary vector paths and circles; regeneration replaces such manual changes.
