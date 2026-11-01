@@ -67,7 +67,7 @@ The detail view exposes the source prompt identity, agent, branch/base/head, wor
 
 The default runner uses a managed local Docker devcontainer and a labelled persistent workspace volume. It creates a fresh clone and branch inside that environment; no host clone or checkout is required. Git inspection, agent execution and final verification use the container transport. Legacy checkout registrations remain visible for recovery but are refused for new execution.
 
-Configuration, source revision, image identity, resource policy and container sign-in are execution prerequisites. Host credentials and the Docker socket are not mounted. Missing tools or authentication block the run without a host fallback. Admin handles configuration approval; independent tools and sign-in use the [explicit terminal setup](../container-runtime.md#explicit-terminal-setup) command. Real-daemon end-to-end verification is still outstanding; do not interpret static registration as readiness.
+Configuration, source revision, image identity, resource policy and container sign-in are execution prerequisites. Host credentials and the Docker socket are not mounted. Missing tools or authentication block the run without a host fallback. Admin handles configuration approval; independent tools and sign-in use the [explicit terminal setup](../container-runtime.md#explicit-terminal-setup) command. The real Docker workflow fixture uses synthetic agent/GitHub services and an in-volume Git remote. It does not prove live provider sign-in or external publication; static registration alone is not readiness.
 
 ## Prompt and admission
 
@@ -147,7 +147,7 @@ POST \`/api/repositories\` supports \`discover-container\`, \`select-container\`
 
 The \`register\` action accepts an entry with an \`environment\` object of kind \`devcontainer\`. Its approval includes the revision, selected path/blob/source digest or exact inferred proposal digest and consent, normalized configuration, full local image ID, shared workstation git-locks store and total runtime timeout. Choose at least one supported agent and an in-container verification command. The runtime deadline must reserve at least 600 seconds beyond the agent and verification limits for setup/publication. The registry permits at most 64 repositories and 256 KiB total.
 
-Automatic managed-image preparation remains separate from registration. The Admin form discovers GitHub configurations, previews a selected configuration, or asks for explicit inference consent after a missing inventory. Changing the repository or base invalidates the previous preview. Registration requires that preview, the full prepared image identity, workstation lock store, enabled agents and literal verification argv. A configured environment is not presented as ready merely because its fields validate. See the [runtime contract](../container-runtime.md) and [configuration preview contract](../devcontainer-discovery.md).
+Prepare the fixed managed image with the explicit local \`reader container-image --lock-store \u2026\` command before approving its returned image identity. Image preparation is separate from registration. The Admin form discovers GitHub configurations, previews a selected configuration, or asks for explicit inference consent after a missing inventory. Changing the repository or base invalidates the previous preview. Registration requires that preview, the full prepared image identity, workstation lock store, enabled agents and literal verification argv. A configured environment is not presented as ready merely because its fields validate. See the [runtime contract](../container-runtime.md) and [configuration preview contract](../devcontainer-discovery.md).
 
 ## Verification
 
@@ -177,7 +177,7 @@ The registry holds execution policy and non-secret configuration. Container cred
 
 Creation intent, lease identity and container identity are recorded before execution proceeds. Restart recovery proves ownership, resumes or reacquires the correct resource admission, stops the old worker and retains the workspace volume. A replaced lease, foreign worker or unconfirmed stop requires reconciliation and is not reported as a clean recovery. An agent is never silently relaunched.
 
-Implementation: \`repositories.py\`, \`container_registry.py\`, \`coding_api.py\`, \`coding_container.py\`, the container runtime/recovery modules and the Repositories Admin page. The backend is container-only. Admin handles configuration approval; tool installation and independent sign-in use the explicit terminal setup command. Managed image preparation and real-daemon integration verification remain incomplete.
+Implementation: \`repositories.py\`, \`container_registry.py\`, \`coding_api.py\`, \`coding_container.py\`, the container runtime/recovery modules and the Repositories Admin page. The backend is container-only. Admin handles configuration approval; tool installation and independent sign-in use the explicit terminal setup command. The installed image command and terminal setup handle local preparation. Real Docker workflow validation uses synthetic agent/GitHub services; live provider tasks and external publication are separate operational checks.
 `;var h7=`# Voices and agent command lines
 
 ## Overview

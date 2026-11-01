@@ -2,13 +2,11 @@
 
 ## Unreleased
 
+- Add guarded preparation/reuse of the fixed managed coding image. Real Docker job validation exposed and fixed cancellation classification, transient descriptor-scan denial and unconfirmed client-cleanup handling.
+
 - Replace checkout registration with pinned GitHub container discovery, selection and explicit inference consent. Add guarded terminal setup/check/recovery commands with independent container sign-in and persistent tooling.
 
-- Route default Coding Jobs development through managed devcontainers, preserve legacy registrations without executing them, and fence worker recovery by its exact lease and per-run identity. Container setup/readiness UI remains in progress.
-
-- Add local authenticated devcontainer discovery/preview actions and internal persistent-worker supervision primitives; the production Coding Jobs runner is not switched yet.
-
-- Add internal GitHub devcontainer discovery at pinned commits, distinguishing complete absence from API/inventory failures. The job runner is not yet migrated.
+- Route default Coding Jobs development through managed devcontainers, preserve legacy registrations without executing them, and fence worker recovery by its exact lease and per-run identity.
 
 - Voice selectors recover after AI-TTS starts and offer Retry voices after catalog failures.
 

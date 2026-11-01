@@ -30,7 +30,7 @@ class ContainerJob(Job):
         try:
             return super().execute()
         except ProcessError as exc:
-            raise Stop('cancelled' if self.cancelled() else 'failed', self.private(str(exc))) from exc
+            raise Stop('cancelled' if self.cancelled() else 'failed', self.private(getattr(self.runtime, 'error', None) or str(exc))) from exc
         finally:
             if self.runtime:
                 try:
@@ -179,12 +179,13 @@ class ContainerJob(Job):
             result = self.command(argv, cwd=str(cwd), timeout=timeout, check=False,
                 stdin=None if stdin == subprocess.DEVNULL else stdin, output=output, started=started, finished=finished,
                 limit=64 * 1024**2, capture_limit=0)
+            self.check_cancel()
             if pending and on_line:
                 on_line(pending.decode('utf-8', 'replace'))
             return None, result.returncode, None
         except ProcessError as exc:
             self.runtime.stop()
-            return 'cancelled' if self.cancelled() else 'failed', None, str(exc)
+            return 'cancelled' if self.cancelled() else 'failed', None, getattr(self.runtime, 'error', None) or str(exc)
 
     def agent(self):
         self.phase('agent', coding_agents.LABELS[self.run['agent']])

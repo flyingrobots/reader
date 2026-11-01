@@ -80,6 +80,8 @@ def main():
     container = commands.add_parser('container', help='Set up, check or recover a registered coding devcontainer')
     from .container_setup import arguments as container_arguments
     container_arguments(container)
+    image = commands.add_parser('container-image', help='Prepare Reader’s fixed managed image from cached pinned bases')
+    image.add_argument('--lock-store', required=True, help='Existing absolute workstation git-locks store')
     args = parser.parse_args()
     if args.command == "metadata-schema":
         from .metadata import schema
@@ -103,6 +105,10 @@ def main():
             print(json.dumps(result, ensure_ascii=False, indent=2))
             if not result['valid']:
                 sys.exit(1)
+            return
+        if args.command == 'container-image':
+            from .container_image import prepare
+            print(json.dumps(prepare(args.root, args.lock_store), indent=2))
             return
         if args.command == 'container':
             from .container_setup import setup

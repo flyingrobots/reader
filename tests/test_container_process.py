@@ -53,3 +53,15 @@ def test_early_leader_exit_does_not_abandon_a_surviving_writer(tmp_path):
         if pidfile.exists():
             try:os.kill(int(pidfile.read_text()), signal.SIGKILL)
             except ProcessLookupError:pass
+
+
+def test_failed_reap_does_not_announce_client_cleanup(monkeypatch):
+    from reader_mcp import container_process
+    finished=[]
+    def denied(process):
+        process.wait(timeout=5)
+        raise PermissionError('cleanup unconfirmed')
+    monkeypatch.setattr(container_process,'reap',denied)
+    with pytest.raises(PermissionError,match='unconfirmed'):
+        execute([sys.executable,'-c','print("done")'],finished=finished.append)
+    assert finished == []

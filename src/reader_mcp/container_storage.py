@@ -69,3 +69,10 @@ for path in ('/tmp','/etc','/dev/shm'):
  fs=os.statvfs(path);caps[path]=fs.f_blocks*fs.f_frsize
 print(json.dumps({'workspace_bytes':used,'vm_free_bytes':v.f_bavail*v.f_frsize,'tmpfs_bytes':caps}))
 '''
+
+# exec/credential transitions can briefly make a live process's /proc descriptors unreadable.
+# Retry a complete scan, never skip a PID or return a partial count. Persistent denial still stops work.
+import textwrap
+
+MEASURE = ('import time\ndef _scan():\n' + textwrap.indent(MEASURE.replace(' global used', ' nonlocal used'), ' ')
+           + '\nfor _attempt in range(4):\n try:\n  _scan()\n  break\n except PermissionError:\n  if _attempt == 3:raise\n  time.sleep(.05)\n')

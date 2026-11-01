@@ -41,3 +41,31 @@ print('ready',flush=True);time.sleep(30)
                 or (result.returncode != 0 and 'Cannot account for a mapped workspace file' in result.stderr)), 'Never report a successful undercount of retained mapped data'
     finally:
         child.kill();child.wait(timeout=5);child.stdout.close()
+
+
+def test_transient_descriptor_denial_retries_a_complete_scan(tmp_path):
+    (tmp_path/'retained').write_bytes(b'x'*1048576)
+    prefix='''import os
+original=os.lstat
+remaining=1
+def denied(path,*args,**kwargs):
+ global remaining
+ if str(path)==ROOT and remaining:
+  remaining-=1
+  raise PermissionError('credential transition')
+ return original(path,*args,**kwargs)
+os.lstat=denied
+'''.replace('ROOT',repr(str(tmp_path)))
+    program=prefix+MEASURE.replace("root='/work'",'root='+repr(str(tmp_path)))
+    result=subprocess.run([sys.executable,'-I','-S','-c',program],capture_output=True,text=True,timeout=5)
+    assert result.returncode==0,result.stderr
+    assert json.loads(result.stdout)['workspace_bytes']>=1048576
+
+
+def test_persistent_descriptor_denial_cannot_return_a_partial_count(tmp_path):
+    prefix='''import os
+def denied(*args,**kwargs):raise PermissionError('persistent denial')
+os.lstat=denied
+'''
+    result=subprocess.run([sys.executable,'-I','-S','-c',prefix+MEASURE],capture_output=True,text=True,timeout=5)
+    assert result.returncode!=0 and not result.stdout

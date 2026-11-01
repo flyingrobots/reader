@@ -79,12 +79,14 @@ def execute(argv, *, timeout=15, env=None, stdin=subprocess.DEVNULL, cancelled=l
             if selector:
                 selector.close()
         finally:
+            reaped = False
             try:
                 reap(child)
+                reaped = True
             finally:
                 try:
                     for stream in buffers:
                         stream.close()
                 finally:
-                    if finished:
+                    if finished and reaped:
                         finished(child.pid)

@@ -153,3 +153,21 @@ def test_registered_container_agents_can_be_selected_without_host_discovery(worl
     assert actions['blocks'][0]['registered']
     assert all(a['available'] for a in actions['blocks'][0]['agents'])
     assert world.runtimes == [], 'Viewing the prompt cannot start setup or a worker'
+
+
+def test_stop_after_docker_exit_is_cancelled_instead_of_exit_137(world):
+    original = world.jobs.runtime_factory
+    def factory(*args, **kwargs):
+        value = original(*args, **kwargs)
+        command = value.command
+        def returned_after_stop(argv, *args, **kwargs):
+            if argv[:2] == [str(world.agent), 'exec']:
+                world.jobs.cancels.add(value.id)
+                return subprocess.CompletedProcess(argv, 137, '', '')
+            return command(argv, *args, **kwargs)
+        value.command = returned_after_stop
+        return value
+    world.jobs.runtime_factory = factory
+    run, _ = world.run()
+    assert run['outcome'] == 'cancelled', run['message']
+    assert run['pr'] is None and run['push'] is None and world.runtimes[0].closed

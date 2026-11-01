@@ -15,6 +15,8 @@ from .container_process import ProcessError, execute
 
 
 def recover(root, repo, run_id, record, *, docker, lock_tool, run=execute):
+    if record.get('client_cleanup_unconfirmed'):
+        raise ProcessError('Host control-plane client cleanup needs manual verification before recovery')
     key = hashlib.sha256(repo.casefold().encode()).hexdigest()[:16]
     name = 'reader-coding-' + key
     owner = hashlib.sha256(str(root.resolve()).encode()).hexdigest()

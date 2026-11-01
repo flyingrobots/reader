@@ -124,3 +124,11 @@ def test_explicit_missing_job_reacquires_before_stopping(tmp_path):
     assert claim < inspect
     release = next(c for c in control.calls if c[:2] == ['locks', 'release'])
     assert release[release.index('--acquisition') + 1] == 'new-receipt'
+
+
+def test_unconfirmed_host_client_requires_manual_review_before_worker_recovery(tmp_path):
+    control=Control(tmp_path)
+    control.record['client_cleanup_unconfirmed']=[12345]
+    with pytest.raises(ProcessError,match='manual verification'):
+        call(tmp_path,control)
+    assert control.calls == []

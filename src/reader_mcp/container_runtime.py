@@ -291,6 +291,10 @@ class ContainerRuntime:
         except BaseException as exc:
             self.error = str(exc) or 'Container monitoring failed'
             try:
+                self.record({'guard_error': self.error, 'state': 'stopping'})
+            except BaseException as recording:
+                self.error += '; could not record guard failure: ' + str(recording)
+            try:
                 self.stop()
             except BaseException as failure:
                 self.error += '; could not confirm stop: ' + str(failure)
@@ -312,6 +316,12 @@ class ContainerRuntime:
         # Preserve the volume on every path. A failed stop retains the lease for reconciliation/expiry.
         if self.cid:
             self.stop()
+        with self.clients_lock:
+            remaining_clients = sorted(self.clients)
+        if remaining_clients:
+            self.record({'client_cleanup_unconfirmed': remaining_clients, 'state': 'needs_reconciliation'})
+            raise ProcessError('Host control-plane client cleanup was not confirmed; worker state and lease are retained')
+        if self.cid:
             self.invoke([self.docker, 'rm', self.cid], cleanup=True)
             self.cid = None
         self.lease.release()

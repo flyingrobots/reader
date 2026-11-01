@@ -139,5 +139,20 @@ def test_a_live_monitor_measurement_failure_stops_the_whole_worker(runtime):
         time.sleep(.01)
     assert not docker.container['State']['Running'] and 'Cannot account' in value.error
     assert docker.volume is not None, 'Failed accounting must preserve the recovery workspace'
+    assert any('Cannot account' in r.get('guard_error', '') for r in records)
     with pytest.raises(ProcessError, match='Cannot account'):
         value.check()
+
+
+def test_unconfirmed_client_cleanup_keeps_stopped_worker_and_lease(runtime):
+    value, docker, records = runtime
+    value.prepare({'image': 'reader-development:local'}, IMAGE)
+    value._started(99999)
+    try:
+        with pytest.raises(ProcessError, match='client cleanup'):
+            value.close()
+        assert not docker.container['State']['Running'] and docker.volume is not None
+        assert not value.lease.released
+        assert records[-1]['client_cleanup_unconfirmed'] == [99999]
+    finally:
+        value._finished(99999)
