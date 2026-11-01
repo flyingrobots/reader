@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Compress the separately bounded Linux formatter during validation transfer and restore it in the worker, preserving its bytes and the existing source/artifact limits.
+
 - Add guarded preparation/reuse of the fixed managed coding image. Real Docker job validation exposed and fixed cancellation classification, transient descriptor-scan denial and unconfirmed client-cleanup handling.
 
 - Replace checkout registration with pinned GitHub container discovery, selection and explicit inference consent. Add guarded terminal setup/check/recovery commands with independent container sign-in and persistent tooling.

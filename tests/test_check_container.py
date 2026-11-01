@@ -71,15 +71,16 @@ def test_built_controls_refuse_entries_outside_the_folder(tmp_path):
         check_container.extract_controls(controls_archive('../escape.js'), tmp_path)
 
 
-def capture_worker_start(tmp_path, monkeypatch, stop_at):
+def capture_worker_start(tmp_path, monkeypatch, stop_at, kind="web", prepare=None):
     """Capture the real launch/archive boundary with no Docker daemon effects."""
     from types import SimpleNamespace
     root = tmp_path / 'source'
     (root / 'docs/topics').mkdir(parents=True)
     (root / 'docs/topics/indexes.md').write_text('# Canonical index reference\n')
+    if prepare:prepare(root)
     monkeypatch.setattr(check_container, 'ROOT', root)
     monkeypatch.setattr(check_container, 'RUNTIME', tmp_path / 'runtime')
-    monkeypatch.setattr(sys, 'argv', ['check_container.py', 'web'])
+    monkeypatch.setattr(sys, 'argv', ['check_container.py', kind])
     monkeypatch.setattr(check_container.shutil, 'disk_usage', lambda _: SimpleNamespace(free=10**12))
     monkeypatch.setattr(check_container.subprocess, 'run', lambda *a, **k: SimpleNamespace(returncode=1))
     captured = {}
@@ -89,7 +90,7 @@ def capture_worker_start(tmp_path, monkeypatch, stop_at):
             captured['argv'] = args
             if stop_at == 'run':
                 raise RuntimeError('captured boundary')
-        if args[:3] == ('exec', check_container.worker_name('web'), 'df'):
+        if args[:3] == ('exec', check_container.worker_name(kind), 'df'):
             return SimpleNamespace(stdout='Filesystem 1024-blocks Used Available Capacity Mounted\nroot 999999999 0 999999999 0% /\n')
         if 'input' in kwargs:
             captured['archive'] = kwargs['input']
@@ -112,3 +113,41 @@ def test_web_archive_contains_canonical_markdown_dependencies(tmp_path, monkeypa
     with tarfile.open(fileobj=io.BytesIO(data)) as archive:
         assert 'docs/topics/indexes.md' in archive.getnames(), 'The frontend imports its reference at build time'
         assert archive.extractfile('docs/topics/indexes.md').read() == b'# Canonical index reference\n'
+
+
+def test_python_transfer_compresses_bounded_formatter_without_raising_source_cap(tmp_path, monkeypatch):
+    import gzip
+    formatter=b'fixed Linux formatter bytes\0'*150000
+    def prepare(root):
+        (root/'src').mkdir()
+        (root/'src/payload.dat').write_bytes(b'x'*(21*1024**2))
+        folder=root/'.reader/tooling/bin';folder.mkdir(parents=True)
+        (folder/'wide-md').write_bytes(formatter)
+    data=capture_worker_start(tmp_path,monkeypatch,'archive',kind='python',prepare=prepare)['archive']
+    assert len(data)<=24*1024**2, 'The existing source transport bound stays intact'
+    with tarfile.open(fileobj=io.BytesIO(data)) as archive:
+        assert '.reader/tooling/bin/wide-md' not in archive.getnames()
+        packed=archive.extractfile('.reader/tooling/bin/wide-md.gz').read()
+        assert gzip.decompress(packed)==formatter, 'Compression preserves the existing pinned artifact bytes'
+
+
+def test_formatter_restore_preserves_artifact_and_removes_transfer_copy(tmp_path):
+    import gzip
+    import subprocess
+    folder=tmp_path/'.reader/tooling/bin';folder.mkdir(parents=True)
+    data=b'fixed executable bytes'
+    (folder/'wide-md.gz').write_bytes(gzip.compress(data))
+    subprocess.run([sys.executable,'-c',check_container.FORMATTER_RESTORE],cwd=tmp_path,check=True,timeout=5)
+    assert (folder/'wide-md').read_bytes()==data
+    assert (folder/'wide-md').stat().st_mode & 0o777 == 0o755
+    assert not (folder/'wide-md.gz').exists()
+
+
+def test_formatter_restore_rejects_expansion_beyond_existing_artifact_bound(tmp_path):
+    import gzip
+    import subprocess
+    folder=tmp_path/'.reader/tooling/bin';folder.mkdir(parents=True)
+    (folder/'wide-md.gz').write_bytes(gzip.compress(b'x'*(17*1024**2)))
+    result=subprocess.run([sys.executable,'-c',check_container.FORMATTER_RESTORE],cwd=tmp_path,capture_output=True,text=True,timeout=5)
+    assert result.returncode!=0 and 'Formatter artifact limit' in result.stderr
+    assert not (folder/'wide-md').exists()
