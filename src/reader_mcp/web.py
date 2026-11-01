@@ -1539,7 +1539,7 @@ class WebHandler(BaseHTTPRequestHandler):
                 elif parsed.path == '/api/inbox':
                     action = request.get('action')
                     if action == 'start' and not set(request) - {'action', 'sandbox_mode'}:
-                        self.json(library.inbox.start(request.get('sandbox_mode', 'workspace-write')))
+                        self.json(library.inbox.start(request.get('sandbox_mode', 'read-only')))
                     elif action == 'stop' and set(request) == {'action'}:
                         self.json(library.inbox.stop())
                     else:
@@ -1594,6 +1594,14 @@ class WebHandler(BaseHTTPRequestHandler):
             elif parsed.path == '/api/resolve-batch':
                 targets = parse_qs(parsed.query, keep_blank_values=True).get('target', [])
                 self.json(library.resolve_many(args.get('from', ''), targets))
+            elif parsed.path == '/api/portable-links':
+                from .portable_links import PortableLinks, public_record
+                path = args.get('path', '')
+                library.path(path)
+                sha = library.digest(path)
+                if args.get('sha256') != sha:
+                    raise ValueError('Document changed; reopen it before using link repairs')
+                self.json(public_record(PortableLinks(library.root).stored(path, sha) or {'targets': []}))
             elif parsed.path == '/api/embeds':
                 lists = parse_qs(parsed.query, keep_blank_values=True)
                 depth = args.get('depth', '0')

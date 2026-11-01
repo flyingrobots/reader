@@ -112,9 +112,11 @@ service and companion tools; agent voices; the local-model provider, queue and
 controls; and settings (**Space p**). **Back to Library** returns to the document
 where you left it. Other tools and
 agents deliver documents into the vault's `inbox/` with `reader ingest` or the
-`reader_ingest` MCP tool. **You got mail** then starts a librarian run through your
-own Codex CLI, which files the arrivals, and you can watch its live transcript
-through to the verified commit.
+`reader_ingest` MCP tool. **You got mail** starts deterministic intake: the script
+invokes your Codex CLI for bounded editorial decisions, preserves and files the
+arrivals, checks the result, and commits it. Work is divided automatically;
+original delivery bundles stay intact. You can watch progress through to the
+verified commit.
 
 ![A finished inbox run: the librarian's report, the filed arrivals and the commit](docs/images/inbox-activity.png)
 

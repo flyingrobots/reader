@@ -34,7 +34,7 @@ MAX_EVENT_STREAM = 8 * 1024**2  # The supervisor's stdout cap.
 MAX_EVENT_FIELD = 64 * 1024
 # Codex item fields whose long text is kept head and tail; other oversized fields are dropped.
 EVENT_TEXT_FIELDS = ('aggregated_output', 'text', 'message')
-SANDBOX_MODES = ('workspace-write', 'danger-full-access')
+SANDBOX_MODES = ('read-only', 'workspace-write', 'danger-full-access')
 ACTIVE = ('starting', 'running')
 CANCEL_TEXT = 'Stop requested by the Reader web user.\n'
 INTERRUPTED = ('The inbox runner stopped unexpectedly. Inspect its report and partial changes before retrying: '
@@ -189,7 +189,7 @@ class InboxView:
         return match.group(1)[:300] if match else None
 
     def arrivals(self):
-        paths = inventory(self.root)
+        paths = inventory(self.root, strict=False)
         groups = {}
         for path in paths:
             groups.setdefault(path.split('/')[1], []).append(path)
@@ -436,6 +436,7 @@ class InboxView:
         # Whether Codex is installed, never where: tailnet browsers see this answer too (#105).
         result = {'arrivals': [], 'runner': None, 'claims_held': [], 'codex': {'name': 'codex', 'installed': bool(find_codex(self.environ))},
                   'sandbox_modes': list(SANDBOX_MODES), 'errors': []}
+        result['pending'] = False
         try:
             result['arrivals'] = self.arrivals()
         except (ValueError, OSError) as exc:
@@ -445,6 +446,7 @@ class InboxView:
         except (ValueError, OSError) as exc:
             result['errors'].append(f'Cannot read inbox coordination (upkeep-claims.json): {exc}')
         try:
+            result['pending'] = any((self.safe_runtime() / name).is_file() for name in ('pending.json', 'queue.json'))
             state = self.state()
         except (ValueError, OSError) as exc:
             state = None
@@ -452,8 +454,14 @@ class InboxView:
         if state:
             runner = {k: state.get(k) for k in ('status', 'run_id', 'started_at', 'updated_at', 'finished_at', 'message',
                                                  'arrivals', 'remaining', 'exit_code', 'sandbox_mode')}
-            runner['arrivals'] = len(state['arrivals']) if isinstance(state.get('arrivals'), list) else None
-            runner['remaining'] = len(state['remaining']) if isinstance(state.get('remaining'), list) else None
+            runner['arrivals'] = state.get('arrival_count', len(state['arrivals']) if isinstance(state.get('arrivals'), list) else None)
+            runner['remaining'] = state.get('remaining_count', len(state['remaining']) if isinstance(state.get('remaining'), list) else None)
+            summary = state.get('result')
+            if isinstance(summary, dict):
+                for field in ('filed', 'deferred'):
+                    count = summary.get(field + '_count')
+                    if type(count) is int and count >= 0:
+                        runner[field] = count
             if state['status'] in ACTIVE:
                 runner['event'] = self.latest_event()
             else:
@@ -465,7 +473,9 @@ class InboxView:
                 # Librarian reports link vault files by absolute path; show them vault-relative.
                 runner['report_md'] = report.replace('](' + str(self.root) + '/', '](').replace(str(self.root) + '/', '') if report else report
                 runner['report_truncated'] = truncated
-                runner['commit'] = self.commit(report) if state['status'] == 'finished' else None
+                committed = summary.get('commit') if isinstance(summary, dict) else None
+                commit_source = 'Commit ' + committed if isinstance(committed, str) and re.fullmatch('[0-9a-f]{40}', committed) else report
+                runner['commit'] = self.commit(commit_source) if state['status'] == 'finished' else None
             result['runner'] = shown(runner, self.root)
         try:
             result['chat_turn'] = chat_turn_running(self.root)
@@ -492,7 +502,7 @@ class InboxView:
         if status.get('chat_turn'):
             # The supervisor refuses too (inbox_runner.chat_turn_running); say so before spawning it.
             return {'reason': 'chat', 'message': 'A voice chat turn is running in this vault. You got mail can start when it finishes.'}
-        if not status['arrivals']:
+        if not status['arrivals'] and not status.get('pending'):
             return {'reason': 'empty', 'message': 'The inbox is empty.'}
         if not (status.get('codex') or {}).get('installed'):
             return {'reason': 'codex', 'message': CODEX_MISSING}
@@ -502,15 +512,15 @@ class InboxView:
 
     def command(self, codex, run_id, sandbox_mode):
         argv = [self.python, '-m', 'reader_mcp.inbox_runner', '--root', str(self.root), '--codex', codex,
-                '--run-id', run_id, '--sandbox-mode', sandbox_mode]
+                '--run-id', run_id, '--sandbox-mode', 'read-only']
         store = (self.environ.get('READER_WORKSTATION_LOCK_STORE') or '').strip()
         if store:
             argv += ['--workstation-lock-store', store]
         return argv
 
-    def start(self, sandbox_mode='workspace-write', wait=3.0):
+    def start(self, sandbox_mode='read-only', wait=3.0):
         if sandbox_mode not in SANDBOX_MODES:
-            raise ValueError('Expected sandbox_mode workspace-write or danger-full-access')
+            raise ValueError('Unsupported inbox sandbox mode')
         if sys.platform == 'win32':
             raise ValueError('The inbox runner currently requires macOS or Linux.')
         with self.lock:

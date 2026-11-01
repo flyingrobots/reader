@@ -21,6 +21,14 @@ def main():
     annotate.add_argument("request")
     reading = commands.add_parser("reading-copy", help="Create an unwrapped Markdown reading derivative using wide-md")
     reading.add_argument("path", help="Library-relative original Markdown path")
+    repair = commands.add_parser("repair-links", help="Plan or record source-preserving local URL repairs")
+    repair.add_argument("paths", nargs="*")
+    repair.add_argument("--all", action="store_true", help="Scan existing library Markdown")
+    repair.add_argument("--apply", action="store_true", help="Write repair records and explicitly linked image assets")
+    repair.add_argument("--git-root", type=Path, help="Root containing local Git checkouts (default ~/git)")
+    repair.add_argument("--image-root", type=Path, action='append', default=[], help="Explicit additional image directory; repeat as needed")
+    inbox = commands.add_parser("inbox", help="Start, inspect or stop deterministic inbox processing")
+    inbox.add_argument("action", choices=['start', 'status', 'stop'])
     status = commands.add_parser("status", help="Inspect a receipt by UUID")
     status.add_argument("request_id")
     serve_parser = commands.add_parser("serve", help="Run the local MCP server over stdio")
@@ -119,6 +127,32 @@ def main():
         elif args.command == "reading-copy":
             from .reading import reading_copy
             result = reading_copy(store.root, args.path)
+        elif args.command == "inbox":
+            from .inbox_view import InboxView
+            view = InboxView(store.root)
+            result = getattr(view, args.action)()
+        elif args.command == "repair-links":
+            from .portable_links import PortableLinks
+            if bool(args.paths) == bool(args.all):
+                raise ValueError('Select explicit paths or --all')
+            repairer = PortableLinks(store.root, args.git_root, image_roots=args.image_root)
+            paths = args.paths or [p.relative_to(store.root).as_posix() for p in sorted((store.root / 'library').rglob('*'))
+                                   if p.suffix.lower() in ('.md', '.markdown') and p.is_file() and not p.is_symlink()
+                                   and not any(part.startswith('.') for part in p.relative_to(store.root).parts)]
+            if len(paths) > 50000:
+                raise ValueError('Repair inventory exceeds 50,000 Markdown files')
+            rows = []
+            for path in paths:
+                try:
+                    row = repairer.prepare(path, apply=args.apply)
+                    if row['status'] != 'unchanged':
+                        rows.append(row)
+                except (ValueError, OSError, UnicodeError) as exc:
+                    rows.append({'path': path, 'status': 'failed', 'error': str(exc)})
+            result = {'applied': args.apply, 'examined': len(paths), 'documents': rows,
+                      'failed': sum(r['status'] == 'failed' for r in rows),
+                      'resolved': sum(r.get('counts', {}).get('resolved', 0) for r in rows),
+                      'unresolved': sum(r.get('counts', {}).get('unresolved', 0) for r in rows)}
         elif args.command == "status":
             result = store.status(args.request_id)
         elif args.command == "curation":
@@ -160,6 +194,8 @@ def main():
             else:
                 result = engine.read(args.path, args.start_line, args.limit, args.page, args.expected_sha256)
         print(json.dumps(result, ensure_ascii=False, indent=2))
+        if args.command == 'repair-links' and result['failed']:
+            sys.exit(1)
     except (ValueError, TypeError, OSError, sqlite3.Error) as exc:
         print(f"Reader: {exc}", file=sys.stderr)
         sys.exit(1)

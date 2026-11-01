@@ -129,7 +129,7 @@ def main():
                 cmd = ('git init /work/formatter && git -C /work/formatter fetch --depth=1 '
                        'https://github.com/flyingrobots/wide-md c167101b32bbe37954429e9de5db33efcdc0a16c && '
                        'git -C /work/formatter checkout --detach FETCH_HEAD && '
-                       'CARGO_HOME=/work/cargo CARGO_TARGET_DIR=/work/target CARGO_INCREMENTAL=0 '
+                       'CARGO_HOME=/work/cargo CARGO_TARGET_DIR=/work/target CARGO_INCREMENTAL=0 CARGO_PROFILE_RELEASE_STRIP=symbols '
                        'cargo build --manifest-path /work/formatter/Cargo.toml --release --locked -j 2')
             log = RUNTIME/(kind+'.log')
             with log.open('wb') as output:

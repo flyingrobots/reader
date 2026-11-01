@@ -2,13 +2,14 @@
 const assert=require('node:assert/strict');
 const {spawn}=require('node:child_process');
 const {createInterface}=require('node:readline');
-const {mkdirSync,writeFileSync,rmSync,existsSync}=require('node:fs');
+const {mkdirSync,writeFileSync,rmSync,existsSync,readFileSync,readdirSync}=require('node:fs');
 const {join}=require('node:path');
 const {chromium}=require(process.env.READER_PLAYWRIGHT||'playwright-core');
 (async()=>{
- const fixture=spawn(process.env.READER_PYTHON||'.venv/bin/python',['tests/web_fixture.py','--inbox'],{stdio:['ignore','pipe','inherit']});let browser;
+ const fixture=spawn(process.env.READER_PYTHON||'.venv/bin/python',['tests/web_fixture.py','--inbox'],{stdio:['ignore','pipe','inherit']});let browser,fixtureRoot;
  try{
   const {url,root}=await new Promise((resolve,reject)=>{createInterface({input:fixture.stdout}).once('line',line=>resolve(JSON.parse(line)));fixture.once('exit',code=>reject(new Error('Fixture exited '+code)));});
+  fixtureRoot=root;
   browser=await chromium.launch({headless:true,executablePath:process.env.READER_CHROME||'/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',args:['--disable-gpu','--disable-background-networking','--disable-breakpad','--disable-crash-reporter','--disk-cache-size=10485760']});
   mkdirSync('.reader/web-dev',{recursive:true});
   const errors=[],external=[],writes=[];
@@ -26,7 +27,7 @@ const {chromium}=require(process.env.READER_PLAYWRIGHT||'playwright-core');
   assert.match(await page.locator('[data-arrival="11111111-1111-4111-8111-111111111111"]').textContent(),/Claude · Reader · 2026-10-24 via Synthetic courier/);
   assert.equal(await page.locator('[data-arrival="11111111-1111-4111-8111-111111111111"] [data-integrity]').getAttribute('data-integrity'),'intact');
   assert.equal(await page.locator('[data-arrival="loose-note.md"] [data-integrity]').textContent(),'No receipt');
-  assert.match(await page.locator('#inbox-mail-note').textContent(),/Ask the librarian to file 3 arrivals/);
+  assert.match(await page.locator('#inbox-mail-note').textContent(),/File 3 arrivals/);
   await page.screenshot({path:'.reader/web-dev/inbox.png',fullPage:true});
   // A preview is plain reading: nothing written for the librarian.
   const before=writes.length;
@@ -101,8 +102,10 @@ const {chromium}=require(process.env.READER_PLAYWRIGHT||'playwright-core');
   await page.screenshot({path:'.reader/web-dev/inbox-running.png'});
   rmSync(join(root,'.fake-pause'));
   await toast('Mail filed: 3 arrivals').waitFor({timeout:15000});assert.equal(await toast('Mail filed').getAttribute('data-type'),'success');
-  await page.locator('#inbox-report').filter({hasText:'Filed the synthetic mail'}).waitFor();
-  assert.equal(await page.evaluate(()=>window.reportScriptRan),undefined,'report HTML is sanitized');
+  await page.locator('#inbox-report').filter({hasText:'Filed 3 arrivals; deferred 0'}).waitFor();
+  const result=JSON.parse(readFileSync(join(root,'.reader/inbox-runner/result.json'),'utf8'));
+  assert.equal(result.status,'verified');assert.equal(result.filed.length,3);assert.match(result.commit,/^[a-f0-9]{40}$/);
+  const loose='library/filed/'+readdirSync(join(root,'library/filed')).find(p=>p.startsWith('loose-note-md-'))+'/originals/loose-note.md';
   assert.equal(await page.locator('#inbox-report').getAttribute('data-reader-decoration'),'');
   // A report that opens with `# Title` stays at transcript scale in the log (#79); the report view keeps its own heading size.
   const heads=await page.evaluate(()=>{const px=el=>parseFloat(getComputedStyle(el).fontSize),log=document.querySelector('#inbox .activity-log'),body=log.querySelector('.activity-prose');
@@ -122,7 +125,7 @@ const {chromium}=require(process.env.READER_PLAYWRIGHT||'playwright-core');
   const polls=[];page.on('request',r=>{if(r.url().includes('/api/inbox/events'))polls.push(r.url());});await page.waitForTimeout(2500);assert.deepEqual(polls,[],'no event polling after the run');
   await page.waitForFunction(()=>document.querySelector('#settings-open span').textContent==='Backstage');
   assert.equal(await page.locator('#inbox-blocked').getAttribute('data-reason'),'empty');
-  assert.ok(writes.some(w=>w.startsWith('/api/inbox')&&w.includes('"sandbox_mode":"workspace-write"')),'the sandboxed default is sent');
+  assert.ok(writes.some(w=>w.startsWith('/api/inbox')&&w.includes('"sandbox_mode":"read-only"')),'the editorial model is read-only');
   await page.screenshot({path:'.reader/web-dev/inbox-report.png',fullPage:true});
   await log.screenshot({path:'.reader/web-dev/activity-paper.png'});
   // Legible in every theme: prose, trace lines and terminal text against their own backgrounds.
@@ -149,13 +152,13 @@ const {chromium}=require(process.env.READER_PLAYWRIGHT||'playwright-core');
   // File tree and citations open vault documents.
   await item('item_6').locator('[data-activity-file-tree] button[data-change=add]').filter({hasText:'loose-note.md'}).click();
   await page.getByRole('heading',{name:'A loose dropped note'}).waitFor();
-  assert.equal(decodeURIComponent(new URL(page.url()).hash),'#read=library/filed/loose-note.md','file tree entries open filed documents');
+  assert.equal(decodeURIComponent(new URL(page.url()).hash),'#read='+loose,'file tree entries open filed documents');
   await page.goBack();await page.locator('#inbox .activity-log').waitFor();
-  await page.locator('#inbox .activity-log [data-cite="library/filed/loose-note.md"]').first().click();
+  await page.locator(`#inbox .activity-log [data-cite="${loose}"]`).first().click();
   await page.getByRole('heading',{name:'A loose dropped note'}).waitFor();
   await page.goBack();await page.locator('#inbox-report').waitFor();
-  await page.locator('#inbox-report a').first().click();await page.getByRole('heading',{name:'A loose dropped note'}).waitFor();
-  assert.equal(decodeURIComponent(new URL(page.url()).hash),'#read=library/filed/loose-note.md','report links open filed documents');
+  await page.locator('#inbox-report a').first().click();await page.getByRole('heading',{name:'Synthetic mail',exact:true}).waitFor();
+  assert.equal(decodeURIComponent(new URL(page.url()).hash),'#read='+result.filed[0]+'/index.md','report links open verified catalogs');
   // Stop during a slow run.
   writeFileSync(join(root,'.fake-slow'),'');
   mkdirSync(join(root,'inbox/33333333-3333-4333-8333-333333333333'));writeFileSync(join(root,'inbox/33333333-3333-4333-8333-333333333333/late.md'),'# A late arrival\n');
@@ -182,7 +185,7 @@ const {chromium}=require(process.env.READER_PLAYWRIGHT||'playwright-core');
   await page.locator('#inbox-mail').click();
   await toast('The librarian couldn’t file the mail').waitFor({timeout:15000});
   const stack=page.locator('#inbox .activity-log [data-activity-stack]');await stack.waitFor();
-  assert.match(await stack.textContent(),/Codex exited with status 1.*RuntimeError: synthetic intake failure/s);
+  assert.match(await stack.textContent(),/Intake exited with status 1.*RuntimeError: synthetic intake failure/s);
   assert.match(await page.locator('#inbox .activity-log [data-activity-item=message]').textContent(),/Checking receipts|I’ll file/);
   await page.locator('#inbox .activity').screenshot({path:'.reader/web-dev/activity-failed.png'});
   rmSync(join(root,'.fake-fail'));
@@ -191,11 +194,9 @@ const {chromium}=require(process.env.READER_PLAYWRIGHT||'playwright-core');
   await page.reload();await page.locator('#inbox-blocked[data-reason=claims]').waitFor();
   assert.ok(await page.locator('#inbox-mail').isDisabled());assert.match(await page.locator('#inbox-blocked').textContent(),/Filing already assigned/);
   rmSync(join(root,'.reader/upkeep-claims.json'));
-  // Host access is an explicit setting (on Reader Admin's Settings page), sent as the sandbox mode.
+  // The mechanical worker owns writes; no model host-access setting is offered.
   await page.locator('[data-admin-nav=settings]').click();await page.locator('#preferences-form').waitFor();
-  await page.locator('#inbox-sandbox').click();await page.getByRole('option',{name:'Host access',exact:true}).click();await page.locator('[data-slot=select-content][data-open]').waitFor({state:'hidden'});
-  await page.locator('#preferences-form button[type=submit]').click();await toast('Preferences saved.').waitFor();
-  assert.equal(await page.evaluate(()=>JSON.parse(localStorage.getItem('reader.preferences.v1')).inboxSandbox),'danger-full-access');
+  assert.equal(await page.locator('#inbox-sandbox').count(),0);
   await page.locator('[data-admin-nav=inbox]').click();await page.locator('#inbox').waitFor();
   await page.setViewportSize({width:390,height:844});await page.locator('#inbox').scrollIntoViewIfNeeded();await page.waitForTimeout(200);
   assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),'no horizontal scroll at phone width');
@@ -207,6 +208,9 @@ const {chromium}=require(process.env.READER_PLAYWRIGHT||'playwright-core');
   await page.screenshot({path:'.reader/web-dev/inbox-phone.png',fullPage:true});
   assert.deepEqual(external,[]);assert.deepEqual(errors,[]);
   await context.close();
-  console.log('Inbox passed: receipt titles and provenance, footer count, read-only previews, You got mail loading/success toasts and sanitized report, live activity transcript (message, reasoning, plan, steps, queue, tools with terminal and parsed tests, MCP, sources, file tree, errors, checkpoint, context; follow, Jump to latest, j/k, truncation, every-theme contrast), report links, Stop during a slow run, held-claim refusal, Host access setting, phone width, local-only requests.');
+  console.log('Inbox passed: preserved filing, verified commit, read-only editorial calls, report navigation, activity rendering, cancellation, held claims, phone width and local-only requests.');
+ }catch(error){
+  if(fixtureRoot)for(const name of ['state.json','stderr.log']){const file=join(fixtureRoot,'.reader/inbox-runner',name);if(existsSync(file))console.error(name,readFileSync(file,'utf8').slice(-3000));}
+  throw error;
  }finally{await browser?.close();if(fixture.exitCode===null&&fixture.signalCode===null){fixture.kill('SIGTERM');await new Promise(resolve=>fixture.once('exit',resolve));}}
 })().catch(error=>{console.error(error);process.exitCode=1;});

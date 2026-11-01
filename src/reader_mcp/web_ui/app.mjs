@@ -6,6 +6,7 @@ import {installLinks} from './links.mjs';
 import {mathPlugin,mathOptions} from './math.mjs';
 import {openPDF,pdfPage} from './pdf.mjs';
 import {embedPlugin,installEmbeds} from './embeds.mjs';
+import {portableLinkPlugin,portableEnvironment} from './portable-links.mjs';
 import {installBreadcrumbs} from './breadcrumbs.mjs';
 import {readingLogModel,withYou} from './reading-log.mjs';
 import {modalOpen} from './modal.mjs';
@@ -43,7 +44,7 @@ if(EMBEDDED)document.documentElement.classList.add('embedded-pane');
 let split=null,pane=null;
 /** Toasts from a pane appear in the shell's toaster. */
 function notify(message,type,options){if(pane){pane.post({type:'toast',message:String(message),kind:type,options:options&&{id:options.id,duration:options.duration}});return;}return shellNotify(message,type,options);}
-const defaults = {theme:'ink', participant:null, recent:20, atlas:true, activity:true, smooth:true, layout:'scroll', pace:220, zen:false, pageTurn:'curl', nextReads:true, backlinks:true, outline:true, inboxSandbox:'workspace-write', issueExclude:DEFAULT_EXCLUDED_TYPES.join(', '), proseColors:'clear', shapes:true, art:true, artHero:true, artBy:'', artAuto:'off'};
+const defaults = {theme:'ink', participant:null, recent:20, atlas:true, activity:true, smooth:true, layout:'scroll', pace:220, zen:false, pageTurn:'curl', nextReads:true, backlinks:true, outline:true, issueExclude:DEFAULT_EXCLUDED_TYPES.join(', '), proseColors:'clear', shapes:true, art:true, artHero:true, artBy:'', artAuto:'off'};
 // Route sentinels for views that are not documents (document routes are always library/ paths). Reader Admin's are
 // ':admin' and ':admin/<section>/…' (admin-routes.mjs); legacy #backstage opens its Overview.
 const SEARCH=':search',SCRATCH=':scratch';  // A scratch buffer: ':scratch' (the latest draft) or ':scratch=<id>'.
@@ -89,7 +90,7 @@ new MutationObserver(syncThemeColor).observe(document.documentElement,{attribute
 const reduced = matchMedia('(prefers-reduced-motion: reduce)');
 // Callouts register before the source-map wrapper below, so their asides receive the blockquote's map.
 // reader:prompt blocks (RW-44) are found from these tokens before sanitizing; see prompt-blocks.mjs.
-const md = window.markdownit({html:true, linkify:true, breaks:false}).use(mathPlugin).use(calloutPlugin).use(embedPlugin).use(promptPlugin);
+const md = window.markdownit({html:true, linkify:true, breaks:false}).use(mathPlugin).use(calloutPlugin).use(embedPlugin).use(promptPlugin).use(portableLinkPlugin);
 for (const type of ['paragraph_open','heading_open','blockquote_open','bullet_list_open','ordered_list_open','math_block','fence']) {
   const original = md.renderer.rules[type];
   md.renderer.rules[type] = (tokens, index, options, env, self) => {
@@ -739,6 +740,13 @@ async function renderMarkdown(container,raw,path,depth,{defer=false,range=null,c
   // embed's placeholder never grants a source coordinate to the embedded document's blocks.
   // Only the article itself (`prompts` given) turns prompt blocks into cards; embeds, chat and scratch keep plain code.
   const env={raw:source.text,full:raw,offset:source.offset,embeds:true,...mathOptions(raw),...(prompts?{prompts:{}}:{})};
+  if(/file:/i.test(source.text)&&/^library\/.+\.(md|markdown)$/i.test(path)){
+    try{
+      const bytes=new TextEncoder().encode(raw),hash=await crypto.subtle.digest('SHA-256',bytes);
+      const sha=[...new Uint8Array(hash)].map(n=>n.toString(16).padStart(2,'0')).join('');
+      env.portableLinks=await portableEnvironment(md,source.text,await api('/api/portable-links?path='+param(path)+'&sha256='+sha),{mathDollar:env.mathDollar});
+    }catch(error){console.warn('Local link repairs unavailable',error);}
+  }
   const rendered=md.render(source.text,env);
   const clean=DOMPurify.sanitize(rendered,{USE_PROFILES:{html:true},FORBID_TAGS:['style','form','input','button','textarea','select','iframe'],FORBID_ATTR:['style','srcset']});
   const template=document.createElement('template');template.innerHTML=clean;
@@ -750,7 +758,7 @@ async function renderMarkdown(container,raw,path,depth,{defer=false,range=null,c
   }
   // Markdown percent-encodes a destination (`my%20pic.png`); an embed's image target is written as is.
   const located=await resolveMany(path,images.map(image=>image.hasAttribute('data-embed-image')?image.getAttribute('src'):decode(image.getAttribute('src') || '')));
-  images.forEach((image,index)=>{const resolved=located[index];if(resolved?.path)image.src='/api/file?path='+param(resolved.path);else{image.removeAttribute('src');image.alt=(image.alt || 'Image')+' (unavailable)';}});
+  images.forEach((image,index)=>{const resolved=located[index];if(resolved?.path)image.src='/api/file?path='+param(resolved.path)+(resolved.fragment?'#'+resolved.fragment:'');else{image.removeAttribute('src');image.alt=(image.alt || 'Image')+' (unavailable)';}});
   clearControlsWithin(container);container.replaceChildren(template.content);slugHeadings(container);
   if(prompts&&env.prompts.blocks?.length)mountPromptCards(promptMounts(container,env.prompts),prompts);
   prepareDiagrams(container);

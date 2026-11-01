@@ -27,7 +27,7 @@ def main():
         sys.exit('codex must be available on PATH.')
     home = Path(os.environ.get('CODEX_HOME', str(Path.home() / '.codex')))
     links = []
-    for name in ('reader', 'upkeep', 'reflective-reading'):
+    for name in ('reader', 'upkeep', 'reflective-reading', 'you-got-mail'):
         link, target = home / 'skills' / name, code / 'skills' / name
         if link.exists() or link.is_symlink():
             if not link.is_symlink() or link.resolve() not in (target, vault / 'skills' / name):
@@ -71,7 +71,7 @@ def main():
             sys.exit(f'Existing installation temporary path: {pending}')
         pending.symlink_to(target, target_is_directory=True)
         os.replace(pending, link)
-    print(f'Reader code: {code}\nPrivate vault: {vault}\nMCP and three skills installed.')
+    print(f'Reader code: {code}\nPrivate vault: {vault}\nMCP and four skills installed.')
 
 
 if __name__ == '__main__':

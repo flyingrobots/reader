@@ -9,7 +9,8 @@ This corpus describes how Reader works: its architecture, contracts, capabilitie
 - [Shared read receipts and Upkeep](engagement.md): participant state, unread discussion, turn-boundary intake, and recovery.
 - [Filed-work curation queue](curation.md) — grouped source discovery, curator-specific dispositions, version changes and explicit coverage.
 - [Shared highlights and discussion](annotations.md) — source anchors, replies, persistence, and CLI/MCP tools.
-- [Codex inbox runner](inbox-runner.md) — explicit Obsidian launch, deterministic controls, librarian judgment, and recovery.
+- [Portable local links](portable-links.md) — source-preserving GitHub and local-asset repairs.
+- [Deterministic inbox runner](inbox-runner.md) — explicit Obsidian launch, deterministic controls, librarian judgment, and recovery.
 - [Obsidian Reader sidebar](obsidian-plugin.md) — relationships, dates, filtering, library search, read-aloud, installation, and recovery.
 - [Demo vault](demo.md) — `reader demo`: a disposable example vault with public-domain texts, scripted voices and every feature seeded.
 - [Library website](web.md) — local dashboard, Vim navigation, two-page reading, automatic bookmarks and shared margins.

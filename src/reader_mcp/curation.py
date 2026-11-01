@@ -181,6 +181,9 @@ class Curation:
             if primary not in members:
                 raise ValueError('Delivery primary document is outside its payload inventory')
             wrapper = (parent / 'index.md').as_posix()
+            outer = (parent.parent / 'index.md').as_posix()
+            if parent.name == 'originals' and metadata.get(outer, {}).get('kind') == 'catalog':
+                wrapper = outer
             make('receipt:' + identity, 'delivery', receipt['title'], primary, members,
                  wrapper if wrapper in files else None, receipt.get('received_at'),
                  'needs_attention' if damaged else 'intact', [path])

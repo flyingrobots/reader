@@ -73,7 +73,7 @@ def test_bundles_group_with_receipt_joins_and_tolerate_missing_or_invalid_receip
     (vault / 'inbox/empty-folder').mkdir()
     os.symlink(vault / 'library', vault / 'inbox/link')
     rows = {row['id']: row for row in InboxView(vault).arrivals()}
-    assert sorted(rows) == ['11111111-1111-4111-8111-111111111111', '22222222-2222-4222-8222-222222222222', 'bad-receipt', 'huge-receipt', 'loose.txt']
+    assert sorted(rows) == ['.hidden.md', '11111111-1111-4111-8111-111111111111', '22222222-2222-4222-8222-222222222222', 'bad-receipt', 'huge-receipt', 'loose.txt']
     first = rows['11111111-1111-4111-8111-111111111111']
     assert first['title'] == 'Behind the scenes' and first['integrity'] == 'intact' and first['files'] == 2
     assert first['document'] == 'inbox/11111111-1111-4111-8111-111111111111/RW-01.md'
@@ -126,7 +126,7 @@ def test_start_spawns_the_supervisor_with_explicit_argv_and_no_shell(vault):
     result = view.start('danger-full-access', wait=.2)
     argv, options = calls[0]
     assert argv == [sys.executable, '-m', 'reader_mcp.inbox_runner', '--root', str(vault), '--codex', str(fake),
-                    '--run-id', result['run_id'], '--sandbox-mode', 'danger-full-access',
+                    '--run-id', result['run_id'], '--sandbox-mode', 'read-only',
                     '--workstation-lock-store', '/srv/git-locks/workstation.git']
     assert options['shell'] is False and options['start_new_session'] is True and options['cwd'] == str(vault)
     assert options['stdin'] == subprocess.DEVNULL and options['stdout'] == subprocess.DEVNULL
@@ -134,24 +134,21 @@ def test_start_spawns_the_supervisor_with_explicit_argv_and_no_shell(vault):
         view.start('bypass')
 
 
-def test_real_supervisor_run_reports_and_reads_a_capped_report(vault):
-    deliver(vault, '55555555-5555-4555-8555-555555555555', 'spec.md', '# Spec five\n')
-    fake = fake_codex(vault, '''import sys,pathlib,shutil
-args=sys.argv
-sys.stdin.read()
-shutil.move('inbox/55555555-5555-4555-8555-555555555555','library/spec-five')
-pathlib.Path(args[args.index('--output-last-message')+1]).write_text('# Filed\\n\\n- library/spec-five\\n\\n' + 'x'*300000 + '\\nEND')
-''')
-    view = InboxView(vault, environ=env_for(fake))
-    result = view.start()
-    assert result['state'] and result['state']['run_id'] == result['run_id']
-    wait_for(view, ('finished', 'failed'))
+def test_finished_reports_are_bounded_and_empty_pending_batches_can_resume(vault):
+    runtime = vault / '.reader/inbox-runner'
+    runtime.mkdir(parents=True)
+    (runtime / 'state.json').write_text(json.dumps({'run_id': 'fixture', 'status': 'finished',
+        'message': 'Verified', 'arrivals': ['packet'], 'remaining': []}))
+    (runtime / 'last-message.md').write_text('# Verified\n' + 'x' * 300000 + '\nEND')
+    view = InboxView(vault, environ=env_for(fake_codex(vault, '')))
     status = view.status()
-    assert status['runner']['status'] == 'finished', status['runner']['message']
-    assert status['runner']['arrivals'] == 1 and status['runner']['remaining'] == 0
-    assert status['runner']['report_truncated'] is True and len(status['runner']['report_md'].encode()) <= MAX_REPORT
+    assert status['runner']['report_truncated'] is True
+    assert len(status['runner']['report_md'].encode()) <= MAX_REPORT
     assert status['runner']['report_md'].endswith('END')
-    assert status['arrivals'] == [] and status['blocked']['reason'] == 'empty'
+    assert status['blocked']['reason'] == 'empty'
+    (runtime / 'pending.json').write_text('{}')
+    status = view.status()
+    assert status['pending'] is True and status['blocked'] is None
 
 
 def test_report_commit_is_verified_against_git(vault):

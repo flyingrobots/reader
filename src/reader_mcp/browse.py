@@ -110,7 +110,8 @@ class Browse:
         if self.library.is_symlink():
             raise ValueError('Library must not be a symlink')
         for directory, dirs, files in os.walk(self.library, followlinks=False):
-            dirs[:] = sorted(d for d in dirs if not d.startswith('.') and d not in SKIP)
+            dirs[:] = sorted(d for d in dirs if not d.startswith('.') and (
+                d not in SKIP or d == 'originals' and (Path(directory) / d / 'receipt.json').is_file()))
             for name in dirs + files:
                 p = Path(directory) / name
                 count += 1
@@ -200,6 +201,9 @@ class Browse:
                 raise ValueError('Receipt payload escapes its delivery')
             sm = metadata(primary) if primary.suffix.lower() in {'.md','.markdown'} else {}
             wrapper = p.parent/'index.md'
+            outer = p.parent.parent/'index.md'
+            if p.parent.name == 'originals' and metadata(outer).get('kind') == 'catalog':
+                wrapper = outer
             wm = metadata(wrapper)
             provenance = r.get('provenance') or {}
             merged = {**sm, **wm}
@@ -210,7 +214,7 @@ class Browse:
                  arrival=r.get('received_at'), basis='receipt received_at (UTC)',
                  project=provenance.get('project') or sm.get('project'), identity='receipt:'+identity,
                  primary=primary)
-            group_roots.add(p.parent)
+            group_roots.add(wrapper.parent if wrapper.is_file() else p.parent)
             receipt_ancestors.update(p.parents)
         # Cataloged direct-drop packages count once; nested deliveries remain separate.
         for rel in sorted(snapshot, key=lambda p:(len(Path(p).parts),p)):
@@ -422,7 +426,7 @@ class Browse:
         with lock.open('a') as f:
             fcntl.flock(f,fcntl.LOCK_EX);yield
 
-    def run(self, check=False, today=None):
+    def run(self, check=False, today=None, *, writer=None):
         today=today or datetime.now(timezone.utc).date()
         with self.locked():
             if self.output.is_symlink() or (self.root/'README.md').is_symlink():raise ValueError('Unsafe browse output')
@@ -453,6 +457,9 @@ class Browse:
             if not check:
                 for path,data in writes.items():
                     if str(path.relative_to(self.root)) not in changed:continue
+                    if writer:
+                        writer(path.relative_to(self.root).as_posix(), data)
+                        continue
                     path.parent.mkdir(parents=True,exist_ok=True)
                     fd,name=tempfile.mkstemp(prefix='.browse-',dir=path.parent)
                     try:

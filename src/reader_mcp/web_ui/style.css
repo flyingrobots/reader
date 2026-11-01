@@ -552,6 +552,9 @@ body{margin-right:var(--dock-width,0px);transition-property:none}#smooth-wrapper
 
 
 
+/* A preserved local reference without a verified destination remains inspectable. */
+.local-link-unavailable { text-decoration: underline dotted; text-underline-offset: .2em; cursor: help; }
+
 /* Explorer reserves a left column; discussion/chat retain their right dock. */
 @layer reader-legacy {
 body{margin-left:var(--explorer-width,0px)}

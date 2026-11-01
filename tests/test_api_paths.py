@@ -201,7 +201,8 @@ def test_no_api_answer_names_a_host_path(server):
     prompt = json.loads(fetch(base + '/api/art/prompt?' + urlencode({'path': DOC}))[1])
     assert prompt['recorded'] is True and [s['name'] for s in prompt['stages']] == ['brief', 'scene'], prompt
     chat, turn = chat_with_reply(base)
-    assert finished_inbox_run(base)['report_md']
+    runner = finished_inbox_run(base)
+    assert runner['report_md'], (runner, (Path(server['root']) / '.reader/inbox-runner/stderr.log').read_text()[-2000:])
     # The walk below covers the chat owner record (#20, #72) that /api/chats carries.
     assert json.loads(fetch(base + '/api/chats?' + urlencode({'path': DOC}))[1])['owner']['owner'] is True
     exact, _ = get_routes()
