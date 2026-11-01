@@ -490,7 +490,7 @@ A capacity problem should be resolved by checking scope, retention and the appli
 
 ## Dashboard measurements
 
-The health table compares the five surfaces. Selecting an index name changes the inspector; chart selection can do the same. Inspector values are from the last published check snapshot, even while another audit is running.
+The health table compares the five surfaces. Selecting an index name changes the inspector; chart selection can do the same. Inspector values are the latest saved measurement for each index, even while another audit is running.
 
 | Measurement | Interpretation |
 | --- | --- |

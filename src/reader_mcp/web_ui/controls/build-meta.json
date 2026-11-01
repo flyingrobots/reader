@@ -8,7 +8,7 @@
   "sources": {
     "../docs/topics/artwork.md": "6fbe4ca291650e79053b7a1224a38c32f2f4e38f44d2e254a31b032dfdb7f8f4",
     "../docs/topics/inbox.md": "93657d3f9061f78fdd0c03c745cc63a04375bdb7b2b9e1f03e8e400e92079b87",
-    "../docs/topics/indexes.md": "9591298e15bbdee8cea8a5e25384bf31197f5ea9735e8eb99189de696447a72a",
+    "../docs/topics/indexes.md": "d3e94f5e8e1709caea8c63c4c776eba8fed5115df1afb65f42544c833e560056",
     "../docs/topics/jobs.md": "cd44c7167fdef58836399ca0d6a3f5d585de6df80fe89ec2c0c87fed7ab0cfd8",
     "../docs/topics/library.md": "81ed9fe8db0587b087376b3ed78dd4c45ca9e62cf3f204d2d56dcc594db15b59",
     "../docs/topics/logs.md": "cf2d367a13620967bb12e811834c22f23a73ec11f33783bfb287bad858cdc579",
@@ -990,8 +990,8 @@
       "sha256": "0ed9bc43b2ce452a09f619c7e8b89cfb2af5c04fab44ca50528a60dbb20c405b"
     },
     "reader-controls.js": {
-      "bytes": 1328540,
-      "sha256": "cc64421b436143cf767867927c9e8b5e1d0dd0ae2bf4d1b82a612ec37b8d73c9"
+      "bytes": 1328545,
+      "sha256": "5bda307aa06e72a8a58ec7fca9a4b522fdc20f6fb86d9b6ea620c0fe2702a16a"
     },
     "reader-controls.js.LEGAL.txt": {
       "bytes": 6553,
