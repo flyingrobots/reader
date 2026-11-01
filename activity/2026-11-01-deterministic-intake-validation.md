@@ -41,6 +41,12 @@ names before moves, cover temporary creation/writes in cleanup, exclude only the
 actual `.git` component, and inspect every corroborated clone. Additional checks
 exercise interruption during prepared-blob and checkpoint publication.
 
+Three further regressions reproduced receipt discovery losing identity under
+`originals/`, incompatible legacy metadata blocking a moved batch, and `.git`
+repository evidence failing retained-clone matching. The fixes preserve receipt
+discovery and curation context, run incoming sources through the catalog planner
+before filing, and normalize provenance URLs with the remote URL normalizer.
+
 A genuine read-only Codex call also classified a synthetic delivery, followed by
 script-owned filing, a verified local commit and intact receipt. It included
 Git, library, image and unavailable references. This establishes the real model

@@ -43,8 +43,9 @@ changing sources and invalid delivery receipts. It hashes every source before
 classification. Later arrivals are outside this queue.
 
 The delivery's declared primary document gets excerpt priority over attachments.
-Unsupported catalog wrapper filenames containing `[]|#` are deferred before
-filing, preserving their original names and bytes. Identical raw bundles remain
+The catalog planner checks incoming sources before filing. Unsupported wrapper
+filenames containing `[]|#` and incompatible source metadata are deferred with a
+diagnostic, preserving their original names and bytes. Identical raw bundles remain
 distinct arrivals, with destinations bound to both arrival identity and content.
 
 The script automatically partitions the queue into sequential commit batches,
@@ -65,12 +66,14 @@ writing namespaces belonging to Reader librarian, Agy and Claude are reserved.
 
 ## Filing and verification
 
-Each destination is `library/<collection>/<slug>-<snapshot-prefix>/`. The whole
+Each destination is `library/<collection>/<slug>-<arrival-identity-prefix>/`. The whole
 bundle moves into `originals/`; raw single files use the same layout. Receipts
 and original bytes remain unchanged. Catalog metadata uses independent sidecars
 for these originals, including supplied frontmatter that is invalid or already
 contains identity fields. Sibling reading copies retain their relative link
 base. [Portable link repairs](portable-links.md) run on originals and derivatives.
+Browse and curation associate a receipt beneath `originals/` with the outer
+catalog, retaining its identity, primary document, provenance and arrival time.
 
 The script acquires the vault's shared repository locks before mutation. It
 refuses unrelated dirty catalog/navigation outputs. Every generated write has a

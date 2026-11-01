@@ -22,7 +22,8 @@ plan = json.loads((root/'.reader/inbox-runner/pending.json').read_text())
 replacements = {}
 for entry in plan['entries']:
     slug = re.sub('[^a-z0-9-]','-',entry['source'].split('/')[-1].lower())
-    destination = 'library/filed/' + slug + '-' + entry['snapshot_sha256'][:16] + '/originals/'
+    from reader_mcp.intake import destination as filing_destination
+    destination = filing_destination(dict(entry, decision={'collection': 'filed', 'slug': slug})) + '/originals/'
     for row in entry['files']:
         previous = 'library/filed/' + (entry['source'].split('/')[-1] + '/' if entry['is_directory'] else '') + row['path']
         replacements[previous] = destination + row['path']

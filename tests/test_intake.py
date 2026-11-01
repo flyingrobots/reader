@@ -78,6 +78,28 @@ def test_stale_classification_cannot_move_an_arrival(vault):
     assert not (vault / plan['entries'][0]['destination']).exists()
 
 
+def test_filed_receipt_keeps_browse_identity_and_curation_context(vault):
+    from reader_mcp.browse import Browse
+    from reader_mcp.curation import Curation
+    receipt = Store(vault).ingest(Submission(request_id=uuid4(), title='Delivered title',
+        markdown='The delivered primary text.', provenance={'author': 'Source author', 'project': 'Source project'}))
+    plan = plan_for(vault, receipt['bundle_path'])
+    intake.apply_plan(vault, vault / '.reader/inbox-runner', plan)
+    dest = plan['entries'][0]['destination']
+    works = Browse(vault).inventory({})
+    assert len(works) == 1
+    assert works[0]['id'] == 'receipt:' + receipt['id']
+    assert works[0]['primary'] == dest + '/originals/report.md'
+    assert works[0]['path'] == dest + '/index.md'
+    assert works[0]['authors'] == ['Source author']
+    assert works[0]['projects'] == ['Source project']
+    assert works[0]['arrival_time'] == receipt['received_at'].replace('Z', '+00:00')
+    units, _ = Curation(vault).inventory()
+    assert len(units) == 1
+    assert units[0]['catalog_path'] == dest + '/index.md'
+    assert units[0]['key'] == works[0]['id']
+
+
 def test_editorial_excerpt_budget_prioritizes_the_receipted_document(vault):
     receipt = Store(vault).ingest(Submission(request_id=uuid4(), title='Primary report',
         filename='z-primary.md', markdown='The declared primary source.'))
@@ -155,6 +177,27 @@ def test_unsupported_catalog_filename_is_deferred_before_other_arrivals_move(vau
     assert result['deferred'][0]['source'] == sources[0]
     assert 'catalog' in result['deferred'][0]['reason'].lower()
     assert calls == [sources[1]] and (vault / sources[0]).read_text() == 'Original source'
+
+
+def test_incompatible_source_metadata_is_deferred_before_filing(vault, monkeypatch):
+    runtime = vault / '.reader/inbox-runner'
+    sources = ['inbox/legacy.md', 'inbox/valid.md']
+    original = '---\nauthor: 7\n---\nLegacy source with incompatible metadata.\n'
+    (vault / sources[0]).write_text(original)
+    (vault / sources[1]).write_text('Valid source')
+    run_id = str(uuid4())
+    (runtime / 'selection.json').write_text(json.dumps({'run_id': run_id, 'arrivals': sources, 'files': sources}))
+    calls = []
+    def classify(root, runtime, entry, codex, checkpoint):
+        calls.append(entry['source'])
+        return decision(entry)
+    monkeypatch.setattr(intake, 'classify', classify)
+    monkeypatch.setattr(intake, 'locked_apply', intake.apply_plan)
+    result = intake.worker(vault, 'unused', run_id)
+    assert result['status'] == 'verified' and len(result['filed']) == 1
+    assert result['deferred'][0]['source'] == sources[0]
+    assert 'author' in result['deferred'][0]['reason']
+    assert calls == [sources[1]] and (vault / sources[0]).read_text() == original
 
 
 def test_interrupted_publication_flush_removes_its_temporary_file(vault, monkeypatch):

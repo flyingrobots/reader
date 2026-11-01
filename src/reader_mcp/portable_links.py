@@ -172,7 +172,8 @@ class PortableLinks:
                     pass
                 break
         evidence = str(provenance.get('source', '')) + '\n' + text[:16000]
-        urls = {'https://github.com/' + m for m in re.findall(r'https://github\.com/([\w.-]+/[\w.-]+)', evidence)}
+        urls = {url for m in re.findall(r'https://github\.com/([\w.-]+/[\w.-]+)', evidence)
+                if (url := github('https://github.com/' + m))}
         commit = provenance.get('commit')
         if not isinstance(commit, str) or not SHA.fullmatch(commit):
             # Only explicit candidate/head declarations, never the first arbitrary hash in prose.

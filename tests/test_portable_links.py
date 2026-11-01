@@ -61,14 +61,16 @@ def test_remote_and_source_revision_drive_targets_without_changing_original(tmp_
     assert engine.stored('library/packet/source.md', '0' * 64) is None
 
 
-def test_deleted_worktree_requires_source_evidence_and_object_identity(tmp_path):
+@pytest.mark.parametrize('repository_url', ['https://github.com/example/actual-name/pull/1',
+                                           'https://github.com/example/actual-name.git'])
+def test_deleted_worktree_requires_source_evidence_and_object_identity(tmp_path, repository_url):
     commit = repository(tmp_path / 'git/retained')
     gone = tmp_path / 'git/deleted'
     source = document(tmp_path, f'[Code]({(gone / "a file.txt").as_uri()})\n')
     engine = PortableLinks(tmp_path, tmp_path / 'git')
     assert engine.prepare('library/packet/source.md')['counts'] == {'unresolved': 1}
     (source.parent / 'receipt.json').write_text(json.dumps({'provenance': {
-        'source': 'https://github.com/example/actual-name/pull/1', 'commit': commit}}))
+        'source': repository_url, 'commit': commit}}))
     result = engine.prepare('library/packet/source.md')
     assert result['targets'][0]['commit'] == commit
     assert result['targets'][0]['revision_basis'] == 'source'

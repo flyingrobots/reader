@@ -314,10 +314,33 @@ def destination(entry):
     return 'library/' + decision['collection'] + '/' + decision['slug'] + '-' + identity[:16]
 
 
-def catalog_refusal(entry):
+def catalog_refusal(root, entry):
+    """Run the real catalog planner against the frozen incoming sources, without moving or writing them."""
+    from .catalog import Catalog, Entry
     for row in entry['files']:
         if any(c in row['path'] for c in '[]|#'):
             return 'Catalog wrapper cannot encode this source path: ' + row['path']
+    source = checked_path(root, entry['source'])
+    if source.exists():
+        base = source if entry['is_directory'] else source.parent
+    else:
+        base = local_path(root, entry['destination'] + '/originals')
+    preview = 'library/intake-preview/originals/'
+    files = {preview + row['path']: Entry(row['bytes'], 0, row['sha256']) for row in entry['files']}
+    class IncomingCatalog(Catalog):
+        def inventory(self):
+            return files
+
+        def sidecars(self):
+            return {}
+
+        def source(self, path, descriptor, limit=None):
+            actual = local_path(base, path.removeprefix(preview)).relative_to(root).as_posix()
+            return super().source(actual, descriptor, limit)
+    try:
+        IncomingCatalog(root).prepare(migrate=True)
+    except ValueError as exc:
+        return 'Catalog cannot admit this arrival: ' + str(exc)[:2000]
     return None
 
 
@@ -344,9 +367,6 @@ def apply_plan(root, runtime, plan):
         return plan
     if len({e['destination'] for e in entries}) != len(entries):
         raise ValueError('Distinct arrivals must have distinct filing destinations')
-    for entry in entries:
-        if refusal := catalog_refusal(entry):
-            raise ValueError(refusal)
     shared = ['library/index.md', 'catalog/', 'indexes/', 'README.md', 'link-repairs/'] + sorted({
         'library/' + e['decision']['collection'] + '/index.md' for e in entries})
     dirty = dirty_paths(root, shared)
@@ -381,6 +401,9 @@ def apply_plan(root, runtime, plan):
                     raise ValueError('Filing destination contains a symlink')
                 if file.is_file() and not os_junk(file.name) and file.relative_to(root).as_posix() not in allowed:
                     raise ValueError('Filing destination contains an unrelated file: ' + file.relative_to(root).as_posix())
+    for entry in entries:
+        if refusal := catalog_refusal(root, entry):
+            raise ValueError(refusal)
     journal.replay()
     if not plan.get('applying'):
         from .catalog import MAX_SOURCE_BYTES
@@ -618,7 +641,7 @@ def worker(root, codex, run_id):
             if 'decision' not in entry:
                 if manifest(checked_path(root, entry['source'])) != entry['files']:
                     raise ValueError('Arrival changed before editorial classification')
-                if refusal := catalog_refusal(entry):
+                if refusal := catalog_refusal(root, entry):
                     entry['decision'] = dict(source=entry['source'], snapshot_sha256=entry['snapshot_sha256'],
                         disposition='defer', collection='', slug='', title='', author='', summary='', reason=refusal)
                 else:
