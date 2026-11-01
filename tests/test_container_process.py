@@ -93,3 +93,15 @@ def test_live_group_permission_denial_remains_unconfirmed(monkeypatch):
     with pytest.raises(PermissionError,match='live group'):
         execute([sys.executable,'-c','print("done")'],finished=finished.append)
     assert finished==[]
+
+
+def test_group_query_stops_its_owned_probe_when_capture_limit_is_crossed(tmp_path,monkeypatch):
+    from reader_mcp import container_process
+    original=subprocess.Popen
+    marker=tmp_path/'continued-after-limit'
+    script='import sys,time;from pathlib import Path;sys.stdout.write("x"*'+str(container_process.MAX_OUTPUT+1)+');sys.stdout.flush();time.sleep(1);Path('+repr(str(marker))+').touch()'
+    def probe(*args,**kwargs):
+        return original([sys.executable,'-c',script],**kwargs)
+    monkeypatch.setattr(subprocess,'Popen',probe)
+    assert not container_process.group_finished(12345)
+    assert not marker.exists(),'The owned metadata probe must stop at the output bound'

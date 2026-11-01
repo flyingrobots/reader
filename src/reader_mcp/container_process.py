@@ -17,14 +17,45 @@ class ProcessError(RuntimeError):
     pass
 
 
-def group_finished(group, run=subprocess.run):
+def _process_table():
+    # Fixed single-process OS utility: bounded capture and direct-child cleanup avoid recursive
+    # process-group verification while the caller is itself proving group termination.
+    argv = ['/bin/ps', '-axo', 'pgid=,stat=']
+    child = subprocess.Popen(argv, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    selector = selectors.DefaultSelector()
+    buffers = {child.stdout: bytearray(), child.stderr: bytearray()}
+    used, deadline = 0, time.monotonic() + 2
+    try:
+        for stream in buffers:selector.register(stream, selectors.EVENT_READ)
+        while selector.get_map() or child.poll() is None:
+            if time.monotonic() >= deadline:raise ProcessError('Process-table query deadline exceeded')
+            for key, _ in selector.select(.05):
+                data = os.read(key.fd, min(16384, MAX_OUTPUT-used+1))
+                if not data:
+                    selector.unregister(key.fileobj)
+                    continue
+                used += len(data)
+                if used > MAX_OUTPUT:raise ProcessError('Process-table query output limit exceeded')
+                buffers[key.fileobj].extend(data)
+        return subprocess.CompletedProcess(argv, child.wait(timeout=2),
+            buffers[child.stdout].decode('utf-8', 'replace'), buffers[child.stderr].decode('utf-8', 'replace'))
+    finally:
+        selector.close()
+        try:
+            if child.poll() is None:child.kill()
+            child.wait(timeout=3)
+        finally:
+            for stream in buffers:stream.close()
+
+
+def group_finished(group, run=None):
     """A positive process-table answer: the group is absent or contains only zombies.
 
     Darwin can return EPERM when signalling an already-finished group. Never treat EPERM itself
     as proof of cleanup, and never ignore a live or unreadable process-table entry.
     """
     try:
-        result = run(['/bin/ps', '-axo', 'pgid=,stat='], capture_output=True, text=True, timeout=2)
+        result = _process_table() if run is None else run(['/bin/ps', '-axo', 'pgid=,stat='], capture_output=True, text=True, timeout=2)
         if result.returncode or result.stderr or not result.stdout.strip() or len(result.stdout) > MAX_OUTPUT:
             return False
         for line in result.stdout.splitlines():
@@ -33,7 +64,7 @@ def group_finished(group, run=subprocess.run):
             if len(fields) != 2 or not fields[0].isdigit():return False
             if int(fields[0]) == group and not fields[1].startswith('Z'):return False
         return True
-    except (OSError, subprocess.TimeoutExpired):
+    except (OSError, subprocess.TimeoutExpired, ProcessError):
         return False
 
 

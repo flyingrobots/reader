@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Stop the fixed process-table probe at its combined output limit; a failed or incomplete termination query never confirms cleanup.
+
 - Validate pinned base manifests independently of Docker’s local image/configuration IDs, supporting classic image stores without a mutable-tag fallback.
 
 - Resolve repository-relative verification executables inside the job workspace instead of reporting them as missing tooling.
