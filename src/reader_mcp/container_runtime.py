@@ -20,6 +20,7 @@ from .container_clients import Clients
 from .container_lease import Lease
 from .container_process import ProcessError, execute
 from .container_storage import MEASURE
+from .container_state import require_reset_settled
 from .container_host_storage import measure as host_usage
 from .devcontainer_config import validate
 
@@ -134,6 +135,7 @@ class ContainerRuntime:
                          'key': self.lease.key, 'store': self.lease.env['GIT_LOCKS_STORE']}})
         self.lease.acquire()
         try:
+            require_reset_settled(self.root, self.repo)
             self.record({'id': None, 'name': self.name, 'volume': self.volume, 'owner': self.owner,
                          'image': image_id, 'expires': self.wall_expires, 'run_id': self.run_id, 'state': 'leased',
                          'lease': {'job': self.lease.job, 'acquisition': self.lease.acquisition,

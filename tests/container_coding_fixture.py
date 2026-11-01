@@ -73,3 +73,12 @@ class Runtime:
 
     def close(self):
         self.closed = True
+
+
+def reset_marker(root, state='removing', clients=None):
+    key = hashlib.sha256(b'acme/widget').hexdigest()[:16]
+    path = Path(root) / '.reader/container-runtime' / key / 'reset.json'
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps({'repo': 'acme/widget', 'volume': 'reader-coding-' + key + '-work',
+        'state': state, 'control_clients': clients or [], 'lease': {'expires': 1}}))
+    return path

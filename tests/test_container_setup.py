@@ -118,3 +118,32 @@ def test_container_cli_expands_literal_tilde_root(monkeypatch,command):
     monkeypatch.setattr(sys,'argv',argv)
     cli.main()
     assert seen==[str(Path.home().resolve())]
+
+
+@pytest.mark.parametrize('action,argv', [('check', ()), ('exec', ('echo', 'hello'))])
+def test_unconfirmed_reset_blocks_ordinary_setup(configured, action, argv):
+    from container_coding_fixture import reset_marker
+    path = reset_marker(configured.vault)
+    before, count = path.read_bytes(), len(Runtime.instances)
+    with pytest.raises(ProcessError, match='reset'):
+        call(configured, action, argv)
+    assert len(Runtime.instances) == count and path.read_bytes() == before
+
+
+def test_reset_fence_keeps_recovery_available(configured, monkeypatch):
+    from container_coding_fixture import reset_marker
+    def fail(self):raise ProcessError('stop uncertain')
+    monkeypatch.setattr(Runtime, 'close', fail)
+    with pytest.raises(ProcessError):call(configured)
+    path = reset_marker(configured.vault)
+    before = path.read_bytes()
+    def recovery(root, repo, run_id, record, **kwargs):return record | {'state': 'stopped'}
+    assert call(configured, 'recover', (), recovery=recovery)['state'] == 'stopped'
+    assert path.read_bytes() == before
+
+
+@pytest.mark.parametrize('state', ['completed', 'refused'])
+def test_settled_reset_permits_setup(configured, state):
+    from container_coding_fixture import reset_marker
+    reset_marker(configured.vault, state)
+    assert call(configured)['exit_code'] == 0

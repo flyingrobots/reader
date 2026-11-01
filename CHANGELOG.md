@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Block setup and Coding Jobs while a previous destructive volume reset is unconfirmed, including after lease expiry; preserve explicit worker recovery.
 - Preserve request/run links after uncertain directory persistence, keep known reset refusals retryable with reserved cleanup time, and expand the CLI vault root consistently.
 
 - Keep dynamic-loader configuration immutable, journal gated host clients through restart recovery, and retry finished workers needing shutdown reconciliation without rewriting their historical outcomes.

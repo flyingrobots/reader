@@ -229,3 +229,13 @@ def test_inferred_registration_without_supported_manifest_is_blocked_before_setu
     run,_=world.run()
     assert run['outcome']=='blocked' and 'manifest' in run['message']
     assert world.runtimes==[] and not world.record.exists()
+
+
+def test_unconfirmed_reset_blocks_default_job_before_runtime(world):
+    from container_coding_fixture import reset_marker
+    path = reset_marker(world.vault)
+    before = path.read_bytes()
+    run, _ = world.run()
+    assert run['outcome'] == 'blocked' and 'reset' in run['message']
+    assert not world.runtimes and not world.github.pulls and not world.record.exists()
+    assert path.read_bytes() == before

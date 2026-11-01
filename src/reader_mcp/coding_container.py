@@ -13,6 +13,7 @@ from .coding_publish import Job
 from .coding_workflow import GIT_TIMEOUT, MAX_LINE, Stop, process_started
 from .container_process import ProcessError
 from .container_runtime import ContainerRuntime
+from .container_state import require_reset_settled
 from .devcontainer_config import ConfigurationError, infer, select
 from .github import GitHubError
 
@@ -47,6 +48,10 @@ class ContainerJob(Job):
 
     def preflight(self):
         self.phase('preflight')
+        try:
+            require_reset_settled(self.root, self.repo)
+        except ProcessError as exc:
+            raise Stop('blocked', str(exc)) from exc
         env = self.entry.get('environment')
         if not env or env.get('kind') != 'devcontainer':
             raise Stop('blocked', 'This repository still uses a host checkout. Reconfigure it for a devcontainer in Reader Admin; no host fallback is available.')

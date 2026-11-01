@@ -116,7 +116,7 @@ def test_control_storage_symlink_is_refused_before_worker_creation(runtime, tmp_
     (tmp_path / '.reader').mkdir()
     outside = tmp_path / 'outside';outside.mkdir()
     (tmp_path / '.reader/container-runtime').symlink_to(outside, target_is_directory=True)
-    with pytest.raises(ProcessError, match='symlink'):
+    with pytest.raises(ProcessError, match='reset|symlink'):
         value.prepare({'image': 'reader-development:local'}, IMAGE)
     assert not list(outside.iterdir()) and not any(args[1] == 'create' for args in docker.calls)
 
@@ -166,3 +166,67 @@ def test_system_loader_configuration_is_not_writable(runtime):
     create = next(argv for argv in docker.calls if argv[1] == 'create')
     assert not any('/etc:rw' in arg for arg in create)
     assert '/etc' not in next(row['launch_contract'] for row in records if row.get('launch_contract'))['outputs']['tmpfs']
+
+
+def test_unconfirmed_reset_fences_runtime_after_expired_lease(runtime):
+    import subprocess
+    import sys
+    from container_coding_fixture import reset_marker
+    from reader_mcp.container_clients import identity
+    value, docker, records = runtime
+    client = subprocess.Popen([sys.executable, '-c', 'import time;time.sleep(30)'], start_new_session=True)
+    try:
+        path = reset_marker(value.root, clients=[identity(client.pid)])
+        before = path.read_bytes()
+        with pytest.raises(ProcessError, match='reset'):
+            value.prepare({'image': 'reader-development:local'}, IMAGE)
+        assert not docker.calls and docker.volume is None
+        assert path.read_bytes() == before and client.poll() is None
+    finally:
+        client.terminate()
+        client.wait(timeout=5)
+
+
+@pytest.mark.parametrize('state', ['completed', 'refused'])
+def test_terminal_reset_allows_runtime(runtime, state):
+    from container_coding_fixture import reset_marker
+    value, docker, records = runtime
+    reset_marker(value.root, state)
+    value.prepare({'image': 'reader-development:local'}, IMAGE)
+    assert docker.container is not None
+
+
+@pytest.mark.parametrize('raw', ['{', '[]', '{"state":"unknown"}', '{"state":"completed","control_clients":[{}]}'])
+def test_uncertain_reset_record_refuses_runtime(runtime, raw):
+    from container_coding_fixture import reset_marker
+    value, docker, records = runtime
+    path = reset_marker(value.root)
+    path.write_text(raw)
+    with pytest.raises(ProcessError, match='reset'):
+        value.prepare({'image': 'reader-development:local'}, IMAGE)
+    assert not docker.calls and path.read_text() == raw
+
+
+def test_symlink_reset_record_refuses_runtime(runtime):
+    from container_coding_fixture import reset_marker
+    value, docker, records = runtime
+    path = reset_marker(value.root, 'completed')
+    target = path.with_suffix('.original')
+    path.rename(target)
+    path.symlink_to(target)
+    with pytest.raises(ProcessError, match='reset'):
+        value.prepare({'image': 'reader-development:local'}, IMAGE)
+    assert not docker.calls and path.is_symlink()
+
+
+def test_reset_is_rechecked_under_worker_lease(runtime):
+    from container_coding_fixture import reset_marker
+    value, docker, records = runtime
+    acquire = value.lease.acquire
+    def admitted():
+        acquire()
+        reset_marker(value.root)
+    value.lease.acquire = admitted
+    with pytest.raises(ProcessError, match='reset'):
+        value.prepare({'image': 'reader-development:local'}, IMAGE)
+    assert value.lease.released and not docker.calls

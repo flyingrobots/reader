@@ -16,6 +16,7 @@ import uuid
 from .container_process import ProcessError
 from .container_recovery import recover
 from .container_runtime import ContainerRuntime
+from .container_state import require_reset_settled
 from .repositories import Registry
 
 
@@ -75,6 +76,7 @@ def setup(root, action, repo, argv=(), seconds=600, *, runtime_factory=Container
             restored = recovery(root, repo, record['run_id'], record, docker=found['docker'], lock_tool=found['git-locks'], persist=lambda value:_save(path,value))
             _save(path, restored)
             return {'repo': repo, 'state': restored['state']}
+        require_reset_settled(root, repo)
         if record and record.get('state') != 'stopped':
             raise ProcessError('Previous setup did not confirm shutdown; run container recover first')
         record = {}
