@@ -185,7 +185,11 @@ export function installSplit({notify,suspend,resume,paint,api,param,refocus,open
   const active=()=>!!tree;
   const order=()=>tree?leaves(tree):[];
   const statusHeight=()=>document.querySelector('#statusline')?.getBoundingClientRect().height||32;
-  const box=()=>({x:0,y:0,w:pageWidth(),h:Math.max(0,innerHeight-statusHeight())});
+  const box=()=>{
+    const explorer=document.getElementById('picker');
+    const left=explorer&&!explorer.hidden?explorer.getBoundingClientRect().width:0;
+    return {x:0,y:0,w:root?root.clientWidth:Math.max(0,pageWidth()-left),h:Math.max(0,innerHeight-statusHeight())};
+  };
   const narrow=()=>innerWidth<NARROW;
   const hashNow=()=>encodeLayout(tree,focus,bind);
   const remember=()=>{if(tree)history.replaceState({reader:true,split:true},'',location.pathname+location.search+hashNow());};

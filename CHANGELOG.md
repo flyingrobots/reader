@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Split panes fit the available space beside the open File Explorer and right dock.
+
 - Synchronous setup probes cap combined stdout and stderr and terminate their process group on overflow.
 
 - Background section refreshes preserve the filter, page and active input focus.

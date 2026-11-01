@@ -360,7 +360,7 @@ html.embedded-pane #statusline,html.embedded-pane #summon,html.embedded-pane .sk
 html.embedded-pane #statusline.commanding{display:flex!important}  /* A pane's `:` command line shows in its own status bar while typing. */
 html.embedded-pane .find-bar{bottom:12px}html.embedded-pane body.two-page #smooth-wrapper{bottom:0!important}
 body.split-active #smooth-wrapper,body.split-active #summon,body.split-active .skip-link,body.split-active #reading-progress,body.split-active #status-version,body.split-active #outline-slot,body.split-active #speech-slot,body.split-active #pagination-slot,body.split-active #status-section,body.split-active #prose-chip,body.split-active #search-chip{display:none!important}
-.split-root{position:fixed;inset:0;z-index:30;background:var(--bg)}
+.split-root{position:fixed;inset:0 0 0 var(--explorer-width,0px);z-index:30;background:var(--bg)}
 .split-pane{position:absolute;overflow:hidden;background:var(--bg)}
 .split-frame{display:block;width:100%;height:100%;border:0;background:var(--bg)}
 .split-pane.focused::after{content:'';position:absolute;inset:0;border:2px solid var(--accent);pointer-events:none}
@@ -556,7 +556,6 @@ body{margin-right:var(--dock-width,0px);transition-property:none}#smooth-wrapper
 @layer reader-legacy {
 body{margin-left:var(--explorer-width,0px)}
 #smooth-wrapper,body.two-page #smooth-wrapper{left:var(--explorer-width,0px)!important;width:auto!important}
-.split-root{left:var(--explorer-width,0px)}
 .file-explorer{position:fixed;inset:0 auto 35px 0;width:var(--explorer-width);min-width:0;z-index:15;border-right:1px solid var(--line);overflow:hidden}
 .file-explorer[hidden]{display:none}
 .file-explorer h2,.file-explorer p{margin:0}
