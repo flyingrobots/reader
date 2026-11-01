@@ -358,7 +358,8 @@ class Runner:
     def recover(self):
         """Reconcile runs a previous server left unfinished. Never relaunches an agent."""
         for run in self.store.runs():
-            if run.get('status') == 'finished':
+            finished = run.get('status') == 'finished'
+            if finished and (not run.get('container') or run['container'].get('state') == 'stopped'):
                 continue
             notes, outcome = [], 'interrupted'
             process = run.get('process') or {}
@@ -377,7 +378,7 @@ class Runner:
                     from .container_recovery import recover as recover_container
                     if (run.get('owner') or {}).get('host') != self.host:
                         raise RuntimeError('The previous worker belongs to another host')
-                    docker, locks = shutil.which('docker'), self.git_locks()
+                    docker, locks = shutil.which('docker', path=(self.environ or {}).get('PATH')), self.git_locks()
                     if not docker or not locks:
                         raise RuntimeError('Docker and git-locks are required to confirm the previous worker stopped')
                     run['container'] = recover_container(self.root, run['source']['repo'], run['id'], run['container'],
@@ -386,6 +387,12 @@ class Runner:
                 except Exception as exc:
                     container_problem = str(exc)
                     notes.append('Container shutdown requires reconciliation: ' + container_problem)
+            if finished:
+                # Keep the sealed outcome and its evidence intact. Cleanup is a later operation.
+                run['cleanup'] = {'at':stamp(), 'state':'needs_reconciliation' if container_problem else 'stopped',
+                                  'message':' '.join(notes)}
+                self.store.save(run)
+                continue
             outcome, found = self.reconcile(run, entry, notes)
             if container_problem:
                 outcome = 'needs_reconciliation'

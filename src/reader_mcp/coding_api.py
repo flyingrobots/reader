@@ -32,7 +32,7 @@ class CodingJobs(Runner):
             message = 'No Reader server is running this job; it was interrupted and will not restart.'
         git = dict(run.get('git') or {})
         view = {k: run.get(k) for k in ('id', 'request_id', 'predecessor', 'created_at', 'started_at', 'finished_at', 'phase', 'agent', 'source',
-                                         'prompt', 'issue', 'pr', 'existing_pr', 'push', 'verification', 'tools', 'log', 'recovered', 'archive_error')}
+                                         'prompt', 'issue', 'pr', 'existing_pr', 'push', 'verification', 'tools', 'log', 'recovered', 'archive_error', 'cleanup')}
         view.update(status=status, outcome=outcome, message=message, git=git, agent_label=coding_agents.LABELS.get(run.get('agent'), run.get('agent')),
                     seq=capture.seq if capture else run.get('seq') or 0, active=status in ACTIVE,
                     can_stop=status in ACTIVE and self.owner(), read_only=not self.owner(), unreconciled=orphan)

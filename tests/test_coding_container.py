@@ -190,3 +190,31 @@ def test_repository_relative_verifier_is_resolved_inside_the_job_workspace(world
     assert run['outcome']=='pr_opened',run['message']
     assert run['verification']['exit_code']==0
     assert snapshot(world.checkout)==world.before
+
+
+def test_finished_unclean_worker_has_a_recovery_path_without_rewriting_the_outcome(world, monkeypatch):
+    from reader_mcp import container_recovery
+    run,_=world.run()
+    run.update(outcome='needs_reconciliation',message='Original shutdown failure')
+    run['container']['state']='needs_reconciliation'
+    world.jobs.store.save(run)
+    monkeypatch.setattr(container_recovery,'recover',lambda root,repo,run_id,record,**kw:dict(record,state='stopped'))
+    world.jobs.recover()
+    restored=world.jobs.store.load(run['id'])
+    assert restored['container']['state']=='stopped'
+    assert restored['outcome']=='needs_reconciliation' and restored['message']=='Original shutdown failure'
+    assert restored['cleanup']['state']=='stopped'
+
+
+def test_container_recovery_uses_the_configured_tool_path(world, monkeypatch):
+    from reader_mcp import container_recovery
+    run,_=world.run()
+    run['status']='running';run['container']['state']='admitted';world.jobs.store.save(run)
+    calls=[]
+    def which(name, **kwargs):
+        calls.append((name,kwargs.get('path')))
+        return '/fixture/'+name
+    monkeypatch.setattr('reader_mcp.coding_jobs.shutil.which',which)
+    monkeypatch.setattr(container_recovery,'recover',lambda root,repo,run_id,record,**kw:dict(record,state='stopped'))
+    world.jobs.recover()
+    assert ('docker',world.jobs.environ['PATH']) in calls
