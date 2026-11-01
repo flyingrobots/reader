@@ -99,12 +99,13 @@ def test_gh_revision_reference_is_one_url_component():
     calls = []
     def run(argv, **kwargs):
         calls.append(argv)
-        return SimpleNamespace(returncode=0, stdout='{}', stderr='')
+        return SimpleNamespace(returncode=0, stdout=COMMIT if 'Accept: application/vnd.github.sha' in argv else '{\"sha\":\"'+COMMIT+'\",\"tree\":{\"sha\":\"'+ROOT+'\"}}', stderr='')
     api = GhCli(executable='gh', runner=run)
     api.revision('acme/widget', 'feature/next?x=y')
     api.tree('acme/widget', ROOT)
     assert calls[0][-1] == 'repos/acme/widget/commits/feature%2Fnext%3Fx%3Dy'
-    assert calls[1][-1] == 'repos/acme/widget/git/trees/' + ROOT
+    assert calls[1][-1] == 'repos/acme/widget/git/commits/' + COMMIT
+    assert calls[2][-1] == 'repos/acme/widget/git/trees/' + ROOT
 
 
 @pytest.mark.parametrize('kind,mode', [('commit', '160000'), ('unknown', '040000'), ('blob', '120000')])
