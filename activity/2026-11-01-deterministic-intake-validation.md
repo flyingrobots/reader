@@ -17,11 +17,19 @@ copies, Git remote resolution, pinned file revisions, reference-style links,
 fragments, library navigation, copied SVG images, missing targets, unchanged
 source hashes and annotation coordinates, and stale-record refusal.
 
-A full guarded Python run recorded 1,082 passed, two skipped and one failure in
-the existing chat-commit trailer test. That test passed in a subsequent focused
-guarded run alongside the intake and portable-reference tests. The initial
-failure remains evidence of intermittent chat test behavior; final CI must pass
-on the submitted head. Earlier draft/checkpoint reports describe prior states.
+A full guarded Python run after integrating current main passed 1,093 tests,
+with two skips and seven subtests. An earlier run recorded one intermittent
+failure in the existing chat-commit trailer test; that test passed both in a
+focused rerun and the subsequent full run. A final process-group cleanup change
+passed focused supervisor/intake checks: a permission error is accepted only
+after confirming the group has no remaining members. Earlier draft/checkpoint
+reports describe prior states.
+
+Initial CI stopped before tests because the platform-specific formatter artifact
+pushed the software input archive over its 24 MiB cap. The formatter build now
+strips unused symbols; its recorded executable hash still covers the exact
+exported binary. The real formatter and its reading-copy checks passed within
+the unchanged input and worker limits. Final CI must pass on the submitted head.
 
 A genuine read-only Codex call also classified a synthetic delivery, followed by
 script-owned filing, a verified local commit and intact receipt. It included
