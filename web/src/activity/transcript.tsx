@@ -229,7 +229,7 @@ function Row({item,live,html,onOpen,onReport,labels}:{item:Item;live:boolean;htm
       <TraceCollapsibleContent className="whitespace-pre-wrap">{item.prompt||'No prompt recorded.'}</TraceCollapsibleContent>
     </TraceCollapsible></Trace>;
     case 'error':return <Trace>{item.fatal?<StackTrace message={item.message} detail={item.detail}/>
-      :<TraceLine data-activity-notice=""><TraceIcon><TriangleAlertIcon/></TraceIcon><TraceTitle title={item.message}>{labels.tool}: {item.message}</TraceTitle></TraceLine>}</Trace>;
+      :<TraceLine data-activity-notice=""><TraceIcon><TriangleAlertIcon/></TraceIcon><TraceTitle className="overflow-visible break-words whitespace-normal">{labels.tool}: {item.message}</TraceTitle></TraceLine>}</Trace>;
     case 'checkpoint':return <Checkpoint hash={item.commit.hash} subject={item.commit.subject} onReport={onReport}/>;
     case 'skipped':return <Trace><TraceLine status="pending"><TraceIcon><TriangleAlertIcon/></TraceIcon><TraceTitle>Skipped an event ({item.reason}, {tokens(item.bytes)} bytes)</TraceTitle></TraceLine></Trace>;
   }

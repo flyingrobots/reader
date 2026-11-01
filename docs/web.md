@@ -1368,7 +1368,7 @@ While a run is active, a loading toast reads "The librarian is reading the mailâ
 The card shows the **Activity** transcript (below) and **Stop**. Elapsed time appears once in the transcript header; a fallback counter appears only until the transcript is available. Activity uses distinct blue running indicators, green completion indicators and red failure indicators, derived from the active theme. Commands use stronger text, and librarian messages have a separate surface. Labels and icons retain the state information without relying on color. Stop writes `.reader/inbox-runner/cancel` ("Stop
 requested by the Reader web user."), as the plugin does, and the supervisor stops
 the process group within a second. When the run ends, the same toast becomes
-"Mail filed: N arrivals" (with a **Report** action), "Inbox run stopped", or an
+"Added to the library: N arrivals" (with a **Report** action), "Inbox run stopped", or an
 error carrying the runner's message. The card then shows the runner's message,
 the commit, the librarian's report (`last-message.md`, its last 256 KiB) and the
 finished transcript,

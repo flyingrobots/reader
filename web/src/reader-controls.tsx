@@ -290,7 +290,7 @@ function announceInbox(status:InboxStatus){
       else if(previous&&ACTIVE.includes(previous)||ownRuns.has(run.run_id)||inboxPolled&&!previous){
         dismissed.delete(id);
         const filed=run.filed??Math.max(0,(run.arrivals||0)-(run.remaining||0)),report={label:'Report',onClick:()=>controlActions.adminGo('inbox')};
-        if(run.status==='finished')toast.success(run.deferred?`Mail processed: ${filed} filed, ${run.deferred} deferred`:`Mail filed: ${filed} arrival${filed===1?'':'s'}`,{id,description:run.commit?`Commit ${run.commit.short}. ${run.message}`:run.message,duration:12000,action:report});
+        if(run.status==='finished')toast.success(run.deferred?`Added ${filed} to the library, ${run.deferred} deferred`:`Added to the library: ${filed} arrival${filed===1?'':'s'}`,{id,description:run.commit?`Commit ${run.commit.short}. ${run.message}`:run.message,duration:12000,action:report});
         else if(run.status==='stopped'||run.status==='empty')toast(run.status==='stopped'?'Inbox run stopped':'Nothing to file',{id,description:run.message,duration:8000});
         else toast.error('The librarian couldn’t file the mail',{id,description:run.message,duration:15000,action:report});
         controlActions.libraryChanged().catch(()=>{});startJob('check');
