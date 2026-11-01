@@ -1,6 +1,6 @@
 import json
 from datetime import date
-from pathlib import Path
+from pathlib import Path, PurePath
 from uuid import uuid4
 
 import pytest
@@ -51,6 +51,89 @@ def test_packet_group_and_nested_receipts_are_not_double_counted(vault):
     book=next(u for u in data if u['title']=='Geometry')
     assert book['authors']==['Unspecified author'] and book['primary'].endswith('complete.txt')
     assert book['primary_bytes']==5000
+
+
+def grouping_cases(vault):
+    """Overlapping roots, lexical siblings and both kinds of nested receipt."""
+    note(vault,'library/reports/package/index.md','title: Package\nkind: catalog\nauthor: Package author')
+    note(vault,'library/reports/package/source.md','title: Hidden source')
+    note(vault,'library/reports/package/nested/index.md','title: Nested catalog')
+    note(vault,'library/reports/package/nested/source.md','title: Hidden nested source')
+    note(vault,'library/reports/package/aside.md','title: Package aside\nauthor: Essay author\nwriting_type: Essay')
+    note(vault,'library/reports/package-neighbor/source.md','title: Lexical neighbor\nauthor: Neighbor author')
+    note(vault,'library/reports/navigation/index.md','title: Navigation over receipts')
+    note(vault,'library/reports/navigation/loose.md','title: Loose work beside receipts')
+
+    def delivered(folder, title, attachments=None):
+        receipt=Store(vault).ingest(Submission(request_id=uuid4(),title=title,markdown='Preserved source.',
+            provenance={'author':'Source author'},attachments=attachments or []))
+        target=vault/folder;target.parent.mkdir(parents=True,exist_ok=True)
+        (vault/receipt['bundle_path']).rename(target)
+        return receipt['id']
+
+    # The attached receipt is payload, while a separate delivery under it remains a work.
+    attachment=vault/'attached-receipt.json';attachment.write_text('{"reader_receipt": 1}')
+    outer=delivered('library/reports/navigation/outer','Outer delivery',
+                    [{'source_path':str(attachment),'path':'attached/receipt.json'}])
+    inner=delivered('library/reports/navigation/outer/inner','Nested delivery')
+    note(vault,'library/reports/navigation/outer/index.md','title: Delivery wrapper\nkind: catalog')
+    note(vault,'library/reports/navigation/outer/aside.md','title: Delivery aside\nwriting_type: Essay')
+    return outer,inner
+
+
+def test_group_ancestry_preserves_nested_receipts_writing_and_siblings(vault):
+    outer,inner=grouping_cases(vault)
+    before={p.relative_to(vault):p.read_bytes() for p in (vault/'library').rglob('*') if p.is_file()}
+    units=Browse(vault).inventory({})
+    assert [u['title'] for u in units]==['Delivery aside','Lexical neighbor','Loose work beside receipts',
+                                       'Nested delivery','Outer delivery','Package','Package aside']
+    deliveries=[u for u in units if u['id'].startswith('receipt:')]
+    assert {u['id'] for u in deliveries}=={'receipt:'+outer,'receipt:'+inner}
+    assert all(u['authors']==['Source author'] for u in deliveries)
+    assert next(u for u in units if u['title']=='Package')['authors']==['Package author']
+    assert next(u for u in units if u['title']=='Outer delivery')['path'].endswith('/outer/index.md')
+    Browse(vault).run(today=TODAY)
+    outputs={p.relative_to(vault):p.read_bytes() for p in (vault/'indexes').rglob('*') if p.is_file()}
+    outputs[Path('README.md')]=(vault/'README.md').read_bytes()
+    assert json.loads(outputs[Path('indexes/coverage.json')])['works']==units
+    assert Browse(vault).run(check=True,today=TODAY)['status']=='current'
+    assert Browse(vault).run(today=TODAY)['changed']==[]
+    assert all((vault/p).read_bytes()==data for p,data in outputs.items())
+    assert all((vault/p).read_bytes()==data for p,data in before.items())
+
+
+@pytest.mark.parametrize('kind',['catalog','receipt'])
+def test_group_membership_cost_grows_with_files_not_all_groups(tmp_path,monkeypatch,kind):
+    relative=PurePath.is_relative_to;equal=PurePath.__eq__
+    counts=[]
+    for total in (40,80):
+        root=tmp_path/str(total)
+        for i in range(total):
+            folder=root/'library/reports'/str(i)
+            note(root,str(folder.relative_to(root)/'source.md'),'title: Source')
+            if kind=='catalog':
+                note(root,str(folder.relative_to(root)/'index.md'),'title: Catalog\nkind: catalog')
+            else:
+                (folder/'receipt.json').write_text(json.dumps({'reader_receipt':1,'id':str(i),
+                    'document':'source.md','files':[{'path':'source.md'}],'title':'Delivery'}))
+                note(root,str(folder.relative_to(root)/'aside.md'),'title: Aside\nwriting_type: Essay')
+        operations=0
+        def related(path,*args):
+            nonlocal operations
+            operations+=1
+            return relative(path,*args)
+        def compared(path,other):
+            nonlocal operations
+            operations+=1
+            return equal(path,other)
+        with monkeypatch.context() as patch:
+            patch.setattr(PurePath,'is_relative_to',related)
+            patch.setattr(PurePath,'__eq__',compared)
+            units=Browse(root).inventory({})
+        assert len(units)==total*(2 if kind=='receipt' else 1)
+        counts.append(operations)
+    assert counts[0]>0
+    assert counts[1]*2<=counts[0]*5, counts
 
 
 def test_weeks_are_arrivals_not_source_dates_and_unknowns_remain_unknown(vault):

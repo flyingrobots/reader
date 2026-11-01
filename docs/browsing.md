@@ -1,10 +1,10 @@
 ---
 frontmatter_schema_version: 1
-document_revision: 1
+document_revision: 2
 title: Markdown indexes and the README dashboard
 author: Reader librarian
 created: 2026-10-22
-updated: 2026-10-22
+updated: 2026-11-01
 type: reference
 ---
 
@@ -32,6 +32,8 @@ Each filed receipt counts once regardless of attachments. An attached nested rec
 Reading copies, navigation, ingestion records and archived source trees are not separate entries. Discovery skips operating-system metadata files (`.DS_Store`, `Thumbs.db`, `ehthumbs.db`, `desktop.ini` and AppleDouble `._*` files), hidden directories and `.git`, `node_modules`, `target`, `__pycache__`, `assets`, `fonts`, `originals`, `snapshot`, `evidence`, `reading`, `dist` and `build`. Their holdings remain accessible through the containing catalog. An uncataloged work only in a skipped directory needs a catalog or a normal standalone path to enter these views.
 
 These are grouping rules, not proof that every intellectual boundary has been determined. `coverage.json` lists each entry’s identity, source/clickthrough path, attribution, date basis, representative primary-file bytes and metadata diagnostics. It is not a preservation manifest, read receipt or verification certificate. Distinct editions remain distinct entries.
+
+Refreshes and checks use the same inventory. It indexes package roots and delivery ancestors once, then tests each file's ancestors against those sets. Group membership depends on path depth rather than scanning every package for every file; discovery, metadata parsing and rendering still run normally.
 
 ## Classification and attribution
 

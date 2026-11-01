@@ -137,10 +137,12 @@ class Browse:
                 meta[rel] = self.header(path)
             return meta[rel]
         units = []
-        receipts = []
         receipt_ids = set()
-        groups = []
+        group_roots = set()
+        receipt_ancestors = set()
         covered = set()
+        def inside_group(path):
+            return any(parent in group_roots for parent in path.parents)
         def make(path, m, *, title=None, author=None, arrival=None, basis=None,
                  project=None, kind=None, identity=None, primary=None):
             primary = primary or path
@@ -208,15 +210,16 @@ class Browse:
                  arrival=r.get('received_at'), basis='receipt received_at (UTC)',
                  project=provenance.get('project') or sm.get('project'), identity='receipt:'+identity,
                  primary=primary)
-            receipts.append(p.parent)
+            group_roots.add(p.parent)
+            receipt_ancestors.update(p.parents)
         # Cataloged direct-drop packages count once; nested deliveries remain separate.
         for rel in sorted(snapshot, key=lambda p:(len(Path(p).parts),p)):
             p = self.root/rel
             if p.name != 'index.md' or len(p.parts)-len(self.root.parts) < 4:
                 continue
-            if any(p.is_relative_to(g) for g in receipts + groups):
+            if inside_group(p):
                 continue
-            if any(g.is_relative_to(p.parent) for g in receipts):
+            if p.parent in receipt_ancestors:
                 continue  # This is navigation over delivered works.
             m = metadata(p)
             package_author = m.get('source_author') or m.get('author')
@@ -228,14 +231,14 @@ class Browse:
                  arrival=m.get('added') or m.get('metadata_created'), basis='catalog filing date',
                  kind='Book' if p.relative_to(self.library).parts[0]=='books' else None,
                  project=m.get('project'))
-            groups.append(p.parent)
+            group_roots.add(p.parent)
         for rel in sorted(snapshot):
             p = self.root/rel
             if p.suffix.lower() not in READABLE or p.name == 'index.md':
                 continue
-            inside = any(p.is_relative_to(g) for g in receipts + groups)
+            inside = inside_group(p)
             # Only explicitly identified original writing escapes package grouping.
-            m = metadata(p) if p.suffix.lower() in {'.md','.markdown'} and (not inside or p.parent in receipts + groups) else {}
+            m = metadata(p) if p.suffix.lower() in {'.md','.markdown'} and (not inside or p.parent in group_roots) else {}
             if not m and not inside:
                 sidecar = self.root/'catalog/metadata'/(p.relative_to(self.library).as_posix()+'.md')
                 if sidecar.is_file():
