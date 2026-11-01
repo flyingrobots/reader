@@ -38,3 +38,13 @@ def test_approval_and_execution_boundaries_are_not_silently_rewritten(registered
     else:raw['checkout'] = str(world.checkout)
     with pytest.raises(repositories.RegistryError):
         repositories.validate('acme/widget', raw, world.vault)
+
+
+def test_self_hashed_custom_configuration_cannot_claim_to_be_readers_inference(registered):
+    import hashlib,json
+    world,original=registered
+    raw=deepcopy(original)
+    raw['environment']['configuration']['containerEnv']={'PROJECT':'operator-modified'}
+    raw['environment']['sha256']=hashlib.sha256(json.dumps(raw['environment']['configuration'],sort_keys=True,separators=(',',':')).encode()).hexdigest()
+    with pytest.raises(repositories.RegistryError,match='proposal'):
+        repositories.validate('acme/widget',raw,world.vault)

@@ -36,6 +36,11 @@ class GitHub(FakeGitHub):
     def tree(self, repo, sha):
         self.calls.append('tree')
         return {'sha':sha,'truncated':False,'tree':self.metadata['entries']}
+    def blob(self, repo, sha):
+        self.calls.append('blob')
+        blob=self.metadata['config_blob']
+        if sha!=blob['sha']:raise RuntimeError('Unexpected synthetic blob request')
+        return blob
     def head(self, branch):
         run=self.jobs.store.load(self.jobs.active)
         result=execute(['docker','exec',run['container']['id'],'git','--git-dir','/work/fixture-origin.git',
@@ -56,10 +61,12 @@ def run_fixture(root, lock_store):
         'GIT_AUTHOR_NAME':'Fixture','GIT_AUTHOR_EMAIL':'fixture@example.invalid','GIT_COMMITTER_NAME':'Fixture','GIT_COMMITTER_EMAIL':'fixture@example.invalid',
         'GIT_CONFIG_COUNT':'1','GIT_CONFIG_KEY_0':'url.file:///work/fixture-origin.git.insteadOf','GIT_CONFIG_VALUE_0':URL,
         'FAKE_CODING_SCENARIO':'/work/fixture/scenario.json'}}
+    source=json.dumps(config,sort_keys=True,separators=(',',':')).encode()
+    blob_sha=hashlib.sha1(b'blob '+str(len(source)).encode()+b'\0'+source).hexdigest()
     entry={'base':'main','agents':['codex'],'executables':{'codex':'/work/tools/bin/fixture-codex'},'agent_timeout_seconds':120,
-        'verify':{'argv':['python3','verify.py'],'timeout_seconds':60},'environment':{'kind':'devcontainer','revision':'a'*40,'path':None,'blob_sha':None,
-        'sha256':hashlib.sha256(json.dumps(config,sort_keys=True,separators=(',',':')).encode()).hexdigest(),'configuration':config,
-        'inferred':True,'consent':True,'image_id':image,'lock_store':str(lock_store),'timeout_seconds':900}}
+        'verify':{'argv':['python3','verify.py'],'timeout_seconds':60},'environment':{'kind':'devcontainer','revision':'a'*40,'path':'.devcontainer.json','blob_sha':blob_sha,
+        'sha256':hashlib.sha256(source).hexdigest(),'configuration':config,
+        'inferred':False,'consent':False,'image_id':image,'lock_store':str(lock_store),'timeout_seconds':900}}
     registry=Registry(root);registry.register(REPO,entry)
     agent=base64.b64encode(Path(__file__).with_name('fake_coding_cli.py').read_bytes()).decode()
     # Every source/Git operation below executes through setup's real managed container transport.
@@ -83,12 +90,19 @@ if not bare.exists():
  (source/'verify.py').write_text('from pathlib import Path\\nimport sys\\nif Path("/work/fixture/fail-verification").exists():sys.exit(8)\\nif Path("src/depth.txt").read_text()!="max depth: 256\\\\n":sys.exit(2)\\nprint("actual fixture verification passed")\\n')
  git('add','.',cwd=source);git('commit','-q','-m','Synthetic baseline',cwd=source)
  git('remote','add','origin',str(bare),cwd=source);git('push','-q','origin','main',cwd=source)
+source=Path('/work/fixture-seed')
+config_bytes=base64.b64decode(CONFIG)
+(source/'.devcontainer.json').write_bytes(config_bytes)
+git('add','.devcontainer.json',cwd=source)
+if subprocess.run(['git','diff','--cached','--quiet'],cwd=source).returncode:
+ git('commit','-q','-m','Declare selected fixture devcontainer',cwd=source)
+ git('push','-q','origin','main',cwd=source)
 head=git('--git-dir',str(bare),'rev-parse','main');tree=git('--git-dir',str(bare),'rev-parse',head+'^{tree}')
 entries=[]
 for line in git('--git-dir',str(bare),'ls-tree',tree).splitlines():
  meta,path=line.split('\\t',1);mode,kind,sha=meta.split();entries.append({'path':path,'mode':mode,'type':kind,'sha':sha})
-print(json.dumps({'head':head,'tree':tree,'entries':entries}))
-'''.replace('AGENT',repr(agent))
+print(json.dumps({'head':head,'tree':tree,'entries':entries,'config_blob':{'sha':git('hash-object','.devcontainer.json',cwd=source),'size':len(config_bytes),'encoding':'base64','content':CONFIG}}))
+'''.replace('AGENT',repr(agent)).replace('CONFIG',repr(base64.b64encode(source).decode()))
     output=[]
     setup(root,'exec',REPO,['python3','-I','-c',seed],seconds=240,output=lambda c,b:output.append(b.decode()))
     metadata=json.loads(''.join(output));entry['environment']['revision']=metadata['head'];registry.register(REPO,entry)

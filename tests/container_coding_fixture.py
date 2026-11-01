@@ -14,7 +14,14 @@ IMAGE = 'sha256:' + 'a' * 64
 
 
 def entry(world, store):
-    config = {'image': 'fixture:managed'}
+    from coding_fixture import git
+    from reader_mcp.devcontainer_config import proposal
+    config = proposal('acme/widget')
+    seed=world.tmp/'seed'
+    (seed/'pyproject.toml').write_text('[project]\nname="fixture"\nversion="0.0.0"\n')
+    git('add','pyproject.toml',cwd=seed);git('commit','-q','-m','Declare fixture toolchain',cwd=seed)
+    git('push','-q','origin','main',cwd=seed)
+    world.base_sha=git('rev-parse','HEAD',cwd=seed)
     return {'base': 'main', 'agents': ['codex', 'claude'], 'executables': dict(world.entry['executables']),
         'agent_timeout_seconds': 60, 'verify': {'argv': world.entry['verify']['argv'], 'timeout_seconds': 60},
         'environment': {'kind': 'devcontainer', 'revision': world.base_sha, 'path': None, 'blob_sha': None,

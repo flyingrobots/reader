@@ -119,6 +119,11 @@ def select(github, repo, revision, path):
             'sha256': hashlib.sha256(source).hexdigest(), 'configuration': config, 'inferred': False}
 
 
+def proposal(repo):
+    """The sole deterministic starter configuration offered by Reader inference."""
+    return validate({'name':repo+' coding job','image':'reader-coding:local','userEnvProbe':'none','remoteUser':'root'})
+
+
 def infer(github, repo, revision, consent=False):
     """An operator-approved Node/Python starting proposal; no build, credentials or job execution."""
     if consent is not True:
@@ -138,7 +143,7 @@ def infer(github, repo, revision, consent=False):
     manifests = sorted(set(root) & {'package.json', 'pyproject.toml', 'requirements.txt'})
     if not manifests:
         raise ConfigurationError('No supported Node/Python manifest was found; supply a devcontainer configuration for this toolchain')
-    config = validate({'name': repo + ' coding job', 'image': 'reader-coding:local', 'userEnvProbe': 'none', 'remoteUser': 'root'})
+    config = proposal(repo)
     digest = hashlib.sha256(json.dumps(config, sort_keys=True, separators=(',', ':')).encode()).hexdigest()
     return {'repo': repo, 'revision': revision, 'path': None, 'blob_sha': None, 'sha256': digest,
             'configuration': config, 'inferred': True, 'consent': True, 'manifests': manifests,

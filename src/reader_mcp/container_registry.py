@@ -4,7 +4,7 @@ import json
 from pathlib import Path
 import re
 
-from .devcontainer_config import validate as validate_configuration
+from .devcontainer_config import proposal, validate as validate_configuration
 from .devcontainer_discovery import SHA
 
 IMAGE = re.compile(r'sha256:[0-9a-f]{64}')
@@ -40,7 +40,7 @@ def normalize(repo, raw, vault):
         raise RegistryError('Inference and consent must be explicit booleans')
     if environment['inferred']:
         digest = hashlib.sha256(json.dumps(config, sort_keys=True, separators=(',', ':')).encode()).hexdigest()
-        if not environment['consent'] or environment['path'] is not None or environment['blob_sha'] is not None or digest != environment['sha256']:
+        if config != proposal(repo) or not environment['consent'] or environment['path'] is not None or environment['blob_sha'] is not None or digest != environment['sha256']:
             raise RegistryError('Inferred configuration consent must match this exact proposal and revision')
     elif (not isinstance(environment['path'], str) or not re.fullmatch(r'\.devcontainer\.json|\.devcontainer/(?:[^/]+/)?devcontainer\.json', environment['path'])
             or not isinstance(environment['blob_sha'], str) or not SHA.fullmatch(environment['blob_sha'])):

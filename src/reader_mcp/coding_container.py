@@ -13,8 +13,7 @@ from .coding_publish import Job
 from .coding_workflow import GIT_TIMEOUT, MAX_LINE, Stop, process_started
 from .container_process import ProcessError
 from .container_runtime import ContainerRuntime
-from .devcontainer_config import select
-from .devcontainer_discovery import discover
+from .devcontainer_config import ConfigurationError, infer, select
 from .github import GitHubError
 
 
@@ -61,15 +60,15 @@ class ContainerJob(Job):
                     or not repository.get('can_push') or repository.get('archived')):
                 raise Stop('blocked', 'The GitHub login cannot publish to this repository.')
             if env['inferred']:
-                inventory = discover(self.github, self.repo, env['revision'])
-                if inventory['base_sha'] != env['revision'] or inventory['configurations'] or not env['consent']:
+                inferred = infer(self.github, self.repo, env['revision'], env['consent'])
+                if inferred['configuration'] != env['configuration'] or inferred['sha256'] != env['sha256']:
                     raise Stop('blocked', 'The inferred configuration no longer matches its approved missing-configuration inventory.')
             else:
                 selected = select(self.github, self.repo, env['revision'], env['path'])
                 if (selected['sha256'] != env['sha256'] or selected['blob_sha'] != env['blob_sha']
                         or selected['configuration'] != env['configuration']):
                     raise Stop('blocked', 'The approved configuration does not match its pinned GitHub source.')
-        except GitHubError as exc:
+        except (GitHubError, ConfigurationError) as exc:
             raise Stop('blocked', 'GitHub configuration check failed: ' + str(exc)) from exc
         if self.run['source']['issue']:
             self.verify_issue(self.run['source']['issue'])

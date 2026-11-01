@@ -218,3 +218,14 @@ def test_container_recovery_uses_the_configured_tool_path(world, monkeypatch):
     monkeypatch.setattr(container_recovery,'recover',lambda root,repo,run_id,record,**kw:dict(record,state='stopped'))
     world.jobs.recover()
     assert ('docker',world.jobs.environ['PATH']) in calls
+
+
+def test_inferred_registration_without_supported_manifest_is_blocked_before_setup(world):
+    seed=world.tmp/'seed'
+    git('rm','pyproject.toml',cwd=seed);git('commit','-q','-m','Remove supported manifest',cwd=seed);git('push','-q','origin','main',cwd=seed)
+    raw=json.loads(json.dumps(world.container_entry))
+    raw['environment']['revision']=git('rev-parse','HEAD',cwd=seed)
+    world.jobs.registry.write({'acme/widget':raw})
+    run,_=world.run()
+    assert run['outcome']=='blocked' and 'manifest' in run['message']
+    assert world.runtimes==[] and not world.record.exists()
