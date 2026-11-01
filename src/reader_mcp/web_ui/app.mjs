@@ -731,7 +731,7 @@ async function renderMarkdown(container,raw,path,depth,{defer=false,range=null,c
   // embed's placeholder never grants a source coordinate to the embedded document's blocks.
   // Only the article itself (`prompts` given) turns prompt blocks into cards; embeds, chat and scratch keep plain code.
   const env={raw:source.text,full:raw,offset:source.offset,embeds:true,...mathOptions(raw),...(prompts?{prompts:{}}:{})};
-  if(/file:/i.test(source.text)&&path.startsWith('library/')){
+  if(/file:/i.test(source.text)&&/^library\/.+\.(md|markdown)$/i.test(path)){
     try{
       const bytes=new TextEncoder().encode(raw),hash=await crypto.subtle.digest('SHA-256',bytes);
       const sha=[...new Uint8Array(hash)].map(n=>n.toString(16).padStart(2,'0')).join('');

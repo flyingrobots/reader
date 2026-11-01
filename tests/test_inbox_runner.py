@@ -72,6 +72,37 @@ def test_runner_owns_filing_and_model_only_returns_a_read_only_decision(vault, e
     assert not (runtime / 'pending.json').exists()
 
 
+def test_progress_allows_a_finite_queue_to_exceed_one_step_deadline(vault, executable):
+    for name in ('second', 'third', 'fourth'):
+        (vault / 'inbox' / (name + '.md')).write_text('Another source')
+    fake = executable(before='import time; time.sleep(1)')
+    assert run(vault, str(fake), timeout=2.5) == 0
+    state = json.loads((vault / '.reader/inbox-runner/state.json').read_text())
+    assert state['result']['filed_count'] == 4
+
+
+def test_stalled_model_still_hits_the_progress_deadline(vault, executable):
+    fake = executable(before='import time; time.sleep(60)')
+    assert run(vault, str(fake), timeout=1.5) == 1
+    state = json.loads((vault / '.reader/inbox-runner/state.json').read_text())
+    assert 'time limit' in state['message'] and (vault / 'inbox/test.md').is_file()
+
+
+def test_shutdown_allows_lock_release_cleanup_to_finish(tmp_path):
+    from reader_mcp.inbox_runner import WorkerProcesses
+    marker = tmp_path / 'released'
+    code = "import signal,time,pathlib\ndef stop(*args):\n time.sleep(4)\n pathlib.Path(" + repr(str(marker)) + ").write_text('released')\n raise SystemExit(0)\nsignal.signal(signal.SIGTERM,stop)\nprint('ready',flush=True)\ntime.sleep(60)"
+    child = subprocess.Popen([sys.executable, '-c', code], stdout=subprocess.PIPE, text=True, start_new_session=True)
+    try:
+        assert child.stdout.readline().strip() == 'ready'
+        WorkerProcesses(child).stop()
+        assert marker.read_text() == 'released'
+    finally:
+        if child.poll() is None:
+            child.kill()
+        child.wait()
+
+
 def test_bad_model_response_and_failure_never_claim_success(vault, executable):
     fake = executable(output='Done! Everything is filed.')
     assert run(vault, str(fake)) == 1

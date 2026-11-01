@@ -27,7 +27,7 @@ def inventory(root, *, strict=True):
     for directory, folders, files in os.walk(root / 'inbox', followlinks=False):
         for name in folders + files:
             if strict and not os_junk(name) and ((Path(directory) / name).is_symlink() or name == '.git'):
-                raise ValueError('Inbox symlinks or Git metadata require explicit disposition')
+                raise ValueError('Inbox symlinks or Git metadata require explicit disposition: ' + (Path(directory) / name).relative_to(root).as_posix())
         folders[:] = [n for n in folders if not os_junk(n) and n != '.git' and not (Path(directory) / n).is_symlink()]
         for name in sorted(files):
             p = Path(directory) / name
@@ -130,7 +130,7 @@ class WorkerProcesses:
         for group in self.groups:
             self.signal_group(group, signal.SIGTERM)
         try:
-            self.process.wait(timeout=3)
+            self.process.wait(timeout=35)  # Filing cleanup allows 30 seconds to release its own lease.
         except subprocess.TimeoutExpired:
             pass
         for group in self.groups:
@@ -159,10 +159,10 @@ def run(root, codex, run_id=None, timeout=1800, workstation_lock_store=None, san
     from .portable_links import atomic
     local_path(root, '.reader/inbox-runner')
     if not 0 < timeout <= 1800:
-        raise ValueError('Intake deadline must be at most 30 minutes')
+        raise ValueError('Intake progress deadline must be at most 30 minutes')
     runtime.mkdir(parents=True, exist_ok=True)
     for name in ('run.lock', 'state.json', 'state.next.json', 'cancel', 'pending.json', 'queue.json', 'selection.json', 'result.json',
-                 'last-message.md', 'events.jsonl', 'stderr.log', 'tmp', 'editorial', 'prepared'):
+                 'last-message.md', 'events.jsonl', 'stderr.log', 'tmp', 'editorial', 'prepared', 'progress.json'):
         local_path(root, '.reader/inbox-runner/' + name)
     with (runtime / 'run.lock').open('a') as lock:
         try:
@@ -203,6 +203,7 @@ def run(root, codex, run_id=None, timeout=1800, workstation_lock_store=None, san
                 (runtime / name).write_bytes(b'')
             atomic(runtime / 'selection.json', {'run_id': state['run_id'], 'arrivals': ['inbox/' + name for name in arrivals], 'files': paths}, limit=MAX_PLAN)
             (runtime / 'result.json').unlink(missing_ok=True)
+            (runtime / 'progress.json').unlink(missing_ok=True)
             temp = runtime / 'tmp'; temp.mkdir(exist_ok=True)
             def data_size():
                 total = 0
@@ -227,7 +228,7 @@ def run(root, codex, run_id=None, timeout=1800, workstation_lock_store=None, san
             state['workflow'] = 'deterministic-intake-v1'
             cpu_limits = tuple(3600 if value == resource.RLIM_INFINITY else min(value, 3600)
                                for value in resource.getrlimit(resource.RLIMIT_CPU))
-            state['limits'] = dict(timeout_seconds=timeout,data_bytes=4*1024**3,output_bytes=16*1024**2,
+            state['limits'] = dict(timeout_seconds=timeout,timeout_scope='verified-progress',data_bytes=4*1024**3,output_bytes=16*1024**2,
                                    minimum_free_bytes=minimum_free_bytes(root),cpu_seconds=cpu_limits[0])
             state['temporary_path'] = str(temp)
             state['output_path'] = str(runtime)
@@ -257,6 +258,7 @@ def run(root, codex, run_id=None, timeout=1800, workstation_lock_store=None, san
                 state.update(status='running',process_group=worker.pid,message='Preparing sources and requesting bounded editorial decisions')
                 write_state(runtime,state)
                 deadline=time.monotonic()+timeout
+                last_progress = None
                 while worker.poll() is None:
                     check_limits()
                     rss = tree.measure()
@@ -264,8 +266,19 @@ def run(root, codex, run_id=None, timeout=1800, workstation_lock_store=None, san
                         raise ValueError('Inbox run exceeded its 4 GiB process-group memory limit')
                     if (runtime/'cancel').exists():
                         state.update(status='stopped',message='Stopped by user. Inspect partial changes before retrying.');return 1
+                    checkpoint = runtime / 'progress.json'
+                    if checkpoint.exists():
+                        if checkpoint.is_symlink() or checkpoint.stat().st_size > 4096:
+                            raise ValueError('Unsafe intake progress checkpoint')
+                        current = json.loads(checkpoint.read_text())
+                        if current.get('phase') not in ('snapshot', 'editorial', 'decision', 'filing', 'committed') or not isinstance(current.get('token'), str):
+                            raise ValueError('Invalid intake progress checkpoint')
+                        if current['token'] != last_progress:
+                            last_progress = current['token']
+                            deadline = time.monotonic() + timeout
+                            state['phase'] = current['phase']
                     if time.monotonic()>deadline:
-                        raise ValueError('Inbox run exceeded its 30-minute time limit; inspect partial changes')
+                        raise ValueError('Inbox step exceeded its progress time limit; inspect partial changes')
                     write_state(runtime,state)
                     time.sleep(1)
                 tree.stop()

@@ -63,3 +63,11 @@ with the runner's `formatter` kind when absent. Browser suites are
 configured local browser. Workers use read-only roots, capped temporary storage,
 two CPUs, 4 GiB memory and deadlines; they retain bounded logs and remove their
 containers. Existing toolchain images are reused.
+
+A subsequent recovery review reproduced seven failures: tracked deletion retry
+after a hook refusal, source whitespace rejection, an OS argument limit, unnamed
+damaged arrivals, secondary release errors hiding the cause, a finite progressing
+queue exceeding a single run deadline, and premature termination of lock cleanup.
+The corrections retain hook enforcement and source bytes, stream mutation
+pathspecs, bound query arguments, name failing arrivals, preserve both diagnostics,
+and use script-owned progress with bounded filing and cleanup stages.

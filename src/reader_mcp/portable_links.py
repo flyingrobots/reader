@@ -333,7 +333,7 @@ class PortableLinks:
                 if item['status'] == 'unresolved' and (target is not None or not isinstance(item.get('reason'), str)):
                     return None
             return value
-        except (ValueError, KeyError, TypeError, OSError):
+        except (ValueError, KeyError, TypeError, OSError, RecursionError):
             return None
 
 

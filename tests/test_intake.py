@@ -78,6 +78,58 @@ def test_stale_classification_cannot_move_an_arrival(vault):
     assert not (vault / plan['entries'][0]['destination']).exists()
 
 
+def test_source_whitespace_is_preserved_without_blocking_commit(vault):
+    data = 'Space before a tab: \ttext.\n\n'
+    (vault / 'inbox/report.md').write_text(data)
+    plan = plan_for(vault)
+    assert intake.apply_plan(vault, vault / '.reader/inbox-runner', plan)['commit']
+    assert (vault / plan['entries'][0]['destination'] / 'originals/report.md').read_text() == data
+
+
+def test_large_owned_path_set_does_not_depend_on_os_argument_capacity(vault, monkeypatch):
+    folder = vault / 'inbox/packet'
+    folder.mkdir()
+    for i in range(500):
+        (folder / (f'{i:04}-' + 'a' * 80 + '.txt')).write_text('Original source')
+    plan = plan_for(vault, 'inbox/packet')
+    original_run = subprocess.run
+    def bounded_argv(args, *rest, **kwargs):
+        if args[0] == 'git' and sum(len(str(a).encode()) + 1 for a in args) > 65536:
+            raise OSError(7, 'Synthetic OS argument limit')
+        return original_run(args, *rest, **kwargs)
+    monkeypatch.setattr(subprocess, 'run', bounded_argv)
+    assert intake.apply_plan(vault, vault / '.reader/inbox-runner', plan)['commit']
+    assert len(list((vault / plan['entries'][0]['destination'] / 'originals').glob('*.txt'))) == 500
+
+
+def test_invalid_delivery_identifies_the_arrival_before_any_move(vault):
+    receipt = Store(vault).ingest(Submission(request_id=uuid4(), title='Damaged delivery', markdown='Original'))
+    (vault / receipt['bundle_path'] / 'report.md').write_text('Edited after delivery')
+    runtime = vault / '.reader/inbox-runner'
+    run_id = str(uuid4())
+    files = sorted(p.relative_to(vault).as_posix() for p in (vault / receipt['bundle_path']).iterdir())
+    (runtime / 'selection.json').write_text(json.dumps({'run_id': run_id, 'arrivals': [receipt['bundle_path']], 'files': files}))
+    with pytest.raises(ValueError, match=receipt['bundle_path'] + ':.*integrity'):
+        intake.worker(vault, 'unused', run_id)
+    assert (vault / receipt['bundle_path']).is_dir()
+
+
+def test_release_failure_retains_the_original_filing_diagnostic(vault, monkeypatch, capsys):
+    from reader_mcp import companions
+    (vault / 'inbox/report.md').write_text('Original')
+    plan = plan_for(vault)
+    tool = vault / '.reader/locks'
+    tool.write_text('#!' + sys.executable + '\nimport sys,json\nif "claim" in sys.argv: print(json.dumps({"event":"claimed","acquisition":"owned"}))\nelse: raise SystemExit(1)\n')
+    tool.chmod(0o755)
+    monkeypatch.setattr(companions, 'find_git_locks', lambda **kwargs: str(tool))
+    def failed(*args):
+        raise ValueError('The original filing refusal')
+    monkeypatch.setattr(intake, 'apply_plan', failed)
+    with pytest.raises(ValueError, match='original filing refusal'):
+        intake.locked_apply(vault, vault / '.reader/inbox-runner', plan)
+    assert 'lock release failed' in capsys.readouterr().err
+
+
 def test_filed_receipt_keeps_browse_identity_and_curation_context(vault):
     from reader_mcp.browse import Browse
     from reader_mcp.curation import Curation
@@ -249,9 +301,13 @@ def test_interrupted_preparation_and_checkpoint_can_retry(vault, monkeypatch, fa
     assert (vault / target).read_bytes() == b'Prepared bytes'
 
 
-def test_commit_hook_failure_resumes_without_reclassification_or_duplicate_filing(vault):
+@pytest.mark.parametrize('tracked', [False, True])
+def test_commit_hook_failure_resumes_without_reclassification_or_duplicate_filing(vault, tracked):
     source = vault / 'inbox/report.md'
     source.write_text('Original source bytes\n')
+    if tracked:
+        intake.run_git(vault, 'add', 'inbox/report.md')
+        intake.run_git(vault, 'commit', '-qm', 'Track arrival before intake')
     plan = plan_for(vault)
     hook = vault / '.git/hooks/pre-commit'
     hook.write_text('#!/bin/sh\necho intentional-hook-refusal >&2\nexit 1\n')

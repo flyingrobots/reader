@@ -101,7 +101,9 @@ empty because the batch already moved. Retries reconcile recorded destinations
 and bytes; they never infer completion from an empty inbox.
 
 A hook refusal remains an uncommitted batch. Repair the hook's reported cause;
-do not bypass it. Changed source bytes or edits to a journal-owned output require
+do not bypass it. The built-in whitespace check covers generated outputs, not
+preserved payloads. A vault hook that rejects original source whitespace requires
+an explicit hook-policy decision; never edit preserved source bytes to appease it. Changed source bytes or edits to a journal-owned output require
 reconciliation. Preserve both versions and the journal rather than deleting
 records to force a restart. A previously existing destination is a conflict.
 
@@ -111,7 +113,15 @@ that run, then remove only stale `state.json` to permit a retry. Keep `queue.jso
 `pending.json` and prepared blobs. A lock left by a forcibly killed worker retains
 its recorded lease; never steal another owner's acquisition.
 
-The supervisor retains its 30-minute deadline, 50 GiB host free-space reserve,
+The supervisor allows at most 30 minutes without script-owned progress. A completed
+snapshot, validated model response, recorded decision, entry into filing, or
+committed batch renews that deadline. Model output streaming alone does not. Each
+filing stage remains bounded to 30 minutes, within its 40-minute repository lease.
+A finite frozen queue can span several such stages without manual restarts.
+Cancellation allows up to 35 seconds for cleanup, including the 30-second lock
+release call, before forcefully terminating remaining descendants.
+
+The supervisor retains its 50 GiB host free-space reserve,
 4 GiB runtime-data and process-memory bounds, 16 MiB aggregate output budget and
 8 MiB per-stream cap. It tracks descendant process groups and terminates them on
 cancellation or monitoring failure. The existing bounded-tmpfs exception applies

@@ -34,6 +34,11 @@ def stamp():
     return datetime.now(timezone.utc).isoformat()
 
 
+def progress(runtime, phase):
+    """Only completed script-owned steps renew the supervisor's progress deadline."""
+    atomic(runtime / 'progress.json', {'token': uuid4().hex, 'phase': phase}, limit=4096)
+
+
 def decision_schema():
     properties = {key: {'type': 'string'} for key in DECISION_FIELDS}
     properties['disposition'] = {'type': 'string', 'enum': ['file', 'defer']}
@@ -186,7 +191,9 @@ def model_call(root, runtime, entry, codex, context):
         raise ValueError(f'Editorial model exited with status {result.returncode}')
     if output.is_symlink() or not output.is_file() or output.stat().st_size > 32 * 1024:
         raise ValueError('Editorial model returned no bounded JSON decision')
-    return validate_decision(json.loads(output.read_text()), entry)
+    decision = validate_decision(json.loads(output.read_text()), entry)
+    progress(runtime, 'editorial')
+    return decision
 
 
 def groups(items, budget=128 * 1024):
@@ -262,11 +269,25 @@ def append_once(journal, relative, line, title):
             journal.write(relative, (text.rstrip() + '\n\n' + line + '\n').encode())
 
 
-def run_git(root, *args):
-    result = subprocess.run(['git', '--literal-pathspecs', *args], cwd=root, capture_output=True, text=True, timeout=120)
+def run_git(root, *args, input=None):
+    result = subprocess.run(['git', '--literal-pathspecs', *args], cwd=root, capture_output=True, text=True, timeout=120, input=input)
     if result.returncode:
         raise ValueError((result.stderr or result.stdout)[-2000:])
     return result.stdout.strip()
+
+
+def git_path_outputs(root, args, paths):
+    """Bound argv for Git queries that do not support pathspec-from-file."""
+    batch, size = [], 0
+    for path in paths:
+        used = len(path.encode()) + 1
+        if batch and size + used > 32768:
+            yield run_git(root, *args, '--', *batch)
+            batch, size = [], 0
+        batch.append(path)
+        size += used
+    if batch:
+        yield run_git(root, *args, '--', *batch)
 
 
 def dirty_paths(root, paths):
@@ -506,22 +527,26 @@ def apply_plan(root, runtime, plan):
         if checked_path(root, entry['source']).exists():
             raise ValueError('A new arrival occupies a selected source path; refusing to stage it')
     owned = set(journal.writes) | {e['destination'] + '/originals/' + f['path'] for e in entries for f in e['files']}
+    add_paths = set(owned)
     sources = sorted({p for e in entries for p in e['tracked_sources']})
     if sources:
         # A deletion still present in HEAD must be committed even if already
         # staged. After its commit lands, an absent index/HEAD path is no longer
         # a valid explicit pathspec for git add during checkpoint replay.
-        owned.update(p for p in run_git(root, 'ls-files', '-z', '--', *sources).split('\0') if p)
-        owned.update(p for p in run_git(root, 'ls-tree', '-r', '--name-only', '-z', 'HEAD', '--', *sources).split('\0') if p)
+        tracked = {p for out in git_path_outputs(root, ['ls-files', '-z'], sources) for p in out.split('\0') if p}
+        owned.update(tracked)
+        add_paths.update(tracked)
+        owned.update(p for out in git_path_outputs(root, ['ls-tree', '-r', '--name-only', '-z', 'HEAD'], sources) for p in out.split('\0') if p)
     paths = sorted(owned)
     # Exact files only: never sweep an unrelated attachment or another participant's staging into this commit.
-    run_git(root, 'add', '-A', '-f', '--', *paths)
-    run_git(root, '-c', 'core.whitespace=-blank-at-eol', 'diff', '--cached', '--check', '--', *paths)
+    run_git(root, 'add', '-A', '-f', '--pathspec-from-file=-', '--pathspec-file-nul', input='\0'.join(sorted(add_paths)) + '\0')
+    for _ in git_path_outputs(root, ['-c', 'core.whitespace=-blank-at-eol', 'diff', '--cached', '--check'], sorted(journal.writes)):
+        pass
     message = 'File verified Reader inbox batch ' + plan['batch_id']
-    if run_git(root, 'diff', '--cached', '--name-only', '--', *paths):
-        run_git(root, 'commit', '--only', '-m', message, '--', *paths)
+    if any(git_path_outputs(root, ['diff', '--cached', '--name-only'], paths)):
+        run_git(root, 'commit', '--only', '-m', message, '--pathspec-from-file=-', '--pathspec-file-nul', input='\0'.join(paths) + '\0')
     plan['commit'] = run_git(root, 'log', '-1', '--format=%H', '--fixed-strings', '--grep=' + message)
-    if not plan['commit'] or run_git(root, 'diff', 'HEAD', '--name-only', '--', *paths):
+    if not plan['commit'] or any(git_path_outputs(root, ['diff', 'HEAD', '--name-only'], paths)):
         raise ValueError('The committed intake paths do not match the verified output')
     for entry in entries:
         verify_payload(root, entry)
@@ -547,13 +572,23 @@ def locked_apply(root, runtime, plan):
     receipt = json.loads(claimed.stdout)
     if receipt.get('event') != 'claimed' or not receipt.get('acquisition'):
         raise ValueError('Intake lock did not return an acquisition identity')
+    failure = None
     try:
         return apply_plan(root, runtime, plan)
+    except BaseException as exc:
+        failure = exc
+        raise
     finally:
-        released = subprocess.run([tool, 'release', '--job', job, '--acquisition', receipt['acquisition']],
-                                  cwd=root, env=env, capture_output=True, text=True, timeout=30)
-        if released.returncode:
-            raise ValueError('Intake lock release failed; inspect acquisition ' + receipt['acquisition'])
+        try:
+            released = subprocess.run([tool, 'release', '--job', job, '--acquisition', receipt['acquisition']],
+                                      cwd=root, env=env, capture_output=True, text=True, timeout=30)
+            if released.returncode:
+                raise ValueError(released.stderr or released.stdout)
+        except (OSError, ValueError, subprocess.SubprocessError) as exc:
+            note = 'Intake lock release failed; inspect acquisition ' + receipt['acquisition'] + ': ' + str(exc)[-500:]
+            if failure is None:
+                raise ValueError(note) from exc
+            print('Reader intake: ' + note, file=sys.stderr)
 
 
 def clear_prepared(runtime):
@@ -602,7 +637,13 @@ def worker(root, codex, run_id):
         paths = selected['arrivals']
         if selected.get('run_id') != run_id or not isinstance(paths, list) or len(paths) > MAX_FILES:
             raise ValueError('Invalid frozen arrival selection')
-        entries = [snapshot(root, source) for source in paths]
+        entries = []
+        for source in paths:
+            try:
+                entries.append(snapshot(root, source))
+            except (ValueError, OSError, KeyError, TypeError, AttributeError) as exc:
+                raise ValueError(source + ': ' + str(exc)) from exc
+            progress(runtime, 'snapshot')
         frozen_files = sorted(e['source'] + '/' + f['path'] if e['is_directory'] else e['source'] for e in entries for f in e['files'])
         if frozen_files != selected['files']:
             raise ValueError('Inbox contents changed after the selected inventory')
@@ -651,7 +692,9 @@ def worker(root, codex, run_id):
                     if (root / entry['destination']).exists():
                         raise ValueError('Planned filing destination already exists')
                 save(runtime, plan)
+                progress(runtime, 'decision')
         if any(e['decision']['disposition'] == 'file' for e in plan['entries']):
+            progress(runtime, 'filing')
             plan = locked_apply(root, runtime, plan)
             changes = [{'path': e['source'], 'kind': 'delete'} for e in plan['entries'] if e.get('filed')]
             changes += [{'path': e['destination'] + '/index.md', 'kind': 'add'} for e in plan['entries'] if e.get('filed')]
@@ -664,6 +707,7 @@ def worker(root, codex, run_id):
         queue['results'].append(batch)
         queue['entries'] = queue['entries'][len(plan['entries']):]
         atomic(queue_path, queue, limit=MAX_PLAN)
+        progress(runtime, 'committed')
         pending.unlink()
         clear_prepared(runtime)
     commits = [r['commit'] for r in queue['results'] if r['commit']]

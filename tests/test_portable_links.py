@@ -3,6 +3,7 @@ import json
 import os
 from pathlib import Path
 import subprocess
+import sys
 
 import pytest
 
@@ -99,6 +100,17 @@ def test_images_are_copied_once_and_library_links_remain_local(tmp_path):
     engine.prepare('library/packet/source.md', apply=True)
     assert record.stat().st_mtime_ns == timestamp
     assert len(list((source.parent / 'assets').iterdir())) == 1
+
+
+def test_deeply_nested_record_fails_closed_and_can_be_repaired(tmp_path):
+    source = document(tmp_path, '[Unavailable](file:///missing)')
+    engine = PortableLinks(tmp_path)
+    path = engine.record_path('library/packet/source.md')
+    path.parent.mkdir()
+    depth = sys.getrecursionlimit() + 100
+    path.write_text('[' * depth + '0' + ']' * depth)
+    assert engine.stored('library/packet/source.md', hashlib.sha256(source.read_bytes()).hexdigest()) is None
+    assert engine.prepare('library/packet/source.md', apply=True)['counts'] == {'unresolved': 1}
 
 
 def test_missing_and_symlinked_images_have_explicit_dispositions(tmp_path):
