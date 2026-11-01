@@ -102,3 +102,19 @@ def test_setup_does_not_spend_cleanup_reserve_on_the_command(configured, monkeyp
     with pytest.raises(ProcessError, match='reserving time'):
         call(configured, seconds=60)
     assert Runtime.instances[-1].closed and not Runtime.instances[-1].calls
+
+
+@pytest.mark.parametrize('command', ['container','container-image'])
+def test_container_cli_expands_literal_tilde_root(monkeypatch,command):
+    import sys
+    from pathlib import Path
+    from reader_mcp import cli,container_image,container_setup
+    seen=[]
+    monkeypatch.setenv('READER_ROOT','~')
+    def setup(root,*args,**kwargs):seen.append(root);return {'ready':True}
+    monkeypatch.setattr(container_setup,'setup',setup)
+    monkeypatch.setattr(container_image,'prepare',setup)
+    argv=['reader',command]+(['check','acme/widget'] if command=='container' else ['--lock-store','/fixture/authority.git'])
+    monkeypatch.setattr(sys,'argv',argv)
+    cli.main()
+    assert seen==[str(Path.home().resolve())]

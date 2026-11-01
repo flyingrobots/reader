@@ -98,6 +98,7 @@ def main():
     if not args.root:
         parser.error("Pass --root or set READER_ROOT")
     try:
+        args.root = str(Path(args.root).expanduser().resolve())
         if args.command == "validate-metadata":
             from .metadata import validate_paths
             result = validate_paths(Path(args.root).expanduser().resolve(strict=True), args.paths,
