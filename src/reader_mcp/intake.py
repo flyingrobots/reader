@@ -197,7 +197,7 @@ def model_call(root, runtime, entry, codex, context):
     command = [codex, 'exec', '--cd', str(work), '--sandbox', 'read-only', '--ignore-user-config', '--ignore-rules',
                '--disable', 'shell_tool', '--disable', 'unified_exec', '--disable', 'apps', '--disable', 'multi_agent',
                '--disable', 'skill_search', '--enable', 'skip_host_skill_discovery',
-               '-c', 'project_doc_max_bytes=0', '-c', 'web_search="disabled"',
+               '-c', 'suppress_unstable_features_warning=true', '-c', 'project_doc_max_bytes=0', '-c', 'web_search="disabled"',
                '-c', 'approval_policy="never"', '--skip-git-repo-check', '--ephemeral', '--json', '--color', 'never',
                '--output-schema', str(schema), '--output-last-message', str(output), '-']
     # Inherit the supervised worker's process group, so cancellation also stops model descendants.

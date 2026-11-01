@@ -65,6 +65,7 @@ def test_runner_owns_filing_and_model_only_returns_a_read_only_decision(vault, e
     args = json.loads((vault / '.reader/arguments.json').read_text())
     assert args[args.index('--sandbox') + 1] == 'read-only'
     assert '--ignore-user-config' in args and '--output-schema' in args and '--add-dir' not in args
+    assert args[args.index('suppress_unstable_features_warning=true') - 1] == '-c'  # The user's config is ignored, so its own setting cannot quiet this.
     assert '--dangerously-bypass-approvals-and-sandbox' not in args
     assert 'reader_mcp.intake' in state['command']
     result = json.loads((runtime / 'result.json').read_text())
