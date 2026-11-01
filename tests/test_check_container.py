@@ -151,3 +151,9 @@ def test_formatter_restore_rejects_expansion_beyond_existing_artifact_bound(tmp_
     result=subprocess.run([sys.executable,'-c',check_container.FORMATTER_RESTORE],cwd=tmp_path,capture_output=True,text=True,timeout=5)
     assert result.returncode!=0 and 'Formatter artifact limit' in result.stderr
     assert not (folder/'wide-md').exists()
+
+
+def test_validation_home_does_not_alias_the_source_tree(tmp_path, monkeypatch):
+    argv = capture_worker_start(tmp_path, monkeypatch, 'run')['argv']
+    assert 'HOME=/work/validation-home' in argv
+    assert 'HOME=/work' not in argv, 'The export privacy guard must not mistake source paths for HOME'

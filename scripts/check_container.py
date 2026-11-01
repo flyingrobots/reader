@@ -118,7 +118,8 @@ def main():
             docker('run','-d','--name',name,'--read-only','--cpus','2','--memory','4g','--pids-limit','256','--shm-size','64m',
                    '--tmpfs','/work:rw,exec,size=2147483648','--tmpfs','/tmp:rw,exec,size=1073741824',
                    '--log-driver','local','--log-opt','max-size=4m','--log-opt','max-file=1','--log-opt','compress=false',
-                   '-e','TMPDIR=/tmp','-e','HOME=/work','-w','/work',image,'sleep','1000',stdout=subprocess.DEVNULL)
+                   '-e','TMPDIR=/tmp','-e','HOME=/work/validation-home','-w','/work',image,'sleep','1000',stdout=subprocess.DEVNULL)
+            docker('exec',name,'mkdir','-p','/work/validation-home')
             free = docker('exec',name,'df','-Pk','/',capture_output=True,text=True).stdout
             contract['vm_df'] = free
             if int(free.splitlines()[-1].split()[3])*1024 < 50*GIB:
