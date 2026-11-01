@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Keep dynamic-loader configuration immutable, journal gated host clients through restart recovery, and retry finished workers needing shutdown reconciliation without rewriting their historical outcomes.
+
+- Bind inferred approvals to the canonical proposal, resolve GitHub revisions without file patches, and provide an explicitly confirmed reset for an inactive full workspace volume.
+
 - Stop the fixed process-table probe at its combined output limit; a failed or incomplete termination query never confirms cleanup.
 
 - Validate pinned base manifests independently of Docker’s local image/configuration IDs, supporting classic image stores without a mutable-tag fallback.
