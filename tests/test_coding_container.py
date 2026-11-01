@@ -144,3 +144,12 @@ def test_legacy_default_views_do_not_inspect_host_checkouts(tmp_path, monkeypatc
         with pytest.raises(JobConflict):
             world.jobs.submit(world.request())
     finally:world.close()
+
+
+def test_registered_container_agents_can_be_selected_without_host_discovery(world, monkeypatch):
+    from reader_mcp import coding_agents
+    monkeypatch.setattr(coding_agents, 'executable', lambda *args: (_ for _ in ()).throw(AssertionError('host discovery')))
+    actions = world.jobs.actions(world.request()['path'])
+    assert actions['blocks'][0]['registered']
+    assert all(a['available'] for a in actions['blocks'][0]['agents'])
+    assert world.runtimes == [], 'Viewing the prompt cannot start setup or a worker'

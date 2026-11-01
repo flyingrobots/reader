@@ -12,7 +12,7 @@ POST `/api/repositories` supports `discover-container`, `select-container` and `
 
 The `register` action accepts an entry with an `environment` object of kind `devcontainer`. Its approval includes the revision, selected path/blob/source digest or exact inferred proposal digest and consent, normalized configuration, full local image ID, shared workstation git-locks store and total runtime timeout. Choose at least one supported agent and an in-container verification command. The runtime deadline must reserve at least 600 seconds beyond the agent and verification limits for setup/publication. The registry permits at most 64 repositories and 256 KiB total.
 
-The Admin form and automated image/tool/sign-in preparation are not yet integrated with this contract. The retained checkout form cannot create new legacy registrations under the default runner. A configured environment is not presented as ready merely because its fields validate. See the [runtime contract](../container-runtime.md) and [configuration preview contract](../devcontainer-discovery.md).
+Automatic managed-image preparation remains separate from registration. The Admin form discovers GitHub configurations, previews a selected configuration, or asks for explicit inference consent after a missing inventory. Changing the repository or base invalidates the previous preview. Registration requires that preview, the full prepared image identity, workstation lock store, enabled agents and literal verification argv. A configured environment is not presented as ready merely because its fields validate. See the [runtime contract](../container-runtime.md) and [configuration preview contract](../devcontainer-discovery.md).
 
 ## Verification
 
@@ -28,7 +28,7 @@ The workspace and tools/credentials created inside it are retained in the reposi
 
 ## Readiness and check again
 
-Checking the registry reads configuration and reports legacy entries or unverified container readiness without launching a worker. It does not clone, install tools or sign in. Default views do not inspect old checkout paths or invoke host Git/agent discovery. Container tooling and authentication preparation still need a separate explicit setup flow; static validation is not execution readiness.
+Checking the registry reads configuration and reports legacy entries or unverified container readiness without launching a worker. It does not clone, install tools or sign in. Default views do not inspect old checkout paths or invoke host Git/agent discovery. Use the explicit local `reader container exec` and `reader container check` commands to prepare and inspect tooling/sign-in; see [terminal setup](../container-runtime.md#explicit-terminal-setup). Static validation is not execution readiness. The browser never starts setup just by viewing a registration.
 
 Job preflight rechecks GitHub publication access, the approved configuration source, local image identity, resource admission and remote base. If the base changed after approval, setup must be refreshed rather than silently reusing approval for another revision. Missing or refused prerequisites remain explicit blocked/error states.
 
@@ -42,4 +42,4 @@ The registry holds execution policy and non-secret configuration. Container cred
 
 Creation intent, lease identity and container identity are recorded before execution proceeds. Restart recovery proves ownership, resumes or reacquires the correct resource admission, stops the old worker and retains the workspace volume. A replaced lease, foreign worker or unconfirmed stop requires reconciliation and is not reported as a clean recovery. An agent is never silently relaunched.
 
-Implementation: `repositories.py`, `container_registry.py`, `coding_api.py`, `coding_container.py`, the container runtime/recovery modules and the Repositories Admin page. The backend is container-only; setup UI, authentication preparation and real-daemon integration verification remain incomplete.
+Implementation: `repositories.py`, `container_registry.py`, `coding_api.py`, `coding_container.py`, the container runtime/recovery modules and the Repositories Admin page. The backend is container-only. Admin handles configuration approval; tool installation and independent sign-in use the explicit terminal setup command. Managed image preparation and real-daemon integration verification remain incomplete.

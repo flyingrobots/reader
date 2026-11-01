@@ -16,7 +16,7 @@ The detail view exposes the source prompt identity, agent, branch/base/head, wor
 
 The default runner uses a managed local Docker devcontainer and a labelled persistent workspace volume. It creates a fresh clone and branch inside that environment; no host clone or checkout is required. Git inspection, agent execution and final verification use the container transport. Legacy checkout registrations remain visible for recovery but are refused for new execution.
 
-Configuration, source revision, image identity, resource policy and container sign-in are execution prerequisites. Host credentials and the Docker socket are not mounted. Missing tools or authentication block the run without a host fallback. The setup UI and independent authentication flow are not yet integrated, and real-daemon end-to-end verification is still outstanding; do not interpret static registration as readiness.
+Configuration, source revision, image identity, resource policy and container sign-in are execution prerequisites. Host credentials and the Docker socket are not mounted. Missing tools or authentication block the run without a host fallback. Admin handles configuration approval; independent tools and sign-in use the [explicit terminal setup](../container-runtime.md#explicit-terminal-setup) command. Real-daemon end-to-end verification is still outstanding; do not interpret static registration as readiness.
 
 ## Prompt and admission
 

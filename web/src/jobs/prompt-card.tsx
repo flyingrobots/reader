@@ -61,8 +61,9 @@ export function PromptCard({block,context}:{block:PromptBlock;context:PromptCont
     ||(server&&!server.configured?'No repositories are set up for coding jobs in this Reader.':null)
     ||(server?.read_only?'Another Reader server owns coding jobs for this vault.':null)
     ||(server&&!info?'Reader’s copy of this article has no matching prompt. Reload the article.':null)
+    ||(info?.problem||null)
     ||(info&&!info.registered?`${block.repo} isn’t set up in Reader yet.`:null)
-    ||(info&&info.registered&&!agents.length?'None of this repository’s coding agents is installed where Reader can find it.':null);
+    ||(info&&info.registered&&!agents.length?'No coding agent is enabled for this repository.':null);
   const listed=info?.runs[0];
   const latest=listed&&live&&listed.id===live.id?live:listed;
   const canRun=!reason&&!!server&&!!agent&&!busy&&!tooLong&&!blank&&!(latest?.active&&latest.id===current);
@@ -87,7 +88,7 @@ export function PromptCard({block,context}:{block:PromptBlock;context:PromptCont
   async function copy(){
     try{await navigator.clipboard.writeText(text);setCopied(true);setTimeout(()=>setCopied(false),1500);}catch{setError('Copying needs clipboard access; select the prompt and copy it.');}
   }
-  const plan=reason?null:<>Run → PR works on a new branch from <code>{info?.base||'the base branch'}</code> in <strong>{block.repo}</strong>, {block.issue?<>links issue #{block.issue}</>:<>creates an issue if the finding is confirmed</>},
+  const plan=reason?null:<>Run → PR checks container tools and sign-in, then works on a new branch from <code>{info?.base||'the base branch'}</code> in <strong>{block.repo}</strong>, {block.issue?<>links issue #{block.issue}</>:<>creates an issue if the finding is confirmed</>},
     and opens a pull request only after Reader verifies the change. Nothing is merged.</>;
   return <section ref={card} className="prompt-card" aria-labelledby={titleId} tabIndex={-1} data-prompt-card={block.id} data-reader-decoration="" data-ui="shadcn">
    <Card className="font-sans">

@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Replace checkout registration with pinned GitHub container discovery, selection and explicit inference consent. Add guarded terminal setup/check/recovery commands with independent container sign-in and persistent tooling.
+
 - Route default Coding Jobs development through managed devcontainers, preserve legacy registrations without executing them, and fence worker recovery by its exact lease and per-run identity. Container setup/readiness UI remains in progress.
 
 - Add local authenticated devcontainer discovery/preview actions and internal persistent-worker supervision primitives; the production Coding Jobs runner is not switched yet.

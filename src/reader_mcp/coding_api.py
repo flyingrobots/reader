@@ -104,7 +104,7 @@ class CodingJobs(Runner):
             except (RegistryError, LegacyRepository) as exc:
                 entry, problem = None, str(exc)
             agents = [{'name': name, 'label': coding_agents.LABELS[name], 'mode': entry['agent_modes'][name],
-                       'available': False if entry.get('environment') or problem else bool(coding_agents.executable(name, entry, self.environ))} for name in entry['agents']] if entry else []
+                       'available': True if entry.get('environment') else bool(coding_agents.executable(name, entry, self.environ))} for name in entry['agents']] if entry else []
             blocks.append({'id': block['id'], 'title': block['title'], 'repo': block['repo'], 'issue': block['issue'], 'line': block['line'],
                            'prompt_sha256': block['prompt_sha256'], 'registered': bool(entry), 'problem': problem,
                            'base': entry['base'] if entry else None, 'agents': agents,
