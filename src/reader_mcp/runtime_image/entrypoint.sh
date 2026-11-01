@@ -1,9 +1,8 @@
 #!/bin/sh
 set -eu
-for item in /usr/local/share/reader-etc/* /usr/local/share/reader-etc/.[!.]*; do
-  [ -e "$item" ] || [ -L "$item" ] || continue
-  case "${item##*/}" in hosts|hostname|resolv.conf) continue ;; esac
-  # The managed runtime drops capabilities. Restore public config without requiring chown.
-  cp -R -P --preserve=mode,timestamps "$item" /etc/
-done
+# Only the CLI's environment file is writable. Keep the ELF loader's /etc immutable.
+[ ! -L /work/system ] || exit 1
+/bin/mkdir -p /work/system
+[ ! -L /work/system/environment ] || exit 1
+: > /work/system/environment
 exec "$@"

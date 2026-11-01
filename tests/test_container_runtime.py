@@ -51,7 +51,7 @@ class Docker:
                     'NanoCpus': 2_000_000_000, 'PidsLimit': 256, 'ShmSize': 67108864, 'CapDrop': ['ALL'],
                     'NetworkMode': 'bridge', 'SecurityOpt': ['no-new-privileges'], 'IpcMode': 'private',
                     'LogConfig': {'Type': 'local', 'Config': {'max-size': '4m', 'max-file': '1', 'compress': 'false'}},
-                    'Tmpfs': {'/tmp': 'rw,exec,size=268435456', '/etc': 'rw,exec,size=16777216'}},
+                    'Tmpfs': {'/tmp': 'rw,exec,size=268435456'}},
                 'Mounts': [{'Type': 'volume', 'Name': self.runtime.volume, 'Destination': '/work'}]}
             if self.extra_mount:self.container['Mounts'].append({'Type': 'bind', 'Source': '/', 'Destination': '/host'})
             value = CID
@@ -61,7 +61,7 @@ class Docker:
         elif args[1] == 'exec' and self.measure_error:
             return SimpleNamespace(returncode=1, stdout='', stderr='Cannot account for a mapped workspace file')
         elif args[1] == 'exec':value = {'workspace_bytes': self.used, 'vm_free_bytes': 100 * GIB,
-            'tmpfs_bytes': {'/tmp': 1 if self.bad_tmpfs else 256 * 1024**2, '/etc': 16 * 1024**2, '/dev/shm': 64 * 1024**2}}
+            'tmpfs_bytes': {'/tmp': 1 if self.bad_tmpfs else 256 * 1024**2, '/dev/shm': 64 * 1024**2}}
         else:raise AssertionError(args)
         return SimpleNamespace(returncode=0, stdout=value if isinstance(value, str) else json.dumps(value), stderr='')
 
@@ -156,3 +156,11 @@ def test_unconfirmed_client_cleanup_keeps_stopped_worker_and_lease(runtime):
         assert records[-1]['client_cleanup_unconfirmed'] == [99999]
     finally:
         value._finished(99999)
+
+
+def test_system_loader_configuration_is_not_writable(runtime):
+    value, docker, records = runtime
+    value.prepare({'image': 'reader-development:local'}, IMAGE)
+    create = next(argv for argv in docker.calls if argv[1] == 'create')
+    assert not any('/etc:rw' in arg for arg in create)
+    assert '/etc' not in next(row['launch_contract'] for row in records if row.get('launch_contract'))['outputs']['tmpfs']

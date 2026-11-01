@@ -4,7 +4,8 @@ COPY --from=node /usr/local/bin/node /usr/local/bin/node
 COPY --from=node /usr/local/lib/node_modules /usr/local/lib/node_modules
 RUN ln -s /usr/local/lib/node_modules/npm/bin/npm-cli.js /usr/local/bin/npm \
  && ln -s /usr/local/lib/node_modules/npm/bin/npx-cli.js /usr/local/bin/npx \
- && cp -a /etc /usr/local/share/reader-etc
+ && rm -f /etc/environment \
+ && ln -s /work/system/environment /etc/environment
 COPY entrypoint.sh /usr/local/bin/reader-development-entrypoint
 ENTRYPOINT ["/bin/sh", "/usr/local/bin/reader-development-entrypoint"]
 CMD ["sleep", "infinity"]

@@ -20,8 +20,8 @@ GIB = 1024**3
 TAG = 'reader-coding:local'
 NAME = 'reader-coding-image'
 RECIPE = {
-    'Dockerfile': 'de24fd4d182bd674b1e639095318815ce46c2fa589fbc3841093b094793603f2',
-    'entrypoint.sh': '9f5f696f18a050272d4b6dcd73e2b77c14c4cee7eb2074236de45808c704f5b4',
+    'Dockerfile': 'fa1d3d899f3d8fbdb5d128335f1aa1090e0cd6c910acf86c5903fa5de63aa9af',
+    'entrypoint.sh': 'bbe2b07a3006c76004e97e1c75565523bbbe80d930c6d0b2a87ed1dc391bcde7',
     '.dockerignore': '6b3387fe13e4fc8f566093049083faaae894ccc6cc207874fb82e50e5822cebb',
 }
 BASES = {'node:24.18.0': 'sha256:5711a0d445a1af54af9589066c646df387d1831a608226f4cd694fc59e745059',
@@ -109,7 +109,7 @@ def prepare(root, lock_store, *, run=execute, docker=None, lock_tool=None, recip
         for name,data in files.items():
             with os.fdopen(os.open(folder/'context'/name, os.O_WRONLY|os.O_CREAT|os.O_TRUNC|os.O_NOFOLLOW, 0o600),'wb') as stream:stream.write(data)
         contract = {'image': TAG,'recipe_sha256':digest,'lock_key':lease.key,'lock_store':str(store),
-            'inputs':BASES,'local_base_image_ids':{tag:image['Id'] for tag,image in zip(BASES,bases)},'context_bytes':sum(map(len,files.values())),'build':'finite fixed COPY + public /etc copy; no pull, network RUN, repository source or dependency installation',
+            'inputs':BASES,'local_base_image_ids':{tag:image['Id'] for tag,image in zip(BASES,bases)},'context_bytes':sum(map(len,files.values())),'build':'finite fixed COPY + environment symlink; no pull, network RUN, repository source or dependency installation',
             'output_bound':'copies subsets of two immutable <=2GiB inputs, with no data-generating command',
             'control_limit_bytes':8*1024**2,'build_log_limit_bytes':4*1024**2,'cpu':2,'memory_bytes':512*1024**2,
             'timeout_seconds':240,'host_free':shutil.disk_usage(root).free,'vm_free':vm_free}

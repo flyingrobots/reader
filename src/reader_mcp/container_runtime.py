@@ -160,7 +160,7 @@ class ContainerRuntime:
                                    'key': self.lease.key, 'store': self.lease.env['GIT_LOCKS_STORE']},
                          'launch_contract': {'lock_key': self.lease.key, 'lock_store': self.lease.env['GIT_LOCKS_STORE'],
                              'outputs': {'volume': self.volume, 'host_control': str(self.root / '.reader/container-runtime'),
-                                         'tmpfs': {'/tmp': 256 * 1024**2, '/etc': 16 * 1024**2, '/dev/shm': 64 * 1024**2}},
+                                         'tmpfs': {'/tmp': 256 * 1024**2, '/dev/shm': 64 * 1024**2}},
                              'cpu': 2, 'memory_bytes': 4 * GIB, 'pids': 256, 'docker_log_bytes': 4 * 1024**2,
                              'host_control_limit_bytes': 8 * 1024**2, 'deadline': self.wall_expires}})
             self.config = folder / 'devcontainer.json'
@@ -183,7 +183,7 @@ class ContainerRuntime:
                     '--cpus', '2', '--memory', '4g', '--memory-swap', '4g', '--pids-limit', '256',
                     '--cap-drop', 'ALL', '--security-opt', 'no-new-privileges', '--network', 'bridge',
                     '--ipc', 'private', '--shm-size', '64m', '--tmpfs', '/tmp:rw,exec,size=268435456',
-                    '--tmpfs', '/etc:rw,exec,size=16777216', '--log-driver', 'local',
+                    '--log-driver', 'local',
                     '--log-opt', 'max-size=4m', '--log-opt', 'max-file=1', '--log-opt', 'compress=false',
                     '--mount', 'type=volume,source=' + self.volume + ',target=/work']
             for key, value in self._container_labels().items():
@@ -255,7 +255,7 @@ class ContainerRuntime:
                 or host.get('NetworkMode') != 'bridge' or host.get('PidMode') or host.get('IpcMode') not in ('private', '')
                 or not any(s in ('no-new-privileges', 'no-new-privileges:true') for s in host.get('SecurityOpt') or [])
                 or host.get('LogConfig') != {'Type': 'local', 'Config': {'max-size': '4m', 'max-file': '1', 'compress': 'false'}}
-                or host.get('Tmpfs') != {'/tmp': 'rw,exec,size=268435456', '/etc': 'rw,exec,size=16777216'}
+                or host.get('Tmpfs') != {'/tmp': 'rw,exec,size=268435456'}
                 or len(volumes) != 1 or volumes[0].get('Name') != self.volume or volumes[0].get('Destination') != '/work'
                 or any(m.get('Type') not in ('tmpfs', 'volume') for m in mounts)):
             raise ProcessError('Container resource/mount contract changed')
@@ -268,7 +268,7 @@ class ContainerRuntime:
         try:
             measured = json.loads(result.stdout)
             used, free = measured['workspace_bytes'], measured['vm_free_bytes']
-            if measured.get('tmpfs_bytes') != {'/tmp': 256 * 1024**2, '/etc': 16 * 1024**2, '/dev/shm': 64 * 1024**2}:
+            if measured.get('tmpfs_bytes') != {'/tmp': 256 * 1024**2, '/dev/shm': 64 * 1024**2}:
                 raise ProcessError('Actual tmpfs capacities differ from the resource contract')
             measured['host_control_bytes'] = control_bytes
             if type(used) is not int or type(free) is not int or used < 0 or free < 0:

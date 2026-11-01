@@ -95,3 +95,10 @@ def test_inference_cannot_replace_an_existing_configuration():
     from reader_mcp.devcontainer_config import infer
     with pytest.raises(ConfigurationError, match='already has'):
         infer(Remote({ROOT: [item('.devcontainer.json')]}), 'acme/widget', COMMIT, True)
+
+
+@pytest.mark.parametrize('field', ['containerEnv', 'remoteEnv'])
+@pytest.mark.parametrize('variable', ['LD_PRELOAD', 'LD_AUDIT', 'LD_LIBRARY_PATH', 'GLIBC_TUNABLES', 'GCONV_PATH', 'LOCPATH'])
+def test_dynamic_loader_controls_cannot_enter_supervised_processes(field, variable):
+    with pytest.raises(ConfigurationError, match='loader'):
+        validate({'image': 'reader-coding:local', field: {variable: '/work/interposer.so'}})

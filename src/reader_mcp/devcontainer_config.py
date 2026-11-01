@@ -73,6 +73,9 @@ def validate(value):
         if not isinstance(env, dict) or any(not isinstance(k, str) or not ENV_NAME.fullmatch(k)
                 or not isinstance(v, str) or '\x00' in v for k, v in env.items()):
             raise ConfigurationError(field + ' must map environment names to string values')
+        loader = {key for key in env if key.startswith('LD_') or key in {'GLIBC_TUNABLES', 'GCONV_PATH', 'LOCPATH'}}
+        if loader:
+            raise ConfigurationError('Dynamic loader controls are not supported: ' + ', '.join(sorted(loader)))
         reserved = {'HOME', 'TMPDIR', 'XDG_CACHE_HOME', 'npm_config_cache', 'GIT_LOCKS_STORE'} & env.keys()
         if reserved:
             raise ConfigurationError('The runtime owns these resource/authentication paths: ' + ', '.join(sorted(reserved)))

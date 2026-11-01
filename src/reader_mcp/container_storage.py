@@ -65,7 +65,7 @@ for pid in os.listdir('/proc'):
   if key not in seen:raise RuntimeError('Cannot account for a mapped workspace file')
 v=os.statvfs(root)
 caps={}
-for path in ('/tmp','/etc','/dev/shm'):
+for path in ('/tmp','/dev/shm'):
  fs=os.statvfs(path);caps[path]=fs.f_blocks*fs.f_frsize
 print(json.dumps({'workspace_bytes':used,'vm_free_bytes':v.f_bavail*v.f_frsize,'tmpfs_bytes':caps}))
 '''
