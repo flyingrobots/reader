@@ -270,6 +270,21 @@ def test_live_worktree_defaults_to_app_data_and_a_recorded_location_is_kept(worl
     assert path.index('/usr/bin') > 0 and str(world.home / '.local/bin') in path and len(path) == len(set(path))
 
 
+def test_reinstall_preserves_saved_tool_environment_and_allows_explicit_override(world, monkeypatch):
+    monkeypatch.setenv('READER_COLORFUL', '/opt/example/colorful')
+    monkeypatch.setenv('READER_TOOL_SETTING', 'retained')
+    world.install()
+    monkeypatch.delenv('READER_COLORFUL')
+    monkeypatch.delenv('READER_TOOL_SETTING')
+    world.install()
+    assert world.service_state()['env']['READER_COLORFUL'] == '/opt/example/colorful'
+    web = plistlib.loads((world.home / 'Library/LaunchAgents/com.flyingrobots.reader.web.plist').read_bytes())
+    assert web['EnvironmentVariables']['READER_COLORFUL'] == '/opt/example/colorful'
+    world.install('--env', 'READER_COLORFUL=/opt/updated/colorful')
+    assert world.service_state()['env']['READER_COLORFUL'] == '/opt/updated/colorful'
+    assert world.service_state()['env']['READER_TOOL_SETTING'] == 'retained'
+
+
 def test_uninstall_restores_the_original_state(world):
     agents = world.home / 'Library/LaunchAgents'
     agents.mkdir(parents=True)

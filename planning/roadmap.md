@@ -45,3 +45,7 @@ These options are not scheduled implementations or external tracker issues. Any 
 A possible storage evaluation would keep Markdown directly readable and test attachment storage. It must explain how a fresh checkout obtains its content, how relative links keep working, and how content survives maintenance. No storage backend is selected. A watcher or local model is likewise only a possible component of future unattended intake.
 
 When a planned outcome is complete, record its completion and validation in `activity/`, update the relevant system documentation, and remove it from the active roadmap. Preserve historical planning context in the activity archive when needed; do not accumulate completed-work sections here.
+
+## Container-only Coding Jobs
+
+Replace required host clones/worktrees with development inside local Docker dev containers. GitHub configuration discovery must precede preparation; missing configuration requires explicit consent to infer and try one. Preserve pinned sources, verification/publication reconciliation, cancellation, archives and recovery. See the [bounded candidate and acceptance checks](devcontainers/README.md). The setup-only candidate is not enabled as the job runner: durable workspace recovery, container-side agent authentication and end-to-end publication verification remain required. Complete this as a coherent runtime/registration change, without a host fallback.

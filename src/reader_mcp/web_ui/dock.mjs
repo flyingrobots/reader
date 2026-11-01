@@ -28,8 +28,9 @@ export function installDock({before,after}={}){
   function refresh(){
     const shown=[...document.querySelectorAll(PANELS)].filter(open);
     let next=shown.length?Math.max(...shown.map(el=>parseFloat(getComputedStyle(el).getPropertyValue('--panel-width'))||0)):0;
-    if(innerWidth-next<DOCK_ROOM)next=0;
-    const narrow=next>0&&innerWidth-next<=BOOK_SINGLE;
+    const explorer=document.getElementById('picker'),left=explorer&&!explorer.hidden?explorer.getBoundingClientRect().width:0;
+    if(innerWidth-next-left<DOCK_ROOM)next=0;
+    const narrow=(next>0||left>0)&&innerWidth-next-left<=BOOK_SINGLE;
     if(next===width&&narrow===root.hasAttribute('data-dock-narrow'))return;
     const kept=before?.();
     width=next;

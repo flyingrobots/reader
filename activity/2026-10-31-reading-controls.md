@@ -1,0 +1,12 @@
+# Library navigation and reading controls — 2026-10-31
+
+Updated the user-requested reading UI as a coherent working candidate:
+
+- The borderless circle logo sits immediately after the mode display; its accent dot is slightly larger (radius 24) and closer to the r (10-unit gap). The logo replaces the duplicate Library breadcrumb home link. Article/folder breadcrumbs remain; the homepage hides the empty trail.
+- Homepage sections use shadcn Item links. Each opens a deep-linkable section page showing the complete section inventory, including older articles, with metadata filtering and 20-article pages. Section grouping reuses the magazine’s project/folder identity and includes cover/feature sections.
+- Read aloud appears below an article’s title/metadata and uses the existing AI-TTS request boundary. It switches to the shared playback controls for that path and source version, then returns when playback ends. The footer control shares the same utterance. No daemon calls run merely by viewing the button.
+- The progress rail has a persistent percentage/remaining-time readout at its right end and no position hover popup. The duplicate footer percentage is removed; highlight/warning marker previews remain source-specific.
+
+Checks run: frontend typecheck and production asset build passed. `web_sections.cjs` passed with shadcn Item slots, older inventory beyond the current issue, paging/filtering, article opening, route reload and browser Back, mobile bounds and footer home. `web_breadcrumbs.cjs` passed after removing the duplicate root link. `web_controls.cjs` passed with the persistent progress readout and no seek-track popover. `web_speech.cjs` passed against its fake daemon, covering the article-title button becoming playback controls, pauses/resume, queued holds, terminal cleanup, selections/from-position, unavailability and mobile playback. No live article speech was submitted for validation. Source links, JavaScript syntax and whitespace were checked.
+
+The separate GSAP recovery repair was already activated as 133135d; a read-only live homepage check confirmed active GSAP at 0.8 seconds, intermediate rendered positions and no forced setter. The briefly prepared native-scrolling experiment was discarded and never deployed. Colorful Language’s prior configuration was restored and its live status reports 0.4.0 available; the environment-preservation code fix is included in the candidate ancestry.

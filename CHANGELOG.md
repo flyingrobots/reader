@@ -2,6 +2,32 @@
 
 ## Unreleased
 
+- Voice selectors recover after AI-TTS starts and offer Retry voices after catalog failures.
+
+- Split panes fit the available space beside the open File Explorer and right dock.
+
+- Synchronous setup probes cap combined stdout and stderr and terminate their process group on overflow.
+
+- Background section refreshes preserve the filter, page and active input focus.
+
+- Setup cleanup terminates the whole CLI process group even when its leader has already exited.
+
+- The setup experiment applies one deadline and output budget to image preparation, CLI setup, probes and teardown.
+
+- The development setup experiment reaps its CLI even when Docker cleanup fails.
+
+- Finishing inbox work refreshes an open section in place instead of replacing it with the homepage.
+
+- Split-view breadcrumbs retain the focused section’s identity.
+
+- Split-view footers derive the focused article’s percentage from reading state, preserving progress while embedded footers are hidden.
+
+- Admin documentation preserves its reading position when hidden across section navigation and page reload.
+
+- Guarded frontend builds include canonical Admin Markdown inputs, and CI runs the frontend checks and build.
+
+- Container checks and the development setup experiment explicitly cap shared memory at 64 MiB instead of inheriting an unbounded daemon default.
+
 - Browser suites run in parallel: `python3 scripts/run_browser_suites.py` takes about two minutes on an idle 18-core machine instead of about twenty run one after another. It sizes itself to the machine's free capacity, runs performance suites on a quiet machine first, and reports failures with log tails. Slow suites got faster: the reviews 81 s to 17 s and 64 s to 16 s, search retry 35 s to 12 s, and content visibility split into four parallel parts. Timing assumptions in a dozen suites became checks of outcomes.
 - Fixed bugs the parallel runs exposed:
   - Smooth scrolling could keep showing the end of a document after `gg`.

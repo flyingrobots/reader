@@ -76,9 +76,9 @@ def main():
         # Only selected software paths. No host mount and no vault files enter the worker.
         stream = io.BytesIO()
         with tarfile.open(fileobj=stream, mode='w') as archive:
-            tops = ['src','tests','templates','scripts','skills','schemas','plugins','server','web','docs','activity','README.md','CHANGELOG.md','AGENTS.md','package.json','package-lock.json','pyproject.toml','uv.lock','LICENSE','.reader/tooling/bin/wide-md','.reader/tooling/installed.json']
+            tops = ['src','tests','templates','scripts','skills','schemas','plugins','server','web','docs','planning/devcontainers','activity','README.md','CHANGELOG.md','AGENTS.md','package.json','package-lock.json','pyproject.toml','uv.lock','LICENSE','.reader/tooling/bin/wide-md','.reader/tooling/installed.json']
             if kind == 'web':
-                tops = ['src','tests','web','package.json','package-lock.json','LICENSE']
+                tops = ['src','tests','web','docs/topics','package.json','package-lock.json','LICENSE']
             for top in tops:
                 if not (ROOT/top).exists():
                     continue
@@ -94,11 +94,11 @@ def main():
             raise RuntimeError('Unexpectedly large software input')
         contract = dict(worker=name,image=image,host_free=shutil.disk_usage(ROOT).free,
                         writable_paths={'/work':2*GIB,'/tmp':1024**3},read_only_root=True,
-                        cpus=2,memory='4g',timeout_seconds=900,log_limit=4*1024**2,
+                        cpus=2,memory='4g',shared_memory_bytes=64*1024**2,timeout_seconds=900,log_limit=4*1024**2,
                         mounts=[],lock=str(RUNTIME/'validation.lock'))
         (RUNTIME/(kind+'-contract.json')).write_text(json.dumps(contract, indent=2))
         try:
-            docker('run','-d','--name',name,'--read-only','--cpus','2','--memory','4g','--pids-limit','256',
+            docker('run','-d','--name',name,'--read-only','--cpus','2','--memory','4g','--pids-limit','256','--shm-size','64m',
                    '--tmpfs','/work:rw,exec,size=2147483648','--tmpfs','/tmp:rw,exec,size=1073741824',
                    '--log-driver','local','--log-opt','max-size=4m','--log-opt','max-file=1','--log-opt','compress=false',
                    '-e','TMPDIR=/tmp','-e','HOME=/work','-w','/work',image,'sleep','1000',stdout=subprocess.DEVNULL)

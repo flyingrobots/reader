@@ -63,7 +63,7 @@ export function InboxPage({status,error=null,starting,onMail,onStop,onOpen,html,
   const finished=run&&!ACTIVE_RUN.includes(run.status)&&!active;
   const note=active?'The librarian is reading the mail.':needsReader()?`Filing ${plural(arrivals.length,'arrival')} needs Reader on your computer, where a librarian voice reads the mail.`:blocked?'Filing is paused; see why above.':`Ask the librarian to file ${plural(arrivals.length,'arrival')}.`;
   return <div id="inbox" className="flex flex-col gap-6" data-run-state={starting?'starting':run?.status||'none'} data-state={status?'ready':error?'unavailable':'loading'}>
-    <StatusCard title="Librarian run" titleId="inbox-title" description="A librarian voice reads each arrival, files it with its receipt and commits the result."
+    <StatusCard title="Librarian run" titleId="inbox-title"
       badge={state?<StatusBadge tone={state.tone} busy={active} data-inbox-badge="">{state.label}</StatusBadge>:null}
       footer={<>
         <Button id="inbox-mail" disabled={!status||active||!!blocked} {...localOnly()} onClick={onMail} aria-describedby="inbox-mail-note">{active?<Spinner data-icon="inline-start" aria-hidden/>:<MailIcon data-icon="inline-start" aria-hidden/>}You got mail</Button>
