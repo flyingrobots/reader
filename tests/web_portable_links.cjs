@@ -16,14 +16,15 @@ const {chromium}=require(process.env.READER_PLAYWRIGHT||'playwright-core');
     browser=await chromium.launch({headless:true,executablePath:process.env.READER_CHROME||'/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',args:['--disable-gpu','--disable-background-networking','--disable-breakpad','--disable-crash-reporter','--disk-cache-size=10485760']});
     const page=await browser.newPage({viewport:{width:1100,height:850},reducedMotion:'reduce'});
     const errors=[];page.on('pageerror',e=>errors.push(e.message));
-    for(const path of [portable.original,portable.copy]){
+    for(const path of [portable.original,portable.copy,portable.math_disabled]){
       await page.goto(url+'#read='+encodeURIComponent(path));
       const article=page.locator('#main .article');
       await article.getByRole('link',{name:'Repository',exact:true}).waitFor();
       assert.equal(await article.getByRole('link',{name:'Repository',exact:true}).getAttribute('href'),'https://github.com/example/portable-fixture');
       assert.equal(await article.getByRole('link',{name:'Tracked file',exact:true}).getAttribute('href'),`https://github.com/example/portable-fixture/blob/${portable.commit}/README.md`);
       assert.equal(await article.locator('a:has(s)').getAttribute('href'),`https://github.com/example/portable-fixture/blob/${portable.commit}/README.md`);
-      assert.equal(await article.locator('a:has(.reader-math)').getAttribute('href'),`https://github.com/example/portable-fixture/blob/${portable.commit}/README.md`);
+      const mathLink=path===portable.math_disabled?article.getByRole('link',{name:'$x^2$',exact:true}):article.locator('a:has(.reader-math)');
+      assert.equal(await mathLink.getAttribute('href'),`https://github.com/example/portable-fixture/blob/${portable.commit}/README.md`);
       assert.equal(await article.getByRole('link',{name:'Reference link',exact:true}).getAttribute('href'),'https://github.com/example/portable-fixture#readme');
       const missing=article.locator('.local-link-unavailable');
       assert.equal(await missing.textContent(),'Missing target');assert.match(await missing.getAttribute('title'),/unavailable/i);

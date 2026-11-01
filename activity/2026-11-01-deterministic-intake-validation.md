@@ -77,3 +77,8 @@ paths, bounded fixture commands, idempotent shutdown, explicit image-root limits
 and interruption-safe asset publication. Rendering preserves links with
 strikethrough and inline-math labels through unambiguous hashed URL/kind matches;
 ambiguous targets retain exact label identities.
+
+The `math: false` rendering regression was reproduced before passing the same
+math options to identity collection and rendering. Twelve focused Node checks
+and the real-browser portable-reference suite passed with math both enabled
+and disabled.

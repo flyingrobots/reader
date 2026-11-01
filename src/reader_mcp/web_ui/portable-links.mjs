@@ -1,8 +1,8 @@
 /** Resolve file: Markdown tokens from source-hash-bound records, before sanitizing HTML.
  * No source text is rewritten, so annotation coordinates continue to address the preserved original. */
-export async function portableEnvironment(md,text,record){
+export async function portableEnvironment(md,text,record,options={}){
   if(!record?.targets?.length)return {targets:[]};
-  const references=[];md.parse(text,{portableCollect:references});
+  const references=[];md.parse(text,{...options,portableCollect:references});
   const byKey=new Map(record.targets.map(r=>[r.key,r]));
   const byFallback=new Map(record.targets.filter(r=>r.fallback_key).map(r=>[r.fallback_key,r]));
   const identity=async value=>[...new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(value)))].map(n=>n.toString(16).padStart(2,'0')).join('');

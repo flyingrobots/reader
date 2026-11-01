@@ -735,7 +735,7 @@ async function renderMarkdown(container,raw,path,depth,{defer=false,range=null,c
     try{
       const bytes=new TextEncoder().encode(raw),hash=await crypto.subtle.digest('SHA-256',bytes);
       const sha=[...new Uint8Array(hash)].map(n=>n.toString(16).padStart(2,'0')).join('');
-      env.portableLinks=await portableEnvironment(md,source.text,await api('/api/portable-links?path='+param(path)+'&sha256='+sha));
+      env.portableLinks=await portableEnvironment(md,source.text,await api('/api/portable-links?path='+param(path)+'&sha256='+sha),{mathDollar:env.mathDollar});
     }catch(error){console.warn('Local link repairs unavailable',error);}
   }
   const rendered=md.render(source.text,env);

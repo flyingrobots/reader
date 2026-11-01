@@ -36,8 +36,10 @@ def create(root):
     copy = folder / 'source.reading.md'
     sha = hashlib.sha256(original.read_bytes()).hexdigest()
     copy.write_text('---\ntitle: Portable reading copy\nkind: reading-copy\nsource_sha256: ' + sha + '\n---\n\n' + raw)
+    disabled = folder / 'math-disabled.md'
+    disabled.write_text('---\nmath: false\n---\n\n' + raw)
     repair = PortableLinks(root, git_root=repo.parent)
-    for path in (original, copy):
+    for path in (original, copy, disabled):
         assert repair.prepare(path.relative_to(root).as_posix(), apply=True)['counts'] == {'resolved': 7, 'unresolved': 1}
     return {'original': original.relative_to(root).as_posix(), 'copy': copy.relative_to(root).as_posix(),
-            'sha256': sha, 'commit': commit}
+            'math_disabled': disabled.relative_to(root).as_posix(), 'sha256': sha, 'commit': commit}

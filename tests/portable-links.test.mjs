@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {createRequire} from 'node:module';
 import {portableLinkPlugin,portableEnvironment} from '../src/reader_mcp/web_ui/portable-links.mjs';
 import {createHash} from 'node:crypto';
+import {mathPlugin} from '../src/reader_mcp/web_ui/math.mjs';
 const markdownit=createRequire(import.meta.url)('../src/reader_mcp/web_ui/vendor/markdown-it.min.js');
 const md=markdownit({html:true}).use(portableLinkPlugin);
 const row=(source_url,label,kind,target)=>({source_url,label,kind,target,status:'resolved'});
@@ -41,5 +42,19 @@ test('code stays literal and unsafe destinations never become links',()=>{
   assert.doesNotMatch(html,/<a/);
   for(const target of ['file:///secret','javascript:alert(1)','https://github.com.evil/a/b','library/%2e%2e/secret','library/a\\b']){
     assert.doesNotMatch(render('[X](file:///x)',[row('file:///x','X','link',target)]),/href=/);
+  }
+});
+
+test('repair collection uses the document math setting when labels contain dollars',async()=>{
+  const parser=markdownit().use(mathPlugin).use(portableLinkPlugin);
+  const source='[$x=y$](file:///repo/file.md)';
+  const hash=value=>createHash('sha256').update(JSON.stringify(value)).digest('hex');
+  const record={targets:[{key:hash(['file:///repo/file.md','$x=y$','link']),fallback_key:hash(['file:///repo/file.md','link']),status:'resolved',target:'https://github.com/example/project'}]};
+  for(const mathDollar of [false,true]){
+    const options={mathDollar};
+    const portableLinks=await portableEnvironment(parser,source,record,options);
+    const html=parser.render(source,{...options,portableLinks});
+    assert.match(html,/<a href="https:\/\/github.com\/example\/project">/);
+    assert.equal(html.includes('reader-math'),mathDollar);
   }
 });
