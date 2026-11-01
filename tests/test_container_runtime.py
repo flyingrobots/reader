@@ -17,6 +17,7 @@ class Lease:
     def __init__(self, *args, **kwargs):
         self.acquired = self.released = False
         self.key, self.env = args[2], {'GIT_LOCKS_STORE': str(args[1])}
+        self.job, self.acquisition = 'fixture-job', 'fixture-acquisition'
     def acquire(self):self.acquired = True
     def check(self):assert self.acquired
     def release(self):self.released = True
@@ -45,7 +46,7 @@ class Docker:
             if self.container is None:return SimpleNamespace(returncode=1, stdout='', stderr='No such container')
             value = [self.container]
         elif args[1] == 'create':
-            self.container = {'Id': CID, 'Config': {'Labels': self.runtime._labels()}, 'State': {'Running': False},
+            self.container = {'Id': CID, 'Config': {'Labels': self.runtime._container_labels()}, 'State': {'Running': False},
                 'HostConfig': {'ReadonlyRootfs': True, 'Memory': 4 * GIB, 'MemorySwap': 4 * GIB,
                     'NanoCpus': 2_000_000_000, 'PidsLimit': 256, 'ShmSize': 67108864, 'CapDrop': ['ALL'],
                     'NetworkMode': 'bridge', 'SecurityOpt': ['no-new-privileges'], 'IpcMode': 'private',
@@ -81,7 +82,8 @@ def runtime(tmp_path, monkeypatch):
 def test_normal_teardown_keeps_the_persistent_volume(runtime):
     value, docker, records = runtime
     value.prepare({'image': 'reader-development:local'}, IMAGE)
-    assert records[0]['state'] == 'preparing' and records[-1]['id'] == CID
+    assert records[0]['state'] == 'claiming' and records[0]['lease']['acquisition'] is None
+    assert any(record.get('launch_contract') for record in records) and records[-1]['id'] == CID
     value.close()
     assert docker.volume is not None and docker.container is None and value.lease.released
     assert not any(args[1:3] == ['volume', 'rm'] for args in docker.calls)

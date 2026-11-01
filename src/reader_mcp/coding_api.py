@@ -7,12 +7,13 @@ import json
 
 from . import coding_agents, llm_logs, prompt_blocks
 from .coding_jobs import ARTIFACTS, MAX_ARTIFACT, JobsOwned, Runner
+from .coding_container import ContainerJob
 from .coding_store import MAX_PAGE_BYTES, archived_events, valid_id
 from .devcontainer_discovery import discover as discover_container
-from .devcontainer_config import select as select_container
+from .devcontainer_config import select as select_container, infer as infer_container
 from .github import GitHubError
 from .display import shown
-from .repositories import RegistryError
+from .repositories import RegistryError, LegacyRepository
 
 PAGE = 50
 ACTIVE = ('queued', 'running')
@@ -99,11 +100,11 @@ class CodingJobs(Runner):
         blocks = []
         for block in parsed['blocks']:
             try:
-                entry, problem = self.registry.entry(block['repo']), None
-            except RegistryError as exc:
+                entry, problem = self.registry.entry(block['repo'], require_container=self.job_factory is ContainerJob), None
+            except (RegistryError, LegacyRepository) as exc:
                 entry, problem = None, str(exc)
             agents = [{'name': name, 'label': coding_agents.LABELS[name], 'mode': entry['agent_modes'][name],
-                       'available': bool(coding_agents.executable(name, entry, self.environ))} for name in entry['agents']] if entry else []
+                       'available': False if entry.get('environment') or problem else bool(coding_agents.executable(name, entry, self.environ))} for name in entry['agents']] if entry else []
             blocks.append({'id': block['id'], 'title': block['title'], 'repo': block['repo'], 'issue': block['issue'], 'line': block['line'],
                            'prompt_sha256': block['prompt_sha256'], 'registered': bool(entry), 'problem': problem,
                            'base': entry['base'] if entry else None, 'agents': agents,
@@ -122,24 +123,30 @@ class CodingJobs(Runner):
         raise ValueError('Expected {"action": "submit", …} or {"action": "stop", "id": …}')
 
     def repositories(self, check=False):
-        return self.registry.view(check) | {'agents': [{'name': n, 'label': coding_agents.LABELS[n]} for n in coding_agents.LABELS]}
+        data = self.registry.container_view() if self.job_factory is ContainerJob else self.registry.view(check)
+        return data | {'agents': [{'name': n, 'label': coding_agents.LABELS[n]} for n in coding_agents.LABELS]}
 
     def configure(self, request, identity):
         if (identity or {}).get('via') != 'local':
             raise PermissionError('Repositories can be registered only from this Mac')
         action = request.get('action')
-        if action in ('discover-container', 'select-container'):
+        if action in ('discover-container', 'select-container', 'infer-container'):
             expected = ({'action', 'repo', 'base'} if action == 'discover-container'
-                        else {'action', 'repo', 'revision', 'path'})
+                        else {'action', 'repo', 'revision', 'path'} if action == 'select-container'
+                        else {'action', 'repo', 'revision', 'consent'})
             if set(request) != expected:
                 raise ValueError('Unexpected container discovery/selection fields')
             try:
                 if action == 'discover-container':
                     return discover_container(self.github, request['repo'], request['base'])
-                return select_container(self.github, request['repo'], request['revision'], request['path'])
+                if action == 'select-container':
+                    return select_container(self.github, request['repo'], request['revision'], request['path'])
+                return infer_container(self.github, request['repo'], request['revision'], request['consent'])
             except GitHubError as exc:
                 raise ValueError('GitHub configuration inspection failed: ' + str(exc)) from exc
         if action == 'register' and set(request) == {'action', 'repo', 'entry'}:
+            if self.job_factory is ContainerJob and (not isinstance(request['entry'], dict) or not request['entry'].get('environment')):
+                raise ValueError('Register a devcontainer environment; new host checkout registrations are not supported.')
             entry = self.registry.register(request['repo'], request['entry'])
             self.own()
             return self.repositories(True) | {'registered': entry['repo']}

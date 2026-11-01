@@ -1,22 +1,13 @@
-"""Server-local repository registry for coding jobs (RW-44): `<vault>/.reader/repositories.json`.
+"""Server-local coding-job approvals in `<vault>/.reader/repositories.json`.
 
-An article names only a GitHub `owner/repository`. Everything a job needs to act on it is local Reader
-configuration, never article metadata: the validated checkout, the publication remote, the base branch,
-the folder new worktrees go in, which coding agents may run, and the verification command that must pass
-before Reader publishes. One entry per repository name, so a job never picks whichever folder happens to
-share a basename. No credential is stored here; GitHub access comes from the `gh` login.
+Production jobs require a pinned devcontainer configuration, immutable local image, explicit
+resource authority, allowed container agents and a structured verification command. The container
+normalizer lives in container_registry. Legacy checkout entries remain readable for recovery and
+migration; the production runner refuses to execute or inspect their host source paths.
 
-    {"schema_version": 1, "repositories": {"owner/name": {
-        "checkout": "/abs/checkout", "remote": "origin", "base": "main", "worktree_root": "/abs/worktrees",
-        "agents": ["codex", "claude"], "executables": {"codex": "/abs/codex"},
-        "agent_modes": {"claude": "acceptEdits"}, "agent_timeout_seconds": 3600,
-        "verify": {"argv": ["python3", "scripts/check_container.py", "python"], "timeout_seconds": 1800,
-                   "lock": {"store": "/abs/git-locks/store.git", "keys": ["host/heavy-work"],
-                            "ttl_seconds": 2700, "wait_seconds": 1800}}}}}
-
-`verify` is required: Reader runs exactly that argv (no shell) in the job's worktree as the final check, so
-it must be the project's guarded runner when the project requires one. With `lock`, the argv runs inside
-`git locks with` for those keys; without git-locks installed the job is blocked rather than run unguarded."""
+No credentials are stored in this registry. Container Git and agent authentication are independent
+of the host GitHub adapter used for issue and pull-request operations.
+"""
 from contextlib import contextmanager
 import fcntl
 import json
@@ -41,6 +32,10 @@ GITHUB_URL = re.compile(r'(?:https://(?:[^@/]+@)?github\.com/|(?:ssh://)?git@git
                         r'([A-Za-z0-9-]+)/([A-Za-z0-9._-]+?)(?:\.git)?/?', re.I)
 ENTRY_FIELDS = {'checkout', 'remote', 'base', 'worktree_root', 'agents', 'executables', 'agent_modes',
                 'agent_timeout_seconds', 'verify'}
+
+
+class LegacyRepository(ValueError):
+    """A preserved host registration cannot be used by the container-only runner."""
 
 
 class RegistryError(ValueError):
@@ -78,6 +73,9 @@ def validate(repo, raw, vault):
     """A normalized entry, or RegistryError. Checks shapes and local folders; `inspect` checks Git."""
     if not repository_name(repo):
         raise RegistryError('Repository names are GitHub owner/repository')
+    if isinstance(raw, dict) and 'environment' in raw:
+        from .container_registry import normalize
+        return normalize(repo, raw, vault)
     if not isinstance(raw, dict) or set(raw) - ENTRY_FIELDS:
         raise RegistryError(f'{repo}: unknown registry fields: ' + ', '.join(sorted(set(raw) - ENTRY_FIELDS)) if isinstance(raw, dict) else f'{repo}: expected an object')
     vault = Path(vault).resolve()
@@ -134,6 +132,8 @@ def validate(repo, raw, vault):
 
 def inspect(entry):
     """Problems with an entry's Git identity, without network access. [] means it can be used."""
+    if entry.get('environment'):
+        return []  # Runtime readiness is checked inside the managed worker, never by host Git.
     problems = []
     checkout = entry['checkout']
     top = git(['rev-parse', '--path-format=absolute', '--show-toplevel'], checkout)
@@ -191,10 +191,12 @@ class Registry:
                 out[repo] = {'repo': repo, 'error': str(exc)}
         return out
 
-    def entry(self, repo):
+    def entry(self, repo, require_container=False):
         """The validated entry for `repo` (exact registered name, case-insensitive), or None."""
         for name, raw in self.raw().items():
             if isinstance(repo, str) and name.casefold() == repo.casefold():
+                if require_container and (not isinstance(raw, dict) or not raw.get('environment')):
+                    raise LegacyRepository('Legacy host checkout: reconfigure this repository for a devcontainer.')
                 return validate(name, raw, self.root)
         return None
 
@@ -238,6 +240,27 @@ class Registry:
                 raise RegistryError('No registered repository by that name')
             self.write(kept)
 
+    def container_view(self):
+        try:
+            raw = self.raw()
+        except RegistryError as exc:
+            return {'configured': self.configured(), 'error': str(exc), 'repositories': []}
+        rows = []
+        for repo, value in sorted(raw.items(), key=lambda item: item[0].casefold()):
+            if not isinstance(value, dict) or not value.get('environment'):
+                row = {'repo': repo, 'legacy': True, 'environment': None,
+                       'problems': ['Legacy host checkout: reconfigure this repository for a devcontainer.']}
+                if isinstance(value, dict):
+                    row.update({k: value.get(k) for k in ('base', 'checkout', 'worktree_root', 'agents', 'agent_modes')})
+                rows.append(shown(row, self.root))
+                continue
+            try:
+                entry = validate(repo, value, self.root)
+                rows.append(shown(entry | {'legacy': False, 'problems': ['Container tooling and sign-in readiness have not been checked.']}, self.root))
+            except RegistryError as exc:
+                rows.append({'repo': repo, 'error': str(exc), 'problems': [str(exc)]})
+        return {'configured': self.configured(), 'error': None, 'repositories': rows}
+
     def view(self, check=False):
         """The registry as the browser sees it: host folders shown as `~/…`, never credentials."""
         rows = []
@@ -255,5 +278,6 @@ class Registry:
                                'agent_timeout_seconds': entry['agent_timeout_seconds'],
                                'verify': {'argv': entry['verify']['argv'], 'timeout_seconds': entry['verify']['timeout_seconds'],
                                           'lock': {'keys': entry['verify']['lock']['keys']} if entry['verify']['lock'] else None},
+                               'environment': entry.get('environment'),
                                'problems': problems}, self.root))
         return {'configured': self.configured(), 'error': None, 'repositories': rows}

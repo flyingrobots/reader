@@ -14,9 +14,9 @@ The detail view exposes the source prompt identity, agent, branch/base/head, wor
 
 ## Development environment
 
-The current runner requires an existing registered local checkout and creates a separate Git worktree for each run. The agent runs on the host using the registered CLI and permission mode. A worktree isolates branch changes; it does not isolate credentials, build output, shared caches or the host filesystem. The configured verification command may invoke the repository’s guarded container runner, but that does not put the coding agent itself in a dev container.
+The default runner uses a managed local Docker devcontainer and a labelled persistent workspace volume. It creates a fresh clone and branch inside that environment; no host clone or checkout is required. Git inspection, agent execution and final verification use the container transport. Legacy checkout registrations remain visible for recovery but are refused for new execution.
 
-Repository setup currently requires checkout and worktree folders. Container-only development without a host clone is not yet implemented. Do not interpret a registered repository or a passing container verification as evidence that the agent developed inside a container.
+Configuration, source revision, image identity, resource policy and container sign-in are execution prerequisites. Host credentials and the Docker socket are not mounted. Missing tools or authentication block the run without a host fallback. The setup UI and independent authentication flow are not yet integrated, and real-daemon end-to-end verification is still outstanding; do not interpret static registration as readiness.
 
 ## Prompt and admission
 
@@ -40,7 +40,7 @@ The commit list pins exact SHAs and subjects. Source paths and head/base ancestr
 
 ## Stop
 
-Stop is available only for active work owned by this server. It requests termination of the owned process group or runtime and preserves completed effects and evidence. It does not delete a pushed branch, created issue or PR. After interruption, reconcile recorded state rather than blindly restarting another writer.
+Stop is available only for active work owned by this server. It requests termination of the client process group and owned container and preserves completed effects and evidence. It does not delete a pushed branch, created issue or PR. After interruption, reconcile recorded state rather than blindly restarting another writer.
 
 ## Archive
 
@@ -48,6 +48,6 @@ Prompt, system instructions, stdout/events, stderr, final result, verification a
 
 ## Outcomes and recovery
 
-PR opened, already fixed, blocked, failed, cancelled, interrupted and needs reconciliation have distinct meanings. A server restart reconciles owned processes and remote effects; it must not silently relaunch an agent. Inspect phase, exact source/head, retained logs and GitHub readback before retrying. Do not discard a workspace containing unique uncommitted recovery work.
+PR opened, already fixed, blocked, failed, cancelled, interrupted and needs reconciliation have distinct meanings. A server restart verifies the saved container/lease identities, stops the old worker, retains the workspace volume and reconciles remote effects; it must not silently relaunch an agent. Inspect phase, exact source/head, retained logs and GitHub readback before retrying. Do not discard a workspace containing unique uncommitted recovery work.
 
-Implementation: `coding_jobs.py`, `coding_workflow.py`, `coding_store.py`, `coding_agents.py`, the GitHub adapter and `web/src/admin/pages/jobs.tsx`. The current registry and runner use local checkouts; container discovery and execution require a separate implementation.
+Implementation: `coding_jobs.py`, `coding_container.py`, shared workflow/publication checks, `coding_store.py`, `coding_agents.py`, the GitHub adapter and the Jobs Admin page. See the [managed runtime contract](../container-runtime.md) for storage, resource bounds and verification limits.

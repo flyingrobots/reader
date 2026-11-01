@@ -114,3 +114,31 @@ def select(github, repo, revision, path):
     config = validate(parse(source))
     return {'repo': repo, 'revision': revision, 'path': path, 'blob_sha': actual,
             'sha256': hashlib.sha256(source).hexdigest(), 'configuration': config, 'inferred': False}
+
+
+def infer(github, repo, revision, consent=False):
+    """An operator-approved Node/Python starting proposal; no build, credentials or job execution."""
+    if consent is not True:
+        raise ConfigurationError('Explicit operator consent is required before inferring a devcontainer')
+    inventory = discover(github, repo, revision)
+    if inventory['base_sha'] != revision:
+        raise ConfigurationError('Inference consent must name the full pinned revision')
+    if inventory['configurations']:
+        raise ConfigurationError('This revision already has devcontainer configurations; select one instead')
+    # Re-read only immutable objects. Language evidence is manifest presence, not an invented compatibility guarantee.
+    from .devcontainer_discovery import _tree
+    metadata = github.revision(repo, revision)
+    if (not isinstance(metadata, dict) or metadata.get('sha') != revision
+            or not isinstance(metadata.get('commit'), dict) or not isinstance(metadata['commit'].get('tree'), dict)):
+        raise GitHubError('GitHub did not return the pinned inference revision')
+    root = _tree(github, repo, metadata['commit']['tree'].get('sha'))
+    manifests = sorted(set(root) & {'package.json', 'pyproject.toml', 'requirements.txt'})
+    if not manifests:
+        raise ConfigurationError('No supported Node/Python manifest was found; supply a devcontainer configuration for this toolchain')
+    config = validate({'name': repo + ' coding job', 'image': 'reader-coding:local', 'userEnvProbe': 'none', 'remoteUser': 'root'})
+    digest = hashlib.sha256(json.dumps(config, sort_keys=True, separators=(',', ':')).encode()).hexdigest()
+    return {'repo': repo, 'revision': revision, 'path': None, 'blob_sha': None, 'sha256': digest,
+            'configuration': config, 'inferred': True, 'consent': True, 'manifests': manifests,
+            'assumptions': ['Managed Node 24 / Python 3.12 image must be prepared locally.',
+                            'Manifest presence does not prove dependency or verification compatibility.',
+                            'Coding tools and credentials must be prepared inside the container.']}

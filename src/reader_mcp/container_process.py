@@ -10,6 +10,7 @@ import subprocess
 import time
 
 MAX_OUTPUT = 4 * 1024**2
+MAX_STREAM = 64 * 1024**2
 
 
 class ProcessError(RuntimeError):
@@ -34,9 +35,9 @@ def reap(process):
 
 
 def execute(argv, *, timeout=15, env=None, stdin=subprocess.DEVNULL, cancelled=lambda: False,
-            output=None, limit=MAX_OUTPUT, started=None, finished=None):
+            output=None, limit=MAX_OUTPUT, started=None, finished=None, capture_limit=MAX_OUTPUT):
     """A CompletedProcess with bounded combined streams; callbacks run before accepting more output."""
-    if timeout <= 0 or not 0 < limit <= MAX_OUTPUT:
+    if timeout <= 0 or not 0 < limit <= MAX_STREAM or not 0 <= capture_limit <= MAX_OUTPUT:
         raise ProcessError('Command deadline or output limit is invalid')
     deadline = time.monotonic() + timeout
     child = subprocess.Popen(argv, env=env, stdin=stdin, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
@@ -67,7 +68,10 @@ def execute(argv, *, timeout=15, env=None, stdin=subprocess.DEVNULL, cancelled=l
                     raise ProcessError('Container command output limit exceeded')
                 if output:
                     output(names[key.fileobj], chunk)
-                buffers[key.fileobj].extend(chunk)
+                if capture_limit:
+                    buffers[key.fileobj].extend(chunk)
+                    if len(buffers[key.fileobj]) > capture_limit:
+                        del buffers[key.fileobj][:-capture_limit]
         return subprocess.CompletedProcess(argv, child.wait(timeout=max(.001, deadline - time.monotonic())),
                 buffers[child.stdout].decode('utf-8', 'replace'), buffers[child.stderr].decode('utf-8', 'replace'))
     finally:

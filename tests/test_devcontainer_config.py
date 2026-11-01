@@ -71,3 +71,27 @@ def test_tampered_blob_never_becomes_a_selected_configuration(bad):
             return result
     with pytest.raises(GitHubError):
         select(Source({ROOT: [item('.devcontainer.json', sha)]}), 'acme/widget', COMMIT, '.devcontainer.json')
+
+
+def test_inference_requires_consent_before_any_repository_read():
+    from reader_mcp.devcontainer_config import infer
+    remote = Remote({ROOT: []})
+    with pytest.raises(ConfigurationError, match='consent'):
+        infer(remote, 'acme/widget', COMMIT, False)
+    assert remote.calls == []
+
+
+def test_inference_proposal_records_real_manifest_evidence_and_assumptions():
+    from reader_mcp.devcontainer_config import infer
+    remote = Remote({ROOT: [item('package.json'), item('pyproject.toml')]})
+    proposal = infer(remote, 'acme/widget', COMMIT, True)
+    assert proposal['inferred'] and proposal['consent'] and proposal['revision'] == COMMIT
+    assert proposal['manifests'] == ['package.json', 'pyproject.toml'] and proposal['assumptions']
+    assert proposal['configuration']['image'] == 'reader-coding:local'
+    assert remote.calls[0] == ('revision', 'acme/widget', COMMIT)
+
+
+def test_inference_cannot_replace_an_existing_configuration():
+    from reader_mcp.devcontainer_config import infer
+    with pytest.raises(ConfigurationError, match='already has'):
+        infer(Remote({ROOT: [item('.devcontainer.json')]}), 'acme/widget', COMMIT, True)

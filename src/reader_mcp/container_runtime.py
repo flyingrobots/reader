@@ -58,6 +58,7 @@ class ContainerRuntime:
         self.config = None
         self.clients, self.clients_lock = set(), threading.Lock()
         self.client_env = None
+        self.configuration = None
 
     def _started(self, pid):
         with self.clients_lock:
@@ -67,12 +68,15 @@ class ContainerRuntime:
         with self.clients_lock:
             self.clients.discard(pid)
 
-    def invoke(self, argv, timeout=15, check=True, cleanup=False, stdin=None, output=None):
+    def invoke(self, argv, timeout=15, check=True, cleanup=False, stdin=None, output=None,
+               started=None, finished=None, limit=4 * 1024**2, capture_limit=4 * 1024**2):
         if not cleanup:
             self.check()
         remaining = self.expires - time.monotonic()
         result = self.run(argv, timeout=timeout if cleanup else min(timeout, remaining),
-                          env=self.client_env, started=self._started, finished=self._finished,
+                          env=self.client_env, started=lambda pid: (self._started(pid), started(pid) if started else None),
+                          finished=lambda pid: (self._finished(pid), finished(pid) if finished else None),
+                          limit=limit, capture_limit=capture_limit,
                           cancelled=(lambda: False) if cleanup else (lambda: bool(self.error) or self.cancelled()),
                           **({'stdin': stdin} if stdin is not None else {}), output=output)
         if check and result.returncode:
@@ -105,15 +109,27 @@ class ContainerRuntime:
     def _labels(self):
         return {'reader.coding.owner': self.owner, 'reader.coding.repo': self.repo.casefold()}
 
+    def _container_labels(self):
+        return self._labels() | {'reader.coding.run': self.run_id}
+
     def _owned(self, labels):
         return isinstance(labels, dict) and all(labels.get(k) == v for k, v in self._labels().items())
 
     def prepare(self, configuration, image_id):
         config = validate(configuration)
+        self.configuration = config
         if not isinstance(image_id, str) or not IMAGE_ID.fullmatch(image_id):
             raise ProcessError('Approve a full immutable local image identity before setup')
+        self.record({'id': None, 'name': self.name, 'volume': self.volume, 'owner': self.owner,
+                     'image': image_id, 'expires': self.wall_expires, 'run_id': self.run_id, 'state': 'claiming',
+                     'lease_intent_at': time.time(), 'lease': {'job': self.lease.job, 'acquisition': None,
+                         'key': self.lease.key, 'store': self.lease.env['GIT_LOCKS_STORE']}})
         self.lease.acquire()
         try:
+            self.record({'id': None, 'name': self.name, 'volume': self.volume, 'owner': self.owner,
+                         'image': image_id, 'expires': self.wall_expires, 'run_id': self.run_id, 'state': 'leased',
+                         'lease': {'job': self.lease.job, 'acquisition': self.lease.acquisition,
+                                   'key': self.lease.key, 'store': self.lease.env['GIT_LOCKS_STORE']}})
             if shutil.disk_usage(self.root).free < FREE_FLOOR:
                 raise ProcessError('Host free space is below 50 GiB')
             folder = self.root / '.reader/container-runtime' / self.key
@@ -140,6 +156,8 @@ class ContainerRuntime:
             self.record({'id': None, 'name': self.name, 'volume': self.volume, 'owner': self.owner,
                          'image': image_id, 'expires': self.wall_expires, 'run_id': self.run_id,
                          'workspace_limit_bytes': WORK_LIMIT, 'state': 'preparing',
+                         'lease': {'job': self.lease.job, 'acquisition': self.lease.acquisition,
+                                   'key': self.lease.key, 'store': self.lease.env['GIT_LOCKS_STORE']},
                          'launch_contract': {'lock_key': self.lease.key, 'lock_store': self.lease.env['GIT_LOCKS_STORE'],
                              'outputs': {'volume': self.volume, 'host_control': str(self.root / '.reader/container-runtime'),
                                          'tmpfs': {'/tmp': 256 * 1024**2, '/etc': 16 * 1024**2, '/dev/shm': 64 * 1024**2}},
@@ -168,10 +186,11 @@ class ContainerRuntime:
                     '--tmpfs', '/etc:rw,exec,size=16777216', '--log-driver', 'local',
                     '--log-opt', 'max-size=4m', '--log-opt', 'max-file=1', '--log-opt', 'compress=false',
                     '--mount', 'type=volume,source=' + self.volume + ',target=/work']
-            for key, value in self._labels().items():
+            for key, value in self._container_labels().items():
                 args += ['--label', key + '=' + value]
             env = {'HOME': '/work/home', 'TMPDIR': '/tmp', 'XDG_CACHE_HOME': '/work/cache',
-                   'npm_config_cache': '/work/cache/npm'} | config.get('containerEnv', {})
+                   'npm_config_cache': '/work/cache/npm',
+                   'PATH': '/work/tools/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin'} | config.get('containerEnv', {})
             for key, value in env.items():
                 args += ['--env', key + '=' + value]
             self.cid = self.invoke(args + [image_id, '/usr/bin/python3', '-I', '-S', '-c', WATCHDOG,
@@ -187,8 +206,11 @@ class ContainerRuntime:
                          'state': 'admitted', 'measurement': admitted})
             self.monitor = threading.Thread(target=self._watch, name='reader-container-guard', daemon=True)
             self.monitor.start()
+            self.command(['/usr/bin/python3', '-I', '-S', '-c',
+                'import os,sys;[os.makedirs(p,exist_ok=True) for p in ("/work/home","/work/cache","/work/jobs","/work/runtime")];os.mkdir(sys.argv[1]);os.makedirs(sys.argv[2],exist_ok=False)',
+                '/work/jobs/' + self.run_id, '/work/runtime/' + self.run_id])
             self.invoke([self.devcontainer, 'set-up', '--container-id', self.cid, '--config', str(self.config),
-                         '--container-system-data-folder', '/work/.devcontainer', '--container-data-folder', '/work/.devcontainer',
+                         '--container-system-data-folder', '/work/.devcontainer/' + self.run_id, '--container-data-folder', '/work/.devcontainer/' + self.run_id,
                          '--user-data-folder', str(folder / 'cli'), '--skip-post-create', '--default-user-env-probe', 'none'],
                         timeout=120, output=self.output)
             return self
@@ -196,12 +218,35 @@ class ContainerRuntime:
             self.close()
             raise
 
+    def exec_argv(self, argv, cwd='/work', interactive=False):
+        self.check()
+        args = [self.docker, 'exec']
+        if interactive:
+            args.append('-i')
+        args += ['--workdir', str(cwd), '--env', 'GIT_TERMINAL_PROMPT=0']
+        for key, value in (self.configuration or {}).get('remoteEnv', {}).items():
+            args += ['--env', key + '=' + value]
+        return args + ['--', self.cid, *map(str, argv)]
+
+    def command(self, argv, cwd='/work', timeout=15, check=True, stdin=None, **options):
+        return self.invoke(self.exec_argv(argv, cwd, stdin is not None), timeout=timeout,
+                           check=check, stdin=stdin, **options)
+
+    def lifecycle(self):
+        folder = self.config.parent
+        control = '/work/.devcontainer/' + self.run_id
+        return self.invoke([self.devcontainer, 'run-user-commands', '--container-id', self.cid,
+            '--config', str(self.config), '--container-system-data-folder', control,
+            '--container-data-folder', control, '--user-data-folder', str(folder / 'cli'),
+            '--default-user-env-probe', 'none'], timeout=min(600, self.expires - time.monotonic()), output=self.output)
+
     def measure(self):
         info = self._inspect('container', self.cid)
         host = info.get('HostConfig') or {}
         mounts = info.get('Mounts') or []
         volumes = [m for m in mounts if m.get('Type') == 'volume']
-        if (not self._owned((info.get('Config') or {}).get('Labels')) or info.get('Id') != self.cid
+        if (not self._owned((info.get('Config') or {}).get('Labels'))
+                or ((info.get('Config') or {}).get('Labels') or {}).get('reader.coding.run') != self.run_id or info.get('Id') != self.cid
                 or not (info.get('State') or {}).get('Running') or not host.get('ReadonlyRootfs')
                 or host.get('Memory') != 4 * GIB or host.get('MemorySwap') != 4 * GIB
                 or host.get('NanoCpus') != 2_000_000_000 or host.get('PidsLimit') != 256

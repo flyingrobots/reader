@@ -1124,7 +1124,7 @@ Each section is its own hash route:
 | `#admin` | Overview: attention needed, active work, the inbox and index health |
 | `#admin/jobs`, `#admin/jobs/<uuid>` | Coding jobs from article prompts, and one job's trace and archive |
 | `#admin/logs`, `#admin/logs/<kind>/<date>/<run-id>` | The LLM log archive, and one archived run |
-| `#admin/repositories` | Which checkouts article prompts may run in |
+| `#admin/repositories` | Repository environments and execution policies |
 | `#admin/voices` | The agent command lines chat voices and the librarian run (the *Agents and models* card) |
 | `#admin/models` | The local model: provider, server, queue, outputs and task settings |
 | `#admin/inbox` | Arrivals, receipts, claims and **You got mail** |
@@ -1473,62 +1473,24 @@ per vault, by the one Reader server that holds `.reader/coding-jobs/supervisor.l
    The same request UUID with the same input returns the same run (`duplicate: true`); with different input it is
    a 409 conflict, never an edit or a rerun. A rerun names its `predecessor`, a finished run of the same article and block
    (another is a 409), and reuses its verified issue.
-2. *Preflight.* Registry identity (the checkout's remote and any push URL must be `github.com/owner/name`), the
-   agent executable, the verification command (a bare name such as `python3` is resolved on Reader's `PATH`),
-   the verification guard, free space for the archive and the worktree folder, GitHub login
-   and push access through `gh`, the supplied issue (it must be an issue, not a pull request, in that repository),
-   the base branch on the remote, and that the job's branch exists nowhere. Any refusal ends the run `blocked`.
-3. *Isolate.* Fetch the base, pin its SHA and `git worktree add -b reader/<id>-<run> <root>/reader-<run-id> <sha>`
-   (under the repository's `.git/` git-locks key when git-locks is installed). The user's checkout, its dirty files
-   and its index are untouched; an existing branch or folder is never reused or reset.
-4. *Agent.* The coding CLI runs in the worktree with Reader's fixed argv (Codex: `exec --cd <worktree> --sandbox
-   <mode> --add-dir <git common dir>`; Claude Code: `-p --output-format stream-json --permission-mode <mode>`), the
-   job brief and the prompt on stdin, in its own process group with time, memory, free-space and output limits.
-   It investigates, edits and commits, and ends with a `reader-result` block: `implemented`, `already_fixed`
-   or `blocked`, with a summary, evidence and issue/PR drafts. Reader checks the claim: the branch, a clean
-   tree, ancestry from the pinned base, the commits and changed paths.
-5. *Issue.* The verified supplied issue, or one Reader creates from the confirmed task with a
-   `reader-run:<run-id>` marker and reads back. No article text, vault path or archive goes to GitHub.
-6. *Verify.* The registry's command runs in the worktree, without a shell, under its git-locks keys when configured.
-   A nonzero exit, a moved head or a dirty tree publishes nothing.
-7. *Publish.* A create-only `git push --force-with-lease=refs/heads/<branch>: <remote> <verified sha>:refs/heads/<branch>`
-   (the empty lease refuses a branch that already exists, so nothing is overwritten or fast-forwarded), the remote
-   SHA read back, then a pull request with `Closes #N` and the marker, read back for repository, base, branch, head
-   SHA and issue. Only then is the outcome **PR opened**. Nothing is merged.
+2. *Preflight and isolate.* The default adapter checks the pinned GitHub configuration and approved image, admits the concrete Docker worker, verifies container Git access and the unchanged base, then clones and creates a branch inside the persistent workspace. It runs supported lifecycle commands and probes in-container tools/sign-in before the agent.
+3. *Agent and verification.* Both execute inside the same devcontainer. The inherited checks still enforce the assigned branch, committed/clean changes, base ancestry, verification exit status and unchanged head. Host tools and verification locks are not imported.
+4. *Publication and recovery.* Reader retains issue/PR linkage, create-only push and remote readback. Cancellation stops the client and container. Restart recovery fences the saved lease, proves worker ownership, stops it and retains the volume; uncertainty becomes needs reconciliation.
 
-Outcomes are `pr_opened`, `already_fixed`, `blocked`, `failed`, `cancelled`, `interrupted` and
-`needs_reconciliation`; phases (`queued`, `preflight`, `worktree`, `agent`, `issue`, `verify`, `push`,
-`pull_request`) are separate. A create request without a readable answer is reconciled by the marker (issues) or
-the branch (pull requests), never repeated; when GitHub cannot settle it the run ends `needs_reconciliation`. A
-remote branch that already exists at another commit (an agent that pushed by itself) is reconciled the same way.
-**Stop** kills the owned process group; completed pushes and created issues stay recorded. Worktrees and branches
-are kept after every outcome. A restart never relaunches an agent: unfinished runs are reconciled (a process group
-the previous server left running is stopped when its recorded start time matches), pending creations are looked up,
-and the run ends `interrupted`, `pr_opened` or `needs_reconciliation`; until an owner reconciles it, every view
-already shows an unowned run as interrupted.
+The [Jobs reference](topics/jobs.md) and [Repositories reference](topics/repositories.md) define current registry fields, configuration discovery/approval, execution and the remaining setup/readiness limitations. The Repositories Admin form has not yet been replaced; new host-checkout registration is refused by the default backend.
 
-**Executor boundary.** A worktree isolates Git changes, not the filesystem, build caches or credentials. The
-agent runs with the user's environment and the registry's permission mode; a CLI that keeps GitHub credentials
-could publish by itself, so "do not push or open issues" in the brief is a cooperative rule, and the workflow
-reconciles the remote before publishing instead of assuming it is untouched. The repository's own guarded
-workflow and the configured verification command remain the resource and quality policy.
+Outcomes (`pr_opened`, `already_fixed`, `blocked`, `failed`, `cancelled`, `interrupted`, `needs_reconciliation`) are separate from phases (`queued`, `preflight`, `worktree`, `agent`, `issue`, `verify`, `push`, `pull_request`). A create request without a readable answer is reconciled by issue marker or PR branch, never blindly repeated. Stop terminates the client and owned container while retaining the workspace volume and completed remote effects. Restart recovery checks the saved lease and per-run worker identity, stops it, and reconciles publication without relaunching an agent. Unproven cleanup remains needs reconciliation.
 
-**Repository registry.** `<vault>/.reader/repositories.json` (schema 1) maps `owner/name` to `checkout`,
-`remote`, `base`, `worktree_root` (outside the checkout and the vault), `agents` (`codex`, `claude`), optional
-`executables` and `agent_modes` (Codex `workspace-write` or `danger-full-access`; Claude Code `acceptEdits` or
-`bypassPermissions`), `agent_timeout_seconds` and `verify` (`argv`, `timeout_seconds`, optional `lock` with a
-git-locks `store` and `keys`). A configured lock without git-locks installed blocks the job rather than running
-the check unguarded. `GET /api/repositories?check=1` shows the registry with Git identity problems and host folders
-as `~/…`; `POST /api/repositories` registers (after the identity check), removes or checks, from this Mac only.
-No credential is stored: GitHub access is the `gh` login.
+**Executor boundary.** Development commands execute through the default [container adapter](container-runtime.md), with a persistent Docker workspace, independent container credentials and a concrete worker lease. Legacy checkout registrations remain recovery data. The credential-bearing agent’s instruction not to publish remains cooperative, backed by server-side reconciliation of effects.
+
+**Repository registry.** The vault’s schema-1 registry accepts pinned `environment.kind = devcontainer` entries. New entries need an approved configuration/revision/image, workstation lock store, agent policy and in-container verification argv, without checkout or worktree folders. Default views do not probe host Git or discover host agents. See the [Repositories reference](topics/repositories.md) for the current field contract and remaining setup/readiness limitations.
 
 **Trace and archive.** Every run is archived under `logs/llm/coding-job/YYYY/MM/DD/<run-id>/` and kept forever:
 `meta.json`, `request.json`, `prompt.txt`, `system.txt`, `stdout.jsonl`, `stderr.log`, `events.jsonl`,
 `verify.log`, `git.log`, `last-message.md` and `result.json`, streamed as `.partial` and gzipped with sizes and
 SHA-256 by `RunLog.finish()`, including failed, cancelled and interrupted runs. `meta.json` pins the source SHA,
 block ID, prompt SHAs, repository, base and head SHAs, branch and worktree, issue and pull request, tool versions
-and the outcome. All output a run produces counts against a 64 MiB budget; a full budget or a failed archive write
-stops the process group and fails the run before any publication. `events.jsonl` holds the normalized events,
+and the outcome. Agent, verification and Git output plus events share a 64 MiB archive budget; transient control probes have their own bounded capture. A full budget or failed archive write stops owned work. Completed remote effects remain recorded and may require reconciliation. `events.jsonl` holds the normalized events,
 each with the run ID, a sequence number and a timestamp: phases, Reader's own steps (Git, checks, publication),
 the agent's recognized CLI events, changed files, commits, GitHub results and the outcome. Unrecognized CLI output
 stays in the raw logs only. The trace reuses the activity reducer and `ActivityTranscript` with job labels: phases

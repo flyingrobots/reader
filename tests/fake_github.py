@@ -5,6 +5,7 @@ Pull requests read their head SHA from the fixture's local bare repository, stan
 the strings 'lost-ack' (the write takes effect, then the answer is lost: `Uncertain`) and 'no-effect'
 (`Uncertain` without an effect). `lag` makes issue search miss everything, like a stale search index."""
 import subprocess
+import base64
 
 from reader_mcp.github import GitHub, GitHubError, Uncertain
 
@@ -21,6 +22,33 @@ class FakeGitHub(GitHub):
         self.lag = False
         self.wrong_head = False
         self.next = 300
+
+    def revision(self, repo, ref):
+        self._check('revision')
+        if repo != self.repo or not self.bare:
+            raise GitHubError('Unknown fixture repository')
+        def git(*args):
+            result = subprocess.run(['git', '--git-dir', str(self.bare), *args], capture_output=True, text=True, check=True)
+            return result.stdout.strip()
+        sha = git('rev-parse', '--verify', '--end-of-options', ref + '^{commit}')
+        return {'sha': sha, 'commit': {'tree': {'sha': git('rev-parse', sha + '^{tree}')}}}
+
+    def tree(self, repo, sha):
+        self._check('tree')
+        if repo != self.repo or not self.bare:
+            raise GitHubError('Unknown fixture repository')
+        text = subprocess.run(['git', '--git-dir', str(self.bare), 'ls-tree', sha], capture_output=True, text=True, check=True).stdout
+        entries = []
+        for line in text.splitlines():
+            head, path = line.split('\t', 1)
+            mode, kind, identity = head.split()
+            entries.append({'path': path, 'sha': identity, 'type': kind, 'mode': mode})
+        return {'sha': sha, 'truncated': False, 'tree': entries}
+
+    def blob(self, repo, sha):
+        self._check('blob')
+        data = subprocess.run(['git', '--git-dir', str(self.bare), 'cat-file', 'blob', sha], capture_output=True, check=True).stdout
+        return {'sha': sha, 'size': len(data), 'encoding': 'base64', 'content': base64.b64encode(data).decode()}
 
     def _check(self, name):
         self.calls.append(name)

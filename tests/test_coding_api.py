@@ -21,6 +21,8 @@ def site(tmp_path):
                          coding_options={'github': world.github, 'environ': world.environ, 'git_locks': False, 'limits': False,
                                          'capacity': lambda path: True})
     world.jobs = library.jobs
+    from reader_mcp.coding_publish import Job
+    world.jobs.job_factory = Job  # Explicit reference-model injection; real default is container-only.
     server = WebServer(('127.0.0.1', 0), library, 'Test reader')
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()

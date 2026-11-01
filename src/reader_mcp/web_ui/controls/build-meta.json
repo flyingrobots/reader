@@ -9,12 +9,12 @@
     "../docs/topics/artwork.md": "6fbe4ca291650e79053b7a1224a38c32f2f4e38f44d2e254a31b032dfdb7f8f4",
     "../docs/topics/inbox.md": "93657d3f9061f78fdd0c03c745cc63a04375bdb7b2b9e1f03e8e400e92079b87",
     "../docs/topics/indexes.md": "2970145e550cf3a41cdfeacb2d21e2b314122bebdc5d8bb4f153e5fb6509d4a0",
-    "../docs/topics/jobs.md": "cd44c7167fdef58836399ca0d6a3f5d585de6df80fe89ec2c0c87fed7ab0cfd8",
+    "../docs/topics/jobs.md": "d63822ec563a2a588ea6e39d7a91c8c0f1d512c592daae099c335e8d6955bf5c",
     "../docs/topics/library.md": "81ed9fe8db0587b087376b3ed78dd4c45ca9e62cf3f204d2d56dcc594db15b59",
     "../docs/topics/logs.md": "cf2d367a13620967bb12e811834c22f23a73ec11f33783bfb287bad858cdc579",
     "../docs/topics/models.md": "525f9fb66a9565eb46a698b3a7163b890fa727b4930d922f7ebcf07ea5af4eb3",
     "../docs/topics/overview.md": "39511286a760f38d38a1d98568cf0af77b77e0d7d451f3064ae14b69efb03449",
-    "../docs/topics/repositories.md": "a380b973f9656d637411e05877310520107c1b0c6fd560015ea0bdde56a841e5",
+    "../docs/topics/repositories.md": "274fa967540a56b146f1b8c1537fb4180c9b0fda4c4ffa2efa71a4531f125741",
     "../docs/topics/service.md": "afed76a054d5ee552c72b3db60365acf11c3eefd447798a449d0c312af3d21f0",
     "../docs/topics/settings.md": "99336b16eb57868f4a2943fe5e5bf58c2d5c7196e9116f93c0f22e33f2ed8932",
     "../docs/topics/voices.md": "acdac0ea096443afeceb623a961a1ee751b3a0d65447a7a69f53159cb27372f8",
@@ -990,8 +990,8 @@
       "sha256": "0ed9bc43b2ce452a09f619c7e8b89cfb2af5c04fab44ca50528a60dbb20c405b"
     },
     "reader-controls.js": {
-      "bytes": 1327714,
-      "sha256": "28a8c5cc82886dba5af63fa8977333cedb2b55c815f0a36c3ffef6a995c06b5e"
+      "bytes": 1330400,
+      "sha256": "d9f1ab0a1178cd15420271be1b91ab7ed59fbc4d093453ac1095dd07d832c2db"
     },
     "reader-controls.js.LEGAL.txt": {
       "bytes": 6553,
