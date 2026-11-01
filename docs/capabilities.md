@@ -133,7 +133,7 @@ Reader Admin (the footer's Backstage; Space p opens its Settings) is a sidebar l
 route per section (`#admin`, `#admin/indexes`, `#admin/inbox`, … `#admin/settings`); its
 read-only Overview summarizes running work, the inbox, attention items and index health, and
 shows a status it could not read as unavailable. Its Indexes page shows the freshness of the search index, browse indexes,
-catalog SQL mirror and link graph. It rebuilds any of them on demand, one job at a time, through
+catalog SQL mirror and link graph from saved measurements; opening the page never starts a full audit. Explicit full checks report their current stage and publish results progressively. Rebuilds verify only affected projections and retain job admission through verification. It rebuilds any of them on demand, one job at a time, through
 the existing guarded entry points, and announces each start, finish and failure with
 toasts. Each card shows usage against its budget (search passages, database and
 embedding cache; catalog files and source bytes), and an Other inventories card lists

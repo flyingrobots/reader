@@ -32,7 +32,7 @@ Embedding computation depends on model identity, model files, provider implement
 
 There is no recurring index-rebuild schedule or filesystem watcher. Changing a source file does not automatically enqueue Search, Browse or Catalog work. Filing procedures call for explicit metadata/catalog, search and browse maintenance after completed imports or edits; those procedures are not an always-running reconciliation service.
 
-Opening Indexes calls the freshness-check logic once per page visit. If the first saved check timestamp is absent or older than two minutes, and no job/check is active, the client requests a full check. Overview reads existing status but does not start this check. **Check again** explicitly requests another full check. A rebuild normally triggers a follow-up freshness audit.
+Opening or revisiting Indexes reads the saved maintenance status only, even when observations are old or absent. Known-stale indexes remain actionable until a job is explicitly started. **Run full check** requests all freshness probes; an individual rebuild verifies only the projections it can affect. Saved measurements describe the time of their checks, not proof that current source files are unchanged. No Git checkpoint or filesystem-change invalidation is implemented yet.
 
 The link graph has one special trigger: the first document backlink request can start a quiet graph build when no graph is available. An existing graph can report that it is stale; that signal does not itself rebuild it. A failed initial build is surfaced rather than retried indefinitely through the same path.
 
@@ -40,7 +40,7 @@ The Reader application updater’s schedule updates software. It does not schedu
 
 ## Freshness checks
 
-A check runs these probes sequentially: Search, Browse, Catalog, Links, then Other inventories. Each probe’s error is converted into that probe’s error state and message; other probes continue. Results are collected privately and published as one `checks` snapshot after the final probe, with per-probe `checked_at` timestamps. A first check after server restart has no previous values to display. During later checks, previous measurements can remain visible.
+A check runs these probes sequentially: Search, Browse, Catalog, Links, then Other inventories. Each probe’s error is converted into that probe’s error state and message; other probes continue. Each result is published immediately with its own `checked_at` timestamp. The active job names the current probe and its position in the sequence. Checks that have not finished retain their previous measurements and timestamps; these are independent observations, not one atomic source snapshot. A first check after server restart has no previous values to display.
 
 The checks have different evidence contracts:
 
@@ -49,13 +49,13 @@ The checks have different evidence contracts:
 - Catalog inventories and hashes sources, parses metadata, and compares expected SQL records with the mirror.
 - Capacity measurements count bounded collections and inspect configured resource usage.
 
-A check can be expensive without running a model. Browse still constructs its navigation output in check mode, and Catalog streams source bytes for hashing and validates metadata. The same library may be walked by several probes. Native file locks can add waiting time. There is no general per-phase progress/deadline mechanism around the entire freshness audit.
+A check can be expensive without running a model. Browse still constructs its navigation output in check mode, and Catalog streams source bytes for hashing and validates metadata. The same library may be walked by several probes. Native file locks can add waiting time. The current probe and completed measurements are visible while it runs. Native lock waits still have no general per-probe deadline; an explicitly requested full audit can remain expensive.
 
 The client polls maintenance status every 1.5 seconds while maintenance, verification or the local-model summary reports activity, and every 15 seconds otherwise while visible. Polling latency is additional to probe execution time. A failed refresh preserves the last snapshot with a warning; it must not appear as zero usage or proof of freshness.
 
 ### Checked versus built
 
-**Last checked** means when drift or capacity was measured. **Built** means when a projection was last published, as recorded by that subsystem. A fresh check of an old projection can correctly say Needs rebuild. The latest full-check duration comes from completed `check` jobs in the current server process; it is not an estimate of the next rebuild’s duration.
+**Checked** in the inspector means when that index was measured; **Last full check** means when the most recent full-check job completed. **Built** means when a projection was last published, as recorded by that subsystem. A fresh check of an old projection can correctly say Needs rebuild. The latest full-check duration comes from completed `check` jobs in the current server process; it is not an estimate of the next rebuild’s duration.
 
 ## Status and action semantics
 
@@ -191,7 +191,7 @@ A capacity problem should be resolved by checking scope, retention and the appli
 
 ## Dashboard measurements
 
-The health table compares the five surfaces. Selecting an index name changes the inspector; chart selection can do the same. Inspector values are from the last published check snapshot, even while another audit is running.
+The health table compares the five surfaces. Selecting an index name changes the inspector; chart selection can do the same. Inspector values are the latest saved measurement for each index, even while another audit is running.
 
 | Measurement | Interpretation |
 | --- | --- |
@@ -226,11 +226,11 @@ Chart interaction does not start a rebuild, run a model or change source files. 
 
 The web server has one admitted maintenance `running` job. `Maintenance.start()` validates its kind and refuses a second simultaneous start with a busy response instead of queueing it. Search, Browse, Catalog, Links, legacy-index removal and supported companion install/start jobs share this lane. This is not a restriction that the HTTP server can only serve one request or that all model jobs use the same runner.
 
-A job records its ID, kind, label, start/finish timestamps, state, elapsed seconds, result/error, quiet flag and optional progress text. Work runs in a background thread; exceptions become failed job results. History is an in-memory deque capped at 20; the dashboard shows at most 10 recent entries. A server restart loses that history and cached freshness checks. No durable queue, cancellation interface or per-phase audit trace is implemented here.
+A job records its ID, kind, label, start/finish timestamps, state, elapsed seconds, result/error, quiet flag and optional progress text. Work runs in a background thread; exceptions become failed job results. History is an in-memory deque capped at 20; the dashboard shows at most 10 recent entries. A server restart loses that history and cached freshness checks. Unknown indexes can be rebuilt directly or measured with an explicit full check. No durable queue or cancellation interface is implemented here.
 
-After a non-companion rebuild, the implementation records job completion, clears `running`, sets `checking`, and performs a full follow-up audit. That audit is outside the recorded rebuild elapsed time. The UI disables actions during it. Backend start admission currently tests `running` rather than `checking`, so another API client can start work during that verification interval; the UI’s restriction is stronger than the backend guarantee. Do not assume this is a complete resource scheduler.
+A rebuild stays in the running slot through verification, and its recorded elapsed time includes that verification. UI and API admission both refuse another maintenance job until it finishes. Search (including keyword-only and legacy removal), Catalog and Links verify only their own projection. Browse verifies Browse, Links and Other inventories because it publishes the work inventory used by the latter two. Unrelated measurements keep their original values and timestamps. A failed writer is also verified because it may have changed its output. A successful build job and a probe error remain distinct observations; inspect the index state as well as the job result. This is still one process-local maintenance slot, not a general resource scheduler.
 
-A quiet initial graph build checks only the graph afterwards and suppresses ordinary job toasts. Companion operations do not force the full index audit. Other jobs normally trigger the full follow-up check. Starting and finishing a rebuild replaces the corresponding job toast; failures carry their bounded meaningful message. You may continue reading while work runs.
+A quiet initial graph build follows the same graph-only verification and suppresses ordinary job toasts. Companion operations do not run index verification. Starting and finishing a rebuild replaces the corresponding job toast; failures carry their bounded meaningful message. You may continue reading while work runs.
 
 ## Edition-link diagnostics
 
@@ -269,7 +269,7 @@ For local operating procedures, use the installed Reader helper with the configu
 
 ### Checking appears stuck
 
-Inspect whether the page is measuring freshness or rebuilding. A full check includes navigation generation and source hashing, and results currently publish together. Previous measurements may still be displayed. Inspect the active job, native-writer contention and error results before restarting anything. A slow card does not prove the Tailnet connection is slow or that an LLM is generating text.
+Inspect whether the page is measuring freshness or rebuilding. A full check includes navigation generation and source hashing. Its progress names the current probe, and completed measurements appear as each probe finishes. Older measurements remain visible for probes not yet completed. Inspect the active job, native-writer contention and error results before restarting anything. A slow card does not prove the Tailnet connection is slow or that an LLM is generating text.
 
 ### Search is current but semantic coverage is low
 

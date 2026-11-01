@@ -23,6 +23,8 @@ const {sanitizerReport}=require('./web_wait.cjs');  // #151
    assert.equal(new URL(page.url()).hash,'#admin/settings');await page.waitForFunction(()=>document.querySelector('#vim-mode').textContent==='ADMIN');
    assert.equal(await page.locator('#status-location [aria-current=page]').textContent(),'Reader Admin');
    await page.locator('[data-admin-nav=indexes]').click();await page.waitForFunction(()=>document.activeElement?.textContent==='Indexes');await page.locator('#main').focus();
+   await page.locator('[data-index=search][data-state=unknown]').waitFor();
+   await page.locator('#maintenance-check').click();
    for(const [index,state] of [['search','missing'],['browse','unconfigured'],['catalog','missing']])await page.locator(`[data-index=${index}][data-state=${state}]`).waitFor();
    await page.locator('[data-job=search]').click();
    await toast(page,'Search index (with embeddings) running…').waitFor();assert.equal(await toast(page,'running…').getAttribute('data-type'),'loading');
@@ -32,6 +34,13 @@ const {sanitizerReport}=require('./web_wait.cjs');  // #151
    await page.locator('[data-job=catalog]:not([disabled])').waitFor();await page.locator('[data-job=catalog]').click();
    await toast(page,'Synthetic catalog failure').waitFor({timeout:8000});assert.equal(await toast(page,'Catalog SQL mirror failed').getAttribute('data-type'),'error');
    await page.locator('[data-job="search-keyword"]:not([disabled])').waitFor();await page.locator('[data-job="search-keyword"]').click();
+   let keywordJob;const deadline=Date.now()+60000;
+   while(!keywordJob&&Date.now()<deadline){
+     const status=await page.evaluate(()=>fetch('/api/maintenance').then(r=>r.json()));
+     keywordJob=status.jobs.find(job=>job.kind==='search-keyword');
+     if(!keywordJob)await page.waitForTimeout(100);
+   }
+   assert.equal(keywordJob?.state,'succeeded',JSON.stringify(keywordJob)||'Keyword job did not finish');
    await toast(page,'Search index (keywords only) finished').waitFor({timeout:60000});
    await page.locator('[data-index=search][data-state=partial]').waitFor({timeout:15000});
    assert.equal(await page.locator('#recent-runs [data-job-state=failed]').count(),1);
