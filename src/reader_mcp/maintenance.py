@@ -3,7 +3,8 @@
 One job runs at a time in a background thread of the web server. Rebuilds reuse
 the existing guarded entry points: the search index runs in the bounded worker
 of `search_guard.run_index`, and browse and catalog keep their own locks. Job
-history lives in memory only; freshness is always measured again."""
+history and the last observed freshness live in memory. Reading status never
+starts an audit; rebuilds verify only the projections they can affect."""
 from collections import deque
 from contextlib import closing
 from datetime import datetime, timezone
@@ -38,6 +39,12 @@ JOBS = {
 COMPANION_JOBS = frozenset({'install-colorful', 'update-colorful', 'install-wide-md', 'update-wide-md', 'start-ai-tts'})
 INDEX_OF = {'search': 'search', 'search-keyword': 'search', 'browse': 'browse', 'catalog': 'catalog', 'links': 'links',
             'remove-legacy-search': 'search'}
+AFTER_BUILD = {kind: (index,) for kind, index in INDEX_OF.items()} | {
+    # Browse publishes the work inventory used by the link graph and capacity report.
+    'browse': ('browse', 'links', 'limits'),
+}
+CHECK_LABELS = {'search': 'Search index', 'browse': 'Browse indexes', 'catalog': 'Catalog SQL mirror',
+                'links': 'Link graph', 'limits': 'Other inventories'}
 LEGACY_FILES = ('search.sqlite3', 'search.sqlite3-wal', 'search.sqlite3-shm', 'search.sqlite3-journal')
 
 
@@ -90,6 +97,8 @@ class Maintenance:
         with self.lock:
             if self.running:
                 raise BlockingIOError(f'{JOBS[self.running["kind"]]} is already running')
+            if self.checking:
+                raise BlockingIOError('A freshness check is already running')
             job = {'id': uuid.uuid4().hex, 'kind': kind, 'label': JOBS[kind], 'state': 'running',
                    'started_at': stamp(), 'finished_at': None, 'elapsed_seconds': None, 'result': None, 'error': None,
                    'quiet': bool(quiet), 'progress': None}
@@ -105,52 +114,52 @@ class Maintenance:
 
     def _run(self, job):
         started = time.monotonic()
+        state, result, error = 'succeeded', None, None
         try:
             result = self.runners[job['kind']]()
-            job.update(state='succeeded', result=result)
         except Exception as exc:  # A failed job is reported, never raised into the server.
-            job.update(state='failed', error=short(exc))
+            state, error = 'failed', short(exc)
             if os.environ.get('READER_DEBUG'):
                 traceback.print_exc()
-        job.update(finished_at=stamp(), elapsed_seconds=round(time.monotonic() - started, 2))
+        # Failed writers may also change output. Keep admission through verification
+        # so another API client cannot slip into the gap after a rebuild.
+        if job['kind'] in AFTER_BUILD:
+            try:
+                self.check(AFTER_BUILD[job['kind']])
+            except Exception as exc:
+                state = 'failed'
+                error = short(f'{error + "; " if error else ""}Verification failed: {short(exc)}')
         with self.lock:
+            job.update(state=state, result=result, error=error, finished_at=stamp(),
+                       elapsed_seconds=round(time.monotonic() - started, 2))
             self.jobs.appendleft(dict(job))
             self.running = None
-            self.checking = job['kind'] != 'check' and job['kind'] not in COMPANION_JOBS
-        # A rebuild changes what is fresh; measure again so the page never shows stale status.
-        # A quiet link-graph build re-measures only its own card.
-        if job['quiet']:
-            try:
-                links = self.links.check() | {'checked_at': stamp()}
-                with self.lock:
-                    if self.checks:
-                        self.checks = self.checks | {'links': links}
-            except Exception:
-                pass
-            finally:
-                with self.lock:
-                    self.checking = False
-        elif job['kind'] != 'check' and job['kind'] not in COMPANION_JOBS and self.runners.get('check'):
-            try:
-                self.check()
-            except Exception:
-                pass
-            finally:
-                with self.lock:
-                    self.checking = False
 
     # Checks ---------------------------------------------------------------
 
-    def check(self):
-        results = {}
-        for name, probe in (('search', self.search_check), ('browse', self.browse_check), ('catalog', self.catalog_check),
-                            ('links', self.links.check), ('limits', self.limits_check)):
-            try:
-                results[name] = probe() | {'checked_at': stamp()}
-            except Exception as exc:
-                results[name] = {'state': 'error', 'message': short(exc), 'checked_at': stamp()}
+    def check(self, names=None):
+        """Publish each measurement as it completes, preserving other saved checks."""
+        names = tuple(CHECK_LABELS) if names is None else tuple(names)
+        probes = {'search': self.search_check, 'browse': self.browse_check, 'catalog': self.catalog_check,
+                  'links': lambda: self.links.check(), 'limits': self.limits_check}
         with self.lock:
-            self.checks = results
+            if self.checking:
+                raise BlockingIOError('A freshness check is already running')
+            self.checking = True
+        results = {}
+        try:
+            for step, name in enumerate(names, 1):
+                self.progress(f'Checking {CHECK_LABELS[name]} ({step}/{len(names)})')
+                try:
+                    result = probes[name]() | {'checked_at': stamp()}
+                except Exception as exc:
+                    result = {'state': 'error', 'message': short(exc), 'checked_at': stamp()}
+                results[name] = result
+                with self.lock:
+                    self.checks = self.checks | {name: result}
+        finally:
+            with self.lock:
+                self.checking = False
         return {name: value['state'] for name, value in results.items()}
 
     def library_files(self):

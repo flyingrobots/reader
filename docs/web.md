@@ -1249,15 +1249,9 @@ time limit finishes with "Stopped at the time limit; N passages saved. Run again
 continue." in its toast and in Recent runs. A failed run shows the worker's last
 meaningful error line, not its log tail.
 
-Opening the Indexes page runs a freshness check when the last one is older than two
-minutes (the Overview never does). **Check again** reruns it, and every rebuild is followed by one. On a
-large vault the browse check takes about ten seconds. A catalog check can refuse
-outright: for example, an inventory over the 50,000-file / 2 GiB catalog limit, or
-a duplicate `document_id`, shows as Error with that message. Jobs run one at a time in a background thread of
-the web server. While one runs, every rebuild button is disabled. The page explains this shared job slot and shows elapsed time for a running freshness check; cached measurements stay visible. This layout does not change the cost of the full audit or introduce a maintenance queue. A second start
-is refused with HTTP 429. **Recent runs** lists this server process's last 20 jobs
-with their results or errors. Job history is not persisted; freshness is always
-measured again.
+Opening Indexes reads saved status without starting a check or rebuild, even when measurements are old or absent. **Run full check** explicitly measures all indexes. It reports its current probe and publishes each result as it finishes. Saved observations retain their individual checked timestamps; they do not prove that sources are still unchanged.
+
+Rebuilds verify only affected projections: Search, Catalog and Links check themselves; Browse also checks Links and Other inventories because they use its published work inventory. Failed writes are verified too. The maintenance slot remains held through verification, which is included in the job's elapsed time. Other API starts receive HTTP 429 while that slot is occupied. The UI disables maintenance actions during the same interval, while reading and status access remain available. Full checks can still be expensive: Browse renders navigation and Catalog hashes sources. Native lock waits have no general deadline. Jobs and saved checks live only in server memory; a restart shows unmeasured indexes until an explicit check or rebuild. There is no maintenance queue or Git-based invalidation.
 
 Job toasts use shadcn **Sonner**. A start shows a loading toast, which the same
 toast replaces with success (with a summary) or failure (with the error, shown for

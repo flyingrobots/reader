@@ -102,3 +102,95 @@ def test_search_card_reports_usage_against_budgets(vault):
     assert check['usage']['passages'] == [2, 50] and check['usage']['database'][1] == 32 * 1024 ** 2
     assert 0 < check['usage']['database'][0] <= 32 * 1024 ** 2 and check['path_only_machine'] == 1
     assert check['complete'] is True and check['passages'] == 2
+
+
+@pytest.mark.parametrize(('kind', 'expected'), [
+    ('search', ['search']), ('search-keyword', ['search']), ('remove-legacy-search', ['search']),
+    ('browse', ['browse', 'links', 'limits']), ('catalog', ['catalog']), ('links', ['links']),
+])
+def test_rebuild_verifies_only_affected_projections(vault, monkeypatch, kind, expected):
+    m = Maintenance(vault, {kind: lambda: {'changed': 1}})
+    old = {'state': 'stale', 'checked_at': '2000-01-01T00:00:00Z', 'message': 'Prior observation'}
+    m.checks = {name: dict(old) for name in ('search', 'browse', 'catalog', 'links', 'limits')}
+    calls = []
+    def probe(name):
+        def run():
+            calls.append(name)
+            return {'state': 'current'}
+        return run
+    for name in ('search', 'browse', 'catalog', 'limits'):
+        monkeypatch.setattr(m, name + '_check', probe(name))
+    monkeypatch.setattr(m.links, 'check', probe('links'))
+    m.start(kind)
+    status = wait(m)
+    assert calls == expected
+    assert status['jobs'][0]['state'] == 'succeeded'
+    for name, result in status['checks'].items():
+        if name in expected:
+            assert result['state'] == 'current' and result['checked_at'] != old['checked_at']
+        else:
+            assert result == old, 'An unrelated observation must keep its original age and state'
+
+
+def test_full_check_publishes_each_result_and_reports_progress(vault, monkeypatch):
+    m = Maintenance(vault)
+    entered, release = threading.Event(), threading.Event()
+    old = {'state': 'current', 'checked_at': '2000-01-01T00:00:00Z'}
+    m.checks = {'catalog': old}
+    monkeypatch.setattr(m, 'search_check', lambda: {'state': 'stale'})
+    def slow_browse():
+        entered.set()
+        assert release.wait(5)
+        raise ValueError('Synthetic invalid metadata')
+    monkeypatch.setattr(m, 'browse_check', slow_browse)
+    try:
+        m.start('check')
+        assert entered.wait(5)
+        status = m.status()
+        assert status['checking'] and status['running']['state'] == 'running'
+        assert status['running']['progress'] == 'Checking Browse indexes (2/5)'
+        assert status['checks']['search']['state'] == 'stale'
+        assert status['checks']['catalog'] == old
+        assert status['jobs'] == []
+    finally:
+        release.set()
+    status = wait(m)
+    assert status['checks']['browse']['state'] == 'error'
+    assert status['checks']['browse']['message'] == 'Synthetic invalid metadata'
+    assert status['checks']['catalog']['state'] == 'missing'
+    assert status['jobs'][0]['result']['limits'] == 'ok', 'Later probes still run after an error'
+
+
+def test_rebuild_keeps_admission_until_verification_finishes(vault, monkeypatch):
+    m = Maintenance(vault, {'search': lambda: {'changed': 1}})
+    entered, release = threading.Event(), threading.Event()
+    def verify():
+        entered.set()
+        assert release.wait(5)
+        return {'state': 'current'}
+    monkeypatch.setattr(m, 'search_check', verify)
+    try:
+        job = m.start('search')
+        assert entered.wait(5)
+        status = m.status()
+        assert status['running']['id'] == job['id'] and status['running']['state'] == 'running'
+        assert status['running']['finished_at'] is None and status['jobs'] == []
+        assert status['checking']
+        with pytest.raises(BlockingIOError):
+            m.start('catalog')
+    finally:
+        release.set()
+    assert wait(m)['jobs'][0]['state'] == 'succeeded'
+
+
+def test_failed_rebuild_still_verifies_its_partial_output(vault, monkeypatch):
+    def broken():
+        raise ValueError('Writer stopped partway')
+    m = Maintenance(vault, {'search': broken})
+    m.checks = {'search': {'state': 'current', 'checked_at': '2000-01-01T00:00:00Z'}}
+    monkeypatch.setattr(m, 'search_check', lambda: {'state': 'partial'})
+    m.start('search')
+    status = wait(m)
+    assert status['jobs'][0]['state'] == 'failed'
+    assert status['jobs'][0]['error'] == 'Writer stopped partway'
+    assert status['checks']['search']['state'] == 'partial'

@@ -45,8 +45,8 @@ export type AdminContext={
   localModelAction:(action:string,payload?:Record<string,unknown>)=>Promise<unknown>;
   companionAction:(name:string,action:string,extra?:Record<string,unknown>)=>Promise<unknown>;
   refreshCompanions:()=>void;
-  /** Index freshness: read the status, and run the light freshness check when the last one is old (Indexes only). */
-  checkIndexes:()=>void;
+  /** Read saved index measurements without starting a freshness audit. */
+  refreshIndexes:()=>void;
   /** Keep the local-model status polled while `element` is on screen. */
   watchLocalModel:(element:HTMLElement)=>void;
   settings:ReactNode;themeEditor:()=>void;

@@ -5,13 +5,20 @@ const {chromium}=require(process.env.READER_PLAYWRIGHT||'playwright-core');
 try{const {url}=await new Promise((resolve,reject)=>{createInterface({input:fixture.stdout}).once('line',s=>resolve(JSON.parse(s)));fixture.once('exit',c=>reject(Error('fixture '+c)));});
 browser=await chromium.launch({headless:true,executablePath:process.env.READER_CHROME||'/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',args:['--disable-gpu','--disable-background-networking','--disk-cache-size=10485760']});
 const page=await browser.newPage({viewport:{width:1440,height:1000},reducedMotion:'reduce'}),errors=[],posts=[];page.on('pageerror',e=>errors.push(e.message));page.on('request',r=>{if(r.method()==='POST'&&r.url().endsWith('/api/maintenance'))posts.push(r.postDataJSON());});
-const now=new Date().toISOString(),check=(state,extra={})=>({state,checked_at:now,message:'Synthetic measurement',...extra});
+// Old observations must remain usable without a page visit silently starting an audit.
+const now=new Date().toISOString(),check=(state,extra={})=>({state,checked_at:'2000-06-01T12:00:00Z',message:'Synthetic measurement',...extra});
 let unavailable=false,status={running:null,checking:false,jobs:[{id:'done',kind:'check',label:'Freshness check',state:'succeeded',started_at:now,finished_at:now,elapsed_seconds:26,result:{search:'partial'}}],checks:{
 search:check('partial',{text_documents:100,unembedded:25,documents:120,files:130,passages:1000,usage:{database:[250*2**20,1000*2**20],cache:[100*2**20,1000*2**20],passages:[1000,4000]}}),
 browse:check('current',{works:120,changed:0}),catalog:check('current',{documents:120,usage:{files:[120,50000],sources:[500*2**20,2000*2**20]}}),links:check('stale',{new:4,changed:2}),
 limits:check('over',{items:[{key:'works',label:'Works',used:12000,limit:10000},{key:'inbox',label:'Inbox files',used:null,limit:10000},{key:'threads',label:'Annotation threads',used:5,limit:100}]})},kinds:{}};
-await page.route('**/api/maintenance',route=>route.request().method()==='GET'?route.fulfill({status:unavailable?503:200,json:unavailable?{error:'Synthetic offline'}:status}):route.continue());
+await page.route('**/api/maintenance',route=>route.request().method()==='GET'?route.fulfill({status:unavailable?503:200,json:unavailable?{error:'Synthetic offline'}:status}):route.fulfill({json:{id:'requested-'+posts.length,kind:route.request().postDataJSON().kind,label:'Synthetic requested job',state:'running',started_at:now,finished_at:null,elapsed_seconds:null,result:null,error:null}}));
 await page.goto(url+'#admin/indexes');await page.locator('[data-index-chart=coverage] svg[role=group] path').first().waitFor();
+assert.equal(posts.length,0,'opening Indexes with old measurements does not start maintenance');
+assert.ok(await page.locator('[data-job=catalog]').isEnabled());assert.ok(await page.locator('[data-saved-measurements]').isVisible());
+assert.match(await page.locator('#index-inspector [data-fact=checked]').textContent(),/2000/);
+await page.locator('[data-admin-nav=settings]').click();await page.locator('#preferences-form').waitFor();
+await page.locator('[data-admin-nav=indexes]').click();await page.locator('[data-index-fleet]').waitFor();
+assert.equal(posts.length,0,'revisiting Indexes does not recheck already-stale results');
 assert.equal(await page.locator('[data-index-chart=coverage] svg[role=group]').textContent().then(s=>s.includes('75%')),true);
 assert.equal(await page.locator('#indexing-guide').count(),0,'inline guide moved to reference');
 await page.locator('#admin-doc-model-use-and-determinism').waitFor({state:'attached'});assert.deepEqual(await page.locator('#admin-doc-body h2').allTextContents(),[...readFileSync('docs/topics/indexes.md','utf8').matchAll(/^## (.+)$/gm)].map(match=>match[1]),'viewer renders canonical topic headings');assert.match(await page.locator('#admin-doc-body').textContent(),/no recurring index-rebuild schedule/);
@@ -34,7 +41,15 @@ await page.setViewportSize({width:390,height:844});await page.getByRole('button'
 await page.setViewportSize({width:1440,height:1000});await page.screenshot({path:'.reader/web-dev/indexes-dashboard.png',fullPage:true});assert.equal(posts.length,0,'chart interactions never launch rebuilds');
 await page.getByRole('button',{name:'About Index update policy',exact:true}).click();assert.equal(await page.locator('#admin-reference-pane').getAttribute('data-doc-section'),'update-policy-and-schedules');
 await Promise.all([page.waitForRequest(r=>r.method()==='POST'&&r.url().endsWith('/api/maintenance')),page.locator('[data-index-fleet] [data-rebuild-status=search]').click()]);assert.equal(posts.at(-1)?.kind,'search','status button starts the complete search rebuild');
+const saved=status;
+status={...status,checks:{},jobs:[]};await page.reload();await page.locator('[data-index=search][data-state=unknown]').waitFor();
+assert.ok(await page.locator('[data-job=catalog]').isEnabled(),'unmeasured indexes can be updated directly');
+assert.equal(posts.length,1,'an empty measurement cache does not start a full audit');
+await Promise.all([page.waitForRequest(r=>r.method()==='POST'&&r.url().endsWith('/api/maintenance')),page.locator('#maintenance-check').click()]);
+assert.equal(posts.at(-1)?.kind,'check','a full check remains explicitly available');
+status=saved;
 status={...status,running:{id:'active',kind:'check',label:'Freshness check',state:'running',started_at:new Date(Date.now()-23000).toISOString()},checking:false};await page.reload();await page.locator('[data-index-busy]').waitFor();assert.ok(await page.locator('#maintenance-check').isDisabled());assert.ok(await page.locator('[data-job=catalog]').isDisabled());assert.ok(await page.locator('[data-index-fleet] [data-rebuild-status=search]').isDisabled());assert.match(await page.locator('#backstage-indexes').textContent(),/Checking freshness/);assert.ok(await page.getByRole('button',{name:'Needs embeddings: 25 text documents',exact:true}).isVisible(),'cached measurements stay visible during checking');
+status={...status,checking:true,running:{...status.running,progress:'Checking Browse indexes (2/5)'}};await page.reload();await page.getByRole('status').filter({hasText:'Checking Browse indexes (2/5)'}).first().waitFor();
 status={...status,checks:{}};await page.reload();await page.locator('[data-index-busy]').waitFor();assert.equal(await page.locator('[data-index-chart=coverage] svg[role=group]').count(),0);assert.match(await page.locator('[data-index-chart=capacity]').textContent(),/Missing values are not zero/);
 unavailable=true;await page.reload();await page.locator('#indexes-unavailable').waitFor();assert.ok(await page.locator('[data-job=search]').isDisabled());
 await page.getByRole('button',{name:'Hide documentation',exact:true}).click();await page.reload();await page.getByRole('button',{name:'Show documentation',exact:true}).waitFor();assert.ok(await page.locator('#admin-reference-pane').isHidden(),'visibility preference survives reload');

@@ -395,14 +395,6 @@ export async function localModelAction(action:string,payload:Record<string,unkno
   catch(error){toast.error('Local model: that didn’t work',{description:error instanceof Error?error.message:String(error),duration:8000});}
   finally{await pollLocalModel();}
 }
-/** Index freshness for Admin › Indexes: read the status and, as Behind the scenes did, run the light freshness check
- *  when the last one is over two minutes old. Never in the web demo, and never from Overview. */
-async function checkIndexes(){
-  if(needsReader()){if(!model.maintenance)pollMaintenance();return;}
-  if(!model.maintenance)await pollMaintenance();
-  const status=model.maintenance,checked=Object.values(status?.checks||{})[0]?.checked_at;
-  if(status&&!status.running&&!status.checking&&(!checked||Date.now()-+new Date(checked)>120000))startJob('check');
-}
 function watchLocalModel(element:HTMLElement){localHost=element;pollLocalModel();}
 function AdminView({library}:{library?:LibraryActions}){
   const current=useSyncExternalStore(subscribe,snapshot);
@@ -414,7 +406,7 @@ function AdminView({library}:{library?:LibraryActions}){
     localModel:current.localModel,localModelError:current.localModelError,companions:current.companions,companionsError:current.companionsError,
     api:controlActions.api,markdown:controlActions.markdown,open:controlActions.open,
     href:controlActions.adminHref,go:controlActions.adminGo,backToLibrary:controlActions.backToLibrary,
-    startJob,startInbox,stopInbox,localModelAction,companionAction,refreshCompanions,checkIndexes,watchLocalModel,
+    startJob,startInbox,stopInbox,localModelAction,companionAction,refreshCompanions,refreshIndexes:pollMaintenance,watchLocalModel,
     settings:<SettingsForm model={current} actions={controlActions}/>,themeEditor:()=>controlActions.themeEditor(true),library};
   return <AdminShell context={context}/>;
 }
