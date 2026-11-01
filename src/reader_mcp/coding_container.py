@@ -147,7 +147,9 @@ class ContainerJob(Job):
         self.emit('phase', phase='worktree', state='completed')
 
     def resolve(self, name):
-        result = self.command(['/bin/sh', '-c', 'command -v -- "$1"', 'reader', name], cwd=self.workspace, check=False)
+        result = self.command(['/usr/bin/python3', '-I', '-S', '-c',
+            'import os,shutil,sys;p=shutil.which(sys.argv[1]);sys.exit(1) if p is None else print(os.path.abspath(p))', name],
+            cwd=self.workspace, check=False)
         path = result.stdout.strip()
         if result.returncode or not path.startswith('/') or '\n' in path:
             raise Stop('blocked', name + ' is not installed inside the container. Prepare its tooling; no host executable is used.')

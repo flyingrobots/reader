@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Resolve repository-relative verification executables inside the job workspace instead of reporting them as missing tooling.
+
 - Compress the separately bounded Linux formatter during validation transfer and restore it in the worker, preserving its bytes and the existing source/artifact limits.
 
 - Add guarded preparation/reuse of the fixed managed coding image. Real Docker job validation exposed and fixed cancellation classification, transient descriptor-scan denial and unconfirmed client-cleanup handling.

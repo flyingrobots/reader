@@ -64,7 +64,7 @@ def test_unavailable_container_agent_does_not_fall_back_to_host(world):
         value = original(*args, **kwargs)
         command = value.command
         def missing(argv, *a, **k):
-            if argv[:2] == ['/bin/sh', '-c'] and argv[-1] == world.container_entry['executables']['codex']:
+            if argv[-1] == world.container_entry['executables']['codex']:
                 return subprocess.CompletedProcess(argv, 1, '', 'not found')
             return command(argv, *a, **k)
         value.command = missing
@@ -171,3 +171,22 @@ def test_stop_after_docker_exit_is_cancelled_instead_of_exit_137(world):
     run, _ = world.run()
     assert run['outcome'] == 'cancelled', run['message']
     assert run['pr'] is None and run['push'] is None and world.runtimes[0].closed
+
+
+def test_repository_relative_verifier_is_resolved_inside_the_job_workspace(world):
+    seed=world.tmp/'seed'
+    verifier=seed/'verify.sh'
+    verifier.write_text('#!/bin/sh\ntest -f src/depth.txt\n')
+    verifier.chmod(0o755)
+    git('add','verify.sh',cwd=seed)
+    git('commit','-q','-m','Add project verification executable',cwd=seed)
+    git('push','-q','origin','main',cwd=seed)
+    world.base_sha=git('rev-parse','HEAD',cwd=seed)
+    raw=json.loads(json.dumps(world.container_entry))
+    raw['environment']['revision']=world.base_sha
+    raw['verify']['argv']=['./verify.sh']
+    world.jobs.registry.write({'acme/widget':raw})
+    run,_=world.run()
+    assert run['outcome']=='pr_opened',run['message']
+    assert run['verification']['exit_code']==0
+    assert snapshot(world.checkout)==world.before
