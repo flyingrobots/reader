@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Validate pinned base manifests independently of Docker’s local image/configuration IDs, supporting classic image stores without a mutable-tag fallback.
+
 - Resolve repository-relative verification executables inside the job workspace instead of reporting them as missing tooling.
 
 - Compress the separately bounded Linux formatter during validation transfer and restore it in the worker, preserving its bytes and the existing source/artifact limits.

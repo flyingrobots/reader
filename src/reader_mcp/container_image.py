@@ -6,6 +6,7 @@ The legacy builder is required for explicit build CPU/memory flags; unsupported 
 import hashlib
 import json
 import os
+import re
 from pathlib import Path
 import shutil
 import sys
@@ -90,9 +91,10 @@ def prepare(root, lock_store, *, run=execute, docker=None, lock_tool=None, recip
             path.mkdir(exist_ok=True)
         env = dict(os.environ, DOCKER_BUILDKIT='0', TMPDIR=str(folder/'tmp'), XDG_CACHE_HOME=str(folder/'cache'))
         host_usage(folder, clients)
-        bases = [inspect('image', tag) for tag in BASES]
-        if any(image.get('Id') != BASES[tag] or image.get('Size', 4*GIB) > 2*GIB
-                or (image.get('Config') or {}).get('Volumes') for tag,image in zip(BASES,bases)):
+        # The FROM pin is a manifest reference; Docker's local Id can instead be a configuration digest.
+        bases = [inspect('image', tag+'@'+digest) for tag,digest in BASES.items()]
+        if any(not isinstance(image.get('Id'), str) or not re.fullmatch(r'sha256:[0-9a-f]{64}', image['Id'])
+                or image.get('Size', 4*GIB) > 2*GIB or (image.get('Config') or {}).get('Volumes') for image in bases):
             raise ProcessError('Cached immutable base images differ or exceed the fixed input bound; no pull was attempted')
         if inspect('container', NAME, optional=True) is not None:
             raise ProcessError('An image preparation probe already exists; inspect it before retrying')
@@ -107,7 +109,7 @@ def prepare(root, lock_store, *, run=execute, docker=None, lock_tool=None, recip
         for name,data in files.items():
             with os.fdopen(os.open(folder/'context'/name, os.O_WRONLY|os.O_CREAT|os.O_TRUNC|os.O_NOFOLLOW, 0o600),'wb') as stream:stream.write(data)
         contract = {'image': TAG,'recipe_sha256':digest,'lock_key':lease.key,'lock_store':str(store),
-            'inputs':BASES,'context_bytes':sum(map(len,files.values())),'build':'finite fixed COPY + public /etc copy; no pull, network RUN, repository source or dependency installation',
+            'inputs':BASES,'local_base_image_ids':{tag:image['Id'] for tag,image in zip(BASES,bases)},'context_bytes':sum(map(len,files.values())),'build':'finite fixed COPY + public /etc copy; no pull, network RUN, repository source or dependency installation',
             'output_bound':'copies subsets of two immutable <=2GiB inputs, with no data-generating command',
             'control_limit_bytes':8*1024**2,'build_log_limit_bytes':4*1024**2,'cpu':2,'memory_bytes':512*1024**2,
             'timeout_seconds':240,'host_free':shutil.disk_usage(root).free,'vm_free':vm_free}

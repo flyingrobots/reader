@@ -23,7 +23,8 @@ class Docker:
         self.calls.append((argv,kwargs));value=''
         if argv[1:3]==['image','inspect']:
             tag=argv[3]
-            if tag in module.BASES:value=[{'Id':module.BASES[tag],'Size':module.GIB,'Config':{}}]
+            if tag in module.BASES or tag in [name+'@'+digest for name,digest in module.BASES.items()]:
+                value=[{'Id':'sha256:'+'c'*64,'Size':module.GIB,'Config':{}}]
             elif self.image:value=[self.image]
             else:return SimpleNamespace(returncode=1,stdout='',stderr='No such image')
         elif argv[1:3]==['container','inspect']:
@@ -107,3 +108,14 @@ def test_failed_host_client_cleanup_does_not_release_the_image_lease(control):
     with pytest.raises(ProcessError,match='cleanup is unconfirmed'):
         module.prepare(control[0],control[1],run=failed,docker='docker',lock_tool='locks')
     assert not control[3][-1].released
+
+
+def test_mutable_tag_cannot_substitute_for_an_unavailable_manifest_pin(control):
+    original=control[2].__call__
+    def missing_pin(argv,**kwargs):
+        if argv[1:3]==['image','inspect'] and '@' in argv[3]:
+            return SimpleNamespace(returncode=1,stdout='',stderr='No such image: pinned reference')
+        return original(argv,**kwargs)
+    with pytest.raises(ProcessError,match='Could not inspect'):
+        module.prepare(control[0],control[1],run=missing_pin,docker='docker',lock_tool='locks')
+    assert not any(argv[1] in ('run','build') for argv,_ in control[2].calls)
