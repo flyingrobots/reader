@@ -936,3 +936,29 @@ def test_missing_document_is_a_clear_404_and_other_refusals_stay_400(web):
     assert request('/api/document?path=library/../outside')[0] == 400
     # Link resolution still treats a missing candidate as "try the next one".
     assert request('/api/resolve?from=library/thought.md&target=other.md')[1]['path'] == 'library/other.md'
+
+
+def test_portable_links_are_read_only_and_bound_to_current_source(web, monkeypatch):
+    from reader_mcp.portable_links import PortableLinks, atomic, public_record
+    from urllib.parse import urlencode
+    root, library, _, request = web
+    file = root / 'library/thought.md'
+    file.write_text(file.read_text() + '\n[Repository](file:///unavailable)\n')
+    original = file.read_bytes()
+    sha = hashlib.sha256(original).hexdigest()
+    record = {'schema_version': 1, 'path': 'library/thought.md', 'source_sha256': sha, 'targets': [
+        {'source_url': 'file:///unavailable', 'label': 'Repository', 'kind': 'link',
+         'status': 'resolved', 'target': 'https://github.com/example/verified'}]}
+    engine = PortableLinks(root)
+    atomic(engine.record_path(record['path']), record)
+    monkeypatch.setattr(PortableLinks, 'resolve', lambda *a: pytest.fail('Rendering must never probe local targets'))
+    url = '/api/portable-links?' + urlencode({'path': record['path'], 'sha256': sha})
+    code, result, _ = request(url)
+    assert code == 200 and result == public_record(record)
+    assert 'file:' not in json.dumps(result)
+    assert file.read_bytes() == original
+    file.write_bytes(original + b'Changed source\n')
+    assert request(url)[0] == 400
+    fresh = '/api/portable-links?' + urlencode({'path': record['path'], 'sha256': hashlib.sha256(file.read_bytes()).hexdigest()})
+    code, result, _ = request(fresh)
+    assert code == 200 and result == {'targets': []}

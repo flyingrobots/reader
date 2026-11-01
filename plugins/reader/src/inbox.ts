@@ -1,8 +1,8 @@
-import { readFile } from 'node:fs/promises';
+import { readFile, lstat } from 'node:fs/promises';
 import { join } from 'node:path';
 
 export type InboxRun = { run_id?: string; status: string; supervisor_pid?: number; message: string };
-export type InboxCoordination = { run?: InboxRun; claims: string[]; errors: string[] };
+export type InboxCoordination = { run?: InboxRun; claims: string[]; errors: string[]; pending?: boolean };
 
 /** Completed-run snapshots do not describe the current inbox after later filing. */
 export function currentInboxRunMessage(run?: InboxRun): string {
@@ -12,6 +12,13 @@ export function currentInboxRunMessage(run?: InboxRun): string {
 /** Read reservations as well as runner state; a reservation does not prove a worker is alive. */
 export async function readInboxCoordination(base: string): Promise<InboxCoordination> {
   const result: InboxCoordination = { claims: [], errors: [] };
+  for (const name of ['pending.json','queue.json']) {
+    try {
+      const info=await lstat(join(base,'.reader/inbox-runner',name));
+      if(info.isSymbolicLink()||!info.isFile())result.errors.push('Unsafe inbox recovery journal.');
+      else result.pending=true;
+    } catch(error) { if((error as NodeJS.ErrnoException).code!=='ENOENT')result.errors.push(String(error)); }
+  }
   const names = ['inbox-runner/state.json', 'upkeep-claims.json'];
   const reads = await Promise.allSettled(names.map(async name => {
     try { return JSON.parse(await readFile(join(base, '.reader', name), 'utf8')) as unknown; }

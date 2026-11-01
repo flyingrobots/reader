@@ -5,7 +5,7 @@ import {installLinks} from './links.mjs';
 import {mathPlugin,mathOptions} from './math.mjs';
 import {openPDF,pdfPage} from './pdf.mjs';
 import {embedPlugin,installEmbeds} from './embeds.mjs';
-import {portableLinkPlugin} from './portable-links.mjs';
+import {portableLinkPlugin,portableEnvironment} from './portable-links.mjs';
 import {installBreadcrumbs} from './breadcrumbs.mjs';
 import {readingLogModel,withYou} from './reading-log.mjs';
 import {modalOpen} from './modal.mjs';
@@ -725,7 +725,7 @@ async function renderMarkdown(container,raw,path,depth,{defer=false,range=null,c
     try{
       const bytes=new TextEncoder().encode(raw),hash=await crypto.subtle.digest('SHA-256',bytes);
       const sha=[...new Uint8Array(hash)].map(n=>n.toString(16).padStart(2,'0')).join('');
-      env.portableLinks=await api('/api/portable-links?path='+param(path)+'&sha256='+sha);
+      env.portableLinks=await portableEnvironment(md,source.text,await api('/api/portable-links?path='+param(path)+'&sha256='+sha));
     }catch(error){console.warn('Local link repairs unavailable',error);}
   }
   const rendered=md.render(source.text,env);

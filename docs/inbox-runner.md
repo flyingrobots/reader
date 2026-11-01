@@ -1,41 +1,122 @@
-# Process inbox from Obsidian
+# Deterministic inbox processing
 
-Reader shows a prominent **Process inbox** button and a pending-arrival count when `inbox/` contains material. The root `inbox/README.md`, hidden files, operating-system metadata files (`Thumbs.db`, `desktop.ini`), symlinks, and empty directories are excluded. Files in one top-level bundle count as one arrival. Detection updates after vault events and on a two-second check; it never starts processing automatically.
+Reader's **You got mail**, Obsidian's **Process inbox**, and the installed
+`you-got-mail` skill start the same local supervisor. Delivery alone does not
+start filing. The workflow requires an existing Reader environment, an
+initialized vault Git repository with a configured commit identity, git-locks,
+and an authenticated Codex CLI. Install the pinned wide-md companion for
+reading derivatives; formatter refusals remain visible in the report.
 
-Clicking the button launches the existing Codex CLI as a separate background librarian run in this vault. The button is disabled while a run is starting or active. **Stop** requests termination of the run's process group; partial changes are retained for inspection. Closing the sidebar or reloading the plugin does not stop the run. **Run details** shows the final librarian report and bounded diagnostics. “Codex finished” describes process completion, not an independent certificate that every filing step passed; inspect its report and any remaining arrivals.
+The script owns inventory, preservation, filing, validation and commits. Codex
+supplies bounded editorial decisions through a JSON schema. It runs read-only,
+without the operator's MCP/app configuration, shell tools, subagents, web search
+or project instructions. Existing legacy permission arguments remain accepted
+for older clients, but do not grant the editorial model write access.
 
-The Inbox lists an open button for each arrival. Filing reservations held by an agent disable **Process inbox** with an **Filing already assigned** explanation; reservations are not evidence that the agent is still running. Finish or reconcile that intake before starting another run. Coordination read errors also prevent a new launch. **Run details** opens immediately, refreshes status, and explains when no report has been written. Saved report files are historical diagnostics and do not by themselves prove the latest launch ran.
+## Entry points
 
-## Deterministic work and librarian judgment
+From the configured code checkout:
 
-The supervisor inventories at most 10,000 arrival files, serializes runs with a filesystem lock, launches Codex with a fixed task prompt, tracks process status, limits outputs, and reports failures. Existing delivery, receipt, formatting, metadata, and search tools provide deterministic operations within the workflow.
+```sh
+python3 skills/you-got-mail/scripts/process.py status
+python3 skills/you-got-mail/scripts/process.py start
+python3 skills/you-got-mail/scripts/process.py status
+python3 skills/you-got-mail/scripts/process.py stop
+```
 
-Codex follows `AGENTS.md` and the documented intake procedure. It selects collections, preserves editions and receipts, creates wide-md reading copies, maintains catalogs, verifies results, and commits the completed import batch locally. It considers substantive connections and reactions without a quota. Source documents are data, not instructions. Unrelated dirty work and later arrivals must remain outside the batch. The prompt explicitly excludes remote publication, global configuration changes, other agents, and unsolicited speech.
+Equivalent CLI actions are `reader --root /path/to/vault inbox start|status|stop`.
+`start` returns the run identity without waiting. Inspect `status` for completion
+and the report; use `stop` for explicit cancellation. These commands never push
+or publish. A successful launch is not a completed import.
 
-## Setup and launch contract
+Only one supervisor runs per vault. Existing Upkeep intake claims and active
+voice-chat turns block admission. Finish or reconcile those owners before
+starting. A starting, running or interrupted inbox job blocks new Upkeep claims.
 
-Install Reader's Python environment with `uv sync --locked`. Install and authenticate Codex separately (`codex login`). Reader detects the executable from the inherited PATH and common user/Homebrew locations; **Settings → Reader → Codex executable** accepts an explicit path when the GUI environment differs from the terminal. This feature currently requires macOS or Linux.
+## Selection and editorial work
 
-The plugin starts `.venv/bin/python -m reader_mcp.inbox_runner` with explicit vault and executable arguments, without a shell. The supervisor uses `codex exec --cd VAULT --sandbox workspace-write -c 'approval_policy="never"' --ephemeral --json --color never --output-last-message REPORT -`, with repeatable `--add-dir` arguments for the resolved Git metadata directories and git-locks stores. The prompt is supplied through stdin. Your Codex model/account configuration remains in effect. The additional directories permit authorized commits and lock acquisitions while retaining the workspace sandbox. Git metadata is resolved through Git, including common and worktree-specific directories. When git-locks is installed, its `store` command resolves the vault store using the inherited environment and Git configuration; only that exact directory is granted, never its home-directory parent. Set **Settings → Reader → Workstation git-locks store** to the existing Git directory used for shared host resources. The plugin passes `--workstation-lock-store PATH`; the supervisor validates the directory, grants it separately, and tells the job to use `GIT_LOCKS_STORE` explicitly for host-resource commands. No alternative lock authority is created to bypass contention. A missing or invalid configured store fails before launching Codex. Resolved writable roots are recorded in `state.json`.
+The runner freezes the selected file inventory, including substantive hidden
+attachments. It rejects symlinks, embedded Git metadata, non-regular entries,
+changing sources and invalid delivery receipts. It hashes every source before
+classification. Later arrivals are outside this queue.
 
-Codex must already be authenticated. Unsupported flags, authentication failures, sandbox refusals, and missing dependencies become failed/incomplete reports; the runner never switches permission modes automatically. **Inbox job permissions** defaults to **Sandboxed workspace**. An explicitly configured **Host access** mode launches `codex exec --sandbox danger-full-access` for trusted local librarian jobs. Some macOS Codex sandboxes deny process inspection needed by `git locks with` and the indexing RSS guard even after store directories become writable; directory grants alone do not solve that restriction. Host access permits filesystem changes outside the vault, so the resource supervisor and task prompt are not substitutes for a security sandbox. The run state records the selected mode, and time/memory/data/output monitoring remains active. See the [official non-interactive execution documentation](https://learn.chatgpt.com/docs/non-interactive-mode).
+The script automatically partitions the queue into sequential commit batches,
+keeping every original delivery bundle intact. It also partitions oversized
+editorial context into bounded calls and combines their structured observations.
+These are internal work boundaries: the user does not split deliveries or choose
+chunk sizes. Completed model responses are cached by context hash in the journal
+so an interrupted classification can resume without repeating those calls.
 
-## Runtime and recovery
+Context contains receipt provenance, the file inventory, existing collections,
+and at most 96 KiB of textual excerpts, with at most 16 KiB from one file. Coverage
+is explicit; a filename or truncated excerpt is not full reading. A model returns
+the source key and snapshot hash, a file/defer decision, collection, slug, title,
+source-stated author, bounded description and defer reason. Unknown authorship
+stays empty. Invalid output or stale identity cannot authorize filing. Original
+writing namespaces belonging to Reader librarian, Agy and Claude are reserved.
 
-Ignored `.reader/inbox-runner/` holds the lock, atomically replaced `state.json`, prompt, event output, diagnostics, report, cancellation request, and temporary files. One stable runtime directory is reused; a subsequent explicit run replaces the preceding report/logs. Copy evidence you need to retain before starting another run.
+## Filing and verification
 
-The supervisor has a 30-minute deadline. It monitors host free space (minimum 50 GiB), `.reader/` aggregate data (4 GiB), process-group RSS (4 GiB), and aggregate run output (16 MiB). Each stdout/stderr stream has an 8 MiB cap; children inherit a 3,600-second CPU limit. Temporary files use the owned runtime directory. A failed resource measurement or limit breach terminates the owned process group. These are polling/process controls, not a filesystem quota or a complete sandbox for all tools an agent could choose. Existing guarded project commands remain required for heavy work. Codex's own shared account/configuration state is managed by Codex, not counted as Reader's disposable run output.
+Each destination is `library/<collection>/<slug>-<snapshot-prefix>/`. The whole
+bundle moves into `originals/`; raw single files use the same layout. Receipts
+and original bytes remain unchanged. Catalog metadata uses independent sidecars
+for these originals, including supplied frontmatter that is invalid or already
+contains identity fields. Sibling reading copies retain their relative link
+base. [Portable link repairs](portable-links.md) run on originals and derivatives.
 
-If the supervisor disappears, the UI marks the run interrupted and refuses another launch. Inspect `state.json`, its process group, logs, and partial work. Confirm the recorded processes are absent (or stop the verified owned group), then remove only the stale `state.json` to allow retry. Do not infer completion from an empty inbox or delete library changes to clear a status. A normal failed/stopped run can be retried explicitly after inspecting its report. The lock prevents simultaneous launches from cooperating Reader runners, not an unrelated manually launched librarian session.
+The script acquires the vault's shared repository locks before mutation. It
+refuses unrelated dirty catalog/navigation outputs. Every generated write has a
+write-ahead hash and prepared bytes; retry accepts only its expected before/after
+state. It verifies payload hashes, receipt integrity, catalog SQL consistency and
+opted-in browse navigation, then commits exact owned files with normal Git hooks.
+Another participant's staged files and later arrivals are excluded.
+
+Canonical batch evidence lives in `activity/intake/<batch-id>.json`. Mechanical
+filing does not mark independent reading, advance curation receipts or generate
+quota-driven reaction essays. Search indexing remains a separate explicit action.
+
+## Recovery and limits
+
+Ignored `.reader/inbox-runner/` retains the frozen queue, pending batch journal,
+prepared output blobs, model context, schema, structured responses, state, logs
+and final result. A failed or stopped run keeps its queue and journal. Resolve
+the reported cause, then explicitly retry `start`, including when the inbox is
+empty because the batch already moved. Retries reconcile recorded destinations
+and bytes; they never infer completion from an empty inbox.
+
+A hook refusal remains an uncommitted batch. Repair the hook's reported cause;
+do not bypass it. Changed source bytes or edits to a journal-owned output require
+reconciliation. Preserve both versions and the journal rather than deleting
+records to force a restart. A previously existing destination is a conflict.
+
+If the supervisor disappears, status becomes interrupted. Verify the recorded
+supervisor and owned process groups, stop only processes confirmed to belong to
+that run, then remove only stale `state.json` to permit a retry. Keep `queue.json`,
+`pending.json` and prepared blobs. A lock left by a forcibly killed worker retains
+its recorded lease; never steal another owner's acquisition.
+
+The supervisor retains its 30-minute deadline, 50 GiB host free-space reserve,
+4 GiB runtime-data and process-memory bounds, 16 MiB aggregate output budget and
+8 MiB per-stream cap. It tracks descendant process groups and terminates them on
+cancellation or monitoring failure. The existing bounded-tmpfs exception applies
+in test workers. These process controls are not filesystem quotas. Inputs remain
+subject to the existing inbox/catalog capacity guards. Editorial calls have a
+10-minute timeout and bounded input/output; automatic partitioning handles call
+size, while invalid responses and exhausted resource budgets remain explicit
+failures with recovery evidence.
+
+Prepared generated output is capped at 128 MiB per commit batch. Queue/journal
+JSON is capped at 8 MiB. Local image imports and link records have their own
+[documented limits](portable-links.md). No heavy build or arbitrary source command
+is part of intake. Codex account/authentication state is managed by Codex outside
+Reader's disposable runtime output.
 
 ## Verification
 
-Run `uv run --locked pytest -q tests/test_inbox_runner.py`. Tests use a controlled executable to check argument/prompt delivery, reports, failures, empty inboxes, duplicate exclusion, and cancellation. Live acceptance must separately verify the Obsidian button and a real authenticated Codex run, including the resulting preserved files, catalog links, report, and local commit. Do not mistake a fake executable test for model-driven filing acceptance.
-
-For the installed sidebar check, run `python3 /path/to/reader-code/plugins/reader/tests/live/inbox.py` from the configured vault while holding its `inbox/` reservation and the workstation `host/services/obsidian-reader/` reservation. It requires the Obsidian CLI and an open Reader sidebar, temporarily adds and claims one synthetic arrival, checks opening, assignment feedback, details, and duplicate-run refusal, then releases and removes its fixture. It claims and releases through this checkout's `skills/upkeep/scripts/check.py`; add `--installed-skill` to exercise the Upkeep copy installed under `CODEX_HOME` (default `~/.codex`) instead. It does not launch a model-driven intake job.
-
-The runner also refuses to start while a web chat turn holds `.reader/voice-runner/run.lock`, because chat voices write in the vault too; chat turns in turn wait for an inbox run to finish. See [chat with the voices](web.md#chat-with-the-voices).
-
-Upkeep workers and the standalone runner share an intake admission mutex. Existing `.reader/upkeep-claims.json` owners block runner startup; finish or reconcile their batches before retrying. Starting/running/interrupted runner state blocks new Upkeep claims. See [claim coordination and recovery](engagement.md).
-
-The generated job prompt includes the running backend interpreter and explicit vault root as a JSON argument prefix. Maintenance commands use that prefix, so a private vault needs no local package manifest or virtual environment. The source inventory is still a separate untrusted JSON list.
+Use the repository's guarded Python runner for `tests/test_intake.py`,
+`tests/test_inbox_runner.py`, `tests/test_inbox_view.py`, and
+`tests/test_portable_links.py`; then run the full checks before landing. Synthetic
+fixtures exercise preservation, hidden attachments, context partitioning, later
+arrivals, invalid decisions, source mutation, write interruption, hook failure,
+retry ownership and child-process cancellation. A real authenticated model trial
+and installed entry-point check are separate acceptance evidence.

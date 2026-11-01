@@ -42,7 +42,7 @@ Plain files are the canonical record. Obsidian supplies browsing and search; Git
 
 Create collections from actual material rather than predicting a taxonomy. Use short lowercase hyphenated names for new folders and curated document filenames. A document normally lives at `library/<collection>/<descriptive-title>.md`. Resolve collisions with a meaningful qualifier, such as a known source date or version; never overwrite another document. Keep a stable path after filing unless a move provides a clear organizational benefit.
 
-MCP/CLI deliveries arrive as `inbox/<receipt-uuid>/` bundles. Their original payloads and `receipt.json` travel together when filed into `library/<collection>/<descriptive-name>/`. A librarian-created `index.md` catalog note holds curated frontmatter and links to the unchanged originals. This preserves receipt checksums and original relative attachment links. Direct-drop Markdown can still use frontmatter added to the source as described below.
+MCP/CLI deliveries arrive as `inbox/<receipt-uuid>/` bundles. Their original payloads and `receipt.json` travel together when filed into `library/<collection>/<descriptive-name>/`. A librarian-created `index.md` catalog note holds curated frontmatter and links to the unchanged originals. This preserves receipt checksums and original relative attachment links. Deterministic intake places every raw delivery under an `originals/` directory and uses independent catalog metadata, including for direct-drop Markdown.
 
 ## Documentation, plans, and activity
 
@@ -107,3 +107,7 @@ The sidebar separates Library, Discussion, and Inbox into keyboard-accessible ta
 ## Code and vault locations
 
 This reference describes the configured private vault unless a code checkout is explicitly named. See [separate-vault installation](separate-vault.md). Run software setup/build commands in the code checkout and pass the private vault explicitly to CLI commands and the plugin installer. `$READER_ROOT` is the private vault path. Source documents, runtime stores, and reading activity stay in the vault.
+
+## Deterministic intake and local references
+
+The [inbox supervisor](inbox-runner.md) freezes a queue and calls the model only for schema-validated editorial decisions. Script-owned write-ahead records protect recovery, preservation checks and exact-file commits. Oversized context and queues are partitioned automatically without splitting original bundles. [Portable link records](portable-links.md) bind prepared URL replacements to source hashes; rendering consumes them without changing document bytes or annotation coordinates.

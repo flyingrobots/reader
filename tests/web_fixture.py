@@ -12,43 +12,40 @@ from reader_mcp.web import WebHandler, WebLibrary, WebServer
 import test_theme_fixture
 
 
-FAKE_CODEX = """import json, pathlib, shutil, sys, time
+FAKE_CODEX = """import json, pathlib, re, sys, time
 args = sys.argv
 prompt = sys.stdin.read()
-# Replays a scripted `codex exec --json` sequence (tests/fixtures/codex-exec-scripted.jsonl) with short pauses,
-# so the transcript fills live. .fake-slow stalls before the first event; .fake-pause holds after the failed tests;
-# .fake-fail exits 1 with a Python traceback on stderr.
+root = pathlib.Path(__file__).parent.parent
+context = json.loads(prompt.rsplit('\\n\\n', 1)[1])
 script = pathlib.Path(SCRIPT).read_text().splitlines()
-print(json.dumps({'type': 'padding', 'data': 'x' * 70000}), flush=True)  # Over 64 KiB: the server drops the field.
-if pathlib.Path('.fake-slow').exists():
+if (root/'.fake-slow').exists():
     time.sleep(60)
-if pathlib.Path('.fake-fail').exists():
+if (root/'.fake-fail').exists():
     print(script[2], flush=True)
-    sys.stderr.write('Traceback (most recent call last):\\n  File "intake.py", line 3, in <module>\\nRuntimeError: synthetic intake failure\\n')
+    sys.stderr.write('RuntimeError: synthetic intake failure\\n')
     raise SystemExit(1)
-def file_mail():
-    filed = pathlib.Path('library/filed'); filed.mkdir(exist_ok=True)
-    for entry in sorted(pathlib.Path('inbox').iterdir()):
-        if entry.name != 'README.md' and not entry.name.startswith('.'):
-            shutil.move(str(entry), str(filed / entry.name))
-for line in script:
-    event = json.loads(line)
-    item = event.get('item') or {}
-    if item.get('type') == 'file_change' and event['type'] == 'item.completed':
-        file_mail()
-    print(line, flush=True)
-    time.sleep(0.12)
-    if item.get('id') == 'item_8' and event['type'] == 'item.completed':
-        deadline = time.time() + 30
-        while pathlib.Path('.fake-pause').exists() and time.time() < deadline:
-            usage = pathlib.Path('.fake-live-usage')
-            if usage.exists():
-                print(json.dumps({'type': 'turn.completed', 'usage': {'input_tokens': 0, 'cached_input_tokens': 0, 'output_tokens': 0}}), flush=True)
-                usage.unlink()
-            time.sleep(0.1)
-file_mail()
-pathlib.Path(args[args.index('--output-last-message') + 1]).write_text(
-    '# Filed the synthetic mail\\n\\n- Moved every arrival to [the filed shelf](library/filed/loose-note.md).\\n- The fixture vault is not a Git repository, so no commit is verified.\\n\\n<script>window.reportScriptRan=true</script>\\n')
+# One long scripted transcript tests the activity UI. It does not perform any
+# filing: the real deterministic worker owns every move and commit.
+marker = root/'.reader/fixture-transcript-shown'
+if not marker.exists():
+    marker.parent.mkdir(exist_ok=True)
+    marker.write_text('shown')
+    print(json.dumps({'type':'padding','data':'x'*70000}),flush=True)
+    for line in script:
+        event=json.loads(line);item=event.get('item') or {}
+        print(line,flush=True);time.sleep(.12)
+        if item.get('id')=='item_8' and event['type']=='item.completed':
+            deadline=time.time()+30
+            while (root/'.fake-pause').exists() and time.time()<deadline:
+                usage=root/'.fake-live-usage'
+                if usage.exists():
+                    print(json.dumps({'type':'turn.completed','usage':{'input_tokens':0,'cached_input_tokens':0,'output_tokens':0}}),flush=True)
+                    usage.unlink()
+                time.sleep(.1)
+value=dict(source=context['source'],snapshot_sha256=context['snapshot_sha256'],disposition='file',
+           collection='filed',slug=re.sub('[^a-z0-9-]','-',context['source'].split('/')[-1].lower()),
+           title='Synthetic mail',author='',summary='A synthetic fixture arrival.',reason='')
+pathlib.Path(args[args.index('--output-last-message')+1]).write_text(json.dumps(value))
 """
 
 
@@ -76,6 +73,10 @@ def inbox_fixture(root):
     script = Path(__file__).resolve().parent / 'fixtures/codex-exec-scripted.jsonl'
     fake.write_text('#!' + sys.executable + '\nSCRIPT = ' + json.dumps(str(script)) + '\n' + FAKE_CODEX)
     fake.chmod(0o755)
+    locks = root / '.fixture/fake-git-locks'
+    locks.write_text('#!' + sys.executable + '\nimport sys,json\nprint(json.dumps({"event":"claimed","acquisition":"fixture"} if "claim" in sys.argv else {"event":"released"}))\n')
+    locks.chmod(0o755)
+    os.environ['READER_GIT_LOCKS'] = str(locks)
     return dict(os.environ, READER_CODEX=str(fake), PATH='/nonexistent')
 
 
@@ -743,6 +744,13 @@ def main():
             coding_world = World(Path(tempfile.mkdtemp(prefix='reader-coding-fixture-')), vault=root, scenario=scenario,
                                  verify_exit=1 if '--coding-verify-fails' in sys.argv else 0)
             coding_options = coding_world.options()
+        if inbox_environ is not None:
+            import subprocess
+            from reader_mcp.catalog import Catalog
+            Catalog(root).run('migrate')
+            (root/'.gitignore').write_text('.reader/\n.fixture/\n.fake-*\n')
+            for args in (['init','-q'],['config','user.name','Fixture'],['config','user.email','fixture@example.invalid']):
+                subprocess.run(['git','-C',str(root),*args],check=True,stdout=subprocess.DEVNULL)
         library = WebLibrary(root, writing_options=writing_options, font_fetcher=fetcher, maintenance_runners=runners, inbox_environ=inbox_environ, chat_options=chat_options, local_model=local, prose=prose, service_runner=service, companions=companions, art_options=art_options, coding_options=coding_options)
         if art_options and '--art-none' not in sys.argv:
             from reader_mcp.art import PROMPT_VERSIONS
@@ -773,6 +781,11 @@ def main():
             server.RequestHandlerClass = test_theme_fixture.handler(WebHandler)
         if '--chat-heartbeat' in sys.argv:
             server.chat_heartbeat = float(sys.argv[sys.argv.index('--chat-heartbeat') + 1])
+        if inbox_environ is not None:
+            # Finish every requested fixture before establishing the clean
+            # intake baseline; search fixtures also replace shared coverage.
+            for args in (['add','.'],['commit','-qm','Initialize synthetic browser fixture']):
+                subprocess.run(['git','-C',str(root),*args],check=True,stdout=subprocess.DEVNULL)
         print(json.dumps({'url':f'http://127.0.0.1:{server.server_port}', 'speech':speech_folder, 'root': str(root), 'providers': providers, 'now': os.environ.get(clock.ENV)}), flush=True)
         try:
             server.serve_forever()

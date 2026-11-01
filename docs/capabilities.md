@@ -10,6 +10,8 @@ Reader is a plain-file Markdown library intended for Obsidian. Its [catalog](../
 
 Classification, cataloging, connection discovery, and editorial reading happen during librarian sessions. Depositing a file or delivering a bundle does not start that work automatically. The librarian preserves distinct source versions and uses catalog notes for metadata when originals must remain unchanged. See [design and conventions](design.md) and [operations](operations.md).
 
+The explicitly invoked [inbox workflow](inbox-runner.md) runs deterministic preservation, filing, validation and commits, with bounded LLM editorial decisions and automatic context/batch partitioning. [Portable link records](portable-links.md) let Reader render local references in unchanged originals. Missing targets retain explicit dispositions.
+
 Markdown intake can produce labelled, unwrapped reading copies through the pinned wide-md integration, preserving original bytes and receipt hashes. See [setup and supported formatting](reading-copies.md).
 
 ## Local delivery

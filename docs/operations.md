@@ -113,3 +113,7 @@ Use librarian mode's `curation` page to find already filed work awaiting this pa
 ## Code and vault locations
 
 This reference describes the configured private vault unless a code checkout is explicitly named. See [separate-vault installation](separate-vault.md). Run software setup/build commands in the code checkout and pass the private vault explicitly to CLI commands and the plugin installer. `$READER_ROOT` is the private vault path. Source documents, runtime stores, and reading activity stay in the vault.
+
+## Scripted inbox processing
+
+For an authorized new inbox-processing request, use the installed `you-got-mail` skill or `reader inbox start`, then inspect `reader inbox status`. The [deterministic runner](inbox-runner.md) owns filing and validation; do not manually divide arrivals to satisfy a model-context limit. Existing intake claims finish before the runner starts. Delivery couriers remain observer-only. To prepare existing local references, use the [portable-link dry run and apply commands](portable-links.md), then verify source preservation and commit only the resulting owned artifacts.

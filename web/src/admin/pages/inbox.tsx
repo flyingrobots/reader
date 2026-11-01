@@ -21,7 +21,7 @@ import {localOnly, needsReader} from '../../static-demo';
 
 const ACTIVE_RUN=['starting','running'];
 const RUN_STATES:Record<string,{label:string;tone:Tone}>={
-  starting:{label:'Starting…',tone:'active'},running:{label:'Librarian reading',tone:'active'},finished:{label:'Filed',tone:'ok'},
+  starting:{label:'Starting…',tone:'active'},running:{label:'Processing',tone:'active'},finished:{label:'Completed',tone:'ok'},
   empty:{label:'Nothing to file',tone:'neutral'},stopped:{label:'Stopped',tone:'neutral'},failed:{label:'Failed',tone:'error'},interrupted:{label:'Interrupted',tone:'error'}};
 export function size(bytes:number){return bytes<1024?bytes+' B':bytes<1024**2?(bytes/1024).toFixed(1)+' KB':(bytes/1024**2).toFixed(1)+' MB';}
 
@@ -61,7 +61,7 @@ export function InboxPage({status,error=null,starting,onMail,onStop,onOpen,html,
   const report=()=>{setReportOpen(true);requestAnimationFrame(()=>document.getElementById('inbox-report-wrap')?.scrollIntoView({block:'start',behavior:'smooth'}));};
   const transcript=activity?.run?<ActivityTranscript activity={activity.activity} run={activity.run} live={active||!activity.done} html={html} onOpen={onOpen} onReport={run?.report_md?report:undefined}/>:null;
   const finished=run&&!ACTIVE_RUN.includes(run.status)&&!active;
-  const note=active?'The librarian is reading the mail.':needsReader()?`Filing ${plural(arrivals.length,'arrival')} needs Reader on your computer, where a librarian voice reads the mail.`:blocked?'Filing is paused; see why above.':`Ask the librarian to file ${plural(arrivals.length,'arrival')}.`;
+  const note=active?'Filing sources and checking the result.':needsReader()?`Filing ${plural(arrivals.length,'arrival')} needs Reader on your computer.`:blocked?'Filing is paused; see why above.':status?.pending?'Resume the interrupted filing batch.':`File ${plural(arrivals.length,'arrival')}.`;
   return <div id="inbox" className="flex flex-col gap-6" data-run-state={starting?'starting':run?.status||'none'} data-state={status?'ready':error?'unavailable':'loading'}>
     <StatusCard title="Librarian run" titleId="inbox-title" description="A librarian voice reads each arrival, files it with its receipt and commits the result."
       badge={state?<StatusBadge tone={state.tone} busy={active} data-inbox-badge="">{state.label}</StatusBadge>:null}

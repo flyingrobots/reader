@@ -4,7 +4,6 @@ The web reader consumes these plain JSON records; opening a document never probe
 the host filesystem or turns arbitrary file URLs into a file-serving endpoint.
 """
 from collections import Counter
-from datetime import datetime, timezone
 import hashlib
 import json
 import os
@@ -30,7 +29,7 @@ def digest(data):
     return hashlib.sha256(data).hexdigest()
 
 
-def safe_file(root, relative, *, exists=True):
+def safe_file(root, relative, *, exists=True, limit=MAX_DOCUMENT):
     if not isinstance(relative, str) or not relative.startswith('library/') or any(
             p in ('', '.', '..') or p.startswith('.') for p in relative.split('/')) or '\\' in relative:
         raise ValueError('Expected a library-relative source path')
@@ -40,8 +39,8 @@ def safe_file(root, relative, *, exists=True):
             break
         if part.is_symlink():
             raise ValueError('Source or destination crosses a symlink')
-    if exists and (not path.is_file() or path.stat().st_size > MAX_DOCUMENT):
-        raise ValueError('Source is missing, not regular, or exceeds 4 MiB')
+    if exists and (not path.is_file() or path.stat().st_size > limit):
+        raise ValueError('Source is missing, not regular, or exceeds its byte limit')
     return path
 
 
@@ -71,6 +70,8 @@ def references(text):
                     raise ValueError('Document exceeds 2,048 local links')
             if token.children and token.type != 'image':
                 walk(token.children)
+    # Match the reader's bodyOf: header text is metadata, even with invalid YAML.
+    text = re.sub(r'\A\ufeff?---\r?\n[\s\S]*?\r?\n---(?:\r?\n|$)', '', text, count=1)
     walk(parser.parse(text))
     return list({(r['source_url'], r['label'], r['kind']): r for r in result}.values())
 
@@ -88,12 +89,12 @@ def git(root, *args):
     return result.stdout.strip()
 
 
-def atomic(path, value):
+def atomic(path, value, *, limit=MAX_RECORD):
     if path.is_symlink() or any(p.is_symlink() for p in path.parents):
         raise ValueError('Repair output crosses a symlink')
     data = (json.dumps(value, ensure_ascii=False, indent=2) + '\n').encode()
-    if len(data) > MAX_RECORD:
-        raise ValueError('Repair record exceeds 512 KiB')
+    if len(data) > limit:
+        raise ValueError('JSON record exceeds its byte limit')
     path.parent.mkdir(parents=True, exist_ok=True)
     with tempfile.NamedTemporaryFile(dir=path.parent, delete=False) as stream:
         temporary = Path(stream.name)
@@ -107,13 +108,16 @@ def atomic(path, value):
 
 
 class PortableLinks:
-    def __init__(self, root, git_root=None):
+    def __init__(self, root, git_root=None, *, writer=None):
         self.root = Path(root).resolve(strict=True)
         self.git_root = Path(git_root).expanduser().resolve() if git_root else Path.home() / 'git'
         self.repo_cache = {}
         self.catalog = None
         self.git_cache = {}
         self.asset_bytes = 0
+        self.assets = set()
+        self.record_bytes = 0
+        self.writer = writer
 
     def command(self, root, *args):
         key = (str(root), *args)
@@ -159,7 +163,9 @@ class PortableLinks:
             receipt = parent / 'receipt.json'
             if receipt.is_file() and not receipt.is_symlink() and receipt.stat().st_size <= MAX_RECORD:
                 try:
-                    provenance = json.loads(receipt.read_text()).get('provenance', {})
+                    value = json.loads(receipt.read_text())
+                    candidate = value.get('provenance', {}) if isinstance(value, dict) else {}
+                    provenance = candidate if isinstance(candidate, dict) else {}
                 except (ValueError, UnicodeError):
                     pass
                 break
@@ -180,35 +186,45 @@ class PortableLinks:
         if not raw.startswith('/') or any(ord(c) < 32 for c in raw) or '\\' in raw:
             raise ValueError('Invalid absolute local path')
         target = Path(raw)
-        if '..' in target.parts or any(p.startswith('.') for p in target.parts[1:] if p != '.git'):
+        if '..' in target.parts or ref['kind'] == 'image' and any(p.startswith('.') for p in target.parts[1:]):
             raise ValueError('Hidden or traversing local target is not imported')
         if target.is_relative_to(self.root / 'library') and target.is_file() and not target.is_symlink():
             relative = target.relative_to(self.root).as_posix()
-            safe_file(self.root, relative)
-            return {'target': relative + ('#' + parsed.fragment if parsed.fragment else ''), 'method': 'vault'}
+            safe_file(self.root, relative, limit=MAX_ASSET)
+            return {'target': quote(relative, safe='/') + ('#' + parsed.fragment if parsed.fragment else ''), 'method': 'vault'}
         if ref['kind'] == 'image':
-            if target.suffix.lower() not in IMAGES or not target.is_file() or target.is_symlink():
+            if target.suffix.lower() not in IMAGES or not target.is_file() or any(p.is_symlink() for p in (target, *target.parents)):
                 raise ValueError('Local image is missing or unsupported')
-            if target.stat().st_size > MAX_ASSET:
+            before = target.stat()
+            if before.st_size > MAX_ASSET:
                 raise ValueError('Local image exceeds 32 MiB')
             data = target.read_bytes()
+            after = target.stat()
+            if (before.st_size, before.st_mtime_ns) != (after.st_size, after.st_mtime_ns):
+                raise ValueError('Local image changed during preparation')
             if len(data) > MAX_ASSET:
                 raise ValueError('Local image grew beyond 32 MiB')
             sha = digest(data)
             name = 'assets/local-' + sha[:24] + target.suffix.lower()
             dest = source.parent / name
             safe_file(self.root, dest.relative_to(self.root).as_posix(), exists=False)
+            if dest not in self.assets:
+                if self.asset_bytes + len(data) > MAX_ASSETS:
+                    raise ValueError('Batch exceeds 64 MiB of image assets')
+                self.asset_bytes += len(data)
+                self.assets.add(dest)
             if dest.exists():
-                if digest(dest.read_bytes()) != sha:
+                if not dest.is_file() or dest.stat().st_size != len(data) or digest(dest.read_bytes()) != sha:
                     raise ValueError('Asset destination conflicts')
             elif apply:
-                if self.asset_bytes + len(data) > MAX_ASSETS:
-                    raise ValueError('Batch exceeds 64 MiB of copied image assets')
-                dest.parent.mkdir(exist_ok=True)
-                with dest.open('xb') as stream:
-                    stream.write(data)
-                self.asset_bytes += len(data)
-            return {'target': dest.relative_to(self.root).as_posix(), 'method': 'copied-image', 'asset_sha256': sha}
+                if self.writer:
+                    self.writer(dest.relative_to(self.root).as_posix(), data)
+                else:
+                    dest.parent.mkdir(exist_ok=True)
+                    with dest.open('xb') as stream:
+                        stream.write(data)
+            return {'target': quote(dest.relative_to(self.root).as_posix(), safe='/') + ('#' + parsed.fragment if parsed.fragment else ''),
+                    'method': 'copied-image', 'asset_sha256': sha}
         if not target.is_relative_to(self.git_root):
             raise ValueError('Target is outside the configured Git root and library')
         tail = target.relative_to(self.git_root)
@@ -262,6 +278,8 @@ class PortableLinks:
         source = safe_file(self.root, path)
         data = source.read_bytes()
         text = data.decode('utf-8')
+        if 'file:' not in text.lower():
+            return {'path': path, 'status': 'unchanged', 'targets': []}
         refs = references(text)
         if not refs:
             return {'path': path, 'status': 'unchanged', 'targets': []}
@@ -274,12 +292,19 @@ class PortableLinks:
             except (ValueError, OSError, subprocess.TimeoutExpired) as exc:
                 targets.append({**ref, 'status': 'unresolved', 'reason': str(exc)})
         record = {'schema_version': 1, 'path': path, 'source_sha256': digest(data), 'targets': targets}
+        size = len(json.dumps(record, ensure_ascii=False, indent=2).encode()) + 1
+        self.record_bytes += size
+        if size > MAX_RECORD or self.record_bytes > 64 * 1024**2:
+            raise ValueError('Link records exceed 512 KiB per document or 64 MiB per batch')
         if source.read_bytes() != data:
             raise ValueError('Source changed during link repair')
         target = self.record_path(path)
         old = self.stored(path, digest(data))
         if apply and old != record:
-            atomic(target, record)
+            if self.writer:
+                self.writer(target.relative_to(self.root).as_posix(), (json.dumps(record, ensure_ascii=False, indent=2) + '\n').encode())
+            else:
+                atomic(target, record)
         return {**record, 'status': 'prepared' if apply else 'planned',
                 'record': target.relative_to(self.root).as_posix(),
                 'counts': dict(Counter(t['status'] for t in targets))}
@@ -290,12 +315,49 @@ class PortableLinks:
             return None
         try:
             value = json.loads(file.read_text())
-            if value.get('schema_version') != 1 or value.get('path') != path or value.get('source_sha256') != sha:
+            if not isinstance(value, dict) or value.get('schema_version') != 1 or value.get('path') != path or value.get('source_sha256') != sha:
+                return None
+            if not isinstance(value.get('targets'), list) or len(value['targets']) > MAX_LINKS:
                 return None
             for item in value['targets']:
-                target = item.get('target', '')
-                if target and not (target.startswith('https://github.com/') or target.startswith('library/')):
+                if not isinstance(item, dict) or any(not isinstance(item.get(k), str) for k in ('source_url', 'label', 'kind', 'status')):
+                    return None
+                if item['kind'] not in ('link', 'image') or item['status'] not in ('resolved', 'unresolved') or not item['source_url'].lower().startswith('file:'):
+                    return None
+                target = item.get('target')
+                if item['status'] == 'resolved' and not safe_target(target):
+                    return None
+                if item['status'] == 'unresolved' and (target is not None or not isinstance(item.get('reason'), str)):
                     return None
             return value
-        except (ValueError, KeyError, TypeError):
+        except (ValueError, KeyError, TypeError, OSError):
             return None
+
+
+def safe_target(target):
+    if not isinstance(target, str) or any(ord(c) < 32 for c in target) or '\\' in target:
+        return False
+    parsed = urlsplit(target)
+    if parsed.scheme == 'https' and parsed.netloc == 'github.com':
+        return bool(re.match(r'^/[\w.-]+/[\w.-]+(?:/|$)', parsed.path))
+    if parsed.scheme or parsed.netloc or parsed.query or not target.startswith('library/'):
+        return False
+    decoded = unquote(parsed.path)
+    return all(p and not p.startswith('.') for p in decoded.split('/')) and '\\' not in decoded and not any(ord(c) < 32 for c in decoded)
+
+
+def public_record(record):
+    """The web API needs match identities, never host file URLs or Git metadata."""
+    targets = []
+    for item in record.get('targets', []):
+        key = digest(json.dumps([item['source_url'], item['label'], item['kind']], ensure_ascii=False, separators=(',', ':')).encode())
+        value = {'key': key, 'status': item['status']}
+        if item['status'] == 'resolved':
+            value['target'] = item['target']
+        else:
+            # Native filesystem exception text may include a host path. The
+            # canonical private record keeps the diagnostic; the browser does not.
+            reason = item.get('reason', 'Local target is unavailable')
+            value['reason'] = reason if '/' not in reason and '\\' not in reason else 'Local target could not be prepared; see the repair record'
+        targets.append(value)
+    return {'targets': targets}

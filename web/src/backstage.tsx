@@ -72,5 +72,5 @@ export {summary as jobOutcome};
 // Inbox status, read by admin/pages/inbox.tsx.
 export type Arrival={id:string;path:string;bundle:boolean;document:string;title:string;source:string|null;project:string|null;author:string|null;report_date:string|null;request_id:string|null;integrity:'intact'|'changed'|null;receipt_error:string|null;files:number;bytes:number;received_at:string|null};
 export type InboxRun={status:string;run_id:string|null;started_at:string|null;updated_at:string|null;finished_at:string|null;message:string;arrivals:number|null;remaining:number|null;exit_code:number|null;sandbox_mode:string|null;event?:string|null;report_md?:string|null;report_truncated?:boolean;commit?:{hash:string;short:string;subject:string}|null};
-export type InboxStatus={arrivals:Arrival[];runner:InboxRun|null;claims_held:string[];codex:{name:string;installed:boolean};errors:string[];blocked:{reason:string;message:string}|null};
+export type InboxStatus={arrivals:Arrival[];runner:InboxRun|null;claims_held:string[];codex:{name:string;installed:boolean};errors:string[];blocked:{reason:string;message:string}|null;pending?:boolean};
 export {size} from './admin/pages/inbox';

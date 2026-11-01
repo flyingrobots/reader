@@ -42,6 +42,7 @@ export default class ReaderPlugin extends Plugin {
   private readerSettings: { backendRoot?: string; openedOnce?: boolean; dateMode?: DateMode; codexPath?: string; workstationLockStore?: string; inboxSandboxMode?: 'workspace-write'|'danger-full-access'; readDocuments?: Record<string, string>; participant?: string } = {};
   inbox: string[] = [];
   inboxRun?: InboxRun;
+  inboxPending = false;
   inboxClaims: string[] = [];
   private inboxStatusError = '';
   private inboxRefreshing?: Promise<void>;
@@ -424,6 +425,7 @@ export default class ReaderPlugin extends Plugin {
       this.inbox = inboxItems(this.app.vault.getFiles().map(f=>f.path));
       const state = await readInboxCoordination(this.basePath());
       this.inboxClaims = state.claims;
+      this.inboxPending = !!state.pending;
       this.inboxStatusError = state.errors.join(' ');
       const data = state.run;
       if (data && ['starting','running'].includes(data.status) && typeof data.supervisor_pid === 'number') {
@@ -455,7 +457,7 @@ export default class ReaderPlugin extends Plugin {
   async processInbox() {
     if (this.inboxActive()) return;
     await this.refreshInbox();
-    if (this.inboxActive() || this.inboxBlocked() || !this.inbox.length) { this.renderInbox(); return; }
+    if (this.inboxActive() || this.inboxBlocked() || (!this.inbox.length && !this.inboxPending)) { this.renderInbox(); return; }
     this.launchingInbox = true; this.launchError = ''; this.renderInbox();
     try {
       if (process.platform === 'win32') throw new Error('The inbox runner currently requires macOS or Linux.');
@@ -469,7 +471,7 @@ export default class ReaderPlugin extends Plugin {
       const python = join(this.readerSettings.backendRoot || base,'.venv/bin/python'); await access(python,constants.X_OK);
       this.pendingRun = randomUUID();
       const args = ['-m','reader_mcp.inbox_runner','--root',base,'--codex',executable,'--run-id',this.pendingRun];
-      args.push('--sandbox-mode',this.inboxSandboxMode());
+      args.push('--sandbox-mode','read-only');
       if (this.readerSettings.workstationLockStore?.trim()) args.push('--workstation-lock-store',this.readerSettings.workstationLockStore.trim());
       const child = spawn(python,args,
         { cwd:base, detached:true, stdio:'ignore' });
@@ -702,12 +704,12 @@ class ReaderView extends ItemView {
     const box=root.createDiv({cls:'reader-inbox-callout'});
     const title=box.createDiv({cls:'reader-inbox-title'});setIcon(title.createSpan(),'inbox');
     title.createSpan({text:count ? `${count} pending ${count===1?'arrival':'arrivals'}` : active?'Processing inbox':'Your inbox is empty'});
-    if (count || active) {
+    if (count || active || this.plugin.inboxPending) {
       const button=box.createEl('button',{text:active?'Processing inbox…':this.plugin.inboxClaims.length?'Filing already assigned':'Process inbox',cls:'mod-cta reader-process-inbox'});
       button.disabled=active || blocked;button.onclick=()=>void this.plugin.processInbox().catch(error=>new Notice(String(error)));
     }
     if (this.plugin.inboxMessage()) box.createDiv({text:this.plugin.inboxMessage(),cls:'reader-caption',attr:{role:'status'}});
-    else if (count) box.createDiv({text:'Launches Codex to file documents, review them, and record useful connections.',cls:'reader-caption'});
+    else if (count || this.plugin.inboxPending) box.createDiv({text:'Files preserved sources and verifies the result. Interrupted batches resume from their checkpoint.',cls:'reader-caption'});
     if (this.plugin.inboxRun && !active) box.createDiv({text:`Previous run: ${this.plugin.inboxRun.status}. See Run details for its report.`,cls:'reader-caption'});
     if (count) {
       const files=this.app.vault.getFiles().map(file=>file.path);
@@ -974,8 +976,6 @@ class ReaderSettings extends PluginSettingTab {
       .addText(text=>text.setValue(this.plugin.codexPath()).setPlaceholder('Auto-detect').onChange(value=>this.plugin.setCodexPath(value)));
     new Setting(this.containerEl).setName('Workstation git-locks store').setDesc('Optional path to the existing Git store used for shared host resources. Inbox jobs also discover the vault’s own lock store automatically.')
       .addText(text=>text.setValue(this.plugin.workstationLockStore()).setPlaceholder('Not configured').onChange(value=>this.plugin.setWorkstationLockStore(value)));
-    new Setting(this.containerEl).setName('Inbox job permissions').setDesc('Host access supports git-locks process control and guarded indexing. It allows writes beyond the vault; use only for trusted librarian jobs. Runtime resource limits still apply.')
-      .addDropdown(dropdown=>dropdown.addOption('workspace-write','Sandboxed workspace').addOption('danger-full-access','Host access').setValue(this.plugin.inboxSandboxMode()).onChange(value=>this.plugin.setInboxSandboxMode(value)));
     new Setting(this.containerEl).setName('Group and sort by date')
       .setDesc('Ingestion date uses receipt time, then filing date. Oldest first. Document dates fall back to filing dates. Undated documents appear last. Timestamp groups use UTC.')
       .addDropdown(dropdown => dropdown.addOptions({ document: 'Document date', arrival: 'Ingestion date', modified: 'Last modified' })

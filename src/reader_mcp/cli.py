@@ -26,6 +26,8 @@ def main():
     repair.add_argument("--all", action="store_true", help="Scan existing library Markdown")
     repair.add_argument("--apply", action="store_true", help="Write repair records and explicitly linked image assets")
     repair.add_argument("--git-root", type=Path, help="Root containing local Git checkouts (default ~/git)")
+    inbox = commands.add_parser("inbox", help="Start, inspect or stop deterministic inbox processing")
+    inbox.add_argument("action", choices=['start', 'status', 'stop'])
     status = commands.add_parser("status", help="Inspect a receipt by UUID")
     status.add_argument("request_id")
     serve_parser = commands.add_parser("serve", help="Run the local MCP server over stdio")
@@ -124,6 +126,10 @@ def main():
         elif args.command == "reading-copy":
             from .reading import reading_copy
             result = reading_copy(store.root, args.path)
+        elif args.command == "inbox":
+            from .inbox_view import InboxView
+            view = InboxView(store.root)
+            result = getattr(view, args.action)()
         elif args.command == "repair-links":
             from .portable_links import PortableLinks
             if bool(args.paths) == bool(args.all):
@@ -186,6 +192,8 @@ def main():
             else:
                 result = engine.read(args.path, args.start_line, args.limit, args.page, args.expected_sha256)
         print(json.dumps(result, ensure_ascii=False, indent=2))
+        if args.command == 'repair-links' and result['failed']:
+            sys.exit(1)
     except (ValueError, TypeError, OSError, sqlite3.Error) as exc:
         print(f"Reader: {exc}", file=sys.stderr)
         sys.exit(1)

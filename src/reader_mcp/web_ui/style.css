@@ -551,3 +551,6 @@ body{margin-right:var(--dock-width,0px);transition-property:none}#smooth-wrapper
 .chart-mount [tabindex]:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 
 
+
+/* A preserved local reference without a verified destination remains inspectable. */
+.local-link-unavailable { text-decoration: underline dotted; text-underline-offset: .2em; cursor: help; }

@@ -419,7 +419,7 @@ class Browse:
         with lock.open('a') as f:
             fcntl.flock(f,fcntl.LOCK_EX);yield
 
-    def run(self, check=False, today=None):
+    def run(self, check=False, today=None, *, writer=None):
         today=today or datetime.now(timezone.utc).date()
         with self.locked():
             if self.output.is_symlink() or (self.root/'README.md').is_symlink():raise ValueError('Unsafe browse output')
@@ -450,6 +450,9 @@ class Browse:
             if not check:
                 for path,data in writes.items():
                     if str(path.relative_to(self.root)) not in changed:continue
+                    if writer:
+                        writer(path.relative_to(self.root).as_posix(), data)
+                        continue
                     path.parent.mkdir(parents=True,exist_ok=True)
                     fd,name=tempfile.mkstemp(prefix='.browse-',dir=path.parent)
                     try:

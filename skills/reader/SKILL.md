@@ -99,7 +99,7 @@ python3 /path/to/this/skill/scripts/reader.py status RECEIPT_UUID
 
 The JSON file is the submission object itself, without the MCP `submission` wrapper. Create it through a file-writing tool or a JSON serializer; do not interpolate document content into shell commands. The helper resolves its installed symlink to the Reader checkout; it works independently of the project's working directory. If Reader's environment is missing, report the setup error rather than installing elsewhere or guessing a vault location.
 
-Success requires `status: awaiting_filing` (or `filed` on a retry) and `integrity: intact`. Return a clickable link using the receipt's `document_path` and the receipt ID. Say "delivered to Reader's inbox", not "cataloged". The user can tell the librarian "you got mail" to request filing.
+Success requires `status: awaiting_filing` (or `filed` on a retry) and `integrity: intact`. Return a clickable link using the receipt's `document_path` and the receipt ID. Say "delivered to Reader's inbox", not "cataloged". The user can tell the librarian "you got mail" to request filing through the installed [deterministic intake skill](../you-got-mail/SKILL.md).
 
 On an uncertain response, query `reader_status` with the same UUID before retrying. Retry with the same UUID and identical content and provenance; never generate a fresh UUID merely to bypass an error. A reused ID with different content is a conflict. If integrity needs attention, stop and report the receipt details instead of overwriting the delivery.
 
