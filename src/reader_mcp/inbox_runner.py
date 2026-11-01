@@ -128,20 +128,28 @@ class WorkerProcesses:
         except (OSError, ValueError, subprocess.SubprocessError):
             pass  # A failed measurement still kills every previously observed owned process.
         for group in self.groups:
-            try:
-                os.killpg(group, signal.SIGTERM)
-            except ProcessLookupError:
-                pass
+            self.signal_group(group, signal.SIGTERM)
         try:
             self.process.wait(timeout=3)
         except subprocess.TimeoutExpired:
             pass
         for group in self.groups:
-            try:
-                os.killpg(group, signal.SIGKILL)
-            except ProcessLookupError:
-                pass
+            self.signal_group(group, signal.SIGKILL)
         self.process.wait()
+
+    @staticmethod
+    def signal_group(group, sig):
+        try:
+            os.killpg(group, sig)
+        except ProcessLookupError:
+            pass
+        except PermissionError:
+            # macOS can report EPERM for a group that disappeared between TERM
+            # and KILL. Only accept that error after proving no members remain;
+            # an unreadable process table or a live group must still fail closed.
+            groups = subprocess.check_output(['ps', '-axo', 'pgid='], text=True, timeout=5)
+            if group in {int(value) for value in groups.split()}:
+                raise
 
 
 def run(root, codex, run_id=None, timeout=1800, workstation_lock_store=None, sandbox_mode='read-only'):

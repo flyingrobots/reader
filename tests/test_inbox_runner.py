@@ -167,3 +167,21 @@ def test_runner_preserves_a_lower_inherited_cpu_limit(vault, executable):
     assert result.returncode == 0, result.stderr
     state = json.loads((vault / '.reader/inbox-runner/state.json').read_text())
     assert state['status'] == 'finished' and state['limits']['cpu_seconds'] == 20
+
+
+def test_group_permission_error_requires_proof_that_group_is_gone(monkeypatch):
+    from reader_mcp.inbox_runner import WorkerProcesses
+    import os
+    import signal
+    def denied(*args):
+        raise PermissionError('group disappeared or remains protected')
+    monkeypatch.setattr(os, 'killpg', denied)
+    monkeypatch.setattr(subprocess, 'check_output', lambda *args, **kwargs: '111\n222\n')
+    WorkerProcesses.signal_group(333, signal.SIGKILL)
+    with pytest.raises(PermissionError):
+        WorkerProcesses.signal_group(222, signal.SIGKILL)
+    def unreadable(*args, **kwargs):
+        raise subprocess.CalledProcessError(1, 'ps')
+    monkeypatch.setattr(subprocess, 'check_output', unreadable)
+    with pytest.raises(subprocess.CalledProcessError):
+        WorkerProcesses.signal_group(333, signal.SIGKILL)
