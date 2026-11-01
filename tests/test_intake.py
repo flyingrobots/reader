@@ -409,6 +409,19 @@ def test_classification_validation_rejects_extra_fields_path_escape_and_stale_id
     assert not list((vault / 'library').glob('reports/*'))
 
 
+@pytest.mark.parametrize('collection', ['assets', 'evidence', 'reading', 'fonts', 'originals', 'snapshot', 'dist', 'build', 'target'])
+def test_browse_excluded_collection_cannot_hide_a_filed_arrival(vault, collection):
+    (vault / 'inbox/report.md').write_text('Original source')
+    plan = plan_for(vault)
+    entry = plan['entries'][0]
+    entry['decision']['collection'] = collection
+    entry['destination'] = intake.destination(entry)
+    with pytest.raises(ValueError, match='browse-excluded collections'):
+        intake.apply_plan(vault, vault / '.reader/inbox-runner', plan)
+    assert (vault / 'inbox/report.md').read_text() == 'Original source'
+    assert not (vault / entry['destination']).exists()
+
+
 def test_frozen_inventory_refuses_files_added_after_selection(vault):
     runtime = vault / '.reader/inbox-runner'
     (vault / 'inbox/packet').mkdir()

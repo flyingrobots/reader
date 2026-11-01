@@ -92,3 +92,7 @@ resource limits remain unchanged.
 The guarded intake, supervisor, portable-link, browse and curation suites passed
 107 tests after these fixes. The combined browser candidate also passed all four
 attachment, inbox, portable-link and token-refresh suites.
+
+Collection decisions now share Browse's excluded-directory names, preventing a
+successful filing into an undiscoverable collection. All 42 intake checks passed,
+including nine excluded collection names rejected before any source moves.

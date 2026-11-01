@@ -73,7 +73,8 @@ is explicit; a filename or truncated excerpt is not full reading. A model return
 the source key and snapshot hash, a file/defer decision, collection, slug, title,
 source-stated author, bounded description and defer reason. Unknown authorship
 stays empty. Invalid output or stale identity cannot authorize filing. Original
-writing namespaces belonging to Reader librarian, Agy and Claude are reserved.
+writing namespaces belonging to Reader librarian, Agy and Claude are reserved,
+as are directory names excluded by Browse, such as `assets`, `reading` and `evidence`.
 
 ## Filing and verification
 
