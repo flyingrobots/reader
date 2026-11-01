@@ -81,7 +81,7 @@ class Workflow:
     def private(self, text):
         """Text safe for GitHub and the browser: no vault, home or worktree folders."""
         text = shown(text, self.root)
-        for path in filter(None, [self.run['git'].get('worktree'), self.entry['checkout']]):
+        for path in filter(None, [self.run['git'].get('worktree'), self.entry.get('checkout')]):
             text = text.replace(path, '<worktree>' if path == self.run['git'].get('worktree') else '<checkout>')
         return text
 

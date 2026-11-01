@@ -13,6 +13,8 @@ This corpus describes how Reader works: its architecture, contracts, capabilitie
 - [Obsidian Reader sidebar](obsidian-plugin.md) — relationships, dates, filtering, library search, read-aloud, installation, and recovery.
 - [Demo vault](demo.md) — `reader demo`: a disposable example vault with public-domain texts, scripted voices and every feature seeded.
 - [Library website](web.md) — local dashboard, Vim navigation, two-page reading, automatic bookmarks and shared margins.
+- [Managed container runtime primitives](container-runtime.md) — storage ownership, supervision, accounting and current integration boundary.
+- [GitHub devcontainer discovery](devcontainer-discovery.md) — pinned read-only configuration discovery, error boundaries and current runner limitations.
 - [Stray work report](stray-work.md) — finished work not yet on `origin/main`, and which branches and worktrees can safely go.
 - [Library charts](library-charts.md) — arrival calendar, reading by topic, and zoomable shelves.
 - [Admin documentation panes](admin-documentation.md) — shared layout, page references, heading links and saved visibility.

@@ -1,0 +1,120 @@
+# Managed container runtime primitives
+
+`ContainerRuntime` in `reader_mcp.container_runtime` prepares a restricted local Docker container through the Dev Container CLI’s `set-up` command. It is selected by the default Coding Jobs adapter. Admin handles configuration approval and the terminal setup command handles tools and independent sign-in. The local image-preparation command builds the fixed managed image; real Docker job-flow checks use a synthetic coding CLI and GitHub service, keeping live provider authentication/publication outside that test boundary. Legacy registrations are retained as read-only recovery data and cannot execute through the default runner.
+
+## First use, in order
+
+1. Make the two exact base references in the [fixed recipe](../src/reader_mcp/runtime_image/Dockerfile) available in local Docker, then [prepare the managed image](#prepare-the-managed-image). Preparation reports its full immutable image ID and does not pull missing bases.
+2. In Admin → Repositories, inspect the repository’s current base, review a selected configuration or explicitly allow inference, and approve it with that image ID and the existing workstation lock store.
+3. [Install tools and establish separate container authentication](#explicit-terminal-setup). Install the coding CLI and container GitHub CLI before invoking their login commands.
+4. Run `reader container check owner/name` with the same vault selected. Resolve failed installation, sign-in or base checks.
+5. Explicitly run an article prompt. Approval and readiness checks do not themselves start a coding task.
+
+The fixed image command produces `reader-coding:local`. Reader’s checked-in `.devcontainer/devcontainer.json` is a Node/Python starter using that image; it does not install project dependencies, coding tools or credentials. A selected repository configuration naming an ordinary different image is not silently rewritten or made compatible by that command. Update that repository’s devcontainer configuration through its normal review process to use the supported managed image/subset, then rediscover and approve the new immutable source, or use a different development workflow. Dockerfile, Compose, Features, extra mounts and resource overrides are refused.
+
+## Storage and ownership
+
+A repository name deterministically identifies one worker name, persistent workspace volume and shared `host/docker/<worker>/` git-locks key. Labels bind the volume and worker to both the repository and the owning vault’s fingerprint. A foreign volume or existing worker is refused instead of being adopted or erased. The local volume must use Docker’s local driver without additional mount options.
+
+The helper records preparation intent before creating a workspace, then records the immutable container identity before starting it. Its caller must persist those records durably. Normal teardown stops the whole container, confirms it stopped and removes the disposable container object. It never removes the workspace volume. User-created source, edits and container credentials are intended to live under `/work`; temporary system and runtime files use the explicitly bounded tmpfs mounts. Restart reconciliation uses the saved lease and per-run container labels, stops only a proven-owned worker and preserves this volume. It never restarts an agent. At supervisor startup, reconciliation also retries finished jobs whose container shutdown was not confirmed. For these historical jobs it saves a separate `cleanup` result and retains the original outcome, message and sealed archive. Correct the reported cause and restart the owning Reader server to retry; a job is never relaunched. The terminal `container recover` command handles its separate setup record, not arbitrary coding-job records. The browser does not perform recovery on view.
+
+## Image and configuration boundary
+
+The caller supplies a validated image configuration and a full approved local image identity. The configured image must resolve to that identity. Images that declare additional volumes are refused. Setup currently requires the managed environment-file entrypoint used by the development image. `/etc` stays on the read-only image, including the dynamic loader configuration. Only `/etc/environment` is a fixed image symlink to `/work/system/environment`, which the CLI can append to; its optional `/etc/profile` patch is allowed to fail. Container and remote environment settings cannot supply `LD_*`, `GLIBC_TUNABLES`, `GCONV_PATH` or `LOCPATH` controls. Missing images and incompatible entrypoints are errors; the helper does not pull, build or replace them automatically.
+
+The helper supplies a per-run workspace path under `/work/jobs/`, root inside the container and `userEnvProbe: none`. Configuration commands are skipped during `set-up`. The job adapter clones the pinned repository, executes lifecycle commands after cloning, resolves and checks tools/sign-in inside the container, runs the agent and verifies its commits. Executables can be absolute container paths, names on the container PATH, or repository-relative executable paths; relative paths are resolved against the job workspace and passed to execution as absolute container paths. The explicit terminal setup command can install tools and initiate independent container sign-in; the browser does not run those commands automatically. No host repository, credentials, Docker socket or SSH-agent socket is mounted.
+
+## Supervision and accounting
+
+The configured worker has a read-only image root, 2 CPUs, 4 GiB memory with equal swap limit, 256 PIDs, all capabilities dropped, no-new-privileges, private IPC and bridge networking. Writable system mounts are `/tmp` at 256 MiB and shared memory at 64 MiB. Docker logs use the local driver with one uncompressed 4 MiB file. Inspection checks the actual mounts and host configuration; an isolated system-Python probe also checks actual tmpfs capacities.
+
+Workspace usage is monitored at a 3 GiB threshold. This is not a Docker volume quota. The measurement counts the greater of logical size and allocated blocks, deduplicates hard links, refuses traversal errors and includes open unlinked regular files on the workspace filesystem. It also inspects retained file mappings after descriptors close; when the kernel will not expose an otherwise unaccounted mapping’s full size, measurement fails and the worker is stopped rather than reporting an undercount. Host and Docker backing filesystems must each retain 50 GiB free. An independent monitor checks resources and lease identity while the control plane runs. Monitoring errors, cancellation, lease loss and deadlines request a stop of the whole container. A transient permission denial during an exec/credential transition retries the entire workspace scan up to four times, 50 milliseconds apart; no PID or partial count is skipped. Persistent denial still stops work, and the guard failure is saved with the run.
+
+The monitor waits 0.5 seconds after each completed scan, rather than starting overlapping scans at a fixed rate. Each container measurement has an eight-second deadline. This deliberately favors frequent enforcement on an uncapped volume; very large file inventories that cannot be measured within that deadline are refused and the worker stops. It is not a guarantee of constant scan cost or a hard storage quota.
+
+Host CLI metadata, cache and temporary files have an aggregate 8 MiB monitored threshold. CLI temporary/cache paths are placed under the owned control directory. Active client process groups are tracked; writable descriptors are inspected through procfs on Linux or NUL-delimited `lsof` records on macOS so deleting a still-open file does not hide its usage. Writable regular files outside the owned directory are a guard failure. Failure to inspect descriptors is not treated as zero usage.
+
+Control-plane stdout and stderr share a 4 MiB capture limit per command. Agent/verification commands stream into the existing 64 MiB run archive budget without retaining their full output in memory. The transport applies deadlines and cancellation while reading chunks, including after both pipes close. It reaps the client process group on every exit path, escalating from TERM to KILL even after a leader has exited. A Docker client’s death does not prove its container children stopped; the runtime separately stops and inspects the container. A PID-1 deadline provides an additional finite bound if its host supervisor disappears. A failed stop keeps the lease for reconciliation/expiry rather than reporting clean shutdown. If signalling an already-exited client is denied, a bounded process-table query must positively show that its group is absent or contains only zombies before cleanup is accepted. An empty, failed or unreadable query is not proof. Every runtime and lease client waits at a launch gate until its PID, process group, host, boot identity and kernel birth identity are saved durably. The pipe closes without launching the command if Reader dies before admission. Finished callbacks follow positive whole-group termination proof. Restart reconciliation journals its own clients too and clears each saved group only after proving it absent or stopping its matching leader and confirming termination. A reused PID, live group with a missing leader, unreadable identity or legacy unjournaled cleanup failure requires manual reconciliation; ownership stays retained. No client command is rerun during recovery. A Docker exit observed after Stop is classified as cancelled rather than an ordinary exit-code failure.
+
+## Verification boundary
+
+The focused tests run in the project’s bounded Docker validation worker. Process tests execute actual Linux processes, including a surviving child and open unlinked temporary files. Host descriptor parsing for macOS is exercised with synthetic machine-readable records; this is not a macOS execution test. Runtime ownership, foreign mounts, low capacity, incorrect tmpfs capacity and volume preservation are tested against a fake Docker control plane. They do not prove a real daemon, CLI lifecycle, authentication, source clone or complete coding job flow. The adapter’s synthetic transport tests execute real Git, fake agent and verification programs in the bounded Docker test worker and preserve a separate dirty checkout. They do not establish real daemon/CLI integration. Real Docker setup, teardown, persistence and a public source clone have been exercised separately from these synthetic tests. The separate explicit `tests/real_container_control.py` fixture also exercises the default Coding Jobs control plane against real Docker for clone, lifecycle, agent process, verification, create-only push, PR readback and cancellation. It uses a synthetic CLI, an in-volume bare Git remote and an in-memory GitHub service; it creates no real provider task, issue or PR. Evidence assertions run in the bounded Docker validation worker with `READER_REAL_CONTAINER_EVIDENCE` set. Without that exported evidence the real-daemon assertions are explicitly skipped.
+
+## Explicit terminal setup
+
+After approving a container registration, the local `reader container` command can prepare tools and independent authentication in that repository’s managed volume. It uses the same image, worker key, resource guard and teardown as a job. It does not clone source or run repository lifecycle commands. Examples below assume `READER_ROOT` selects the private vault and replace `owner/name` with the registered repository:
+
+```sh
+reader --root "$READER_ROOT" container exec owner/name -- node --version
+reader --root "$READER_ROOT" container exec owner/name -- npm install --global --prefix /work/tools @openai/codex@0.166.0
+reader --root "$READER_ROOT" container exec owner/name -- codex login --device-auth
+reader --root "$READER_ROOT" container check owner/name
+```
+
+Every token after `--` is a literal container argv token; Reader does not interpolate a host shell or import host environment secrets. A shell can be requested explicitly as a container executable when the operator needs one. Commands use `/work` as their working directory. Install tools under `/work/tools`, whose `bin` is already on the container PATH; install project dependencies in the job workspace through its approved lifecycle commands. Root-image package managers cannot write to the read-only system directories. Git authentication must likewise be established inside the container. Host `gh` access for issue/PR operations is separate from container Git credentials.
+
+For private repositories and pushes, follow the [official GitHub CLI installation guidance](https://github.com/cli/cli#installation) and its [precompiled releases](https://github.com/cli/cli/releases). Choose a Linux archive for the container architecture, verify its published checksum/provenance, and place its executable in `/work/tools/bin` using `reader container exec`; system package installation targets the read-only image and is unsuitable here. This preparation is manual and does not import the host CLI. After installation, authenticate and configure Git’s credential helper inside this container home:
+
+```sh
+reader --root "$READER_ROOT" container exec owner/name -- gh auth login --hostname github.com --web --git-protocol https
+reader --root "$READER_ROOT" container exec owner/name -- gh auth setup-git --hostname github.com
+```
+
+These commands use a separate container login. Without a system credential store, GitHub CLI may persist its token in plain text under the retained container home; protect the volume accordingly. Do not paste tokens into configuration, article prompts or command arguments. A host `gh auth login` does not authenticate container Git.
+
+`exec` streams bounded stdout/stderr to the terminal and returns the command’s exit code in its final JSON. The CLI exits nonzero for a failed command. Device-authentication output is for the local terminal; complete the provider’s browser approval yourself. Reader does not copy host sessions, take over the browser approval or promise that an agent is signed in merely because its executable exists. The setup lifetime defaults to 600 seconds and can be set between 60 and 3600 with `--seconds` before the action; cleanup retains 30 seconds beyond the command limit. Commands stop and remove their worker on return, keeping the workspace volume.
+
+`check` actually opens the managed worker, probes each enabled agent’s version and authentication status, checks that container Git can read the registered base at the approved revision, measures resources, then closes it. Its `ready` result is limited to those checks; it does not prove push permission or project verification. Job preflight and publication still repeat their own checks. Check output contains booleans and identities, not authentication responses. It is not cached as an Admin “Ready” badge.
+
+Creation intent and worker/lease identity are recorded in the repository’s host-control `setup.json` with atomic replacement and fsync. One nonblocking setup-file lock serializes setup/recovery commands; the concrete workstation worker lease also excludes jobs. A prior setup without confirmed shutdown must be reconciled explicitly:
+
+```sh
+reader --root "$READER_ROOT" container recover owner/name
+```
+
+Recovery uses the recorded identity and the fenced recovery protocol above. It never erases the volume or starts another coding agent. A foreign worker, replaced lease or uncertain stop remains an error. The setup command requires an approved prepared image. Use the image command below before approving its full local identity in Admin.
+
+## Prepare the managed image
+
+```sh
+reader --root "$READER_ROOT" container-image --lock-store "$READER_WORKSTATION_LOCKS_STORE"
+```
+
+The command prints `image_id`, `recipe_sha256` and whether it reused the existing `reader-coding:local` image. Copy that full immutable image identity into Admin’s configuration approval. The lock store must be an existing absolute workstation authority; this command never creates one. It acquires the canonical `host/docker/reader-coding-image/` lease itself. Do not wrap it in another acquisition of the same key.
+
+Only the packaged, hash-checked Dockerfile, entrypoint and Docker ignore file enter its frozen context (at most 64 KiB combined). Node 24.18.0 and Python 3.12-bookworm must already be present locally at the recipe’s exact immutable identities. Each cached base is inspected by its digest-qualified manifest reference; Docker’s returned local configuration/image ID is recorded separately and is not required to equal the manifest digest. Missing or changed pinned references fail rather than using a mutable tag or pulling another version. There are no repository Dockerfiles, Features, package installs, compiler outputs, host mounts or network RUN commands. The fixed COPY operations and environment-file symlink have a finite output bound derived from the two immutable input images; this is not an admission path for arbitrary build programs.
+
+The helper reuses an exact labelled recipe, refuses an unrecognized owner of the managed image tag, and builds under 2 CPU / 512 MiB flags, a 240-second work deadline, bounded capture/logs and an 8 MiB host-control threshold. Both host and Docker backing filesystems must retain 50 GiB free. A labelled read-only, network-isolated, 64 MiB probe measures backing free space. Probe cleanup proves its ownership label before removing anything. Build logs and temporary files stay under `.reader/container-image/`; the canonical image and Docker’s reusable layers remain cached, never copied per job. No image or volume pruning is performed.
+
+The installed command currently requires Docker’s legacy builder to honor its explicit CPU/memory flags. Engines without that builder fail; it does not silently switch to an unbounded build service. Normal coding jobs use the Dev Container CLI and already prepared image independently of this preparation backend. The fixed recipe does not install coding agents or credentials; use explicit terminal setup for those.
+
+The guarded validation runner retains its 24 MiB software-transfer cap. Python validation carries the already bounded Linux formatter as a gzip transfer copy, restores at most 16 MiB before testing, and removes the transfer copy. Its executable bytes and recorded hash remain unchanged. Other validation kinds omit this unused artifact. Both compressed input and expanded output stay in the existing bounded worker filesystem; no source/cache limit is raised.
+
+When a job reports a changed base, open Admin → Repositories, enter the repository/base again, choose **Inspect GitHub configuration**, review the new preview and **Approve registration** with the new pinned revision. **Refresh registrations** only reloads the list. Terminal tool/sign-in setup does not renew source approval.
+
+## Admission durability
+
+Admission does not queue a task until its request receipt is durably saved. If replacement installed the receipt but directory synchronization failed, Reader retains a terminal failed run as its target. A retry with the same request ID returns that failed run; a new explicit request can try again. An uncertain receipt is never allowed to reference a discarded run.
+
+## Full workspace recovery
+
+The 3 GiB threshold covers retained per-run source and dependencies as well as tooling and cache. Failed or dirty runs are retained; Reader does not automatically delete recovery work to admit a new job. When the volume is full, ordinary setup also refuses because it can execute arbitrary container commands.
+
+If you choose to discard the complete environment, first export any source, edits, credentials or other data you need. Stop the owning Reader server, reconcile unfinished jobs and terminal setup, then request a reset:
+
+```sh
+reader --root "$READER_ROOT" container reset owner/name
+```
+
+The first invocation refuses and prints the exact volume name. Repeat deliberately with `--confirm-volume` before the action:
+
+```sh
+reader --root "$READER_ROOT" container --confirm-volume reader-coding-EXACT-KEY-work reset owner/name
+```
+
+Reset permanently deletes that volume’s source, dependencies, tools, cache and authentication data. Its exact-name confirmation acknowledges that scope; it is not a dry-run cleanup of only generated files. Job archives and runtime evidence in the vault remain. Reinstall tools and authenticate independently after a reset.
+
+Reset starts no worker, agent, lifecycle command or build, so an already-full workspace does not block it. It takes exclusive supervisor and canonical worker ownership, refuses existing workers or unfinished/unclean jobs/setup, verifies the exact local volume name, driver and vault/repository labels, and confirms absence after removal. Transport allows 60 seconds for work commands and reserves 30 seconds for deletion confirmation and lease release. Host commands use the same gated process journal and bounded capture; control files remain under the existing 8 MiB guard. It records intent before deletion and retains uncertain state/lease rather than claiming success after an error. Reset holds the same per-repository setup lock as terminal setup. A positively absent failed lease claim, or a definitive daemon in-use rejection followed by a matching owned-volume inspection, is saved as a retryable refusal. Other ambiguous results retain ownership and unconfirmed state. An interrupted reset requires manual verification of its saved host-client identities, exact lease receipt and Docker volume state before its control record can be reconciled. Never delete an unconfirmed record or clear another owner’s lease to retry.
+
+
+An unconfirmed reset also blocks ordinary `container check`, `container exec` and Coding Jobs, even after its lease expires. Admission reads the bounded reset record without changing it; only an absent record, or a matching `completed`/`refused` record with an empty host-client journal, permits a new worker. Malformed records, symlinks, unknown states and mismatched repository/volume identities require manual reconciliation. The runtime checks again after acquiring the canonical worker lease, before any Docker image, container or volume operation. `container recover` remains available to stop an existing proven-owned worker; it does not clear or reconcile the reset record.

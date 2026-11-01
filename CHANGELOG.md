@@ -2,6 +2,27 @@
 
 ## Unreleased
 
+- Block setup and Coding Jobs while a previous destructive volume reset is unconfirmed, including after lease expiry; preserve explicit worker recovery.
+- Preserve request/run links after uncertain directory persistence, keep known reset refusals retryable with reserved cleanup time, and expand the CLI vault root consistently.
+
+- Keep dynamic-loader configuration immutable, journal gated host clients through restart recovery, and retry finished workers needing shutdown reconciliation without rewriting their historical outcomes.
+
+- Bind inferred approvals to the canonical proposal, resolve GitHub revisions without file patches, and provide an explicitly confirmed reset for an inactive full workspace volume.
+
+- Stop the fixed process-table probe at its combined output limit; a failed or incomplete termination query never confirms cleanup.
+
+- Validate pinned base manifests independently of Docker’s local image/configuration IDs, supporting classic image stores without a mutable-tag fallback.
+
+- Resolve repository-relative verification executables inside the job workspace instead of reporting them as missing tooling.
+
+- Compress the separately bounded Linux formatter during validation transfer and restore it in the worker, preserving its bytes and the existing source/artifact limits.
+
+- Add guarded preparation/reuse of the fixed managed coding image. Real Docker job validation exposed and fixed cancellation classification, transient descriptor-scan denial and unconfirmed client-cleanup handling.
+
+- Replace checkout registration with pinned GitHub container discovery, selection and explicit inference consent. Add guarded terminal setup/check/recovery commands with independent container sign-in and persistent tooling.
+
+- Route default Coding Jobs development through managed devcontainers, preserve legacy registrations without executing them, and fence worker recovery by its exact lease and per-run identity.
+
 - Voice selectors recover after AI-TTS starts and offer Retry voices after catalog failures.
 
 - Split panes fit the available space beside the open File Explorer and right dock.

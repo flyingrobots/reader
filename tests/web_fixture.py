@@ -744,6 +744,9 @@ def main():
                                  verify_exit=1 if '--coding-verify-fails' in sys.argv else 0)
             coding_options = coding_world.options()
         library = WebLibrary(root, writing_options=writing_options, font_fetcher=fetcher, maintenance_runners=runners, inbox_environ=inbox_environ, chat_options=chat_options, local_model=local, prose=prose, service_runner=service, companions=companions, art_options=art_options, coding_options=coding_options)
+        if coding_world:
+            from reader_mcp.coding_publish import Job
+            library.jobs.job_factory = Job  # Explicit browser reference model; production defaults to ContainerJob.
         if art_options and '--art-none' not in sys.argv:
             from reader_mcp.art import PROMPT_VERSIONS
             from reader_mcp.art_scene import validate

@@ -1,5 +1,6 @@
 """Article prompts that become coding jobs (RW-44): admission, the job runner, recovery and views.
 
+The default development adapter is a managed devcontainer; legacy host registrations are refused.
 This is a repository-job runner, separate from the chat runner (whose working directory and change
 detector belong to the vault). One Reader server per vault owns coding jobs (`.reader/coding-jobs/
 supervisor.lock`, the chat supervisor's lock); it runs one job at a time from a FIFO queue. Others serve
@@ -30,12 +31,13 @@ import traceback
 import uuid
 
 from . import coding_agents, llm_logs, prompt_blocks
-from .coding_publish import Job, closes, ours
-from .coding_store import CaptureFailed, Capture, Live, Store, archived_events, stamp, valid_id
+from .coding_publish import closes, ours
+from .coding_container import ContainerJob
+from .coding_store import InstalledRecordError, CaptureFailed, Capture, Live, Store, archived_events, stamp, valid_id
 from .coding_workflow import Stop, process_started
 from .display import shown
 from .github import GhCli, GitHubError
-from .repositories import AGENTS, Registry, RegistryError
+from .repositories import AGENTS, Registry, RegistryError, LegacyRepository
 from .resources import has_capacity
 from .voice_runner import Supervisor, kill_group
 
@@ -70,6 +72,7 @@ class Runner:
         self.articles = articles  # path -> (text, sha256) of a current library document
         self.environ = environ
         self.github = github or GhCli(environ=environ)
+        self.job_factory = ContainerJob
         self.git = shutil.which('git') or 'git'
         self._git_locks = git_locks
         self.limits = limits
@@ -173,9 +176,14 @@ class Runner:
             block = prompt_blocks.find(text, request.get('block_id'))
             if not block:
                 raise JobConflict('The article has no valid prompt block with that ID.', 'missing-block')
-            entry = self.registry.entry(block['repo'])
+            try:
+                entry = self.registry.entry(block['repo'], require_container=self.job_factory is ContainerJob)
+            except LegacyRepository as exc:
+                raise JobConflict(str(exc) + ' Host checkouts are no longer executed.', 'container-required') from exc
             if not entry:
                 raise JobConflict(f'{block["repo"]} is not a registered repository. Set it up in Reader Admin first.', 'unregistered')
+            if self.job_factory is ContainerJob and not entry.get('environment'):
+                raise JobConflict('Reconfigure this repository for a devcontainer in Reader Admin. Host checkouts are no longer executed.', 'container-required')
             if request['agent'] not in entry['agents']:
                 raise JobConflict(f'{request["agent"]} is not an agent {entry["repo"]} allows.', 'agent')
             if not self.capacity(self.root):
@@ -223,10 +231,20 @@ class Runner:
             self.store.save(run)
             try:
                 self.store.remember(request['request_id'], run_id, print_)
-            except BaseException:
-                # Without its receipt the run is not admitted: no record is left to wait unqueued, and a retry
-                # with the same request ID admits exactly one run. The archive keeps the attempt, sealed as failed.
-                self.store.discard(run_id)
+            except BaseException as exc:
+                # No task is queued until receipt persistence succeeds. Distinguish failure before
+                # installation from uncertain directory durability so no receipt points at a discarded run.
+                if isinstance(exc,InstalledRecordError):
+                    # The installed receipt must keep its target. No work was queued; same-UUID
+                    # retry returns this terminal failure, and a new explicit request can try again.
+                    run.update(status='finished',outcome='failed',finished_at=stamp(),seq=capture.seq,
+                               message='Admission durability failed after installing its receipt; no task started. Run again with a new request.')
+                    try:self.store.save(run)
+                    except OSError:
+                        # Store retains this failed state in its retry cache; propagate the original
+                        # durability error. Restart recovery never relaunches an unqueued record.
+                        pass
+                else:self.store.discard(run_id)
                 capture.close()
                 try:
                     log.finish('failed', message='Admission failed: the request receipt could not be saved.')
@@ -284,16 +302,16 @@ class Runner:
         outcome, message = 'failed', 'Reader stopped this job unexpectedly.'
         try:
             self.store.save(run)  # Inside the handler: a failed write finishes the job, never the queue worker.
-            entry = self.registry.entry(run['source']['repo'])
+            entry = self.registry.entry(run['source']['repo'], require_container=self.job_factory is ContainerJob)
             if not entry:
                 raise Stop('blocked', f'{run["source"]["repo"]} is no longer registered.')
-            job = Job(self, run, entry, capture, self.github, lambda: run['id'] in self.cancels or self.closed)
+            job = self.job_factory(self, run, entry, capture, self.github, lambda: run['id'] in self.cancels or self.closed)
             outcome, message = job.execute()
         except Stop as stop:
             outcome, message = stop.outcome, stop.message
         except CaptureFailed as exc:
             outcome, message = 'failed', str(exc)
-        except RegistryError as exc:
+        except (RegistryError, LegacyRepository) as exc:
             outcome, message = 'blocked', str(exc)
         except Exception as exc:
             outcome, message = 'failed', f'Reader error: {exc.__class__.__name__}: {exc}'
@@ -343,23 +361,51 @@ class Runner:
 
     # Recovery --------------------------------------------------------------------------------------
 
+    def _save_container_recovery(self, run, container):
+        run['container'] = container
+        self.store.save(run)
+
     def recover(self):
         """Reconcile runs a previous server left unfinished. Never relaunches an agent."""
         for run in self.store.runs():
-            if run.get('status') == 'finished':
+            finished = run.get('status') == 'finished'
+            if finished and (not run.get('container') or run['container'].get('state') == 'stopped'):
                 continue
             notes, outcome = [], 'interrupted'
             process = run.get('process') or {}
-            if process.get('group') and process.get('host') == self.host and process.get('started') and \
+            if not run.get('container') and process.get('group') and process.get('host') == self.host and process.get('started') and \
                     process_started(process['group']) == process['started']:
                 kill_group(process['group'])
                 notes.append('Reader stopped the process the previous server left running.')
             entry = None
             try:
-                entry = self.registry.entry(run['source']['repo'])
-            except RegistryError:
+                entry = self.registry.entry(run['source']['repo'], require_container=self.job_factory is ContainerJob)
+            except (RegistryError, LegacyRepository):
                 pass
+            container_problem = None
+            if run.get('container') and run['container'].get('state') != 'stopped':
+                try:
+                    from .container_recovery import recover as recover_container
+                    if (run.get('owner') or {}).get('host') != self.host:
+                        raise RuntimeError('The previous worker belongs to another host')
+                    docker, locks = shutil.which('docker', path=(self.environ or {}).get('PATH')), self.git_locks()
+                    if not docker or not locks:
+                        raise RuntimeError('Docker and git-locks are required to confirm the previous worker stopped')
+                    run['container'] = recover_container(self.root, run['source']['repo'], run['id'], run['container'],
+                                                         docker=docker, lock_tool=locks, persist=lambda value: self._save_container_recovery(run,value))
+                    notes.append('Its container was stopped; the persistent workspace volume was retained.')
+                except Exception as exc:
+                    container_problem = str(exc)
+                    notes.append('Container shutdown requires reconciliation: ' + container_problem)
+            if finished:
+                # Keep the sealed outcome and its evidence intact. Cleanup is a later operation.
+                run['cleanup'] = {'at':stamp(), 'state':'needs_reconciliation' if container_problem else 'stopped',
+                                  'message':' '.join(notes)}
+                self.store.save(run)
+                continue
             outcome, found = self.reconcile(run, entry, notes)
+            if container_problem:
+                outcome = 'needs_reconciliation'
             message = ('Reader stopped before this job finished; it was not restarted. ' + ' '.join(notes)).strip() if outcome != 'pr_opened' else \
                 ('Reconciled after a restart: pull request #' + str(run['pr']['number']) + ' is open. ' + ' '.join(notes)).strip()
             run.update(status='finished', outcome=outcome, message=message, finished_at=stamp(), process=None, recovered=True)

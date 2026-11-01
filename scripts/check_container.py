@@ -10,6 +10,7 @@ import shlex
 import fcntl
 import hashlib
 import io
+import gzip
 import json
 from pathlib import Path
 import shutil
@@ -21,6 +22,7 @@ import time
 ROOT = Path(__file__).resolve().parents[1]
 RUNTIME = ROOT / '.reader/review'
 GIB = 1024**3
+FORMATTER_RESTORE = "from pathlib import Path\nimport gzip\npacked=Path('.reader/tooling/bin/wide-md.gz')\nif packed.exists():\n with gzip.open(packed,'rb') as stream:data=stream.read(16*1024**2+1)\n if len(data)>16*1024**2:raise RuntimeError('Formatter artifact limit reached')\n target=packed.with_suffix('');target.write_bytes(data);target.chmod(0o755);packed.unlink()\n"
 
 
 def worker_name(kind, root=ROOT):
@@ -89,7 +91,22 @@ def main():
                     if rel.parts[:2] == ('docs', 'images'):
                         continue
                     if path.is_file() and not path.is_symlink() and not any(p in ('node_modules','dist','__pycache__') for p in rel.parts):
-                        archive.add(path, arcname=str(rel), recursive=False)
+                        if rel.parts[:2] == ('.reader', 'tooling') and kind != 'python':
+                            continue
+                        if rel.as_posix() == '.reader/tooling/bin/wide-md':
+                            # The separately bounded compiled artifact need not consume source transport
+                            # space as raw ELF bytes. Keep both existing limits and preserve its hash.
+                            with path.open('rb') as formatter:
+                                data = formatter.read(16*1024**2 + 1)
+                            if len(data) > 16*1024**2:
+                                raise RuntimeError('Formatter artifact limit reached')
+                            packed = gzip.compress(data, mtime=0)
+                            member = tarfile.TarInfo(str(rel) + '.gz')
+                            member.size = len(packed)
+                            member.mode = 0o600
+                            archive.addfile(member, io.BytesIO(packed))
+                        else:
+                            archive.add(path, arcname=str(rel), recursive=False)
         if stream.tell() > 24 * 1024**2:
             raise RuntimeError('Unexpectedly large software input')
         contract = dict(worker=name,image=image,host_free=shutil.disk_usage(ROOT).free,
@@ -101,7 +118,8 @@ def main():
             docker('run','-d','--name',name,'--read-only','--cpus','2','--memory','4g','--pids-limit','256','--shm-size','64m',
                    '--tmpfs','/work:rw,exec,size=2147483648','--tmpfs','/tmp:rw,exec,size=1073741824',
                    '--log-driver','local','--log-opt','max-size=4m','--log-opt','max-file=1','--log-opt','compress=false',
-                   '-e','TMPDIR=/tmp','-e','HOME=/work','-w','/work',image,'sleep','1000',stdout=subprocess.DEVNULL)
+                   '-e','TMPDIR=/tmp','-e','HOME=/work/validation-home','-w','/work',image,'sleep','1000',stdout=subprocess.DEVNULL)
+            docker('exec',name,'mkdir','-p','/work/validation-home')
             free = docker('exec',name,'df','-Pk','/',capture_output=True,text=True).stdout
             contract['vm_df'] = free
             if int(free.splitlines()[-1].split()[3])*1024 < 50*GIB:
@@ -125,6 +143,8 @@ def main():
             if kind=='web':
                 cmd = ('node --test tests/*.test.mjs && cd web && npm ci --cache /work/npm-cache --no-audit --no-fund && '
                        'npm run check && npm run build')
+            if kind=='python':
+                cmd = 'python -c ' + shlex.quote(FORMATTER_RESTORE) + ' && ' + cmd
             if kind=='formatter':
                 cmd = ('git init /work/formatter && git -C /work/formatter fetch --depth=1 '
                        'https://github.com/flyingrobots/wide-md c167101b32bbe37954429e9de5db33efcdc0a16c && '

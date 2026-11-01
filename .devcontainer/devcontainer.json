@@ -1,0 +1,6 @@
+{
+  "name": "Reader coding job",
+  "image": "reader-coding:local",
+  "remoteUser": "root",
+  "userEnvProbe": "none"
+}

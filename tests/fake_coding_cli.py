@@ -19,6 +19,9 @@ def git(*args):
 
 
 def main():
+    if sys.argv[1:] == ['--version']:
+        print('fake-coding-cli 1.0')
+        return
     scenario = json.loads(Path(os.environ['FAKE_CODING_SCENARIO']).read_text())
     stdin = sys.stdin.buffer.read()
     argv = sys.argv[1:]

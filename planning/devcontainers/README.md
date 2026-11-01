@@ -1,6 +1,6 @@
 # Reader devcontainer experiment
 
-This is a candidate, not Reader's supported development setup or Coding Jobs backend. It is deliberately outside `.devcontainer/` so editors and jobs do not automatically select a configuration before durable work recovery is implemented. The current Coding Jobs runner still uses registered local checkouts; this experiment does not migrate it.
+This is a candidate, not Reader's supported development setup or Coding Jobs backend. It is deliberately outside `.devcontainer/` so editors and jobs do not automatically select a configuration before durable work recovery is implemented. The current Coding Jobs adapter uses managed containers; this setup-only experiment does not configure that adapter or establish its readiness.
 
 The candidate uses Reader's GitHub CI Node image, `node:24.18.0`, and clones the public repository **inside** capped Docker tmpfs. The host workspace contains only configuration. Python is the image's Debian Python, not the CI Python 3.12 image; the candidate does not establish full Python or browser-test parity. It mounts neither host source nor credentials nor a Docker socket, and starts no coding agent.
 
