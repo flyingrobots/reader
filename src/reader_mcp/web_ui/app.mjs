@@ -5,6 +5,7 @@ import {installLinks} from './links.mjs';
 import {mathPlugin,mathOptions} from './math.mjs';
 import {openPDF,pdfPage} from './pdf.mjs';
 import {embedPlugin,installEmbeds} from './embeds.mjs';
+import {portableLinkPlugin} from './portable-links.mjs';
 import {installBreadcrumbs} from './breadcrumbs.mjs';
 import {readingLogModel,withYou} from './reading-log.mjs';
 import {modalOpen} from './modal.mjs';
@@ -88,7 +89,7 @@ new MutationObserver(syncThemeColor).observe(document.documentElement,{attribute
 const reduced = matchMedia('(prefers-reduced-motion: reduce)');
 // Callouts register before the source-map wrapper below, so their asides receive the blockquote's map.
 // reader:prompt blocks (RW-44) are found from these tokens before sanitizing; see prompt-blocks.mjs.
-const md = window.markdownit({html:true, linkify:true, breaks:false}).use(mathPlugin).use(calloutPlugin).use(embedPlugin).use(promptPlugin);
+const md = window.markdownit({html:true, linkify:true, breaks:false}).use(mathPlugin).use(calloutPlugin).use(embedPlugin).use(promptPlugin).use(portableLinkPlugin);
 for (const type of ['paragraph_open','heading_open','blockquote_open','bullet_list_open','ordered_list_open','math_block','fence']) {
   const original = md.renderer.rules[type];
   md.renderer.rules[type] = (tokens, index, options, env, self) => {
@@ -720,6 +721,13 @@ async function renderMarkdown(container,raw,path,depth,{defer=false,range=null,c
   // embed's placeholder never grants a source coordinate to the embedded document's blocks.
   // Only the article itself (`prompts` given) turns prompt blocks into cards; embeds, chat and scratch keep plain code.
   const env={raw:source.text,full:raw,offset:source.offset,embeds:true,...mathOptions(raw),...(prompts?{prompts:{}}:{})};
+  if(/file:/i.test(source.text)&&path.startsWith('library/')){
+    try{
+      const bytes=new TextEncoder().encode(raw),hash=await crypto.subtle.digest('SHA-256',bytes);
+      const sha=[...new Uint8Array(hash)].map(n=>n.toString(16).padStart(2,'0')).join('');
+      env.portableLinks=await api('/api/portable-links?path='+param(path)+'&sha256='+sha);
+    }catch(error){console.warn('Local link repairs unavailable',error);}
+  }
   const rendered=md.render(source.text,env);
   const clean=DOMPurify.sanitize(rendered,{USE_PROFILES:{html:true},FORBID_TAGS:['style','form','input','button','textarea','select','iframe'],FORBID_ATTR:['style','srcset']});
   const template=document.createElement('template');template.innerHTML=clean;

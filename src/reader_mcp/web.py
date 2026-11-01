@@ -1561,6 +1561,14 @@ class WebHandler(BaseHTTPRequestHandler):
             elif parsed.path == '/api/resolve-batch':
                 targets = parse_qs(parsed.query, keep_blank_values=True).get('target', [])
                 self.json(library.resolve_many(args.get('from', ''), targets))
+            elif parsed.path == '/api/portable-links':
+                from .portable_links import PortableLinks
+                path = args.get('path', '')
+                library.path(path)
+                sha = library.digest(path)
+                if args.get('sha256') != sha:
+                    raise ValueError('Document changed; reopen it before using link repairs')
+                self.json(PortableLinks(library.root).stored(path, sha) or {'targets': []})
             elif parsed.path == '/api/embeds':
                 lists = parse_qs(parsed.query, keep_blank_values=True)
                 depth = args.get('depth', '0')
