@@ -15,7 +15,7 @@
     "../docs/topics/models.md": "525f9fb66a9565eb46a698b3a7163b890fa727b4930d922f7ebcf07ea5af4eb3",
     "../docs/topics/overview.md": "39511286a760f38d38a1d98568cf0af77b77e0d7d451f3064ae14b69efb03449",
     "../docs/topics/repositories.md": "a380b973f9656d637411e05877310520107c1b0c6fd560015ea0bdde56a841e5",
-    "../docs/topics/service.md": "8cafc1bedd52bd5c6b41002009c18686d57a09e28b2b676af6face53c6c6f518",
+    "../docs/topics/service.md": "afed76a054d5ee552c72b3db60365acf11c3eefd447798a449d0c312af3d21f0",
     "../docs/topics/settings.md": "99336b16eb57868f4a2943fe5e5bf58c2d5c7196e9116f93c0f22e33f2ed8932",
     "../docs/topics/voices.md": "acdac0ea096443afeceb623a961a1ee751b3a0d65447a7a69f53159cb27372f8",
     "../src/reader_mcp/web_ui/art-scene.v1.json": "704fc555d474df965a7c676d9dbe518f532149a1e65132e2c72c1859a3521eb1",
@@ -990,8 +990,8 @@
       "sha256": "0ed9bc43b2ce452a09f619c7e8b89cfb2af5c04fab44ca50528a60dbb20c405b"
     },
     "reader-controls.js": {
-      "bytes": 1327694,
-      "sha256": "8fad2a57f844e9acc68e63857bd529d6e0564ffc56b4ae2e856fc516d66c543c"
+      "bytes": 1327714,
+      "sha256": "28a8c5cc82886dba5af63fa8977333cedb2b55c815f0a36c3ffef6a995c06b5e"
     },
     "reader-controls.js.LEGAL.txt": {
       "bytes": 6553,
