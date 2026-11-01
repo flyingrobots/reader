@@ -64,6 +64,16 @@ Example submission JSON (replace the example UUID for a new delivery and use act
 
 For a report referencing `assets/chart.png`, the attachment destination above preserves the link. If the document is nested, destinations are still relative to the bundle root; account for the document's own directory. The service preserves paths but does not discover attachments or rewrite links. `receipt.json` and `index.md` are reserved at the bundle root; source documents with those names may be placed under `original/` with corresponding attachment paths.
 
+Companion HTML, scripts, data and images use the same attachment contract. Include
+every required file with its relative directory structure, for example
+`implementation/index.html`, `implementation/app.js` and `assets/figure.svg`.
+Filing moves the whole bundle together; it does not flatten attachments or copy
+them into a second asset tree. This preserves source links and receipt hashes.
+The [web reader](web.md#companion-attachments) previews HTML in isolation, displays
+text companions and offers binary downloads. A source-text HTML view on an older
+Reader does not establish that its assets were lost during intake. Check the
+receipt's `integrity` before repairing or redelivering a bundle.
+
 Paths reject traversal, absolute destinations, hidden components, backslashes, control characters, and several cross-platform filename hazards. Case-insensitive and Unicode-normalized duplicate destinations and file/directory collisions are rejected. Limits are 64 files total, 32 MiB per file, and 64 MiB total payload; inline Markdown additionally has an 8,388,608-character limit. Sources are explicitly selected local files; directories are not recursively imported. A source changing size or modification time during its read is rejected. Callers should finish writing before delivery; this is not a general snapshot of concurrently modified source trees.
 
 ## CLI fallback
