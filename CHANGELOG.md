@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Companion HTML opens as an isolated interactive preview with relative assets intact; binary attachments offer byte-preserving downloads.
+
 - Voice selectors recover after AI-TTS starts and offer Retry voices after catalog failures.
 
 - Split panes fit the available space beside the open File Explorer and right dock.

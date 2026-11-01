@@ -30,6 +30,12 @@ The optional desktop [Reader plugin](obsidian-plugin.md) shows existing libraria
 
 ## Local library website
 
+Filed and inbox companion files retain their bundle-relative links. HTML opens in
+an isolated interactive preview with inline and sibling classic scripts, styles
+and images; network fetches and modules are unsupported. Source code and JSON
+remain readable text, and binary attachments offer original-byte downloads. See
+[companion attachments](web.md#companion-attachments).
+
 The loopback-only web reader opens on this week's issue: a magazine cover with a
 cover story, up to four features from different projects and an "In this issue"
 contents list, chosen from the week's additions with unread pieces first,
