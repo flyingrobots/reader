@@ -90,7 +90,7 @@ class ContainerJob(Job):
         self.run['tools'] = {'gh': self.github.version(), 'git': self.command(['git', '--version']).stdout.strip(),
                              'runtime': 'devcontainer', 'image': env['image_id']}
         if self.remote_sha('refs/heads/' + self.entry['base']) != env['revision']:
-            raise Stop('blocked', 'The base branch changed after configuration approval. Refresh repository setup before running.')
+            raise Stop('blocked', 'The base branch changed after configuration approval. In Admin → Repositories, inspect the current GitHub configuration, review it and approve the new revision before running. Refresh registrations only reloads the list.')
         if self.remote_sha('refs/heads/' + self.run['git']['branch']):
             raise Stop('blocked', 'The assigned remote branch already exists; it will not be reused.')
         self.emit('phase', phase='preflight', state='completed')

@@ -2,6 +2,16 @@
 
 `ContainerRuntime` in `reader_mcp.container_runtime` prepares a restricted local Docker container through the Dev Container CLI’s `set-up` command. It is selected by the default Coding Jobs adapter. Admin handles configuration approval and the terminal setup command handles tools and independent sign-in. The local image-preparation command builds the fixed managed image; real Docker job-flow checks use a synthetic coding CLI and GitHub service, keeping live provider authentication/publication outside that test boundary. Legacy registrations are retained as read-only recovery data and cannot execute through the default runner.
 
+## First use, in order
+
+1. Make the two exact base references in the [fixed recipe](../src/reader_mcp/runtime_image/Dockerfile) available in local Docker, then [prepare the managed image](#prepare-the-managed-image). Preparation reports its full immutable image ID and does not pull missing bases.
+2. In Admin → Repositories, inspect the repository’s current base, review a selected configuration or explicitly allow inference, and approve it with that image ID and the existing workstation lock store.
+3. [Install tools and establish separate container authentication](#explicit-terminal-setup). Install the coding CLI and container GitHub CLI before invoking their login commands.
+4. Run `reader container check owner/name` with the same vault selected. Resolve failed installation, sign-in or base checks.
+5. Explicitly run an article prompt. Approval and readiness checks do not themselves start a coding task.
+
+The fixed image command produces `reader-coding:local`. Reader’s checked-in `.devcontainer/devcontainer.json` is a Node/Python starter using that image; it does not install project dependencies, coding tools or credentials. A selected repository configuration naming an ordinary different image is not silently rewritten or made compatible by that command. Update that repository’s devcontainer configuration through its normal review process to use the supported managed image/subset, then rediscover and approve the new immutable source, or use a different development workflow. Dockerfile, Compose, Features, extra mounts and resource overrides are refused.
+
 ## Storage and ownership
 
 A repository name deterministically identifies one worker name, persistent workspace volume and shared `host/docker/<worker>/` git-locks key. Labels bind the volume and worker to both the repository and the owning vault’s fingerprint. A foreign volume or existing worker is refused instead of being adopted or erased. The local volume must use Docker’s local driver without additional mount options.
@@ -41,7 +51,7 @@ reader --root "$READER_ROOT" container check owner/name
 
 Every token after `--` is a literal container argv token; Reader does not interpolate a host shell or import host environment secrets. A shell can be requested explicitly as a container executable when the operator needs one. Commands use `/work` as their working directory. Install tools under `/work/tools`, whose `bin` is already on the container PATH; install project dependencies in the job workspace through its approved lifecycle commands. Root-image package managers cannot write to the read-only system directories. Git authentication must likewise be established inside the container. Host `gh` access for issue/PR operations is separate from container Git credentials.
 
-For private repositories and pushes, install the official GitHub CLI into `/work/tools/bin`, then authenticate and configure Git’s credential helper inside this container home:
+For private repositories and pushes, follow the [official GitHub CLI installation guidance](https://github.com/cli/cli#installation) and its [precompiled releases](https://github.com/cli/cli/releases). Choose a Linux archive for the container architecture, verify its published checksum/provenance, and place its executable in `/work/tools/bin` using `reader container exec`; system package installation targets the read-only image and is unsuitable here. This preparation is manual and does not import the host CLI. After installation, authenticate and configure Git’s credential helper inside this container home:
 
 ```sh
 reader --root "$READER_ROOT" container exec owner/name -- gh auth login --hostname github.com --web --git-protocol https
@@ -77,3 +87,5 @@ The helper reuses an exact labelled recipe, refuses an unrecognized owner of the
 The installed command currently requires Docker’s legacy builder to honor its explicit CPU/memory flags. Engines without that builder fail; it does not silently switch to an unbounded build service. Normal coding jobs use the Dev Container CLI and already prepared image independently of this preparation backend. The fixed recipe does not install coding agents or credentials; use explicit terminal setup for those.
 
 The guarded validation runner retains its 24 MiB software-transfer cap. Python validation carries the already bounded Linux formatter as a gzip transfer copy, restores at most 16 MiB before testing, and removes the transfer copy. Its executable bytes and recorded hash remain unchanged. Other validation kinds omit this unused artifact. Both compressed input and expanded output stay in the existing bounded worker filesystem; no source/cache limit is raised.
+
+When a job reports a changed base, open Admin → Repositories, enter the repository/base again, choose **Inspect GitHub configuration**, review the new preview and **Approve registration** with the new pinned revision. **Refresh registrations** only reloads the list. Terminal tool/sign-in setup does not renew source approval.
