@@ -8,6 +8,9 @@ import json
 from . import coding_agents, llm_logs, prompt_blocks
 from .coding_jobs import ARTIFACTS, MAX_ARTIFACT, JobsOwned, Runner
 from .coding_store import MAX_PAGE_BYTES, archived_events, valid_id
+from .devcontainer_discovery import discover as discover_container
+from .devcontainer_config import select as select_container
+from .github import GitHubError
 from .display import shown
 from .repositories import RegistryError
 
@@ -125,6 +128,17 @@ class CodingJobs(Runner):
         if (identity or {}).get('via') != 'local':
             raise PermissionError('Repositories can be registered only from this Mac')
         action = request.get('action')
+        if action in ('discover-container', 'select-container'):
+            expected = ({'action', 'repo', 'base'} if action == 'discover-container'
+                        else {'action', 'repo', 'revision', 'path'})
+            if set(request) != expected:
+                raise ValueError('Unexpected container discovery/selection fields')
+            try:
+                if action == 'discover-container':
+                    return discover_container(self.github, request['repo'], request['base'])
+                return select_container(self.github, request['repo'], request['revision'], request['path'])
+            except GitHubError as exc:
+                raise ValueError('GitHub configuration inspection failed: ' + str(exc)) from exc
         if action == 'register' and set(request) == {'action', 'repo', 'entry'}:
             entry = self.registry.register(request['repo'], request['entry'])
             self.own()

@@ -50,6 +50,7 @@ class GitHub:
     def repository(self, repo): raise NotImplementedError
     def revision(self, repo, ref): raise NotImplementedError
     def tree(self, repo, sha): raise NotImplementedError
+    def blob(self, repo, sha): raise NotImplementedError
     def issue(self, repo, number): raise NotImplementedError
     def create_issue(self, repo, title, body): raise NotImplementedError
     def find_issues(self, repo, marker): raise NotImplementedError
@@ -127,6 +128,9 @@ class GhCli(GitHub):
 
     def tree(self, repo, sha):
         return self.call('GET', f'repos/{repo}/git/trees/{_quote(sha)}')
+
+    def blob(self, repo, sha):
+        return self.call('GET', f'repos/{repo}/git/blobs/{_quote(sha)}')
 
     def issue(self, repo, number):
         return issue_view(self.call('GET', f'repos/{repo}/issues/{int(number)}') or {}, repo)

@@ -174,3 +174,55 @@ def test_the_job_stream_refuses_a_cursor_that_is_not_ascii_digits(site, after):
         assert response.status == 400
     finally:
         connection.close()
+
+
+def test_container_discovery_does_not_register_or_start_a_job(site, monkeypatch):
+    from reader_mcp.github import GitHubError
+    world, server, request = site
+    calls = []
+    commit, tree = 'a' * 40, 'b' * 40
+    def revision(repo, ref):
+        calls.append(('revision', repo, ref))
+        return {'sha': commit, 'commit': {'tree': {'sha': tree}}}
+    def inventory(repo, sha):
+        calls.append(('tree', repo, sha))
+        return {'sha': tree, 'truncated': False, 'tree': []}
+    monkeypatch.setattr(world.github, 'revision', revision, raising=False)
+    monkeypatch.setattr(world.github, 'tree', inventory, raising=False)
+    before = world.jobs.registry.file.read_bytes()
+    worker, runs = world.jobs.worker, world.jobs.store.runs()
+    status, data = request('/api/repositories', {'action': 'discover-container', 'repo': 'acme/widget', 'base': 'main'})
+    assert status == 200 and data['state'] == 'missing' and data['requires_inference_consent']
+    assert data['base_sha'] == commit and calls == [('revision', 'acme/widget', 'main'), ('tree', 'acme/widget', tree)]
+    assert world.jobs.registry.file.read_bytes() == before and world.jobs.worker is worker and world.jobs.store.runs() == runs
+    calls.clear()
+    assert request('/api/repositories', {'action': 'discover-container', 'repo': 'acme/widget', 'base': 'main'},
+        {'X-Forwarded-For': '198.51.100.20'})[0] == 403
+    assert calls == [], 'Proxy requests must not inspect private repository configuration'
+    def unavailable(*args):raise GitHubError('HTTP 403: denied')
+    monkeypatch.setattr(world.github, 'revision', unavailable)
+    status, error = request('/api/repositories', {'action': 'discover-container', 'repo': 'acme/widget', 'base': 'main'})
+    assert status == 400 and 'failed' in error['error'] and '403' in error['error']
+    assert 'requires_inference_consent' not in error
+    assert world.jobs.registry.file.read_bytes() == before
+
+
+def test_container_selection_reads_the_pinned_blob_without_registration(site, monkeypatch):
+    import base64
+    import hashlib
+    world, server, request = site
+    commit, tree = 'a' * 40, 'b' * 40
+    source = b'{ /* preview only */ "image": "reader-development:local", }'
+    blob = hashlib.sha1(b'blob ' + str(len(source)).encode() + b'\0' + source).hexdigest()
+    monkeypatch.setattr(world.github, 'revision', lambda repo, ref: {'sha': commit, 'commit': {'tree': {'sha': tree}}}, raising=False)
+    monkeypatch.setattr(world.github, 'tree', lambda repo, sha: {'sha': tree, 'truncated': False,
+        'tree': [{'path': '.devcontainer.json', 'type': 'blob', 'mode': '100644', 'sha': blob}]}, raising=False)
+    monkeypatch.setattr(world.github, 'blob', lambda repo, sha: {'sha': blob, 'size': len(source), 'encoding': 'base64',
+        'content': base64.b64encode(source).decode()}, raising=False)
+    before, runs = world.jobs.registry.file.read_bytes(), world.jobs.store.runs()
+    body = {'action': 'select-container', 'repo': 'acme/widget', 'revision': commit, 'path': '.devcontainer.json'}
+    status, selected = request('/api/repositories', body)
+    assert status == 200 and selected['blob_sha'] == blob and selected['configuration']['image'] == 'reader-development:local'
+    assert selected['revision'] == commit and selected['inferred'] is False
+    assert world.jobs.registry.file.read_bytes() == before and world.jobs.store.runs() == runs
+    assert request('/api/repositories', body | {'revision': 'main'})[0] == 400, 'Selection requires the full commit identity'

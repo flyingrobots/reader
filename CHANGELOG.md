@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Add local authenticated devcontainer discovery/preview actions and internal persistent-worker supervision primitives; the production Coding Jobs runner is not switched yet.
+
 - Add internal GitHub devcontainer discovery at pinned commits, distinguishing complete absence from API/inventory failures. The job runner is not yet migrated.
 
 - Voice selectors recover after AI-TTS starts and offer Retry voices after catalog failures.
