@@ -203,7 +203,7 @@ export function createKeys({guard=()=>false,escape=()=>{},changed=()=>{},notify=
     if(key==='Tab'){event.preventDefault();complete(event.shiftKey?-1:1);return;}
     if(key==='Enter'&&line.choice>=0&&line.choices?.length){event.preventDefault();const value=line.choices[line.choice].value;if(!value.includes(' ')&&findCommand(value)?.args)acceptChoice(line.choice);else execute(value);return;}
     if(event.ctrlKey&&(key==='p'||key==='n')){event.preventDefault();recall(key==='p'?-1:1);return;}
-    if(key==='ArrowUp'||key==='ArrowDown'){event.preventDefault();if(line.choices?.length&&(line.input.value||key==='ArrowDown')){line.choice=line.choice<0?(key==='ArrowDown'?0:line.choices.length-1):(line.choice+(key==='ArrowDown'?1:-1)+line.choices.length)%line.choices.length;showChoices();}else recall(key==='ArrowUp'?-1:1);return;}
+    if(key==='ArrowUp'||key==='ArrowDown'){event.preventDefault();if(line.choices?.length&&(line.input.value||key==='ArrowDown'||line.choice>=0||!history.length)){line.choice=line.choice<0?(key==='ArrowDown'?0:line.choices.length-1):(line.choice+(key==='ArrowDown'?1:-1)+line.choices.length)%line.choices.length;showChoices();}else recall(key==='ArrowUp'?-1:1);return;}
   }
   /** Up/Down: earlier commands that start with what is typed (per device). */
   function recall(delta){

@@ -265,7 +265,7 @@ suggestion; Tab or a pointer press fills it without running. Enter runs the sele
 complete command; selecting a command name that takes arguments first fills its
 name and opens argument suggestions. With no selected suggestion, Enter runs the
 typed command. Ctrl-p / Ctrl-n recall earlier commands that start with what is typed;
-Up on an empty input also recalls history. Up to 100 commands are kept per
+Up on an empty input with no selected suggestion also recalls history. Up to 100 commands are kept per
 device (`reader.commands.v1`). Enter runs, Escape (or Backspace on an empty line)
 cancels. A unique prefix runs its command (`:chan`), an unknown name toasts the
 closest match (“Did you mean :changes?”). Document argument queries are debounced,
