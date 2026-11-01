@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Add internal GitHub devcontainer discovery at pinned commits, distinguishing complete absence from API/inventory failures. The job runner is not yet migrated.
+
 - Voice selectors recover after AI-TTS starts and offer Retry voices after catalog failures.
 
 - Split panes fit the available space beside the open File Explorer and right dock.

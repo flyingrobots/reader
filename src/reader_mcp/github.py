@@ -48,6 +48,8 @@ class GitHub:
     def version(self): raise NotImplementedError
     def viewer(self): raise NotImplementedError
     def repository(self, repo): raise NotImplementedError
+    def revision(self, repo, ref): raise NotImplementedError
+    def tree(self, repo, sha): raise NotImplementedError
     def issue(self, repo, number): raise NotImplementedError
     def create_issue(self, repo, title, body): raise NotImplementedError
     def find_issues(self, repo, marker): raise NotImplementedError
@@ -119,6 +121,12 @@ class GhCli(GitHub):
         data = self.call('GET', f'repos/{repo}') or {}
         return {'full_name': data.get('full_name'), 'default_branch': data.get('default_branch'),
                 'can_push': bool((data.get('permissions') or {}).get('push')), 'archived': bool(data.get('archived'))}
+
+    def revision(self, repo, ref):
+        return self.call('GET', f'repos/{repo}/commits/{_quote(ref)}')
+
+    def tree(self, repo, sha):
+        return self.call('GET', f'repos/{repo}/git/trees/{_quote(sha)}')
 
     def issue(self, repo, number):
         return issue_view(self.call('GET', f'repos/{repo}/issues/{int(number)}') or {}, repo)
