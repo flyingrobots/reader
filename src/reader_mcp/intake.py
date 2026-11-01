@@ -308,8 +308,17 @@ def validate_plan(root, plan):
 
 def destination(entry):
     decision = entry['decision']
-    # The manifest, not a source-controlled receipt identifier, owns destination uniqueness.
-    return 'library/' + decision['collection'] + '/' + decision['slug'] + '-' + entry['snapshot_sha256'][:16]
+    # Distinct arrivals may have identical bytes. Retain both without trusting a
+    # source-controlled receipt identifier as their destination identity.
+    identity = digest(json.dumps([entry['source'], entry['snapshot_sha256']]).encode())
+    return 'library/' + decision['collection'] + '/' + decision['slug'] + '-' + identity[:16]
+
+
+def catalog_refusal(entry):
+    for row in entry['files']:
+        if any(c in row['path'] for c in '[]|#'):
+            return 'Catalog wrapper cannot encode this source path: ' + row['path']
+    return None
 
 
 def verify_payload(root, entry):
@@ -333,6 +342,11 @@ def apply_plan(root, runtime, plan):
     entries = [e for e in plan['entries'] if e['decision']['disposition'] == 'file']
     if not entries:
         return plan
+    if len({e['destination'] for e in entries}) != len(entries):
+        raise ValueError('Distinct arrivals must have distinct filing destinations')
+    for entry in entries:
+        if refusal := catalog_refusal(entry):
+            raise ValueError(refusal)
     shared = ['library/index.md', 'catalog/', 'indexes/', 'README.md', 'link-repairs/'] + sorted({
         'library/' + e['decision']['collection'] + '/index.md' for e in entries})
     dirty = dirty_paths(root, shared)
@@ -469,7 +483,13 @@ def apply_plan(root, runtime, plan):
         if checked_path(root, entry['source']).exists():
             raise ValueError('A new arrival occupies a selected source path; refusing to stage it')
     owned = set(journal.writes) | {e['destination'] + '/originals/' + f['path'] for e in entries for f in e['files']}
-    owned.update(p for e in entries for p in e['tracked_sources'])
+    sources = sorted({p for e in entries for p in e['tracked_sources']})
+    if sources:
+        # A deletion still present in HEAD must be committed even if already
+        # staged. After its commit lands, an absent index/HEAD path is no longer
+        # a valid explicit pathspec for git add during checkpoint replay.
+        owned.update(p for p in run_git(root, 'ls-files', '-z', '--', *sources).split('\0') if p)
+        owned.update(p for p in run_git(root, 'ls-tree', '-r', '--name-only', '-z', 'HEAD', '--', *sources).split('\0') if p)
     paths = sorted(owned)
     # Exact files only: never sweep an unrelated attachment or another participant's staging into this commit.
     run_git(root, 'add', '-A', '-f', '--', *paths)
@@ -598,7 +618,11 @@ def worker(root, codex, run_id):
             if 'decision' not in entry:
                 if manifest(checked_path(root, entry['source'])) != entry['files']:
                     raise ValueError('Arrival changed before editorial classification')
-                entry['decision'] = classify(root, runtime, entry, codex, checkpoint=lambda: save(runtime, plan))
+                if refusal := catalog_refusal(entry):
+                    entry['decision'] = dict(source=entry['source'], snapshot_sha256=entry['snapshot_sha256'],
+                        disposition='defer', collection='', slug='', title='', author='', summary='', reason=refusal)
+                else:
+                    entry['decision'] = classify(root, runtime, entry, codex, checkpoint=lambda: save(runtime, plan))
                 if entry['decision']['disposition'] == 'file':
                     entry['destination'] = destination(entry)
                     if (root / entry['destination']).exists():

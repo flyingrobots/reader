@@ -96,15 +96,17 @@ def atomic(path, value, *, limit=MAX_RECORD):
     if len(data) > limit:
         raise ValueError('JSON record exceeds its byte limit')
     path.parent.mkdir(parents=True, exist_ok=True)
-    with tempfile.NamedTemporaryFile(dir=path.parent, delete=False) as stream:
-        temporary = Path(stream.name)
-        stream.write(data)
-        stream.flush()
-        os.fsync(stream.fileno())
+    temporary = None
     try:
+        with tempfile.NamedTemporaryFile(dir=path.parent, delete=False) as stream:
+            temporary = Path(stream.name)
+            stream.write(data)
+            stream.flush()
+            os.fsync(stream.fileno())
         temporary.replace(path)
     finally:
-        temporary.unlink(missing_ok=True)
+        if temporary is not None:
+            temporary.unlink(missing_ok=True)
 
 
 class PortableLinks:
@@ -145,14 +147,14 @@ class PortableLinks:
 
     def repositories(self):
         if self.catalog is None:
-            found = {}
+            found = []
             if self.git_root.is_dir():
                 for path in sorted(self.git_root.iterdir())[:1000]:
                     if path.is_dir() and not path.is_symlink() and (path / '.git').exists():
                         info = self.repo(path)
                         if info:
-                            found.setdefault(info[1], info)
-            self.catalog = list(found.values())
+                            found.append(info)
+            self.catalog = found
         return self.catalog
 
     def context(self, source, text):
@@ -252,7 +254,7 @@ class PortableLinks:
                     results.append({'target': url + '/commit/' + commit, 'method': 'git-commit', 'commit': commit})
                 elif rel == '.':
                     results.append({'target': url + ('#' + parsed.fragment if parsed.fragment else ''), 'method': 'git-remote'})
-                elif rel.startswith('.git'):
+                elif rel == '.git' or rel.startswith('.git/'):
                     continue
                 else:
                     commit = self.command(root, 'rev-parse', '--verify', (source_commit or 'HEAD') + '^{commit}')

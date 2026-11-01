@@ -95,17 +95,19 @@ class Journal:
         if digest(data) != record['after']:
             raise ValueError('Prepared output no longer matches the journal')
         path.parent.mkdir(parents=True, exist_ok=True)
-        with tempfile.NamedTemporaryFile(dir=path.parent, delete=False) as out:
-            temporary = Path(out.name)
-            out.write(data)
-            out.flush()
-            os.fsync(out.fileno())
+        temporary = None
         try:
+            with tempfile.NamedTemporaryFile(dir=path.parent, delete=False) as out:
+                temporary = Path(out.name)
+                out.write(data)
+                out.flush()
+                os.fsync(out.fileno())
             if file_hash(path) != record['before']:
                 raise ValueError('Intake output changed before publication: ' + relative)
             temporary.replace(path)
         finally:
-            temporary.unlink(missing_ok=True)
+            if temporary is not None:
+                temporary.unlink(missing_ok=True)
 
     def replay(self):
         self.verify()
@@ -125,10 +127,17 @@ class Journal:
             raise ValueError('Prepared intake outputs exceed 128 MiB')
         blob = local_path(self.blobs, after)
         if not blob.exists():
-            with blob.open('xb') as stream:
-                stream.write(data)
-                stream.flush()
-                os.fsync(stream.fileno())
+            temporary = None
+            try:
+                with tempfile.NamedTemporaryFile(dir=self.blobs, delete=False) as stream:
+                    temporary = Path(stream.name)
+                    stream.write(data)
+                    stream.flush()
+                    os.fsync(stream.fileno())
+                temporary.replace(blob)
+            finally:
+                if temporary is not None:
+                    temporary.unlink(missing_ok=True)
         elif file_hash(blob) != after:
             raise ValueError('Prepared output hash collision or corruption')
         record = {'before': before, 'after': after}

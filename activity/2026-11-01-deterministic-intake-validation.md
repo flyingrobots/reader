@@ -31,6 +31,16 @@ strips unused symbols; its recorded executable hash still covers the exact
 exported binary. The real formatter and its reading-copy checks passed within
 the unchanged input and worker limits. Final CI must pass on the submitted head.
 
+Automated review identified six additional edge cases, each reproduced by a
+failing synthetic regression: identical raw bundle destinations, replay of an
+already committed tracked-source deletion, unsupported catalog filenames,
+interruption while flushing a generated output, valid `.gitignore`/`.github`
+source paths, and retained clones with different object coverage. Corrections
+preserve distinct arrivals, retain only valid staging pathspecs, defer unsupported
+names before moves, cover temporary creation/writes in cleanup, exclude only the
+actual `.git` component, and inspect every corroborated clone. Additional checks
+exercise interruption during prepared-blob and checkpoint publication.
+
 A genuine read-only Codex call also classified a synthetic delivery, followed by
 script-owned filing, a verified local commit and intact receipt. It included
 Git, library, image and unavailable references. This establishes the real model

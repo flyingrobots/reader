@@ -134,3 +134,34 @@ def test_github_remote_normalization():
                    'https://github.com/example/project', 'https://github.com/example/project.git/'):
         assert github(remote) == 'https://github.com/example/project'
     assert github('https://github.com.evil/example/project') is None
+
+
+def test_git_prefixed_source_paths_are_not_git_metadata(tmp_path):
+    repo = tmp_path / 'git/project'
+    repository(repo)
+    paths = ['.github/workflows/ci.yml', '.gitignore', '.gitattributes']
+    for relative in paths:
+        file = repo / relative
+        file.parent.mkdir(parents=True, exist_ok=True)
+        file.write_text('Tracked source')
+    subprocess.run(['git', '-C', str(repo), 'add', '--', *paths], check=True)
+    subprocess.run(['git', '-C', str(repo), '-c', 'user.name=Fixture', '-c', 'user.email=fixture@example.invalid', 'commit', '-qm', 'Tracked dot files'], check=True)
+    document(tmp_path, '\n\n'.join(f'[{p}]({(repo / p).as_uri()})' for p in paths))
+    result = PortableLinks(tmp_path, tmp_path / 'git').prepare('library/packet/source.md')
+    assert result['counts'] == {'resolved': 3}
+    assert all(t['method'] == 'git-tree' for t in result['targets'])
+
+
+def test_deleted_worktree_checks_all_clones_with_the_same_remote(tmp_path):
+    first, second = tmp_path / 'git/a-clone', tmp_path / 'git/z-clone'
+    repository(first)
+    repository(second)
+    (second / 'only-here.txt').write_text('Available only in this retained object database')
+    subprocess.run(['git', '-C', str(second), 'add', 'only-here.txt'], check=True)
+    subprocess.run(['git', '-C', str(second), '-c', 'user.name=Fixture', '-c', 'user.email=fixture@example.invalid', 'commit', '-qm', 'Unique object'], check=True)
+    commit = subprocess.check_output(['git', '-C', str(second), 'rev-parse', 'HEAD'], text=True).strip()
+    source = document(tmp_path, f'[Retained]({(tmp_path / "git/gone/only-here.txt").as_uri()})')
+    (source.parent / 'receipt.json').write_text(json.dumps({'provenance': {'source': 'https://github.com/example/actual-name', 'commit': commit}}))
+    result = PortableLinks(tmp_path, tmp_path / 'git').prepare('library/packet/source.md')
+    assert result['counts'] == {'resolved': 1}
+    assert result['targets'][0]['target'].endswith('/' + commit + '/only-here.txt')

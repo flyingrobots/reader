@@ -42,6 +42,11 @@ attachments. It rejects symlinks, embedded Git metadata, non-regular entries,
 changing sources and invalid delivery receipts. It hashes every source before
 classification. Later arrivals are outside this queue.
 
+The delivery's declared primary document gets excerpt priority over attachments.
+Unsupported catalog wrapper filenames containing `[]|#` are deferred before
+filing, preserving their original names and bytes. Identical raw bundles remain
+distinct arrivals, with destinations bound to both arrival identity and content.
+
 The script automatically partitions the queue into sequential commit batches,
 keeping every original delivery bundle intact. It also partitions oversized
 editorial context, including oversized provenance, into bounded calls and

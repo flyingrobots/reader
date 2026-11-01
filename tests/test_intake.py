@@ -109,6 +109,103 @@ def test_lock_contention_refuses_filing_without_touching_sources(vault, monkeypa
     assert not (vault / '.reader/inbox-runner/result.json').exists()
 
 
+def test_identical_raw_arrivals_have_distinct_destinations(vault):
+    entries = []
+    for name in ('first', 'second'):
+        folder = vault / 'inbox' / name
+        folder.mkdir()
+        (folder / 'source.md').write_text('Identical bytes')
+        entries.append(plan_for(vault, 'inbox/' + name)['entries'][0])
+    assert entries[0]['snapshot_sha256'] == entries[1]['snapshot_sha256']
+    plan = {'schema_version': 1, 'batch_id': str(uuid4()), 'created_at': intake.stamp(), 'entries': entries}
+    result = intake.apply_plan(vault, vault / '.reader/inbox-runner', plan)
+    assert result['commit'] and len({e['destination'] for e in entries}) == 2
+    assert all((vault / e['destination'] / 'originals/source.md').read_text() == 'Identical bytes' for e in entries)
+
+
+def test_committed_tracked_source_deletion_can_replay_after_queue_interruption(vault):
+    (vault / 'inbox/report.md').write_text('Tracked original')
+    intake.run_git(vault, 'add', 'inbox/report.md')
+    intake.run_git(vault, 'commit', '-qm', 'Receive tracked original')
+    plan = plan_for(vault)
+    runtime = vault / '.reader/inbox-runner'
+    first = intake.apply_plan(vault, runtime, plan)['commit']
+    saved = load(runtime)
+    saved.pop('commit')  # The commit landed, but the worker stopped before saving completion.
+    save(runtime, saved)
+    assert intake.apply_plan(vault, runtime, saved)['commit'] == first
+    assert intake.run_git(vault, 'rev-parse', 'HEAD') == first
+
+
+def test_unsupported_catalog_filename_is_deferred_before_other_arrivals_move(vault, monkeypatch):
+    runtime = vault / '.reader/inbox-runner'
+    sources = ['inbox/report [draft].md', 'inbox/valid.md']
+    for source in sources:
+        (vault / source).write_text('Original source')
+    run_id = str(uuid4())
+    (runtime / 'selection.json').write_text(json.dumps({'run_id': run_id, 'arrivals': sources, 'files': sorted(sources)}))
+    calls = []
+    def classify(root, runtime, entry, codex, checkpoint):
+        calls.append(entry['source'])
+        return decision(entry)
+    monkeypatch.setattr(intake, 'classify', classify)
+    monkeypatch.setattr(intake, 'locked_apply', intake.apply_plan)
+    result = intake.worker(vault, 'unused', run_id)
+    assert result['status'] == 'verified' and len(result['filed']) == 1
+    assert result['deferred'][0]['source'] == sources[0]
+    assert 'catalog' in result['deferred'][0]['reason'].lower()
+    assert calls == [sources[1]] and (vault / sources[0]).read_text() == 'Original source'
+
+
+def test_interrupted_publication_flush_removes_its_temporary_file(vault, monkeypatch):
+    import reader_mcp.intake_journal as module
+    (vault / 'inbox/report.md').write_text('Original')
+    plan = plan_for(vault)
+    journal = Journal(vault, vault / '.reader/inbox-runner', plan)
+    target = plan['entries'][0]['destination'] + '/index.md'
+    data = b'Prepared catalog bytes'
+    after = intake.digest(data)
+    (journal.blobs / after).write_bytes(data)
+    record = {'before': None, 'after': after}
+    def interrupt(fd):
+        raise SystemExit('interrupted at fsync')
+    with monkeypatch.context() as patch:
+        patch.setattr(module.os, 'fsync', interrupt)
+        with pytest.raises(SystemExit):
+            journal.publish(target, record)
+    assert not list((vault / target).parent.iterdir()), 'No foreign-looking temporary file may block replay'
+    journal.publish(target, record)
+    assert (vault / target).read_bytes() == data
+
+
+@pytest.mark.parametrize('failed_flush', [1, 2])
+def test_interrupted_preparation_and_checkpoint_can_retry(vault, monkeypatch, failed_flush):
+    import reader_mcp.intake_journal as module
+    (vault / 'inbox/report.md').write_text('Original')
+    plan = plan_for(vault)
+    runtime = vault / '.reader/inbox-runner'
+    journal = Journal(vault, runtime, plan)
+    target = plan['entries'][0]['destination'] + '/index.md'
+    before = set(runtime.iterdir())
+    original = module.os.fsync
+    calls = 0
+    def interrupt(fd):
+        nonlocal calls
+        calls += 1
+        if calls == failed_flush:
+            raise SystemExit('interrupted during preparation')
+        original(fd)
+    with monkeypatch.context() as patch:
+        patch.setattr(module.os, 'fsync', interrupt)
+        with pytest.raises(SystemExit):
+            journal.write(target, b'Prepared bytes')
+    assert set(runtime.iterdir()) == before
+    resumed = Journal(vault, runtime, load(runtime))
+    resumed.write(target, b'Prepared bytes')
+    resumed.verify()
+    assert (vault / target).read_bytes() == b'Prepared bytes'
+
+
 def test_commit_hook_failure_resumes_without_reclassification_or_duplicate_filing(vault):
     source = vault / 'inbox/report.md'
     source.write_text('Original source bytes\n')
