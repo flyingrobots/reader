@@ -9,6 +9,7 @@ import {Item, ItemActions, ItemContent, ItemDescription, ItemGroup, ItemMedia, I
 import {Spinner} from '@/components/ui/spinner';
 import {StatusBadge} from '@/theme/atoms/status-badge';
 import {RelativeTime} from '@/theme/atoms/time';
+import {AdminDocHelp} from './documentation';
 import {Notice} from '@/theme/molecules/notice';
 import {LoadingState} from '@/theme/molecules/states';
 import {StatusCard} from '@/theme/organisms/status-card';
@@ -38,7 +39,7 @@ function useActiveJobs(){
 type TileState='loading'|'unavailable'|'ready';
 /** A tile: a StatusCard whose footer is one ghost link to the page where you would act. */
 function Tile({id,title,state,badge,context,section,linkLabel,children}:{id:string;title:string;state:TileState;badge?:ReactNode;context:AdminContext;section:string;linkLabel:string;children:ReactNode}){
-  return <StatusCard data-overview={id} data-state={state} title={title} badge={badge}
+  return <StatusCard data-overview={id} data-state={state} title={<span className="inline-flex items-center gap-1">{title}<AdminDocHelp title={title}/></span>} badge={badge}
     footer={<Button variant="ghost" size="sm" className="-ml-2" nativeButton={false} render={<AdminLink context={context} section={section}/>}>{linkLabel}<ArrowRightIcon data-icon="inline-end" aria-hidden/></Button>}>
     {children}
   </StatusCard>;

@@ -114,6 +114,7 @@ export function cleanRoute(hash){
   hash=String(hash||'');
   if(hash.startsWith('#read=')){const [value,...rest]=hash.slice(6).split('&');const heading=rest.find(p=>p.startsWith('h='));return value?'#read='+value+(heading&&heading.length<=200?'&'+heading:''):'';}
   if(/^#scratch(=[0-9a-f-]{36})?$/.test(hash))return hash;
+  if(hash.startsWith('#section=')&&hash.length<=2048)return hash;
   if(hash.startsWith('#search'))return '#search';
   if(/^#issue=[0-9]{4}-W[0-9]{2}$/.test(decodeSafe(hash)))return hash;
   return '';
@@ -184,7 +185,11 @@ export function installSplit({notify,suspend,resume,paint,api,param,refocus,open
   const active=()=>!!tree;
   const order=()=>tree?leaves(tree):[];
   const statusHeight=()=>document.querySelector('#statusline')?.getBoundingClientRect().height||32;
-  const box=()=>({x:0,y:0,w:pageWidth(),h:Math.max(0,innerHeight-statusHeight())});
+  const box=()=>{
+    const explorer=document.getElementById('picker');
+    const left=explorer&&!explorer.hidden?explorer.getBoundingClientRect().width:0;
+    return {x:0,y:0,w:root?root.clientWidth:Math.max(0,pageWidth()-left),h:Math.max(0,innerHeight-statusHeight())};
+  };
   const narrow=()=>innerWidth<NARROW;
   const hashNow=()=>encodeLayout(tree,focus,bind);
   const remember=()=>{if(tree)history.replaceState({reader:true,split:true},'',location.pathname+location.search+hashNow());};

@@ -1,5 +1,8 @@
 name: Checks
-on: [push, pull_request]
+on:
+  push:
+    branches: [main]
+  pull_request:
 permissions:
   contents: read
 jobs:
@@ -19,3 +22,5 @@ jobs:
         run: python3 scripts/check_container.py python
       - name: Plugin checks in bounded Docker worker
         run: python3 scripts/check_container.py node
+      - name: Frontend checks and canonical documentation build in bounded Docker worker
+        run: python3 scripts/check_container.py web

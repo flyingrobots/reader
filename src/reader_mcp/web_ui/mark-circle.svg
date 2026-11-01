@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img" aria-labelledby="reader-circle-title reader-circle-desc">
+  <title id="reader-circle-title">Reader</title>
+  <desc id="reader-circle-desc">A serif r and an accent-colored dot inside a circle.</desc>
+  <!-- Newsreader, weight 600. Glyph converted to an outline; no text or font dependency.
+       Bundled source: vendor/newsreader.woff2 (SIL Open Font License 1.1).
+       Source SHA-256: 62981321d9a3cc7a61a73792729043703fd6112da86e8ec848bb57f088578757
+       Regenerate with scripts/generate_circle_mark.py. -->
+  <circle cx="128" cy="128" r="123" fill="var(--surface, #21252b)"/>
+  <path fill="var(--ink, #bfc5cf)" d="M142.608 63.255Q151.357 63.255 155.292 67.967Q159.227 72.678 159.227 79.638Q159.227 88.772 154.044 93.682Q148.86 98.592 142.035 98.592Q136.568 98.592 132.252 97.51Q127.936 96.427 123.802 95.386Q119.668 94.344 114.558 94.344Q111.176 94.344 107.737 95.119Q104.298 95.893 100.951 97.462Q97.604 99.03 94.634 101.401L91.046 94.634Q99.919 86.152 107.159 80.192Q114.4 74.231 120.647 70.504Q126.895 66.777 132.282 65.016Q137.67 63.255 142.608 63.255ZM100.893 91.123V179.205L122.095 186.725V194H45.791V186.725L65.353 179.633V97.26Q63.232 94.648 60.178 92.518Q57.124 90.387 53.282 88.224Q49.441 86.061 44.773 84.04V78.405L91.34 62H96.274Z"/>
+  <circle cx="193.227" cy="170" r="24" fill="var(--accent, #61afef)"/>
+</svg>

@@ -1,0 +1,7 @@
+# Live command suggestions — 2026-10-31
+
+Command mode opens a shadcn Item suggestion list above the footer. Typing filters registered commands and their contextual argument providers; descriptions explain each choice. Arrow keys select, Tab/click fill, Enter runs complete commands; selecting a bare command that takes arguments fills its name first. Ctrl-p/n retain history, and Up on an empty input retains the old recall behavior. Phone layouts show the same list. Document suggestions debounce requests and reject late results after text changes or closure. Combobox/listbox IDs reflect the active choice.
+
+The follow-up also keeps help popovers keyboard-focusable while allowing a first pointer tap to open them, and makes active inspector status accurately say Rebuilding.
+
+Validation: frontend typecheck/build, 13 keymap unit tests, focused command browser tests and Indexes browser tests passed. Coverage includes typing without Tab, contextual rebuild/theme choices, click acceptance without execution, explicit execution, history, a delayed document response after a newer query, close/debounce isolation, shadcn slots and phone bounds. The older broad web_modal suite stops on a stale assertion expecting the removed Space-comma-e help entry before reaching its command tests; it did not pass as a whole. No automatic rebuild policy or source-writing command was started against the live library for validation.

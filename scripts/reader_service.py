@@ -564,7 +564,7 @@ def install(args):
         'source': args.source or previous.get('source') or DEFAULT_SOURCE,
         'port': args.port or previous.get('port') or DEFAULT_PORT,
         'env_path': launch_path(),
-        'env': {k: v for k, v in os.environ.items() if k in PASS_ENV or (k.startswith('READER_') and not k.startswith('READER_SERVICE_') and k != 'READER_ROOT')},
+        'env': previous.get('env', {}) | {k: v for k, v in os.environ.items() if k in PASS_ENV or (k.startswith('READER_') and not k.startswith('READER_SERVICE_') and k != 'READER_ROOT')},
         'executables': {name: executable(name, previous) for name in EXECUTABLES if name not in ('tailscale', 'git_locks')},
         'paused': previous.get('paused', False), 'installed_at': now(),
         'backups': previous.get('backups', {}), 'was_loaded': previous.get('was_loaded', {}),

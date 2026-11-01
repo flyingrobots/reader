@@ -1,3 +1,4 @@
+import {AdminDocumentationWorkspace} from './documentation';
 /* Reader Admin: a routed application layout (shadcn Sidebar composition) in place of the long Behind the scenes page.
    The sidebar lists the registered sections; the header has the sidebar trigger, a breadcrumb and Back to Library;
    the page shows one section at a time under its own heading. Scrolling is the window's own (no reading smoother or
@@ -65,10 +66,9 @@ export function AdminShell({context}:{context:AdminContext}){
     </Sidebar>
     <SidebarInset className="min-w-0 bg-background">
       <Header context={context} section={section}/>
-      <AdminPage id="admin-content" data-admin-section={section?.id||'not-found'} title={section?section.title:'Section not found'} lede={section?section.description:'Reader Admin has no page at this address.'}>
+      <AdminPage id="admin-content" data-admin-section={section?.id||'not-found'} wide={!!section} title={section?section.title:'Section not found'} lede={section?section.description:'Reader Admin has no page at this address.'}>
         {!section?<EmptyState id="admin-not-found" icon={CompassIcon} title="No page here" description="Reader Admin has no page at this address."><Button variant="outline" size="sm" render={<a href={context.href(OVERVIEW)} onClick={event=>{event.preventDefault();context.go(OVERVIEW);}}/>} nativeButton={false}>Go to the Overview</Button></EmptyState>
-          :section.needsReader&&context.local?<NeedsReader what={section.title}/>
-          :section.render(context)}
+          :<AdminDocumentationWorkspace key={section.id} topic={section.id} markdown={context.markdown}>{section.needsReader&&context.local?<NeedsReader what={section.title}/>:section.render(context)}</AdminDocumentationWorkspace>}
       </AdminPage>
     </SidebarInset>
   </SidebarProvider>;

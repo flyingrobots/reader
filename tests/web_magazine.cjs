@@ -75,15 +75,15 @@ const THEMES=['ink','paper','orchid','orchid-dark','harvest','harvest-dark',...r
     function rgb(color){c.clearRect(0,0,1,1);c.fillStyle='#000';c.fillStyle=color;c.fillRect(0,0,1,1);return [...c.getImageData(0,0,1,1).data].slice(0,3);}
     function lum(v){return v.map(x=>x/255).map(x=>x<=.04045?x/12.92:((x+.055)/1.055)**2.4).reduce((n,x,i)=>n+x*[.2126,.7152,.0722][i],0);}
     function ratio(a,b){const [lo,hi]=[lum(a),lum(b)].sort((x,y)=>x-y);return (hi+.05)/(lo+.05);}
-    const selectors=['.issue-flag','.issue-dateline','.cover-title a','.cover-standfirst','.issue-kicker','.issue-byline','.feature-title a','.feature-standfirst','.contents-title','.contents-group li[data-read] .contents-title','.contents-meta','.issue-summary dt','.issue-footer','.issue-index button'];
+    const selectors=['.issue-flag','.issue-dateline','.cover-title a','.cover-standfirst','.issue-kicker','.issue-byline','.feature-title a','.feature-standfirst','.contents-title','.contents-group li[data-read] .contents-title','.contents-meta','.issue-summary dt','.issue-footer','.issue-index [data-library-section]'];
     return themes.map(theme=>{document.documentElement.dataset.theme=theme;const bg=rgb(getComputedStyle(document.body).backgroundColor==='rgba(0, 0, 0, 0)'?getComputedStyle(document.documentElement).backgroundColor:getComputedStyle(document.body).backgroundColor);
       const rows=selectors.map(s=>[s,ratio(rgb(getComputedStyle(document.querySelector(s)).color),bg)]);const worst=rows.sort((a,b)=>a[1]-b[1])[0];return {theme,worst:worst[0],minimum:Math.round(worst[1]*100)/100};});
   },THEMES);
   console.log(JSON.stringify(contrast));
   for(const row of contrast)assert.ok(row.minimum>=4.5,JSON.stringify(row));
-  // Wide windows: the rail's sections index jumps without changing the route.
-  const hash=new URL(page.url()).hash;await page.locator('.issue-index [data-jump="contents-1"]').click();
-  assert.equal(await page.evaluate(()=>document.activeElement.id),'contents-1');assert.equal(new URL(page.url()).hash,hash,'a section jump is not a route');
+  // Section Items navigate to the section’s article list; browser Back returns to the issue.
+  const hash=new URL(page.url()).hash;await page.locator('.issue-index [data-library-section]').first().click();
+  await page.locator('[data-section-page]').waitFor();assert.ok(new URL(page.url()).hash.startsWith('#section='));await page.goBack();await page.locator('#issue-sections [data-library-section]').first().waitFor();assert.equal(new URL(page.url()).hash,hash);
   // The lead feature beside the cover starts at the top of the row, and + Queue (feature and cover) keeps the text's left edge.
   for(const width of [1440,1920]){
     await page.setViewportSize({width,height:width===1440?900:1080});await page.waitForTimeout(250);

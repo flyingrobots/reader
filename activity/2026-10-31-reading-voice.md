@@ -1,0 +1,5 @@
+# Reading voice selection — 2026-10-31
+
+Settings → Services & Tools → AI-TTS now saves a vault-specific default reading voice. The Speak popup uses the same engine catalog and can override the voice for one reading. Read aloud uses the saved default. Explicit human choices preserve origin Reader while omitting an agent source, so the daemon honors the voice without changing agent voice assignments. Automatic retains the existing Reader source behavior. Invalid or unavailable voice IDs fail before text submission.
+
+Verification: frontend typecheck/build and eight speech API tests passed against the fake daemon, including persistence across library instances, overrides without saving, Automatic, unknown voices and unchanged agent assignments. Browser validation covers the Settings default after reload, Read aloud using it, a popup override, subsequent popup reverting to the default, mobile bounds and an unavailable catalog. Live validation reads the voice catalog and controls without submitting article speech.

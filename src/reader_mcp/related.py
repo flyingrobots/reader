@@ -130,12 +130,28 @@ class Related:
         pool.sort(key=lambda item: item['work'].get('date') or '', reverse=True)
         pool.sort(key=lambda item: item['read'])
         picks = []
+
+        def repeats_pick(work):
+            # Revisions remain separate holdings, but occupy one recommendation slot.
+            title = base_title(work.get('title'))
+            authors = {a.strip().casefold() for a in work.get('authors') or []}
+            vector = vectors.get(work['primary'])
+            for pick in picks:
+                chosen = pick['work']
+                if work['primary'] == chosen['primary']:
+                    return True
+                if title and title == base_title(chosen.get('title')) and authors == {
+                        a.strip().casefold() for a in chosen.get('authors') or []}:
+                    return True
+                other = vectors.get(chosen['primary'])
+                if vector is not None and other is not None and float(vector @ other) >= DIVERSE:
+                    return True
+            return False
+
         for item in pool:
             if len(picks) == limit:
                 break
-            vector = vectors.get(item['work']['primary'])
-            if vector is not None and any(vectors.get(p['work']['primary']) is not None and
-                                          float(vector @ vectors[p['work']['primary']]) >= DIVERSE for p in picks):
+            if repeats_pick(item['work']):
                 continue
             reasons = (['Similar ideas'] if item['similarity'] is not None else []) + item['shared'][:2]
             picks.append(item | {'reasons': reasons})
@@ -145,7 +161,7 @@ class Related:
             for work in newest:
                 if len(picks) == limit:
                     break
-                if not read(work):
+                if not read(work) and not repeats_pick(work):
                     picks.append(dict(work=work, similarity=None, shared=[], read=False, score=None, reasons=['New in the library']))
         return {'items': [dict({k: p['work'].get(k) for k in ('title', 'primary', 'authors', 'projects', 'date')},
                                read=p['read'], reasons=p['reasons'],
