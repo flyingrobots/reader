@@ -42,7 +42,7 @@ def test_delivered_companions_survive_filing_and_open(web, tmp_path):
     assert doc['preview_url'] == '/api/attachment/library/package/implementation/index.html'
     status, body, headers = request(doc['preview_url'], raw=True)
     assert status == 200 and body == payloads['implementation/index.html']
-    assert headers['Content-Type'] == 'text/html'
+    assert headers['Content-Type'] == 'text/html; charset=utf-8'
     policy = headers['Content-Security-Policy']
     assert 'sandbox allow-scripts;' in policy and 'allow-same-origin' not in policy
     assert "connect-src 'none'" in policy and "form-action 'none'" in policy
@@ -88,3 +88,20 @@ def test_attachment_route_rejects_escapes_and_preserves_encoded_names(web):
     doc = request('/api/document?path=inbox/package/map.htm')[1]
     assert doc['preview'] and doc['item'] is None
     assert request(doc['preview_url'], raw=True)[0] == 200
+
+
+def test_html_preview_keeps_source_for_inline_chat_voices(web):
+    root, library, _, request = web
+    path = 'library/interactive.html'
+    text = '<p>Café ∑ 🐈</p><script>const label = "café";</script>'
+    (root / path).write_text(text, encoding='utf-8')
+    assert request('/api/document?path=' + path)[1]['text'] is None
+    assert library.chat_document(path, False)['text'] is None
+    chat = library.chat_document(path, True)
+    assert chat['text'] == text
+    assert chat['sha256'] == hashlib.sha256(text.encode()).hexdigest()
+    assert request('/api/attachment/' + path, raw=True)[2]['Content-Type'] == 'text/html; charset=utf-8'
+    (root / path).write_bytes(b'x' * (4 * 1024**2 + 1))
+    assert request('/api/document?path=' + path)[0] == 200
+    with pytest.raises(ValueError, match='4 MiB'):
+        library.chat_document(path, True)

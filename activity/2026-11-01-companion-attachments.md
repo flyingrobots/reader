@@ -36,5 +36,21 @@ modules and fetch-based data loading remain unsupported. Raw HTML stays inert.
 
 Run the Python cases with the configured test environment. Browser suites use
 the standard `READER_PYTHON`, `READER_PLAYWRIGHT` and `READER_CHROME` overrides.
-Only synthetic fixtures enter repository tests. Test data and logs remained below
+Only synthetic fixtures enter repository tests. Initial test data and logs remained below
 15 MiB, plus less than 1 MiB of local screenshots; no build caches were created.
+
+## PR review corrections
+
+Codex review on PR #216 identified three regressions. HTML now has an explicit
+UTF-8 response charset, only Reader-generated download links bypass document
+resolution, and inline chat retains bounded, hash-verified HTML source text.
+The added Python charset/context checks failed before these corrections. The
+expanded attachment browser suite passed with non-ASCII text and script strings
+in both embedded and direct previews, plus authored relative download links in
+filed and inbox documents.
+
+The final local regression set passed 157 tests with one environment-dependent
+chat test skipped, across the original Python suites plus `test_chats.py` and path
+hygiene. The updated attachment browser suite and JavaScript syntax/diff checks
+passed. Retained task data and logs totalled 45 MiB, with screenshots below 1 MiB;
+no build caches were created.

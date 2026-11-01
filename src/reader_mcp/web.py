@@ -291,9 +291,20 @@ class WebLibrary:
 
     def chat_document(self, path, inline=False):
         """Identity of a chat's document; its text only for a voice that cannot read files."""
-        self.path(path)  # library documents only: unfiled inbox previews are never chat subjects
+        file = self.path(path)  # library documents only: unfiled inbox previews are never chat subjects
         doc = self.document(path)
-        return {'path': path, 'title': str(doc['title'])[:500], 'sha256': doc['sha256'], 'text': doc['text'] if inline else None}
+        text = doc['text'] if inline else None
+        if inline and doc['kind'] in HTML_FORMATS:
+            # The browser preview has no text body; an inline voice still needs
+            # the exact source because its runtime cannot read the vault itself.
+            with file.open('rb') as stream:
+                data = stream.read(MAX_DOCUMENT + 1)
+            if len(data) > MAX_DOCUMENT:
+                raise ValueError('HTML source exceeds the 4 MiB inline chat limit')
+            if hashlib.sha256(data).hexdigest() != doc['sha256']:
+                raise ValueError('Document changed while reading; reopen it')
+            text = data.decode('utf-8')
+        return {'path': path, 'title': str(doc['title'])[:500], 'sha256': doc['sha256'], 'text': text}
 
     def quiz(self, path, participant, task_id=None):
         quiz = self.quizzes.get(path)
@@ -1769,6 +1780,8 @@ class WebHandler(BaseHTTPRequestHandler):
                 return
             status = 206
         kind = mimetypes.guess_type(file.name)[0] or 'application/octet-stream'
+        if attachment and file.suffix.lower() in HTML_FORMATS:
+            kind = 'text/html; charset=utf-8'
         if raw and file.suffix.lower() not in ('.pdf', *IMAGE_FORMATS):
             kind = 'text/plain; charset=utf-8'
         if download:

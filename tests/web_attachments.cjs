@@ -15,9 +15,10 @@ const {chromium} = require(process.env.READER_PLAYWRIGHT || 'playwright-core');
     });
     const html = `<!doctype html><link rel="stylesheet" href="theme.css">
       <button id="run">Run analysis</button><output id="result">Waiting</output>
+      <p id="unicode">Café ∑ 🐈</p>
       <img id="figure" src="../assets/figure.svg"><a id="next" href="next.html">Next</a>
       <script>
-        window.inlineRan = true;
+        window.inlineRan = true; window.inlineLabel = 'Café ∑ 🐈';
         try { parent.document.body.dataset.companionEscaped = 'true'; } catch { window.parentBlocked = true; }
         try { localStorage.setItem('companion-escaped', 'true'); } catch { window.storageBlocked = true; }
         fetch('/api/library').then(() => window.apiRead = true).catch(() => window.apiBlocked = true);
@@ -26,6 +27,7 @@ const {chromium} = require(process.env.READER_PLAYWRIGHT || 'playwright-core');
       mkdirSync(root + '/' + base + '/implementation', {recursive:true});
       mkdirSync(root + '/' + base + '/assets', {recursive:true});
       writeFileSync(root + '/' + base + '/article.md', '# Companion package\n\n[Interactive map](implementation/index.html#run)\n\n[Builder](implementation/build.py)\n\n[Snapshot](implementation/snapshot.json)\n\n[Archive](assets/data.zip)\n');
+      writeFileSync(root + '/' + base + '/downloads.md', '# Authored download links\n\n<a href="implementation/snapshot.json" download>Download data</a>\n');
       writeFileSync(root + '/' + base + '/implementation/index.html', html);
       writeFileSync(root + '/' + base + '/implementation/next.html', '<p id="next-page">A sibling page</p>');
       writeFileSync(root + '/' + base + '/implementation/theme.css', '#result { color: rgb(1, 99, 7); }');
@@ -54,6 +56,8 @@ const {chromium} = require(process.env.READER_PLAYWRIGHT || 'playwright-core');
       const frame = page.frameLocator('iframe.document-attachment');
       await frame.locator('#run').click();
       await frame.locator('#result').filter({hasText:'Three tasks'}).waitFor();
+      assert.equal(await frame.locator('#unicode').textContent(), 'Café ∑ 🐈');
+      assert.equal(await frame.locator('body').evaluate(() => window.inlineLabel), 'Café ∑ 🐈');
       assert.equal(await frame.locator('#result').evaluate(el => getComputedStyle(el).color), 'rgb(1, 99, 7)');
       await frame.locator('#figure').evaluate(img => img.decode());
       const state = await frame.locator('body').evaluate(() => ({inline:window.inlineRan,parent:window.parentBlocked,storage:window.storageBlocked,api:window.apiBlocked}));
@@ -76,11 +80,17 @@ const {chromium} = require(process.env.READER_PLAYWRIGHT || 'playwright-core');
       await page.locator('#article a[href="assets/data.zip"]').click();
       const binary = await Promise.all([page.waitForEvent('download'), page.getByRole('link', {name:'Download attachment'}).click()]);
       assert.deepEqual(readFileSync(await binary[0].path()), Buffer.from([80,75,3,4,0,255,128]));
+      // Authored download links still resolve relative to their document, as before.
+      await open(base + '/downloads.md');
+      await page.getByRole('link', {name:'Download data', exact:true}).click();
+      await page.locator('#article pre').filter({hasText:'"tasks":3'}).waitFor();
     }
     // The response CSP also isolates HTML opened directly, without the iframe's sandbox attribute.
     await page.goto(url + '/api/attachment/library/package/implementation/index.html');
     await page.locator('#run').click();
     await page.locator('#result').filter({hasText:'Three tasks'}).waitFor();
+    assert.equal(await page.locator('#unicode').textContent(), 'Café ∑ 🐈');
+    assert.equal(await page.evaluate(() => window.inlineLabel), 'Café ∑ 🐈');
     assert.equal(await page.evaluate(() => window.storageBlocked), true);
     assert.ok(requests.every(path => path.startsWith(url)), 'no external resources');
     assert.deepEqual(errors, []);

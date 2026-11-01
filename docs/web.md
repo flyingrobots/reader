@@ -44,6 +44,9 @@ read Reader's page or browser storage, fetch APIs, submit forms, open popups or
 navigate the enclosing reader. External resources, JavaScript modules and local
 `fetch()` data loading are unsupported. A document's own CSP may restrict it
 further. Self-contained HTML with embedded data is suitable for this preview.
+HTML responses specify UTF-8, including direct previews of files without a charset
+declaration. Inline chat voices receive the unchanged HTML source within the
+4 MiB text limit, independently of its visual preview.
 
 **Source** continues to open inert HTML text, and **Download original HTML** saves
 the original bytes. Python, JavaScript and JSON companions remain readable text.
@@ -51,6 +54,8 @@ Binary companions and non-prose files above the 4 MiB text limit display a
 **Download attachment** link instead of attempting UTF-8 decoding or displaying a
 broken image. `/api/file?path=…&download=1` returns original bytes as an attachment
 with an encoded filename. PDF and image views retain their existing rendering.
+Article-authored relative links with a `download` attribute still resolve through
+Reader; only Reader-generated original-file downloads bypass document navigation.
 All file routes enforce the existing identity, size, hidden-path and symlink
 checks. Previewing and downloading do not rewrite originals or receipts.
 
