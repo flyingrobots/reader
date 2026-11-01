@@ -71,9 +71,9 @@ def prepare(root, lock_store, *, run=execute, docker=None, lock_tool=None, recip
         nonlocal probe_started
         if shutil.disk_usage(root).free < 50*GIB:raise ProcessError('Host free space is below 50 GiB')
         probe_started = True
-        result = call(['run','--rm','--name',NAME,'--label','reader.coding.image-probe='+lease.job,
+        result = call(['run','--pull=never','--rm','--name',NAME,'--label','reader.coding.image-probe='+lease.job,
             '--read-only','--cpus','.25','--memory','64m','--memory-swap','64m','--pids-limit','32',
-            '--network','none','--log-driver','none','--entrypoint','/bin/df','python:3.12-bookworm','-Pk','/'])
+            '--network','none','--log-driver','none','--entrypoint','/bin/df',bases[list(BASES).index('python:3.12-bookworm')]['Id'],'-Pk','/'])
         probe_started = False
         try:free = int(result.stdout.splitlines()[-1].split()[3])*1024
         except (ValueError, IndexError) as exc:raise ProcessError('Cannot measure Docker backing free space') from exc

@@ -119,3 +119,11 @@ def test_mutable_tag_cannot_substitute_for_an_unavailable_manifest_pin(control):
     with pytest.raises(ProcessError,match='Could not inspect'):
         module.prepare(control[0],control[1],run=missing_pin,docker='docker',lock_tool='locks')
     assert not any(argv[1] in ('run','build') for argv,_ in control[2].calls)
+
+
+def test_capacity_probe_uses_inspected_image_id_and_never_pulls(control):
+    prepare(control)
+    probes = [argv for argv, _ in control[2].calls if argv[1] == 'run']
+    assert probes and all('--pull=never' in argv for argv in probes)
+    assert all(argv[argv.index('--entrypoint') + 2] == 'sha256:' + 'c'*64 for argv in probes)
+    assert all('python:3.12-bookworm' not in argv for argv in probes)
