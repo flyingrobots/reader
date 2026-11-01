@@ -20,9 +20,10 @@ from .repositories import Registry
 
 
 def arguments(parser):
-    parser.add_argument('action', choices=['check', 'exec', 'recover'])
+    parser.add_argument('action', choices=['check', 'exec', 'recover', 'reset'])
     parser.add_argument('repo', help='Registered GitHub owner/name')
     parser.add_argument('--seconds', type=int, default=600, help='Setup lifetime, including cleanup (60–3600)')
+    parser.add_argument('--confirm-volume', help='For reset: exact persistent volume name, acknowledging permanent deletion')
     parser.add_argument('argv', nargs='*', help='For exec: container command and arguments, after --')
 
 
@@ -39,12 +40,16 @@ def _save(path, record):
 
 
 def setup(root, action, repo, argv=(), seconds=600, *, runtime_factory=ContainerRuntime,
-          recovery=recover, tools=None, output=None):
+          recovery=recover, tools=None, output=None, confirm_volume=None):
     if type(seconds) is not int or not 60 <= seconds <= 3600:
         raise ValueError('Setup lifetime must be between 60 and 3600 seconds')
-    if action not in ('check', 'exec', 'recover') or bool(argv) != (action == 'exec'):
+    if action not in ('check', 'exec', 'recover', 'reset') or bool(argv) != (action == 'exec'):
         raise ValueError('Only exec accepts a nonempty container command after --')
     root = Path(root).resolve(strict=True)
+    if action == 'reset':
+        from .container_reset import reset
+        return reset(root,repo,confirm_volume,tools=tools)
+    if confirm_volume is not None:raise ValueError('Only reset accepts --confirm-volume')
     entry = Registry(root).entry(repo, require_container=True)
     if not entry:
         raise ValueError('Register a container configuration in Reader Admin first')

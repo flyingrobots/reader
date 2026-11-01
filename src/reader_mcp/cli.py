@@ -112,7 +112,7 @@ def main():
             return
         if args.command == 'container':
             from .container_setup import setup
-            result = setup(args.root, args.action, args.repo, args.argv, args.seconds)
+            result = setup(args.root, args.action, args.repo, args.argv, args.seconds, confirm_volume=args.confirm_volume)
             print(json.dumps(result, indent=2))
             if result.get('exit_code', 0) or result.get('ready') is False:
                 sys.exit(1)

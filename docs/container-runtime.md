@@ -89,3 +89,23 @@ The installed command currently requires Docker’s legacy builder to honor its 
 The guarded validation runner retains its 24 MiB software-transfer cap. Python validation carries the already bounded Linux formatter as a gzip transfer copy, restores at most 16 MiB before testing, and removes the transfer copy. Its executable bytes and recorded hash remain unchanged. Other validation kinds omit this unused artifact. Both compressed input and expanded output stay in the existing bounded worker filesystem; no source/cache limit is raised.
 
 When a job reports a changed base, open Admin → Repositories, enter the repository/base again, choose **Inspect GitHub configuration**, review the new preview and **Approve registration** with the new pinned revision. **Refresh registrations** only reloads the list. Terminal tool/sign-in setup does not renew source approval.
+
+## Full workspace recovery
+
+The 3 GiB threshold covers retained per-run source and dependencies as well as tooling and cache. Failed or dirty runs are retained; Reader does not automatically delete recovery work to admit a new job. When the volume is full, ordinary setup also refuses because it can execute arbitrary container commands.
+
+If you choose to discard the complete environment, first export any source, edits, credentials or other data you need. Stop the owning Reader server, reconcile unfinished jobs and terminal setup, then request a reset:
+
+```sh
+reader --root "$READER_ROOT" container reset owner/name
+```
+
+The first invocation refuses and prints the exact volume name. Repeat deliberately with `--confirm-volume` before the action:
+
+```sh
+reader --root "$READER_ROOT" container --confirm-volume reader-coding-EXACT-KEY-work reset owner/name
+```
+
+Reset permanently deletes that volume’s source, dependencies, tools, cache and authentication data. Its exact-name confirmation acknowledges that scope; it is not a dry-run cleanup of only generated files. Job archives and runtime evidence in the vault remain. Reinstall tools and authenticate independently after a reset.
+
+Reset starts no worker, agent, lifecycle command or build, so an already-full workspace does not block it. It takes exclusive supervisor and canonical worker ownership, refuses existing workers or unfinished/unclean jobs/setup, verifies the exact local volume name, driver and vault/repository labels, and confirms absence after removal. Host commands use the same gated process journal and bounded capture; control files remain under the existing 8 MiB guard. It records intent before deletion and retains uncertain state/lease rather than claiming success after an error. An interrupted reset requires manual verification of its saved host-client identities, exact lease receipt and Docker volume state before its control record can be reconciled. Never delete an unconfirmed record or clear another owner’s lease to retry.
