@@ -3,6 +3,7 @@
 This does not start a worker, so a full volume cannot block its own reset. The exact volume-name
 confirmation acknowledges deletion of source, tools, caches and credentials; archives stay in the vault.
 """
+import fcntl
 import hashlib
 import json
 import os
@@ -31,7 +32,8 @@ def reset(root, repo, confirmation, *, tools=None, run=execute, supervisor_facto
     if not found.get('docker') or not found.get('git-locks'):raise ProcessError('Docker and git-locks are required')
     supervisor=supervisor_factory(root/'.reader/coding-jobs',name='reader-coding-supervisor')
     if not supervisor.acquire():raise ProcessError('Stop the owning Reader server before resetting a coding volume')
-    lease=None;removal_attempted=False;release_attempted=False;journal=None;save=None
+    lease=None;claim_confirmed=False;claim_dispatched=False;setup_lock=None
+    removal_attempted=False;release_attempted=False;journal=None;save=None
     try:
         for job in Store(root).runs():
             if (job.get('source') or {}).get('repo','').casefold()==repo.casefold() and (
@@ -47,6 +49,9 @@ def reset(root, repo, confirmation, *, tools=None, run=execute, supervisor_facto
             value=json.loads(path.read_text()) if path.exists() else {}
             if not isinstance(value,dict):raise ProcessError('Invalid reset/setup control record')
             return value
+        setup_lock=os.fdopen(os.open(folder/'setup.lock',os.O_RDWR|os.O_CREAT|os.O_NOFOLLOW,0o600),'w')
+        try:fcntl.flock(setup_lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
+        except BlockingIOError as exc:raise ProcessError('Another terminal setup owns this repository') from exc
         previous=read(folder/'reset.json')
         if previous and previous.get('state') not in ('completed','refused'):
             raise ProcessError('Previous reset is unconfirmed; verify its saved host-client identities, exact lease and volume state before manual reconciliation')
@@ -57,11 +62,17 @@ def reset(root, repo, confirmation, *, tools=None, run=execute, supervisor_facto
             record.update(update);_save(folder/'reset.json',record)
         journal=Clients(save)
         deadline=time.monotonic()+60
+        cleanup_deadline=deadline+30
         env=dict(os.environ,TMPDIR=str(folder),XDG_CACHE_HOME=str(folder))
-        def transport(argv,**kwargs):
+        def transport(argv,*,cleanup=False,**kwargs):
+            nonlocal claim_dispatched
             measure(root/'.reader/container-runtime',set(journal.values))
+            cleanup = cleanup or argv[:2]==[found['git-locks'],'release'] or (removal_attempted and argv[1:3]!=['volume','rm'])
+            remaining=(cleanup_deadline if cleanup else deadline)-time.monotonic()
+            if remaining<=0:raise ProcessError('Reset command deadline exceeded')
+            if argv[:2]==[found['git-locks'],'claim']:claim_dispatched=True
             result=run(argv,env=dict(kwargs.pop('env',env),TMPDIR=str(folder),XDG_CACHE_HOME=str(folder)),started=journal.started,finished=journal.finished,
-                       timeout=min(kwargs.pop('timeout',15),max(.01,deadline-time.monotonic())),**kwargs)
+                       timeout=min(kwargs.pop('timeout',15),remaining),**kwargs)
             measure(root/'.reader/container-runtime',set(journal.values))
             return result
         # Use the already registered authority; no new store is created or guessed for other hosts.
@@ -71,7 +82,20 @@ def reset(root, repo, confirmation, *, tools=None, run=execute, supervisor_facto
         lock_store=entry['environment']['lock_store']
         lease=Lease(found['git-locks'],lock_store,'host/docker/'+name+'/',60,run=transport)
         save({'lease':{'job':lease.job,'acquisition':None,'store':lock_store,'key':lease.key}})
-        lease.acquire();save({'lease':record['lease']|{'acquisition':lease.acquisition}})
+        try:lease.acquire()
+        except Exception:
+            if not journal.values:
+                absent=not claim_dispatched
+                if claim_dispatched:
+                    try:
+                        result=transport([found['git-locks'],'show','--job',lease.job],env=lease.env,timeout=10,limit=65536,cleanup=True)
+                        answer=json.loads(result.stderr)
+                        absent=result.returncode==1 and isinstance(answer,dict) and answer.get('event')=='missing' and answer.get('job')==lease.job
+                    except (ProcessError,OSError,ValueError):pass
+                if absent:save({'state':'refused'})
+            raise
+        claim_confirmed=True
+        save({'lease':record['lease']|{'acquisition':lease.acquisition}})
         def inspect(kind,target):
             value=transport([found['docker'],kind,'inspect',target],limit=65536)
             if value.returncode:
@@ -83,25 +107,35 @@ def reset(root, repo, confirmation, *, tools=None, run=execute, supervisor_facto
                 return rows[0]
             except (ValueError,TypeError) as exc:raise ProcessError('Malformed reset inspection') from exc
         if inspect('container',name) is not None:raise ProcessError('A worker still exists; reconcile it before reset')
+        def owned(item):
+            if not isinstance(item,dict):return False
+            labels=item.get('Labels') or {}
+            return (isinstance(labels,dict) and item.get('Name')==volume and item.get('Driver')=='local'
+                and not item.get('Options') and labels.get('reader.coding.owner')==hashlib.sha256(str(root).encode()).hexdigest()
+                and labels.get('reader.coding.repo')==repo.casefold())
         item=inspect('volume',volume)
         if item is not None:
-            labels=item.get('Labels') or {}
-            if not isinstance(labels,dict):raise ProcessError('Malformed reset volume labels')
-            if (item.get('Name')!=volume or item.get('Driver')!='local' or item.get('Options')
-                    or labels.get('reader.coding.owner')!=hashlib.sha256(str(root).encode()).hexdigest()
-                    or labels.get('reader.coding.repo')!=repo.casefold()):
-                raise ProcessError('The volume is foreign or has unsupported storage options; it was not removed')
+            if not owned(item):raise ProcessError('The volume is foreign or has unsupported storage options; it was not removed')
             lease.check();save({'state':'removing'})
             removal_attempted=True
             result=transport([found['docker'],'volume','rm',volume],timeout=30,limit=65536)
-            if result.returncode or inspect('volume',volume) is not None:raise ProcessError('Volume deletion is unconfirmed; ownership retained')
+            remaining=inspect('volume',volume)
+            if result.returncode:
+                if owned(remaining) and any(message in result.stderr.lower() for message in ('volume is in use','volume is being used')):
+                    removal_attempted=False
+                    raise ProcessError('Docker refused deletion because the owned volume is in use; no reset was completed')
+                raise ProcessError('Volume deletion is unconfirmed; ownership retained')
+            if remaining is not None:raise ProcessError('Volume deletion is unconfirmed; ownership retained')
         release_attempted=True
         lease.release();save({'state':'completed','finished_at':time.time()})
         return {'repo':repo,'volume':volume,'state':'removed','archives':'retained'}
     finally:
         # Errors keep the journal and receipt. Never advertise completion or release unknown effects.
         try:
-            if lease and lease.acquisition and not removal_attempted and not release_attempted and journal and not journal.values:
+            if lease and claim_confirmed and lease.acquisition and not removal_attempted and not release_attempted and journal and not journal.values:
                 lease.release()
                 save({'state':'refused'})
-        finally:supervisor.release()
+        finally:
+            try:
+                if setup_lock:setup_lock.close()
+            finally:supervisor.release()
