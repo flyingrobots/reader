@@ -28,7 +28,7 @@ Install/Update/Start is shown only where Reader implements that integration. Rev
 
 Reader sends article/selection text to the local AI-TTS daemon; the daemon owns synthesis, playback, holds and serialized queueing. Reader does not directly play an audio file to bypass it. Start is offered for supported installed-but-stopped configurations; Reader does not silently install the signed application.
 
-Default reading voice is a vault-specific choice in `.reader/speech.json`. The catalog comes from the running engine. Automatic uses AI-TTS’s existing Reader source behavior. An explicit reading voice retains Reader origin without reassigning another agent’s voice. The Speak popup can override one reading without saving that override. Missing/stale voice choices are rejected before submission. Changing the default does not change already queued audio.
+Default reading voice is a vault-specific choice in `.reader/speech.json`. The catalog comes from the running engine. Automatic uses AI-TTS’s existing Reader source behavior. An explicit reading voice retains Reader origin without reassigning another agent’s voice. The Speak popup can override one reading without saving that override. Missing/stale voice choices are rejected before submission. Changing the default does not change already queued audio. The catalog reloads when AI-TTS changes readiness or starts a job. If loading fails, Retry voices reloads it in place in either selector; a successful retry clears the error.
 
 ## Colorful Language
 

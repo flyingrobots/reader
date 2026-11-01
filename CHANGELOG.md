@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Voice selectors recover after AI-TTS starts and offer Retry voices after catalog failures.
+
 - Split panes fit the available space beside the open File Explorer and right dock.
 
 - Synchronous setup probes cap combined stdout and stderr and terminate their process group on overflow.
