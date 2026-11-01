@@ -22,6 +22,8 @@ const {chromium}=require(process.env.READER_PLAYWRIGHT||'playwright-core');
       await article.getByRole('link',{name:'Repository',exact:true}).waitFor();
       assert.equal(await article.getByRole('link',{name:'Repository',exact:true}).getAttribute('href'),'https://github.com/example/portable-fixture');
       assert.equal(await article.getByRole('link',{name:'Tracked file',exact:true}).getAttribute('href'),`https://github.com/example/portable-fixture/blob/${portable.commit}/README.md`);
+      assert.equal(await article.locator('a:has(s)').getAttribute('href'),`https://github.com/example/portable-fixture/blob/${portable.commit}/README.md`);
+      assert.equal(await article.locator('a:has(.reader-math)').getAttribute('href'),`https://github.com/example/portable-fixture/blob/${portable.commit}/README.md`);
       assert.equal(await article.getByRole('link',{name:'Reference link',exact:true}).getAttribute('href'),'https://github.com/example/portable-fixture#readme');
       const missing=article.locator('.local-link-unavailable');
       assert.equal(await missing.textContent(),'Missing target');assert.match(await missing.getAttribute('title'),/unavailable/i);

@@ -12,9 +12,11 @@ reader --root /path/to/vault repair-links --all --apply
 reader --root /path/to/vault repair-links library/reports/source.md --apply
 ```
 
-The default is a dry run. `--all` scans library Markdown; explicit paths narrow a
+The default is a dry run. `--all` scans regular, non-hidden library Markdown files; explicit paths narrow a
 run. `--git-root` selects the directory containing local checkouts (default
-`~/git`). Review the returned resolved/unresolved counts and reasons. A document
+`~/git`). Images may be copied only from the vault or Git root by default. An
+explicit `--image-root /path/to/images` adds a directory for a manual repair run;
+intake never accepts additional roots from source text. Review the returned resolved/unresolved counts and reasons. A document
 failure makes the CLI exit nonzero. An unresolved reference is a recorded
 exception, not an invented working destination. Coordinate bulk writes with the
 vault's `link-repairs/` and affected `library/` repository locks, then verify and
@@ -42,7 +44,10 @@ is Reader-specific: it does not rewrite Markdown in other viewers.
 
 Records live at `link-repairs/<sha256-of-library-path>.json`, with schema version,
 source path, source SHA-256 and dispositions keyed by URL, label and link/image
-kind. Resolved targets are restricted to GitHub HTTPS or library-relative paths.
+kind. The public projection also supplies a hashed URL/kind fallback when every
+label for that URL has the same disposition and target; this tolerates label
+decoration differences between Markdown parsers without confusing distinct commit
+labels. Resolved targets are restricted to GitHub HTTPS or library-relative paths.
 Stale or malformed records fail closed. Unresolved links show their readable label
 and an explanation; unavailable images show a textual fallback.
 

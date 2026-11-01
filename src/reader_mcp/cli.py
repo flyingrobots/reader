@@ -26,6 +26,7 @@ def main():
     repair.add_argument("--all", action="store_true", help="Scan existing library Markdown")
     repair.add_argument("--apply", action="store_true", help="Write repair records and explicitly linked image assets")
     repair.add_argument("--git-root", type=Path, help="Root containing local Git checkouts (default ~/git)")
+    repair.add_argument("--image-root", type=Path, action='append', default=[], help="Explicit additional image directory; repeat as needed")
     inbox = commands.add_parser("inbox", help="Start, inspect or stop deterministic inbox processing")
     inbox.add_argument("action", choices=['start', 'status', 'stop'])
     status = commands.add_parser("status", help="Inspect a receipt by UUID")
@@ -134,9 +135,10 @@ def main():
             from .portable_links import PortableLinks
             if bool(args.paths) == bool(args.all):
                 raise ValueError('Select explicit paths or --all')
-            repairer = PortableLinks(store.root, args.git_root)
+            repairer = PortableLinks(store.root, args.git_root, image_roots=args.image_root)
             paths = args.paths or [p.relative_to(store.root).as_posix() for p in sorted((store.root / 'library').rglob('*'))
-                                   if p.suffix.lower() in ('.md', '.markdown') and not p.is_symlink()]
+                                   if p.suffix.lower() in ('.md', '.markdown') and p.is_file() and not p.is_symlink()
+                                   and not any(part.startswith('.') for part in p.relative_to(store.root).parts)]
             if len(paths) > 50000:
                 raise ValueError('Repair inventory exceeds 50,000 Markdown files')
             rows = []

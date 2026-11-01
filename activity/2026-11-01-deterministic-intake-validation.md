@@ -71,3 +71,9 @@ queue exceeding a single run deadline, and premature termination of lock cleanup
 The corrections retain hook enforcement and source bytes, stream mutation
 pathspecs, bound query arguments, name failing arrivals, preserve both diagnostics,
 and use script-owned progress with bounded filing and cleanup stages.
+
+Prepared-link checks also cover lazy read-only lookup, supported bulk-discovery
+paths, bounded fixture commands, idempotent shutdown, explicit image-root limits
+and interruption-safe asset publication. Rendering preserves links with
+strikethrough and inline-math labels through unambiguous hashed URL/kind matches;
+ambiguous targets retain exact label identities.

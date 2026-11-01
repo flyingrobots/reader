@@ -88,15 +88,20 @@ def test_stalled_model_still_hits_the_progress_deadline(vault, executable):
     assert 'time limit' in state['message'] and (vault / 'inbox/test.md').is_file()
 
 
-def test_shutdown_allows_lock_release_cleanup_to_finish(tmp_path):
+def test_shutdown_allows_lock_release_cleanup_to_finish(tmp_path, monkeypatch):
     from reader_mcp.inbox_runner import WorkerProcesses
     marker = tmp_path / 'released'
     code = "import signal,time,pathlib\ndef stop(*args):\n time.sleep(4)\n pathlib.Path(" + repr(str(marker)) + ").write_text('released')\n raise SystemExit(0)\nsignal.signal(signal.SIGTERM,stop)\nprint('ready',flush=True)\ntime.sleep(60)"
     child = subprocess.Popen([sys.executable, '-c', code], stdout=subprocess.PIPE, text=True, start_new_session=True)
     try:
         assert child.stdout.readline().strip() == 'ready'
-        WorkerProcesses(child).stop()
+        tree = WorkerProcesses(child)
+        tree.stop()
         assert marker.read_text() == 'released'
+        def no_more_signals(*args):
+            raise AssertionError('Shutdown must not signal retained process IDs again')
+        monkeypatch.setattr(tree, 'signal_group', no_more_signals)
+        tree.stop()
     finally:
         if child.poll() is None:
             child.kill()

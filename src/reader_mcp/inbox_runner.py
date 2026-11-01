@@ -108,6 +108,7 @@ class WorkerProcesses:
         self.process = process
         self.pids = {process.pid}
         self.groups = {process.pid}
+        self.stopped = False
 
     def measure(self):
         output = subprocess.check_output(['ps', '-axo', 'pid=,ppid=,pgid=,rss='], text=True, timeout=5)
@@ -123,6 +124,8 @@ class WorkerProcesses:
         return sum(rss * 1024 for pid, parent, group, rss in rows if pid in found)
 
     def stop(self):
+        if self.stopped:
+            return
         try:
             self.measure()
         except (OSError, ValueError, subprocess.SubprocessError):
@@ -136,6 +139,7 @@ class WorkerProcesses:
         for group in self.groups:
             self.signal_group(group, signal.SIGKILL)
         self.process.wait()
+        self.stopped = True
 
     @staticmethod
     def signal_group(group, sig):

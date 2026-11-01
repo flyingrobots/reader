@@ -4,11 +4,12 @@ export async function portableEnvironment(md,text,record){
   if(!record?.targets?.length)return {targets:[]};
   const references=[];md.parse(text,{portableCollect:references});
   const byKey=new Map(record.targets.map(r=>[r.key,r]));
+  const byFallback=new Map(record.targets.filter(r=>r.fallback_key).map(r=>[r.fallback_key,r]));
+  const identity=async value=>[...new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(value)))].map(n=>n.toString(16).padStart(2,'0')).join('');
   const targets=await Promise.all([...new Set(references)].map(async reference=>{
-    const hash=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(reference));
-    const key=[...new Uint8Array(hash)].map(n=>n.toString(16).padStart(2,'0')).join('');
-    const value=byKey.get(key);if(!value)return null;
-    const [source_url,label,kind]=JSON.parse(reference);return {...value,source_url,label,kind};
+    const [source_url,label,kind]=JSON.parse(reference);
+    const value=byKey.get(await identity(reference))||byFallback.get(await identity(JSON.stringify([source_url,kind])));
+    return value?{...value,source_url,label,kind}:null;
   }));
   return {targets:targets.filter(Boolean)};
 }

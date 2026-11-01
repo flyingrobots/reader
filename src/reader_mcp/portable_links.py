@@ -4,6 +4,7 @@ The web reader consumes these plain JSON records; opening a document never probe
 the host filesystem or turns arbitrary file URLs into a file-serving endpoint.
 """
 from collections import Counter
+from functools import cached_property
 import hashlib
 import json
 import os
@@ -110,9 +111,10 @@ def atomic(path, value, *, limit=MAX_RECORD):
 
 
 class PortableLinks:
-    def __init__(self, root, git_root=None, *, writer=None):
+    def __init__(self, root, git_root=None, *, writer=None, image_roots=()):
         self.root = Path(root).resolve(strict=True)
-        self.git_root = Path(git_root).expanduser().resolve() if git_root else Path.home() / 'git'
+        self._git_root = git_root
+        self._image_roots = image_roots
         self.repo_cache = {}
         self.catalog = None
         self.git_cache = {}
@@ -120,6 +122,14 @@ class PortableLinks:
         self.assets = set()
         self.record_bytes = 0
         self.writer = writer
+
+    @cached_property
+    def git_root(self):
+        return Path(self._git_root).expanduser().resolve() if self._git_root else Path.home() / 'git'
+
+    @cached_property
+    def image_roots(self):
+        return (self.root, self.git_root, *(Path(p).expanduser().resolve() for p in self._image_roots))
 
     def command(self, root, *args):
         key = (str(root), *args)
@@ -196,6 +206,8 @@ class PortableLinks:
             safe_file(self.root, relative, limit=MAX_ASSET)
             return {'target': quote(relative, safe='/') + ('#' + parsed.fragment if parsed.fragment else ''), 'method': 'vault'}
         if ref['kind'] == 'image':
+            if not any(target.is_relative_to(base) for base in self.image_roots):
+                raise ValueError('Local image is outside the configured image roots')
             if target.suffix.lower() not in IMAGES or not target.is_file() or any(p.is_symlink() for p in (target, *target.parents)):
                 raise ValueError('Local image is missing or unsupported')
             before = target.stat()
@@ -224,8 +236,17 @@ class PortableLinks:
                     self.writer(dest.relative_to(self.root).as_posix(), data)
                 else:
                     dest.parent.mkdir(exist_ok=True)
-                    with dest.open('xb') as stream:
-                        stream.write(data)
+                    temporary = None
+                    try:
+                        with tempfile.NamedTemporaryFile(dir=dest.parent, prefix='.tmp-', delete=False) as stream:
+                            temporary = Path(stream.name)
+                            stream.write(data)
+                            stream.flush()
+                            os.fsync(stream.fileno())
+                        os.link(temporary, dest)  # Publish complete bytes without replacing another writer's asset.
+                    finally:
+                        if temporary is not None:
+                            temporary.unlink(missing_ok=True)
             return {'target': quote(dest.relative_to(self.root).as_posix(), safe='/') + ('#' + parsed.fragment if parsed.fragment else ''),
                     'method': 'copied-image', 'asset_sha256': sha}
         if not target.is_relative_to(self.git_root):
@@ -352,9 +373,18 @@ def safe_target(target):
 def public_record(record):
     """The web API needs match identities, never host file URLs or Git metadata."""
     targets = []
+    alternatives = {}
+    for item in record.get('targets', []):
+        alternatives.setdefault((item['source_url'], item['kind']), set()).add(
+            (item['status'], item.get('target'), item.get('reason')))
     for item in record.get('targets', []):
         key = digest(json.dumps([item['source_url'], item['label'], item['kind']], ensure_ascii=False, separators=(',', ':')).encode())
         value = {'key': key, 'status': item['status']}
+        # Parser extensions can decorate labels differently. URL/kind is a safe
+        # fallback only when every label has the same disposition and target.
+        # Exact label keys still distinguish commit labels sharing a repository URL.
+        if len(alternatives[(item['source_url'], item['kind'])]) == 1:
+            value['fallback_key'] = digest(json.dumps([item['source_url'], item['kind']], ensure_ascii=False, separators=(',', ':')).encode())
         if item['status'] == 'resolved':
             value['target'] = item['target']
         else:
