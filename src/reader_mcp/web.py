@@ -15,7 +15,7 @@ import socket
 import sqlite3
 import threading
 import time
-from urllib.parse import parse_qs, quote, urlsplit
+from urllib.parse import parse_qs, quote, unquote, urlsplit
 
 from rapidfuzz import fuzz, process
 
@@ -72,6 +72,8 @@ SUGGEST_TTL = 60       # seconds a participant's generated suggestions are reuse
 HISTORY_PAGE = 40
 TEXT_FORMATS = ('.md', '.markdown', '.txt')
 MAX_RESOLVE_BATCH = 64
+IMAGE_FORMATS = ('.png', '.jpg', '.jpeg', '.gif', '.webp', '.svg', '.avif', '.bmp', '.ico')
+HTML_FORMATS = ('.html', '.htm')
 mimetypes.add_type('font/woff2', '.woff2')
 mimetypes.add_type('application/manifest+json', '.webmanifest')
 
@@ -418,18 +420,27 @@ class WebLibrary:
         digest = self.digest(path, preview)
         kind = file.suffix.lower()
         data = None
-        if kind not in ('.pdf', '.png', '.jpg', '.jpeg', '.gif', '.webp', '.svg'):
+        if kind not in ('.pdf', *IMAGE_FORMATS, *HTML_FORMATS):
             if file.stat().st_size > MAX_DOCUMENT:
-                raise ValueError('This document exceeds the 4 MiB browser text limit; open the original file')
-            data = file.read_bytes()
-            if hashlib.sha256(data).hexdigest() != digest:
-                raise ValueError('Document changed while reading; reopen it')
+                if kind in TEXT_FORMATS:
+                    raise ValueError('This document exceeds the 4 MiB browser text limit; open the original file')
+            else:
+                data = file.read_bytes()
+                if hashlib.sha256(data).hexdigest() != digest:
+                    raise ValueError('Document changed while reading; reopen it')
+                try:
+                    data.decode('utf-8')
+                    if b'\x00' in data:
+                        data = None
+                except UnicodeDecodeError:
+                    data = None  # A binary companion opens with a download, never a UTF-8 error.
         metadata = parse_metadata(data).metadata if data is not None and kind in ('.md', '.markdown') else {}
         return {'path': path, 'sha256': digest, 'kind': kind, 'text': data.decode('utf-8') if data is not None else None,
                 'title': metadata.get('title') or file.stem.replace('-', ' '), 'metadata': metadata,
                 'file_url': '/api/file?path=' + quote(path, safe=''),
                 'item': None if preview else {'key': 'document:' + path, 'version': digest},
-                'preview': preview, 'bookmark': None if preview else self.bookmarks.get(participant, path)}
+                'preview': preview, 'bookmark': None if preview else self.bookmarks.get(participant, path),
+                **({'preview_url': '/api/attachment/' + quote(path, safe='/')} if kind in HTML_FORMATS else {})}
 
     def speak(self, path, source_sha256, scope='article', start=None, end=None, page=None, voice=None):
         """Queue the exact viewed edition, or a code-point slice of it, with AI-TTS."""
@@ -1251,7 +1262,7 @@ class WebHandler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(body)
 
-    def response_headers(self, status, kind, length, *, raw=False):
+    def response_headers(self, status, kind, length, *, raw=False, attachment=False):
         self.send_response(status)
         self.send_header('Content-Type', kind)
         self.send_header('Content-Length', str(length))
@@ -1259,7 +1270,14 @@ class WebHandler(BaseHTTPRequestHandler):
         self.send_header('Cache-Control', 'no-store')
         self.send_header('Referrer-Policy', 'no-referrer')
         policy = "default-src 'self'; script-src 'self'; worker-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' blob:; connect-src 'self'; frame-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'self'"
-        self.send_header('Content-Security-Policy', "default-src 'none'; sandbox; frame-ancestors 'self'" if raw else policy)
+        if attachment:
+            # HTML companions run in an opaque origin, even when opened directly.
+            # Classic sibling scripts/styles/images work; no API fetches, forms,
+            # storage, parent access, popups or top-level navigation are granted.
+            policy = "default-src 'none'; sandbox allow-scripts; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'none'; form-action 'none'; base-uri 'none'; frame-ancestors 'self'"
+        elif raw:
+            policy = "default-src 'none'; sandbox; frame-ancestors 'self'"
+        self.send_header('Content-Security-Policy', policy)
 
     def json(self, data, status=200):
         if status >= 400 and isinstance(data.get('error'), str):
@@ -1686,7 +1704,11 @@ class WebHandler(BaseHTTPRequestHandler):
                 self.send_file(library.themes.font_file(family, name))
             elif parsed.path == '/api/file':
                 file = library.path(args.get('path', ''), preview=True)
-                self.send_file(file, raw=True)
+                self.send_file(file, raw=True, download=args.get('download') == '1')
+            elif parsed.path.startswith('/api/attachment/'):
+                # A path URL retains the browser's relative URL base for sibling assets.
+                file = library.path(unquote(parsed.path[len('/api/attachment/'):]), preview=True)
+                self.send_file(file, attachment=True)
             elif parsed.path == '/' or parsed.path.startswith('/assets/'):
                 name = 'index.html' if parsed.path == '/' else parsed.path[len('/assets/'):]
                 file = (STATIC / name).resolve()
@@ -1731,7 +1753,7 @@ class WebHandler(BaseHTTPRequestHandler):
             raise ValueError(f'Expected {name} as a non-negative whole number')
         return int(value)
 
-    def send_file(self, file, raw=False):
+    def send_file(self, file, raw=False, attachment=False, download=False):
         size = file.stat().st_size
         start, end, status = 0, size - 1, 200
         range_header = self.headers.get('Range')
@@ -1747,9 +1769,13 @@ class WebHandler(BaseHTTPRequestHandler):
                 return
             status = 206
         kind = mimetypes.guess_type(file.name)[0] or 'application/octet-stream'
-        if raw and file.suffix.lower() not in ('.pdf', '.png', '.jpg', '.jpeg', '.webp', '.gif', '.svg'):
+        if raw and file.suffix.lower() not in ('.pdf', *IMAGE_FORMATS):
             kind = 'text/plain; charset=utf-8'
-        self.response_headers(status, kind, max(0, end - start + 1), raw=raw)
+        if download:
+            kind = 'application/octet-stream'
+        self.response_headers(status, kind, max(0, end - start + 1), raw=raw, attachment=attachment)
+        if download:
+            self.send_header('Content-Disposition', "attachment; filename*=UTF-8''" + quote(file.name, safe=''))
         self.send_header('Accept-Ranges', 'bytes')
         if status == 206:
             self.send_header('Content-Range', f'bytes {start}-{end}/{size}')

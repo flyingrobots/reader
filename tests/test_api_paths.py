@@ -55,7 +55,8 @@ PARAMS = {
     '/api/file': {'path': DOC},
     '/api/art/prompt': [{'path': DOC}, {'path': 'library/other.md'}],
 }
-PREFIXES = {'/api/speak/': ['/api/speak/status', '/api/speak/unknown']}
+PREFIXES = {'/api/speak/': ['/api/speak/status', '/api/speak/unknown'],
+            '/api/attachment/': ['/api/attachment/library/thought.md', '/api/attachment/library/missing.html']}
 SKIP = {'/api/art/still': 'answers a stored image, not JSON'}
 
 

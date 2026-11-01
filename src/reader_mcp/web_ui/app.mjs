@@ -571,7 +571,16 @@ async function navigate(path,{thread=null,fragment='',record=true,commit=null,at
       await renderMarkdown(article,doc.text,path,0,{defer:true,prompts:promptContext(doc)});
     } else if(doc.kind==='.pdf') {
       const controller=await openPDF(article,doc.file_url);if(id!==state.routeId){await controller.destroy();return;}state.pdf=controller;
-    } else if(doc.text===null){article.innerHTML=`<img class="document-image" src="${esc(doc.file_url)}" alt="${esc(title)}">`;}
+    } else if(doc.preview_url){
+      const frame=document.createElement('iframe');frame.className='document-attachment';frame.title=title;
+      frame.setAttribute('sandbox','allow-scripts');frame.referrerPolicy='no-referrer';frame.src=doc.preview_url+(fragment?'#'+param(fragment):'');
+      const download=document.createElement('a');download.href=doc.file_url+'&download=1';download.textContent='Download original HTML';download.download='';
+      const note=document.createElement('p');note.textContent='Interactive preview · network features and browser storage are unavailable. ';note.append(download);
+      article.append(note,frame);
+    } else if(doc.text===null){
+      if(/\.(png|jpe?g|gif|webp|svg|avif|bmp|ico)$/i.test(doc.kind))article.innerHTML=`<img class="document-image" src="${esc(doc.file_url)}" alt="${esc(title)}">`;
+      else article.innerHTML=`<p>This attachment is available as a file.</p><a href="${esc(doc.file_url)}&amp;download=1" download>Download attachment</a>`;
+    }
     else {const pre=document.createElement('pre');pre.textContent=doc.text;article.append(pre);}
     const speechSlot=$('#article-speech');if(!historical&&!doc.preview&&(doc.text!==null||doc.kind==='.pdf'))mountArticleSpeech(speechSlot,{path:doc.path,sourceSha:doc.sha256,onRead:()=>speech.send('article')});else speechSlot?.remove();
     if(doc.text!==null){
@@ -876,7 +885,7 @@ function showHeading(root,id){
   return true;
 }
 function wireArticleLinks(root,path){
-  root.querySelectorAll('a').forEach(link=>link.addEventListener('click',async event=>{
+  root.querySelectorAll('a:not([download])').forEach(link=>link.addEventListener('click',async event=>{
     // Each document wires its own links (an embed's resolve from the embedded file); embed headers open their source.
     if(scopeOf(link)!==scopeOf(root)||link.closest('[data-embed-open]'))return;
     const href=link.getAttribute('href');if(!href)return;
