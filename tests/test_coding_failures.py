@@ -499,3 +499,31 @@ def test_a_failed_recovery_releases_ownership_so_the_next_owner_starts_a_worker(
     with pytest.raises(OSError, match='recovery write failure'):
         jobs.own()
     assert jobs.own() and jobs.worker and jobs.worker.is_alive()
+
+
+def test_request_directory_sync_failure_retains_an_idempotent_failed_admission(world, monkeypatch):
+    import os,stat
+    from pathlib import Path
+    w=world()
+    requests=w.jobs.store.folder('requests').resolve()
+    original=os.fsync
+    failed=False
+    def sync(fd):
+        nonlocal failed
+        if not failed and stat.S_ISDIR(os.fstat(fd).st_mode) and Path(os.readlink('/proc/self/fd/'+str(fd)))==requests:
+            failed=True
+            raise OSError(5,'request directory sync refused')
+        return original(fd)
+    monkeypatch.setattr(os,'fsync',sync)
+    request=w.request()
+    with pytest.raises(OSError,match='request directory sync refused'):
+        w.jobs.submit(request)
+    receipt=w.jobs.store.request(request['request_id'])
+    assert receipt and w.jobs.store.load(receipt['run_id']) is not None, 'An installed request must never point to a discarded run'
+    retry=w.jobs.submit(request)
+    assert retry['duplicate'] and retry['status']=='finished' and retry['outcome']=='failed'
+    assert not w.record.exists(), 'Failed durability must never start a task'
+    assert len(w.jobs.store.runs())==1
+    fresh=w.jobs.submit(w.request())
+    assert w.wait(fresh['id'])['outcome']=='pr_opened'
+    assert len(w.calls())==1

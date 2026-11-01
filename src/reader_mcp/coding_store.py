@@ -36,6 +36,10 @@ def stamp():
     return datetime.now(timezone.utc).isoformat()
 
 
+class InstalledRecordError(OSError):
+    """Replacement succeeded, but directory durability is uncertain; retain dependent records."""
+
+
 class CaptureFailed(Exception):
     """An archive write failed or the output budget is full: stop the job, keep what was captured."""
 
@@ -68,9 +72,12 @@ class Store:
             out.flush()
             os.fsync(out.fileno())
         temporary.replace(path)
-        fd = os.open(path.parent, os.O_RDONLY)
-        try:os.fsync(fd)
-        finally:os.close(fd)
+        try:
+            fd = os.open(path.parent, os.O_RDONLY)
+            try:os.fsync(fd)
+            finally:os.close(fd)
+        except OSError as exc:
+            raise InstalledRecordError(exc.errno,exc.strerror,str(path)) from exc
 
     def _read(self, path):
         if not path.is_file() or path.is_symlink() or path.stat().st_size > MAX_RECORD:

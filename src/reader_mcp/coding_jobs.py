@@ -33,7 +33,7 @@ import uuid
 from . import coding_agents, llm_logs, prompt_blocks
 from .coding_publish import closes, ours
 from .coding_container import ContainerJob
-from .coding_store import CaptureFailed, Capture, Live, Store, archived_events, stamp, valid_id
+from .coding_store import InstalledRecordError, CaptureFailed, Capture, Live, Store, archived_events, stamp, valid_id
 from .coding_workflow import Stop, process_started
 from .display import shown
 from .github import GhCli, GitHubError
@@ -231,10 +231,20 @@ class Runner:
             self.store.save(run)
             try:
                 self.store.remember(request['request_id'], run_id, print_)
-            except BaseException:
-                # Without its receipt the run is not admitted: no record is left to wait unqueued, and a retry
-                # with the same request ID admits exactly one run. The archive keeps the attempt, sealed as failed.
-                self.store.discard(run_id)
+            except BaseException as exc:
+                # No task is queued until receipt persistence succeeds. Distinguish failure before
+                # installation from uncertain directory durability so no receipt points at a discarded run.
+                if isinstance(exc,InstalledRecordError):
+                    # The installed receipt must keep its target. No work was queued; same-UUID
+                    # retry returns this terminal failure, and a new explicit request can try again.
+                    run.update(status='finished',outcome='failed',finished_at=stamp(),seq=capture.seq,
+                               message='Admission durability failed after installing its receipt; no task started. Run again with a new request.')
+                    try:self.store.save(run)
+                    except OSError:
+                        # Store retains this failed state in its retry cache; propagate the original
+                        # durability error. Restart recovery never relaunches an unqueued record.
+                        pass
+                else:self.store.discard(run_id)
                 capture.close()
                 try:
                     log.finish('failed', message='Admission failed: the request receipt could not be saved.')
