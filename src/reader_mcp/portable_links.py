@@ -111,10 +111,11 @@ def atomic(path, value, *, limit=MAX_RECORD):
 
 
 class PortableLinks:
-    def __init__(self, root, git_root=None, *, writer=None, image_roots=()):
+    def __init__(self, root, git_root=None, *, writer=None, image_roots=(), relocations=None):
         self.root = Path(root).resolve(strict=True)
         self._git_root = git_root
         self._image_roots = image_roots
+        self.relocations = relocations or {}
         self.repo_cache = {}
         self.catalog = None
         self.git_cache = {}
@@ -191,7 +192,7 @@ class PortableLinks:
             commit = matches[0] if len(set(matches)) == 1 else None
         return urls, commit
 
-    def resolve(self, source, ref, context, apply):
+    def resolve(self, source, ref, context, apply, relocated=None):
         parsed = urlsplit(ref['source_url'])
         if parsed.scheme.lower() != 'file' or parsed.netloc not in ('', 'localhost') or parsed.query:
             raise ValueError('Unsupported local URL authority or query')
@@ -201,6 +202,12 @@ class PortableLinks:
         target = Path(raw)
         if '..' in target.parts or ref['kind'] == 'image' and any(p.startswith('.') for p in target.parts[1:]):
             raise ValueError('Hidden or traversing local target is not imported')
+        relocated = self.relocations.get(target, relocated)
+        if relocated is not None:
+            relative = unquote(urlsplit(relocated).path)
+            safe_file(self.root, relative, limit=MAX_ASSET)
+            return {'target': quote(relative, safe='/') + ('#' + parsed.fragment if parsed.fragment else ''),
+                    'method': 'relocated-vault'}
         if target.is_relative_to(self.root / 'library') and target.is_file() and not target.is_symlink():
             relative = target.relative_to(self.root).as_posix()
             safe_file(self.root, relative, limit=MAX_ASSET)
@@ -308,10 +315,15 @@ class PortableLinks:
         if not refs:
             return {'path': path, 'status': 'unchanged', 'targets': []}
         context = self.context(source, text)
+        old = self.stored(path, digest(data))
+        relocated = {(r['source_url'], r['label'], r['kind']): r['target']
+                     for r in (old or {}).get('targets', [])
+                     if r.get('method') == 'relocated-vault' and r['status'] == 'resolved'}
         targets = []
         for ref in refs:
             try:
-                result = self.resolve(source, ref, context, apply)
+                result = self.resolve(source, ref, context, apply,
+                                      relocated.get((ref['source_url'], ref['label'], ref['kind'])))
                 targets.append({**ref, **result, 'status': 'resolved'})
             except (ValueError, OSError, subprocess.TimeoutExpired) as exc:
                 targets.append({**ref, 'status': 'unresolved', 'reason': str(exc)})
@@ -323,7 +335,6 @@ class PortableLinks:
         if source.read_bytes() != data:
             raise ValueError('Source changed during link repair')
         target = self.record_path(path)
-        old = self.stored(path, digest(data))
         if apply and old != record:
             if self.writer:
                 self.writer(target.relative_to(self.root).as_posix(), (json.dumps(record, ensure_ascii=False, indent=2) + '\n').encode())

@@ -96,3 +96,11 @@ attachment, inbox, portable-link and token-refresh suites.
 Collection decisions now share Browse's excluded-directory names, preventing a
 successful filing into an undiscoverable collection. All 42 intake checks passed,
 including nine excluded collection names rejected before any source moves.
+
+Two further reduced fixtures reproduced generated library bytes exceeding
+catalog capacity after moves and absolute inbox attachment links losing their
+targets during filing. Admission now reserves the existing generated-output
+budget. Frozen batch file mappings preserve those links after all batch moves,
+including references to later arrivals and subsequent repair passes.
+All 118 guarded intake, supervisor, portable-reference, browse and curation checks
+passed after these changes.

@@ -58,6 +58,8 @@ Before moving a fresh batch, the script checks aggregate catalog file capacity,
 reserving catalog notes, collection indexes, possible reading copies and local
 image assets. This count is conservative when formatting changes nothing or
 several image references share one asset.
+Byte admission also reserves the journal's existing 128 MiB generated-output
+budget, so generated files cannot push an admitted batch over catalog capacity.
 
 The script automatically partitions the queue into sequential commit batches,
 keeping every original delivery bundle intact. It also partitions oversized
@@ -84,6 +86,10 @@ and original bytes remain unchanged. Catalog metadata uses independent sidecars
 for these originals, including supplied frontmatter that is invalid or already
 contains identity fields. Sibling reading copies retain their relative link
 base. [Portable link repairs](portable-links.md) run on originals and derivatives.
+The frozen paths of all arrivals in a commit batch map to their preserved
+destinations, so absolute inbox links to attachments or other arrivals in that
+batch keep working after filing. Repair records retain that mapping for later
+repair passes without changing the source URLs.
 Browse and curation associate a receipt beneath `originals/` with the outer
 catalog, retaining its identity, primary document, provenance and arrival time.
 

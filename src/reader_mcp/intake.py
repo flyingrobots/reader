@@ -397,6 +397,7 @@ def verify_payload(root, entry):
 def check_catalog_capacity(root, entries):
     """Reserve source files, catalogs and possible reading copies/assets before moving a fresh batch."""
     from .catalog import Catalog, MAX_FILES as CATALOG_FILES, MAX_SOURCE_BYTES
+    from .intake_journal import MAX_OUTPUT
     from .portable_links import MAX_DOCUMENT, references
     existing = Catalog(root).inventory()
     generated = {'library/index.md'} | {'library/' + e['decision']['collection'] + '/index.md' for e in entries}
@@ -417,7 +418,9 @@ def check_catalog_capacity(root, entries):
             except (ValueError, UnicodeError):
                 pass  # Link preparation refuses this same unsupported document.
     size = sum(f.size for f in existing.values()) + sum(f['bytes'] for e in entries for f in e['files'])
-    if count > CATALOG_FILES or size > MAX_SOURCE_BYTES:
+    # The journal bounds all generated outputs. Reserving that existing budget
+    # also covers image bytes and formatter output before either is produced.
+    if count > CATALOG_FILES or size + MAX_OUTPUT > MAX_SOURCE_BYTES:
         raise ValueError('Selected sources and generated files exceed the existing catalog capacity; no arrivals were moved')
 
 
@@ -479,9 +482,7 @@ def apply_plan(root, runtime, plan):
         plan['applying'] = True
         save(runtime, plan)
     warnings = plan.setdefault('warnings', [])
-    repairer = PortableLinks(root, writer=journal.write)
     for entry in entries:
-        decision = entry['decision']
         dest = entry['destination']
         base = local_path(root, dest)
         original = local_path(root, dest + '/originals')
@@ -501,6 +502,18 @@ def apply_plan(root, runtime, plan):
         elif not current.exists():
             raise ValueError('Neither selected arrival nor its planned destination exists')
         verify_payload(root, entry)
+    # Move the complete batch before preparing references between its arrivals.
+    # The frozen source-to-destination mapping also survives checkpoint replay.
+    relocations = {
+        root / (e['source'] + '/' + row['path'] if e['is_directory'] else e['source']):
+        e['destination'] + '/originals/' + row['path']
+        for e in entries for row in e['files']
+    }
+    repairer = PortableLinks(root, writer=journal.write, relocations=relocations)
+    for entry in entries:
+        decision = entry['decision']
+        dest = entry['destination']
+        original = local_path(root, dest + '/originals')
         copies = []
         for row in entry['files']:
             file = original / row['path']

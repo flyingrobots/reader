@@ -141,6 +141,42 @@ def test_aggregate_catalog_capacity_includes_generated_files_before_moves(vault,
     assert not (vault / 'library/reports').exists()
 
 
+def test_generated_library_bytes_are_reserved_before_moving_sources(vault, monkeypatch):
+    from reader_mcp import catalog
+    (vault / 'inbox/report.md').write_text('Original source\n')
+    plan = plan_for(vault)
+    source_bytes = sum(p.stat().st_size for p in (vault / 'library').rglob('*') if p.is_file()) + 16
+    monkeypatch.setattr(catalog, 'MAX_SOURCE_BYTES', source_bytes + 100)
+    with pytest.raises(ValueError, match='catalog capacity.*no arrivals were moved'):
+        intake.apply_plan(vault, vault / '.reader/inbox-runner', plan)
+    assert (vault / 'inbox/report.md').is_file()
+    assert not (vault / plan['entries'][0]['destination']).exists()
+
+
+def test_absolute_inbox_links_follow_preserved_batch_files_and_survive_repair(vault):
+    from reader_mcp.portable_links import PortableLinks
+    packet = vault / 'inbox/packet'
+    packet.mkdir()
+    image = packet / 'figure.svg'
+    image.write_text('<svg xmlns="http://www.w3.org/2000/svg"/>')
+    later = vault / 'inbox/later.md'
+    later.write_text('Another source')
+    text = f'![Figure]({image.as_uri()})\n\n[Later]({later.as_uri()}#section)\n'
+    (packet / 'source.md').write_text(text)
+    plan = plan_for(vault, 'inbox/packet')
+    plan['entries'].extend(plan_for(vault, 'inbox/later.md')['entries'])
+    result = intake.apply_plan(vault, vault / '.reader/inbox-runner', plan)
+    assert result['commit']
+    path = plan['entries'][0]['destination'] + '/originals/source.md'
+    expected = [plan['entries'][0]['destination'] + '/originals/figure.svg',
+                plan['entries'][1]['destination'] + '/originals/later.md#section']
+    engine = PortableLinks(vault)
+    record = engine.stored(path, intake.digest(text.encode()))
+    assert [row.get('target') for row in record['targets']] == expected
+    assert (vault / path).read_text() == text
+    assert [row.get('target') for row in engine.prepare(path, apply=True)['targets']] == expected
+
+
 def test_repeated_shared_index_writes_reclaim_unreferenced_prepared_versions(vault, monkeypatch):
     from reader_mcp import intake_journal
     (vault / 'inbox/report.md').write_text('Original')

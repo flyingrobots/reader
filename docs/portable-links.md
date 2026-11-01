@@ -25,6 +25,9 @@ commit only owned records and copied assets.
 ## Resolution
 
 - Existing library targets become library-relative addresses.
+- Intake's frozen file mapping translates absolute inbox URLs to preserved files
+  in the same commit batch. The source-bound repair record retains this mapping
+  for later preparation, which verifies that the library target still exists.
 - GitHub URLs come from actual repository remotes, including SSH remotes. A
   directory name alone is not a repository identity.
 - Files and directories use a full commit and verified local Git blob/tree.
@@ -59,8 +62,11 @@ limited to 32 MiB each and 64 MiB per command. PNG, JPEG, GIF, WebP, SVG, AVIF a
 BMP extensions are supported. Missing, unsafe and unsupported targets are
 reported without reading arbitrary targets during rendering.
 
-After a source changes, rerun preparation for that path. Records are reproducible
-from the current source and available repository evidence. Keep historical
+After a source changes, rerun preparation for that path. Ordinary records are
+reproducible from the current source and available repository evidence. Keep
+intake relocation records alongside the intake report: their old inbox paths
+no longer exist, and the retained mapping applies only to the matching source
+version. Keep historical
 originals and receipts unchanged. If preparation stops after copying an asset,
 retry reuses its verified bytes; do not delete unrelated assets to clear a run.
 The reader endpoint requires the caller's current source hash, so an earlier
