@@ -114,6 +114,48 @@ def test_invalid_delivery_identifies_the_arrival_before_any_move(vault):
     assert (vault / receipt['bundle_path']).is_dir()
 
 
+@pytest.mark.parametrize('identity', [None, 'not-a-uuid', 'ABCDEFAB-1234-5678-9012-123456789012'])
+def test_invalid_receipt_identity_is_rejected_before_admission(vault, identity):
+    receipt = Store(vault).ingest(Submission(request_id=uuid4(), title='Invalid identity', markdown='Original'))
+    path = vault / receipt['bundle_path'] / 'receipt.json'
+    data = json.loads(path.read_text())
+    if identity is None:
+        data.pop('id')
+    else:
+        data['id'] = identity
+    path.write_text(json.dumps(data))
+    with pytest.raises(ValueError, match='receipt identity'):
+        intake.snapshot(vault, receipt['bundle_path'])
+    assert path.is_file() and not (vault / 'library/reports').exists()
+
+
+@pytest.mark.parametrize('limit', [2, 4])
+def test_aggregate_catalog_capacity_includes_generated_files_before_moves(vault, monkeypatch, limit):
+    from reader_mcp import catalog
+    (vault / 'inbox/report.md').write_text('Original source\n')
+    plan = plan_for(vault)
+    monkeypatch.setattr(catalog, 'MAX_FILES', limit)
+    with pytest.raises(ValueError, match='catalog capacity.*no arrivals were moved'):
+        intake.apply_plan(vault, vault / '.reader/inbox-runner', plan)
+    assert (vault / 'inbox/report.md').read_text() == 'Original source\n'
+    assert not (vault / 'library/reports').exists()
+
+
+def test_repeated_shared_index_writes_reclaim_unreferenced_prepared_versions(vault, monkeypatch):
+    from reader_mcp import intake_journal
+    (vault / 'inbox/report.md').write_text('Original')
+    runtime = vault / '.reader/inbox-runner'
+    journal = Journal(vault, runtime, plan_for(vault))
+    monkeypatch.setattr(intake_journal, 'MAX_OUTPUT', 1024)
+    for number in range(100):
+        journal.write('library/reports/index.md', (str(number) + 'x' * 200).encode())
+    resumed = Journal(vault, runtime, load(runtime))
+    resumed.replay()
+    resumed.verify()
+    assert (vault / 'library/reports/index.md').read_bytes() == b'99' + b'x' * 200
+    assert sum(p.stat().st_size for p in resumed.blobs.iterdir()) <= 1024
+
+
 def test_release_failure_retains_the_original_filing_diagnostic(vault, monkeypatch, capsys):
     from reader_mcp import companions
     (vault / 'inbox/report.md').write_text('Original')

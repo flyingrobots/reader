@@ -3,6 +3,7 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import re
 import tempfile
 
 from .portable_links import atomic, digest
@@ -114,6 +115,12 @@ class Journal:
         for relative, record in self.writes.items():
             self.publish(relative, record)
 
+    def reclaim(self):
+        retained = {record['after'] for record in self.writes.values()}
+        for blob in self.blobs.iterdir():
+            if blob.name not in retained and re.fullmatch('[0-9a-f]{64}', blob.name) and not blob.is_symlink():
+                blob.unlink()
+
     def write(self, relative, data):
         path = self.allowed(relative)
         before = file_hash(path)
@@ -123,9 +130,10 @@ class Journal:
             raise ValueError('Intake output changed outside this batch: ' + relative)
         if before == after:
             return
-        if sum(p.stat().st_size for p in self.blobs.iterdir()) + len(data) > MAX_OUTPUT:
-            raise ValueError('Prepared intake outputs exceed 128 MiB')
         blob = local_path(self.blobs, after)
+        self.reclaim()
+        if sum(p.stat().st_size for p in self.blobs.iterdir()) + (0 if blob.exists() else len(data)) > MAX_OUTPUT:
+            raise ValueError('Prepared intake outputs exceed 128 MiB')
         if not blob.exists():
             temporary = None
             try:
@@ -142,5 +150,13 @@ class Journal:
             raise ValueError('Prepared output hash collision or corruption')
         record = {'before': before, 'after': after}
         self.writes[relative] = record
-        save(self.runtime, self.plan)
+        try:
+            save(self.runtime, self.plan)
+        except BaseException:
+            if prior is None:
+                self.writes.pop(relative)
+            else:
+                self.writes[relative] = prior
+            raise
         self.publish(relative, record)
+        self.reclaim()

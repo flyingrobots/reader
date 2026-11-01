@@ -13,7 +13,7 @@ import shutil
 import signal
 import subprocess
 import sys
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import yaml
 
@@ -92,6 +92,16 @@ def manifest(path):
     return result
 
 
+def receipt_identity(data):
+    identity = data.get('id') if isinstance(data, dict) else None
+    try:
+        if not isinstance(identity, str) or str(UUID(identity)) != identity:
+            raise ValueError('Noncanonical UUID')
+    except ValueError as exc:
+        raise ValueError('Invalid delivery receipt identity; expected a canonical UUID') from exc
+    return identity
+
+
 def snapshot(root, source):
     path = checked_path(root, source)
     files = manifest(path)
@@ -101,8 +111,8 @@ def snapshot(root, source):
               'snapshot_sha256': digest(json.dumps(files, sort_keys=True).encode())}
     receipt = path / 'receipt.json' if path.is_dir() else None
     if receipt and receipt.is_file():
-        if receipt.stat().st_size > 256 * 1024:
-            raise ValueError('Delivery receipt exceeds its supported 256 KiB bound')
+        if receipt.stat().st_size > 128 * 1024:
+            raise ValueError('Delivery receipt exceeds its supported 128 KiB bound')
         data = json.loads(receipt.read_text())
         if not isinstance(data, dict) or data.get('reader_receipt') != 1 or not isinstance(data.get('files'), list):
             raise ValueError('Unrecognized delivery receipt')
@@ -112,6 +122,10 @@ def snapshot(root, source):
                 raise ValueError('Delivery receipt integrity check failed')
         if data.get('document') not in actual:
             raise ValueError('Delivery primary document is missing')
+        from .store import Store
+        located = Store(root).locate(receipt_identity(data))
+        if located is None or located[0] != path:
+            raise ValueError('Delivery receipt identity does not locate this arrival')
         result['receipt'] = data
     return result
 
@@ -318,6 +332,8 @@ def validate_plan(root, plan):
                 raise ValueError('Invalid frozen file identity')
         if len({r['path'] for r in files}) != len(files) or digest(json.dumps(files, sort_keys=True).encode()) != entry['snapshot_sha256']:
             raise ValueError('Frozen manifest identity changed')
+        if 'receipt' in entry:
+            receipt_identity(entry['receipt'])
         if 'decision' in entry:
             validate_decision(entry['decision'], entry)
             if entry['decision']['disposition'] == 'file':
@@ -377,6 +393,33 @@ def verify_payload(root, entry):
             raise ValueError('Filed delivery receipt no longer verifies')
 
 
+def check_catalog_capacity(root, entries):
+    """Reserve source files, catalogs and possible reading copies/assets before moving a fresh batch."""
+    from .catalog import Catalog, MAX_FILES as CATALOG_FILES, MAX_SOURCE_BYTES
+    from .portable_links import MAX_DOCUMENT, references
+    existing = Catalog(root).inventory()
+    generated = {'library/index.md'} | {'library/' + e['decision']['collection'] + '/index.md' for e in entries}
+    generated |= {e['destination'] + '/index.md' for e in entries}
+    count = len(existing) + sum(len(e['files']) for e in entries) + len(generated - existing.keys())
+    for entry in entries:
+        source = checked_path(root, entry['source'])
+        for row in entry['files']:
+            path = source / row['path'] if entry['is_directory'] else source
+            if path.suffix.lower() not in ('.md', '.markdown') or row['bytes'] > MAX_DOCUMENT:
+                continue
+            if not path.name.endswith('.reading.md'):
+                count += 1  # The formatter may produce one sibling derivative.
+            try:
+                # Originals and reading copies share their sibling assets. Counting
+                # each image reference is conservative when assets deduplicate.
+                count += sum(ref['kind'] == 'image' for ref in references(path.read_text()))
+            except (ValueError, UnicodeError):
+                pass  # Link preparation refuses this same unsupported document.
+    size = sum(f.size for f in existing.values()) + sum(f['bytes'] for e in entries for f in e['files'])
+    if count > CATALOG_FILES or size > MAX_SOURCE_BYTES:
+        raise ValueError('Selected sources and generated files exceed the existing catalog capacity; no arrivals were moved')
+
+
 def apply_plan(root, runtime, plan):
     from .browse import Browse
     from .catalog import Catalog
@@ -427,11 +470,7 @@ def apply_plan(root, runtime, plan):
             raise ValueError(refusal)
     journal.replay()
     if not plan.get('applying'):
-        from .catalog import MAX_SOURCE_BYTES
-        existing = sum(f.size for f in Catalog(root).inventory().values())
-        incoming = sum(f['bytes'] for e in entries for f in e['files'])
-        if existing + incoming > MAX_SOURCE_BYTES:
-            raise ValueError('Selected sources exceed the existing catalog capacity; no arrivals were moved')
+        check_catalog_capacity(root, entries)
         for entry in entries:
             if (root / entry['destination']).exists():
                 raise ValueError('Planned destination already exists')

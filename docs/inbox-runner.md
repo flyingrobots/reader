@@ -45,13 +45,19 @@ starting. A starting, running or interrupted inbox job blocks new Upkeep claims.
 The runner freezes the selected file inventory, including substantive hidden
 attachments. It rejects symlinks, embedded Git metadata, non-regular entries,
 changing sources and invalid delivery receipts. It hashes every source before
-classification. Later arrivals are outside this queue.
+classification. Receipts must have a canonical UUID, fit the delivery store's
+128 KiB lookup limit, and uniquely identify their arrival. Later arrivals are
+outside this queue.
 
 The delivery's declared primary document gets excerpt priority over attachments.
 The catalog planner checks incoming sources before filing. Unsupported wrapper
 filenames containing `[]|#` and incompatible source metadata are deferred with a
 diagnostic, preserving their original names and bytes. Identical raw bundles remain
 distinct arrivals, with destinations bound to both arrival identity and content.
+Before moving a fresh batch, the script checks aggregate catalog file capacity,
+reserving catalog notes, collection indexes, possible reading copies and local
+image assets. This count is conservative when formatting changes nothing or
+several image references share one asset.
 
 The script automatically partitions the queue into sequential commit batches,
 keeping every original delivery bundle intact. It also partitions oversized
@@ -132,7 +138,9 @@ size, while invalid responses and exhausted resource budgets remain explicit
 failures with recovery evidence.
 
 Prepared generated output is capped at 128 MiB per commit batch. Queue/journal
-JSON is capped at 8 MiB. Local image imports and link records have their own
+JSON is capped at 8 MiB. Superseded prepared blobs are reclaimed only after their
+replacement journal record is durable; blobs still referenced by another output
+remain available for replay. Local image imports and link records have their own
 [documented limits](portable-links.md). No heavy build or arbitrary source command
 is part of intake. Codex account/authentication state is managed by Codex outside
 Reader's disposable runtime output.

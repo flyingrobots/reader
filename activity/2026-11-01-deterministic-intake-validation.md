@@ -82,3 +82,13 @@ The `math: false` rendering regression was reproduced before passing the same
 math options to identity collection and rendering. Twelve focused Node checks
 and the real-browser portable-reference suite passed with math both enabled
 and disabled.
+
+Six regression cases reproduced aggregate catalog capacity failing after moves,
+invalid receipt identities passing admission, and superseded prepared blobs
+exhausting the output budget. The fixes reserve generated library file capacity
+before moves, validate canonical and unique receipt identity, and reclaim only
+prepared versions no longer referenced by the durable journal. Source bytes and
+resource limits remain unchanged.
+The guarded intake, supervisor, portable-link, browse and curation suites passed
+107 tests after these fixes. The combined browser candidate also passed all four
+attachment, inbox, portable-link and token-refresh suites.
