@@ -27,7 +27,7 @@ def test_failure_reaps_the_control_plane_process_group(monkeypatch, failure):
     with pytest.raises(ProcessError, match=expected):
         execute([sys.executable, '-c', script], timeout=.5, limit=1024,
                 output=archive if failure == 'archive' else None)
-    assert len(children) == 1 and children[0].poll() is not None
+    assert children and all(child.poll() is not None for child in children), 'Both the client and termination-proof probes must be reaped'
 
 
 def test_success_keeps_stdout_and_stderr_separate():

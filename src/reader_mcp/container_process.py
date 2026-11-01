@@ -7,6 +7,7 @@ import os
 import selectors
 import signal
 import subprocess
+import sys
 import time
 
 MAX_OUTPUT = 4 * 1024**2
@@ -87,6 +88,9 @@ def reap(process):
         except PermissionError:
             if process.poll() is None or not group_finished(process.pid):raise
         process.wait(timeout=3)
+        deadline = time.monotonic()+3
+        while not group_finished(process.pid) and time.monotonic()<deadline:time.sleep(.05)
+        if not group_finished(process.pid):raise ProcessError('Host client group cleanup remains unconfirmed')
 
 
 def execute(argv, *, timeout=15, env=None, stdin=subprocess.DEVNULL, cancelled=lambda: False,
@@ -95,8 +99,21 @@ def execute(argv, *, timeout=15, env=None, stdin=subprocess.DEVNULL, cancelled=l
     if timeout <= 0 or not 0 < limit <= MAX_STREAM or not 0 <= capture_limit <= MAX_OUTPUT:
         raise ProcessError('Command deadline or output limit is invalid')
     deadline = time.monotonic() + timeout
-    child = subprocess.Popen(argv, env=env, stdin=stdin, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-                             start_new_session=True)
+    gate_read, gate_write = os.pipe() if started else (None, None)
+    # The trusted child cannot exec the real command until the parent durably records its identity.
+    # A parent crash before release closes the pipe; EOF exits without executing the command.
+    launch = ([sys.executable, '-I', '-S', '-c',
+        'import os,sys;fd=int(sys.argv[1]);ok=os.read(fd,1)==b"G";os.close(fd);'
+        'sys.exit(125) if not ok else os.execvpe(sys.argv[2],sys.argv[2:],os.environ)',
+        str(gate_read), *map(str,argv)] if started else argv)
+    try:
+        child = subprocess.Popen(launch, env=env, stdin=stdin, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                                 start_new_session=True, pass_fds=(gate_read,) if started else ())
+    except BaseException:
+        if started:os.close(gate_write)
+        raise
+    finally:
+        if started:os.close(gate_read)
     selector = None
     buffers = {child.stdout: bytearray(), child.stderr: bytearray()}
     names = {child.stdout: 'stdout', child.stderr: 'stderr'}
@@ -104,6 +121,9 @@ def execute(argv, *, timeout=15, env=None, stdin=subprocess.DEVNULL, cancelled=l
     try:
         if started:
             started(child.pid)
+            os.write(gate_write, b"G")
+            os.close(gate_write)
+            gate_write = None
         selector = selectors.DefaultSelector()
         for stream in buffers:
             selector.register(stream, selectors.EVENT_READ)
@@ -131,6 +151,7 @@ def execute(argv, *, timeout=15, env=None, stdin=subprocess.DEVNULL, cancelled=l
                 buffers[child.stdout].decode('utf-8', 'replace'), buffers[child.stderr].decode('utf-8', 'replace'))
     finally:
         try:
+            if gate_write is not None:os.close(gate_write)
             if selector:
                 selector.close()
         finally:

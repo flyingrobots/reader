@@ -10,12 +10,13 @@ import math
 import time
 import re
 
+from .container_clients import Clients
 from .container_lease import Lease
 from .container_process import ProcessError, execute
 
 
-def recover(root, repo, run_id, record, *, docker, lock_tool, run=execute):
-    if record.get('client_cleanup_unconfirmed'):
+def recover(root, repo, run_id, record, *, docker, lock_tool, run=execute, persist=None):
+    if record.get('client_cleanup_unconfirmed') and record.get('client_journal_version') != 1:
         raise ProcessError('Host control-plane client cleanup needs manual verification before recovery')
     key = hashlib.sha256(repo.casefold().encode()).hexdigest()[:16]
     name = 'reader-coding-' + key
@@ -30,6 +31,23 @@ def recover(root, repo, run_id, record, *, docker, lock_tool, run=execute):
     expiry = record.get('expires')
     if not isinstance(expiry, (int, float)) or not math.isfinite(expiry):
         raise ProcessError('Invalid saved worker deadline')
+    if persist is None and run is execute:
+        raise ProcessError('Recovery requires a durable record writer')
+    current = dict(record)
+    def save(update):
+        current.update(update)
+        if persist:persist(current)
+    journal = Clients(save, record.get('control_clients', []))
+    journal.reconcile()
+    save({'client_cleanup_unconfirmed': [], 'client_journal_version': 1})
+    transport = run
+    def run(argv, **kwargs):
+        return transport(argv, started=journal.started, finished=journal.finished, **kwargs)
+    def acquire(lease):
+        save({'lease_intent_at':time.time(), 'lease':{'job':lease.job, 'acquisition':None,
+            'key':lease.key, 'store':lease.env['GIT_LOCKS_STORE']}})
+        lease.acquire()
+        save({'lease':current['lease'] | {'acquisition':lease.acquisition}})
     lease = Lease(lock_tool, saved['store'], saved['key'], max(60, math.ceil(expiry - time.time())), run=run)
     state = run([lock_tool, 'show', '--job', saved['job']], env=lease.env, timeout=10, limit=65536)
     if state.returncode == 0:
@@ -55,7 +73,7 @@ def recover(root, repo, run_id, record, *, docker, lock_tool, run=execute):
                 raise ProcessError('Could not renew the proven-owned recovery lease')
             lease.job, lease.acquisition = saved['job'], acquisition
         elif prior.get('state') == 'expired':
-            lease.acquire()
+            acquire(lease)
         else:
             raise ProcessError('Unrecognized container lease state')
     else:
@@ -65,7 +83,7 @@ def recover(root, repo, run_id, record, *, docker, lock_tool, run=execute):
             missing = answer.get('event') == 'missing' and answer.get('job') == saved['job']
         except (ValueError, AttributeError):missing = False
         if state.returncode == 1 and missing:
-            lease.acquire()
+            acquire(lease)
         else:
             raise ProcessError('Cannot establish the recovery lease state')
     confirmed = False
@@ -77,7 +95,7 @@ def recover(root, repo, run_id, record, *, docker, lock_tool, run=execute):
         if info.returncode:
             if re.search(r'no such (?:object|container)', info.stderr, re.I):
                 confirmed = True
-                return record | {'state': 'stopped'}
+                return current | {'state': 'stopped'}
             raise ProcessError('Docker could not inspect the previous worker')
         values = json.loads(info.stdout)
         item = values[0]
@@ -97,7 +115,7 @@ def recover(root, repo, run_id, record, *, docker, lock_tool, run=execute):
         if result.returncode:
             raise ProcessError('Could not remove the stopped worker; workspace volume was retained')
         confirmed = True
-        return record | {'id': cid, 'state': 'stopped'}
+        return current | {'id': cid, 'state': 'stopped'}
     finally:
         if confirmed:
             lease.release()

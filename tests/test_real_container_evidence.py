@@ -43,3 +43,17 @@ def test_actual_clone_task_verify_push_and_stop(evidence,scenario,outcome):
         assert run['push'] is None and run['pr'] is None and probe['remote_sha'] is None
         assert case['pulls']==[] and 'create_pull_request' not in case['github_calls']
         if scenario=='verification-failure':assert run['verification']['exit_code']==8 and run['git']['commits']
+
+
+def test_export_is_bound_to_executed_source_and_actual_image(evidence):
+    import hashlib
+    root=Path(__file__).resolve().parents[1]
+    hashes=evidence['source_identity']['sha256']
+    assert hashes and 'src/reader_mcp/container_clients.py' in hashes
+    for name, digest in hashes.items():
+        assert hashlib.sha256((root/name).read_bytes()).hexdigest()==digest, name
+    assert evidence['image_id'].startswith('sha256:')
+    for case in evidence['cases']:
+        assert case['run']['container']['image']==evidence['image_id']
+        assert case['run']['container']['client_journal_version']==1
+        assert case['run']['container']['control_clients']==[]

@@ -147,6 +147,8 @@ def test_a_live_monitor_measurement_failure_stops_the_whole_worker(runtime):
 def test_unconfirmed_client_cleanup_keeps_stopped_worker_and_lease(runtime):
     value, docker, records = runtime
     value.prepare({'image': 'reader-development:local'}, IMAGE)
+    value.journal.started = lambda pid: None
+    value.journal.finished = lambda pid: None
     value._started(99999)
     try:
         with pytest.raises(ProcessError, match='client cleanup'):

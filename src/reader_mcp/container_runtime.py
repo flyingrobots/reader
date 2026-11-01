@@ -16,6 +16,7 @@ import uuid
 
 from .prompt_blocks import repository_name
 
+from .container_clients import Clients
 from .container_lease import Lease
 from .container_process import ProcessError, execute
 from .container_storage import MEASURE
@@ -51,7 +52,7 @@ class ContainerRuntime:
         self.key = hashlib.sha256(repo.casefold().encode()).hexdigest()[:16]
         self.name = 'reader-coding-' + self.key
         self.volume = self.name + '-work'
-        self.lease = Lease(lock_tool, lock_store, 'host/docker/' + self.name + '/', seconds, run=run)
+        self.lease = Lease(lock_tool, lock_store, 'host/docker/' + self.name + '/', seconds, run=self._lease_call)
         self.expires, self.wall_expires = time.monotonic() + seconds, time.time() + seconds
         self.cid, self.error, self.monitor = None, None, None
         self.done = threading.Event()
@@ -59,13 +60,19 @@ class ContainerRuntime:
         self.clients, self.clients_lock = set(), threading.Lock()
         self.client_env = None
         self.configuration = None
+        self.journal = Clients(record)
+
+    def _lease_call(self, argv, **kwargs):
+        return self.run(argv, started=self._started, finished=self._finished, **kwargs)
 
     def _started(self, pid):
         with self.clients_lock:
+            self.journal.started(pid)
             self.clients.add(pid)
 
     def _finished(self, pid):
         with self.clients_lock:
+            self.journal.finished(pid)
             self.clients.discard(pid)
 
     def invoke(self, argv, timeout=15, check=True, cleanup=False, stdin=None, output=None,
@@ -122,6 +129,7 @@ class ContainerRuntime:
             raise ProcessError('Approve a full immutable local image identity before setup')
         self.record({'id': None, 'name': self.name, 'volume': self.volume, 'owner': self.owner,
                      'image': image_id, 'expires': self.wall_expires, 'run_id': self.run_id, 'state': 'claiming',
+                     'client_journal_version': 1, 'control_clients': [],
                      'lease_intent_at': time.time(), 'lease': {'job': self.lease.job, 'acquisition': None,
                          'key': self.lease.key, 'store': self.lease.env['GIT_LOCKS_STORE']}})
         self.lease.acquire()

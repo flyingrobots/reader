@@ -44,6 +44,11 @@ class GitHub(FakeGitHub):
 
 
 def run_fixture(root, lock_store):
+    code=Path(__file__).resolve().parents[1]
+    inputs=[*sorted((code/'src/reader_mcp').rglob('*.py')),Path(__file__),Path(__file__).with_name('fake_coding_cli.py'),Path(__file__).with_name('fake_github.py')]
+    def source_hashes():return {str(p.relative_to(code)):hashlib.sha256(p.read_bytes()).hexdigest() for p in inputs}
+    hashes=source_hashes()
+    head=execute(['git','-C',str(code),'rev-parse','HEAD']).stdout.strip()
     root=Path(root).resolve();root.mkdir(exist_ok=True)
     image=json.loads(execute(['docker','image','inspect','reader-coding:local']).stdout)[0]['Id']
     lifecycle=['python3','-I','-c','import json,os;from pathlib import Path;p=Path("/work/fixture/lifecycle.jsonl");p.open("a").write(json.dumps({"cwd":os.getcwd(),"source_exists":Path("README.md").is_file()})+"\\n")']
@@ -135,7 +140,8 @@ l=Path('/work/fixture/lifecycle.jsonl');print(json.dumps({'calls':calls,'remote_
         finally:
             if admitted and jobs.active:jobs.stop(admitted['id'])
             jobs.close()
-    return {'cases':cases,'host_source_checkouts':[str(p) for p in root.rglob('.git') if p.is_dir()],
+    if source_hashes()!=hashes:raise RuntimeError('Executed source changed during the real Docker fixture')
+    return {'source_identity':{'head':head,'sha256':hashes},'image_id':image,'cases':cases,'host_source_checkouts':[str(p) for p in root.rglob('.git') if p.is_dir()],
         'boundary':'Actual Docker/devcontainer/Git/agent process/verification/push; synthetic coding CLI and in-memory GitHub; no external publication'}
 
 

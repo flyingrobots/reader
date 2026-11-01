@@ -68,6 +68,9 @@ class Store:
             out.flush()
             os.fsync(out.fileno())
         temporary.replace(path)
+        fd = os.open(path.parent, os.O_RDONLY)
+        try:os.fsync(fd)
+        finally:os.close(fd)
 
     def _read(self, path):
         if not path.is_file() or path.is_symlink() or path.stat().st_size > MAX_RECORD:

@@ -351,6 +351,10 @@ class Runner:
 
     # Recovery --------------------------------------------------------------------------------------
 
+    def _save_container_recovery(self, run, container):
+        run['container'] = container
+        self.store.save(run)
+
     def recover(self):
         """Reconcile runs a previous server left unfinished. Never relaunches an agent."""
         for run in self.store.runs():
@@ -358,7 +362,7 @@ class Runner:
                 continue
             notes, outcome = [], 'interrupted'
             process = run.get('process') or {}
-            if process.get('group') and process.get('host') == self.host and process.get('started') and \
+            if not run.get('container') and process.get('group') and process.get('host') == self.host and process.get('started') and \
                     process_started(process['group']) == process['started']:
                 kill_group(process['group'])
                 notes.append('Reader stopped the process the previous server left running.')
@@ -377,7 +381,7 @@ class Runner:
                     if not docker or not locks:
                         raise RuntimeError('Docker and git-locks are required to confirm the previous worker stopped')
                     run['container'] = recover_container(self.root, run['source']['repo'], run['id'], run['container'],
-                                                         docker=docker, lock_tool=locks)
+                                                         docker=docker, lock_tool=locks, persist=lambda value: self._save_container_recovery(run,value))
                     notes.append('Its container was stopped; the persistent workspace volume was retained.')
                 except Exception as exc:
                     container_problem = str(exc)

@@ -67,7 +67,7 @@ def setup(root, action, repo, argv=(), seconds=600, *, runtime_factory=Container
         record = json.loads(path.read_text()) if path.exists() else {}
         if action == 'recover':
             if not record or record.get('state') == 'stopped':return {'repo': repo, 'state': 'stopped'}
-            restored = recovery(root, repo, record['run_id'], record, docker=found['docker'], lock_tool=found['git-locks'])
+            restored = recovery(root, repo, record['run_id'], record, docker=found['docker'], lock_tool=found['git-locks'], persist=lambda value:_save(path,value))
             _save(path, restored)
             return {'repo': repo, 'state': restored['state']}
         if record and record.get('state') != 'stopped':
