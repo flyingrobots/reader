@@ -1,8 +1,10 @@
 # Deterministic inbox processing
 
-Reader's **You got mail**, Obsidian's **Process inbox**, and the installed
-`you-got-mail` skill start the same local supervisor. Delivery alone does not
-start filing. The workflow requires an existing Reader environment, an
+The `reader inbox` executable is the entry point. It starts the deterministic
+script without requiring a skill or an agent session. Reader's **You got mail**
+and Obsidian's **Process inbox** call the same supervisor; the optional
+`you-got-mail` skill is a convenience adapter. Delivery alone does not start filing.
+The workflow requires an existing Reader environment, an
 initialized vault Git repository with a configured commit identity, git-locks,
 and an authenticated Codex CLI. Install the pinned wide-md companion for
 reading derivatives; formatter refusals remain visible in the report. Existing
@@ -17,16 +19,19 @@ for older clients, but do not grant the editorial model write access.
 
 ## Entry points
 
-From the configured code checkout:
+From the installed code checkout, invoke the executable directly:
 
 ```sh
-python3 skills/you-got-mail/scripts/process.py status
-python3 skills/you-got-mail/scripts/process.py start
-python3 skills/you-got-mail/scripts/process.py status
-python3 skills/you-got-mail/scripts/process.py stop
+.venv/bin/reader --root /path/to/vault inbox status
+.venv/bin/reader --root /path/to/vault inbox start
+.venv/bin/reader --root /path/to/vault inbox status
+.venv/bin/reader --root /path/to/vault inbox stop
 ```
 
-Equivalent CLI actions are `reader --root /path/to/vault inbox start|status|stop`.
+With `reader` on PATH, omit `.venv/bin/`. `READER_ROOT` can supply the vault path.
+The executable dispatches to the supervisor, which invokes the intake script;
+the intake script invokes the LLM and resumes deterministic processing afterward.
+Neither script loads the optional ingress skill.
 `start` returns the run identity without waiting. Inspect `status` for completion
 and the report; use `stop` for explicit cancellation. These commands never push
 or publish. A successful launch is not a completed import.

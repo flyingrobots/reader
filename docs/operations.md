@@ -22,9 +22,10 @@ Ask an agent to “Use $reader to find library material about your topic,” use
 
 ## Process the inbox
 
-Use the installed [you-got-mail skill](../skills/you-got-mail/SKILL.md), Reader's
-**You got mail** button, Obsidian's **Process inbox**, or `reader inbox start`.
-They start the same [deterministic workflow](inbox-runner.md).
+Run `reader --root /path/to/vault inbox start` to invoke the script directly.
+Reader's **You got mail** button and Obsidian's **Process inbox** start the same
+[deterministic workflow](inbox-runner.md). The [you-got-mail skill](../skills/you-got-mail/SKILL.md)
+is an optional convenience adapter; the script does not require it.
 
 1. Inspect `reader inbox status` and Git status. Existing intake claims or an
    active writer must finish before another run starts. An existing library must

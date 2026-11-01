@@ -2,7 +2,8 @@
 
 The scripted workflow now owns automatic queue/context partitioning, preserved
 filing, source-bound repairs, recovery, verification and scoped local commits.
-The installed skill and both inbox controls invoke that workflow. Model calls
+The installed CLI executable and both inbox controls invoke that workflow; the
+skill is an optional conversational adapter, not the entry-point dependency. Model calls
 return bounded structured editorial decisions under read-only execution.
 
 Synthetic functional checks cover large inventories and provenance, a 102-bundle

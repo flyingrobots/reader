@@ -5,6 +5,11 @@ description: Process Reader inbox arrivals when the user says "you got mail", re
 
 # Process Reader's inbox
 
+The primary entry point is the installed `reader --root /path/to/vault inbox
+start` executable. This skill is an optional adapter for a conversational
+request; it contains no required intake implementation. The script owns the
+workflow and invokes the LLM itself.
+
 Use this only for an explicit inbox-processing request or an authorized Reader
 librarian intake assignment. Delivery couriers stop at their verified receipt.
 
