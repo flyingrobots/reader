@@ -33,10 +33,46 @@ def remaining(deadline, cap=15):
 
 
 def call(*args, check=True, deadline=None):
-    result = subprocess.run(args, capture_output=True, text=True, timeout=remaining(deadline) if deadline is not None else 15)
+    result = capture_probe(args, remaining(deadline) if deadline is not None else 15)
     if check and result.returncode:
         raise RuntimeError(result.stderr[-2000:] or 'Command failed: ' + args[0])
     return result
+
+
+def capture_probe(argv, timeout):
+    """Bound both probe streams together; reap descendants on every exit path."""
+    process = subprocess.Popen(argv, stdout=subprocess.PIPE, stderr=subprocess.PIPE, start_new_session=True)
+    selector = None
+    output = {process.stdout: bytearray(), process.stderr: bytearray()}
+    deadline = time.monotonic() + timeout
+    used = 0
+    try:
+        selector = selectors.DefaultSelector()
+        for stream in output:
+            selector.register(stream, selectors.EVENT_READ)
+        while selector.get_map():
+            for key, _ in selector.select(min(.1, remaining(deadline))):
+                chunk = os.read(key.fd, min(16384, LIMIT - used + 1))
+                if not chunk:
+                    selector.unregister(key.fileobj)
+                    continue
+                used += len(chunk)
+                if used > LIMIT:
+                    raise RuntimeError('Host CLI probe output limit reached')
+                output[key.fileobj].extend(chunk)
+        code = process.wait(timeout=remaining(deadline))
+        return subprocess.CompletedProcess(argv, code, output[process.stdout].decode('utf-8', 'replace'),
+                                          output[process.stderr].decode('utf-8', 'replace'))
+    finally:
+        try:
+            if selector:
+                selector.close()
+        finally:
+            try:
+                reap(process)
+            finally:
+                for stream in output:
+                    stream.close()
 
 
 def measure(container, execute=call):

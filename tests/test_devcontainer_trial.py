@@ -99,12 +99,12 @@ def test_each_probe_uses_remaining_shared_deadline(monkeypatch):
     now, seen = [10.0], []
     monkeypatch.setattr(trial.time, 'monotonic', lambda: now[0])
 
-    def run(*args, **kwargs):
-        seen.append(kwargs['timeout'])
-        now[0] += kwargs['timeout']
+    def run(argv, timeout):
+        seen.append(timeout)
+        now[0] += timeout
         return SimpleNamespace(returncode=0)
 
-    monkeypatch.setattr(trial.subprocess, 'run', run)
+    monkeypatch.setattr(trial, 'capture_probe', run)
     trial.call('docker', 'inspect', trial.NAME, deadline=12.5)
     assert seen == [2.5]
     with pytest.raises(TimeoutError, match='deadline'):
@@ -161,3 +161,21 @@ def test_exited_cli_leader_does_not_leave_a_live_descendant(tmp_path, monkeypatc
             except ProcessLookupError:
                 pass
             child.wait(timeout=5)
+
+
+def test_synchronous_probe_stops_noisy_process_group(monkeypatch, tmp_path):
+    children = []
+    actual_popen = subprocess.Popen
+
+    def record(*args, **kwargs):
+        child = actual_popen(*args, **kwargs)
+        children.append(child)
+        return child
+
+    monkeypatch.setattr(trial.subprocess, 'Popen', record)
+    monkeypatch.setattr(trial, 'LIMIT', 1024)
+    # Both streams share the cap. Continue running so cleanup must terminate it.
+    script = 'import os,time;os.write(1,b"a"*700);os.write(2,b"b"*700);time.sleep(30)'
+    with pytest.raises(RuntimeError, match='probe output limit'):
+        trial.call(sys.executable, '-c', script, deadline=trial.time.monotonic() + 1)
+    assert children and children[0].poll() is not None

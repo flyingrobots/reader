@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Synchronous setup probes cap combined stdout and stderr and terminate their process group on overflow.
+
 - Background section refreshes preserve the filter, page and active input focus.
 
 - Setup cleanup terminates the whole CLI process group even when its leader has already exited.
