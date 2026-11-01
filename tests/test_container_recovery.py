@@ -132,3 +132,20 @@ def test_unconfirmed_host_client_requires_manual_review_before_worker_recovery(t
     with pytest.raises(ProcessError,match='manual verification'):
         call(tmp_path,control)
     assert control.calls == []
+
+
+@pytest.mark.parametrize('payload', ['[]', '{}', 'null', '[null]', '[{},{}]', 'invalid'])
+@pytest.mark.parametrize('stage',[1,2])
+def test_malformed_inspection_is_a_controlled_refusal_and_retains_lease(tmp_path, payload, stage):
+    control=Control(tmp_path)
+    seen=0
+    def malformed(argv, **kwargs):
+        nonlocal seen
+        if argv[1:3]==['container','inspect']:seen+=1
+        if argv[1:3]==['container','inspect'] and seen==stage:
+            control.calls.append(argv)
+            return SimpleNamespace(returncode=0,stdout=payload,stderr='')
+        return control(argv, **kwargs)
+    with pytest.raises(ProcessError,match='inspection'):
+        recover(tmp_path,'acme/widget',control.run_id,control.record,docker='docker',lock_tool='locks',run=malformed)
+    assert not any(c[:2]==['locks','release'] or c[1]=='rm' for c in control.calls)

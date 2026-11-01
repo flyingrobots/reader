@@ -15,6 +15,15 @@ from .container_lease import Lease
 from .container_process import ProcessError, execute
 
 
+def _inspection(source):
+    try:
+        rows=json.loads(source)
+        if not isinstance(rows,list) or len(rows)!=1 or not isinstance(rows[0],dict):raise ValueError()
+        return rows[0]
+    except (ValueError,TypeError) as exc:
+        raise ProcessError('Malformed Docker inspection response; ownership retained') from exc
+
+
 def recover(root, repo, run_id, record, *, docker, lock_tool, run=execute, persist=None):
     if record.get('client_cleanup_unconfirmed') and record.get('client_journal_version') != 1:
         raise ProcessError('Host control-plane client cleanup needs manual verification before recovery')
@@ -97,11 +106,10 @@ def recover(root, repo, run_id, record, *, docker, lock_tool, run=execute, persi
                 confirmed = True
                 return current | {'state': 'stopped'}
             raise ProcessError('Docker could not inspect the previous worker')
-        values = json.loads(info.stdout)
-        item = values[0]
+        item = _inspection(info.stdout)
         actual = (item.get('Config') or {}).get('Labels') or {}
         cid = item.get('Id')
-        if (len(values) != 1 or not isinstance(cid, str) or not re.fullmatch(r'[0-9a-f]{64}', cid)
+        if (not isinstance(cid, str) or not re.fullmatch(r'[0-9a-f]{64}', cid)
                 or any(actual.get(k) != value for k, value in labels.items())
                 or (record.get('id') and cid != record['id'])):
             raise ProcessError('Previous worker ownership does not match; it was not stopped')
@@ -109,7 +117,9 @@ def recover(root, repo, run_id, record, *, docker, lock_tool, run=execute, persi
         if result.returncode:
             raise ProcessError('Could not stop the previous container')
         result = run([docker, 'container', 'inspect', cid], timeout=15)
-        if result.returncode or json.loads(result.stdout)[0]['State']['Running']:
+        stopped = _inspection(result.stdout) if result.returncode == 0 else {}
+        state = stopped.get('State')
+        if not isinstance(state,dict) or state.get('Running') is not False:
             raise ProcessError('Previous container stop could not be confirmed')
         result = run([docker, 'rm', cid], timeout=15)
         if result.returncode:
