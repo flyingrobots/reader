@@ -17,11 +17,33 @@ class ProcessError(RuntimeError):
     pass
 
 
+def group_finished(group, run=subprocess.run):
+    """A positive process-table answer: the group is absent or contains only zombies.
+
+    Darwin can return EPERM when signalling an already-finished group. Never treat EPERM itself
+    as proof of cleanup, and never ignore a live or unreadable process-table entry.
+    """
+    try:
+        result = run(['/bin/ps', '-axo', 'pgid=,stat='], capture_output=True, text=True, timeout=2)
+        if result.returncode or result.stderr or not result.stdout.strip() or len(result.stdout) > MAX_OUTPUT:
+            return False
+        for line in result.stdout.splitlines():
+            if not line.strip():continue
+            fields = line.split()
+            if len(fields) != 2 or not fields[0].isdigit():return False
+            if int(fields[0]) == group and not fields[1].startswith('Z'):return False
+        return True
+    except (OSError, subprocess.TimeoutExpired):
+        return False
+
+
 def reap(process):
     try:
         os.killpg(process.pid, signal.SIGTERM)
     except ProcessLookupError:
         pass
+    except PermissionError:
+        if process.poll() is None or not group_finished(process.pid):raise
     try:
         process.wait(timeout=2)
     except subprocess.TimeoutExpired:
@@ -31,6 +53,8 @@ def reap(process):
             os.killpg(process.pid, signal.SIGKILL)
         except ProcessLookupError:
             pass
+        except PermissionError:
+            if process.poll() is None or not group_finished(process.pid):raise
         process.wait(timeout=3)
 
 

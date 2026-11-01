@@ -65,3 +65,31 @@ def test_failed_reap_does_not_announce_client_cleanup(monkeypatch):
     with pytest.raises(PermissionError,match='unconfirmed'):
         execute([sys.executable,'-c','print("done")'],finished=finished.append)
     assert finished == []
+
+
+@pytest.mark.parametrize('table,expected',[('',False),('12 Z\n',True),('12 S\n',False),('bad row extra\n',False),('13 S\n',True)])
+def test_only_positive_group_termination_proof_accepts_permission_denial(table,expected):
+    from types import SimpleNamespace
+    from reader_mcp.container_process import group_finished
+    assert group_finished(12,run=lambda *a,**k:SimpleNamespace(returncode=0,stdout=table,stderr='')) is expected
+
+
+def test_finished_group_permission_denial_can_confirm_cleanup(monkeypatch):
+    from reader_mcp import container_process
+    def denied(*args):raise PermissionError('already-finished group')
+    monkeypatch.setattr(container_process.os,'killpg',denied)
+    monkeypatch.setattr(container_process,'group_finished',lambda group:True,raising=False)
+    finished=[]
+    result=execute([sys.executable,'-c','print("done")'],finished=finished.append)
+    assert result.returncode==0 and len(finished)==1
+
+
+def test_live_group_permission_denial_remains_unconfirmed(monkeypatch):
+    from reader_mcp import container_process
+    def denied(*args):raise PermissionError('live group')
+    monkeypatch.setattr(container_process.os,'killpg',denied)
+    monkeypatch.setattr(container_process,'group_finished',lambda group:False,raising=False)
+    finished=[]
+    with pytest.raises(PermissionError,match='live group'):
+        execute([sys.executable,'-c','print("done")'],finished=finished.append)
+    assert finished==[]
