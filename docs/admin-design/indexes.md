@@ -20,7 +20,7 @@ Shadcn Card, Table, Badge, Button, NativeSelect, Field, Collapsible, Tooltip, Al
 
 ## Status and guarantees
 
-Opening Indexes can request a full freshness audit if the previous one is more than two minutes old. It does not schedule a rebuild. The backend still publishes check results together, keeps process-local job history and admits one running maintenance job. The split-view change adds neither a watcher nor a queue, and changes no source/index integrity contract.
+Opening Indexes reads saved status without starting maintenance, including when observations are absent or old. Run full check starts an explicit audit, with current-stage progress and results published as each probe finishes. Rebuilds verify only affected projections and retain admission through verification. The backend keeps process-local job history and admits one running maintenance job. There is no watcher, durable queue or Git-based invalidation; saved observations keep their per-index checked timestamps. Source/index integrity contracts are unchanged.
 
 Missing measurements stay unknown; errors preserve their messages. Previous measurements remain visible during an audit. Stale/partial/missing rebuildable states invoke the primary action when allowed. Current/error/capacity-only states remain badges. The reference’s description of the backend verification/admission interval must remain accurate until that implementation changes.
 

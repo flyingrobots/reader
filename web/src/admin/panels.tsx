@@ -32,8 +32,8 @@ export function InboxPanel({context:c}:Props){
 }
 
 export function IndexesPanel({context:c}:Props){
-  // Opening Indexes reads its status and, as Behind the scenes did, refreshes a freshness check older than two minutes.
-  useEffect(()=>{c.checkIndexes();},[]);  // Once per visit.
+  // A visit reads saved measurements only. Full audits require an explicit action.
+  useEffect(()=>{c.refreshIndexes();},[c.refreshIndexes]);
   return <IndexesPage status={c.maintenance} error={c.maintenanceError} onStart={c.startJob} editions={<EditionLinks api={c.api}/>}/>;
 }
 
