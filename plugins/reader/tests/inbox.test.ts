@@ -58,3 +58,14 @@ test('open selects source files within the exact arrival and handles a moved arr
   assert.deepEqual(inboxItems(paths).map(arrival=>inboxDocument(arrival,paths)),
     ['inbox/abc/note.md','inbox/abcd/wrong.md','inbox/file.txt']);
 });
+
+test('an empty inbox can expose its unfinished queue without a previous run state', async()=>{
+  const root=await mkdtemp(join(tmpdir(),'reader-inbox-'));
+  try {
+    await mkdir(join(root,'.reader/inbox-runner'),{recursive:true});
+    await writeFile(join(root,'.reader/inbox-runner/queue.json'),'{}');
+    assert.equal((await readInboxCoordination(root)).pending,true);
+    await rm(join(root,'.reader/inbox-runner/queue.json'));
+    assert.equal((await readInboxCoordination(root)).pending,undefined);
+  } finally { await rm(root,{recursive:true}); }
+});

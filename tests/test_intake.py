@@ -78,6 +78,24 @@ def test_stale_classification_cannot_move_an_arrival(vault):
     assert not (vault / plan['entries'][0]['destination']).exists()
 
 
+def test_lock_contention_refuses_filing_without_touching_sources(vault, monkeypatch):
+    from reader_mcp import companions
+    source = vault / 'inbox/report.md'
+    source.write_text('Preserve this arrival')
+    plan = plan_for(vault)
+    head = intake.run_git(vault, 'rev-parse', 'HEAD')
+    tool = vault / '.reader/busy-locks'
+    tool.write_text('#!/bin/sh\necho "resource held by another intake" >&2\nexit 1\n')
+    tool.chmod(0o755)
+    monkeypatch.setattr(companions, 'find_git_locks', lambda **kwargs: str(tool))
+    with pytest.raises(ValueError, match='Intake lock admission failed.*resource held'):
+        intake.locked_apply(vault, vault / '.reader/inbox-runner', plan)
+    assert source.read_text() == 'Preserve this arrival'
+    assert not (vault / plan['entries'][0]['destination']).exists()
+    assert intake.run_git(vault, 'rev-parse', 'HEAD') == head
+    assert not (vault / '.reader/inbox-runner/result.json').exists()
+
+
 def test_commit_hook_failure_resumes_without_reclassification_or_duplicate_filing(vault):
     source = vault / 'inbox/report.md'
     source.write_text('Original source bytes\n')
@@ -217,6 +235,35 @@ def test_large_arrival_queue_is_batched_without_splitting_bundles_or_requesting_
     assert all((vault / file).is_file() for file in files)
     assert result['status'] == 'verified' and not result['commits']
     assert not (runtime / 'queue.json').exists() and not (runtime / 'pending.json').exists()
+
+
+def test_oversized_provenance_is_partitioned_without_dropping_metadata(vault, monkeypatch):
+    (vault / 'inbox/report.md').write_text('source')
+    entry = intake.snapshot(vault, 'inbox/report.md')
+    context = intake.model_context(vault, entry)
+    context['provenance'] = {'notes': 'Long provenance. 🧭\n' * 15000}
+    monkeypatch.setattr(intake, 'model_context', lambda root, entry: context)
+    calls = []
+    def model(root, runtime, selected, codex, data):
+        assert len(json.dumps(data, ensure_ascii=False).encode()) < 192 * 1024
+        calls.append(data)
+        return decision(selected)
+    monkeypatch.setattr(intake, 'model_call', model)
+    assert intake.classify(vault, vault / '.reader/inbox-runner', entry, 'fixture') == decision(entry)
+    metadata = json.loads(''.join(c['metadata_fragment'] for c in calls if 'metadata_fragment' in c))
+    assert metadata == {k: context[k] for k in ('provenance', 'existing_collections')}
+    assert [r for c in calls for r in c.get('files', [])] == entry['files']
+    assert 'observations' in calls[-1]
+
+
+def test_uncataloged_existing_source_refuses_before_moving_arrivals(vault):
+    (vault / 'library/existing.md').write_text('An older source without catalog metadata')
+    (vault / 'inbox/report.md').write_text('An arrival')
+    plan = plan_for(vault)
+    with pytest.raises(ValueError, match='Existing library requires catalog migration'):
+        intake.apply_plan(vault, vault / '.reader/inbox-runner', plan)
+    assert (vault / 'inbox/report.md').read_text() == 'An arrival'
+    assert not (vault / 'library/reports').exists()
 
 
 def test_changed_later_source_refuses_the_whole_fresh_batch_before_any_move(vault):

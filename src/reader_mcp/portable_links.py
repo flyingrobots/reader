@@ -251,7 +251,7 @@ class PortableLinks:
                     commit = self.command(root, 'rev-parse', '--verify', revision + '^{commit}')
                     results.append({'target': url + '/commit/' + commit, 'method': 'git-commit', 'commit': commit})
                 elif rel == '.':
-                    results.append({'target': url, 'method': 'git-remote'})
+                    results.append({'target': url + ('#' + parsed.fragment if parsed.fragment else ''), 'method': 'git-remote'})
                 elif rel.startswith('.git'):
                     continue
                 else:

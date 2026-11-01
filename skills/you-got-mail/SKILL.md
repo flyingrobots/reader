@@ -27,6 +27,8 @@ editorial decisions, validates those decisions, files preserved originals,
 prepares reading copies and link repairs, verifies catalogs and receipt bytes,
 and commits only its owned files with normal Git hooks. Do not reproduce those
 steps manually, grant the model write access, or delegate parallel filing.
+The script divides queues and oversized model context automatically. Never ask
+the user to choose a split size or divide an original delivery bundle.
 
 Existing Upkeep claims must finish before this runner can start. A failed or
 stopped run retains its journal. Read its report, resolve the stated cause,

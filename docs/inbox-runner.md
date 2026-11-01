@@ -5,7 +5,9 @@ Reader's **You got mail**, Obsidian's **Process inbox**, and the installed
 start filing. The workflow requires an existing Reader environment, an
 initialized vault Git repository with a configured commit identity, git-locks,
 and an authenticated Codex CLI. Install the pinned wide-md companion for
-reading derivatives; formatter refusals remain visible in the report.
+reading derivatives; formatter refusals remain visible in the report. Existing
+library documents must already have valid catalog metadata; intake reports any
+required catalog migration before moving its first arrival.
 
 The script owns inventory, preservation, filing, validation and commits. Codex
 supplies bounded editorial decisions through a JSON schema. It runs read-only,
@@ -42,7 +44,8 @@ classification. Later arrivals are outside this queue.
 
 The script automatically partitions the queue into sequential commit batches,
 keeping every original delivery bundle intact. It also partitions oversized
-editorial context into bounded calls and combines their structured observations.
+editorial context, including oversized provenance, into bounded calls and
+combines their structured observations.
 These are internal work boundaries: the user does not split deliveries or choose
 chunk sizes. Completed model responses are cached by context hash in the journal
 so an interrupted classification can resume without repeating those calls.

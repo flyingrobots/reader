@@ -43,7 +43,7 @@ def test_parser_handles_references_and_preserves_code_and_metadata():
 def test_remote_and_source_revision_drive_targets_without_changing_original(tmp_path):
     repo = tmp_path / 'git/checkout-name'
     commit = repository(repo)
-    source = document(tmp_path, f'[Repository]({repo.as_uri()})\n\n[Code]({(repo / "a file.txt").as_uri()}#L1)\n'
+    source = document(tmp_path, f'[Repository]({repo.as_uri()}#readme)\n\n[Code]({(repo / "a file.txt").as_uri()}#L1)\n'
                       f'\n[{commit[:8]}]({repo.as_uri()})\n')
     before = source.read_bytes()
     engine = PortableLinks(tmp_path, tmp_path / 'git')
@@ -52,7 +52,7 @@ def test_remote_and_source_revision_drive_targets_without_changing_original(tmp_
     result = engine.prepare('library/packet/source.md', apply=True)
     assert result['targets'] == planned['targets']
     assert [t['target'] for t in result['targets']] == [
-        'https://github.com/example/actual-name',
+        'https://github.com/example/actual-name#readme',
         f'https://github.com/example/actual-name/blob/{commit}/a%20file.txt#L1',
         f'https://github.com/example/actual-name/commit/{commit}']
     assert source.read_bytes() == before

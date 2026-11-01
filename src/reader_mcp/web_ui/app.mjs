@@ -44,7 +44,7 @@ if(EMBEDDED)document.documentElement.classList.add('embedded-pane');
 let split=null,pane=null;
 /** Toasts from a pane appear in the shell's toaster. */
 function notify(message,type,options){if(pane){pane.post({type:'toast',message:String(message),kind:type,options:options&&{id:options.id,duration:options.duration}});return;}return shellNotify(message,type,options);}
-const defaults = {theme:'ink', participant:null, recent:20, atlas:true, activity:true, smooth:true, layout:'scroll', pace:220, zen:false, pageTurn:'curl', nextReads:true, backlinks:true, outline:true, inboxSandbox:'workspace-write', issueExclude:DEFAULT_EXCLUDED_TYPES.join(', '), proseColors:'clear', shapes:true, art:true, artHero:true, artBy:'', artAuto:'off'};
+const defaults = {theme:'ink', participant:null, recent:20, atlas:true, activity:true, smooth:true, layout:'scroll', pace:220, zen:false, pageTurn:'curl', nextReads:true, backlinks:true, outline:true, issueExclude:DEFAULT_EXCLUDED_TYPES.join(', '), proseColors:'clear', shapes:true, art:true, artHero:true, artBy:'', artAuto:'off'};
 // Route sentinels for views that are not documents (document routes are always library/ paths). Reader Admin's are
 // ':admin' and ':admin/<section>/…' (admin-routes.mjs); legacy #backstage opens its Overview.
 const SEARCH=':search',SCRATCH=':scratch';  // A scratch buffer: ':scratch' (the latest draft) or ':scratch=<id>'.
@@ -749,7 +749,7 @@ async function renderMarkdown(container,raw,path,depth,{defer=false,range=null,c
   }
   // Markdown percent-encodes a destination (`my%20pic.png`); an embed's image target is written as is.
   const located=await resolveMany(path,images.map(image=>image.hasAttribute('data-embed-image')?image.getAttribute('src'):decode(image.getAttribute('src') || '')));
-  images.forEach((image,index)=>{const resolved=located[index];if(resolved?.path)image.src='/api/file?path='+param(resolved.path);else{image.removeAttribute('src');image.alt=(image.alt || 'Image')+' (unavailable)';}});
+  images.forEach((image,index)=>{const resolved=located[index];if(resolved?.path)image.src='/api/file?path='+param(resolved.path)+(resolved.fragment?'#'+resolved.fragment:'');else{image.removeAttribute('src');image.alt=(image.alt || 'Image')+' (unavailable)';}});
   clearControlsWithin(container);container.replaceChildren(template.content);slugHeadings(container);
   if(prompts&&env.prompts.blocks?.length)mountPromptCards(promptMounts(container,env.prompts),prompts);
   prepareDiagrams(container);

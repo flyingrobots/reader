@@ -74,7 +74,7 @@ import {FAMOUS, famousId} from './theme/famous';
 import {plural} from './plural';
 export const famousThemeIds=FAMOUS.flatMap(t=>[famousId(t.id,'light'),famousId(t.id,'dark')]);
 
-type Preferences={participant:string;theme:string;recent:number;pace:number;layout:string;pageTurn:string;proseColors:string;atlas:boolean;activity:boolean;smooth:boolean;nextReads:boolean;backlinks:boolean;outline:boolean;shapes?:boolean;art?:boolean;artHero?:boolean;artBy?:string;artAuto?:string;inboxSandbox?:string;issueExclude:string};
+type Preferences={participant:string;theme:string;recent:number;pace:number;layout:string;pageTurn:string;proseColors:string;atlas:boolean;activity:boolean;smooth:boolean;nextReads:boolean;backlinks:boolean;outline:boolean;shapes?:boolean;art?:boolean;artHero?:boolean;artBy?:string;artAuto?:string;issueExclude:string};
 export type ProseStatus={available:boolean;version:string|null;path:string|null;origin:string|null;message:string|null;install:string};
 type Pip={id:string;owner:string;quote:string;kind:string;own:boolean;fraction:number};
 type Model={value:number;words:number;pdfPages:number|null;pace:number;spread:number;spreads:number;pages:number;columns:number;theme:string;pips:Pip[];prefs:Preferences;participants:string[];themeEditorOpen:boolean;customThemes:Theme[];fonts:InstalledFont[];maintenance:MaintenanceStatus|null;prose:ProseStatus|null;outline:OutlineModel;outlineActive:number;inbox:InboxStatus|null;inboxStarting:boolean;chat:{open:boolean;path:string|null;title:string;participant:string;initialId?:string};localModel:LocalModelStatus|null;activity:ActivityModel;companions:CompanionsStatus|null;
@@ -145,12 +145,6 @@ function SettingsForm({model,actions}:{model:Model;actions:Actions}){
       <Choice id="art-by" label="Art made by" value={draft.artBy||'default'} items={[{value:'default',label:'Default'+(producers?.default?` (${producers.producers.find(p=>p.id===producers.default)?.label||producers.default})`:'')},...(producers?.producers||[]).map(p=>({value:p.id,label:p.label+(p.model?` · ${p.model}`:'')+(p.available?'':' (unavailable)')}))]} onChange={value=>set('artBy',value==='default'?'':value)}/>
       <Choice id="art-auto" label="Make art automatically" value={draft.artAuto||'off'} items={[{value:'off',label:'Off: only when I ask (Generate art)'},{value:'cover',label:'For each issue’s cover story'},{value:'issue',label:'For the cover story and features'}]} onChange={value=>set('artAuto',value)}/>
       <FieldDescription id="art-auto-note">Each piece of art is a background run of the chosen voice’s CLI (its subscription) or the local model: usually a few minutes, never more than one at a time. Every run is archived in the vault’s LLM logs, and each version is committed beside its edition under <code>art/</code>.</FieldDescription>
-      </FieldGroup>
-    </StatusCard>
-    <StatusCard title="Inbox" description="How the librarian runs when you press You got mail.">
-      <FieldGroup className="max-w-2xl">
-      <Choice id="inbox-sandbox" label="Inbox job permissions" value={draft.inboxSandbox==='danger-full-access'?'danger-full-access':'workspace-write'} items={[{value:'workspace-write',label:'Sandboxed workspace'},{value:'danger-full-access',label:'Host access'}]} onChange={value=>set('inboxSandbox',value)}/>
-      <FieldDescription id="inbox-sandbox-note">For You got mail. Host access supports git-locks process control and guarded indexing. It allows writes beyond the vault; use only for trusted librarian jobs. Runtime resource limits still apply.</FieldDescription>
       </FieldGroup>
     </StatusCard>
     <Item variant="outline" size="sm" className="sticky bottom-12 z-10 bg-background">
@@ -295,8 +289,8 @@ function announceInbox(status:InboxStatus){
       if(ACTIVE.includes(run.status)){if(!previous&&!dismissed.has(id))toast.loading('The librarian is reading the mail…',{id,description:run.arrivals?`${run.arrivals} arrival${run.arrivals===1?'':'s'}. You can keep reading.`:'You can keep reading.',duration:Infinity,cancel:dismissAction(id)});}
       else if(previous&&ACTIVE.includes(previous)||ownRuns.has(run.run_id)||inboxPolled&&!previous){
         dismissed.delete(id);
-        const filed=Math.max(0,(run.arrivals||0)-(run.remaining||0)),report={label:'Report',onClick:()=>controlActions.adminGo('inbox')};
-        if(run.status==='finished')toast.success(`Mail filed: ${filed} arrival${filed===1?'':'s'}`,{id,description:run.commit?`Commit ${run.commit.short}. ${run.message}`:run.message,duration:12000,action:report});
+        const filed=run.filed??Math.max(0,(run.arrivals||0)-(run.remaining||0)),report={label:'Report',onClick:()=>controlActions.adminGo('inbox')};
+        if(run.status==='finished')toast.success(run.deferred?`Mail processed: ${filed} filed, ${run.deferred} deferred`:`Mail filed: ${filed} arrival${filed===1?'':'s'}`,{id,description:run.commit?`Commit ${run.commit.short}. ${run.message}`:run.message,duration:12000,action:report});
         else if(run.status==='stopped'||run.status==='empty')toast(run.status==='stopped'?'Inbox run stopped':'Nothing to file',{id,description:run.message,duration:8000});
         else toast.error('The librarian couldn’t file the mail',{id,description:run.message,duration:15000,action:report});
         controlActions.libraryChanged().catch(()=>{});startJob('check');
@@ -339,7 +333,7 @@ async function pollInbox(){
 }
 export async function startInbox(){
   if(model.inboxStarting||needsReader())return;update({inboxStarting:true});
-  try{const result=await controlActions.api('/api/inbox',{action:'start',sandbox_mode:model.prefs.inboxSandbox==='danger-full-access'?'danger-full-access':'workspace-write'});
+  try{const result=await controlActions.api('/api/inbox',{action:'start',sandbox_mode:'read-only'});
     ownRuns.add(result.run_id);
     const id='inbox-'+result.run_id;dismissed.delete(id);
     if(!result.state||ACTIVE.includes(result.state.status))toast.loading('The librarian is reading the mail…',{id,description:'You can keep reading. This updates when the librarian finishes.',duration:Infinity,cancel:dismissAction(id)});

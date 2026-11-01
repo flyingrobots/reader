@@ -156,3 +156,14 @@ def test_inventory_includes_hidden_attachments_and_refuses_symlinks(vault):
     (folder / 'alias').symlink_to(folder / '.notes.txt')
     with pytest.raises(ValueError, match='symlinks'):
         inventory(vault)
+
+
+def test_runner_preserves_a_lower_inherited_cpu_limit(vault, executable):
+    import resource
+    fake = executable()
+    result = subprocess.run([sys.executable, '-m', 'reader_mcp.inbox_runner', '--root', str(vault), '--codex', str(fake)],
+        capture_output=True, text=True, timeout=20,
+        preexec_fn=lambda: resource.setrlimit(resource.RLIMIT_CPU, (20, 20)))
+    assert result.returncode == 0, result.stderr
+    state = json.loads((vault / '.reader/inbox-runner/state.json').read_text())
+    assert state['status'] == 'finished' and state['limits']['cpu_seconds'] == 20

@@ -18,6 +18,16 @@ prompt = sys.stdin.read()
 root = pathlib.Path(__file__).parent.parent
 context = json.loads(prompt.rsplit('\\n\\n', 1)[1])
 script = pathlib.Path(SCRIPT).read_text().splitlines()
+plan = json.loads((root/'.reader/inbox-runner/pending.json').read_text())
+replacements = {}
+for entry in plan['entries']:
+    slug = re.sub('[^a-z0-9-]','-',entry['source'].split('/')[-1].lower())
+    destination = 'library/filed/' + slug + '-' + entry['snapshot_sha256'][:16] + '/originals/'
+    for row in entry['files']:
+        previous = 'library/filed/' + (entry['source'].split('/')[-1] + '/' if entry['is_directory'] else '') + row['path']
+        replacements[previous] = destination + row['path']
+for previous, destination in replacements.items():
+    script = [line.replace(previous,destination) for line in script]
 if (root/'.fake-slow').exists():
     time.sleep(60)
 if (root/'.fake-fail').exists():
@@ -584,7 +594,7 @@ def main():
         if '--inbox' in sys.argv:
             inbox_environ = inbox_fixture(root)
         # Never reach the real AI-TTS daemon: --speech starts a fake one, otherwise the socket is absent.
-        speech_folder = tempfile.mkdtemp(prefix='rs-', dir='/tmp' if Path('/tmp').is_dir() else None)
+        speech_folder = tempfile.mkdtemp(prefix='rs-', dir=os.environ.get('READER_TEST_SOCKET_ROOT') or ('/tmp' if Path('/tmp').is_dir() else None))
         os.environ['AI_TTS_SOCKET'] = str(Path(speech_folder) / 'ai-tts.sock')
         fake = None
         if '--speech' in sys.argv:
@@ -751,6 +761,10 @@ def main():
             (root/'.gitignore').write_text('.reader/\n.fixture/\n.fake-*\n')
             for args in (['init','-q'],['config','user.name','Fixture'],['config','user.email','fixture@example.invalid']):
                 subprocess.run(['git','-C',str(root),*args],check=True,stdout=subprocess.DEVNULL)
+        portable = None
+        if '--portable-links' in sys.argv:
+            from portable_fixture import create
+            portable = create(root)
         library = WebLibrary(root, writing_options=writing_options, font_fetcher=fetcher, maintenance_runners=runners, inbox_environ=inbox_environ, chat_options=chat_options, local_model=local, prose=prose, service_runner=service, companions=companions, art_options=art_options, coding_options=coding_options)
         if art_options and '--art-none' not in sys.argv:
             from reader_mcp.art import PROMPT_VERSIONS
@@ -784,9 +798,10 @@ def main():
         if inbox_environ is not None:
             # Finish every requested fixture before establishing the clean
             # intake baseline; search fixtures also replace shared coverage.
+            Catalog(root).run('migrate')
             for args in (['add','.'],['commit','-qm','Initialize synthetic browser fixture']):
                 subprocess.run(['git','-C',str(root),*args],check=True,stdout=subprocess.DEVNULL)
-        print(json.dumps({'url':f'http://127.0.0.1:{server.server_port}', 'speech':speech_folder, 'root': str(root), 'providers': providers, 'now': os.environ.get(clock.ENV)}), flush=True)
+        print(json.dumps({'url':f'http://127.0.0.1:{server.server_port}', 'speech':speech_folder, 'root': str(root), 'providers': providers, 'portable': portable, 'now': os.environ.get(clock.ENV)}), flush=True)
         try:
             server.serve_forever()
         finally:

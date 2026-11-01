@@ -1510,7 +1510,7 @@ class WebHandler(BaseHTTPRequestHandler):
                 elif parsed.path == '/api/inbox':
                     action = request.get('action')
                     if action == 'start' and not set(request) - {'action', 'sandbox_mode'}:
-                        self.json(library.inbox.start(request.get('sandbox_mode', 'workspace-write')))
+                        self.json(library.inbox.start(request.get('sandbox_mode', 'read-only')))
                     elif action == 'stop' and set(request) == {'action'}:
                         self.json(library.inbox.stop())
                     else:

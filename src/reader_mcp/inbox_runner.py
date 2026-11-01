@@ -38,7 +38,7 @@ def inventory(root, *, strict=True):
                     raise ValueError('Inbox contains a non-regular file')
                 continue
             paths.append(p.relative_to(root).as_posix())
-            if len(paths)>MAX_INBOX_FILES:raise ValueError('Inbox inventory exceeds 10,000 files; process a smaller batch')
+            if len(paths)>MAX_INBOX_FILES:raise ValueError('Inbox inventory exceeds its supported 10,000-file capacity')
     return sorted(paths)
 
 
@@ -217,13 +217,15 @@ def run(root, codex, run_id=None, timeout=1800, workstation_lock_store=None, san
             state['command'] = args
             state['sandbox_mode'] = 'read-only'
             state['workflow'] = 'deterministic-intake-v1'
+            cpu_limits = tuple(3600 if value == resource.RLIM_INFINITY else min(value, 3600)
+                               for value in resource.getrlimit(resource.RLIMIT_CPU))
             state['limits'] = dict(timeout_seconds=timeout,data_bytes=4*1024**3,output_bytes=16*1024**2,
-                                   minimum_free_bytes=minimum_free_bytes(root),cpu_seconds=3600)
+                                   minimum_free_bytes=minimum_free_bytes(root),cpu_seconds=cpu_limits[0])
             state['temporary_path'] = str(temp)
             state['output_path'] = str(runtime)
             write_state(runtime,state)
             def limits():
-                resource.setrlimit(resource.RLIMIT_CPU,(3600,3600))
+                resource.setrlimit(resource.RLIMIT_CPU,cpu_limits)
             with (runtime/'events.jsonl').open('wb') as out, (runtime/'stderr.log').open('wb') as err:
                 worker=subprocess.Popen(args,cwd=root,stdin=subprocess.DEVNULL,stdout=subprocess.PIPE,stderr=subprocess.PIPE,env=dict(os.environ,TMPDIR=str(temp),PYTHONPATH=os.pathsep.join([str(Path(__file__).resolve().parents[1]), os.environ.get("PYTHONPATH", "")])),
                                         start_new_session=True,preexec_fn=limits)
@@ -266,7 +268,7 @@ def run(root, codex, run_id=None, timeout=1800, workstation_lock_store=None, san
                 state['exit_code']=worker.returncode
                 remaining = inventory(root, strict=False)
                 state['remaining'] = remaining[:20]
-                state['remaining_count'] = len(remaining)
+                state['remaining_count'] = len({p.split('/')[1] for p in remaining})
                 if worker.returncode:
                     state.update(status='failed',message=f'Intake exited with status {worker.returncode}; its checkpoint is retained. Open run details.')
                 else:

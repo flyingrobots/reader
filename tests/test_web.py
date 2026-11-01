@@ -55,7 +55,7 @@ def test_expired_token_is_rejected_before_inbox_dispatch_and_can_be_refreshed(we
     status, fresh, headers = request('/api/token')
     assert status == 200 and fresh == {'token': server.token} and headers['Cache-Control'] == 'no-store'
     assert request('/api/inbox', {'action': 'start'}, {'X-Reader-Token': fresh['token']})[1] == {'started': True}
-    assert calls == ['workspace-write']
+    assert calls == ['read-only']
 
 
 def test_token_refresh_preserves_origin_and_json_refusals(web):

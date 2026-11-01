@@ -1,6 +1,6 @@
 ---
 name: upkeep
-description: Observe Reader arrivals and discussion at turn boundaries across projects. Only authorized Reader librarian sessions claim and delegate intake. Record actually-read versions and surface relevant connections; delegated workers do not recursively invoke it.
+description: Observe Reader arrivals and discussion at turn boundaries across projects. Only authorized Reader librarian sessions start deterministic intake. Record actually-read versions and surface relevant connections; delegated workers do not recursively invoke it.
 ---
 
 # Upkeep
@@ -13,7 +13,7 @@ A reading-only session uses **observer** mode even when started in the main vaul
 
 Ordinary project agents and delivery couriers use **observer** mode: `python3 <this-skill>/scripts/check.py --participant <your-stable-agent-label>`. Report relevant pending arrivals, inspect discussion within the active task, and record only your own actual reading. Do not claim, release, move or file arrivals, launch the inbox runner, or delegate ingestion. Delivering a report, using Reader tools, changing directory to the vault, or seeing a ready inbox does not appoint the courier as librarian. Delivery ends at its verified receipt.
 
-An active **Reader librarian** session operating under the vault's mandate, or a session the user explicitly assigns inbox intake, uses `--role librarian`. This includes the user-started Obsidian Process inbox job. Only these sessions coordinate filing and delegate intake workers. A producer session must not select librarian mode merely to ingest its own delivery. A separate librarian may delegate mechanical intake, retaining the distinction between source claims and independent curatorial judgment.
+An active **Reader librarian** session operating under the vault's mandate, or a session the user explicitly assigns inbox intake, uses `--role librarian`. This includes the user-started Obsidian Process inbox job. Only these sessions coordinate filing through the installed you-got-mail workflow. A producer session must not select librarian mode merely to ingest its own delivery. A separate librarian may start mechanical intake, retaining the distinction between source claims and independent curatorial judgment.
 
 The helper defaults to observer mode, returns `intake_allowed: false` and `recommended_intake_workers: 0`, and rejects claims/releases without explicit librarian mode before touching claim state. The role is a workflow declaration, not authentication or a filesystem security boundary. It does not authorize a session on its own or make filing a completed reading.
 

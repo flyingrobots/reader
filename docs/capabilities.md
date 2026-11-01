@@ -26,7 +26,7 @@ The CLI and local MCP server provide path/content keyword search, typo-tolerant 
 
 ## Obsidian sidebar
 
-The optional desktop [Reader plugin](obsidian-plugin.md) shows existing librarian links and evidence for the open document, groups by ingestion date by default, filters titles/paths, and invokes local hybrid, semantic, fuzzy, or keyword search. When AI-TTS is available, it can queue selected text or a Markdown/TXT document with voice selection. It also launches explicit Codex inbox jobs, groups Library, Discussion, and Inbox into separate tabs and tracks shared participant-specific Read/Unread receipts, automatically acknowledging opened documents and threads in Obsidian, and supports shared Markdown highlights, explained warning annotations with red wavy underlines, and comment threads through Obsidian and CLI/MCP. PDF narration and annotations remain unsupported.
+The optional desktop [Reader plugin](obsidian-plugin.md) shows existing librarian links and evidence for the open document, groups by ingestion date by default, filters titles/paths, and invokes local hybrid, semantic, fuzzy, or keyword search. When AI-TTS is available, it can queue selected text or a Markdown/TXT document with voice selection. It also launches explicit deterministic inbox jobs, groups Library, Discussion, and Inbox into separate tabs and tracks shared participant-specific Read/Unread receipts, automatically acknowledging opened documents and threads in Obsidian, and supports shared Markdown highlights, explained warning annotations with red wavy underlines, and comment threads through Obsidian and CLI/MCP. PDF narration and annotations remain unsupported.
 
 ## Local library website
 
@@ -145,13 +145,13 @@ reading it appears only when it fits the last spread. Its **Inbox** card lists w
 receipt titles, provenance and integrity, previews them without writing receipts or
 bookmarks, and **You got mail** starts the same supervised librarian inbox runner as
 the Obsidian plugin, with Stop, live status, the final report and its verified commit.
-While it runs, an activity transcript shows Codex's JSON events as shadcn AI Elements:
-messages with document citations, commands with terminal output and parsed
-pytest/node results, file trees, the plan, searches, errors, the commit checkpoint
-and token usage. Only the latest run's transcript is available, and the step
-timeline is inferred when the agent writes no plan.
-The supervisor's lock and Upkeep claims decide admission. An interrupted run must be
-recovered by hand, and a run processes the whole inventory; arrivals cannot be selected.
+While it runs, an activity transcript shows model decisions, verified filing
+changes, errors, the commit checkpoint and token usage. Distinct model calls
+retain separate transcript items. The renderer also supports command, plan and
+search events in historical transcripts. Only the latest run's transcript is
+available. The supervisor's lock and Upkeep claims decide admission. A failed or
+stopped run retains its journal for explicit retry, including with an empty inbox.
+The frozen inventory is partitioned automatically; later arrivals wait for another run.
 
 Long Markdown documents and PDFs with an outline show a document outline: a rail beside the text in continuous
 reading, a popover with page labels in two-page reading and a bottom sheet on phones,

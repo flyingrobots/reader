@@ -88,3 +88,14 @@ test('the header timeline follows the plan when present, otherwise intake stages
   assert.deepEqual(queue(filed,['11111111-1111-4111-8111-111111111111','loose-note.md','33333333'],null),[{name:'11111111-1111-4111-8111-111111111111',filed:true},{name:'loose-note.md',filed:true},{name:'33333333',filed:false}],'a filed path names the arrival; its inbox deletion does not');
   assert.deepEqual(queue(filed,['RW-90.md','x'],['x']),[{name:'RW-90.md',filed:true},{name:'x',filed:false}]);
 });
+
+test('separate editorial sessions preserve reused item IDs and update only their own items',()=>{
+  const state=reduceAll([
+    {type:'thread.started',thread_id:'first'},
+    {type:'item.completed',item:{id:'item_0',type:'agent_message',text:'First decision'}},
+    {type:'thread.started',thread_id:'second'},
+    {type:'item.completed',item:{id:'item_0',type:'agent_message',text:'Second decision'}},
+    {type:'item.completed',item:{id:'item_0',type:'agent_message',text:'Second decision revised'}},
+  ]);
+  assert.deepEqual(state.items.filter(i=>i.kind==='message').map(i=>i.text),['First decision','Second decision revised']);
+});

@@ -420,7 +420,7 @@ export default class ReaderPlugin extends Plugin {
     return this.inboxRefreshing;
   }
   private async readInbox() {
-    const before = JSON.stringify([this.inbox,this.inboxRun,this.inboxClaims,this.inboxStatusError,this.launchingInbox,this.launchError]);
+    const before = JSON.stringify([this.inbox,this.inboxRun,this.inboxClaims,this.inboxPending,this.inboxStatusError,this.launchingInbox,this.launchError]);
     try {
       this.inbox = inboxItems(this.app.vault.getFiles().map(f=>f.path));
       const state = await readInboxCoordination(this.basePath());
@@ -436,7 +436,7 @@ export default class ReaderPlugin extends Plugin {
       if (data?.run_id === this.pendingRun && this.pendingRun) { this.launchingInbox = false; this.launchError = ''; }
     } catch (error) { this.inboxStatusError = `Cannot read inbox status: ${String(error)}`; }
     finally {
-      if (before !== JSON.stringify([this.inbox,this.inboxRun,this.inboxClaims,this.inboxStatusError,this.launchingInbox,this.launchError])) this.renderInbox();
+      if (before !== JSON.stringify([this.inbox,this.inboxRun,this.inboxClaims,this.inboxPending,this.inboxStatusError,this.launchingInbox,this.launchError])) this.renderInbox();
     }
   }
   private pendingRun?: string;
@@ -700,10 +700,10 @@ class ReaderView extends ItemView {
     tab?.setText(this.plugin.inbox.length?`Inbox · ${this.plugin.inbox.length}`:'Inbox');
     const root=this.inboxEl;if (!root) return;root.empty();
     const count=this.plugin.inbox.length, active=this.plugin.inboxActive(), blocked=this.plugin.inboxBlocked();
-    if (!count && !active && !this.plugin.inboxMessage() && !this.plugin.inboxRun){root.createEl('p',{text:'Your inbox is empty.',cls:'reader-muted'});return;}
+    if (!count && !active && !this.plugin.inboxPending && !this.plugin.inboxMessage() && !this.plugin.inboxRun){root.createEl('p',{text:'Your inbox is empty.',cls:'reader-muted'});return;}
     const box=root.createDiv({cls:'reader-inbox-callout'});
     const title=box.createDiv({cls:'reader-inbox-title'});setIcon(title.createSpan(),'inbox');
-    title.createSpan({text:count ? `${count} pending ${count===1?'arrival':'arrivals'}` : active?'Processing inbox':'Your inbox is empty'});
+    title.createSpan({text:count ? `${count} pending ${count===1?'arrival':'arrivals'}` : active?'Processing inbox':this.plugin.inboxPending?'Intake checkpoint ready to resume':'Your inbox is empty'});
     if (count || active || this.plugin.inboxPending) {
       const button=box.createEl('button',{text:active?'Processing inbox…':this.plugin.inboxClaims.length?'Filing already assigned':'Process inbox',cls:'mod-cta reader-process-inbox'});
       button.disabled=active || blocked;button.onclick=()=>void this.plugin.processInbox().catch(error=>new Notice(String(error)));

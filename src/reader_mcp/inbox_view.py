@@ -456,6 +456,12 @@ class InboxView:
                                                  'arrivals', 'remaining', 'exit_code', 'sandbox_mode')}
             runner['arrivals'] = state.get('arrival_count', len(state['arrivals']) if isinstance(state.get('arrivals'), list) else None)
             runner['remaining'] = state.get('remaining_count', len(state['remaining']) if isinstance(state.get('remaining'), list) else None)
+            summary = state.get('result')
+            if isinstance(summary, dict):
+                for field in ('filed', 'deferred'):
+                    count = summary.get(field + '_count')
+                    if type(count) is int and count >= 0:
+                        runner[field] = count
             if state['status'] in ACTIVE:
                 runner['event'] = self.latest_event()
             else:
@@ -467,7 +473,9 @@ class InboxView:
                 # Librarian reports link vault files by absolute path; show them vault-relative.
                 runner['report_md'] = report.replace('](' + str(self.root) + '/', '](').replace(str(self.root) + '/', '') if report else report
                 runner['report_truncated'] = truncated
-                runner['commit'] = self.commit(report) if state['status'] == 'finished' else None
+                committed = summary.get('commit') if isinstance(summary, dict) else None
+                commit_source = 'Commit ' + committed if isinstance(committed, str) and re.fullmatch('[0-9a-f]{40}', committed) else report
+                runner['commit'] = self.commit(commit_source) if state['status'] == 'finished' else None
             result['runner'] = shown(runner, self.root)
         try:
             result['chat_turn'] = chat_turn_running(self.root)
