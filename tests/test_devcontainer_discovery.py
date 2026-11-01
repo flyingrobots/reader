@@ -105,3 +105,11 @@ def test_gh_revision_reference_is_one_url_component():
     api.tree('acme/widget', ROOT)
     assert calls[0][-1] == 'repos/acme/widget/commits/feature%2Fnext%3Fx%3Dy'
     assert calls[1][-1] == 'repos/acme/widget/git/trees/' + ROOT
+
+
+@pytest.mark.parametrize('kind,mode', [('commit', '160000'), ('unknown', '040000'), ('blob', '120000')])
+def test_named_unsupported_location_is_never_permission_to_infer(kind, mode):
+    remote = Remote({ROOT: [item('.devcontainer', DEV, '040000', 'tree')],
+                     DEV: [item('python', NAMED, mode, kind)]})
+    with pytest.raises(GitHubError):
+        discover(remote, 'acme/widget', 'main')

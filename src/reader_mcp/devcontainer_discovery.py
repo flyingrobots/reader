@@ -83,8 +83,10 @@ def discover(github, repo, ref):
             children = _tree(github, repo, _directory(item, path))
             if 'devcontainer.json' in children:
                 choices.append(_candidate(children['devcontainer.json'], path + '/devcontainer.json'))
-        # A symlink could stand in for a named configuration directory. Refuse rather than calling it absent.
-        if any(item.get('mode') == '120000' for item in inside.values()):
-            raise GitHubError('Symlink in .devcontainer; resolve it before configuration discovery')
+        # Symlinks, gitlinks and unknown kinds can hide named configurations.
+        # Only ordinary files and directories establish a complete local inventory.
+        if any((item.get('type'), item.get('mode')) not in
+               {('blob', '100644'), ('blob', '100755'), ('tree', '040000')} for item in inside.values()):
+            raise GitHubError('Unsupported entry in .devcontainer; resolve it before configuration discovery')
     return {'repo': repo, 'ref': ref, 'base_sha': commit, 'configurations': choices,
             'state': 'found' if choices else 'missing', 'requires_inference_consent': not bool(choices)}
