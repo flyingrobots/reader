@@ -78,6 +78,19 @@ def test_stale_classification_cannot_move_an_arrival(vault):
     assert not (vault / plan['entries'][0]['destination']).exists()
 
 
+def test_editorial_excerpt_budget_prioritizes_the_receipted_document(vault):
+    receipt = Store(vault).ingest(Submission(request_id=uuid4(), title='Primary report',
+        filename='z-primary.md', markdown='The declared primary source.'))
+    bundle = vault / receipt['bundle_path']
+    for number in range(8):
+        (bundle / f'a-attachment-{number}.md').write_text('Attachment context. ' * 1000)
+    entry = intake.snapshot(vault, receipt['bundle_path'])
+    context = intake.model_context(vault, entry)
+    assert context['reading'][0] == {'path': 'z-primary.md', 'excerpt': 'The declared primary source.', 'complete': True}
+    assert context['files'] == entry['files'], 'Excerpt priority does not reorder or omit the frozen inventory'
+    assert sum(len(row['excerpt'].encode()) for row in context['reading']) <= intake.MAX_CONTEXT
+
+
 def test_lock_contention_refuses_filing_without_touching_sources(vault, monkeypatch):
     from reader_mcp import companions
     source = vault / 'inbox/report.md'

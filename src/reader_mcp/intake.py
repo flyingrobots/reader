@@ -135,7 +135,10 @@ def validate_decision(value, entry):
 def model_context(root, entry):
     source = checked_path(root, entry['source'])
     texts, size = [], 0
-    for row in entry['files']:
+    primary = entry.get('receipt', {}).get('document')
+    # A delivery's declared document gets the first excerpt budget, even when
+    # its filename sorts after a large attachment inventory.
+    for row in sorted(entry['files'], key=lambda row: row['path'] != primary):
         path = source / row['path'] if source.is_dir() else source
         if path.suffix.lower() not in ('.md', '.markdown', '.txt'):
             continue
