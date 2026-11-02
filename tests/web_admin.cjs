@@ -56,6 +56,9 @@ const shots=process.env.READER_SHOTS||'.reader/web-dev';
    assert.deepEqual(await page.locator('[data-sidebar=group-label]').allTextContents(),['Monitor','Library','Configure'],'the sections are grouped');
    assert.deepEqual(await page.locator('[data-admin-nav]').evaluateAll(links=>links.map(link=>link.dataset.adminNav)),['overview','jobs','logs','inbox','library','indexes','artwork','repositories','voices','models','service','settings'],'every section is listed once');
    assert.match(await page.locator('[data-overview-summary=inbox]').textContent(),/3/);assert.match(await page.locator('[data-overview-summary=indexes]').textContent(),/Not checked yet/);
+   // The section name is in the breadcrumb, so the page head is for assistive technology only: announced and focusable, never drawn.
+   const head=await page.evaluate(()=>{const h=document.querySelector('#admin-title').getBoundingClientRect(),l=document.querySelector('[data-slot=admin-lede]').getBoundingClientRect(),bar=document.querySelector('[data-admin-header]').getBoundingClientRect(),first=document.querySelector('#admin-overview').getBoundingClientRect();return {tall:Math.max(h.height,l.height),gap:first.top-bar.bottom,role:document.querySelector('h1#admin-title')!==null};});
+   assert.ok(head.role,'the page keeps one h1');assert.ok(head.tall<=1,'the heading and lede are not drawn');assert.ok(head.gap<=40,'content starts right under the header');
    assert.equal(await page.locator('#admin-back').count(),1,'one way back to the library');assert.equal(await page.locator('[data-admin-header] #admin-doc-toggle').count(),1,'Docs is in the header');
    await page.waitForTimeout(1500);assert.deepEqual(posts,[],'opening Overview writes nothing and starts nothing');
    await page.screenshot({path:shots+'/admin-overview.png'});

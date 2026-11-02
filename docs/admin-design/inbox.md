@@ -17,7 +17,7 @@ Previewing an arrival is reading, not filing. It writes no receipt, bookmark or 
 
 ```mermaid
 flowchart TB
-  page[AdminPage template: h1 Inbox, lede, Separator]
+  page[AdminPage template: visually hidden h1 and lede]
   page --> run[StatusCard “Librarian run”<br/>badge: run state · body: Notice / transcript / report · footer: You got mail or Stop]
   page --> list[StatusCard “Waiting to be filed”<br/>badge: count · body: arrival Items or EmptyState]
 ```

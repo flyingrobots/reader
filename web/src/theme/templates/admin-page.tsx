@@ -1,6 +1,7 @@
 /* Templates: the Admin page frame. AdminHeader is the sticky bar (sidebar trigger, a shadcn Breadcrumb, the page's actions);
-   AdminPage is the page head (the focusable h1 and its one-line lede, divided from the body by a Separator) above the
-   section body, laid out as one column with even gaps. Pages fill the body; they never restyle the frame. */
+   AdminPage is the section body, laid out as one column with even gaps, under a page head for assistive technology only:
+   the breadcrumb names the section on screen, while the h1 still takes focus and is announced on each route change.
+   Pages fill the body; they never restyle the frame. */
 import {cn} from 'cn';
 import type {ReactNode} from 'react';
 import {Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator} from '@/components/ui/breadcrumb';
@@ -23,11 +24,8 @@ export function AdminHeader({trigger,home,current,actions}:{trigger:ReactNode;ho
 
 export function AdminPage({title,lede,children,wide=false,...props}:{wide?:boolean;title:ReactNode;lede:ReactNode;children:ReactNode;id?:string}&Record<`data-${string}`,string>){
   return <div className={cn('mx-auto flex w-full flex-col gap-6 px-4 pt-6 pb-24 md:px-8 md:pt-8 lg:px-12',wide?'max-w-none':'max-w-6xl')} {...props}>
-    <div className="flex flex-col gap-2">
-      <h1 id="admin-title" tabIndex={-1} data-slot="admin-title" className="scroll-mt-16 font-serif text-3xl leading-tight font-normal tracking-tight outline-none focus-visible:ring-3 focus-visible:ring-ring/50 md:text-4xl">{title}</h1>
-      <p data-slot="admin-lede" className="max-w-prose text-sm text-muted-foreground">{lede}</p>
-    </div>
-    <Separator/>
+    <h1 id="admin-title" tabIndex={-1} data-slot="admin-title" className="sr-only">{title}</h1>
+    <p data-slot="admin-lede" className="sr-only">{lede}</p>
     {children}
   </div>;
 }

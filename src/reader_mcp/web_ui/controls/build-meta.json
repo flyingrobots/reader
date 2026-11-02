@@ -162,7 +162,7 @@
     "src/theme/organisms/confirm-action.tsx": "4cf659336c8903df901e8c35a416eb893175519946a43180b1fa77264ebbc8b6",
     "src/theme/organisms/run-list.tsx": "bb9c9e00679d9e5543644544b9ff404a51d376cbfa1102d7d345eda2f868a951",
     "src/theme/organisms/status-card.tsx": "6576af39910c334872090af674ae750666d3b5b68716559f3549ba784f44e6be",
-    "src/theme/templates/admin-page.tsx": "198d5160a4c5bbf51b042268f0805d085a50e00b9b7e4baec3349b465ab4f09a",
+    "src/theme/templates/admin-page.tsx": "0d9f1b1c58fa9a75389496568a119323e553b8e6e7d97e9b922facd7bd8d60e4",
     "src/theme/templates/card-grid.tsx": "5824ab5a84257d55feb2827f0a611ecdd1ae3fbfd490684feb8928bb69bfbf87",
     "src/theme/theme-css.ts": "2c78098cd36c2ae0009313fc483463733f541aca45ecc0e5150f2b19c4809327",
     "src/theme/theme-editor.tsx": "b33809853471121d6b8700b4bb2745bf10825d09628c3164fec6902b0a4d9dab",
@@ -990,8 +990,8 @@
       "sha256": "a84f16398e9af291aa637093520398e5edd331d32a99a2a7412d49d8bdd9f0b5"
     },
     "reader-controls.js": {
-      "bytes": 1332743,
-      "sha256": "9c3b59336ae5300678cc8f458a64e8b7ae118cf09f6c0b8285a08b0023b92dfc"
+      "bytes": 1332488,
+      "sha256": "1093be765bea2246bd38d17ed7127afec4b71136c19d20d0935d77b57cf7edc6"
     },
     "reader-controls.js.LEGAL.txt": {
       "bytes": 6537,

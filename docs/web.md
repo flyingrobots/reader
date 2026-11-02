@@ -1151,7 +1151,8 @@ Reader Admin (formerly Behind the scenes) is a separate layout for administratio
 not a page inside the article reader. A shadcn **Sidebar** groups its sections
 under Monitor, Library and Configure, and ends with **Back to Library**; a header
 carries the sidebar trigger, a breadcrumb (*Reader Admin › Section*) and **Docs**;
-the page shows one section at a time under its own heading.
+the page shows one section at a time. The breadcrumb names it on screen; its heading and
+one-line description are kept for assistive technology, and the heading takes focus on each route change.
 Each section is its own hash route:
 
 | Route | Section |
@@ -1220,7 +1221,7 @@ build up through atomic tiers in `web/src/theme/`:
 | Atoms | `theme/atoms/` | `StatusBadge` (a tone: ok, attention, error, active or neutral, mapped to a Badge variant), `RelativeTime`, `Elapsed`, `RunStateIcon`, `SectionHeading` |
 | Molecules | `theme/molecules/` | `FactList` (grid or rows of Items), `Notice` (Alert), `EmptyState` (Empty), `LoadingState`, `Unavailable`, `RunRow` (Item), `Toolbar` (muted Item), `FilterSelect` and `FilterBar` (Field + Select), `Pager` |
 | Organisms | `theme/organisms/` | `StatusCard` (full Card composition), `RunList` (ItemGroup), `ConfirmAction` (AlertDialog) |
-| Templates | `theme/templates/` | `AdminHeader` (sidebar trigger, Breadcrumb, page actions), `AdminPage` (focusable h1, lede, Separator), `CardGrid` |
+| Templates | `theme/templates/` | `AdminHeader` (sidebar trigger, Breadcrumb, page actions), `AdminPage` (visually hidden focusable h1 and lede), `CardGrid` |
 
 Pages live in `web/src/admin/pages/` (Inbox, Indexes, Coding jobs, LLM logs, Repositories, Voices, Library), with Overview in
 `web/src/admin/overview.tsx` and the larger sections in their feature files (`local-model.tsx`, `server-card.tsx`,
