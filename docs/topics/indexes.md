@@ -4,7 +4,7 @@
 
 Reader’s Indexes page is a maintenance console for derived views of a plain-file vault. It compares stored projections with current files, exposes their capacity and completeness, and starts explicit rebuilds. Original source documents remain authoritative. An index rebuild does not file inbox arrivals, rewrite an author’s prose, mark documents as read, perform a backup, or synchronize files between computers.
 
-The dashboard occupies the left pane. This Markdown reference occupies the right pane. Info buttons select a heading in this reference without navigating away from the dashboard. The contents selector and in-document section links provide direct navigation. On desktop each pane scrolls independently; on small screens they stack. Hide documentation expands the dashboard to full width; Show documentation restores the split. This preference is remembered on the current browser. Info buttons reopen a hidden reference at the requested heading, and hiding it preserves its scroll position. The documentation is built from this file into the same frontend release as the dashboard, so it does not require access to the private vault’s documentation directory.
+The dashboard has the full page width. This Markdown reference opens in a sheet over it from the Docs button in the header. Info buttons open it at a heading without navigating away from the dashboard. The contents selector and in-document section links provide direct navigation. Closing it preserves its scroll position. The documentation is built from this file into the same frontend release as the dashboard, so it does not require access to the private vault’s documentation directory.
 
 There are four rebuildable projections and one capacity report:
 

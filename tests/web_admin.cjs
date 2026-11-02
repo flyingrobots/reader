@@ -53,6 +53,10 @@ const shots=process.env.READER_SHOTS||'.reader/web-dev';
    for(const tile of ['active','inbox','attention','indexes'])await page.locator(`[data-overview=${tile}][data-state=ready]`).waitFor({timeout:8000});
    assert.match(await page.locator('[data-overview=inbox]').textContent(),/3 arrivals waiting/);
    assert.match(await page.locator('[data-overview=indexes]').textContent(),/Not checked yet/,'no check has run, and none is started');
+   assert.deepEqual(await page.locator('[data-sidebar=group-label]').allTextContents(),['Monitor','Library','Configure'],'the sections are grouped');
+   assert.deepEqual(await page.locator('[data-admin-nav]').evaluateAll(links=>links.map(link=>link.dataset.adminNav)),['overview','jobs','logs','inbox','library','indexes','artwork','repositories','voices','models','service','settings'],'every section is listed once');
+   assert.match(await page.locator('[data-overview-summary=inbox]').textContent(),/3/);assert.match(await page.locator('[data-overview-summary=indexes]').textContent(),/Not checked yet/);
+   assert.equal(await page.locator('#admin-back').count(),1,'one way back to the library');assert.equal(await page.locator('[data-admin-header] #admin-doc-toggle').count(),1,'Docs is in the header');
    await page.waitForTimeout(1500);assert.deepEqual(posts,[],'opening Overview writes nothing and starts nothing');
    await page.screenshot({path:shots+'/admin-overview.png'});
    await page.goto(url+'/?fresh=1');await page.locator('#home-title').waitFor();
@@ -218,6 +222,7 @@ const shots=process.env.READER_SHOTS||'.reader/web-dev';
    const text=await page.locator('#admin-overview').textContent();
    assert.match(text,/Synthetic maintenance outage/);assert.match(text,/Synthetic inbox outage/);
    assert.doesNotMatch(text,/Nothing is running|No arrivals|Nothing needs attention|Not checked yet/,'no healthy or empty claims');
+   for(const card of ['running','inbox','indexes']){const summary=await page.locator(`[data-overview-summary=${card}]`).textContent();assert.doesNotMatch(summary,/\d/,`${card}: an unreadable status is never a number`);assert.match(summary,/unavailable/i);}
    await page.locator('[data-admin-nav=indexes]').click();await atSection(page,'indexes','Indexes');await page.locator('#indexes-unavailable').waitFor();
    assert.equal(await page.locator('[data-index=search][data-state=unavailable]').count(),1);
    await page.locator('[data-admin-nav=inbox]').click();await page.locator('#inbox-unavailable').waitFor();assert.ok(await page.locator('#inbox-mail').isDisabled());

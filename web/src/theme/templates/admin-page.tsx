@@ -1,4 +1,4 @@
-/* Templates: the Admin page frame. AdminHeader is the sticky bar (sidebar trigger, a shadcn Breadcrumb, Back to Library);
+/* Templates: the Admin page frame. AdminHeader is the sticky bar (sidebar trigger, a shadcn Breadcrumb, the page's actions);
    AdminPage is the page head (the focusable h1 and its one-line lede, divided from the body by a Separator) above the
    section body, laid out as one column with even gaps. Pages fill the body; they never restyle the frame. */
 import {cn} from 'cn';

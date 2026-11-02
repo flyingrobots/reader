@@ -44,6 +44,8 @@ export const INDEXES:Index[]=[
    actions:[]},
 ];
 export const INDEX_OF:Record<string,string>={search:'search','search-keyword':'search','remove-legacy-search':'search',browse:'browse',catalog:'catalog',links:'links'};
+/** Index check states that need someone's attention. */
+export const ATTENTION_CHECKS=['error','stale','partial','missing','over','near'];
 export const STATES:Record<string,{label:string;tone:Tone}>={
   current:{label:'Current',tone:'ok'},stale:{label:'Needs rebuild',tone:'attention'},partial:{label:'Partial',tone:'attention'},
   missing:{label:'Not built',tone:'attention'},unconfigured:{label:'Not configured',tone:'neutral'},error:{label:'Error',tone:'error'},

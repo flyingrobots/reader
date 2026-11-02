@@ -85,12 +85,14 @@ lucide-react/dist/esm/defaultAttributes.js:
 lucide-react/dist/esm/shared/src/utils/hasA11yProp.js:
 lucide-react/dist/esm/Icon.js:
 lucide-react/dist/esm/createLucideIcon.js:
+lucide-react/dist/esm/icons/activity.js:
 lucide-react/dist/esm/icons/arrow-down.js:
 lucide-react/dist/esm/icons/arrow-left-right.js:
 lucide-react/dist/esm/icons/arrow-left.js:
 lucide-react/dist/esm/icons/arrow-right.js:
 lucide-react/dist/esm/icons/arrow-up-right.js:
 lucide-react/dist/esm/icons/arrow-up.js:
+lucide-react/dist/esm/icons/book-open.js:
 lucide-react/dist/esm/icons/bot.js:
 lucide-react/dist/esm/icons/bug.js:
 lucide-react/dist/esm/icons/check.js:
@@ -145,8 +147,6 @@ lucide-react/dist/esm/icons/monitor.js:
 lucide-react/dist/esm/icons/octagon-x.js:
 lucide-react/dist/esm/icons/palette.js:
 lucide-react/dist/esm/icons/panel-left.js:
-lucide-react/dist/esm/icons/panel-right-close.js:
-lucide-react/dist/esm/icons/panel-right-open.js:
 lucide-react/dist/esm/icons/pause.js:
 lucide-react/dist/esm/icons/pencil.js:
 lucide-react/dist/esm/icons/play.js:

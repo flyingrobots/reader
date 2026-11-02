@@ -8,12 +8,12 @@
   "sources": {
     "../docs/topics/artwork.md": "6fbe4ca291650e79053b7a1224a38c32f2f4e38f44d2e254a31b032dfdb7f8f4",
     "../docs/topics/inbox.md": "93657d3f9061f78fdd0c03c745cc63a04375bdb7b2b9e1f03e8e400e92079b87",
-    "../docs/topics/indexes.md": "d3e94f5e8e1709caea8c63c4c776eba8fed5115df1afb65f42544c833e560056",
+    "../docs/topics/indexes.md": "a1412370697e5f1671058ff2929e7a6df0519826cc264f9bd755d4d66c72e358",
     "../docs/topics/jobs.md": "cd44c7167fdef58836399ca0d6a3f5d585de6df80fe89ec2c0c87fed7ab0cfd8",
     "../docs/topics/library.md": "81ed9fe8db0587b087376b3ed78dd4c45ca9e62cf3f204d2d56dcc594db15b59",
     "../docs/topics/logs.md": "cf2d367a13620967bb12e811834c22f23a73ec11f33783bfb287bad858cdc579",
     "../docs/topics/models.md": "525f9fb66a9565eb46a698b3a7163b890fa727b4930d922f7ebcf07ea5af4eb3",
-    "../docs/topics/overview.md": "39511286a760f38d38a1d98568cf0af77b77e0d7d451f3064ae14b69efb03449",
+    "../docs/topics/overview.md": "57520a0f5beb71ee8c7440c8b2c23f33b8e05a11cbbc9cc682f6db9779f67dcf",
     "../docs/topics/repositories.md": "a380b973f9656d637411e05877310520107c1b0c6fd560015ea0bdde56a841e5",
     "../docs/topics/service.md": "afed76a054d5ee552c72b3db60365acf11c3eefd447798a449d0c312af3d21f0",
     "../docs/topics/settings.md": "99336b16eb57868f4a2943fe5e5bf58c2d5c7196e9116f93c0f22e33f2ed8932",
@@ -27,11 +27,11 @@
     "package-lock.json": "a4d06be3ac3f58f0947355ea9b737a0eef8475a3ba4d3bbcecfd2fbe943f095e",
     "src/activity/reducer.ts": "5694d95a7c4c44369b3e46aed7a4707077f227edf6bbe55d5f9908db7b9e531f",
     "src/activity/transcript.tsx": "347811fb4a82a573c3a3df8ca9d4778f5c0c8581a0043934b17e31c379a5fd98",
-    "src/admin/admin-shell.tsx": "e8bf945daff8ffa9abbbc0847bc1102106b82d127f891e1ff4a6208d26de2aa4",
+    "src/admin/admin-shell.tsx": "5c004724436ddf2590afddb1ba18e9dcade8cd4f37ecc99a5a72148c5ae1506f",
     "src/admin/documentation-topics.ts": "0571b8c0c6d8c4f91cbbb31e0cbea3c363fc4e4ffb6852b8001594fcea810ccb",
-    "src/admin/documentation.tsx": "6d6730950c45da544ec6aa31f0c8c3f480ef8199ca8bfe699bc5be3d9f72252f",
+    "src/admin/documentation.tsx": "9601acd5b631b4123ecc533ef97f6aec3c75058a38b0133fea75ff81d46b0254",
     "src/admin/link.tsx": "1364e49c693a3fdfdfda3b767e4914019c7092ad552a13b14d70fe61af03a714",
-    "src/admin/overview.tsx": "2587186eae3658cb8443ce68d0cfe6fb522ef678f33f7dca35f65e65375de6a7",
+    "src/admin/overview.tsx": "9d374ccf81b59c979459f03a0a6eefe54475d7395ca1933bb3c474922bcf435d",
     "src/admin/pages/gallery-model.ts": "9682e5a75aeaa7fb3400a5f6489b28775560f10136580488e246c9ecddd5fbd7",
     "src/admin/pages/inbox.tsx": "b83d5d1d018483727dcb314fe01063fc222601fef2f313bbe22b8e5bc9e1bc99",
     "src/admin/pages/index-charts.tsx": "fd2fb0bdb136de7139d5da561c38d331cbb271f3640e1278b30277308cc5fc11",
@@ -44,13 +44,13 @@
     "src/admin/pages/shelves.tsx": "fe7173d11af9e4f0d05fee9afa631f3265438845426211ae4e6b0b05cde2159a",
     "src/admin/pages/voices.tsx": "2c2ab2da0029eb1209922b79927799da6734a68a5867bf9a7c0d0e61ca3e31bb",
     "src/admin/panels.tsx": "12e75e4680e6927d25faa10a9f8f482ef2543e2a8352ecedd8c321234bed8acf",
-    "src/admin/sections.tsx": "6c83ffa09fa5be304308043f31d31024036f045fd1393a71b24be79cf8bde1dd",
+    "src/admin/sections.tsx": "62f2ef2d741d2c547f0742b236f977d682400ec327367c91801163a43d73b4f6",
     "src/art-focus-chrome.tsx": "51fd02526aea995a20a91490da61ca3d31cf25d06eda9fb30e8bce82fed457fa",
     "src/art-prompt-card.tsx": "6cd9e2d4c4f1b9a2469841b87038dfd19e0e7f9e986fd80141e2a7b8950b154a",
     "src/art-regenerate.tsx": "1d1187b7482efb4ce0ba829e1bfb94fe8f1af72d9a90f6e525edb59e1be76f2f",
     "src/art-studio.tsx": "b907a89419ee96cb50620815be4aa207d8fa688060ddd39b3270d9a3326dd302",
     "src/art/art.ts": "cd1242a47eda6306459ef1906116ada99778ea58660ca54e252aecd1106375a2",
-    "src/backstage.tsx": "3fb6f7084eaa3c701a32c577e93fd6392f825c9d5c690c3a8eb4d15add4796bf",
+    "src/backstage.tsx": "cc56d6e4a76823e678151da0838739fe24d26980a0f90dba61fd589191845957",
     "src/callouts.tsx": "fccf6b854b5c95a48ef40d206edfe927718f2ad9e8b59f3b5005548819172584",
     "src/changes-panel.tsx": "3861ff1d7c6e3dc8a3cfab1cc0eea501399b518d0f33a3b4b0bb01d44ed4b613",
     "src/chat/chat-panel.tsx": "aaed56f8189133e86916b266d020bdd3ff560bfff31ea6997d4e63c3d1830a53",
@@ -157,12 +157,12 @@
     "src/theme/molecules/notice.tsx": "29a1ff3e16c6e39ffa823114db80ad089f94978a087cda38e14f524d5cfd52d6",
     "src/theme/molecules/pager.tsx": "497434f8845abbdf5fa81cbbbe078d4b41063f3925cee4018f70cddb7b123f91",
     "src/theme/molecules/run-row.tsx": "77b5bedddac1e95e38295e04d994bdf51249de6410e1fd7ea5716adf0fa60563",
-    "src/theme/molecules/states.tsx": "4fde8991c7b26a200cef60c84f3e4dd72f53bd5486ac02b7bfa970bef1213dc4",
+    "src/theme/molecules/states.tsx": "fe1755228ec0aaf43957714be7ea656bb9e174a96b04206a5ad52bc87094d6c5",
     "src/theme/molecules/toolbar.tsx": "7d1bcefa9703486b52f296afa2ba1c117ff1b0dd4aa1b7ea06310c04c367c820",
     "src/theme/organisms/confirm-action.tsx": "4cf659336c8903df901e8c35a416eb893175519946a43180b1fa77264ebbc8b6",
     "src/theme/organisms/run-list.tsx": "bb9c9e00679d9e5543644544b9ff404a51d376cbfa1102d7d345eda2f868a951",
     "src/theme/organisms/status-card.tsx": "6576af39910c334872090af674ae750666d3b5b68716559f3549ba784f44e6be",
-    "src/theme/templates/admin-page.tsx": "0c3872c5202286cf142c6d2c4dd0b81dc9a24d5882d29e57c8feae8c1e6b8236",
+    "src/theme/templates/admin-page.tsx": "198d5160a4c5bbf51b042268f0805d085a50e00b9b7e4baec3349b465ab4f09a",
     "src/theme/templates/card-grid.tsx": "5824ab5a84257d55feb2827f0a611ecdd1ae3fbfd490684feb8928bb69bfbf87",
     "src/theme/theme-css.ts": "2c78098cd36c2ae0009313fc483463733f541aca45ecc0e5150f2b19c4809327",
     "src/theme/theme-editor.tsx": "b33809853471121d6b8700b4bb2745bf10825d09628c3164fec6902b0a4d9dab",
@@ -986,16 +986,16 @@
       "sha256": "cb2ee2554fd41ac9f8e2e69c350365f0e1cf9732d27ad161c9c97b20945bbe4c"
     },
     "reader-controls.css": {
-      "bytes": 182969,
-      "sha256": "f142bf7ff13e743689bbcb4e9a03bcc6ecb87e80bb1c274470b5c3f436880b4a"
+      "bytes": 183239,
+      "sha256": "a84f16398e9af291aa637093520398e5edd331d32a99a2a7412d49d8bdd9f0b5"
     },
     "reader-controls.js": {
-      "bytes": 1328111,
-      "sha256": "9c30ef2d91047f4cc832f94b8a50e49c414b9dc0cc20d5fb07a4fa6af19e504a"
+      "bytes": 1332743,
+      "sha256": "9c3b59336ae5300678cc8f458a64e8b7ae118cf09f6c0b8285a08b0023b92dfc"
     },
     "reader-controls.js.LEGAL.txt": {
-      "bytes": 6553,
-      "sha256": "5d4db405ff3d2e2284a83d9ea420945b1e3ac37d513e54b22e229b2224ca85fc"
+      "bytes": 6537,
+      "sha256": "b2d4e2066e413b841a225058b87a16fa0e29fff754d5997b4eb1c2f6c29cf5fd"
     },
     "shape.js": {
       "bytes": 8806,

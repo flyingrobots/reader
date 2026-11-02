@@ -1,12 +1,12 @@
-# Admin documentation panes
+# Admin documentation
 
 Each registered Admin section has a canonical Markdown reference bundled into the same frontend release as its dashboard. The shared workspace lives in `web/src/admin/documentation.tsx`; `documentation-topics.ts` maps section IDs to source documents. There is no arbitrary-file documentation endpoint or dependency on a private vault’s docs folder.
 
 ## Layout and navigation
 
-At desktop widths, dashboard and reference occupy equal columns with independent native scrolling. Hide documentation expands the dashboard; Show documentation restores the split. On narrow screens the panes stack. The Contents selector, heading links and contextual info buttons focus the relevant heading without changing the Admin route. On phones, a documentation action also brings the reference into view. Info buttons reopen a hidden reference.
+The dashboard has the full page width. The header's **Docs** button opens the reference in a modal shadcn `Sheet` over the page, full width on phones; Escape, the close button or the backdrop close it and return focus to what opened it. The Contents selector, heading links and contextual info buttons focus the relevant heading without changing the Admin route, and info buttons open a closed reference at their heading. Every page starts with the reference closed.
 
-The shared visibility preference is stored in `localStorage` at `reader.admin.docs.visible.v1`. The older Indexes preference is used only when the shared preference is absent. Selected headings and reference scroll positions are saved per section in `sessionStorage` at `reader.admin.docs.position.<section>`. Hiding preserves the mounted reference. Navigation saves the old section’s position and restores the destination’s. These browser settings do not modify vault documents.
+Selected headings and reference scroll positions are saved per section in `sessionStorage` at `reader.admin.docs.position.<section>`. The Sheet stays mounted while closed, so heading IDs and contextual links always resolve; because a closed Sheet has no layout, a `ResizeObserver` restores the scroll position when the reference is shown. Navigation saves the old section’s position and restores the destination’s. These browser settings do not modify vault documents. Earlier versions stored a visibility preference at `reader.admin.docs.visible.v1`; it is no longer read.
 
 ## Topic references
 

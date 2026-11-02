@@ -1148,9 +1148,10 @@ No model is called and nothing leaves the machine; the route writes nothing.
 ### Reader Admin: indexes, the inbox, library statistics and settings
 
 Reader Admin (formerly Behind the scenes) is a separate layout for administration,
-not a page inside the article reader. A shadcn **Sidebar** lists its sections; a
-header carries the sidebar trigger, a breadcrumb (*Reader Admin › Section*) and
-**Back to Library**; the page shows one section at a time under its own heading.
+not a page inside the article reader. A shadcn **Sidebar** groups its sections
+under Monitor, Library and Configure, and ends with **Back to Library**; a header
+carries the sidebar trigger, a breadcrumb (*Reader Admin › Section*) and **Docs**;
+the page shows one section at a time under its own heading.
 Each section is its own hash route:
 
 | Route | Section |
@@ -1200,7 +1201,8 @@ reduced motion removes its transitions.
 
 Status is read, never assumed. The Overview summarizes what Reader already polls
 (`/api/maintenance` and `/api/inbox`); opening it starts no check, rebuild, model
-or inbox run. A tile says *Loading…* until its status arrives, and a status that
+or inbox run. Four summary cards lead, above attention and index health tables and
+active work and inbox cards. A tile says *Loading…* until its status arrives, and a status that
 could not be read is shown as unavailable with the reason, never as zero or
 healthy; if a later refresh fails, the page says the tiles show the earlier status.
 Indexes and the Inbox show the same unavailable state, with their actions disabled.
@@ -1218,7 +1220,7 @@ build up through atomic tiers in `web/src/theme/`:
 | Atoms | `theme/atoms/` | `StatusBadge` (a tone: ok, attention, error, active or neutral, mapped to a Badge variant), `RelativeTime`, `Elapsed`, `RunStateIcon`, `SectionHeading` |
 | Molecules | `theme/molecules/` | `FactList` (grid or rows of Items), `Notice` (Alert), `EmptyState` (Empty), `LoadingState`, `Unavailable`, `RunRow` (Item), `Toolbar` (muted Item), `FilterSelect` and `FilterBar` (Field + Select), `Pager` |
 | Organisms | `theme/organisms/` | `StatusCard` (full Card composition), `RunList` (ItemGroup), `ConfirmAction` (AlertDialog) |
-| Templates | `theme/templates/` | `AdminHeader` (sidebar trigger, Breadcrumb, Back to Library), `AdminPage` (focusable h1, lede, Separator), `CardGrid` |
+| Templates | `theme/templates/` | `AdminHeader` (sidebar trigger, Breadcrumb, page actions), `AdminPage` (focusable h1, lede, Separator), `CardGrid` |
 
 Pages live in `web/src/admin/pages/` (Inbox, Indexes, Coding jobs, LLM logs, Repositories, Voices, Library), with Overview in
 `web/src/admin/overview.tsx` and the larger sections in their feature files (`local-model.tsx`, `server-card.tsx`,
@@ -1251,12 +1253,11 @@ New sections are added in one place: the section registry in
 on this computer, which route parameters it accepts, and its page). The route
 syntax, `#admin/<section>[/<param>…]`, is parsed by `web_ui/admin-routes.mjs`.
 
-Every registered **Admin section** splits the available page width equally between the dashboard and an
-independently scrolling Markdown reference. Info buttons navigate directly to
-reference headings. The right pane renders that section’s canonical [technical reference](admin-documentation.md)
-that is maintained in the repository, bundled with the frontend release. Its contents
-selector and internal links preserve the Admin route and dashboard scroll position.
-On narrow screens the panes stack. Hide documentation expands the dashboard to full width; this preference is shared across Admin pages. Reference positions are saved per section for the browser session.
+Every registered **Admin section** gives its dashboard the full page width. The header's **Docs**
+button opens that section's canonical [technical reference](admin-documentation.md), maintained in the
+repository and bundled with the frontend release, in a Sheet over the page. Info buttons open it at
+the relevant heading. Its contents selector and internal links preserve the Admin route and dashboard
+scroll position. Reference positions are saved per section for the browser session.
 
 The dashboard contains summary Cards, interactive D3 charts, an index health Table
 and a selected-index inspector. Shadcn components provide controls, data surfaces

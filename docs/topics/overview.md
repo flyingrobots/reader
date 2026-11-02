@@ -30,7 +30,7 @@ Maintenance/inbox status comes from the existing shared polling machinery; activ
 
 ## Documentation
 
-The right pane is the canonical Markdown reference for this section. Hide documentation expands the operational area; the visibility preference is shared across Admin on this browser. Each section preserves its own reference heading and scroll position for this browsing session. Info buttons reopen hidden documentation at the relevant section. On narrow screens the panes stack.
+The Docs button in the header opens the canonical Markdown reference for this section in a sheet over the page. Each section preserves its own reference heading and scroll position for this browsing session. Info buttons open the reference at the relevant section. Escape closes it.
 
 ## Troubleshooting
 
