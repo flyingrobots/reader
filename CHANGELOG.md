@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- A two-page turn made just after a resize, such as closing the file explorer, is no longer undone when the delayed reflow runs.
+
 - Reader Admin uses a conventional layout: grouped sidebar sections, a summary row and tables on Overview, and documentation in a slide-over Docs sheet instead of a permanent half-page pane. Back to Library moves to the sidebar footer.
 
 - Companion HTML opens as an isolated interactive preview with relative assets intact; binary attachments offer byte-preserving downloads.

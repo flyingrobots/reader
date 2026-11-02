@@ -87,7 +87,7 @@ export function installReading({scratchStatus, statusOverride, onStatus, mayCurl
     if(book.spreads>before){element.remove();measureBook();update();return false;}
     update();return true;
   }
-  function turn(delta){if(!book)return;seekSpread(Math.round(book.viewport.scrollLeft/book.stride)+delta);}
+  function turn(delta){if(!book)return;finishReflow();seekSpread(Math.round(book.viewport.scrollLeft/book.stride)+delta);}
   function seekSpread(index,animate=true){
     if(!book)return;index=Math.max(0,Math.min(book.spreads-1,index));
     const target=index*book.stride,viewport=book.viewport;
@@ -235,19 +235,22 @@ export function installReading({scratchStatus, statusOverride, onStatus, mayCurl
   window.addEventListener('resize',()=>{
     if(!book)return;const index=Math.round(book.viewport.scrollLeft/book.stride);
     // Columns reflow at the new size, so the same spread index shows other text; keep the remembered first visible text instead.
-    clearTimeout(prepare.resizeTimer);prepare.resizeTimer=setTimeout(()=>{
-      prepare.resizeTimer=null;if(!book)return;const anchor=book.anchor;measureBook();
-      // Read next appears only when it fits the last spread, so re-check it at the new size.
-      if(book.ends?.size){const ends=[...book.ends].sort((x,y)=>(+x.dataset.endOrder||0)-(+y.dataset.endOrder||0));for(const end of ends)end.remove();measureBook();for(const end of ends)placeAtEnd(end);}
-      if(!anchor||!reveal(anchor,false))seekSpread(index,false);book.anchorSpread=Math.round(book.viewport.scrollLeft/book.stride);pips();notify('reflow');
-    },160);
+    clearTimeout(prepare.resizeTimer);prepare.resizeIndex=index;prepare.resizeTimer=setTimeout(()=>settleReflow(index),160);
   });
+  function settleReflow(index){
+    prepare.resizeTimer=null;if(!book)return;const anchor=book.anchor;measureBook();
+    // Read next appears only when it fits the last spread, so re-check it at the new size.
+    if(book.ends?.size){const ends=[...book.ends].sort((x,y)=>(+x.dataset.endOrder||0)-(+y.dataset.endOrder||0));for(const end of ends)end.remove();measureBook();for(const end of ends)placeAtEnd(end);}
+    if(!anchor||!reveal(anchor,false))seekSpread(index,false);book.anchorSpread=Math.round(book.viewport.scrollLeft/book.stride);pips();notify('reflow');
+  }
+  /** A turn made while a reflow waits applies to the settled layout; the reflow would otherwise restore the old place over it. */
+  function finishReflow(){if(prepare.resizeTimer){clearTimeout(prepare.resizeTimer);settleReflow(prepare.resizeIndex);}}
   /** Split view: only the focused pane holds a WebGL context; the others turn spreads by sliding. */
   function paneFocus(focused){
     if(focused){if(book)loadTurner().then(()=>turnerModule?.scheduleWarm(0));return;}
     turner?.finish();turner?.dispose?.();turner=null;turnerLoad=null;
   }
-  return {prepare,restore,leave,save,capture,update,pips,hasBook,paneFocus,progress:()=>clamp(progress()),isTurning:()=>!!book?.animating,placeAtEnd,turn,seek,seekSpread,reveal,revealLine,updateStatus,reflow(){measureBook();pips();notify('reflow');},subscribe(listener){listeners.add(listener);return ()=>listeners.delete(listener);},
+  return {prepare,restore,leave,save,capture,update,pips,hasBook,paneFocus,progress:()=>clamp(progress()),isTurning:()=>!!book?.animating,placeAtEnd,turn,seek,seekSpread(index,animate){finishReflow();seekSpread(index,animate);},reveal,revealLine,updateStatus,reflow(){measureBook();pips();notify('reflow');},subscribe(listener){listeners.add(listener);return ()=>listeners.delete(listener);},
     /** Two-page geometry for spread-based consumers; null in continuous reading. */
     geometry(){return book?{viewport:book.viewport,article:book.article,stride:book.stride,columns:book.columns,pages:book.pages,spreads:book.spreads,spread:Math.round(book.viewport.scrollLeft/book.stride)}:null;},toggleZen(){state.prefs.zen=!state.prefs.zen;document.body.classList.toggle('zen',state.prefs.zen);savePrefs();updateStatus();}};
 }
