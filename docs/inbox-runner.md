@@ -53,8 +53,9 @@ The chain otherwise serves decisions that belong to no one. Voice turns and codi
 not use it: an answer under one voice's name written by another provider would
 forge that voice, and coding jobs run with write access.
 
-**Settings** are per machine, in the ignored `.reader/model-chain.json`, and served
-by `GET` and `POST /api/model-chain`:
+**Settings** are per machine, in the ignored `.reader/model-chain.json`, edited on
+Reader Admin's Models page (*Filing models*), and served by `GET` and
+`POST /api/model-chain`:
 
 ```json
 {"order": ["codex", "claude", "agy", "local"],

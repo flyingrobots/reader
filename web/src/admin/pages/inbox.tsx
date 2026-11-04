@@ -71,7 +71,7 @@ export function InboxPage({status,error=null,starting,onMail,onStop,onOpen,html,
         <span id="inbox-mail-note" className="min-w-48 flex-1 text-sm text-muted-foreground">{note}</span>
       </>}>
       {!status?(error?<Unavailable id="inbox-unavailable" what="The inbox" error={error}/>:<LoadingState>Looking in the inbox…</LoadingState>):null}
-      {blocked&&!active?<Notice id="inbox-blocked" data-reason={blocked.reason} tone={['interrupted','error','codex'].includes(blocked.reason)?'error':'info'}>{blocked.message}</Notice>:null}
+      {blocked&&!active?<Notice id="inbox-blocked" data-reason={blocked.reason} tone={['interrupted','error','model'].includes(blocked.reason)?'error':'info'}>{blocked.message}</Notice>:null}
       {active?<div className="flex min-w-0 flex-col gap-3" data-inbox-run="" aria-live="polite">
         {!transcript?<span className="text-sm text-muted-foreground" data-run-clock="">{starting&&!run?.started_at?'Starting the librarian…':<>Running for {run?.started_at?<Elapsed since={run.started_at} clock/>:'…'}{run?.arrivals?<> · {plural(run.arrivals,'arrival')}</>:null}{run?.sandbox_mode==='danger-full-access'?' · Host access':''}</>}</span>
           :run?.sandbox_mode==='danger-full-access'?<span className="text-sm text-muted-foreground">Host access</span>:null}

@@ -27,7 +27,7 @@ from urllib.parse import urlsplit
 from .portable_links import atomic
 
 ORDER = ('codex', 'claude', 'agy', 'local')
-LABELS = {'codex': 'Codex', 'claude': 'Claude', 'agy': 'agy', 'local': 'the local model'}
+LABELS = {'codex': 'Codex', 'claude': 'Claude Code', 'agy': 'agy', 'local': 'the local model'}
 CONFIG = '.reader/model-chain.json'
 STATE = 'model-chain.json'
 START_MODES = ('off', 'lmstudio', 'command')

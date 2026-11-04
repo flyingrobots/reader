@@ -112,9 +112,9 @@ def test_exhausted_codex_falls_to_claude_and_says_why_in_order(setup, capsys):
     assert decide(make(), runtime) == (ANSWER, 'claude')
     steps = json.loads((runtime / model_chain.STATE).read_text())['steps']
     assert steps[1]['reason'] == 'quota'
-    assert steps[1]['message'] == 'Codex is out of usage. Trying Claude next.'
+    assert steps[1]['message'] == 'Codex is out of usage. Trying Claude Code next.'
     transcript = [json.loads(line)['item']['text'] for line in capsys.readouterr().out.splitlines()]
-    assert transcript == ['Asking Codex…', 'Codex is out of usage. Trying Claude next.', 'Asking Claude…', 'Claude answered.']
+    assert transcript == ['Asking Codex…', 'Codex is out of usage. Trying Claude Code next.', 'Asking Claude Code…', 'Claude Code answered.']
 
 
 def test_claude_runs_with_no_tools_or_operator_configuration(setup):
@@ -198,7 +198,7 @@ def test_starting_off_refuses_and_says_so(setup):
 def test_a_custom_start_command_runs_as_argv_without_a_shell(setup, tmp_path):
     root, runtime, bin_dir, make = setup
     marker = tmp_path / 'started'
-    script = cli(tmp_path / 'lms-dual', 'pathlib.Path(' + repr(str(marker)) + ').write_text(json.dumps(args[1:]))\n')
+    script = cli(tmp_path / 'start-model', 'pathlib.Path(' + repr(str(marker)) + ').write_text(json.dumps(args[1:]))\n')
     write_config(root, {'order': ['local'], 'local': {'start': 'command', 'command': [script, 'qwen; touch ' + str(tmp_path / 'injected')], 'model': 'big-model'}})
     client = FakeClient(up=False)
     original = subprocess.run
@@ -269,7 +269,7 @@ def test_every_provider_failing_keeps_the_work_and_names_each_reason(setup):
     with pytest.raises(ValueError) as caught:
         decide(make(client=FakeClient(up=False)), runtime)
     text = str(caught.value)
-    assert 'Codex is out of usage' in text and 'Claude is not installed' in text and 'not running' in text
+    assert 'Codex is out of usage' in text and 'Claude Code is not installed' in text and 'not running' in text
     assert 'stays safely queued' in text
 
 
@@ -295,7 +295,7 @@ def test_every_call_is_archived_with_its_prompt_and_provider(setup):
 @pytest.mark.parametrize('value', [
     {'order': ['gemini']}, {'order': ['codex', 'codex']}, {'order': []}, {'other': 1},
     {'local': {'start': 'shell'}}, {'local': {'start': 'command'}},
-    {'local': {'command': ['relative/path']}}, {'local': {'command': 'lms-dual'}}, {'local': {'command': ['/a', 'b\0c']}}])
+    {'local': {'command': ['relative/path']}}, {'local': {'command': 'start-model'}}, {'local': {'command': ['/a', 'b\0c']}}])
 def test_settings_refuse_what_they_cannot_honor(value):
     with pytest.raises(ValueError):
         checked_config(value)
@@ -340,7 +340,7 @@ def test_a_fallback_is_told_it_stands_in_and_codex_is_not(setup):
     assert prompt.startswith('Codex, the Reader librarian, is out of office') and 'You are not the librarian' in prompt and prompt.endswith('Classify.')
     assert ('claude', 'stand-in') in states(runtime)
     steps = json.loads((runtime / model_chain.STATE).read_text())['steps']
-    assert 'Codex, the librarian, is away. Claude is standing in.' in [s['message'] for s in steps]
+    assert 'Codex, the librarian, is away. Claude Code is standing in.' in [s['message'] for s in steps]
     assert json.loads(next((root / 'logs/llm/inbox').rglob('meta.json')).read_text())['stand_in'] is True
 
 

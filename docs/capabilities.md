@@ -262,6 +262,11 @@ Each check is a cold CLI start for that voice; there is no spending cap beyond t
 90-second timeout. Threaded sub-conversations and voices starting chats are not
 implemented.
 
+Filing asks models in a prescribed order, moving on when one cannot answer: Codex,
+Claude, agy, then the local model, which Reader can start the configured way. Each
+step appears live in the Activity transcript, and any model but Codex is told it
+stands in for the librarian. See [the model order](inbox-runner.md#the-model-order).
+
 Reader Admin also supervises a local model on any OpenAI-compatible server:
 LM Studio (the default), Ollama, llama.cpp's `llama-server`, or another server such
 as vLLM, LocalAI or Jan, chosen by preset or base URL, with models discovered through

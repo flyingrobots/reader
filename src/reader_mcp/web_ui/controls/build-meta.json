@@ -33,7 +33,7 @@
     "src/admin/link.tsx": "1364e49c693a3fdfdfda3b767e4914019c7092ad552a13b14d70fe61af03a714",
     "src/admin/overview.tsx": "9d374ccf81b59c979459f03a0a6eefe54475d7395ca1933bb3c474922bcf435d",
     "src/admin/pages/gallery-model.ts": "9682e5a75aeaa7fb3400a5f6489b28775560f10136580488e246c9ecddd5fbd7",
-    "src/admin/pages/inbox.tsx": "b83d5d1d018483727dcb314fe01063fc222601fef2f313bbe22b8e5bc9e1bc99",
+    "src/admin/pages/inbox.tsx": "8d6e937699657e203f0fc3c17d65716696939ed1bfaab104543a87383be183f9",
     "src/admin/pages/index-charts.tsx": "fd2fb0bdb136de7139d5da561c38d331cbb271f3640e1278b30277308cc5fc11",
     "src/admin/pages/indexes.tsx": "97731ffa6d463f30306ecdae68dd49539482158a0c305d36db96b64eaa02e56c",
     "src/admin/pages/jobs.tsx": "4f149ab3445d1eb9770059937a34458750f792508be888b24cadd8ba86c0ce17",
@@ -43,7 +43,7 @@
     "src/admin/pages/repositories.tsx": "b27c3176025dd93ab4194beff4ec6eb12aca8a62235fb2b1a84c39ef97760c78",
     "src/admin/pages/shelves.tsx": "fe7173d11af9e4f0d05fee9afa631f3265438845426211ae4e6b0b05cde2159a",
     "src/admin/pages/voices.tsx": "2c2ab2da0029eb1209922b79927799da6734a68a5867bf9a7c0d0e61ca3e31bb",
-    "src/admin/panels.tsx": "12e75e4680e6927d25faa10a9f8f482ef2543e2a8352ecedd8c321234bed8acf",
+    "src/admin/panels.tsx": "7616bfdc58c4837a0cc5af4685d990e2bd4edc568ea5266a25dd0541b8db7a64",
     "src/admin/sections.tsx": "62f2ef2d741d2c547f0742b236f977d682400ec327367c91801163a43d73b4f6",
     "src/art-focus-chrome.tsx": "51fd02526aea995a20a91490da61ca3d31cf25d06eda9fb30e8bce82fed457fa",
     "src/art-prompt-card.tsx": "6cd9e2d4c4f1b9a2469841b87038dfd19e0e7f9e986fd80141e2a7b8950b154a",
@@ -125,6 +125,7 @@
     "src/log-block.tsx": "514b773a5291e22a958b25a92ffc0e81f48d3caae3507cefefeda57bc0cd3b9a",
     "src/markdown-editor.ts": "88b1c43e194e5efe4c0a87824ad238df80640f48fafa180a6349ec11752eb1da",
     "src/math.ts": "f4ebd1d4e82c2cb58a1e1ff0cc119f39951e422bbb7057abaf51903d92334e21",
+    "src/model-order.tsx": "736ae335d3683faccc1fa8a1a0202aff1c2fe49d726257c4194f503a69c02697",
     "src/notify.ts": "792ebb9eb5e43bae5327e5b3c40814e3122d776dd5ac2934f10784dac8cacb2f",
     "src/outline.tsx": "24bec26b51b1b5e487d6604983cb4eb75bc30a9f68b097717165c51cdfcfd5ac",
     "src/page-turn/page-turn.ts": "fca2fca355de2ac96a2a88157162dfe023ea1751d4e4459aa77dec2613d08727",
@@ -986,12 +987,12 @@
       "sha256": "cb2ee2554fd41ac9f8e2e69c350365f0e1cf9732d27ad161c9c97b20945bbe4c"
     },
     "reader-controls.css": {
-      "bytes": 183239,
-      "sha256": "a84f16398e9af291aa637093520398e5edd331d32a99a2a7412d49d8bdd9f0b5"
+      "bytes": 183281,
+      "sha256": "e9f16d6ccd201b2cd9eb5a6ee4ab89d5cc7f6095767dcaa2411c575d28efd300"
     },
     "reader-controls.js": {
-      "bytes": 1332488,
-      "sha256": "1093be765bea2246bd38d17ed7127afec4b71136c19d20d0935d77b57cf7edc6"
+      "bytes": 1336074,
+      "sha256": "b1d4cbc3a7a4bd01e73c4dfca28b93e7198ab429f8530a2e2a0116db7ae04241"
     },
     "reader-controls.js.LEGAL.txt": {
       "bytes": 6537,

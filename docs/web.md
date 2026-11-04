@@ -4385,6 +4385,7 @@ node tests/web_chat.cjs
 .venv/bin/python -m pytest -q tests/test_local_model.py tests/test_local_provider.py
 node tests/web_local_model.cjs
 node tests/web_local_provider.cjs
+node tests/web_model_order.cjs
 node tests/web_index_scale.cjs
 .venv/bin/python -m pytest -q tests/test_versions.py
 node tests/web_versions.cjs

@@ -1,4 +1,9 @@
 """Disposable, synthetic browser fixture. No configured/private vault access."""
+import os
+
+# A failing fake Codex must never fall through to a real Claude or agy on this machine.
+os.environ['READER_MODEL_CHAIN'] = 'codex'
+
 import json
 import os
 from pathlib import Path
