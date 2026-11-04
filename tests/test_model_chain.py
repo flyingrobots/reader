@@ -351,3 +351,10 @@ def test_no_role_means_no_stand_in_note(setup):
     write_config(root, {'order': ['claude']})
     decide(make(), runtime)
     assert seen.read_text() == 'Classify.'
+
+
+def test_the_settings_page_shows_what_is_saved_not_a_process_override(tmp_path, monkeypatch):
+    (tmp_path / '.reader').mkdir()
+    monkeypatch.setenv('READER_MODEL_CHAIN', 'codex')
+    assert model_chain.settings_view(tmp_path)['config']['order'] == list(model_chain.ORDER)
+    assert read_config(tmp_path)['order'] == ['codex']

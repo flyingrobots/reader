@@ -100,7 +100,7 @@ def checked_config(value):
     return result
 
 
-def read_config(root):
+def saved_config(root):
     """The saved settings, or the defaults when nothing is saved. A damaged file is an error, not a silent default."""
     file = Path(root) / CONFIG
     if file.is_symlink():
@@ -111,6 +111,12 @@ def read_config(root):
         if file.stat().st_size > MAX_CONFIG:
             raise ValueError(CONFIG + ' is too large')
         config = checked_config(json.loads(file.read_text()))
+    return config
+
+
+def read_config(root):
+    """The settings a run uses: the saved ones, with this process's READER_MODEL_CHAIN override of the order."""
+    config = saved_config(root)
     order = os.environ.get('READER_MODEL_CHAIN')
     if order:
         config['order'] = checked_config({'order': order.split(',')})['order']
@@ -125,7 +131,7 @@ def write_config(root, value):
 
 def settings_view(root, identity=None, environ=None):
     """The settings page's data. The start command names a path and runs a program, so only this Mac's own browser sees it."""
-    config = read_config(root)
+    config = saved_config(root)
     local_browser = identity is None or identity.get('via') == 'local'
     if not local_browser:
         config['local'].pop('command')
@@ -141,7 +147,7 @@ def configure(root, value, identity=None, environ=None):
         local = value.get('local')
         if isinstance(local, dict) and 'command' in local:
             raise ValueError('The start command can only be changed in a browser on this Mac')
-        value = {**value, 'local': {**(local if isinstance(local, dict) else {}), 'command': read_config(root)['local']['command']}}
+        value = {**value, 'local': {**(local if isinstance(local, dict) else {}), 'command': saved_config(root)['local']['command']}}
     write_config(root, value)
     return settings_view(root, identity, environ)
 
