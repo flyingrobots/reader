@@ -6,16 +6,69 @@ and Obsidian's **Process inbox** call the same supervisor; the optional
 `you-got-mail` skill is a convenience adapter. Delivery alone does not start filing.
 The workflow requires an existing Reader environment, an
 initialized vault Git repository with a configured commit identity, git-locks,
-and an authenticated Codex CLI. Install the pinned wide-md companion for
+and at least one usable model: see [the model order](#the-model-order). Install the pinned wide-md companion for
 reading derivatives; formatter refusals remain visible in the report. Existing
 library documents must already have valid catalog metadata; intake reports any
 required catalog migration before moving its first arrival.
 
-The script owns inventory, preservation, filing, validation and commits. Codex
-supplies bounded editorial decisions through a JSON schema. It runs read-only,
-without the operator's MCP/app configuration, shell tools, subagents, web search
-or project instructions. Existing legacy permission arguments remain accepted
-for older clients, but do not grant the editorial model write access.
+The script owns inventory, preservation, filing, validation and commits. A model
+supplies bounded editorial decisions through a JSON schema. It runs without tools,
+the operator's MCP/app configuration, subagents, web search or project instructions.
+Existing legacy permission arguments remain accepted for older clients, but do not
+grant the editorial model write access.
+
+## The model order
+
+Each decision walks a prescribed order: Codex, then Claude, then agy, then the
+local model. Any failure moves to the next provider: not installed, out of usage,
+not signed in, timed out, unreachable, or an answer that fails validation. A
+provider found missing, out of usage or signed out is not asked again in that run.
+Stopping a run stops the walk. If every provider fails, the run fails with each
+reason, its queue is kept, and retrying resumes it.
+
+Every step appears as it happens, naming the provider and the reason but never
+source text: as a line in the Activity transcript, and under `model_chain` in
+`GET /api/inbox`. The provider that decided each arrival is recorded as
+`editorial_models` in the batch evidence, because the quality of a title or
+description depends on it. Each decision's prompt, steps and answer are archived
+under `logs/llm/inbox/` and committed on their own at the end of the run.
+
+| Provider | How it is confined |
+| --- | --- |
+| Codex | `--sandbox read-only`, ignoring user configuration, with its tool features disabled |
+| Claude | `--tools ""`, no setting sources, no MCP servers, no session persistence |
+| agy | An empty scratch workspace whose `PreToolUse` hook denies every tool except `finish`. agy has no flag that removes its tools: `--mode plan` and `--sandbox` still allowed reads and writes when tested. An answer is discarded if the workspace changed. agy keeps its own conversation history under `~/.gemini`, so excerpts are retained there |
+| Local | The Reader Admin provider, over HTTP, under the workstation GPU lock. No tools exist. A prompt over about 24,000 tokens is refused rather than truncated |
+
+Codex, Claude and agy send excerpts to their vendors. Remove a provider from the
+order to prevent that. Local-model decisions pass the same validation but have not
+been shown to match the others' editorial quality.
+
+Filing is librarian work, and Codex is the librarian. Any other provider is told in
+its prompt that the librarian is out of office and that it is a stand-in for this one
+task, not to adopt the librarian's persona, voice or name. The transcript says who is
+standing in, and the archive's `meta.json` records `stand_in`.
+
+The chain otherwise serves decisions that belong to no one. Voice turns and coding jobs do
+not use it: an answer under one voice's name written by another provider would
+forge that voice, and coding jobs run with write access.
+
+**Settings** are per machine, in the ignored `.reader/model-chain.json`, and served
+by `GET` and `POST /api/model-chain`:
+
+```json
+{"order": ["codex", "claude", "agy", "local"],
+ "local": {"start": "lmstudio", "command": [], "model": ""}}
+```
+
+`local.start` says what to do when the local model is not ready: `off` fails over
+with that reason; `lmstudio` (the default) runs `lms server start` and loads
+`local.model`; `command` runs `local.command`. The command is an argument list with
+an absolute program path, run without a shell, with a 5-minute limit. Only a browser
+on the vault machine can see or change it, since it names a program to run there.
+Shell aliases are not available: name the script itself. An empty `local.model` uses
+the first text model the server lists. `READER_MODEL_CHAIN=codex,claude` overrides
+the order for one process.
 
 ## Entry points
 
@@ -127,8 +180,8 @@ that run, then remove only stale `state.json` to permit a retry. Keep `queue.jso
 its recorded lease; never steal another owner's acquisition.
 
 The supervisor allows at most 30 minutes without script-owned progress. A completed
-snapshot, validated model response, recorded decision, entry into filing, or
-committed batch renews that deadline. Model output streaming alone does not. Each
+snapshot, a step down the model order, validated model response, recorded decision,
+entry into filing, or committed batch renews that deadline. Model output streaming alone does not. Each
 filing stage remains bounded to 30 minutes, within its 40-minute repository lease.
 A finite frozen queue can span several such stages without manual restarts.
 Cancellation allows up to 35 seconds for cleanup, including the 30-second lock
@@ -149,8 +202,8 @@ JSON is capped at 8 MiB. Superseded prepared blobs are reclaimed only after thei
 replacement journal record is durable; blobs still referenced by another output
 remain available for replay. Local image imports and link records have their own
 [documented limits](portable-links.md). No heavy build or arbitrary source command
-is part of intake. Codex account/authentication state is managed by Codex outside
-Reader's disposable runtime output.
+is part of intake. Each provider's account and authentication state is managed by
+that provider outside Reader's disposable runtime output.
 
 ## Verification
 

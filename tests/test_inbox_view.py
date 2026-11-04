@@ -298,12 +298,12 @@ def test_inbox_routes_validate_actions_and_keep_previews_read_only(vault):
     try:
         status, body = request('/api/inbox')
         assert status == 200 and body['arrivals'][0]['title'] == 'A delivered spec' and body['codex'] == {'name': 'codex', 'installed': False}
-        assert body['blocked']['reason'] == 'codex'
+        assert body['blocked']['reason'] == 'model'
         assert request('/api/inbox', {'action': 'start'}, token='wrong')[0] == 403
         assert request('/api/inbox', {'action': 'start', 'prompt': 'do something else'})[0] == 400
         assert request('/api/inbox', {'action': 'stop', 'force': True})[0] == 400
         status, body = request('/api/inbox', {'action': 'start'})
-        assert status == 400 and 'Codex was not found' in body['error']
+        assert status == 400 and 'No model is available' in body['error']
         assert request('/api/inbox', {'action': 'stop'})[0] == 400
         path = 'inbox/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/spec.md'
         status, doc = request('/api/document?path=' + path)
@@ -433,10 +433,11 @@ time.sleep(4)
     deadline = time.monotonic() + 3.5
     while time.monotonic() < deadline:
         page = view.events(0)
-        if page['events']:
+        texts = [event['item']['text'] for event in page['events']]
+        if 'Reading the arrivals.' in texts:
             break
         time.sleep(.1)
-    assert page['status'] == 'running' and page['events'][0]['item']['text'] == 'Reading the arrivals.', 'a short line reaches events.jsonl before Codex exits'
+    assert page['status'] == 'running' and texts == ['Asking Codex…', 'Reading the arrivals.'], 'a short line reaches events.jsonl before Codex exits'
     assert page['done'] is False
     wait_for(view, ('finished', 'failed'))
     assert view.events(page['next_offset'])['done'] is True

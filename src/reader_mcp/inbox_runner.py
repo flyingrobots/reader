@@ -166,7 +166,7 @@ def run(root, codex, run_id=None, timeout=1800, workstation_lock_store=None, san
         raise ValueError('Intake progress deadline must be at most 30 minutes')
     runtime.mkdir(parents=True, exist_ok=True)
     for name in ('run.lock', 'state.json', 'state.next.json', 'cancel', 'pending.json', 'queue.json', 'selection.json', 'result.json',
-                 'last-message.md', 'events.jsonl', 'stderr.log', 'tmp', 'editorial', 'prepared', 'progress.json'):
+                 'last-message.md', 'events.jsonl', 'stderr.log', 'tmp', 'editorial', 'prepared', 'progress.json', 'model-chain.json'):
         local_path(root, '.reader/inbox-runner/' + name)
     with (runtime / 'run.lock').open('a') as lock:
         try:
@@ -208,6 +208,7 @@ def run(root, codex, run_id=None, timeout=1800, workstation_lock_store=None, san
             atomic(runtime / 'selection.json', {'run_id': state['run_id'], 'arrivals': ['inbox/' + name for name in arrivals], 'files': paths}, limit=MAX_PLAN)
             (runtime / 'result.json').unlink(missing_ok=True)
             (runtime / 'progress.json').unlink(missing_ok=True)
+            (runtime / 'model-chain.json').unlink(missing_ok=True)
             temp = runtime / 'tmp'; temp.mkdir(exist_ok=True)
             def data_size():
                 total = 0

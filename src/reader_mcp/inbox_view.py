@@ -20,6 +20,7 @@ import threading
 import time
 from uuid import uuid4
 
+from . import model_chain
 from .display import shown
 from .inbox_runner import chat_turn_running, inventory
 
@@ -42,6 +43,7 @@ INTERRUPTED = ('The inbox runner stopped unexpectedly. Inspect its report and pa
 
 
 CODEX_MISSING = 'Codex was not found. Set READER_CODEX to its executable path, then run codex login in your terminal.'
+NO_MODEL = 'No model is available to classify arrivals. Install and sign in to Codex, Claude Code or agy, or turn the local model on in Reader Admin.'
 
 
 class RunConflict(Exception):
@@ -266,6 +268,22 @@ class InboxView:
             return None, False
         return read[0].decode('utf-8', 'replace'), read[1]
 
+    def model_providers(self, errors):
+        """Which providers in the order this machine could try. Names only: tailnet browsers see this too."""
+        try:
+            return model_chain.available(self.root, self.environ)
+        except (ValueError, OSError) as exc:
+            errors.append(str(exc))
+            return []
+
+    def model_chain_state(self):
+        """The current run's walk down the order, as the worker reports it; None before its first model call."""
+        try:
+            read = read_bounded(self.safe_runtime() / model_chain.STATE, 1024 ** 2)
+            return json.loads(read[0]) if read else None
+        except (ValueError, OSError):
+            return None
+
     def latest_event(self):
         """A short line from the newest agent message or command in events.jsonl, for progress."""
         try:
@@ -437,6 +455,8 @@ class InboxView:
         result = {'arrivals': [], 'runner': None, 'claims_held': [], 'codex': {'name': 'codex', 'installed': bool(find_codex(self.environ))},
                   'sandbox_modes': list(SANDBOX_MODES), 'errors': []}
         result['pending'] = False
+        result['model_providers'] = self.model_providers(result['errors'])
+        result['model_chain'] = self.model_chain_state()
         try:
             result['arrivals'] = self.arrivals()
         except (ValueError, OSError) as exc:
@@ -504,8 +524,8 @@ class InboxView:
             return {'reason': 'chat', 'message': 'A voice chat turn is running in this vault. You got mail can start when it finishes.'}
         if not status['arrivals'] and not status.get('pending'):
             return {'reason': 'empty', 'message': 'The inbox is empty.'}
-        if not (status.get('codex') or {}).get('installed'):
-            return {'reason': 'codex', 'message': CODEX_MISSING}
+        if not status.get('model_providers'):
+            return {'reason': 'model', 'message': NO_MODEL}
         return None
 
     # Actions ------------------------------------------------------------
@@ -528,9 +548,8 @@ class InboxView:
             if status['blocked']:
                 error = RunConflict if status['blocked']['reason'] == 'active' else ValueError
                 raise error(status['blocked']['message'])
-            codex = find_codex(self.environ)
-            if not codex:
-                raise ValueError(CODEX_MISSING)
+            # Absent Codex is not a refusal: the chain reports it and moves to the next provider.
+            codex = find_codex(self.environ) or 'codex'
             run_id = str(uuid4())
             argv = self.command(codex, run_id, sandbox_mode)
             # The supervisor imports the same reader_mcp package as this server, whatever its working directory.

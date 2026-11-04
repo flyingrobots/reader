@@ -1588,8 +1588,8 @@ In the static demo these sections say they need Reader.
 Reader Admin's **Models** page (`#admin/models`, after Voices) supervises a small work
 queue for a model you run yourself: LM Studio, Ollama, llama.cpp's `llama-server`, or
 any other server with an OpenAI-compatible API (vLLM, LocalAI, Jan and others). It suits bulk, private, judgment-light
-language tasks. Outputs are suggestions labelled with their model; filing, catalog
-writes and anything under a voice's name stay with the voices. Machine-written text
+language tasks. Outputs are suggestions labelled with their model; anything under a voice's name stays with the voices.
+The local model is also the last resort in [intake's model order](inbox-runner.md#the-model-order). Machine-written text
 is a rebuildable cache and is never written into vault documents.
 
 | Card | Shows | Controls |

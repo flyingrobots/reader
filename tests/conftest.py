@@ -19,6 +19,9 @@ if 'reader_mcp' in sys.modules:
 sys.path.insert(0, SRC)
 os.environ['PYTHONPATH'] = os.pathsep.join([SRC, *[p for p in os.environ.get('PYTHONPATH', '').split(os.pathsep) if p and p != SRC]])
 
+# A failing fake Codex must never fall through to a real Claude or agy on this machine.
+os.environ['READER_MODEL_CHAIN'] = 'codex'
+
 import reader_mcp  # noqa: E402
 
 if not Path(reader_mcp.__file__).resolve().is_relative_to(Path(SRC).resolve()):

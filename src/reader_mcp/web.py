@@ -35,6 +35,7 @@ from . import embeds as embed_tree
 from .engagement import ONE_OFF_RECEIPTS, Engagement
 from .inbox_view import InboxView, RunConflict
 from .writing import NOTEBOOK, Writing, WritingConflict
+from . import model_chain
 from .local_model import LocalModel
 from .links import LinkError, LinkGraph, Resolver, excerpt, title_of
 from .magazine import Magazine
@@ -1546,6 +1547,8 @@ class WebHandler(BaseHTTPRequestHandler):
                         raise ValueError('Expected {"action": "start", "sandbox_mode": ...} or {"action": "stop"}')
                 elif parsed.path == '/api/local-model':
                     self.json(library.local_model.dispatch(request))
+                elif parsed.path == '/api/model-chain':
+                    self.json(model_chain.configure(library.root, request, self.identity))
                 elif parsed.path == '/api/art':
                     participant = library.engagement.participant(request.pop('participant', self.server.participant))
                     self.json(library.art.dispatch(request, participant))
@@ -1622,6 +1625,8 @@ class WebHandler(BaseHTTPRequestHandler):
                 self.json(library.speech.get(parsed.path[len('/api/speak/'):]))
             elif parsed.path == '/api/inbox':
                 self.json(library.inbox.status())
+            elif parsed.path == '/api/model-chain':
+                self.json(model_chain.settings_view(library.root, self.identity))
             elif parsed.path == '/api/links':
                 self.json(library.backlinks(args.get('path', '')))
             elif parsed.path == '/api/preview':

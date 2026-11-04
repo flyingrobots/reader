@@ -1,4 +1,4 @@
-"""Deterministic inbox worker. Codex supplies one validated editorial decision per bundle.
+"""Deterministic inbox worker. The first available model in the chain supplies one validated editorial decision per bundle.
 
 The caller supervises this process group. The model never receives write access
 to the vault; this worker owns snapshots, moves, projections, checks and commits.
@@ -19,6 +19,7 @@ import yaml
 
 from .browse import SKIP as BROWSE_SKIP
 from .junk import os_junk
+from .model_chain import Chain
 from .metadata import source_frontmatter
 from .portable_links import PortableLinks, digest, atomic
 from .intake_journal import Journal, file_hash, local_path, save, load, MAX_PLAN
@@ -174,13 +175,22 @@ def model_context(root, entry):
             'reading': texts, 'reading_scope': 'Only these bounded excerpts have been supplied; do not claim full reading of truncated or binary files.'}
 
 
+CHAINS = {}
+
+
+def model_chain_for(root, runtime, codex):
+    """One chain per worker run, so a provider found out of usage is not asked again for the next document."""
+    key = str(runtime)
+    if key not in CHAINS:
+        state = runtime / 'state.json'
+        run_id = (json.loads(state.read_text()).get('run_id') if state.is_file() else None) or str(uuid4())
+        CHAINS[key] = Chain(root, runtime, run_id, codex=codex, on_step=lambda: progress(runtime, 'editorial'))
+    return CHAINS[key]
+
+
 def model_call(root, runtime, entry, codex, context):
     work = runtime / 'editorial'
     work.mkdir(exist_ok=True)
-    schema = work / 'schema.json'
-    schema.write_text(json.dumps(decision_schema()))
-    output = work / 'decision.json'
-    output.unlink(missing_ok=True)
     prompt = ('Classify this one Reader arrival. Return only the required JSON editorial decision. '
               'The source and snapshot_sha256 must match exactly. Select a collection and short lowercase hyphenated slug, '
               'a descriptive title, source-stated author (empty if unknown), and a concise description grounded in the supplied reading. '
@@ -194,19 +204,11 @@ def model_call(root, runtime, entry, codex, context):
     if len(prompt.encode()) > 256 * 1024:
         raise ValueError('Internal editorial partition exceeded its call budget')
     (work / 'context.txt').write_text(prompt)
-    command = [codex, 'exec', '--cd', str(work), '--sandbox', 'read-only', '--ignore-user-config', '--ignore-rules',
-               '--disable', 'shell_tool', '--disable', 'unified_exec', '--disable', 'apps', '--disable', 'multi_agent',
-               '--disable', 'skill_search', '--enable', 'skip_host_skill_discovery',
-               '-c', 'suppress_unstable_features_warning=true', '-c', 'project_doc_max_bytes=0', '-c', 'web_search="disabled"',
-               '-c', 'approval_policy="never"', '--skip-git-repo-check', '--ephemeral', '--json', '--color', 'never',
-               '--output-schema', str(schema), '--output-last-message', str(output), '-']
-    # Inherit the supervised worker's process group, so cancellation also stops model descendants.
-    result = subprocess.run(command, input=prompt, text=True, timeout=600)
-    if result.returncode:
-        raise ValueError(f'Editorial model exited with status {result.returncode}')
-    if output.is_symlink() or not output.is_file() or output.stat().st_size > 32 * 1024:
-        raise ValueError('Editorial model returned no bounded JSON decision')
-    decision = validate_decision(json.loads(output.read_text()), entry)
+    chain = model_chain_for(root, runtime, codex)
+    decision, provider = chain.decide(prompt, decision_schema(), lambda value: validate_decision(value, entry), work, role='librarian')
+    # Which model decided stays with the batch evidence, since the answer's quality depends on it.
+    used = entry.setdefault('editorial_models', {})
+    used[provider] = used.get(provider, 0) + 1
     progress(runtime, 'editorial')
     return decision
 
@@ -788,6 +790,9 @@ def main():
     except Exception as exc:
         print('Reader intake: ' + str(exc), file=sys.stderr)
         raise SystemExit(1)
+    finally:
+        for chain in CHAINS.values():
+            chain.commit_logs()
 
 
 if __name__ == '__main__':
