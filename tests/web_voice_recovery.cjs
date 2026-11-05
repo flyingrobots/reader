@@ -5,7 +5,7 @@ const {writeFileSync,rmSync}=require('node:fs');const {join}=require('node:path'
 const {chromium}=require(process.env.READER_PLAYWRIGHT||'playwright-core');
 (async()=>{let browser;const fixture=spawn(process.env.READER_PYTHON||'.venv/bin/python',['tests/web_fixture.py','--speech'],{stdio:['ignore','pipe','inherit']});try{
  const {url,speech}=await new Promise((resolve,reject)=>{createInterface({input:fixture.stdout}).once('line',s=>resolve(JSON.parse(s)));fixture.once('exit',c=>reject(Error('fixture '+c)));});
- browser=await chromium.launch({headless:true,executablePath:process.env.READER_CHROME,args:['--no-sandbox','--disable-gpu']});
+ browser=await chromium.launch({headless:true,executablePath:process.env.READER_CHROME||'/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',args:['--no-sandbox','--disable-gpu']});
  const page=await browser.newPage({viewport:{width:1440,height:1000},reducedMotion:'reduce'});
  await page.addInitScript(()=>localStorage.setItem('reader.preferences.v1',JSON.stringify({smooth:false,nextReads:false})));
  {

@@ -13,7 +13,7 @@ const {chromium}=require(process.env.READER_PLAYWRIGHT||'playwright-core');
   const errors=[],external=[];
   const context=await browser.newContext({viewport:{width:1300,height:900},reducedMotion:'reduce'});
   await context.addInitScript(()=>{try{localStorage.setItem('reader.preferences.v1',JSON.stringify({smooth:false,theme:'user-reader-test'}));}catch{}});
-  const page=await context.newPage();page.on('pageerror',e=>errors.push(e.message));page.on('console',m=>{if(m.type()==='error')errors.push(m.text());});page.on('request',r=>{if(!r.url().startsWith(url))external.push(r.url());});
+  const page=await context.newPage();page.on('pageerror',e=>errors.push(e.message));page.on('console',m=>{if(m.type()==='error'&&!m.location()?.url?.endsWith('/api/speech-voices'))errors.push(m.text()+' '+(m.location()?.url||''));/* No AI-TTS daemon in this fixture: the voice field answers 503 and offers a retry. */});page.on('request',r=>{if(!r.url().startsWith(url))external.push(r.url());});
   const toast=text=>page.locator('[data-sonner-toast]').filter({hasText:text});
   const card=page.locator('[data-card=service]');
   // Installable app: manifest, touch icon, and a theme colour that follows the theme.

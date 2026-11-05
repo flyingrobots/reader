@@ -67,7 +67,7 @@ const {sanitizerReport}=require('./web_wait.cjs');  // #151
   // Two pages: only when it fits the last spread.
   {const {page,context}=await open({layout:'spread'});
    await page.goto(url+'#read='+encodeURIComponent('library/other.md'));await page.locator('#article .next-reads').waitFor();
-   assert.equal(await page.locator('#pagination-slot [aria-current=page]').textContent(),'1','a one-page document shows Read next on its facing page');
+   assert.equal(await page.locator('#pagination-slot [aria-current=page]').textContent(),'1–2','a one-page document shows Read next on its facing page');assert.equal(await page.locator('#pagination-slot [aria-label^="Pages "]').count(),1,'and it adds no second spread');
    const box=await page.evaluate(()=>{const v=document.querySelector('.book-viewport').getBoundingClientRect(),r=document.querySelector('.next-reads').getBoundingClientRect();return {half:v.left+v.width/2,left:r.left,right:r.right,vright:v.right};});
    assert.ok(box.right<=box.vright+1,'inside the spread');await page.waitForTimeout(300);await page.screenshot({path:'.reader/web-dev/next-reads-spread.png'});
    await context.close();

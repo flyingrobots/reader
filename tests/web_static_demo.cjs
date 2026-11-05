@@ -81,7 +81,9 @@ const TYPES={'.html':'text/html; charset=utf-8','.js':'text/javascript','.mjs':'
   await open('library/lantern/design/sync-design.v2.md','Lantern sync');
   const chip=page.locator('[data-version-chip]').first();await chip.waitFor();assert.match(await chip.textContent(),/v2 of 2/);
   await chip.click();const panel=page.locator('#versions-panel');await panel.waitFor();await page.keyboard.press('Escape');await panel.waitFor({state:'hidden'});
-  await open('library/lantern/journal/week-43.md','Week');
+  const isoWeek=date=>{const d=new Date(Date.UTC(date.getFullYear(),date.getMonth(),date.getDate()));d.setUTCDate(d.getUTCDate()+4-(d.getUTCDay()||7));return Math.ceil(((d-Date.UTC(d.getUTCFullYear(),0,1))/864e5+1)/7);};
+  // The demo dates itself from today: its journal is named for the week five days back.
+  await open(`library/lantern/journal/week-${String(isoWeek(new Date(Date.now()-5*864e5))).padStart(2,'0')}.md`,'Week');
   await page.locator('#article > .change-banner').waitFor();await page.locator('[data-compare=mine]').click();
   const sheet=page.locator('#changes-panel');await sheet.waitFor();assert.ok(await sheet.locator('.change-hunk').count()>=1,'What changed lists hunks');
   await page.keyboard.press('Escape');await sheet.waitFor({state:'hidden'});
