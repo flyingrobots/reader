@@ -3790,6 +3790,7 @@ offsets of surrounding passages are unchanged.
   embeds') render after the reading position is restored and its math is typeset, so
   first paint never waits for them; when they finish, the block that was first in view is kept in view (unless
   you moved meanwhile) and spread counts are re-measured.
+- **Expanding.** Clicking a diagram or pressing Enter on it opens it fitted to the window, and it stays fitted as the window changes until you zoom. The zoom bar has −, +, **Fit** and **100%**. The keys are `+`, `-`, `0` for fit and `1` for full size. Ctrl/⌘-scroll or a pinch zooms at the pointer, from 10% to 800%, and dragging moves a diagram larger than its box.
 - **Errors and limits.** A diagram that does not parse, an unsupported type, a source
   over 64 KiB, or any diagram after the first 64 in a document shows its source
   expanded, with a muted line: "Couldn't draw this diagram: <reason>". Other diagrams

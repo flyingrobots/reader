@@ -603,3 +603,11 @@ body:not(.two-page) #article{max-width:var(--article-width,65ch)}
 #article-width-slot:empty{display:none}
 .article-width{position:relative;display:flex;align-items:center;gap:7px;width:116px}.article-width>svg{width:14px;height:14px;flex:none}
 .article-width-readout{position:absolute;z-index:30;left:50%;bottom:calc(100% + 10px);transform:translateX(-50%);padding:3px 8px;border:1px solid var(--line);border-radius:4px;background:var(--raised);color:var(--ink);font-size:11px;white-space:nowrap;pointer-events:none}
+/* The expanded diagram. These rules live here because Tailwind only scans web/src, so classes written in the .mjs files may not be built. */
+#diagram-dialog{width:min(96vw,1400px);max-width:none;padding:20px}
+#diagram-body{max-height:calc(85vh - 80px)}
+#diagram-body>svg{display:block;margin-inline:auto}
+.diagram-zoom{display:flex;flex-wrap:wrap;align-items:center;gap:6px}
+.diagram-zoom-level{min-width:3.5em;font-size:12px;font-variant-numeric:tabular-nums;text-align:center}
+#diagram-body svg.diagram-pannable{cursor:grab;touch-action:none}
+#diagram-body svg.diagram-pannable:active{cursor:grabbing}

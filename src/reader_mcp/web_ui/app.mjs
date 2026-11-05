@@ -22,6 +22,7 @@ import {calloutPlugin} from './callouts.mjs';
 import {drawable,fetchShape,paintShape} from './shapes.mjs';
 import {artJobs,fetchArt,focusArt,forgetArt,hasArt,paintArt,paintArtThumb,paintPlaceholder} from './art.mjs';
 import {closeArtFocus,focusOpen} from './art-focus.mjs';
+import {mountDiagramZoom} from './diagram-zoom.mjs';
 import {renderCommandSuggestions,openScratchSave,closeAppDialogs,openAnnotationDialog,openSpeakMenu,openShellDialog,renderVersionsTimeline,renderLinkPreview,renderReadingLog,applyThemes,installControls,mountSkeleton,mountCodeBlocks,decorateCodeBlocks,clearControlsWithin,renderFileExplorer,mountArticleSpeech,mountSectionItems,mountSectionPage,mountAdmin,setAdminRoute,mountChangesPanel,mountArtRegenerate,notify as shellNotify,openChat,closeChat,chatOpen,trackSpeech,renderQueuePanel,mountCallouts,mountQuiz,mountWritingPrompt,mountScratchQuestion,startJob,promptCompanion,needsReader,NEEDS_READER,mountPromptCards} from './controls/reader-controls.js';
 import {promptPlugin,promptMounts} from './prompt-blocks.mjs';
 import {installVersions,chipMarkup,historicalMarkup,splitRef,compareLabel} from './versions.mjs';
@@ -867,12 +868,12 @@ async function drawDiagrams(container){
 function openDiagram(canvas){
   const svg=canvas.querySelector(':scope > svg');if(!svg)return;
   const copy=svg.cloneNode(true),width=+svg.getAttribute('width')||svg.getBoundingClientRect().width,height=+svg.getAttribute('height')||svg.getBoundingClientRect().height;
-  // Full size, or larger when the natural size is small, up to three times.
-  const scale=Math.max(1,Math.min(3,(innerWidth*.9-48)/width,(innerHeight*.82-90)/height));
-  copy.style.width=Math.round(width*scale)+'px';copy.style.maxWidth='none';copy.style.height='auto';copy.removeAttribute('aria-hidden');copy.setAttribute('role','img');copy.setAttribute('aria-label',canvas.getAttribute('aria-label')||'Diagram');
+  copy.removeAttribute('aria-hidden');copy.setAttribute('role','img');copy.setAttribute('aria-label',canvas.getAttribute('aria-label')||'Diagram');
   state.smoother?.paused(true);
-  openShellDialog({id:'diagram-dialog',title:'Diagram',closeLabel:'Close diagram',className:'w-[min(96vw,1400px)] max-w-none p-5 sm:max-w-none',
-    bodyId:'diagram-body',bodyClassName:'max-h-[calc(85vh-80px)] bg-background p-3 [&>svg]:mx-auto [&>svg]:block',fill:body=>body.replaceChildren(copy),focusBody:true,onClosed:dialogClosed});
+  // The dialog's box, less its padding and the zoom bar.
+  const room=()=>({width:Math.min(innerWidth*.96,1400)-64,height:innerHeight*.85-120});let stopZoom=()=>{};
+  openShellDialog({id:'diagram-dialog',title:'Diagram',closeLabel:'Close diagram',className:'sm:max-w-none',
+    bodyId:'diagram-body',bodyClassName:'bg-background p-3',fill:body=>{stopZoom=mountDiagramZoom(body,copy,width,height,room);},focusBody:true,onClosed:()=>{stopZoom();dialogClosed();}});
 }
 /** After an app dialog has closed: reading resumes, and a split view takes the focus back. */
 function dialogClosed(){
