@@ -85,7 +85,12 @@ if(knownTheme(previewTheme))state.prefs.theme=previewTheme;
 if(!knownTheme(state.prefs.theme))state.prefs.theme='ink';
 document.documentElement.dataset.theme=state.prefs.theme;
 /** Continuous reading's article width (style.css); two-page reading ignores it. */
-function applyArticleWidth(){document.documentElement.dataset.articleWidth=state.prefs.articleWidth;}
+function applyArticleWidth(){
+  const value=String(state.prefs.articleWidth),root=document.documentElement,px=/^\d+$/.test(value)?Number(value):0;
+  root.dataset.articleWidth=px?'custom':value;
+  if(px){root.style.setProperty('--article-width',px+'px');root.style.setProperty('--article-shell',Math.max(980,px+110)+'px');}
+  else{root.style.removeProperty('--article-width');root.style.removeProperty('--article-shell');}
+}
 applyArticleWidth();
 // The browser chrome (and the installed app's status bar) follows the theme's page colour.
 const syncThemeColor=()=>{const meta=document.querySelector('meta[name=theme-color]'),bg=getComputedStyle(document.documentElement).getPropertyValue('--bg').trim();if(meta&&bg)meta.content=bg;};
@@ -1827,7 +1832,7 @@ search=installSearch({api,state,navigate,back:goBack,backstage:()=>openAdmin('in
 $('#reader-home').onclick=()=>navigate(null);
 installStatusPriority($('#statusline'));
 const breadcrumbs=installBreadcrumbs({container:$('#status-location'),openFolder:folder=>openPicker('all',folder),onChange:()=>reading?.updateStatus()});
-controls=installControls({seek:fraction=>reading.seek(fraction),spread:index=>reading.seekSpread(index),thread:id=>{const hit=state.ranges.find(entry=>entry.thread.id===id);if(hit)moveToRange(hit.range);openThread(id);},theme:()=>{state.prefs.theme=oppositeTheme(state.prefs.theme);document.documentElement.dataset.theme=state.prefs.theme;savePrefs();reading.updateStatus();},save:applyPreferences,error:report,outlineToggle:()=>outline.toggle(),outlineOpen:open=>outline.setOpen(open),outlineGo:index=>outline.go(index),themeEditor:setThemeEditorOpen,themeEditorClosed,api,themesChanged,useTheme,previewFont,chatMarkdown,openPath:path=>navigate(path),chatChanged:()=>reading?.updateStatus(),
+controls=installControls({articleWidthPreview:value=>previewArticleWidth(value),articleWidthCommit:()=>commitArticleWidth(),seek:fraction=>reading.seek(fraction),spread:index=>reading.seekSpread(index),thread:id=>{const hit=state.ranges.find(entry=>entry.thread.id===id);if(hit)moveToRange(hit.range);openThread(id);},theme:()=>{state.prefs.theme=oppositeTheme(state.prefs.theme);document.documentElement.dataset.theme=state.prefs.theme;savePrefs();reading.updateStatus();},save:applyPreferences,error:report,outlineToggle:()=>outline.toggle(),outlineOpen:open=>outline.setOpen(open),outlineGo:index=>outline.go(index),themeEditor:setThemeEditorOpen,themeEditorClosed,api,themesChanged,useTheme,previewFont,chatMarkdown,openPath:path=>navigate(path),chatChanged:()=>reading?.updateStatus(),
   open:path=>navigate(path),libraryChanged:async()=>{await loadLibrary();if(!state.doc){if(state.view==='section')renderSectionPage();else if(state.view==='issue')renderHome();}},
   adminHref:(section,...params)=>adminHash(adminPath(section,...params)),adminGo:(section,...params)=>openAdmin(section,...params),backToLibrary,
   markdown:text=>{const template=document.createElement('template');template.innerHTML=DOMPurify.sanitize(window.markdownit({html:false,linkify:true}).render(text),{USE_PROFILES:{html:true}});decorateCodeBlocks(template.content,{wrap:true,lineNumbers:false});return template.innerHTML;}},state.prefs);
@@ -1835,7 +1840,7 @@ speech=installSpeech({state,api,reading:{capture:()=>reading.capture(),hasBook:(
 prose=installProseColors({state,api,notify,companion:promptCompanion});
 queue=installQueue({state,api,navigate,notify,needsReader,renderPanel:renderQueuePanel,focusMain:()=>focusMain(),onChange:()=>reading?.updateStatus()});
 queue.setCloseOthers(()=>{$('#thread-panel').hidden=true;state.activeThread=null;});
-reading=installReading({statusOverride:()=>{const on=!!split?.active();if(!on)$('#split-indicator').hidden=true;return on&&paintSplitStatus();},onStatus:()=>pane&&paneStatus(),mayCurl:()=>!pane||pane.focused(),scratchStatus:()=>state.view==='scratch'?scratch?.status():null,controls,updateBreadcrumbs:path=>breadcrumbs.update(path),state,api,toast,openAdmin:()=>openAdmin(),openThread,revealRange:moveToRange,scrollToPosition,savePrefs,reloadDocument:()=>navigate(state.doc.path,{record:false}),positionPins,keyStatus:()=>keys.status()});
+reading=installReading({statusOverride:()=>{const on=!!split?.active();if(!on)$('#split-indicator').hidden=true;return on&&paintSplitStatus();},onStatus:()=>{publishArticleWidth();return pane&&paneStatus();},mayCurl:()=>!pane||pane.focused(),scratchStatus:()=>state.view==='scratch'?scratch?.status():null,controls,updateBreadcrumbs:path=>breadcrumbs.update(path),state,api,toast,openAdmin:()=>openAdmin(),openThread,revealRange:moveToRange,scrollToPosition,savePrefs,reloadDocument:()=>navigate(state.doc.path,{record:false}),positionPins,keyStatus:()=>keys.status()});
 outline=installOutline({state,reading,$,controls,scrollToPosition,savePrefs,notify});
 links=installLinks({state,api,reading,navigate,openBackstage:()=>openAdmin('indexes'),renderPreview:renderLinkPreview});
 scratch=installScratch({openSaveDialog:openScratchSave,state,api,notify,navigate,mountQuestion:mountScratchQuestion,focusMain:()=>$('#main').focus({preventScroll:true}),updateStatus:()=>reading?.updateStatus(),openChat,savedChanged:()=>readingLogs.clear(),registers:()=>registers,
@@ -1885,6 +1890,26 @@ const readingLine={
     if(Math.abs(shift)>1)scrollToPosition(scrollY+shift,false,kept.el,kept.fraction);
   }};
 installDock(readingLine);
+// The footer's slider: articles in continuous reading, on a screen that isn't a phone's, with room to widen. It rewraps
+// around the reading line as it moves, one layout a frame, and saves when it lets go.
+let widthHold=null,widthFrame=0,widthKey='';
+function rewrapArticle(){applyArticleWidth();readingLine.after(widthHold);dispatchEvent(new Event('resize'));}
+function previewArticleWidth(value){widthHold??=readingLine.before();state.prefs.articleWidth=value;widthFrame||=requestAnimationFrame(()=>{widthFrame=0;rewrapArticle();});}
+function commitArticleWidth(){cancelAnimationFrame(widthFrame);widthFrame=0;rewrapArticle();widthHold=null;savePrefs();controls.update({prefs:{...state.prefs}});publishArticleWidth();}
+function publishArticleWidth(){
+  const article=$('#article'),shell=article?.closest('.document-shell'),main=$('#main');
+  const eligible=!!shell&&typeof state.doc?.text==='string'&&state.doc.kind!=='.pdf'&&!document.body.classList.contains('two-page')&&Math.min(screen.width,screen.height)>=600;
+  const key=[eligible,state.doc?.path,main.clientWidth,state.prefs.theme,state.prefs.articleWidth].join('|');
+  if(key===widthKey)return;widthKey=key;
+  if(!eligible){controls.update({articleWidth:{shown:false,standard:0,max:0}});return;}
+  const style=getComputedStyle(shell),room=main.clientWidth-parseFloat(style.paddingLeft)-parseFloat(style.paddingRight);
+  // Longhands: the computed font shorthand is empty when the article sets any font feature.
+  const face=getComputedStyle(article),probe=document.createElement('span');probe.style.cssText=`position:absolute;visibility:hidden;width:65ch;font-family:${face.fontFamily};font-size:${face.fontSize};font-weight:${face.fontWeight};font-style:${face.fontStyle};font-stretch:${face.fontStretch}`;document.body.append(probe);
+  const standard=probe.getBoundingClientRect().width;probe.remove();
+  controls.update({articleWidth:{shown:room>640,standard,max:480+Math.floor((room-480)/10)*10}});
+}
+new ResizeObserver(publishArticleWidth).observe($('#main'));
+document.fonts?.ready.then(()=>{widthKey='';publishArticleWidth();});
 mountSkeleton($('#main'),'library');
 loadThemes();
 try{await loadLibrary();

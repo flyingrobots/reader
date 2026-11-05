@@ -1320,8 +1320,16 @@ Editor…**, in the toolbar above the form, opens the editor over the page.
 **Article width** sets the article column in continuous reading: Narrow (640 px), Standard (65ch, the default), Wide
 (960 px), Wider (1200 px) or Full window. It is a maximum, so a narrower window, a docked panel or the File Explorer
 still narrows the column. Wide and up also widen the shell, so the footer and Read next line up with the article, and
-the outline rail becomes a popover when no margin is left for it. Two-page reading ignores the setting. Like other
-preferences it is saved per browser; a tab or pane already reading rewraps at the same line.
+the outline rail becomes a popover when no margin is left for it. Two-page reading ignores the setting.
+
+While you read an article in continuous reading, the footer also has an **article width slider**. The article rewraps as
+you drag, keeping your line in place, and the choice is saved when you let go. It stops every 10 px from 480 px up to
+the width the window allows, and the far right end is Full window. The stop nearest 65ch is Standard. Any other stop
+appears in Settings as **Custom**. The slider isn't shown on other pages, in two-page reading, on a phone (a screen
+whose shorter side is under 600 px) or when the window leaves less than 640 px to fill, and it gives way when the footer
+is crowded.
+
+Like other preferences, the article width is saved per browser; a tab or pane already reading rewraps at the same line.
 
 ### Inbox and You got mail
 

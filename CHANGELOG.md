@@ -4,6 +4,10 @@
 
 - Settings has an Article width for continuous reading: Narrow, Standard, Wide, Wider or Full window. Standard is the width Reader has always used, and two-page reading is unchanged.
 
+- While reading an article in continuous reading, a slider in the footer sets the article width. The article rewraps as you drag and keeps your line. It doesn't appear on phones or in two-page reading.
+
+- With reduced motion on, changing the article width no longer loses your place. The column's change arrived a frame after Reader measured your line.
+
 - Reading progress measures the article, tables and embeds included, not the footer and Read next. A saved share of 97% now means 97% of the article, and older bookmarks with no saved block restore on this scale.
 
 - A bookmark in the margin between two blocks keeps the next block; inside a table or embed it keeps its place in that table or embed, and at the top of a document it keeps the top. Attachments are no longer marked finished by waiting on them.

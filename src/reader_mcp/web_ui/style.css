@@ -597,4 +597,9 @@ html.embedded-pane .file-explorer{bottom:0}
 :root[data-article-width=wider]{--article-width:1200px;--article-shell:1310px}
 :root[data-article-width=full]{--article-width:none;--article-shell:none}
 body:not(.two-page) #article{max-width:var(--article-width,65ch)}
-:root:is([data-article-width=wide],[data-article-width=wider],[data-article-width=full]) body:not(.two-page) .document-shell{max-width:var(--article-shell)}
+:root:is([data-article-width=wide],[data-article-width=wider],[data-article-width=full],[data-article-width=custom]) body:not(.two-page) .document-shell{max-width:var(--article-shell)}
+/* Reduced motion's blanket .01ms transition would delay the new width by a frame, after the reader's line is measured. */
+@media(prefers-reduced-motion:reduce){#article,.document-shell{transition:none!important}}
+#article-width-slot:empty{display:none}
+.article-width{position:relative;display:flex;align-items:center;gap:7px;width:116px}.article-width>svg{width:14px;height:14px;flex:none}
+.article-width-readout{position:absolute;z-index:30;left:50%;bottom:calc(100% + 10px);transform:translateX(-50%);padding:3px 8px;border:1px solid var(--line);border-radius:4px;background:var(--raised);color:var(--ink);font-size:11px;white-space:nowrap;pointer-events:none}

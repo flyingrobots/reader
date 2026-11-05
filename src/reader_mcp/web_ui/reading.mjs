@@ -44,7 +44,7 @@ export function installReading({scratchStatus, statusOverride, onStatus, mayCurl
     else if($('#status-location details[open]')){mode='BROWSE';keys='<kbd>↑ ↓</kbd> folders <kbd>Enter</kbd> browse <kbd>Esc</kbd> close';}
     else if(!$('#find-bar').hidden){mode='SEARCH';keys='<kbd>Enter</kbd> find <kbd>n N</kbd> next / previous <kbd>Esc</kbd> close';}
     else if(active?.closest('#chat-panel')&&!$('#chat-panel').hidden){mode='CHAT';keys=active.matches('textarea,input')?'<kbd>@</kbd> mention <kbd>Enter</kbd> send <kbd>Shift Enter</kbd> new line <kbd>Esc</kbd> close':'<kbd>Tab</kbd> move <kbd>Esc</kbd> close';}
-    else if(active?.matches('textarea,input,[contenteditable=true]')&&!(state.view==='search'&&active.id==='search-query')){mode='INSERT';keys='<kbd>⌘ Enter</kbd> send <kbd>Esc</kbd> normal';}
+    else if(active?.matches('textarea,input:not(.article-width input),[contenteditable=true]')&&!(state.view==='search'&&active.id==='search-query')){mode='INSERT';keys='<kbd>⌘ Enter</kbd> send <kbd>Esc</kbd> normal';}
     else if(state.themeEditorOpen){mode='SETTINGS';keys='<kbd>Tab</kbd> move <kbd>F10</kbd> <kbd>Esc</kbd> close';}
     else if($('#help')?.matches('[data-open]')){mode='HELP';keys='<kbd>Esc</kbd> return to reading';}
     else if(!$('#queue-panel').hidden){mode='QUEUE';keys='<kbd>j k</kbd> move <kbd>Enter</kbd> open <kbd>Tab</kbd> up next / history <kbd>Esc</kbd> close';}
