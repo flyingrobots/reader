@@ -40,7 +40,7 @@
     "src/admin/pages/indexes.tsx": "97731ffa6d463f30306ecdae68dd49539482158a0c305d36db96b64eaa02e56c",
     "src/admin/pages/jobs.tsx": "4f149ab3445d1eb9770059937a34458750f792508be888b24cadd8ba86c0ce17",
     "src/admin/pages/library-charts.ts": "892ae1b262ec306cd24420db8ebf0b7074622a1d5b45ef91e4cc24a136168c84",
-    "src/admin/pages/library.tsx": "3b7401b940956d3ed35b17dd4b1592f9f305a9535d5f000ebfda3d1f51a89bd4",
+    "src/admin/pages/library.tsx": "75876b1d1633b537cf29b3e9ba41ec4fbe269f4c08ce11190b4897ef49eb0893",
     "src/admin/pages/logs.tsx": "ded000bd5ca82dce862fe1e86436383a326660f00be8c366fde7fdd978fb2609",
     "src/admin/pages/private-shelf.tsx": "d543705be1fa43210399754ac0a8d8cbcaef8f823855c19cdf8e517b125edb70",
     "src/admin/pages/publish.tsx": "a62514bff728959009e6cdc03c9a9663af7189625c082d5e85443e2daa7e1e25",
@@ -144,7 +144,7 @@
     "src/reader-controls.tsx": "d9fa79c1ad2d3e2649135012fc0aabefe25fe9e2fd17c584094a701c28626d57",
     "src/reading-log.tsx": "1981dbb7da8a7c010d38d588992ba1b9afc5ef9c611badb247d6f8fadc8a4fda",
     "src/scratch-question.tsx": "ae90d508a8ca52994fb567380d60bef8644475691754a97fd697b323dcb7e7e3",
-    "src/search-page.tsx": "b63ecad9ec576f5375ecced55c54670cd69af9380e70542ae941f4065e8f3323",
+    "src/search-page.tsx": "c6cc0ff6d70b6eb07d6d2d3efce80b7accfcf6d84b5aeb398fd3fe560b938944",
     "src/server-card.tsx": "3889c7bd5c2f961490dc43ec9566caf9eea2b68f04dd45c81f8715976f476602",
     "src/shape/shape.ts": "9fe4b2b1dd21a2869130afa25aed34e2ea482fc8fe05aa2609193aa24c04b50c",
     "src/shell-dialog.tsx": "894e39bb3e44d40e1c47d6a10ac7b0c6fcb6100c9c3b7aec77b88d627f7ea148",
@@ -997,8 +997,8 @@
       "sha256": "9c5efee4ad70fedd4b3595ee35e5e1a6bdf88910f91440c7c853d7c8fc68400d"
     },
     "reader-controls.js": {
-      "bytes": 1369008,
-      "sha256": "65e14d54e863db484abd9e85cbf39f5aeb7f0b2e7305c725a678d299aba08407"
+      "bytes": 1368882,
+      "sha256": "8b7755ea270e1d47f6599c67ba0e18b0824a2ff7e05b926fbcfbd5ba5f46626d"
     },
     "reader-controls.js.LEGAL.txt": {
       "bytes": 6614,

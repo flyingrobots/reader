@@ -6,7 +6,7 @@ import {FolderIcon, SearchIcon, SearchXIcon, SlidersHorizontalIcon, XIcon} from 
 import {Badge} from './components/ui/badge';
 import {Button} from './components/ui/button';
 import {Checkbox} from './components/ui/checkbox';
-import {Field, FieldContent, FieldDescription, FieldGroup, FieldLabel, FieldLegend, FieldSet} from './components/ui/field';
+import {Field, FieldContent, FieldDescription, FieldGroup, FieldLabel, FieldLegend, FieldSet, FieldTitle} from './components/ui/field';
 import {Input} from './components/ui/input';
 import {InputGroup, InputGroupAddon, InputGroupInput} from './components/ui/input-group';
 import {Item, ItemActions, ItemContent, ItemDescription, ItemGroup, ItemTitle} from './components/ui/item';
@@ -73,7 +73,7 @@ function FacetList({scope,name,label,counts,selected,onChange}:{scope:string;nam
     <FieldGroup className="gap-1.5">{shown.map(([value,count])=>{const id=`${scope}-facet-${name}-${value}`.replace(/[^\w-]+/g,'-');const on=selected.includes(value);
       return <Field key={value} orientation="horizontal" data-selected={on||undefined}>
         <Checkbox id={id} checked={on} onCheckedChange={checked=>onChange(checked?[...selected,value]:selected.filter(v=>v!==value))}/>
-        <FieldLabel htmlFor={id} className="min-w-0 flex-1 font-normal"><span className="truncate">{value}</span><span className="ml-auto text-xs text-muted-foreground tabular-nums" data-facet-count="">{count.toLocaleString()}</span></FieldLabel>
+        <FieldLabel htmlFor={id} className="min-w-0 flex-1 font-normal"><FieldTitle className="truncate font-normal">{value}</FieldTitle><Badge variant="secondary" className="ml-auto tabular-nums" data-facet-count="">{count.toLocaleString()}</Badge></FieldLabel>
       </Field>;})}</FieldGroup>
     {entries.length>6&&<Button variant="link" size="xs" className="self-start px-0" onClick={()=>setAll(!all)}>{all?'Fewer':`All ${entries.length}`}</Button>}
   </FieldSet>;
@@ -115,18 +115,18 @@ function Passages({work,offset,active,actions}:{work:Work;offset:number;active:n
     return <Item key={p.path+':'+p.line+':'+i} role="listitem" size="sm" variant={on?'muted':'default'} render={<button type="button"/>} className="w-full min-w-0 cursor-pointer flex-col items-start gap-1 text-left hover:bg-muted/60"
       data-passage={index} data-active={on||undefined} aria-current={on||undefined} tabIndex={on?0:-1} onClick={()=>actions.open(index)} onFocus={()=>actions.select(index)}>
       <ItemDescription className="text-xs" data-passage-label="">{label(p)}{p.path!==work.primary&&<span> · {p.path.split('/').pop()}</span>}</ItemDescription>
-      {p.excerpt?<span className="w-full min-w-0 font-serif text-[15px] leading-relaxed text-foreground [overflow-wrap:anywhere]" data-excerpt="" data-spans={JSON.stringify(p.spans)}>{p.excerpt}</span>
-        :<span className="text-sm text-muted-foreground italic" data-excerpt="">Matched by its file name.</span>}
+      {p.excerpt?<ItemDescription className="line-clamp-none w-full min-w-0 font-serif text-[15px] leading-relaxed text-foreground [overflow-wrap:anywhere]" data-excerpt="" data-spans={JSON.stringify(p.spans)}>{p.excerpt}</ItemDescription>
+        :<ItemDescription className="italic" data-excerpt="">Matched by its file name.</ItemDescription>}
       {!p.literal&&<Badge variant="outline" data-related="">Related, not exact</Badge>}
     </Item>;})}</ItemGroup>;
 }
 
 function Start({model,actions}:{model:SearchModel;actions:SearchActions}){
   return <div className="flex flex-col gap-6" data-search-empty="">
-    <p data-slot="lede" className="max-w-prose font-serif text-lg text-muted-foreground">Every indexed passage in the library, by its words or by what it means. Results open at the passage.</p>
-    {model.recent.length>0&&<section className="flex flex-col gap-2"><h2 data-slot="section-label" className="text-xs font-medium tracking-wide text-muted-foreground uppercase">Recent searches</h2>
+    <p className="max-w-prose font-serif text-lg text-muted-foreground">Every indexed passage in the library, by its words or by what it means. Results open at the passage.</p>
+    {model.recent.length>0&&<section className="flex flex-col gap-2"><h2 className="text-xs font-medium tracking-wide text-muted-foreground uppercase">Recent searches</h2>
       <div className="flex flex-wrap gap-2">{model.recent.map(q=><Button key={q} variant="outline" size="sm" onClick={()=>actions.query(q)}>{q}</Button>)}</div></section>}
-    {model.suggestions.length>0&&<section className="flex flex-col gap-2"><h2 data-slot="section-label" className="text-xs font-medium tracking-wide text-muted-foreground uppercase">Topics in your unread works</h2>
+    {model.suggestions.length>0&&<section className="flex flex-col gap-2"><h2 className="text-xs font-medium tracking-wide text-muted-foreground uppercase">Topics in your unread works</h2>
       <div className="flex flex-wrap gap-2">{model.suggestions.map(q=><Button key={q} variant="ghost" size="sm" onClick={()=>actions.query(q)}>{q}</Button>)}</div></section>}
   </div>;
 }
@@ -151,7 +151,7 @@ export function SearchPage({model,actions}:{model:SearchModel;actions:SearchActi
   let offset=0;
   return <section className="search-page mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 pt-8 pb-24 font-sans md:px-8" data-ui="shadcn" aria-labelledby="search-title" data-status={model.status}>
     <header className="flex flex-col gap-3" data-search-head="">
-      <h1 id="search-title" data-slot="page-title" className="font-serif text-3xl leading-tight font-normal tracking-tight md:text-4xl">Search the library</h1>
+      <h1 id="search-title" className="font-serif text-3xl leading-tight font-normal tracking-tight md:text-4xl">Search the library</h1>
       <InputGroup className="h-11">
         <InputGroupAddon><SearchIcon aria-hidden="true"/></InputGroupAddon>
         <InputGroupInput id="search-query" type="search" autoComplete="off" spellCheck={false} placeholder="A phrase, a name, an idea…" aria-label="Search the library" aria-describedby="search-meta" className="text-base" value={model.query} onChange={event=>actions.query(event.target.value)} onKeyDown={actions.fieldKey}/>
@@ -159,7 +159,7 @@ export function SearchPage({model,actions}:{model:SearchModel;actions:SearchActi
       <div className="flex flex-wrap items-center gap-3">
         <ToggleGroup variant="outline" size="sm" aria-label="Search mode" data-search-modes="" value={[model.mode]} onValueChange={one<SearchModel['mode']>(actions.mode)}>
           {MODES.map(m=><ToggleGroupItem key={m.value} value={m.value} title={m.hint} data-search-mode={m.value}>{m.label}</ToggleGroupItem>)}</ToggleGroup>
-        <p id="search-meta" data-slot="search-meta" className="min-w-0 flex-1 text-sm text-muted-foreground" role="status">{model.status==='loading'&&!r?'Searching…':r&&model.query.trim()?<>{r.total.toLocaleString()} {r.total===1?'work':'works'}<span aria-hidden="true"> · </span>{passages} {passages===1?'passage':'passages'} shown<span aria-hidden="true"> · </span>{freshness(r.indexed_at)}</>:''}</p>
+        <p id="search-meta" className="min-w-0 flex-1 text-sm text-muted-foreground" role="status">{model.status==='loading'&&!r?'Searching…':r&&model.query.trim()?<>{r.total.toLocaleString()} {r.total===1?'work':'works'}<span aria-hidden="true"> · </span>{passages} {passages===1?'passage':'passages'} shown<span aria-hidden="true"> · </span>{freshness(r.indexed_at)}</>:''}</p>
         <Button variant="outline" size="sm" className="lg:hidden" data-filter-toggle="" onClick={()=>setSheet(true)}><SlidersHorizontalIcon data-icon="inline-start"/>Filters{active?` · ${active}`:''}</Button>
       </div>
     </header>
@@ -173,13 +173,13 @@ export function SearchPage({model,actions}:{model:SearchModel;actions:SearchActi
         :model.status==='loading'&&!model.works.length?<div className="flex flex-col gap-6" role="status" aria-label="Searching">{[0,1,2].map(i=><div key={i} className="flex flex-col gap-2"><Skeleton className="h-5 w-2/5"/><Skeleton className="h-3 w-1/4"/><Skeleton className="h-4 w-full"/><Skeleton className="h-4 w-11/12"/></div>)}</div>
         :r&&!model.works.length?<EmptyState data-state="none" icon={SearchXIcon} title={`Nothing matched “${model.query.trim()}”.`}>
             <div className="flex flex-wrap justify-center gap-2">{model.mode!=='meaning'&&<Button variant="outline" size="sm" onClick={()=>actions.mode('meaning')}>Search by meaning</Button>}{active>0&&<Button variant="outline" size="sm" onClick={actions.clearFilters}>Clear filters</Button>}{model.mode==='meaning'&&<Button variant="outline" size="sm" onClick={()=>actions.mode('words')}>Exact words</Button>}</div></EmptyState>
-        :<ol className="flex flex-col gap-8" aria-label="Results" data-slot="results">{model.works.map(work=>{const start=offset;offset+=work.passages.length;
-          return <li key={work.id} className="flex flex-col gap-2" data-work={work.primary} data-read={work.read||undefined}>
-            <h3 data-slot="work-title" data-work-title="" className="font-serif text-xl leading-snug font-normal">{work.title}{!work.read&&<span className="ml-2 inline-block size-1.5 rounded-full bg-primary align-middle" title="Unread edition" aria-label="Unread edition"/>}</h3>
-            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground"><span>{work.authors.join(' · ')}</span>{work.projects[0]&&work.projects[0]!=='Unspecified project'&&<Badge variant="secondary">{work.projects[0]}</Badge>}<span>{day(work.date)}</span>
-              <Button variant="ghost" size="xs" className="ml-auto" data-queue-add={work.primary} aria-label={`Add ${work.title} to your queue`} title="Add to your queue · q" onClick={()=>actions.queue(work.primary)}>+ Queue</Button></div>
+        :<ItemGroup className="gap-8" role="list" aria-label="Results">{model.works.map(work=>{const start=offset;offset+=work.passages.length;
+          return <Item key={work.id} role="listitem" className="flex-col items-stretch gap-2 p-0" data-work={work.primary} data-read={work.read||undefined}>
+            <ItemTitle role="heading" aria-level={3} data-work-title="" className="line-clamp-none block w-full font-serif text-xl leading-snug font-normal">{work.title}{!work.read&&<Badge className="ml-2 size-1.5 p-0" title="Unread edition" aria-label="Unread edition"/>}</ItemTitle>
+            <ItemDescription className="line-clamp-none flex flex-wrap items-center gap-x-3 gap-y-1">{work.authors.join(' · ')}{work.projects[0]&&work.projects[0]!=='Unspecified project'&&<Badge variant="secondary">{work.projects[0]}</Badge>}{day(work.date)}
+              <Button variant="ghost" size="xs" className="ml-auto" data-queue-add={work.primary} aria-label={`Add ${work.title} to your queue`} title="Add to your queue · q" onClick={()=>actions.queue(work.primary)}>+ Queue</Button></ItemDescription>
             <Passages work={work} offset={start} active={model.active} actions={actions}/>
-          </li>;})}</ol>}
+          </Item>;})}</ItemGroup>}
         {r&&model.works.length<r.total&&model.status!=='error'&&<Button variant="outline" className="self-center" onClick={actions.more} disabled={model.loadingMore}>{model.loadingMore?'Loading…':`Show more works · ${(r.total-model.works.length).toLocaleString()} left`}</Button>}
       </div>
     </div>
