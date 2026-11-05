@@ -9,6 +9,7 @@ and claim check decide admission."""
 from datetime import datetime, timezone
 import errno
 import hashlib
+import importlib.util
 import json
 import os
 from pathlib import Path
@@ -66,6 +67,17 @@ def find_codex(environ=None):
         if os.path.isfile(path) and os.access(path, os.X_OK):
             return path
     return None
+
+
+def broken_delivery_keys():
+    """How many Reader SSH keys can no longer start their helper. A count only: tailnet browsers see this too."""
+    try:
+        spec = importlib.util.spec_from_file_location('reader_remote', Path(__file__).resolve().parents[2] / 'skills/reader/scripts/remote.py')
+        remote = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(remote)
+        return sum(not key['healthy'] for key in remote.delivery_keys())
+    except (OSError, ImportError, AttributeError):
+        return 0  # An installed package has no skills folder, so it manages no keys.
 
 
 def read_bounded(path, limit, *, tail=False):
@@ -455,6 +467,7 @@ class InboxView:
         result = {'arrivals': [], 'runner': None, 'claims_held': [], 'codex': {'name': 'codex', 'installed': bool(find_codex(self.environ))},
                   'sandbox_modes': list(SANDBOX_MODES), 'errors': []}
         result['pending'] = False
+        result['broken_delivery_keys'] = broken_delivery_keys()
         result['model_providers'] = self.model_providers(result['errors'])
         result['model_chain'] = self.model_chain_state()
         try:

@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Bind this code checkout to a private vault and install its local Codex integrations."""
 import argparse
+import importlib.util
 import json
 import os
 from pathlib import Path
@@ -71,6 +72,15 @@ def main():
             sys.exit(f'Existing installation temporary path: {pending}')
         pending.symlink_to(target, target_is_directory=True)
         os.replace(pending, link)
+    # Reader SSH keys name this launcher, so moving the checkout only needs this step again.
+    spec = importlib.util.spec_from_file_location('reader_remote', code / 'skills/reader/scripts/remote.py')
+    remote = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(remote)
+    try:
+        launcher = remote.write_launcher(code / 'skills/reader/scripts/reader.py')
+        print(f'Stable launcher: {launcher}')
+    except (ValueError, OSError) as exc:
+        print(f'Stable launcher not written: {exc}', file=sys.stderr)
     print(f'Reader code: {code}\nPrivate vault: {vault}\nMCP and four skills installed.')
 
 

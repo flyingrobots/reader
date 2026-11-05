@@ -222,7 +222,8 @@ PUBLIC = 'ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOtestkeyblobAAAAAAAAAAAAAAAAAAAAA
 
 def authorize(tmp_path, monkeypatch, key=PUBLIC, scope='deliver'):
     monkeypatch.setenv('READER_AUTHORIZED_KEYS', str(tmp_path / 'ssh/authorized_keys'))
-    return remote.authorize(['--scope', scope], Path('/opt/reader skills/reader.py'), '/usr/bin/python3', io.StringIO(key + '\n'))
+    monkeypatch.setenv('READER_HOME', str(tmp_path / 'reader home'))
+    return remote.authorize(['--scope', scope], Path('/opt/reader skills/reader.py'), io.StringIO(key + '\n'))
 
 
 def test_authorize_writes_one_restricted_entry(tmp_path, monkeypatch, capfd):
@@ -233,8 +234,7 @@ def test_authorize_writes_one_restricted_entry(tmp_path, monkeypatch, capfd):
     assert json.loads(capfd.readouterr().out)['changed'] is True
     lines = keys.read_text().splitlines()
     assert lines[0] == 'ssh-ed25519 AAAAotherkey other@host'
-    assert lines[1] == ("restrict,command=\"/usr/bin/python3 '/opt/reader skills/reader.py' remote-gate --scope deliver\" "
-                        + PUBLIC)
+    assert lines[1] == (f"restrict,command=\"'{tmp_path}/reader home/bin/reader' remote-gate --scope deliver\" " + PUBLIC)
     assert stat.S_IMODE(keys.stat().st_mode) == 0o600
     assert authorize(tmp_path, monkeypatch) == 0
     assert json.loads(capfd.readouterr().out)['changed'] is False
@@ -277,6 +277,66 @@ def test_authorize_refuses_unrestricted_key_and_bad_input(tmp_path, monkeypatch)
     assert keys.read_text() == PUBLIC + '\n'
     for bad in ['', 'not a key', PUBLIC + '\n' + PUBLIC, 'command="sh" ' + PUBLIC]:
         assert authorize(tmp_path, monkeypatch, key=bad) == 2
+
+
+def git_checkout(place, linked=False):
+    helper = place / 'skills/reader/scripts/reader.py'
+    helper.parent.mkdir(parents=True)
+    helper.write_text('import sys; print("ran", *sys.argv[1:])\n')
+    if linked:
+        (place / '.git').write_text('gitdir: /somewhere/worktrees/temporary\n')
+    else:
+        (place / '.git').mkdir()
+    return helper
+
+
+def test_authorize_refuses_a_helper_in_a_linked_worktree(tmp_path, monkeypatch, capfd):
+    monkeypatch.setenv('READER_AUTHORIZED_KEYS', str(tmp_path / 'ssh/authorized_keys'))
+    monkeypatch.setenv('READER_HOME', str(tmp_path / 'home'))
+    helper = git_checkout(tmp_path / 'worktree', linked=True)
+    assert remote.authorize([], helper, io.StringIO(PUBLIC + '\n')) == 2
+    assert 'linked Git worktree' in capfd.readouterr().err
+    assert not (tmp_path / 'ssh/authorized_keys').exists() and not remote.launcher_path().exists()
+
+
+def test_a_working_launcher_keeps_keys_alive_from_a_worktree_run(tmp_path, monkeypatch):
+    monkeypatch.setenv('READER_AUTHORIZED_KEYS', str(tmp_path / 'ssh/authorized_keys'))
+    monkeypatch.setenv('READER_HOME', str(tmp_path / 'home'))
+    main = git_checkout(tmp_path / 'main')
+    remote.write_launcher(main)
+    assert remote.authorize([], git_checkout(tmp_path / 'worktree', linked=True), io.StringIO(PUBLIC + '\n')) == 0
+    assert remote.launcher_target() == main.resolve()
+    assert str(remote.launcher_path()) in (tmp_path / 'ssh/authorized_keys').read_text()
+
+
+def test_launcher_starts_the_helper_and_explains_a_missing_one(tmp_path, monkeypatch):
+    monkeypatch.setenv('READER_HOME', str(tmp_path / 'a home'))
+    helper = git_checkout(tmp_path / 'a checkout')
+    launcher = remote.write_launcher(helper)
+    done = subprocess.run([str(launcher), 'remote-gate', 'x y'], capture_output=True, text=True)
+    assert done.returncode == 0 and done.stdout.strip() == 'ran remote-gate x y'
+    helper.unlink()
+    done = subprocess.run([str(launcher), 'ping'], capture_output=True, text=True)
+    assert done.returncode == 3 and 'rerun Reader' in done.stderr and 'install.py' in done.stderr
+
+
+def test_delivery_keys_reports_each_keys_health(tmp_path, monkeypatch):
+    monkeypatch.setenv('READER_HOME', str(tmp_path / 'home'))
+    helper = git_checkout(tmp_path / 'main')
+    launcher = remote.write_launcher(helper)
+    file = tmp_path / 'authorized_keys'
+    python = sys.executable
+    file.write_text('\n'.join([
+        'ssh-ed25519 AAAAordinary me@host',
+        f'restrict,command="{launcher} remote-gate --scope deliver" ssh-ed25519 AAAAgood reader-remote@good',
+        f'restrict,command="{python} /gone/worktree/reader.py remote-gate --scope deliver" ssh-ed25519 AAAAold reader-remote@old',
+        f'restrict,command="/gone/python3 {helper} remote-gate --scope deliver" ssh-ed25519 AAAApy reader-remote@python']) + '\n')
+    assert remote.delivery_keys(file) == [{'name': 'reader-remote@good', 'healthy': True},
+                                          {'name': 'reader-remote@old', 'healthy': False},
+                                          {'name': 'reader-remote@python', 'healthy': False}]
+    helper.unlink()
+    assert remote.delivery_keys(file)[0] == {'name': 'reader-remote@good', 'healthy': False}
+    assert remote.delivery_keys(tmp_path / 'absent') == []
 
 
 def test_client_delivers_through_ssh(vault, tmp_path, monkeypatch):

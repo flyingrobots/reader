@@ -63,6 +63,7 @@ export function InboxPage({status,error=null,starting,onMail,onStop,onOpen,html,
   const finished=run&&!ACTIVE_RUN.includes(run.status)&&!active;
   const note=active?'Filing sources and checking the result.':needsReader()?`Filing ${plural(arrivals.length,'arrival')} needs Reader on your computer.`:blocked?'Filing is paused; see why above.':status?.pending?'Resume the interrupted filing batch.':`File ${plural(arrivals.length,'arrival')}.`;
   return <div id="inbox" className="flex flex-col gap-6" data-run-state={starting?'starting':run?.status||'none'} data-state={status?'ready':error?'unavailable':'loading'}>
+    {status?.broken_delivery_keys?<Notice id="inbox-broken-keys" tone="error" title={`${plural(status.broken_delivery_keys,'delivery key')} can’t reach Reader on this machine.`}>Deliveries using {status.broken_delivery_keys===1?'it':'them'} will fail. On each delivering machine, run <code className="font-mono text-xs">remote-setup --force</code> again; see Remote delivery in the docs.</Notice>:null}
     <StatusCard title="Librarian run" titleId="inbox-title"
       badge={state?<StatusBadge tone={state.tone} busy={active} data-inbox-badge="">{state.label}</StatusBadge>:null}
       footer={<>

@@ -35,7 +35,8 @@ SCOPES = {
 }
 KEY_LINE = re.compile(r'^(ssh-ed25519|sk-ssh-ed25519@openssh\.com|ecdsa-sha2-nistp(?:256|384|521)|'
                       r'sk-ecdsa-sha2-nistp256@openssh\.com|ssh-rsa) ([A-Za-z0-9+/]+={0,3})(?: ([\x21-\x7e ]{0,200}))?$')
-HELPER_SEARCH = ('for h in "$HOME/.claude/skills/reader/scripts/reader.py" '
+HELPER_SEARCH = ('if [ -x "$HOME/.reader/bin/reader" ]; then exec "$HOME/.reader/bin/reader" remote-authorize --scope %s; fi; '
+                 'for h in "$HOME/.claude/skills/reader/scripts/reader.py" '
                  '"${CODEX_HOME:-$HOME/.codex}/skills/reader/scripts/reader.py"; do '
                  'if [ -f "$h" ]; then exec python3 "$h" remote-authorize --scope %s; fi; done; '
                  'echo "Reader helper not found on this host; pass --server-helper" >&2; exit 3')
@@ -188,7 +189,7 @@ def setup(argv) -> int:
         print(f'Reusing Reader key {key}')
     public = key.with_name(key.name + '.pub').read_bytes()
     remote = (shlex.join(['python3', args.server_helper, 'remote-authorize', '--scope', args.scope])
-              if args.server_helper else HELPER_SEARCH % args.scope)
+              if args.server_helper else HELPER_SEARCH % (args.scope, args.scope))
     print(f'Authorizing the key on {args.host}. SSH may ask for your password on that machine once.')
     login = [os.environ.get('READER_SSH', 'ssh'), '-S', 'none'] + (['-p', str(args.port)] if args.port else [])
     result = subprocess.run(login + [args.host, remote], input=public, stderr=subprocess.PIPE)
@@ -327,7 +328,95 @@ def gate(scope: str, cli: list, state: Path, environ=os.environ, stdin=None) -> 
         shutil.rmtree(staging, ignore_errors=True)
 
 
-def authorize(argv, helper: Path, python=sys.executable, stdin=None) -> int:
+LAUNCHER = '''#!/bin/sh
+# Reader's stable entry point. Written by install.py and remote-authorize; rerun install.py if Reader moves.
+helper={helper}
+if [ ! -f "$helper" ]; then
+  echo "Reader helper is missing at $helper. On this machine, rerun Reader's scripts/install.py." >&2
+  exit 3
+fi
+PATH="$PATH:/usr/bin:/opt/homebrew/bin:/usr/local/bin:$HOME/.local/bin"
+exec python3 "$helper" "$@"
+'''
+LAUNCHER_TARGET = re.compile(r'^helper=(.+)$', re.M)
+MAX_AUTHORIZED_KEYS = 1024 * 1024
+
+
+def launcher_path() -> Path:
+    return Path(os.environ.get('READER_HOME') or '~/.reader').expanduser() / 'bin/reader'
+
+
+def launcher_target(path=None):
+    """The helper a launcher starts, or None if it is absent or not ours."""
+    try:
+        match = LAUNCHER_TARGET.search(Path(path or launcher_path()).read_text())
+        argv = shlex.split(match.group(1)) if match else []
+        return Path(argv[0]) if len(argv) == 1 else None
+    except (OSError, ValueError):
+        return None
+
+
+def linked_worktree(path: Path) -> bool:
+    """Whether a file lives in a linked Git worktree, which can be removed while keys still name it."""
+    for parent in Path(path).resolve().parents:
+        marker = parent / '.git'
+        if marker.exists():
+            return marker.is_file()
+    return False
+
+
+def write_launcher(helper: Path) -> Path:
+    """Point the stable launcher at this helper's real file. It holds no interpreter path, which can go stale too."""
+    real = Path(helper).resolve()
+    if linked_worktree(real):
+        raise ValueError(f'{real} is in a linked Git worktree, which can be removed while it is still in use; '
+                         'run this from the main Reader checkout')
+    link = launcher_path()
+    link.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+    fd, temporary = tempfile.mkstemp(prefix='.reader-', dir=link.parent)
+    with os.fdopen(fd, 'w') as stream:
+        stream.write(LAUNCHER.format(helper=shlex.quote(str(real))))
+    os.chmod(temporary, 0o755)
+    os.replace(temporary, link)
+    return link
+
+
+def stable_helper(helper: Path) -> Path:
+    """The launcher a key should name. A working launcher is kept, so a run from a worktree cannot repoint it."""
+    current = launcher_target()
+    if current and current.is_file():
+        return launcher_path()
+    return write_launcher(helper)
+
+
+def delivery_keys(path=None) -> list:
+    """Each Reader key in authorized_keys and whether its forced command can still start."""
+    file = Path(path or os.environ.get('READER_AUTHORIZED_KEYS') or '~/.ssh/authorized_keys').expanduser()
+    try:
+        if file.stat().st_size > MAX_AUTHORIZED_KEYS:
+            return []
+        lines = file.read_text(errors='replace').splitlines()
+    except OSError:
+        return []
+    keys = []
+    for line in lines:
+        match = re.match(r'^\S*command="([^"]*remote-gate[^"]*)"\s+\S+\s+\S+\s*(.*)$', line)
+        if not match:
+            continue
+        try:
+            argv = shlex.split(match.group(1))
+            start = argv[:argv.index('remote-gate')]
+        except ValueError:
+            keys.append({'name': match.group(2), 'healthy': False})
+            continue
+        healthy = bool(start) and all(Path(item).expanduser().is_file() for item in start)
+        if healthy and launcher_target(start[-1]):
+            healthy = launcher_target(start[-1]).is_file()
+        keys.append({'name': match.group(2), 'healthy': healthy})
+    return keys
+
+
+def authorize(argv, helper: Path, stdin=None) -> int:
     """Add or update the restricted authorized_keys entry for a Reader key read from stdin."""
     parser = argparse.ArgumentParser(prog='reader.py remote-authorize')
     parser.add_argument('--scope', choices=sorted(SCOPES), default='deliver')
@@ -338,9 +427,14 @@ def authorize(argv, helper: Path, python=sys.executable, stdin=None) -> int:
         print('Reader: expected exactly one OpenSSH public key line', file=sys.stderr)
         return 2
     kind, blob, comment = match.groups()
-    command = shlex.join([python, str(helper), 'remote-gate', '--scope', args.scope])
+    try:
+        launcher = stable_helper(helper)
+    except (ValueError, OSError) as exc:
+        print(f'Reader: {exc}', file=sys.stderr)
+        return 2
+    command = shlex.join([str(launcher), 'remote-gate', '--scope', args.scope])
     if '"' in command or '\\' in command:
-        print('Reader: helper path cannot be quoted safely in authorized_keys', file=sys.stderr)
+        print('Reader: the launcher path cannot be quoted safely in authorized_keys', file=sys.stderr)
         return 2
     entry = f'restrict,command="{command}" {kind} {blob}' + (f' {comment}' if comment else '')
     path = Path(os.environ.get('READER_AUTHORIZED_KEYS') or '~/.ssh/authorized_keys').expanduser()

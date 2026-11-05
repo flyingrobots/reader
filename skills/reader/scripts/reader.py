@@ -6,7 +6,6 @@ vault on another machine over SSH instead.
 """
 
 import importlib.util
-import os
 from pathlib import Path
 import runpy
 import subprocess
@@ -37,8 +36,7 @@ def main():
             if command == "remote-setup":
                 raise SystemExit(remote.setup(args[1:]))
             if command == "remote-authorize":
-                # The installed (unresolved) path keeps working if the checkout is reinstalled elsewhere.
-                raise SystemExit(remote.authorize(args[1:], Path(os.path.abspath(__file__))))
+                raise SystemExit(remote.authorize(args[1:], Path(__file__)))
             scope = args[2] if args[1:2] == ["--scope"] and len(args) == 3 else None
             if scope is None:
                 sys.exit("Usage: reader.py remote-gate --scope SCOPE (run as an SSH forced command)")

@@ -9,6 +9,7 @@ State lives in ~/Library/Application Support/Reader/service.json; logs and the u
 history (updates.jsonl) in ~/Library/Logs/Reader/. External programs are run with explicit
 argv and timeouts; their paths are recorded at install and can be overridden with
 READER_SERVICE_{LAUNCHCTL,TAILSCALE,GIT,GIT_LOCKS} (tests use fakes)."""
+import importlib.util
 import argparse
 from datetime import datetime, timedelta, timezone
 import fcntl
@@ -649,6 +650,13 @@ def uninstall(args):
             'tailscale_still_on': bool((state.get('tailscale') or {}).get('enabled'))}
 
 
+def delivery_keys():
+    spec = importlib.util.spec_from_file_location('reader_remote', Path(__file__).resolve().parents[1] / 'skills/reader/scripts/remote.py')
+    remote = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(remote)
+    return remote.delivery_keys()
+
+
 def status(args):
     state = load_state()
     if not state:
@@ -670,7 +678,8 @@ def status(args):
             'failed_commit': state.get('failed_commit'), 'live': state['live'], 'port': state['port'],
             'last_update': updates[-1] if updates else None, 'updates': updates[::-1],
             'last_check_at': last_check, 'next_check_at': next_check, 'interval_seconds': INTERVAL,
-            'update_requested_at': state.get('update_requested_at'), 'tailscale': tailscale_state(state)}
+            'update_requested_at': state.get('update_requested_at'), 'tailscale': tailscale_state(state),
+            'delivery_keys': delivery_keys()}
 
 
 def port_busy(port):
