@@ -134,7 +134,7 @@ const {chromium}=require(process.env.READER_PLAYWRIGHT||'playwright-core');
      const box={x:r.left<v.left+half?v.left:v.left+half,y:v.top,w:half,h:v.height};
      // Probe colors without the page's color transitions.
      const probe=document.createElement('span');probe.style.transition='none';document.body.append(probe);const color=value=>{probe.style.color=value;return getComputedStyle(probe).color.match(/\d+/g).slice(0,3).map(Number);};
-     const bg=`rgb(${color('var(--bg)').join(',')})`,keyword=color('var(--code-keyword)'),ink=color('var(--ink)');probe.remove();
+     const bg=`rgb(${color('var(--background)').join(',')})`,keyword=color('var(--code-keyword)'),ink=color('var(--foreground)');probe.remove();
      const canvas=m.rasterize(article,box,0,bg,1),data=canvas.getContext('2d').getImageData(Math.round(r.left-box.x),Math.round(r.top-box.y),Math.round(r.width),Math.round(r.height)).data;
      let near=0;for(let i=0;i<data.length;i+=4)if(Math.abs(data[i]-keyword[0])+Math.abs(data[i+1]-keyword[1])+Math.abs(data[i+2]-keyword[2])<40&&Math.abs(data[i]-ink[0])+Math.abs(data[i+1]-ink[1])+Math.abs(data[i+2]-ink[2])>40)near++;
      return {near,png:canvas.toDataURL('image/png')};});

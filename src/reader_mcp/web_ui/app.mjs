@@ -78,7 +78,7 @@ const state = {prefs:{...defaults,...saved}, data:null, doc:null, threads:[], at
 const fetchRequest=createTokenFetch({getToken:()=>state.token,setToken:token=>{state.token=token;}});
 // Custom theme CSS is cached so a saved custom theme paints before /api/themes answers.
 let themeCache={css:'',links:[],ids:[]};
-try{const cached=JSON.parse(localStorage.getItem('reader.themes.v1')||'null');if(cached&&typeof cached.css==='string'&&Array.isArray(cached.ids)&&Array.isArray(cached.links))themeCache=cached;}catch{}
+try{const cached=JSON.parse(localStorage.getItem('reader.themes.v2')||'null');if(cached&&typeof cached.css==='string'&&Array.isArray(cached.ids)&&Array.isArray(cached.links))themeCache=cached;}catch{}
 if(themeCache.css){const style=document.createElement('style');style.id='reader-user-themes';style.textContent=themeCache.css;document.head.append(style);for(const href of themeCache.links){if(!/^\/fonts\/[a-z0-9-]+\/font\.css$/.test(href))continue;const link=document.createElement('link');link.rel='stylesheet';link.href=href;link.dataset.themeFont='';document.head.append(link);}}
 const knownTheme=theme=>THEMES.includes(theme)||themeCache.ids.includes(theme);
 const previewTheme=new URLSearchParams(location.search).get('theme');
@@ -94,7 +94,7 @@ function applyArticleWidth(){
 }
 applyArticleWidth();
 // The browser chrome (and the installed app's status bar) follows the theme's page colour.
-const syncThemeColor=()=>{const meta=document.querySelector('meta[name=theme-color]'),bg=getComputedStyle(document.documentElement).getPropertyValue('--bg').trim();if(meta&&bg)meta.content=bg;};
+const syncThemeColor=()=>{const meta=document.querySelector('meta[name=theme-color]'),bg=getComputedStyle(document.documentElement).getPropertyValue('--background').trim();if(meta&&bg)meta.content=bg;};
 new MutationObserver(syncThemeColor).observe(document.documentElement,{attributes:true,attributeFilter:['data-theme']});addEventListener('load',syncThemeColor,{once:true});
 const reduced = matchMedia('(prefers-reduced-motion: reduce)');
 // Callouts register before the source-map wrapper below, so their asides receive the blockquote's map.
@@ -1322,7 +1322,7 @@ function themeEditorClosed(){
 }
 function useTheme(theme){state.prefs.theme=theme;document.documentElement.dataset.theme=theme;savePrefs();controls.update({theme,prefs:{...state.prefs}});reading?.updateStatus();}
 function themesChanged(themes,fonts){
-  themeCache=applyThemes(themes,fonts);try{localStorage.setItem('reader.themes.v1',JSON.stringify(themeCache));}catch{}
+  themeCache=applyThemes(themes,fonts);try{localStorage.setItem('reader.themes.v2',JSON.stringify(themeCache));}catch{}
   controls.update({customThemes:themes,fonts});
   if(!knownTheme(state.prefs.theme))useTheme(state.prefs.theme.endsWith('-dark')?'ink':'paper');
 }
@@ -1875,7 +1875,7 @@ function prefsFromStorage(){
   if(knownTheme(state.prefs.theme)&&document.documentElement.dataset.theme!==state.prefs.theme){document.documentElement.dataset.theme=state.prefs.theme;controls.update({theme:state.prefs.theme,prefs:{...state.prefs}});}
   reading?.updateStatus();
 }
-window.addEventListener('storage',event=>{if(event.key==='reader.preferences.v1')prefsFromStorage();else if(event.key==='reader.themes.v1')loadThemes();});
+window.addEventListener('storage',event=>{if(event.key==='reader.preferences.v1')prefsFromStorage();else if(event.key==='reader.themes.v2')loadThemes();});
 window.addEventListener('reader:prefs',prefsFromStorage);
 // A docked panel or a new article width rewraps continuous reading: keep the line at the reading line (22% down) in view.
 const readingLine={

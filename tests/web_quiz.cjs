@@ -84,7 +84,7 @@ const {chromium}=require(process.env.READER_PLAYWRIGHT||'playwright-core');
    const {rasterize}=await import('/assets/controls/page-turn.js'),article=document.querySelector('#article');
    const highlight=CSS.highlights.get('reader-quiz'),rect=[...highlight][0].getBoundingClientRect();
    const box={x:rect.left-2,y:rect.top-2,w:Math.ceil(rect.width)+4,h:Math.ceil(rect.height)+4};
-   const render=()=>{const canvas=rasterize(article,box,0,getComputedStyle(document.documentElement).getPropertyValue('--bg').trim(),1);return canvas.getContext('2d').getImageData(0,0,canvas.width,canvas.height).data;};
+   const render=()=>{const canvas=rasterize(article,box,0,getComputedStyle(document.documentElement).getPropertyValue('--background').trim(),1);return canvas.getContext('2d').getImageData(0,0,canvas.width,canvas.height).data;};
    const withQuiz=render();CSS.highlights.delete('reader-quiz');const without=render();CSS.highlights.set('reader-quiz',highlight);
    let pixels=0;for(let i=0;i<withQuiz.length;i+=4)if(withQuiz[i]!==without[i]||withQuiz[i+1]!==without[i+1]||withQuiz[i+2]!==without[i+2])pixels++;
    return pixels;

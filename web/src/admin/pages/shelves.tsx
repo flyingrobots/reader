@@ -48,8 +48,8 @@ export function Shelves({works,open,select,tooltip,hideTooltip}:ShelvesProps){
     const cells=chart.selectAll('g').data(visible,(node:any)=>JSON.stringify(node.ancestors().reverse().map((n:any)=>n.data.work?.primary||n.data.name)))
       .join('g').attr('class','shelf-cell').attr('transform',(node:any)=>`translate(${(node.depth-focus.depth-1)*COLUMN},${(node.x0-focus.x0)/span*HEIGHT})`);
     cells.selectAll('*').remove();
-    cells.append('rect').attr('width',COLUMN-2).attr('height',(node:any)=>(node.x1-node.x0)/span*HEIGHT-2).attr('fill',(node:any)=>colors[(node.depth-1)%2]).attr('stroke','var(--chart-stroke, var(--line))');
-    cells.append('rect').attr('x',3).attr('y',1).attr('width',(node:any)=>Math.min(172,Math.min(24,node.data.name.length)*6+8)).attr('height',16).attr('fill','var(--surface)').attr('pointer-events','none');
+    cells.append('rect').attr('width',COLUMN-2).attr('height',(node:any)=>(node.x1-node.x0)/span*HEIGHT-2).attr('fill',(node:any)=>colors[(node.depth-1)%2]).attr('stroke','var(--chart-stroke, var(--border))');
+    cells.append('rect').attr('x',3).attr('y',1).attr('width',(node:any)=>Math.min(172,Math.min(24,node.data.name.length)*6+8)).attr('height',16).attr('fill','var(--card)').attr('pointer-events','none');
     cells.append('text').attr('x',7).attr('y',13).text((node:any)=>node.data.name.length>24?node.data.name.slice(0,22)+'…':node.data.name).attr('pointer-events','none');
     cells.append('title').text((node:any)=>`${names(node).join(' › ')} · ${plural(node.value,'work')}`);
     cells.attr('tabindex',0).attr('role',(node:any)=>node.data.work?'link':'button')

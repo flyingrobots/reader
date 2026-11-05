@@ -60,7 +60,7 @@ const {chromium}=require(process.env.READER_PLAYWRIGHT||'playwright-core');
    const box=await page.evaluate(async()=>{const m=await import('/assets/controls/page-turn.js'),article=document.querySelector('.book-viewport > .article');await m.warmSvgImages(article,1);
      const v=document.querySelector('.book-viewport').getBoundingClientRect(),half=v.width/2,el=document.querySelector('.reader-math-block'),r=el.getBoundingClientRect();
      const page={x:r.left<v.left+half?v.left:v.left+half,y:v.top,w:half,h:v.height};
-     const probe=document.createElement('span');probe.style.color='var(--bg)';document.body.append(probe);const bg=getComputedStyle(probe).color;probe.remove();
+     const probe=document.createElement('span');probe.style.color='var(--background)';document.body.append(probe);const bg=getComputedStyle(probe).color;probe.remove();
      const canvas=m.rasterize(article,page,0,bg,1);window.__mathTexture=canvas.toDataURL('image/png');
      return {x:Math.round(r.left),y:Math.round(r.top),w:Math.round(r.width),h:Math.round(r.height),px:Math.round(r.left-page.x),py:Math.round(r.top-page.y)};});
    const dom=await page.screenshot({clip:{x:box.x,y:box.y,width:box.w,height:box.h}});

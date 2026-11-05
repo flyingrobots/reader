@@ -26,24 +26,24 @@ export type EditorOptions={
 export type MarkdownEditor={view:EditorView;text():string;setText(text:string):void;insert(text:string):void;focus():void;mode():EditorMode;destroy():void};
 
 const highlight=HighlightStyle.define([
-  {tag:t.heading,color:'var(--accent)',fontWeight:'600'},
+  {tag:t.heading,color:'var(--primary)',fontWeight:'600'},
   {tag:t.strong,fontWeight:'700'},{tag:t.emphasis,fontStyle:'italic'},{tag:t.strikethrough,textDecoration:'line-through'},
-  {tag:[t.link,t.url],color:'var(--own)'},{tag:t.monospace,color:'var(--ink)'},
-  {tag:t.quote,color:'var(--muted)',fontStyle:'italic'},{tag:t.list,color:'var(--accent)'},
-  {tag:[t.processingInstruction,t.meta,t.contentSeparator,t.labelName],color:'var(--muted)'},
+  {tag:[t.link,t.url],color:'var(--own)'},{tag:t.monospace,color:'var(--foreground)'},
+  {tag:t.quote,color:'var(--muted-foreground)',fontStyle:'italic'},{tag:t.list,color:'var(--primary)'},
+  {tag:[t.processingInstruction,t.meta,t.contentSeparator,t.labelName],color:'var(--muted-foreground)'},
 ]);
 const theme=EditorView.theme({
-  '&':{color:'var(--ink)',backgroundColor:'var(--surface)',height:'100%',fontSize:'14px'},
-  '.cm-scroller':{fontFamily:'var(--mono)',lineHeight:'1.65',padding:'14px 0'},
-  '.cm-content':{caretColor:'var(--accent)',padding:'0 18px'},
-  '.cm-cursor, .cm-dropCursor':{borderLeftColor:'var(--accent)'},
-  '.cm-fat-cursor':{background:'var(--accent)',color:'var(--accent-ink)'},
-  '&:not(.cm-focused) .cm-fat-cursor':{background:'none',outline:'solid 1px var(--accent)',color:'transparent'},
-  '&.cm-focused .cm-selectionBackground, .cm-selectionBackground, ::selection':{backgroundColor:'color-mix(in srgb, var(--accent) 28%, transparent)'},
-  '.cm-activeLine':{backgroundColor:'color-mix(in srgb, var(--ink) 4%, transparent)'},
+  '&':{color:'var(--foreground)',backgroundColor:'var(--card)',height:'100%',fontSize:'14px'},
+  '.cm-scroller':{fontFamily:'var(--font-mono)',lineHeight:'1.65',padding:'14px 0'},
+  '.cm-content':{caretColor:'var(--primary)',padding:'0 18px'},
+  '.cm-cursor, .cm-dropCursor':{borderLeftColor:'var(--primary)'},
+  '.cm-fat-cursor':{background:'var(--primary)',color:'var(--primary-foreground)'},
+  '&:not(.cm-focused) .cm-fat-cursor':{background:'none',outline:'solid 1px var(--primary)',color:'transparent'},
+  '&.cm-focused .cm-selectionBackground, .cm-selectionBackground, ::selection':{backgroundColor:'color-mix(in srgb, var(--primary) 28%, transparent)'},
+  '.cm-activeLine':{backgroundColor:'color-mix(in srgb, var(--foreground) 4%, transparent)'},
   '.cm-placeholder':{color:'var(--faint)'},
-  '.cm-panels':{backgroundColor:'var(--raised)',color:'var(--ink)',borderTop:'1px solid var(--line)'},
-  '.cm-vim-panel input':{color:'var(--ink)',fontFamily:'var(--mono)'},
+  '.cm-panels':{backgroundColor:'var(--secondary)',color:'var(--foreground)',borderTop:'1px solid var(--border)'},
+  '.cm-vim-panel input':{color:'var(--foreground)',fontFamily:'var(--font-mono)'},
   '&.cm-focused':{outline:'none'},
 });
 

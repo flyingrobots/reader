@@ -1,6 +1,6 @@
 /* Admin › Library's charts, drawn with the vendored D3 (loaded by index.html as the global `d3`) into a chart card's
    mount. The card, its title, note and legend are React (library.tsx); this file draws only the SVG, keeps every mark
-   keyboard-reachable, and reports a choice back. Colours are the theme's --chart-N tokens and --line/--surface. */
+   keyboard-reachable, and reports a choice back. Colours are the theme's --chart-N tokens and --border/--card. */
 declare const d3:any;
 import {arrivalCalendar, plural, readingTopics, shortDate} from './gallery-model';
 
@@ -42,8 +42,8 @@ function columns(mount:HTMLElement,panel:Panel,hooks:ChartHooks){
 function donut(mount:HTMLElement,panel:Panel,hooks:ChartHooks){
   const rows=panel.rows,total=d3.sum(rows,(row:ChartRow)=>row.value),chart=svg(mount,panel,'0 0 180 176');
   const arc=d3.arc().innerRadius(48).outerRadius(69).cornerRadius(1.5),pieces=d3.pie().sort(null).value((row:ChartRow)=>row.value)(rows),group=chart.append('g').attr('transform','translate(90,88)');
-  group.append('circle').attr('r',60).attr('fill','none').attr('stroke','var(--line)').attr('stroke-width',20);
-  const paths=group.selectAll('path').data(pieces).join('path').attr('d',arc).attr('fill',(_:unknown,i:number)=>palette[i%palette.length]).attr('stroke','var(--surface)').attr('stroke-width',2);
+  group.append('circle').attr('r',60).attr('fill','none').attr('stroke','var(--border)').attr('stroke-width',20);
+  const paths=group.selectAll('path').data(pieces).join('path').attr('d',arc).attr('fill',(_:unknown,i:number)=>palette[i%palette.length]).attr('stroke','var(--card)').attr('stroke-width',2);
   interactive(paths,(part:any)=>hooks.choose(part.data),hooks,(part:any)=>part.data.label,(part:any)=>`${part.value.toLocaleString()} · ${total?Math.round(part.value/total*100):0}%`);
   group.append('text').attr('class','donut-total').attr('text-anchor','middle').attr('y',0).text(String(panel.center??''));
   group.append('text').attr('class','donut-caption').attr('text-anchor','middle').attr('y',20).text(panel.caption||'');
@@ -66,7 +66,7 @@ export function calendar(mount:HTMLElement,panel:Panel,hooks:ChartHooks){
   const max=Math.max(1,...rows.map(row=>row.value)),cell=22,left=46,top=18;
   chart.selectAll('.calendar-weekday').data(['Mon','Tue','Wed','Thu','Fri','Sat','Sun']).join('text').attr('class','axis-text').attr('x',38).attr('y',(_:string,i:number)=>top+i*cell+14).attr('text-anchor','end').text((day:string)=>day);
   const days=chart.selectAll('.calendar-day').data(rows).join('rect').attr('class','calendar-day').attr('x',(row:any)=>left+row.week*cell).attr('y',(row:any)=>top+row.weekday*cell).attr('width',19).attr('height',19).attr('rx',2)
-    .attr('fill',(row:any)=>row.value?'var(--chart-1)':'var(--raised)').attr('fill-opacity',(row:any)=>row.value?.35+.65*row.value/max:1).attr('stroke','var(--chart-stroke, var(--line))');
+    .attr('fill',(row:any)=>row.value?'var(--chart-1)':'var(--secondary)').attr('fill-opacity',(row:any)=>row.value?.35+.65*row.value/max:1).attr('stroke','var(--chart-stroke, var(--border))');
   const occupied=days.filter((row:any)=>row.value>0);
   interactive(occupied,(row:any)=>hooks.choose({key:'calendar:'+row.key,label:shortDate(row.key),value:row.value,works:row.works}),hooks,(row:any)=>shortDate(row.key),(row:any)=>plural(row.value,'arrival'));
   occupied.attr('data-chart-choice',(row:any)=>panel.id+':calendar:'+row.key).attr('aria-pressed','false');
@@ -87,7 +87,7 @@ function readingTopicsChart(mount:HTMLElement,panel:Panel,hooks:ChartHooks){
     let offset=0;
     const segments=row.segments.map((segment:any)=>{const start=offset;offset+=segment.value;return {...segment,start};}).filter((segment:any)=>segment.value);
     const bars=d3.select(this).selectAll('rect').data(segments).join('rect').attr('class','topic-reading-segment').attr('x',(segment:any)=>x(segment.start)).attr('y',y(row.key))
-      .attr('width',(segment:any)=>x(segment.start+segment.value)-x(segment.start)).attr('height',y.bandwidth()).attr('fill',(segment:any)=>palette[segment.series]).attr('stroke','var(--chart-stroke, var(--surface))');
+      .attr('width',(segment:any)=>x(segment.start+segment.value)-x(segment.start)).attr('height',y.bandwidth()).attr('fill',(segment:any)=>palette[segment.series]).attr('stroke','var(--chart-stroke, var(--card))');
     interactive(bars,hooks.choose,hooks,(segment:any)=>segment.label,(segment:any)=>plural(segment.value,'work'));
     bars.attr('data-chart-choice',(segment:any)=>panel.id+':'+segment.key).attr('aria-pressed','false');
   });

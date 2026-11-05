@@ -46,7 +46,7 @@ const {chromium}=require(process.env.READER_PLAYWRIGHT||'playwright-core');
     const s=getComputedStyle(document.documentElement),names=['bg','surface','raised','line','ink','muted','faint','accent','accent-ink','warning','rust','selection','own','other',...Array.from({length:8},(_,i)=>'chart-'+(i+1)),'chart-stroke',
      ...['function','proper','quote','number','noun','verb','adjective','adverb','punct','recede','content','subtle-function','subtle-proper','subtle-number','subtle-quote','wash','underline'].map(n=>'prose-'+n),
      ...['browse','search','insert','leader','settings','help','thread'].map(n=>'mode-'+n)];
-    return Object.fromEntries(names.map(n=>[n,s.getPropertyValue('--'+n).trim()]));
+    return Object.fromEntries(names.map(n=>[n,s.getPropertyValue('--'+({bg:'background',surface:'card',raised:'secondary',ink:'foreground',muted:'muted-foreground',line:'border',accent:'primary','accent-ink':'primary-foreground',warning:'destructive'}[n]||n)).trim()]));
    });
    for(const [name,value] of Object.entries(tokens))assert.ok(palette.has(value),`${theme} ${name}: ${value}`);
    const shots=process.env.READER_SHOTS||'.reader/web-dev';mkdirSync(shots,{recursive:true});

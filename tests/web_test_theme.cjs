@@ -18,10 +18,10 @@ const start=args=>{const fixture=spawn(process.env.READER_PYTHON||'.venv/bin/pyt
   {const context=await browser.newContext();const answered=new Promise(resolve=>context.on('response',response=>{if(new URL(response.url()).pathname==='/api/themes')resolve();}));
    const tab=await page(context,url+'/');assert.equal(await theme(tab),'user-reader-test-dark','the test theme before the app loads its themes');
    await answered;await tab.waitForTimeout(300);
-   const built=await tab.evaluate(()=>JSON.parse(localStorage.getItem('reader.themes.v1')).css);
+   const built=await tab.evaluate(()=>JSON.parse(localStorage.getItem('reader.themes.v2')).css);
    assert.equal(built,readFileSync('tests/fixtures/reader-test-theme.css','utf8'),'the app builds a different stylesheet: run node tests/fixtures/make_test_theme.cjs');
    assert.equal(await theme(tab),'user-reader-test-dark');
-   assert.equal(await tab.evaluate(()=>getComputedStyle(document.documentElement).getPropertyValue('--bg').trim()),JSON.parse(readFileSync('tests/fixtures/reader-test-theme.json','utf8')).dark.bg);
+   assert.equal(await tab.evaluate(()=>getComputedStyle(document.documentElement).getPropertyValue('--background').trim()),JSON.parse(readFileSync('tests/fixtures/reader-test-theme.json','utf8')).dark.bg);
    await context.close();}
   // A suite that names a theme keeps it: in the URL, or in its preferences.
   {const context=await browser.newContext();const tab=await page(context,url+'/?theme=paper');assert.equal(await theme(tab),'paper');await context.close();}

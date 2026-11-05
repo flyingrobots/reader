@@ -170,11 +170,11 @@ const covered=page=>page.evaluate(()=>Object.fromEntries([...CSS.highlights].fil
        // Palette-only Monocolor intentionally has no hue separation; covered by web_theme_picker.
        if(theme==='monocolor'||theme==='monocolor-dark')continue;
        document.documentElement.dataset.theme=theme;await new Promise(r=>setTimeout(r,0));
-       const root=getComputedStyle(document.documentElement),bg=rgb(root.getPropertyValue('--bg').trim()),muted=rgb(root.getPropertyValue('--muted').trim());
+       const root=getComputedStyle(document.documentElement),bg=rgb(root.getPropertyValue('--background').trim()),muted=rgb(root.getPropertyValue('--muted-foreground').trim());
        const fail=(what,value)=>failures.push(`${theme} ${what} ${typeof value==='number'?value.toFixed(3):value}`);
        for(const level of ['subtle','clear','vivid']){document.body.classList.remove('prose-subtle','prose-clear','prose-vivid');document.body.classList.add('prose-'+level);
          const ink=rgb(getComputedStyle(paragraph).color),paint={};
-         for(const role of roles){probe.style.color=`var(--prose-ink-${role},var(--ink))`;paint[role]=rgb(getComputedStyle(probe).color);}
+         for(const role of roles){probe.style.color=`var(--prose-ink-${role},var(--foreground))`;paint[role]=rgb(getComputedStyle(probe).color);}
          if(level==='subtle')for(const role of roles){const v=ratio(paint[role],bg);min.subtle=Math.min(min.subtle,v);if(v<4.5)fail('subtle '+role,v);}
          if(level==='clear'){
            const v=ratio(ink,bg);min.content=Math.min(min.content,v);if(v<7)fail('clear content',v);

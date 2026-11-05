@@ -47,7 +47,7 @@ const {chromium}=require(process.env.READER_PLAYWRIGHT||'playwright-core');
     const still=document.createElement('style');still.textContent='*{transition:none!important}';document.head.append(still);const rows=[];
     // The outline button paints a translucent fill in dark themes: composite every layer down to the first opaque one.
     const behind=()=>{const layers=[];for(let el=link;el;el=el.parentElement){const value=getComputedStyle(el).backgroundColor;if(['rgba(0, 0, 0, 0)','transparent'].includes(value))continue;layers.push(value);if(!/\/\s*0?\.\d|rgba\(/.test(value))break;}
-      context.clearRect(0,0,1,1);context.fillStyle=getComputedStyle(html).getPropertyValue('--bg')||'#fff';context.fillRect(0,0,1,1);for(const value of layers.reverse()){context.fillStyle=value;context.fillRect(0,0,1,1);}return [...context.getImageData(0,0,1,1).data].slice(0,3);};
+      context.clearRect(0,0,1,1);context.fillStyle=getComputedStyle(html).getPropertyValue('--background')||'#fff';context.fillRect(0,0,1,1);for(const value of layers.reverse()){context.fillStyle=value;context.fillRect(0,0,1,1);}return [...context.getImageData(0,0,1,1).data].slice(0,3);};
     for(const theme of themes){html.dataset.theme=theme;
       const [lo,hi]=[lum(rgb(getComputedStyle(link).color)),lum(behind())].sort((a,b)=>a-b);rows.push({theme,ratio:(hi+.05)/(lo+.05)});}
     still.remove();html.dataset.theme=original;return rows;},THEMES);

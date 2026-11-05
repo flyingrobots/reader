@@ -77,7 +77,7 @@ export class PageTurner{
     this.finish();
     const vp=viewport.getBoundingClientRect(),half=vp.width/2,dpr=Math.min(2,devicePixelRatio||1);
     const left:Box={x:vp.left,y:vp.top,w:half,h:vp.height},right:Box={x:vp.left+half,y:vp.top,w:half,h:vp.height};
-    // The page color is the theme's --bg, resolved to a concrete color (the body itself may be transparent).
+    // The page color is the theme's --background, resolved to a concrete color (the body itself may be transparent).
     const probe=document.createElement('span');probe.className='invisible absolute text-background';viewport.append(probe);const background=getComputedStyle(probe).color;probe.remove();
     const [frontBox,backBox,staticBox,backShift]=direction>0?[right,left,left,stride]:[left,right,right,-stride];
     const textures:Texture[]=[rasterize(article,frontBox,0,background,dpr),rasterize(article,backBox,backShift,background,dpr),rasterize(article,staticBox,0,background,dpr)].map(c=>this.texture(c));

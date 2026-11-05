@@ -80,7 +80,7 @@ const {chromium}=require(process.env.READER_PLAYWRIGHT||'playwright-core');
      const m=await import('/assets/controls/page-turn.js'),article=document.querySelector('.book-viewport > .article');await m.warmSvgImages(article,1);
      const svg=document.querySelector('.pele-pie'),r=svg.getBoundingClientRect(),v=document.querySelector('.book-viewport').getBoundingClientRect(),half=v.width/2;
      const box={x:r.left<v.left+half?v.left:v.left+half,y:v.top,w:half,h:v.height};
-     const probe=document.createElement('span');probe.style.color='var(--bg)';document.body.append(probe);const bg=getComputedStyle(probe).color;probe.remove();
+     const probe=document.createElement('span');probe.style.color='var(--background)';document.body.append(probe);const bg=getComputedStyle(probe).color;probe.remove();
      const canvas=m.rasterize(article,box,0,bg,1),ctx=canvas.getContext('2d'),data=ctx.getImageData(Math.round(r.left-box.x),Math.round(r.top-box.y),Math.round(r.width),Math.round(r.height)).data;
      const ref=ctx.getImageData(0,0,1,1).data;let differ=0;for(let i=0;i<data.length;i+=4)if(Math.abs(data[i]-ref[0])+Math.abs(data[i+1]-ref[1])+Math.abs(data[i+2]-ref[2])>30)differ++;
      return {fraction:differ/(data.length/4),png:canvas.toDataURL('image/png')};});

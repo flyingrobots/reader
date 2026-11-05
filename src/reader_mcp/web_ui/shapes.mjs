@@ -29,7 +29,7 @@ export function palette(){
   const style=getComputedStyle(document.documentElement),canvas=document.createElement('canvas');canvas.width=canvas.height=1;
   const ctx=canvas.getContext('2d',{willReadFrequently:true});
   const rgb=name=>{ctx.clearRect(0,0,1,1);ctx.fillStyle='#808080';ctx.fillStyle=style.getPropertyValue(name).trim()||'#808080';ctx.fillRect(0,0,1,1);const [r,g,b]=ctx.getImageData(0,0,1,1).data;return [r,g,b];};
-  return {series:[1,2,3,4,5,6,7,8].map(i=>rgb('--chart-'+i)),ink:rgb('--ink'),muted:rgb('--muted'),accent:rgb('--accent'),bg:rgb('--bg'),sans:style.getPropertyValue('--sans').trim()||'sans-serif'};
+  return {series:[1,2,3,4,5,6,7,8].map(i=>rgb('--chart-'+i)),ink:rgb('--foreground'),muted:rgb('--muted-foreground'),accent:rgb('--primary'),bg:rgb('--background'),sans:style.getPropertyValue('--font-sans').trim()||'sans-serif'};
 }
 async function fontsReady(sans){try{await document.fonts?.load(`600 26px ${sans}`);await document.fonts?.ready;}catch{/* Labels fall back to the system face. */}}
 const theme=()=>document.documentElement.dataset.theme||'';
@@ -52,12 +52,12 @@ export function shapeSVG(shape,width,height,{labels=true}={}){
   let d=`M${beads[0][0].toFixed(1)} ${beads[0][1].toFixed(1)}`;
   for(let i=0;i<beads.length-1;i++){const p0=beads[Math.max(0,i-1)],p1=beads[i],p2=beads[i+1],p3=beads[Math.min(beads.length-1,i+2)];
     d+=`C${(p1[0]+(p2[0]-p0[0])/6).toFixed(1)} ${(p1[1]+(p2[1]-p0[1])/6).toFixed(1)} ${(p2[0]-(p3[0]-p1[0])/6).toFixed(1)} ${(p2[1]-(p3[1]-p1[1])/6).toFixed(1)} ${p2[0].toFixed(1)} ${p2[1].toFixed(1)}`;}
-  for(const [x,y] of layout.stars)el('circle',{cx:x.toFixed(1),cy:y.toFixed(1),r:1.8,fill:'var(--muted)','fill-opacity':.55});
+  for(const [x,y] of layout.stars)el('circle',{cx:x.toFixed(1),cy:y.toFixed(1),r:1.8,fill:'var(--muted-foreground)','fill-opacity':.55});
   el('path',{d,fill:'none',stroke:`url(#${id})`,'stroke-width':2,'stroke-linecap':'round','stroke-opacity':.9});
   const headings=new Set(shape.headings);
   beads.forEach(([x,y,r],i)=>{const u=beads.length>1?i/(beads.length-1):0;
-    if(headings.has(i))el('circle',{cx:x.toFixed(1),cy:y.toFixed(1),r:(r+3).toFixed(1),fill:'none',stroke:'var(--muted)','stroke-width':1,'stroke-opacity':.7});
-    const bead=el('circle',{cx:x.toFixed(1),cy:y.toFixed(1),r:r.toFixed(1)});bead.style.fill=shape.threads[i]?'var(--accent)':`color-mix(in srgb, var(--chart-1) ${Math.round(100-100*u)}%, var(--chart-2))`;bead.style.fillOpacity=String(1-.35*u);});
+    if(headings.has(i))el('circle',{cx:x.toFixed(1),cy:y.toFixed(1),r:(r+3).toFixed(1),fill:'none',stroke:'var(--muted-foreground)','stroke-width':1,'stroke-opacity':.7});
+    const bead=el('circle',{cx:x.toFixed(1),cy:y.toFixed(1),r:r.toFixed(1)});bead.style.fill=shape.threads[i]?'var(--primary)':`color-mix(in srgb, var(--chart-1) ${Math.round(100-100*u)}%, var(--chart-2))`;bead.style.fillOpacity=String(1-.35*u);});
   if(labels)shape.terms.forEach((term,k)=>{const [x,y]=beads[Math.min(term.i,beads.length-1)];const text=el('text',{x:(x+7).toFixed(1),y:(y-6).toFixed(1),'font-size':12,'font-weight':k<3?600:500});text.classList.add(k<3?'fill-foreground':'fill-muted-foreground','font-sans');text.textContent=term.text;});
   return {svg,layout};
 }

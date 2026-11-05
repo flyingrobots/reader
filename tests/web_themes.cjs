@@ -26,7 +26,7 @@ const {chromium}=require(process.env.READER_PLAYWRIGHT||'playwright-core');
   await page.locator('#theme-name').fill('Dusk test');
   await page.locator('#token-ink').fill('#4a4a4a');await page.locator('#token-ink').press('Enter');
   const fail=page.locator('[data-theme-checks] [data-severity=fail]').filter({hasText:'Body text on page'});await fail.waitFor();
-  const previewInk=await page.locator('.theme-preview').evaluate(el=>getComputedStyle(el).getPropertyValue('--ink').trim());assert.equal(previewInk,'#4a4a4a','preview follows the draft');
+  const previewInk=await page.locator('.theme-preview').evaluate(el=>getComputedStyle(el).getPropertyValue('--foreground').trim());assert.equal(previewInk,'#4a4a4a','preview follows the draft');
   await page.getByRole('button',{name:'Fix contrast failures'}).click();await fail.waitFor({state:'detached'});
   const fixed=await page.locator('#token-ink').inputValue();assert.notEqual(fixed,'#4a4a4a');
   // Simulated color vision changes only the preview.
@@ -36,7 +36,7 @@ const {chromium}=require(process.env.READER_PLAYWRIGHT||'playwright-core');
   await page.locator('#font-search').fill('lo');await page.locator('[data-font-results] [data-font]').filter({hasText:'Lora'}).getByRole('button',{name:'Add'}).click();
   await page.locator('[data-font-results] [data-font]').filter({hasText:'Lora'}).getByRole('button',{name:'Added'}).waitFor();
   await page.locator('#font-serif').click();await page.getByRole('option',{name:'Lora · Serif'}).click();
-  assert.match(await page.locator('.theme-preview').evaluate(el=>getComputedStyle(el).getPropertyValue('--serif')),/^'Lora'/);
+  assert.match(await page.locator('.theme-preview').evaluate(el=>getComputedStyle(el).getPropertyValue('--font-serif')),/^'Lora'/);
   // Headings: each level takes its own font and size; blank keeps the default.
   // The Reading font goes back to its default, so Lora below can come only from the H1 setting.
   await page.locator('#font-serif').click();await page.getByRole('option',{name:'Default (Newsreader)'}).click();
@@ -53,7 +53,7 @@ const {chromium}=require(process.env.READER_PLAYWRIGHT||'playwright-core');
   await page.getByRole('button',{name:'Save and use'}).click();
   await page.waitForFunction(()=>document.documentElement.dataset.theme==='user-dusk-test');
   const listed=await (await page.request.get(url+'/api/themes')).json();assert.deepEqual(listed.themes.map(t=>t.id),['dusk-test']);assert.equal(listed.themes[0].fonts.serif,null);
-  assert.equal(await page.evaluate(()=>getComputedStyle(document.documentElement).getPropertyValue('--bg').trim()),listed.themes[0].light.bg);
+  assert.equal(await page.evaluate(()=>getComputedStyle(document.documentElement).getPropertyValue('--background').trim()),listed.themes[0].light.bg);
   assert.deepEqual(listed.themes[0].headings.h1,{font:'Lora',size:null});assert.deepEqual(listed.themes[0].headings.h2,{font:null,size:40});assert.deepEqual(listed.themes[0].headings.h5,{font:null,size:null});
   await page.locator('#theme-editor-foot, .theme-editor-foot').getByText('Saved in the vault').waitFor();
   mkdirSync('.reader/web-dev',{recursive:true});await page.screenshot({path:'.reader/web-dev/theme-editor.png'});

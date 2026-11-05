@@ -22,7 +22,7 @@ const {chromium}=require(process.env.READER_PLAYWRIGHT||'playwright-core');
   const manifest=await page.evaluate(async()=>{const href=document.querySelector('link[rel=manifest]').href;const r=await fetch(href);return {type:r.headers.get('content-type'),body:await r.json()};});
   assert.equal(manifest.type,'application/manifest+json');assert.equal(manifest.body.display,'standalone');
   for(const icon of [...manifest.body.icons.map(i=>i.src),await page.locator('link[rel=apple-touch-icon]').getAttribute('href')])assert.equal((await page.request.get(url+icon)).status(),200,icon);
-  await page.waitForFunction(()=>document.querySelector('meta[name=theme-color]').content===getComputedStyle(document.documentElement).getPropertyValue('--bg').trim());
+  await page.waitForFunction(()=>document.querySelector('meta[name=theme-color]').content===getComputedStyle(document.documentElement).getPropertyValue('--background').trim());
   // The card.
   await page.goto(url+'#admin/service');await card.waitFor();
   await page.getByRole('button',{name:'Retry voices'}).waitFor();  // The 503 above reaches the person as a retry.

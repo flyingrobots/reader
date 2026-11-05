@@ -126,6 +126,14 @@ def test_default_fetcher_refuses_non_google_hosts():
             fetch(url, 10)
 
 
+CSS_NAMES = {'bg': 'background', 'surface': 'card', 'raised': 'secondary', 'ink': 'foreground', 'muted': 'muted-foreground', 'line': 'border',
+             'accent': 'primary', 'accent-ink': 'primary-foreground', 'warning': 'destructive'}
+
+
+def token_var(name):
+    return '--' + CSS_NAMES.get(name, name)
+
+
 @pytest.mark.parametrize('variant', ['light', 'dark'])
 def test_monocolor_shipped_tokens_preserve_palette_and_contrast(variant):
     """Test the shipped CSS, including derived prose and mode colors, not just its inputs."""
@@ -144,7 +152,7 @@ def test_monocolor_shipped_tokens_preserve_palette_and_contrast(variant):
     names = COLOR_TOKENS + module.TOKENS['prose_derived'] + [t['name'] for t in module.TOKENS['prose']]
     names += [n for n in module.TOKENS['derived'] if n.startswith('mode-')]
     for name in names:
-        assert props['--' + name] in palette, (name, props['--' + name])
+        assert props[token_var(name)] in palette, (name, props[token_var(name)])
     assert props['color-scheme'] == variant
     assert props['--shadow'] == 'none'
 
@@ -154,7 +162,7 @@ def test_monocolor_shipped_tokens_preserve_palette_and_contrast(variant):
                    for v, w in zip(rgb, [.2126, .7152, .0722]))
 
     def ratio(a, b):
-        low, high = sorted([luminance(props['--' + a]), luminance(props['--' + b])])
+        low, high = sorted([luminance(props[token_var(a)]), luminance(props[token_var(b)])])
         return (high + .05) / (low + .05)
 
     for surface in ('bg', 'surface', 'raised'):
@@ -166,7 +174,7 @@ def test_monocolor_shipped_tokens_preserve_palette_and_contrast(variant):
         assert ratio('ink', highlight) >= 4.5
 
     prose_roles = [t['name'] for t in module.TOKENS['prose']]
-    assert len({props['--' + role] for role in prose_roles}) >= (4 if variant == 'light' else 5)
+    assert len({props[token_var(role)] for role in prose_roles}) >= (4 if variant == 'light' else 5)
     for role in prose_roles:
         assert ratio(role, 'bg') >= 4.5
         assert ratio(role, 'prose-wash') >= 4.5

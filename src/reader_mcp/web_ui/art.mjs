@@ -22,9 +22,10 @@ const theme=()=>document.documentElement.dataset.theme||'';
 
 /** The theme's tokens as sRGB bytes, and whether the page is dark (any CSS color syntax a theme uses). */
 export function artPalette(){
+  const CSS_NAMES={bg:'background',surface:'card',raised:'secondary',ink:'foreground',muted:'muted-foreground',line:'border',accent:'primary','accent-ink':'primary-foreground',warning:'destructive'};
   const style=getComputedStyle(document.documentElement),canvas=document.createElement('canvas');canvas.width=canvas.height=1;
   const ctx=canvas.getContext('2d',{willReadFrequently:true});
-  const rgb=name=>{ctx.clearRect(0,0,1,1);ctx.fillStyle='#808080';ctx.fillStyle=style.getPropertyValue('--'+name).trim()||'#808080';ctx.fillRect(0,0,1,1);const [r,g,b]=ctx.getImageData(0,0,1,1).data;return [r,g,b];};
+  const rgb=name=>{ctx.clearRect(0,0,1,1);ctx.fillStyle='#808080';ctx.fillStyle=style.getPropertyValue('--'+(CSS_NAMES[name]??name)).trim()||'#808080';ctx.fillRect(0,0,1,1);const [r,g,b]=ctx.getImageData(0,0,1,1).data;return [r,g,b];};
   const tokens=Object.fromEntries(TOKENS.filter(name=>!DERIVED[name]).map(name=>[name,rgb(name)]));
   const luma=([r,g,b])=>(.2126*r+.7152*g+.0722*b)/255,dark=luma(tokens.bg)<.5;
   // Derived roles: light stays light on every theme (ink is dark on a light page).

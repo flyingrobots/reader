@@ -61,7 +61,7 @@ export function AnnotationDialog({options,register}:{options:AnnotationOptions}&
   const warning=options.kind==='warning',body=useRef<HTMLTextAreaElement|null>(null),[busy,setBusy]=useState(false);
   return <AppDialog register={register} frame={{id:'annotation-dialog',title:warning?'Leave a warning.':'Leave a thought.',closeLabel:'Close annotation',
     className:'w-[min(570px,calc(100vw-2rem))] max-w-none p-6 sm:max-w-none',initialFocus:body,onClosed:options.onClosed,attributes:{'data-kind':options.kind}}}>{()=><>
-    <blockquote id="annotation-quote" className={cn('m-0 max-h-40 overflow-auto border-l pl-4 font-serif text-xl leading-snug text-muted-foreground',warning?'border-[var(--warning)]':'border-primary')}>{options.quote}</blockquote>
+    <blockquote id="annotation-quote" className={cn('m-0 max-h-40 overflow-auto border-l pl-4 font-serif text-xl leading-snug text-muted-foreground',warning?'border-[var(--destructive)]':'border-primary')}>{options.quote}</blockquote>
     <form id="annotation-form" className="flex flex-col gap-3" onSubmit={async event=>{event.preventDefault();setBusy(true);try{await options.submit(body.current?.value||'');}finally{setBusy(false);}}}>
       <label className="sr-only" htmlFor="annotation-body">Your comment</label>
       <Textarea ref={body} autoFocus id="annotation-body" rows={5} maxLength={16000} placeholder="What caught your attention?" required/>

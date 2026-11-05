@@ -57,7 +57,7 @@ const THEMES=['ink','paper','orchid','orchid-dark','harvest','harvest-dark',...r
      const rgb=v=>{context.clearRect(0,0,1,1);context.fillStyle=v;context.fillRect(0,0,1,1);return [...context.getImageData(0,0,1,1).data].slice(0,3);};
      const lum=c=>c.map(v=>v/255).map(v=>v<=.04045?v/12.92:((v+.055)/1.055)**2.4).reduce((n,v,i)=>n+v*[.2126,.7152,.0722][i],0);
      const ratio=(a,b)=>{const [lo,hi]=[lum(rgb(a)),lum(rgb(b))].sort((x,y)=>x-y);return (hi+.05)/(lo+.05);};
-     const rows=[];for(const theme of themes){html.dataset.theme=theme;const bg=getComputedStyle(html).getPropertyValue('--bg');
+     const rows=[];for(const theme of themes){html.dataset.theme=theme;const bg=getComputedStyle(html).getPropertyValue('--background');
        const text=['[data-reading-log-entry]','[data-reading-log-name]','[data-reading-log-row] time','[data-reading-log-agents-toggle]'].map(s=>ratio(getComputedStyle(document.querySelector(s)).color,bg));
        const mark=ratio(getComputedStyle(document.querySelector('[data-state=current] [data-reading-log-mark]')).color,bg);
        rows.push({theme,text:Math.min(...text),mark,height:document.querySelector('.reading-log').getBoundingClientRect().height});}

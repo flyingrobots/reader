@@ -30,8 +30,8 @@ def script():
     css = CSS.read_text() if CSS.is_file() else ''
     return ('(()=>{try{'
             f'const ids={json.dumps(IDS)},cache={{css:{json.dumps(css)},links:[],ids}};'
-            "const known=JSON.parse(localStorage.getItem('reader.themes.v1')||'null');"
-            "if(!known||!ids.every(id=>known.ids?.includes(id)))localStorage.setItem('reader.themes.v1',JSON.stringify(cache));"
+            "const known=JSON.parse(localStorage.getItem('reader.themes.v2')||'null');"
+            "if(!known||!ids.every(id=>known.ids?.includes(id)))localStorage.setItem('reader.themes.v2',JSON.stringify(cache));"
             "const prefs=JSON.parse(localStorage.getItem('reader.preferences.v1')||'{}');"
             f"if(!prefs.theme){{prefs.theme={json.dumps(DEFAULT)};localStorage.setItem('reader.preferences.v1',JSON.stringify(prefs));}}"
             '}catch{}})();').encode()

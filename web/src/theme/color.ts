@@ -13,6 +13,9 @@ export type HeadingStyle={font:string|null;size:number|null};
 export type Theme={paletteOnly?:boolean;id:string;name:string;fonts:Record<string,string|null>;headings?:Record<string,HeadingStyle>;light:Tokens;dark:Tokens;created_at?:string;updated_at?:string};
 export type TokenInfo={name:string;label:string;group:string;description:string;alpha?:boolean};
 export const COLOR_TOKENS:TokenInfo[]=contract.colors;
+/** A saved theme keeps its token names; on the page they take shadcn's. */
+const CSS_NAMES:Record<string,string>={bg:'background',surface:'card',raised:'secondary',ink:'foreground',muted:'muted-foreground',line:'border',accent:'primary','accent-ink':'primary-foreground',warning:'destructive',sans:'font-sans',serif:'font-serif',mono:'font-mono'};
+export const cssVar=(name:string)=>'--'+(CSS_NAMES[name]??name);
 export const FONT_ROLES=contract.fonts;
 export const BUNDLED_FONTS:string[]=contract.bundled_fonts;
 export type HeadingInfo={level:string;label:string;size:number;description:string};
@@ -101,7 +104,7 @@ export function checkVariant(tokens:Tokens,variant:Variant):Check[]{
   for(const bg of ['bg','surface'])checks.push(ratioCheck('faint-'+bg,text,`Faint text on ${bg==='bg'?'page':'surfaces'}`,t.faint,t[bg],4.5,4.5,'faint',bg));
   checks.push(ratioCheck('accent-ink',text,'Text on accent',t['accent-ink'],t.accent,4.5,4.5,'accent-ink','accent'));
   for(const bg of ['bg','surface'])checks.push(ratioCheck('accent-'+bg,text,`Links on ${bg==='bg'?'page':'surfaces'}`,t.accent,t[bg],4.5,4.5,'accent',bg));
-  // In dark variants controls tint their fill with --line (bg-input-fill): 30% at rest, 50% on hover.
+  // In dark variants controls tint their fill with --border (bg-input-fill): 30% at rest, 50% on hover.
   if(variant==='dark'){
     checks.push(ratioCheck('ink-control',text,'Text on filled controls',t.ink,over(withAlpha(t.line,.5),t.raised),4.5,4.5,'ink'));
     checks.push(ratioCheck('muted-control',text,'Muted text on filled controls',t.muted,over(withAlpha(t.line,.5),t.raised),4.5,4.5,'muted'));

@@ -1,4 +1,4 @@
-import {COLOR_TOKENS, FONT_ROLES, HEADINGS, BUNDLED_FONTS, hex, lightness, contrast, proseColors, PROSE_TOKENS, withAlpha, type Theme, type Tokens, type Variant} from './color';
+import {cssVar, COLOR_TOKENS, FONT_ROLES, HEADINGS, BUNDLED_FONTS, hex, lightness, contrast, proseColors, PROSE_TOKENS, withAlpha, type Theme, type Tokens, type Variant} from './color';
 
 export type InstalledFont={family:string;slug:string;category:string;license:string|null;stylesheet:string};
 export const themeId=(theme:Theme,variant:Variant)=>'user-'+theme.id+(variant==='dark'?'-dark':'');
@@ -18,9 +18,9 @@ export function headingProperties(headings:Theme['headings']):Record<string,stri
 }
 export function variantProperties(tokens:Tokens,fonts:Theme['fonts'],variant:Variant,headings?:Theme['headings']):Record<string,string>{
   const shadow=variant==='dark'?'#00000080':withAlpha(tokens.ink.slice(0,7),.14);
-  return {...Object.fromEntries(COLOR_TOKENS.map(t=>['--'+t.name,tokens[t.name]])),
+  return {...Object.fromEntries(COLOR_TOKENS.map(t=>[cssVar(t.name),tokens[t.name]])),
     ...Object.fromEntries(Object.entries(proseColors(tokens)).map(([name,value])=>['--'+name,value])),
-    ...Object.fromEntries(FONT_ROLES.map(f=>['--'+f.name,fontStack(f.name,fonts[f.name])])),
+    ...Object.fromEntries(FONT_ROLES.map(f=>[cssVar(f.name),fontStack(f.name,fonts[f.name])])),
     ...headingProperties(headings),
     '--shadow':`0 32px 120px ${shadow}`,'color-scheme':variant};
 }
@@ -77,11 +77,11 @@ export function readBuiltIn(dataTheme:string):{tokens:Tokens;fonts:Theme['fonts'
   try{
     const style=getComputedStyle(root),tokens:Tokens={};
     for(const t of COLOR_TOKENS){
-      const raw=style.getPropertyValue('--'+t.name).trim();
+      const raw=style.getPropertyValue(cssVar(t.name)).trim();
       if(!raw&&t.name==='chart-stroke'){tokens[t.name]=tokens.surface;continue;}
-      probe.style.color=`var(--${t.name})`;tokens[t.name]=hex(getComputedStyle(probe).color);
+      probe.style.color=`var(${cssVar(t.name)})`;tokens[t.name]=hex(getComputedStyle(probe).color);
     }
-    const family=(name:string)=>{const first=style.getPropertyValue('--'+name).split(',')[0].trim().replace(/^['"]|['"]$/g,'');const role=FONT_ROLES.find(f=>f.name===name)!;return first&&first!==role.default&&!role.fallback.startsWith(first)?first:null;};
+    const family=(name:string)=>{const first=style.getPropertyValue(cssVar(name)).split(',')[0].trim().replace(/^['"]|['"]$/g,'');const role=FONT_ROLES.find(f=>f.name===name)!;return first&&first!==role.default&&!role.fallback.startsWith(first)?first:null;};
     return {tokens,fonts:Object.fromEntries(FONT_ROLES.map(f=>[f.name,family(f.name)]))};
   }finally{probe.remove();root.dataset.theme=previous;}
 }
@@ -94,7 +94,7 @@ export function ensureProseTokens(){
   if(style.getPropertyValue('--prose-recede').trim())return;
   const probe=document.createElement('span');probe.hidden=true;document.body.append(probe);
   const tokens:Tokens={};
-  try{for(const t of COLOR_TOKENS){if(!style.getPropertyValue('--'+t.name).trim())continue;probe.style.color=`var(--${t.name})`;tokens[t.name]=hex(getComputedStyle(probe).color);}}finally{probe.remove();}
+  try{for(const t of COLOR_TOKENS){if(!style.getPropertyValue(cssVar(t.name)).trim())continue;probe.style.color=`var(${cssVar(t.name)})`;tokens[t.name]=hex(getComputedStyle(probe).color);}}finally{probe.remove();}
   if(!tokens.bg||!tokens.ink)return;
   let sheet=document.getElementById('reader-prose-tokens') as HTMLStyleElement|null;
   if(!sheet){sheet=document.createElement('style');sheet.id='reader-prose-tokens';document.head.append(sheet);}
