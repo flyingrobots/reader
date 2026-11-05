@@ -1,5 +1,5 @@
 /* Admin › Publish: documents encrypted on this machine. Only a browser here sees this: through a tailnet the API answers
-   404, so the card and the upload level don't appear. Passphrases go to the server once, and the key stays in its memory
+   404, so the upload level doesn't appear and a note says where to go instead. Passphrases go to the server once, and the key stays in its memory
    behind an HttpOnly cookie. Text is shown here and never cached or saved by this page. */
 import {useCallback, useEffect, useState} from 'react';
 import {LockIcon} from 'lucide-react';
@@ -23,14 +23,14 @@ export type PrivateStatus={installed:boolean;initialized:boolean;unlocked:boolea
 const MIN_PASSPHRASE=12;
 
 export function usePrivateStatus(api:Api){
-  const [status,setStatus]=useState<PrivateStatus|null>(null),[available,setAvailable]=useState(false);
-  const refresh=useCallback(async()=>{try{setStatus(await api('/api/private'));setAvailable(true);}catch{setStatus(null);setAvailable(false);}},[api]);
+  const [status,setStatus]=useState<PrivateStatus|null>(null),[available,setAvailable]=useState(false),[checked,setChecked]=useState(false);
+  const refresh=useCallback(async()=>{try{setStatus(await api('/api/private'));setAvailable(true);}catch{setStatus(null);setAvailable(false);}finally{setChecked(true);}},[api]);
   useEffect(()=>{refresh();},[refresh]);
-  return {status,available,refresh};
+  return {status,available,checked,refresh};
 }
 
 export function PrivateShelf({api,html,privacy}:{api:Api;html:(text:string)=>string;privacy:ReturnType<typeof usePrivateStatus>}){
-  const {status,available,refresh}=privacy;
+  const {status,available,checked,refresh}=privacy;
   const [passphrase,setPassphrase]=useState(''),[again,setAgain]=useState(''),[understood,setUnderstood]=useState(false);
   const [busy,setBusy]=useState(false),[error,setError]=useState<string|null>(null),[open,setOpen]=useState<Stored|null>(null);
   const act=async(payload:Record<string,unknown>)=>{setBusy(true);setError(null);
@@ -39,7 +39,7 @@ export function PrivateShelf({api,html,privacy}:{api:Api;html:(text:string)=>str
   const [waiting,setWaiting]=useState<{id:string;title:string}[]>([]);
   useEffect(()=>{if(!status?.unlocked){setWaiting([]);return;}api('/api/inbox').then(inbox=>setWaiting((inbox.arrivals||[]).filter((arrival:{bundle?:boolean;integrity?:string})=>arrival.bundle&&arrival.integrity==='intact'))).catch(()=>setWaiting([]));},[api,status]);
   const view=async(id:string)=>{setError(null);try{setOpen(await api('/api/private/item?id='+encodeURIComponent(id)));}catch(cause){setError((cause as Error).message);await refresh();}};
-  if(!available||!status)return null;
+  if(!available||!status)return checked?<Notice id="private-elsewhere" role="note" title="Encrypted storage isn’t available at this address.">To set a passphrase or encrypt documents, open Publish in a browser on the computer that holds your library, using its local address (for example <code className="font-mono text-xs">http://127.0.0.1:8766/#admin/publish</code>). A Tailscale address can’t reach it, even on that computer.</Notice>:null;
   const badge=status.unlocked?<StatusBadge tone="active" data-private-state="unlocked">Unlocked</StatusBadge>:status.initialized?<StatusBadge tone="neutral" data-private-state="locked">Locked</StatusBadge>:<StatusBadge tone="neutral" data-private-state="unset">Not set up</StatusBadge>;
   const mismatch=!!again&&again!==passphrase;
   return <StatusCard data-private="" title="On this machine only" description="Encrypted copies that never join your vault or leave this Mac. No model, voice or search can find them through Reader." badge={badge}

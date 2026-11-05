@@ -55,6 +55,13 @@ const {chromium}=require(process.env.READER_PLAYWRIGHT||'playwright-core');
   await page.locator('#publish-files').setInputFiles({name:'huge.md',mimeType:'text/markdown',buffer:Buffer.alloc(33*1024*1024)});
   await page.locator('#publish-problem').waitFor();
   assert.equal(await page.locator('#publish-submit').isDisabled(),true);
+  // Through a tailnet address the private API answers 404: no level or card, and a note says where to go.
+  await page.locator('input[name=publish-level][value=machine-only]').waitFor({state:'attached'});assert.equal(await page.locator('#private-elsewhere').count(),0);
+  const away=await page.context().newPage();await away.route('**/api/private',route=>route.fulfill({status:404,json:{error:'Not found'}}));
+  await away.goto(url+'#admin/publish');await away.locator('#private-elsewhere').waitFor();
+  assert.match(await away.locator('#private-elsewhere').textContent(),/127\.0\.0\.1/);
+  assert.equal(await away.locator('input[name=publish-level][value=machine-only]').count(),0);assert.equal(await away.locator('[data-private]').count(),0);
+  await away.close();
   // A delivery token is shown once, stored only as a hash, and can be revoked.
   await page.locator('#token-name').fill('My laptop');await page.locator('#token-create').click();
   const secret=await page.locator('#token-value').textContent();assert.match(secret,/^rdt_/);
