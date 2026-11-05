@@ -6,15 +6,19 @@ const {existsSync,readFileSync,readdirSync}=require('node:fs');
 const {join}=require('node:path');
 const {chromium}=require(process.env.READER_PLAYWRIGHT||'playwright-core');
 (async()=>{
- const fixture=spawn(process.env.READER_PYTHON||'.venv/bin/python',['tests/web_fixture.py','--inbox'],{stdio:['ignore','pipe','inherit']});let browser;
+ const fixture=spawn(process.env.READER_PYTHON||'.venv/bin/python',['tests/web_fixture.py','--inbox'],{stdio:['ignore','pipe','inherit'],env:{...process.env,READER_INBOX:'.reader/inbox'}});let browser;
  try{
   const {url,root}=await new Promise((resolve,reject)=>{createInterface({input:fixture.stdout}).once('line',line=>resolve(JSON.parse(line)));fixture.once('exit',code=>reject(new Error('Fixture exited '+code)));});
   browser=await chromium.launch({headless:true,executablePath:process.env.READER_CHROME||'/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',args:['--disable-gpu']});
   const page=await (await browser.newContext({viewport:{width:1300,height:1000},reducedMotion:'reduce'})).newPage();
   const errors=[];page.on('pageerror',e=>errors.push(e.message));
-  const inbox=()=>readdirSync(join(root,'inbox')).filter(name=>/^[0-9a-f-]{36}$/.test(name));
-  const before=inbox();
+  // This suite runs with the default hidden inbox: the fixture's arrivals start in the old folder and get swept in.
+  const hidden=join(root,'.reader/inbox');
+  const inbox=()=>readdirSync(hidden).filter(name=>/^[0-9a-f-]{36}$/.test(name));
   await page.goto(url+'#admin/publish');await page.locator('#backstage-publish').waitFor();
+  await page.evaluate(()=>fetch('/api/inbox').then(r=>r.json()));
+  const before=inbox();assert.ok(before.length,'arrivals moved out of the old folder');
+  assert.deepEqual(readdirSync(join(root,'inbox')).filter(name=>name!=='README.md'&&name!=='.DS_Store'),[]);
   const stage=value=>page.locator(`#backstage-publish[data-publish-stage=${value}]`).waitFor({timeout:30000});
   const choose=(name,text)=>page.locator('#publish-files').setInputFiles({name,mimeType:'text/markdown',buffer:Buffer.from(text)});
   // Nothing can be sent until a file is chosen. The title comes from its name, and the safe level is already selected.
@@ -33,12 +37,12 @@ const {chromium}=require(process.env.READER_PLAYWRIGHT||'playwright-core');
   assert.match(await page.locator('#publish-note').textContent(),/stays safely in the inbox/);
   const added=inbox().filter(name=>!before.includes(name));
   assert.equal(added.length,1);
-  const receipt=JSON.parse(readFileSync(join(root,'inbox',added[0],'receipt.json'),'utf8'));
+  const receipt=JSON.parse(readFileSync(join(hidden,added[0],'receipt.json'),'utf8'));
   assert.equal(receipt.provenance.privacy,'no-cloud');assert.equal(receipt.provenance.uploaded_by,'browser on this machine');
-  assert.ok(existsSync(join(root,'inbox',added[0],'a-private-memo.md')));
+  assert.ok(existsSync(join(hidden,added[0],'a-private-memo.md')));
   // Everything already waiting stayed where it was.
-  for(const name of before)assert.ok(existsSync(join(root,'inbox',name)),name);
-  assert.ok(existsSync(join(root,'inbox/loose-note.md')));
+  for(const name of before)assert.ok(existsSync(join(hidden,name)),name);
+  assert.ok(existsSync(join(hidden,'loose-note.md')));
   // Normal, with the fake model answering: filed and committed, and the other uploads are still waiting.
   await choose('a-public-note.md','# A public note\n');
   await page.locator('input[name=publish-level][value=normal]').check();
@@ -46,7 +50,7 @@ const {chromium}=require(process.env.READER_PLAYWRIGHT||'playwright-core');
   await stage('filed');
   assert.match(await page.locator('#publish-note').textContent(),/Filed and committed to library\//);
   assert.match(await page.locator('#publish-steps').textContent(),/Asking Codex/);
-  assert.ok(existsSync(join(root,'inbox',added[0],'a-private-memo.md')),'the deferred upload stayed');
+  assert.ok(existsSync(join(hidden,added[0],'a-private-memo.md')),'the deferred upload stayed');
   // Too large for the page to send.
   await page.locator('#publish-files').setInputFiles({name:'huge.md',mimeType:'text/markdown',buffer:Buffer.alloc(33*1024*1024)});
   await page.locator('#publish-problem').waitFor();

@@ -260,6 +260,8 @@ Inbox separates delivery from filing. Delivered material waits here until an aut
 
 ## Waiting to be filed
 
+Arrivals wait out of sight in \`.reader/inbox/\`, so they don't appear in Obsidian's file list or Git. Anything left in an old \`inbox/\` folder moves there automatically.
+
 One complete top-level bundle is an arrival; attachments do not count as independent work assignments. Delivered bundles retain their document, attachments and receipt. Direct deposits can lack delivery receipts. Counts describe waiting arrivals under the inbox inventory rules, not all library works or unread documents.
 
 Selecting an arrival opens a preview. Previews are read-only discovery surfaces: they do not file the content or create normal library read receipts, bookmarks or discussion state. Previewing does not prove that every attachment has been read.

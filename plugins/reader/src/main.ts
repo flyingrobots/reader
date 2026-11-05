@@ -1,4 +1,4 @@
-import { readInboxCoordination, inboxDocument, currentInboxRunMessage, type InboxRun } from './inbox.ts';
+import { readInboxCoordination, inboxDocument, currentInboxRunMessage, hiddenInboxFiles, type InboxRun } from './inbox.ts';
 import { annotationExtension, annotationClass, annotationTitle, annotationsChanged, locateQuote, type Thread } from './annotations.ts';
 import type { EditorView } from '@codemirror/view';
 import { createHash } from 'node:crypto';
@@ -41,6 +41,7 @@ export default class ReaderPlugin extends Plugin {
   private searches = new Set<ChildProcess>();
   private readerSettings: { backendRoot?: string; openedOnce?: boolean; dateMode?: DateMode; codexPath?: string; workstationLockStore?: string; inboxSandboxMode?: 'workspace-write'|'danger-full-access'; readDocuments?: Record<string, string>; participant?: string } = {};
   inbox: string[] = [];
+  hiddenInbox: string[] = [];
   inboxRun?: InboxRun;
   inboxPending = false;
   inboxClaims: string[] = [];
@@ -422,7 +423,8 @@ export default class ReaderPlugin extends Plugin {
   private async readInbox() {
     const before = JSON.stringify([this.inbox,this.inboxRun,this.inboxClaims,this.inboxPending,this.inboxStatusError,this.launchingInbox,this.launchError]);
     try {
-      this.inbox = inboxItems(this.app.vault.getFiles().map(f=>f.path));
+      this.hiddenInbox = await hiddenInboxFiles(this.basePath());
+      this.inbox = inboxItems([...this.app.vault.getFiles().map(f=>f.path), ...this.hiddenInbox]);
       const state = await readInboxCoordination(this.basePath());
       this.inboxClaims = state.claims;
       this.inboxPending = !!state.pending;
@@ -452,6 +454,7 @@ export default class ReaderPlugin extends Plugin {
   async openInboxArrival(arrival: string) {
     const path = inboxDocument(arrival, this.app.vault.getFiles().map(file=>file.path));
     if (path) await this.navigate(path, false);
+    else if (inboxDocument(arrival, this.hiddenInbox)) new Notice('Arrivals wait outside Obsidian until they’re filed. Open Reader Admin’s Inbox page to preview this one.');
     else { await this.refreshInbox(); new Notice('This arrival has moved. Look for it in the Reader library.'); }
   }
   async processInbox() {
@@ -712,7 +715,7 @@ class ReaderView extends ItemView {
     else if (count || this.plugin.inboxPending) box.createDiv({text:'Files preserved sources and verifies the result. Interrupted batches resume from their checkpoint.',cls:'reader-caption'});
     if (this.plugin.inboxRun && !active) box.createDiv({text:`Previous run: ${this.plugin.inboxRun.status}. See Run details for its report.`,cls:'reader-caption'});
     if (count) {
-      const files=this.app.vault.getFiles().map(file=>file.path);
+      const files=[...this.app.vault.getFiles().map(file=>file.path),...this.plugin.hiddenInbox];
       const list=box.createEl('ul');
       for (const arrival of this.plugin.inbox) {
         const path=inboxDocument(arrival,files);

@@ -15,6 +15,8 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from .inbox_paths import inbox_dir, sweep
+
 MANIFEST = "receipt.json"
 MAX_FILE = 32 * 1024 * 1024
 MAX_TOTAL = 64 * 1024 * 1024
@@ -98,14 +100,17 @@ def read_source(value: str) -> bytes:
 class Store:
     def __init__(self, root: Path):
         self.root = root.expanduser().resolve(strict=True)
-        for name in ("inbox", "library"):
-            path = self.root / name
-            if path.is_symlink() or not path.is_dir():
-                raise ValueError(f"Reader root must contain a real {name}/ directory")
+        path = self.root / "library"
+        if path.is_symlink() or not path.is_dir():
+            raise ValueError("Reader root must contain a real library/ directory")
         self.state = self.root / ".reader"
         if self.state.is_symlink():
             raise ValueError(".reader must not be a symlink")
         self.state.mkdir(exist_ok=True)
+        self.inbox = inbox_dir(self.root)
+        if self.inbox.is_symlink():
+            raise ValueError("The inbox must not be a symlink")
+        self.inbox.mkdir(parents=True, exist_ok=True, mode=0o700)
 
     @contextmanager
     def locked(self):
@@ -118,9 +123,10 @@ class Store:
     def locate(self, request_id: str):
         request_id = str(UUID(request_id))
         found = []
-        for section in ("inbox", "library"):
-            for manifest in (self.root / section).rglob(MANIFEST):
-                if manifest.is_symlink() or not manifest.resolve().is_relative_to(self.root / section):
+        sweep(self.root)
+        for section, base in (("inbox", self.inbox), ("library", self.root / "library")):
+            for manifest in base.rglob(MANIFEST):
+                if manifest.is_symlink() or not manifest.resolve().is_relative_to(base):
                     continue
                 # Other documents may have an unrelated receipt.json attachment.
                 if manifest.stat().st_size > 128 * 1024:
@@ -154,7 +160,7 @@ class Store:
             "status": "awaiting_filing" if section == "inbox" else "filed",
             "integrity": "intact" if not issues else "needs_attention",
             "issues": issues,
-            "bundle_path": str(folder.relative_to(self.root)),
+            "bundle_path": ("inbox/" + folder.relative_to(self.inbox).as_posix()) if section == "inbox" else str(folder.relative_to(self.root)),
             "document_path": str(folder / relative_path(receipt["document"])),
         }
 
@@ -200,7 +206,7 @@ class Store:
                 return result
             receipt = {"reader_receipt": 1, "id": request_id, "fingerprint": fingerprint,
                        "received_at": datetime.now(timezone.utc).isoformat(), **identity}
-            destination = self.root / "inbox" / request_id
+            destination = self.inbox / request_id
             if destination.exists() or destination.is_symlink():
                 raise ValueError("Destination already exists without a matching receipt")
             staging_root = self.state / "staging"

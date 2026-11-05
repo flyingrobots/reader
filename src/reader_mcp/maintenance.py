@@ -17,6 +17,7 @@ import threading
 import time
 import traceback
 import uuid
+from .inbox_paths import inbox_dir
 from .junk import os_junk
 
 MIB = 1024 ** 2
@@ -245,9 +246,10 @@ class Maintenance:
         if coverage.is_file() and not coverage.is_symlink() and coverage.stat().st_size <= 16 * MIB:
             works = len(json.loads(coverage.read_text()).get('works') or [])
         inbox = 0
-        for folder, dirs, names in os.walk(self.root / 'inbox', followlinks=False):
+        waiting = inbox_dir(self.root)
+        for folder, dirs, names in os.walk(waiting, followlinks=False):
             dirs[:] = [d for d in dirs if not d.startswith('.')]
-            inbox += sum(1 for n in names if not n.startswith('.') and Path(folder, n) != self.root / 'inbox/README.md')
+            inbox += sum(1 for n in names if not n.startswith('.') and Path(folder, n) != waiting / 'README.md')
             if inbox > MAX_INBOX_FILES:
                 break
         items = [{'key': 'works', 'label': 'Works', 'used': works, 'limit': MAX_WORKS},

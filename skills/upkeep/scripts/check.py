@@ -12,9 +12,13 @@ from uuid import UUID
 
 
 def arrivals(root):
-    return [dict(path=p.relative_to(root).as_posix(),bundle=p.is_dir(),symlink=p.is_symlink())
-            for p in sorted((root/'inbox').iterdir())
-            if p.name not in ('README.md','.DS_Store') and not p.name.startswith('.delivery-')]
+    # Arrivals keep the logical name inbox/<arrival>, in .reader/inbox/ or a configured folder; `location`, when present, is where they are now.
+    place=os.environ.get('READER_INBOX') or '.reader/inbox'
+    rows=[dict(path='inbox/'+p.name,bundle=p.is_dir(),symlink=p.is_symlink(),**({} if place=='inbox' else {'location':p.relative_to(root).as_posix()}))
+          for base in {root/place,root/'inbox'} if base.is_dir()
+          for p in base.iterdir()
+          if p.name not in ('README.md','.DS_Store') and not p.name.startswith('.delivery-')]
+    return sorted(rows,key=lambda row:row['path'])
 
 
 def claims(root,claim=None,release=None,paths=(),*,role='observer'):

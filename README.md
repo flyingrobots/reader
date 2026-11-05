@@ -111,7 +111,7 @@ and link graph, with rebuilds on demand; the inbox; artwork; library statistics;
 service and companion tools; agent voices; the local-model provider, queue and
 controls; and settings (**Space p**). **Back to Library** returns to the document
 where you left it. Other tools and
-agents deliver documents into the vault's `inbox/` with `reader ingest` or the
+agents deliver documents into the vault's inbox with `reader ingest` or the
 `reader_ingest` MCP tool. **You got mail** starts deterministic intake: the script
 invokes your Codex CLI for bounded editorial decisions, preserves and files the
 arrivals, checks the result, and commits it. Work is divided automatically;
@@ -162,7 +162,7 @@ dates. It never touches a folder that is not an earlier demo. See
 writes the same library as a static website that runs entirely in the browser; see
 [static web demo](docs/demo.md#static-web-demo).
 
-When you are ready for your own documents: a vault is a Git repository with `library/` and `inbox/` folders. Put your Markdown
+When you are ready for your own documents: a vault is a Git repository with a `library/` folder. Put your Markdown
 and PDF files anywhere under `library/`:
 
 ```sh

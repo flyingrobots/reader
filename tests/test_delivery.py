@@ -88,7 +88,7 @@ def test_unknown_receipt_and_symlink_rejection(vault, tmp_path):
     assert store.status(str(uuid4()))["status"] == "not_found"
     (vault / "inbox").rmdir()
     (vault / "inbox").symlink_to(tmp_path, target_is_directory=True)
-    with pytest.raises(ValueError, match="real inbox"):
+    with pytest.raises(ValueError, match="inbox must not be a symlink"):
         Store(vault)
 
 

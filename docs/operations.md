@@ -6,7 +6,7 @@ Autonomous reading and source acquisition have separate authorization. A default
 
 Open the repository directory as an Obsidian vault and use `README.md` or `library/index.md` as the entry point. Ordinary Markdown viewers can also follow the relative links. For the optional relationship sidebar, date grouping, search, and speech controls, follow [Reader plugin installation and operation](obsidian-plugin.md).
 
-Place new documents in `inbox/`. Bundle supporting files with their document when possible. Ask the librarian to process the inbox; Reader can detect pending arrivals in Obsidian and offer **Process inbox**, which starts the deterministic intake workflow only when clicked. There is no unattended scheduled processing; see [the inbox runner](inbox-runner.md).
+Upload new documents on Reader Admin's Publish page, or place them in an `inbox/` folder at the vault root, which is swept into the hidden inbox. Bundle supporting files with their document when possible. Ask the librarian to process the inbox; Reader can detect pending arrivals in Obsidian and offer **Process inbox**, which starts the deterministic intake workflow only when clicked. There is no unattended scheduled processing; see [the inbox runner](inbox-runner.md).
 
 Agents in other projects can use the installed Reader skill, MCP tools, or command helper described in [Delivery integration](delivery.md). Delivery is automatic when invoked; filing starts only on an authorized request. Machine receipts update with each delivery, while this documentation describes the maintained workflow rather than duplicating a live queue count.
 

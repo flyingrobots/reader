@@ -36,6 +36,7 @@ from .engagement import ONE_OFF_RECEIPTS, Engagement
 from .inbox_view import InboxView, RunConflict
 from .writing import NOTEBOOK, Writing, WritingConflict
 from . import delivery_tokens, model_chain, private_store, uploads
+from .inbox_paths import physical
 from .local_model import LocalModel
 from .links import LinkError, LinkGraph, Resolver, excerpt, title_of
 from .magazine import Magazine
@@ -240,8 +241,8 @@ class WebLibrary:
         allowed = value.startswith('library/') or preview and value.startswith('inbox/')
         if not allowed or any(p in ('', '.', '..') or p.startswith('.') for p in parts):
             raise ValueError('Expected a normalized library-relative path')
-        file = self.root / value
-        if any(p.is_symlink() for p in (file, *file.parents) if p != self.root):
+        file = physical(self.root, value) if value.startswith('inbox/') else self.root / value
+        if any(p.is_symlink() for p in (file, *file.parents) if p != self.root and p.is_relative_to(self.root)):
             raise ValueError('Library paths must not cross symlinks')
         if not file.exists():
             raise MissingDocument('No document at this path. It may have moved or been renamed.')

@@ -18,6 +18,7 @@ from uuid import UUID, uuid4
 import yaml
 
 from .browse import SKIP as BROWSE_SKIP
+from .inbox_paths import physical
 from .junk import os_junk
 from .model_chain import Chain, NoModelAnswered
 from .metadata import source_frontmatter
@@ -51,7 +52,7 @@ def checked_path(root, relative):
     if not isinstance(relative, str) or not relative.startswith('inbox/') or any(
             p in ('', '.', '..') for p in relative.split('/')) or '\\' in relative:
         raise ValueError('Expected a bounded inbox path')
-    path = root / relative
+    path = physical(root, relative)
     for p in (path, *path.parents):
         if p == root:
             break
@@ -515,10 +516,12 @@ def apply_plan(root, runtime, plan):
         verify_payload(root, entry)
     # Move the complete batch before preparing references between its arrivals.
     # The frozen source-to-destination mapping also survives checkpoint replay.
+    # Absolute links may name an arrival where it sits now, or in the old inbox/ folder.
     relocations = {
-        root / (e['source'] + '/' + row['path'] if e['is_directory'] else e['source']):
-        e['destination'] + '/originals/' + row['path']
+        place: e['destination'] + '/originals/' + row['path']
         for e in entries for row in e['files']
+        for logical in [e['source'] + '/' + row['path'] if e['is_directory'] else e['source']]
+        for place in (physical(root, logical), root / logical)
     }
     repairer = PortableLinks(root, writer=journal.write, relocations=relocations)
     for entry in entries:

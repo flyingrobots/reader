@@ -94,6 +94,14 @@ python3 "$HOME/.codex/skills/reader/scripts/reader.py" status RECEIPT_UUID
 
 The core CLI also accepts `READER_ROOT` instead of `--root`, and `ingest -` reads JSON from standard input. It does not infer the vault from the calling project's current directory. Successful output is JSON; CLI failures exit nonzero and describe the error on stderr. MCP failures are tool errors. Neither adapter executes source content.
 
+## Where arrivals wait
+
+Arrivals wait in the ignored `.reader/inbox/`, out of sight of Obsidian and Git, and move into `library/` when filed. They keep the logical name `inbox/<arrival>` in queues, receipts' `bundle_path`, previews and URLs, so `document_path` is the only field that names the real location. `READER_INBOX` names another vault-relative folder.
+
+A vault doesn't need an `inbox/` folder. If one exists, it still works as a drop box for people and older helpers: whenever arrivals are read, everything in it except `README.md` moves in, by rename. Nothing is overwritten. A name that's already taken stays where it is and is reported on the Inbox page, and symlinks stay put.
+
+Because `.reader/` is ignored, waiting arrivals aren't in Git, the same as before. `git clean -fdx` would delete them, where `git clean -fd` would not. Back up the folder if you rely on it.
+
 ## Upload from the web
 
 Reader Admin's **Publish** page uploads files into the inbox and files them, showing each step. "Publish" means filing into your private vault; nothing becomes public. Filing runs only on that upload (`POST /api/inbox` with `arrivals`), so anything else waiting stays put.
@@ -164,7 +172,7 @@ python3 /path/to/skills/reader/scripts/reader.py remote-setup user@vault-host
 `remote-setup` checks whether a working Reader key is already configured and stops if it is. Otherwise it creates a dedicated key (`~/.ssh/reader_ed25519`, no passphrase unless `--passphrase`), logs in once with your existing SSH credentials or password, and runs `remote-authorize` on the vault machine. That adds one entry to the vault user's `~/.ssh/authorized_keys`:
 
 ```text
-restrict,command="/home/you/.reader/bin/reader remote-gate --scope deliver" ssh-ed25519 AAAA… reader-remote@laptop
+restrict,command="/path/to/.reader/bin/reader remote-gate --scope deliver" ssh-ed25519 AAAA… reader-remote@laptop
 ```
 
 `restrict` disables shells, terminals, port, agent and X11 forwarding for that key; the forced command means it can run only `remote-gate`. Setup then writes `~/.config/reader/remote.json` (mode 600) on the delivering machine and verifies the key in batch mode. It changes nothing else: no SSH client configuration, and no other `authorized_keys` line. Rerunning is safe; `--force` reauthorizes, and a scope change replaces the Reader entry. If the same key is already authorized without the forced command, `remote-authorize` refuses rather than restricting a key used for other logins. `remote-authorize` holds a lock on `authorized_keys.reader-lock` while it updates the file, so setups from two machines at once keep both keys. If `ssh-agent` holds the Reader key, the authorization login can reach the gate instead of a shell; setup detects the refusal and retries once with `IdentitiesOnly=yes`. Every Reader SSH call passes `-S none`, so a `ControlMaster` connection authenticated with other credentials is never reused. Options: `--port`, `--key` (saved as an absolute path), `--passphrase` (then load it into `ssh-agent`), `--server-helper PATH` when the vault machine has no launcher and its helper is not in `~/.claude/skills/reader` or `$CODEX_HOME/skills/reader`, and `--scope`.
@@ -188,7 +196,7 @@ Use a stable address for the vault machine, such as its local hostname or a priv
 
 ## Receipts, retries, and filing
 
-Each accepted request publishes `inbox/<uuid>/` containing its payloads and `receipt.json`. The receipt records a schema version, ID, title, document path relative to the bundle, optional provenance, UTC receipt time, per-file byte lengths and SHA-256 hashes, and a fingerprint of the submission's title, document path, provenance, and file descriptors. It is a content integrity record, not a cryptographic signature or proof that a report's claims are true.
+Each accepted request publishes the arrival `inbox/<uuid>/` containing its payloads and `receipt.json`. The receipt records a schema version, ID, title, document path relative to the bundle, optional provenance, UTC receipt time, per-file byte lengths and SHA-256 hashes, and a fingerprint of the submission's title, document path, provenance, and file descriptors. It is a content integrity record, not a cryptographic signature or proof that a report's claims are true.
 
 The response adds `bundle_path` relative to the vault, an absolute `document_path` for clickable links, `status`, `integrity`, and per-file `issues`. A status lookup scans receipts in inbox and library and verifies current payloads. The states are:
 

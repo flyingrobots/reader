@@ -16,7 +16,7 @@ Plain files are the canonical record. Obsidian supplies browsing and search; Git
 | --- | --- |
 | `README.md` | Vault entry point and reader navigation |
 | `AGENTS.md` | Standing librarian responsibilities |
-| `inbox/` | Unprocessed arrivals; its README is permanent |
+| `.reader/inbox/` | Unprocessed arrivals, ignored by Git and hidden from Obsidian. An `inbox/` folder, if present, is a drop box swept into it; see [where arrivals wait](delivery.md#where-arrivals-wait) |
 | `library/index.md` | Top-level catalog |
 | `library/<collection>/` | Documents grouped by subject or project |
 | `library/<collection>/index.md` | Collection catalog, created with its first document |
@@ -42,7 +42,7 @@ Plain files are the canonical record. Obsidian supplies browsing and search; Git
 
 Create collections from actual material rather than predicting a taxonomy. Use short lowercase hyphenated names for new folders and curated document filenames. A document normally lives at `library/<collection>/<descriptive-title>.md`. Resolve collisions with a meaningful qualifier, such as a known source date or version; never overwrite another document. Keep a stable path after filing unless a move provides a clear organizational benefit.
 
-MCP/CLI deliveries arrive as `inbox/<receipt-uuid>/` bundles. Their original payloads and `receipt.json` travel together when filed into `library/<collection>/<descriptive-name>/`. A librarian-created `index.md` catalog note holds curated frontmatter and links to the unchanged originals. This preserves receipt checksums and original relative attachment links. Deterministic intake places every raw delivery under an `originals/` directory and uses independent catalog metadata, including for direct-drop Markdown.
+MCP/CLI deliveries arrive as `inbox/<receipt-uuid>/` bundles, a logical name for a folder under `.reader/inbox/`. Their original payloads and `receipt.json` travel together when filed into `library/<collection>/<descriptive-name>/`. A librarian-created `index.md` catalog note holds curated frontmatter and links to the unchanged originals. This preserves receipt checksums and original relative attachment links. Deterministic intake places every raw delivery under an `originals/` directory and uses independent catalog metadata, including for direct-drop Markdown.
 
 ## Documentation, plans, and activity
 

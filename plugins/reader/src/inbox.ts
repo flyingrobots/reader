@@ -1,8 +1,26 @@
-import { readFile, lstat } from 'node:fs/promises';
+import { readFile, lstat, readdir } from 'node:fs/promises';
 import { join } from 'node:path';
 
 export type InboxRun = { run_id?: string; status: string; supervisor_pid?: number; message: string };
 export type InboxCoordination = { run?: InboxRun; claims: string[]; errors: string[]; pending?: boolean };
+
+/** Arrivals wait in .reader/inbox/, which Obsidian doesn't index. Returned with their logical inbox/ paths; never follows a symlink. */
+export async function hiddenInboxFiles(base: string, limit = 10000): Promise<string[]> {
+  const found: string[] = [];
+  const walk = async (folder: string, logical: string) => {
+    let entries;
+    try { entries = await readdir(folder, { withFileTypes: true }); }
+    catch (error) { if ((error as NodeJS.ErrnoException).code === 'ENOENT') return; throw error; }
+    for (const entry of entries) {
+      if (found.length >= limit) return;
+      if (entry.isSymbolicLink() || entry.name.startsWith('.')) continue;
+      if (entry.isDirectory()) await walk(join(folder, entry.name), logical + '/' + entry.name);
+      else if (entry.isFile()) found.push(logical + '/' + entry.name);
+    }
+  };
+  await walk(join(base, '.reader/inbox'), 'inbox');
+  return found;
+}
 
 /** Completed-run snapshots do not describe the current inbox after later filing. */
 export function currentInboxRunMessage(run?: InboxRun): string {

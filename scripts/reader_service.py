@@ -555,8 +555,8 @@ def install(args):
     repo = Path(args.repo or previous.get('repo') or default_repo()).expanduser().resolve()
     python = Path(args.python or previous.get('python') or repo / '.venv/bin/python').expanduser()
     vault = Path(args.vault or os.environ.get('READER_ROOT') or previous.get('vault') or configured_vault(repo)).expanduser().resolve(strict=True)
-    if not (vault / 'library').is_dir() or not (vault / 'inbox').is_dir():
-        raise ServiceError('Expected a Reader vault with library/ and inbox/')
+    if not (vault / 'library').is_dir():
+        raise ServiceError('Expected a Reader vault with a library/ folder')
     if not python.is_file():
         raise ServiceError(f'Missing Python interpreter: {python}')
     state = {

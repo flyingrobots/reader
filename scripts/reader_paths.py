@@ -13,8 +13,8 @@ def paths(code=None):
     if not value:
         raise ValueError('No private vault configured. Run scripts/install.py --vault PATH or set READER_ROOT.')
     vault = Path(value).expanduser().resolve(strict=True)
-    if vault == code or not (vault / 'library').is_dir() or not (vault / 'inbox').is_dir():
-        raise ValueError('Expected a separate Reader vault with library/ and inbox/ directories')
+    if vault == code or not (vault / 'library').is_dir():
+        raise ValueError('Expected a separate Reader vault with a library/ directory')
     return code, vault
 
 

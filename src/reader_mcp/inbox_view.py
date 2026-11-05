@@ -23,6 +23,7 @@ from uuid import UUID, uuid4
 
 from . import model_chain
 from .display import shown
+from .inbox_paths import inbox_dir, sweep
 from .inbox_runner import chat_turn_running, inventory
 
 MAX_RECEIPT = 256 * 1024
@@ -209,7 +210,7 @@ class InboxView:
             groups.setdefault(path.split('/')[1], []).append(path)
         rows = []
         for name, members in sorted(groups.items()):
-            top = self.root / 'inbox' / name
+            top = inbox_dir(self.root) / name
             bundle = top.is_dir()
             receipt, receipt_error = self.receipt(top) if bundle else (None, None)
             # Same choice as the Obsidian plugin: the first readable document, else any non-receipt file.
@@ -471,6 +472,8 @@ class InboxView:
         result['model_providers'] = self.model_providers(result['errors'])
         result['model_chain'] = self.model_chain_state()
         try:
+            for name in sweep(self.root):
+                result['errors'].append(f'inbox/{name} could not be moved in, because an arrival already has that name. Rename it.')
             result['arrivals'] = self.arrivals()
         except (ValueError, OSError) as exc:
             result['errors'].append(str(exc))

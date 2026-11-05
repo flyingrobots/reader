@@ -7,7 +7,7 @@
   },
   "sources": {
     "../docs/topics/artwork.md": "6fbe4ca291650e79053b7a1224a38c32f2f4e38f44d2e254a31b032dfdb7f8f4",
-    "../docs/topics/inbox.md": "93657d3f9061f78fdd0c03c745cc63a04375bdb7b2b9e1f03e8e400e92079b87",
+    "../docs/topics/inbox.md": "f675f72b6a898e714e688927c658473df8940d683b8464017cd073eb5895802a",
     "../docs/topics/indexes.md": "a1412370697e5f1671058ff2929e7a6df0519826cc264f9bd755d4d66c72e358",
     "../docs/topics/jobs.md": "cd44c7167fdef58836399ca0d6a3f5d585de6df80fe89ec2c0c87fed7ab0cfd8",
     "../docs/topics/library.md": "81ed9fe8db0587b087376b3ed78dd4c45ca9e62cf3f204d2d56dcc594db15b59",
@@ -995,8 +995,8 @@
       "sha256": "8285cfa81d7c1f65a9dbbf264c36cf083684690e547dac47a315184c6da48470"
     },
     "reader-controls.js": {
-      "bytes": 1355681,
-      "sha256": "15ae350e8fc4048fd9d82969f6629a0c0a0fa8c4ab8dd97bbe924af7e3497882"
+      "bytes": 1355854,
+      "sha256": "f36e422439595bb6636fcf64e1b691d55631a480ae9ffd172adda5881e312217"
     },
     "reader-controls.js.LEGAL.txt": {
       "bytes": 6614,

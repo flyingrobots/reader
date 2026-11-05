@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdtemp, mkdir, writeFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { readInboxCoordination, inboxDocument, currentInboxRunMessage } from '../src/inbox.ts';
+import { readInboxCoordination, inboxDocument, currentInboxRunMessage, hiddenInboxFiles } from '../src/inbox.ts';
 import { inboxItems } from '../src/model.ts';
 
 test('finished-run remaining-arrivals snapshots cannot report current pending work',()=>{
@@ -68,4 +68,19 @@ test('an empty inbox can expose its unfinished queue without a previous run stat
     await rm(join(root,'.reader/inbox-runner/queue.json'));
     assert.equal((await readInboxCoordination(root)).pending,undefined);
   } finally { await rm(root,{recursive:true}); }
+});
+
+test('hidden arrivals keep their logical paths and never follow a symlink', async () => {
+  const { mkdtemp, mkdir, writeFile, symlink } = await import('node:fs/promises');
+  const { tmpdir } = await import('node:os');
+  const { join } = await import('node:path');
+  const base = await mkdtemp(join(tmpdir(), 'reader-inbox-'));
+  assert.deepEqual(await hiddenInboxFiles(base), []);
+  await mkdir(join(base, '.reader/inbox/bundle/assets'), { recursive: true });
+  await writeFile(join(base, '.reader/inbox/loose.md'), 'x');
+  await writeFile(join(base, '.reader/inbox/bundle/doc.md'), 'x');
+  await writeFile(join(base, '.reader/inbox/bundle/assets/a.png'), 'x');
+  await writeFile(join(base, '.reader/inbox/.DS_Store'), 'x');
+  await symlink('/etc/passwd', join(base, '.reader/inbox/link.md'));
+  assert.deepEqual((await hiddenInboxFiles(base)).sort(), ['inbox/bundle/assets/a.png', 'inbox/bundle/doc.md', 'inbox/loose.md']);
 });

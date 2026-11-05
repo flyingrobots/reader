@@ -7,6 +7,7 @@ import os
 from pathlib import Path
 import resource
 import shutil
+from .inbox_paths import PREFIX, inbox_dir, sweep
 from .resources import has_capacity, minimum_free_bytes
 import signal
 import subprocess
@@ -22,22 +23,24 @@ from .junk import os_junk
 def inventory(root, *, strict=True):
     """Preserve hidden attachments; refuse unsafe arrivals instead of silently skipping them."""
     paths = []
-    if (root / 'inbox').is_symlink():
+    sweep(root)
+    base = inbox_dir(root)
+    if base.is_symlink():
         raise ValueError('Inbox must not be a symlink')
-    for directory, folders, files in os.walk(root / 'inbox', followlinks=False):
+    for directory, folders, files in os.walk(base, followlinks=False):
         for name in folders + files:
             if strict and not os_junk(name) and ((Path(directory) / name).is_symlink() or name == '.git'):
-                raise ValueError('Inbox symlinks or Git metadata require explicit disposition: ' + (Path(directory) / name).relative_to(root).as_posix())
+                raise ValueError('Inbox symlinks or Git metadata require explicit disposition: ' + PREFIX + (Path(directory) / name).relative_to(base).as_posix())
         folders[:] = [n for n in folders if not os_junk(n) and n != '.git' and not (Path(directory) / n).is_symlink()]
         for name in sorted(files):
             p = Path(directory) / name
-            if os_junk(name) or p.is_symlink() or p == root / 'inbox/README.md':
+            if os_junk(name) or p.is_symlink() or p == base / 'README.md':
                 continue
             if not p.is_file():
                 if strict:
                     raise ValueError('Inbox contains a non-regular file')
                 continue
-            paths.append(p.relative_to(root).as_posix())
+            paths.append(PREFIX + p.relative_to(base).as_posix())
             if len(paths)>MAX_INBOX_FILES:raise ValueError('Inbox inventory exceeds its supported 10,000-file capacity')
     return sorted(paths)
 
@@ -215,8 +218,9 @@ def run(root, codex, run_id=None, timeout=1800, workstation_lock_store=None, san
             temp = runtime / 'tmp'; temp.mkdir(exist_ok=True)
             def data_size():
                 total = 0
+                waiting = inbox_dir(root)  # Arrivals are the input, with their own limits, not this run's generated data.
                 for base, dirs, files in os.walk(root / '.reader'):
-                    dirs[:] = [d for d in dirs if not (Path(base)/d).is_symlink()]
+                    dirs[:] = [d for d in dirs if not (Path(base)/d).is_symlink() and Path(base)/d != waiting]
                     for name in files:
                         p=Path(base)/name
                         try:

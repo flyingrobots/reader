@@ -18,8 +18,8 @@ def main():
     args = parser.parse_args()
     code = Path(__file__).resolve().parents[1]
     vault = args.vault.expanduser().resolve(strict=True)
-    if vault == code or not all((vault / p).is_dir() for p in ('library', 'inbox')):
-        sys.exit('Choose a separate existing vault with library/ and inbox/.')
+    if vault == code or not (vault / 'library').is_dir():
+        sys.exit('Choose a separate existing vault with a library/ folder.')
     python = code / '.venv/bin/python'
     if not python.is_file():
         sys.exit('Run uv sync --locked in the code checkout first.')

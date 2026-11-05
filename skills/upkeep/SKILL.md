@@ -7,6 +7,9 @@ description: Observe Reader arrivals and discussion at turn boundaries across pr
 
 Resolve the code checkout from this skill's real path (the parent of `skills/`). The private vault is selected by `READER_ROOT` or the ignored code-checkout `.reader/config.json` written by `scripts/install.py --vault PATH`. The helper scripts use that configuration; do not treat the code checkout as the vault. Read its `AGENTS.md` and `docs/operations.md`. This is turn-boundary work, not an unattended service. A user's pause or stop instruction takes precedence.
 
+
+Arrivals wait in `.reader/inbox/`. `arrivals` and claims keep the logical path `inbox/<arrival>`, and an arrival's `location` says where it is on disk.
+
 ## Select the session role
 
 A reading-only session uses **observer** mode even when started in the main vault under a librarian mandate. Reading does not authorize acquisition, filing, claim/delegation, navigation refresh or promotion of external/demo sources. A restricted reading worker does not invoke Upkeep itself; its coordinator performs any boundary observation. Separate explicit acquisition/intake work retains the librarian workflow below.
