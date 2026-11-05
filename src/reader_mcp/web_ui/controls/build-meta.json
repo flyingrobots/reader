@@ -14,7 +14,7 @@
     "../docs/topics/logs.md": "cf2d367a13620967bb12e811834c22f23a73ec11f33783bfb287bad858cdc579",
     "../docs/topics/models.md": "525f9fb66a9565eb46a698b3a7163b890fa727b4930d922f7ebcf07ea5af4eb3",
     "../docs/topics/overview.md": "57520a0f5beb71ee8c7440c8b2c23f33b8e05a11cbbc9cc682f6db9779f67dcf",
-    "../docs/topics/publish.md": "8daeb07ef889246a0a6dd069fe09653b9d17c2511c6df55b105bb4715289f0b6",
+    "../docs/topics/publish.md": "02a17a012dcaaeaeb6cc3817491ef37250a51de2771ec9b866c5c3e285cebf6d",
     "../docs/topics/repositories.md": "a380b973f9656d637411e05877310520107c1b0c6fd560015ea0bdde56a841e5",
     "../docs/topics/service.md": "afed76a054d5ee552c72b3db60365acf11c3eefd447798a449d0c312af3d21f0",
     "../docs/topics/settings.md": "99336b16eb57868f4a2943fe5e5bf58c2d5c7196e9116f93c0f22e33f2ed8932",
@@ -42,7 +42,7 @@
     "src/admin/pages/library-charts.ts": "934c246bde1dd47a99dd19ac3c4ba0ae6df98e98bb62ddd1912e39f211bfc902",
     "src/admin/pages/library.tsx": "1c4ee11da3a6491bf35261d747c9296251513d9e53e02ffff5b7288ba9c209e0",
     "src/admin/pages/logs.tsx": "ded000bd5ca82dce862fe1e86436383a326660f00be8c366fde7fdd978fb2609",
-    "src/admin/pages/private-shelf.tsx": "352f1d4552beb75fd6766044df0d7226aaa51033935d18a70919fcb40a81fcfb",
+    "src/admin/pages/private-shelf.tsx": "13c828b537e588fafb1e016ed249644e37b5037a4aeffb49b0e5141c6c9add64",
     "src/admin/pages/publish.tsx": "e97742547617bfde4457addf83471e90df9662b15c51a3fa709ed6d43346ee78",
     "src/admin/pages/repositories.tsx": "b27c3176025dd93ab4194beff4ec6eb12aca8a62235fb2b1a84c39ef97760c78",
     "src/admin/pages/shelves.tsx": "fe7173d11af9e4f0d05fee9afa631f3265438845426211ae4e6b0b05cde2159a",
@@ -995,8 +995,8 @@
       "sha256": "8285cfa81d7c1f65a9dbbf264c36cf083684690e547dac47a315184c6da48470"
     },
     "reader-controls.js": {
-      "bytes": 1355854,
-      "sha256": "f36e422439595bb6636fcf64e1b691d55631a480ae9ffd172adda5881e312217"
+      "bytes": 1357300,
+      "sha256": "a1ddaa82da5549e591350b013bf135dfc68726282bfba533f19014698310bc6c"
     },
     "reader-controls.js.LEGAL.txt": {
       "bytes": 6614,

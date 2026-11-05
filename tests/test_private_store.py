@@ -207,6 +207,75 @@ def test_end_to_end_retry_is_idempotent_and_delete_removes_it(real):
         real.read(session, identity)
 
 
+def waiting_delivery(vault, title='A waiting debrief', text=b'WAITINGMARKER6620 text\n'):
+    body, identity = frame(privacy='no-cloud', data=text, path='debrief.md', title=title)
+    uploads.receive(vault, io.BytesIO(body), len(body), LOCAL)
+    return identity
+
+
+def test_end_to_end_a_waiting_delivery_moves_into_encrypted_storage(real, vault):
+    session = real.setup(PASSPHRASE)
+    identity = waiting_delivery(vault)
+    folder = vault / 'inbox' / identity
+    receipt = (folder / 'receipt.json').read_bytes()
+    assert real.encrypt_arrival(session, vault, identity, None)['status'] == 'encrypted'
+    assert not folder.exists()
+    meta, files = real.read(session, identity)
+    assert files['debrief.md'] == b'WAITINGMARKER6620 text\n' and files['receipt.json'] == receipt and meta['title'] == 'A waiting debrief'
+    assert meta['files'][0]['path'] == 'debrief.md' and real.view(session, identity)['text'].startswith('WAITINGMARKER6620')
+    assert b'WAITINGMARKER6620' not in repository_bytes(real.repo)
+
+
+def test_end_to_end_the_inbox_copy_stays_if_anything_goes_wrong(real, vault, monkeypatch):
+    session = real.setup(PASSPHRASE)
+    identity = waiting_delivery(vault)
+    folder = vault / 'inbox' / identity
+    with pytest.raises(ValueError, match='filing run'):
+        real.encrypt_arrival(session, vault, identity, 'A filing run is using the inbox.')
+    assert folder.is_dir()
+    with pytest.raises(private_store.Locked):
+        real.encrypt_arrival('not-the-session-cookie-value', vault, identity, None)
+    assert folder.is_dir()
+    monkeypatch.setattr(real, 'read', lambda *_: ({}, {'debrief.md': b'different'}))
+    with pytest.raises(ValueError, match='didn’t match'):
+        real.encrypt_arrival(session, vault, identity, None)
+    assert (folder / 'debrief.md').is_file()
+    monkeypatch.undo()
+    (folder / 'debrief.md').write_bytes(b'changed since delivery')
+    with pytest.raises(ValueError, match='changed since'):
+        real.encrypt_arrival(session, vault, identity, None)
+    assert folder.is_dir()
+
+
+def test_end_to_end_only_a_waiting_delivery_can_be_moved(real, vault):
+    session = real.setup(PASSPHRASE)
+    for bad, message in ((str(uuid4()), 'isn’t a delivery'), ('../etc', 'badly formed|invalid')):
+        with pytest.raises(ValueError, match=message):
+            real.encrypt_arrival(session, vault, bad, None)
+
+
+def test_end_to_end_a_killed_write_leaves_nothing_readable_and_earlier_documents_intact(real):
+    import signal
+    import time
+    session = real.setup(PASSPHRASE)
+    keep = str(uuid4())
+    real.store(session, keep, {'title': 'kept', 'received_at': 'now'}, [('a.md', b'kept bytes')])
+    assert subprocess.run(['git', '--git-dir', str(real.repo), 'config', 'core.fsync'], capture_output=True, text=True).stdout.strip() == 'loose-object,pack,reference'
+    key, data = real.key(session), (MARKER + b' ') * (3 * 1024 * 1024)
+    meta = json.dumps({'title': TITLE, 'files': [{'path': 'b.md', 'bytes': len(data), 'sha256': hashlib.sha256(data).hexdigest()}]}).encode()
+    request = json.dumps({'op': 'store', 'key': key, 'id': str(uuid4()), 'meta_bytes': len(meta)}).encode() + b'\n'
+    process = subprocess.Popen(['node', str(private_store.BRIDGE / 'bridge.mjs'), str(real.repo), str(real.tool)], stdin=subprocess.PIPE, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    process.stdin.write(request + meta + data)
+    process.stdin.close()
+    time.sleep(0.7)
+    process.send_signal(signal.SIGKILL)
+    process.wait()
+    stored = repository_bytes(real.repo)
+    assert MARKER not in stored and TITLE.encode() not in stored
+    assert real.read(session, keep)[1] == {'a.md': b'kept bytes'}
+    assert subprocess.run(['git', '--git-dir', str(real.repo), 'fsck', '--connectivity-only'], capture_output=True).returncode == 0
+
+
 def test_end_to_end_a_push_is_refused(real, tmp_path):
     real.setup(PASSPHRASE)
     remote = tmp_path / 'remote.git'

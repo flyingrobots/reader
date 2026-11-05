@@ -128,6 +128,9 @@ class PrivateStore:
         remotes = subprocess.run(['git', '--git-dir', str(self.repo), 'remote'], capture_output=True, text=True, timeout=30)
         if remotes.returncode or remotes.stdout.strip():
             raise ValueError('The encrypted repository has a Git remote, so nothing was stored. Remove the remote first.')
+        # Each object and ref reaches the disk before the next step, so power loss can't leave a half-written document.
+        for name, value in (('core.fsync', 'loose-object,pack,reference'), ('core.fsyncMethod', 'fsync')):
+            subprocess.run(['git', '--git-dir', str(self.repo), 'config', name, value], capture_output=True, timeout=30)
         hook = self.repo / 'hooks/pre-push'
         hook.parent.mkdir(exist_ok=True)
         if not hook.is_file() or hook.read_text() != NEVER_PUSH:
@@ -211,6 +214,34 @@ class PrivateStore:
                 self.prune()
                 raise
         return {'id': identity, 'status': 'encrypted', 'integrity': 'intact', 'title': meta.get('title')}
+
+    def encrypt_arrival(self, session_id, root, arrival, busy):
+        """Move one waiting delivery into encrypted storage, including its receipt. The inbox copy is removed only after
+        every stored file has been read back and matched. `busy` is why filing might be touching it, or None."""
+        from .store import Store
+        identity = checked_id(arrival)
+        self.key(session_id)
+        store = Store(Path(root))
+        with store.locked():
+            if busy:
+                raise ValueError(busy)
+            status = store._status(identity)
+            if status.get('status') != 'awaiting_filing':
+                raise ValueError('That isn’t a delivery waiting in the inbox.')
+            if status.get('integrity') != 'intact':
+                raise ValueError('That delivery has changed since it arrived, so it wasn’t moved. Check it on the Inbox page.')
+            folder = store.inbox / identity
+            names = [status['document'], *sorted(row['path'] for row in status['files'] if row['path'] != status['document']), 'receipt.json']
+            files = [(name, (folder / name).read_bytes()) for name in names]
+            provenance = status.get('provenance') or {}
+            meta = {'title': status['title'], 'author': provenance.get('author'), 'uploaded_by': provenance.get('uploaded_by'),
+                    'received_at': status.get('received_at'), 'source': provenance.get('project')}
+            self.store(session_id, identity, meta, files)
+            _, stored = self.read(session_id, identity)
+            if stored != dict(files):
+                raise ValueError('The encrypted copy didn’t match, so the inbox copy was kept.')
+            shutil.rmtree(folder)
+        return {'id': identity, 'status': 'encrypted', 'title': status['title']}
 
     def items(self, session_id):
         with self.lock:

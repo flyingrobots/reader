@@ -44,6 +44,12 @@ const everything=dir=>{let all=Buffer.alloc(0);for(const e of readdirSync(dir,{w
     assert.equal(everything(home).includes(secret),false,secret+' in the home');
     assert.equal(everything(root).includes(secret),false,secret+' in the vault');
   }
+  // A delivery already waiting in the inbox can move in instead of being filed.
+  const waiting=page.locator('[data-private-waiting]').first();await waiting.waitFor({timeout:15000});
+  const moved=await waiting.getAttribute('data-private-waiting');
+  await waiting.getByRole('button',{name:'Encrypt'}).click();await page.locator('[data-confirm]').click();
+  await page.locator(`[data-private-item="${moved}"]`).waitFor({timeout:60000});
+  assert.equal(existsSync(join(root,'inbox',moved)),false,'the inbox copy is gone');
   // It opens through the session, and locks.
   const row=page.locator('[data-private-item]').filter({hasText:TITLE});await row.waitFor();
   await row.locator('[data-private-open]').click();
@@ -58,10 +64,10 @@ const everything=dir=>{let all=Buffer.alloc(0);for(const e of readdirSync(dir,{w
   await page.locator('#private-passphrase').fill(PASSPHRASE);await page.locator('#private-unlock').click();
   await state('unlocked');await page.locator('[data-private-item]').filter({hasText:TITLE}).waitFor();
   // Delete.
-  await page.locator('[data-private-item]').getByRole('button',{name:'Delete'}).click();
+  await page.locator('[data-private-item]').filter({hasText:TITLE}).getByRole('button',{name:'Delete'}).click();
   await page.locator('[data-confirm]').click();
-  await page.locator('#private-empty').waitFor({timeout:30000});
+  await page.locator('[data-private-item]').filter({hasText:TITLE}).waitFor({state:'detached',timeout:30000});
   assert.deepEqual(errors,[]);
-  console.log('Private passed: install, warned setup, encrypted upload with no plaintext on disk, open, lock, wrong passphrase, unlock, delete.');
+  console.log('Private passed: install, warned setup, encrypted upload with no plaintext on disk, encrypt a waiting delivery, open, lock, wrong passphrase, unlock, delete.');
  }finally{await browser?.close();if(fixture.exitCode===null&&fixture.signalCode===null)fixture.kill('SIGTERM');rmSync(home,{recursive:true,force:true});}
 })().catch(error=>{console.error(error);process.exitCode=1;});

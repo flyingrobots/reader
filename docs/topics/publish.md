@@ -29,6 +29,8 @@ The first use installs a small pinned tool and asks you to choose a passphrase. 
 
 Once unlocked, you can open, download or delete these documents here. They stay unlocked in this browser until you press **Lock**, Reader restarts, or 15 minutes pass without use. Deleting removes a document from encrypted storage, but it doesn't securely erase the disk.
 
+While it's unlocked, you can also encrypt a delivery that's waiting in the inbox instead of filing it. The inbox copy is removed once the encrypted copy has been checked.
+
 This protects Reader's copy. The original file you uploaded stays wherever it was, and agents running as you can still read that copy, so remove it if it matters.
 
 ## Delivery tokens

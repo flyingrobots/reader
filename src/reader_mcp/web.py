@@ -1485,6 +1485,12 @@ class WebHandler(BaseHTTPRequestHandler):
             self.json(store.status(None), headers=self.private_session_cookie('', 0))
         elif action == 'delete':
             self.json(store.delete(session, request.get('id')))
+        elif action == 'encrypt-arrival':
+            inbox = library.inbox.status()
+            active = (inbox.get('runner') or {}).get('status') in ('starting', 'running', 'interrupted') or inbox.get('pending')
+            claimed = 'inbox/' + str(request.get('id')) in inbox.get('claims_held', [])
+            busy = 'A filing run is using the inbox. Wait for it to finish.' if active else 'An agent is assigned to file this.' if claimed else None
+            self.json(store.encrypt_arrival(session, library.root, request.get('id'), busy))
         else:
             raise ValueError('Unknown encrypted storage action')
 
