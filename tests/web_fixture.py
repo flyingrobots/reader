@@ -245,6 +245,8 @@ def main():
             (root / 'library/notes.md').write_text(notes)
             works.append(dict(id='library/notes.md', title='Field notes', primary='library/notes.md', authors=['Ada'], topics=['Ideas'], projects=['Synthetic'], date='2026-10-21', primary_format='.md', primary_bytes=len(notes)))
         if '--diagrams' in sys.argv:
+            # Authors' own fills, as real documents set them, for tests/web_diagram_contrast.cjs.
+            (root / 'library/diagram-colors.md').write_text('# Diagram colors\n\n```mermaid\nflowchart LR\n  A[Pale blue] --> B[Pale green] --> C[Pale yellow] --> D[Pale red] --> E[Deep blue] --> F[White on pale] --> G[Black on pale]\n  style A fill:#d1ecf1\n  style B fill:#d4edda\n  style C fill:#fff3cd\n  style D fill:#f8d7da\n  style E fill:#244466\n  style F fill:#dcfce7,color:#fff\n  style G fill:#dcfce7,color:#000\n```\n')
             diagrams = ('# Diagrams\n\nA paragraph before the figures.\n\n'
                 '```mermaid\nflowchart LR\n  Intake[Intake desk] --> Catalog{Catalog?}\n  Catalog -->|yes| Shelf[Library shelf]\n  Catalog -->|no| Inbox[Inbox]\n  click Shelf "https://example.invalid/shelf"\n```\n\n'
                 'The paragraph after the flowchart carries a careful observation.\n\n'

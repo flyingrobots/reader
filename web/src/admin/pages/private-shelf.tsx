@@ -7,6 +7,7 @@ import {Button} from '@/components/ui/button';
 import {Checkbox} from '@/components/ui/checkbox';
 import {Field, FieldDescription, FieldGroup, FieldLabel} from '@/components/ui/field';
 import {Input} from '@/components/ui/input';
+import {Label} from '@/components/ui/label';
 import {Table, TableBody, TableCell, TableHead, TableHeader, TableRow} from '@/components/ui/table';
 import {Spinner} from '@/components/ui/spinner';
 import {StatusBadge} from '@/theme/atoms/status-badge';
@@ -98,7 +99,7 @@ export function PrivateShelf({api,privacy}:{api:Api;privacy:ReturnType<typeof us
       </TableRow></TableHeader>
       <TableBody>{waiting.map(arrival=><TableRow key={arrival.id} data-private-waiting={arrival.id} data-state={selected.includes(arrival.id)?'selected':undefined}>
         <TableCell><Checkbox id={`private-select-${arrival.id}`} data-private-select="" disabled={busy} checked={selected.includes(arrival.id)} onCheckedChange={value=>setSelected(current=>value?[...current,arrival.id]:current.filter(id=>id!==arrival.id))}/></TableCell>
-        <TableCell className="whitespace-normal"><label htmlFor={`private-select-${arrival.id}`} className="block cursor-pointer font-serif text-base [overflow-wrap:anywhere]">{arrival.title}</label></TableCell>
+        <TableCell className="whitespace-normal"><Label htmlFor={`private-select-${arrival.id}`} className="block cursor-pointer font-serif text-base font-normal [overflow-wrap:anywhere]">{arrival.title}</Label></TableCell>
         <TableCell className="text-muted-foreground tabular-nums max-sm:hidden">{plural(arrival.files,'file')} · {size(arrival.bytes)}</TableCell>
         <TableCell className="text-muted-foreground max-sm:hidden">{arrival.received_at?<RelativeTime value={arrival.received_at}/>:null}</TableCell>
       </TableRow>)}</TableBody>

@@ -37,8 +37,27 @@ function describe(canvas:Canvas,svg:SVGSVGElement){
   const label='Diagram, '+first+(labels.length?': '+labels.join(', '):'');
   return label.length>400?label.slice(0,399)+'…':label;
 }
+const channels=(color:string)=>color.match(/[\d.]+/g)?.map(Number)??[];
+const luminance=([r,g,b]:number[])=>[r,g,b].reduce((sum,value,index)=>{const c=value/255;return sum+[.2126,.7152,.0722][index]*(c<=.04045?c/12.92:((c+.055)/1.055)**2.4);},0);
+const contrast=(one:number,two:number)=>(Math.max(one,two)+.05)/(Math.min(one,two)+.05);
+const AA=4.5,INK=['#000','#fff'];
+/** A shape the author colored keeps that color in every theme, while labels follow the theme, so the two can clash.
+    Such a label takes black or white, whichever reads better on the fill (at least 4.58:1 by construction), unless the author's own label color already passes. */
+export function readableLabels(svg:SVGSVGElement){
+  for(const shape of svg.querySelectorAll<SVGGraphicsElement>('g > :is(rect,path,polygon,circle,ellipse)[style*="fill:"]')){
+    const fill=channels(getComputedStyle(shape).fill),labels=[...(shape.parentElement?.children??[])].filter((child):child is SVGTextElement=>child.tagName==='text');
+    if(fill.length!==3||!labels.length)continue;  // No solid color to measure: none, a gradient or a translucent fill.
+    const background=luminance(fill),best=contrast(background,0)>=contrast(background,1)?INK[0]:INK[1];
+    for(const label of labels){
+      const own=label.style.fill||label.querySelector<SVGElement>('[style*="fill:"]')?.style.fill;
+      if(own&&contrast(background,luminance(channels(getComputedStyle(label.querySelector('[style*="fill:"]')??label).fill)))>=AA)continue;
+      for(const part of [label,...label.querySelectorAll<SVGElement>('tspan')])part.style.fill=best;
+    }
+  }
+}
 function ready(canvas:Canvas){
   const svg=canvas.querySelector<SVGSVGElement>(':scope > svg');if(!svg){failDiagram(canvas,'Pele returned no drawing');return false;}
+  readableLabels(svg);
   svg.setAttribute('aria-hidden','true');svg.removeAttribute('tabindex');
   const details=canvas.closest('figure')?.querySelector('details.reader-diagram-source');
   if(details&&!details.id)details.id='reader-diagram-source-'+(++serial);

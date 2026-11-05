@@ -22,7 +22,9 @@
   --color-accent-foreground: var(--ink);
   --color-destructive: var(--warning);
   --color-border: var(--line);
-  --color-input: var(--line);
+  /* Control borders must read at 3:1 (WCAG 1.4.11); --line is a decorative rule. Muted text is held at 4.5:1 in every theme, so this mix follows it. */
+  --color-input: color-mix(in oklab, var(--muted) 72%, var(--surface));
+  --color-input-fill: var(--line);
   --color-ring: var(--accent);
   /* Reader Admin's sidebar uses the same theme tokens: no separate palette. */
   --color-sidebar: var(--surface);

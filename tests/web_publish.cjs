@@ -25,8 +25,8 @@ const {chromium}=require(process.env.READER_PLAYWRIGHT||'playwright-core');
   assert.equal(await page.locator('#publish-submit').isDisabled(),true);
   await choose('a-private-memo.md','# A private memo\n');
   assert.equal(await page.locator('#publish-title').inputValue(),'a private memo');
-  assert.equal(await page.locator('input[name=publish-level]:checked').inputValue(),'no-cloud');
-  assert.equal(await page.locator('input[name=publish-level][value=machine-only]').count(),1,'this browser is on the machine');
+  assert.equal(await page.locator('[data-publish-level=no-cloud] [data-slot=radio-group-item]').getAttribute('aria-checked'),'true');
+  assert.equal(await page.locator('[data-publish-level=machine-only]').count(),1,'this browser is on the machine');
   assert.match(await page.locator('#publish-summary').textContent(),/1 file/);
   // No cloud models, with only a fake cloud model in the order: it stays in the inbox, and the page says why.
   await page.locator('#publish-submit').click();
@@ -45,7 +45,7 @@ const {chromium}=require(process.env.READER_PLAYWRIGHT||'playwright-core');
   assert.ok(existsSync(join(hidden,'loose-note.md')));
   // Normal, with the fake model answering: filed and committed, and the other uploads are still waiting.
   await choose('a-public-note.md','# A public note\n');
-  await page.locator('input[name=publish-level][value=normal]').check();
+  await page.locator('[data-publish-level=normal] [data-slot=radio-group-item]').click();
   await page.locator('#publish-submit').click();
   await stage('filed');
   assert.match(await page.locator('#publish-note').textContent(),/Filed and committed to library\//);
@@ -64,11 +64,11 @@ const {chromium}=require(process.env.READER_PLAYWRIGHT||'playwright-core');
   await waitingRow.locator('[data-arrival-local]').click();await waitingRow.locator('[data-arrival-choice=none]').waitFor();
   await page.goto(url+'#admin/publish');await page.locator('#backstage-publish').waitFor();
   // Through a tailnet address the private API answers 404: no level or card, and a note says where to go.
-  await page.locator('input[name=publish-level][value=machine-only]').waitFor({state:'attached'});assert.equal(await page.locator('#private-elsewhere').count(),0);
+  await page.locator('[data-publish-level=machine-only]').waitFor();assert.equal(await page.locator('#private-elsewhere').count(),0);
   const away=await page.context().newPage();await away.route('**/api/private',route=>route.fulfill({status:404,json:{error:'Not found'}}));
   await away.goto(url+'#admin/publish');await away.locator('#private-elsewhere').waitFor();
   assert.match(await away.locator('#private-elsewhere').textContent(),/127\.0\.0\.1/);
-  assert.equal(await away.locator('input[name=publish-level][value=machine-only]').count(),0);assert.equal(await away.locator('[data-private]').count(),0);
+  assert.equal(await away.locator('[data-publish-level=machine-only]').count(),0);assert.equal(await away.locator('[data-private]').count(),0);
   await away.close();
   // A delivery token is shown once, stored only as a hash, and can be revoked.
   await page.locator('#token-name').fill('My laptop');await page.locator('#token-create').click();

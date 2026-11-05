@@ -34,7 +34,7 @@ const everything=dir=>{let all=Buffer.alloc(0);for(const e of readdirSync(dir,{w
   // Upload: nothing is added to the vault, and nothing readable lands on disk.
   await page.locator('#publish-files').setInputFiles({name:'secret-file-name.md',mimeType:'text/markdown',buffer:Buffer.from(`# Heading\n\n${MARKER}\n`)});
   await page.locator('#publish-title').fill(TITLE);
-  await page.locator('input[name=publish-level][value=machine-only]').check();
+  await page.locator('[data-publish-level=machine-only] [data-slot=radio-group-item]').click();
   await page.locator('#publish-submit:not([disabled])').click();
   await page.locator('#backstage-publish[data-publish-stage=encrypted]').waitFor({timeout:60000});
   assert.deepEqual(inbox(),before,'the inbox is unchanged');

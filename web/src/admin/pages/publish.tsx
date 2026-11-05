@@ -4,7 +4,8 @@
 import {useEffect, useRef, useState} from 'react';
 import {FileUpIcon} from 'lucide-react';
 import {Button} from '@/components/ui/button';
-import {Field, FieldDescription, FieldGroup, FieldLabel} from '@/components/ui/field';
+import {Field, FieldContent, FieldDescription, FieldGroup, FieldLabel, FieldLegend, FieldSet} from '@/components/ui/field';
+import {RadioGroup, RadioGroupItem} from '@/components/ui/radio-group';
 import {Input} from '@/components/ui/input';
 import {Spinner} from '@/components/ui/spinner';
 import {StatusBadge, type Tone} from '@/theme/atoms/status-badge';
@@ -98,14 +99,16 @@ export function PublishPage({api}:{api:Api}){
             <Field><FieldLabel htmlFor="publish-title">Title</FieldLabel><Input id="publish-title" value={title} maxLength={500} disabled={busy} onChange={event=>setTitle(event.target.value)}/></Field>
             <Field><FieldLabel htmlFor="publish-author">Author <span className="font-normal text-muted-foreground">(optional)</span></FieldLabel><Input id="publish-author" value={author} maxLength={1000} disabled={busy} onChange={event=>setAuthor(event.target.value)}/></Field>
           </div>
-          <fieldset className="flex flex-col gap-3" disabled={busy}>
-            <legend className="mb-2 text-sm font-medium">Who can read it</legend>
-            {levels(privacy.available).map(option=><label key={option.value} className="flex items-start gap-2 text-sm has-[:disabled]:opacity-60">
-              <input type="radio" name="publish-level" className="mt-1" value={option.value} checked={level===option.value} onChange={()=>setLevel(option.value)}/>
-              <span><span className="font-medium">{option.label}</span><br/><span className="text-muted-foreground">{option.detail}</span></span>
-            </label>)}
+          <FieldSet data-disabled={busy||undefined}>
+            <FieldLegend variant="label">Who can read it</FieldLegend>
+            <RadioGroup name="publish-level" value={level} disabled={busy} onValueChange={value=>setLevel(String(value))}>
+              {levels(privacy.available).map(option=><Field key={option.value} orientation="horizontal" data-publish-level={option.value}>
+                <RadioGroupItem id={'publish-level-'+option.value} value={option.value}/>
+                <FieldContent><FieldLabel htmlFor={'publish-level-'+option.value}>{option.label}</FieldLabel><FieldDescription>{option.detail}</FieldDescription></FieldContent>
+              </Field>)}
+            </RadioGroup>
             {level==='machine-only'&&!privacy.status?.unlocked?<Notice id="publish-locked" role="note">Set up or unlock encrypted storage below first.</Notice>:null}
-          </fieldset>
+          </FieldSet>
         </FieldGroup>
       </StatusCard>
     </form>
