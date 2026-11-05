@@ -35,7 +35,7 @@ export function installOutline({state,reading,$,controls,scrollToPosition,savePr
   function chooseMode(){if(!shown.length)return null;if(phone())return 'sheet';if(geometry()||!railFits())return 'popover';return 'rail';}
   const railVisible=()=>mode==='rail'&&state.prefs.outline!==false&&(eligible||pinned);
 
-  function clear(){route++;allLevels=false;entries=[];shown=[];spreads=[];active=-1;pending=null;open=false;pinned=false;mode=null;rail.hidden=true;renderOutlineRail(rail,{entries:[],levels:null});$('#status-section').textContent='';publish();}
+  function clear(){route++;allLevels=false;entries=[];shown=[];spreads=[];active=-1;pending=null;open=false;pinned=false;mode=null;rail.hidden=true;renderOutlineRail(rail,{entries:[],levels:null});controls.setStatus({section:''});publish();}
   /** Collect headings after a document renders; PDFs use their own outline. */
   async function refresh(article){
     clear();const id=route;if(!state.doc||!article)return;
@@ -119,7 +119,7 @@ export function installOutline({state,reading,$,controls,scrollToPosition,savePr
       if(link){link.setAttribute('aria-current','location');link.parentElement.append(rail.querySelector('.outline-progress'));
         const list=rail.querySelector('.outline-list'),item=link.parentElement;
         if(item.offsetTop<list.scrollTop||item.offsetTop+item.offsetHeight>list.scrollTop+list.clientHeight)list.scrollTop=item.offsetTop-list.clientHeight/3;}
-      $('#status-section').textContent=index>=0?shown[index].title:'';$('#status-section').title=index>=0?shown[index].title:'';
+      controls.setStatus({section:index>=0?shown[index].title:''});
       publish();
     }
     const bar=rail.querySelector('.outline-progress');if(bar){bar.hidden=index<0;bar.firstElementChild.style.transform=`scaleX(${progress})`;}

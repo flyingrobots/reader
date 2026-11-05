@@ -85,19 +85,16 @@ export function timelineModel(v,{at,marked,participant,title,historical,sideBySi
     marked:marked?labelOf(marked):null,editions,more:v.more||0,catalog:v.catalog||null};
 }
 
-export function installVersions({showPanel,hidePanel,state,api,navigate,openCompare,openSideBySide,notify,param,onChange,renderTimeline}){
+export function installVersions({setStatus,showPanel,hidePanel,state,api,navigate,openCompare,openSideBySide,notify,param,onChange,renderTimeline}){
   const $=s=>document.querySelector(s);
-  const twin=$('#status-version');
   let marked=null,focusRef=null,hashedFor=null,lastItem=null;
 
   /** The status-bar twin: compact, accent when a newer version exists, warning tone when historical. */
   function update(){
     const d=describe(state.versions,state.doc);
-    twin.hidden=!d;if(!d)return;
-    twin.querySelector('span').textContent=d.twin;
-    twin.classList.toggle('newer',!!d.newer);twin.classList.toggle('historical',!!d.historical);
-    twin.title=d.newer?`${d.chip} · newer v${d.newer.revision} available · Space v`:`${d.chip} · Space v`;
-    twin.setAttribute('aria-label',twin.title.replace(' · Space v','. Open versions, Space then v.'));
+    if(!d){setStatus({version:null});return;}
+    const title=d.newer?`${d.chip} · newer v${d.newer.revision} available · Space v`:`${d.chip} · Space v`;
+    setStatus({version:{text:d.twin,newer:!!d.newer,historical:!!d.historical,title,label:title.replace(' · Space v','. Open versions, Space then v.')}});
   }
   const here=()=>state.doc?(state.doc.historical?state.doc.path+'@'+state.doc.commit:state.doc.path):null;
   const labelOf=ref=>{
@@ -190,6 +187,5 @@ export function installVersions({showPanel,hidePanel,state,api,navigate,openComp
       close();$('#main').focus({preventScroll:true});
     }
   });}
-  twin.addEventListener('click',()=>$('#versions-panel')?close():open());
   return {open,close,update,reset,isOpen:()=>!!$('#versions-panel'),wire(root){root.querySelector('[data-version-chip]')?.addEventListener('click',()=>open());}};
 }

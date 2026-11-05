@@ -51,7 +51,7 @@ export function projectBlock(block,accept){
   function span(a,b){const range=document.createRange();range.setStart(nodes[a],offsets[a]);range.setEnd(nodes[b],offsets[b]+1);return range;}
 }
 
-export function installProseColors({state,api,notify,companion=null,onChange=()=>{}}){
+export function installProseColors({setStatus,state,api,notify,companion=null,onChange=()=>{}}){
   const highlights=Object.fromEntries(PAINTED.map(role=>[role,window.Highlight?new Highlight():null]));
   for(const h of Object.values(highlights))if(h)h.priority=-1; // find, annotations and selection paint over prose
   const cache=new Map();let cachedUnits=0;
@@ -71,8 +71,7 @@ export function installProseColors({state,api,notify,companion=null,onChange=()=
   function paint(){
     for(const level of INTENSITIES.slice(1))document.body.classList.toggle('prose-'+level,style===level&&!!doc);
     if(CSS.highlights)for(const role of PAINTED){if(on()&&doc&&highlights[role])CSS.highlights.set('reader-prose-'+role,highlights[role]);else CSS.highlights.delete('reader-prose-'+role);}
-    const chip=document.getElementById('prose-chip');
-    if(chip){chip.hidden=!(on()&&doc);chip.dataset.intensity=style;if(on()){chip.setAttribute('aria-label','Prose colors: '+LABELS[style]);chip.title=`Prose colors: ${LABELS[style]} · Space c`;}}
+    setStatus(on()&&doc?{prose:{label:LABELS[style],intensity:style}}:{prose:null});
     onChange(style);
   }
   // A block owns the text whose nearest block ancestor is itself (a list item, not its nested list).

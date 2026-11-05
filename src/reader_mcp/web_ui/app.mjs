@@ -23,7 +23,7 @@ import {drawable,fetchShape,paintShape} from './shapes.mjs';
 import {artJobs,fetchArt,focusArt,forgetArt,hasArt,paintArt,paintArtThumb,paintPlaceholder} from './art.mjs';
 import {closeArtFocus,focusOpen} from './art-focus.mjs';
 import {mountDiagramZoom} from './diagram-zoom.mjs';
-import {renderNextReads,showPanel,hidePanel,renderCommandSuggestions,openScratchSave,closeAppDialogs,openAnnotationDialog,openSpeakMenu,openShellDialog,renderVersionsTimeline,renderLinkPreview,renderReadingLog,applyThemes,installControls,mountSkeleton,mountCodeBlocks,decorateCodeBlocks,clearControlsWithin,renderFileExplorer,mountArticleSpeech,mountSectionItems,mountSectionPage,mountAdmin,setAdminRoute,mountChangesPanel,mountArtRegenerate,notify as shellNotify,openChat,closeChat,chatOpen,trackSpeech,renderQueuePanel,mountCallouts,mountQuiz,mountWritingPrompt,mountScratchQuestion,startJob,promptCompanion,needsReader,NEEDS_READER,mountPromptCards} from './controls/reader-controls.js';
+import {getStatus,setStatus,showCommandLine,renderNextReads,showPanel,hidePanel,renderCommandSuggestions,openScratchSave,closeAppDialogs,openAnnotationDialog,openSpeakMenu,openShellDialog,renderVersionsTimeline,renderLinkPreview,renderReadingLog,applyThemes,installControls,mountSkeleton,mountCodeBlocks,decorateCodeBlocks,clearControlsWithin,renderFileExplorer,mountArticleSpeech,mountSectionItems,mountSectionPage,mountAdmin,setAdminRoute,mountChangesPanel,mountArtRegenerate,notify as shellNotify,openChat,closeChat,chatOpen,trackSpeech,renderQueuePanel,mountCallouts,mountQuiz,mountWritingPrompt,mountScratchQuestion,startJob,promptCompanion,needsReader,NEEDS_READER,mountPromptCards} from './controls/reader-controls.js';
 import {promptPlugin,promptMounts} from './prompt-blocks.mjs';
 import {installVersions,chipMarkup,historicalMarkup,splitRef,compareLabel} from './versions.mjs';
 import {installSplit,installPane,cleanRoute} from './split.mjs';
@@ -1244,9 +1244,7 @@ function clearFind(){state.pdf?.cancelFind();state.find=[];state.findMore=false;
 /** Find's query and count live here: the bar is in the document only while open, and they outlast it. */
 function setFindCount(text){state.findCount=text;const count=$('#find-count');if(count)count.textContent=text;}
 function searchChip(){
-  const chip=$('#search-chip');if(!state.fromSearch){chip.hidden=true;return;}
-  chip.hidden=false;chip.replaceChildren();const query=document.createElement('q');query.textContent=state.fromSearch.query;
-  chip.append('From search: ',query,` · ${state.find.length?state.findIndex+1:0} of ${state.find.length}`);const hint=document.createElement('span');hint.className='search-chip-hint';hint.textContent=' · Esc to clear';chip.append(hint);
+  setStatus({search:state.fromSearch?{query:state.fromSearch.query,at:state.findIndex,total:state.find.length}:null});
 }
 /** Open-at-passage: reveal the indexed line (or PDF page) in either layout, then highlight the query's words with find. */
 async function revealPassage(at){
@@ -1382,9 +1380,9 @@ document.addEventListener('mousemove',event=>{
 // Keyboard ------------------------------------------------------------------------------------------
 // Every page key is a row in the keymap table (keys.mjs); the help dialog and the leader hints are generated from it.
 // A feature adds keys with keys.map({mode, keys, when, run, help, hint, group}) and commands with keys.command({...}).
-const typing=event=>state.themeEditorOpen||!!event.target.closest?.('input,textarea,select,[contenteditable="true"],dialog,[role=dialog],[role=listbox]:not([data-queue-list]),[data-slot=select-trigger],[data-slot=select-content],[data-slot=popover-content],[role=switch],[data-slot=pagination]:not([data-explorer-pagination])');
+const typing=event=>state.themeEditorOpen||!!event.target.closest?.('input,textarea,select,[contenteditable="true"],dialog,[role=dialog],[role=listbox]:not([data-queue-list]),[data-slot=select-trigger],[data-slot=select-content],[data-slot=popover-content],[data-slot=dropdown-menu-content],[role=switch],[data-slot=pagination]:not([data-explorer-pagination])');
 const nestedEscapes=new WeakSet();
-document.addEventListener('keydown',event=>{if(event.key==='Escape'&&document.querySelector('[data-slot="select-content"][data-open],[data-slot="popover-content"][data-open]'))nestedEscapes.add(event);},true);
+document.addEventListener('keydown',event=>{if(event.key==='Escape'&&document.querySelector('[data-slot="select-content"][data-open],[data-slot="popover-content"][data-open],[data-slot="dropdown-menu-content"][data-open]'))nestedEscapes.add(event);},true);
 function pageEscape(event){
   if(nestedEscapes.has(event))return;
   // React Sheets (What changed, chat) handle their own Escape; the panel Sheets (panel-sheet.tsx) leave it to the app.
@@ -1399,10 +1397,9 @@ function pageEscape(event){
   closeContext();if(split?.active())split.refocus();else focusMain();
 }
 function syncChips(){
-  const qf=quickfix?.get(),chip=$('#status-qf');
-  if(chip){chip.hidden=!qf?.items.length;chip.textContent=qf?.items.length?`QF ${qf.index>=0?qf.index+1:'–'}/${qf.items.length}`:'';}
+  const qf=quickfix?.get();setStatus({quickfix:qf?.items.length?`QF ${qf.index>=0?qf.index+1:'–'}/${qf.items.length}`:''});
 }
-keys=createKeys({guard:typing,escape:pageEscape,notify,suggestions:renderCommandSuggestions,changed(){
+keys=createKeys({showPending:text=>setStatus({pending:text}),showLine:showCommandLine,guard:typing,escape:pageEscape,notify,suggestions:renderCommandSuggestions,changed(){
   const pending=keys?.pending();state.leader=pending?.keys[0]==='<Space>'?(pending.keys[1]===','?',':true):null;state.windowKey=pending?.keys[0]==='<C-w>';
   syncChips();reading?.updateStatus();
 }});
@@ -1623,10 +1620,10 @@ keys.intercept(event=>{
 });
 keys.intercept(event=>{
   if(['Shift','Control','Alt','Meta','CapsLock'].includes(event.key))return false;
-  if(pasteInto){const target=pasteInto;pasteInto=null;$('#status-pending').hidden=true;
+  if(pasteInto){const target=pasteInto;pasteInto=null;setStatus({pending:''});
     if(event.target===target&&/^[a-z"]$/.test(event.key)&&!event.ctrlKey&&!event.metaKey){event.preventDefault();registers.paste(event.key,target);return true;}
     if(event.key==='Escape'){event.preventDefault();return true;}return false;}
-  if(event.ctrlKey&&!event.metaKey&&!event.altKey&&event.key==='r'&&event.target.matches?.('textarea')){event.preventDefault();pasteInto=event.target;const hint=$('#status-pending');hint.textContent='Ctrl r';hint.hidden=false;return true;}
+  if(event.ctrlKey&&!event.metaKey&&!event.altKey&&event.key==='r'&&event.target.matches?.('textarea')){event.preventDefault();pasteInto=event.target;setStatus({pending:'Ctrl r'});return true;}
   return false;
 });
 // Reader Admin is a page of controls: Space on a focused button, checkbox, switch, tab or select activates it, as it
@@ -1696,7 +1693,7 @@ keys.command({name:'theme',aliases:['colorscheme'],args:'<id>',help:'Switch the 
   run(id){if(!id){toast('The theme is '+state.prefs.theme+'.');return;}if(!knownTheme(id)){const near=keysClosest(id,[...THEMES,...themeCache.ids]);toast(`No theme called ${id}.`+(near?` Did you mean ${near}?`:''));return;}useTheme(id);}});
 keys.command({name:'themes',help:'Open the quick theme picker',run:quickTheme});
 keys.command({name:'layout',args:'scroll|spread',help:'Continuous or two-page reading',complete:typed=>prefixed(['scroll','spread'],typed),
-  run(mode){if(!['scroll','spread'].includes(mode)){toast('Use :layout scroll or :layout spread.');return;}if(state.prefs.layout!==mode)$('#layout-swap').click();}});
+  run(mode){if(!['scroll','spread'].includes(mode)){toast('Use :layout scroll or :layout spread.');return;}if(state.prefs.layout!==mode)reading.swapLayout();}});
 keys.command({name:'speak',args:'[article|here|selection]',help:'Send to AI-TTS: the whole article, from here, or the selection; without a scope, the menu',complete:typed=>prefixed(['article','here','selection'],typed),
   run(scope){if(!scope){speech.openMenu();return;}if(!SPEAK[scope]){toast('Use :speak article, here or selection.');return;}if(SPEAK[scope]==='selection'&&visual.active()){visual.speak();return;}speech.send(SPEAK[scope]);}});
 keys.command({name:'rebuild',args:'search|keywords|browse|catalog|links',help:'Rebuild an index, as on Behind the scenes',complete:typed=>prefixed(Object.keys(JOBS),typed),
@@ -1727,7 +1724,6 @@ keys.command({name:'cclear',help:'Empty the location list',run:()=>quickfix.clea
 keys.command({name:'marks',help:'Your marks, in this document first',run:()=>panels.open('marks')});
 keys.command({name:'registers',aliases:['reg','display','di'],help:'What you have yanked, with citations',run:()=>panels.open('registers')});
 keys.command({name:'help',aliases:['h'],args:'[command]',help:'This map; `:help grep` jumps to a command',complete:typed=>prefixed(keys.commands(),typed),run:topic=>openHelp(topic)});
-$('#status-qf').onclick=()=>panels.open('quickfix');
 // The key map's surroundings; keys.renderHelp() writes the generated lists into #help-keys.
 const HELP_INTRO='Space is your leader. Comma works too. <kbd>v</kbd> selects from the keyboard and <kbd>:</kbd> takes a command. No commands run while you’re writing.';
 const HELP_NOTE='Hover over or Tab to a library link to preview it; Escape closes the preview. Each article ends with the documents that link to it. Select a passage to highlight, comment, or leave a warning. Click a passage’s margin mark or a pip on the progress rail to open its thread. The footer switches between continuous and two-page reading. On narrow screens, pages appear one at a time. Your place is saved automatically for this participant and edition. PDF text can be selected and searched; passage annotations currently support Markdown.';
@@ -1810,7 +1806,7 @@ function paneFocus(focused,move){
 }
 let lastPaneDoc='',lastPaneStatus='';
 function paneStatus(){
-  const status={type:'status',mode:$('#vim-mode').textContent,position:state.doc?Math.round(reading.progress()*100)+'%':$('#status-position').textContent,path:state.doc?.path||(state.view==='admin'?state.adminPath:state.view==='search'?SEARCH:state.view==='section'?SECTION+state.sectionLabel:null)};
+  const status={type:'status',mode:getStatus().mode,position:state.doc?Math.round(reading.progress()*100)+'%':getStatus().position,path:state.doc?.path||(state.view==='admin'?state.adminPath:state.view==='search'?SEARCH:state.view==='section'?SECTION+state.sectionLabel:null)};
   const now=JSON.stringify(status);if(now!==lastPaneStatus){lastPaneStatus=now;pane.post(status);}
   const doc=state.doc,ref=doc?(doc.historical?doc.path+'@'+doc.commit:doc.path):null;
   const message={type:'doc',hash:location.hash,ref,path:doc?.path||null,title:doc?String(doc.metadata?.title||doc.title||''):'',preview:!!doc?.preview,historical:!!doc?.historical};
@@ -1822,11 +1818,9 @@ function paintSplitStatus(){
   const focused=split.focused();if(!focused)return false;
   // The shell's own keymap state (Ctrl-w, the leader, the command line) comes before the pane's mode.
   const owned=keys.status(),mode=owned?.mode||focused.status?.mode||'NORMAL';
-  $('#vim-mode').textContent=mode;$('#vim-mode').dataset.mode=mode;
-  $('#status-keys').innerHTML=owned?owned.keys:'<kbd>Ctrl-w w</kbd> next pane <kbd>Ctrl-w v</kbd> <kbd>s</kbd> split <kbd>Ctrl-w q</kbd> close';
-  breadcrumbs.update(focused.status?.path??null);$('#status-position').textContent=focused.status?.position||'';
-  const indicator=$('#split-indicator');indicator.hidden=false;indicator.textContent=`${focused.number}/${focused.count}${focused.bound?' ⇅':''}`;
-  indicator.title=`Pane ${focused.number} of ${focused.count}${focused.bound?', scrolling with its neighbor':''}`;
+  breadcrumbs.update(focused.status?.path??null);
+  setStatus({mode,keys:owned?owned.keys:'<kbd>Ctrl-w w</kbd> next pane <kbd>Ctrl-w v</kbd> <kbd>s</kbd> split <kbd>Ctrl-w q</kbd> close',position:focused.status?.position||'',
+    split:{label:`${focused.number}/${focused.count}${focused.bound?' ⇅':''}`,title:`Pane ${focused.number} of ${focused.count}${focused.bound?', scrolling with its neighbor':''}`}});
   return true;
 }
 function goBack(){
@@ -1838,19 +1832,18 @@ window.addEventListener('resize',()=>{clearTimeout(positionPins.timer);positionP
 document.fonts.ready.then(()=>{refreshScroll();positionPins();});
 reduced.addEventListener('change',resetScroll);
 search=installSearch({api,state,navigate,back:goBack,backstage:()=>openAdmin('indexes'),notify,queue:path=>queue.add(path)});
-$('#reader-home').onclick=()=>navigate(null);
-installStatusPriority($('#statusline'));
-const breadcrumbs=installBreadcrumbs({container:$('#status-location'),openFolder:folder=>openPicker('all',folder),onChange:()=>reading?.updateStatus()});
-controls=installControls({articleWidthPreview:value=>previewArticleWidth(value),articleWidthCommit:()=>commitArticleWidth(),seek:fraction=>reading.seek(fraction),spread:index=>reading.seekSpread(index),thread:id=>{const hit=state.ranges.find(entry=>entry.thread.id===id);if(hit)moveToRange(hit.range);openThread(id);},theme:()=>{state.prefs.theme=oppositeTheme(state.prefs.theme);document.documentElement.dataset.theme=state.prefs.theme;savePrefs();reading.updateStatus();},save:applyPreferences,error:report,outlineToggle:()=>outline.toggle(),outlineOpen:open=>outline.setOpen(open),outlineGo:index=>outline.go(index),themeEditor:setThemeEditorOpen,themeEditorClosed,api,themesChanged,useTheme,previewFont,chatMarkdown,openPath:path=>navigate(path),chatChanged:()=>reading?.updateStatus(),
+const breadcrumbs=installBreadcrumbs({render:trail=>setStatus({trail})});
+controls=installControls({home:()=>navigate(null),quickfix:()=>panels.open('quickfix'),versions:()=>versions.isOpen()?versions.close():versions.open(),layoutSwap:()=>reading.swapLayout(),backstage:()=>openAdmin(),openFolder:folder=>openPicker('all',folder),statusChanged:()=>reading?.updateStatus(),articleWidthPreview:value=>previewArticleWidth(value),articleWidthCommit:()=>commitArticleWidth(),seek:fraction=>reading.seek(fraction),spread:index=>reading.seekSpread(index),thread:id=>{const hit=state.ranges.find(entry=>entry.thread.id===id);if(hit)moveToRange(hit.range);openThread(id);},theme:()=>{state.prefs.theme=oppositeTheme(state.prefs.theme);document.documentElement.dataset.theme=state.prefs.theme;savePrefs();reading.updateStatus();},save:applyPreferences,error:report,outlineToggle:()=>outline.toggle(),outlineOpen:open=>outline.setOpen(open),outlineGo:index=>outline.go(index),themeEditor:setThemeEditorOpen,themeEditorClosed,api,themesChanged,useTheme,previewFont,chatMarkdown,openPath:path=>navigate(path),chatChanged:()=>reading?.updateStatus(),
   open:path=>navigate(path),libraryChanged:async()=>{await loadLibrary();if(!state.doc){if(state.view==='section')renderSectionPage();else if(state.view==='issue')renderHome();}},
   adminHref:(section,...params)=>adminHash(adminPath(section,...params)),adminGo:(section,...params)=>openAdmin(section,...params),backToLibrary,
   markdown:text=>{const template=document.createElement('template');template.innerHTML=DOMPurify.sanitize(window.markdownit({html:false,linkify:true}).render(text),{USE_PROFILES:{html:true}});decorateCodeBlocks(template.content,{wrap:true,lineNumbers:false});return template.innerHTML;}},state.prefs);
+installStatusPriority($('#statusline'));
 speech=installSpeech({state,api,reading:{capture:()=>reading.capture(),hasBook:()=>reading.hasBook()},notify,track:trackSpeech,openMenu:options=>{state.smoother?.paused(true);return openSpeakMenu({...options,onClosed:()=>{options.onClosed();dialogClosed();}});},companion:promptCompanion});
-prose=installProseColors({state,api,notify,companion:promptCompanion});
+prose=installProseColors({setStatus,state,api,notify,companion:promptCompanion});
 queue=installQueue({state,api,navigate,notify,needsReader,renderPanel:renderQueuePanel,hidePanel,focusMain:()=>focusMain(),onChange:()=>reading?.updateStatus()});
 queue.setCloseOthers(()=>{closeThreadPanel();state.activeThread=null;});
-reading=installReading({statusOverride:()=>{const on=!!split?.active();if(!on)$('#split-indicator').hidden=true;return on&&paintSplitStatus();},onStatus:()=>{publishArticleWidth();return pane&&paneStatus();},mayCurl:()=>!pane||pane.focused(),scratchStatus:()=>state.view==='scratch'?scratch?.status():null,controls,updateBreadcrumbs:path=>breadcrumbs.update(path),state,api,toast,openAdmin:()=>openAdmin(),openThread,revealRange:moveToRange,scrollToPosition,savePrefs,reloadDocument:()=>navigate(state.doc.path,{record:false}),positionPins,keyStatus:()=>keys.status()});
-outline=installOutline({state,reading,$,controls,scrollToPosition,savePrefs,notify});
+reading=installReading({statusOverride:()=>{const on=!!split?.active();if(!on)setStatus({split:null});return on&&paintSplitStatus();},onStatus:()=>{publishArticleWidth();return pane&&paneStatus();},mayCurl:()=>!pane||pane.focused(),scratchStatus:()=>state.view==='scratch'?scratch?.status():null,controls:{...controls,getStatus,setStatus},updateBreadcrumbs:path=>breadcrumbs.update(path),state,api,toast,openAdmin:()=>openAdmin(),openThread,revealRange:moveToRange,scrollToPosition,savePrefs,reloadDocument:()=>navigate(state.doc.path,{record:false}),positionPins,keyStatus:()=>keys.status()});
+outline=installOutline({state,reading,$,controls:{...controls,setStatus},scrollToPosition,savePrefs,notify});
 links=installLinks({threadPanel,closeThreadPanel,state,api,reading,navigate,openBackstage:()=>openAdmin('indexes'),renderPreview:renderLinkPreview});
 scratch=installScratch({openSaveDialog:openScratchSave,state,api,notify,navigate,mountQuestion:mountScratchQuestion,focusMain:()=>$('#main').focus({preventScroll:true}),updateStatus:()=>reading?.updateStatus(),openChat,savedChanged:()=>readingLogs.clear(),registers:()=>registers,
   // A draft has no file yet: its links resolve from the notebook folder it saves into (the server accepts a folder source).
@@ -1859,7 +1852,7 @@ quiz=installQuiz({api,document:()=>state.doc,participant:()=>state.prefs.partici
 keys.defineMode('quiz',{label:()=> 'QUIZ',hints:()=>'<kbd>Tab</kbd> move <kbd>Enter</kbd> choose <kbd>Esc</kbd> return',escape:()=>quiz.close()});
 writingPrompts=installWritingPrompts({api,document:()=>state.doc,participant:()=>state.prefs.participant,mount:mountWritingPrompt,write:(prompt,opening)=>scratch.forPrompt(prompt,opening),showEvidence:showQuizEvidence,available:()=>needsReader()?NEEDS_READER:null,toast,mode:open=>{if(open)keys.enter('writing-prompt');else{keys.leave('writing-prompt');focusMain();}reading?.updateStatus();}});
 keys.defineMode('writing-prompt',{label:()=> 'WRITE ABOUT',hints:()=>'<kbd>Tab</kbd> move <kbd>Enter</kbd> choose <kbd>Esc</kbd> return',escape:()=>writingPrompts.close()});
-versions=installVersions({showPanel,hidePanel,state,api,navigate:ref=>navigate(ref),openCompare:openComparison,openSideBySide:(older,newer)=>{if(pane)pane.post({type:'open-in-split',compare:{a:older,b:newer}});else split.compare(older,newer,cleanRoute(location.hash)).catch(report);},notify,param,onChange:()=>reading?.updateStatus(),renderTimeline:renderVersionsTimeline});
+versions=installVersions({setStatus,showPanel,hidePanel,state,api,navigate:ref=>navigate(ref),openCompare:openComparison,openSideBySide:(older,newer)=>{if(pane)pane.post({type:'open-in-split',compare:{a:older,b:newer}});else split.compare(older,newer,cleanRoute(location.hash)).catch(report);},notify,param,onChange:()=>reading?.updateStatus(),renderTimeline:renderVersionsTimeline});
 if(EMBEDDED)pane=installPane({open:openRoute,save:()=>reading.save(),onFocus:paneFocus,
   reveal:element=>{if(!reading.hasBook())return false;const range=document.createRange();range.selectNodeContents(element);return reading.reveal(range,false);},
   scrollBy:delta=>{if(Math.abs(delta)>=1)scrollToPosition(scrollY+delta,false);},seek:fraction=>reading.seek(fraction,false),docFraction:()=>reading.progress()});

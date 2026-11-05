@@ -50,7 +50,7 @@ export const LIMITS={sequenceMs:650,leaderMs:1200,history:100,count:9999};
  *  - changed(): called when the mode, pending keys or table change (updates the status line);
  *  - notify(message, type): toasts for the command line.
  */
-export function createKeys({guard=()=>false,escape=()=>{},changed=()=>{},notify=()=>{},storage=globalThis.localStorage,suggestions=null}={}){
+export function createKeys({guard=()=>false,escape=()=>{},changed=()=>{},notify=()=>{},storage=globalThis.localStorage,suggestions=null,showPending=null,showLine=null}={}){
   const table=[],commands=[],modes=new Map(),before=[],groups=new Map(),prefixes=new Map();
   const stack=['normal'];let sectionOrder=[];let pending=[],count='',register=null,timer=0;
   const mode=()=>stack.at(-1);
@@ -153,12 +153,7 @@ export function createKeys({guard=()=>false,escape=()=>{},changed=()=>{},notify=
     if(mode()!=='normal'&&spec)return {mode:spec.label(),keys:spec.hints?.()||''};
     return null;
   }
-  let pendingEl=null;
-  function renderPending(){
-    pendingEl??=byId('status-pending');if(!pendingEl)return;
-    const text=(count||'')+(register!==null?'"'+register:'')+(leads(pending[0])?'':pending.map(keyLabel).join(''));
-    pendingEl.textContent=text;pendingEl.hidden=!text;
-  }
+  function renderPending(){showPending?.((count||'')+(register!==null?'"'+register:'')+(leads(pending[0])?'':pending.map(keyLabel).join('')));}
 
   // Command line --------------------------------------------------------------
   /** Register an Ex command: {name, aliases?, args?, help, complete?(prefix)→[{value,label?}]|Promise, run(args, {bang})}. */
@@ -173,6 +168,7 @@ export function createKeys({guard=()=>false,escape=()=>{},changed=()=>{},notify=
   const line={form:null,input:null,menu:null,opener:null,choices:null,choice:-1,base:'',browse:-1,draft:'',query:0,timer:null};
   function setupLine(){
     if(line.form)return true;
+    showLine?.(true);
     line.form=byId('command-line');line.input=byId('command-input');line.menu=byId('command-menu');
     if(!line.form)return false;
     line.form.addEventListener('submit',event=>{event.preventDefault();execute(line.input.value);});
@@ -188,11 +184,11 @@ export function createKeys({guard=()=>false,escape=()=>{},changed=()=>{},notify=
     if(!setupLine())return;
     line.opener=document.activeElement;enter('command');
     byId('statusline')?.classList.add('commanding');
-    line.form.hidden=false;line.input.value=text;line.choices=null;line.browse=-1;showChoices();line.input.focus();refreshSuggestions();emit();
+    line.input.value=text;line.choices=null;line.browse=-1;showChoices();line.input.focus();refreshSuggestions();emit();
   }
   function closeLine(restore=true){
-    if(!line.form||line.form.hidden)return;
-    line.form.hidden=true;clearTimeout(line.timer);line.query++;line.choices=null;showChoices();byId('statusline')?.classList.remove('commanding');
+    if(!line.form)return;
+    clearTimeout(line.timer);line.query++;line.choices=null;showLine?.(false);line.form=line.input=line.menu=null;byId('statusline')?.classList.remove('commanding');
     leave('command');
     if(restore){const opener=line.opener;(opener?.isConnected&&opener!==document.body&&opener!==line.input?opener:byId('main'))?.focus({preventScroll:true});}
     line.opener=null;emit();
@@ -225,7 +221,7 @@ export function createKeys({guard=()=>false,escape=()=>{},changed=()=>{},notify=
   function refreshSuggestions(){
     clearTimeout(line.timer);const ticket=++line.query,text=line.input.value;
     line.choices=null;line.choice=-1;line.base=text;showChoices();
-    const load=async()=>{try{const choices=await choicesFor(text);if(ticket!==line.query||line.form.hidden||line.input.value!==text)return;line.choices=choices;showChoices(choices.length?'':text?'No matching suggestions':'');}catch{if(ticket===line.query&&!line.form.hidden)showChoices('Suggestions unavailable');}};
+    const load=async()=>{try{const choices=await choicesFor(text);if(ticket!==line.query||line.input.value!==text)return;line.choices=choices;showChoices(choices.length?'':text?'No matching suggestions':'');}catch{if(ticket===line.query)showChoices('Suggestions unavailable');}};
     if(text.includes(' '))line.timer=setTimeout(load,100);else load();
   }
   function acceptChoice(index){
@@ -236,7 +232,7 @@ export function createKeys({guard=()=>false,escape=()=>{},changed=()=>{},notify=
   /** Tab: complete the command name or its argument; repeated Tab cycles through the choices. */
   async function complete(delta){
     if(!line.choices){
-      clearTimeout(line.timer);const ticket=++line.query,text=line.input.value,choices=await choicesFor(text);if(ticket!==line.query||line.form.hidden||line.input.value!==text)return;
+      clearTimeout(line.timer);const ticket=++line.query,text=line.input.value,choices=await choicesFor(text);if(ticket!==line.query||line.input.value!==text)return;
       line.base=text;line.choices=choices;line.choice=-1;
       if(!choices.length){showChoices('No completions');return;}
     }
@@ -250,7 +246,7 @@ export function createKeys({guard=()=>false,escape=()=>{},changed=()=>{},notify=
   }
   function showChoices(message=''){
     if(!line.menu)return;
-    const choices=line.form.hidden?[]:line.choices||[],start=Math.max(0,Math.min(line.choice-3,choices.length-8)),visible=choices.slice(start,start+8);
+    const choices=line.choices||[],start=Math.max(0,Math.min(line.choice-3,choices.length-8)),visible=choices.slice(start,start+8);
     line.menu.hidden=!message&&!visible.length;
     line.input.setAttribute('aria-expanded',String(!line.menu.hidden));
     if(line.choice>=0&&choices[line.choice])line.input.setAttribute('aria-activedescendant','command-option-'+line.choice);else line.input.removeAttribute('aria-activedescendant');

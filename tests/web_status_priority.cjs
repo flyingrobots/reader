@@ -46,7 +46,7 @@ const {chromium}=require(process.env.READER_PLAYWRIGHT || 'playwright-core');
   assert.ok(loose[390].gaveWay.includes('synthetic-undeclared'),'an undeclared item gives way at 390 px');
   assert.deepEqual(loose[390].undeclared,[],'every built-in status item declares data-status-priority');
   // The breadcrumb's folder menu still opens above the line and stays on screen.
-  const nav=page.getByRole('navigation',{name:'Document breadcrumb'});await nav.locator('summary').click();const menu=await nav.getByRole('menu').boundingBox();
+  const nav=page.getByRole('navigation',{name:'Document breadcrumb'});await nav.getByRole('button',{name:'Show parent folders'}).click();const menu=await page.getByRole('menu').boundingBox();
   assert.ok(menu.x>=0&&menu.x+menu.width<=390,'the folder menu stays within the viewport');await page.keyboard.press('Escape');
   assert.deepEqual(errors,[]);
   console.log('Status priority acceptance passed: declared priorities, lowest gives way first, no overlap or overflow at 700/390/320 px in both layouts.');

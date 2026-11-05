@@ -7,7 +7,7 @@ const {createInterface}=require('node:readline');
 const {chromium}=require(process.env.READER_PLAYWRIGHT||'playwright-core');
 const {waitFor,watch,settled}=require('./web_wait.cjs');
 const press=async(page,...keys)=>{for(const key of keys)await page.keyboard.press(key);};
-const status=page=>page.evaluate(()=>({mode:document.querySelector('#vim-mode').textContent,keys:document.querySelector('#status-keys').textContent,qf:document.querySelector('#status-qf').hidden?'':document.querySelector('#status-qf').textContent}));
+const status=page=>page.evaluate(()=>({mode:document.querySelector('#vim-mode').textContent,keys:document.querySelector('#status-keys').textContent,qf:!document.querySelector('#status-qf')?'':document.querySelector('#status-qf').textContent}));
 const highlightText=(page,name)=>page.evaluate(name=>[...(CSS.highlights.get(name)||[])].map(range=>range.toString()).join('|'),name);
 (async()=>{
  const fixture=spawn(process.env.READER_PYTHON||'.venv/bin/python',['tests/web_fixture.py','--modal','--search-page'],{stdio:['ignore','pipe','inherit']});let browser;

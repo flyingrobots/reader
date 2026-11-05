@@ -28,11 +28,11 @@
 .progress-pip:before{content:'';position:absolute;bottom:-1.5px;left:8px;width:6px;height:6px;border-radius:50%;background:color-mix(in oklab,var(--chart-3) 70%,var(--foreground));box-shadow:0 0 0 2px var(--background)}
 .progress-pip.warning:before{background:var(--destructive)}.progress-pip.own:before{background:var(--primary)}
 .progress-popover{position:absolute;top:23px;background:var(--secondary);border:1px solid var(--border);border-radius:5px;padding:10px 14px;color:var(--foreground);font-size:11px;line-height:1.5;max-width:290px;white-space:pre-line;box-shadow:0 12px 32px #0000004d;pointer-events:none;transform:translateX(-50%)}
-.statusline{position:fixed;left:0;right:0;bottom:0;z-index:45;min-height:32px;display:flex;align-items:center;background:var(--card);border-top:1px solid var(--border);font:10px/1.2 var(--font-sans);color:var(--muted-foreground);gap:16px;padding-right:12px;transition:transform .2s,opacity .2s}
-.vim-mode{transition:none;display:flex;align-items:center;align-self:stretch;background:color-mix(in oklab,var(--primary) 18%,var(--card));color:var(--foreground);font:650 10px var(--font-sans);letter-spacing:.07em;padding:9px 16px;min-width:94px;justify-content:center}
+.statusline{position:fixed;left:0;right:0;bottom:0;z-index:45;min-height:32px;display:flex;align-items:center;background:var(--card);border-top:1px solid var(--border);font:10px/1.2 var(--font-sans);color:var(--muted-foreground);gap:16px;padding-inline:8px 12px;transition:transform .2s,opacity .2s}
+.vim-mode{background:color-mix(in oklab,var(--primary) 18%,var(--card));color:var(--foreground);letter-spacing:.07em;min-width:72px}
 .vim-mode[data-mode=BROWSE]{background:color-mix(in oklab,var(--chart-1) 18%,var(--card))}.vim-mode[data-mode=SEARCH]{background:color-mix(in oklab,var(--chart-2) 18%,var(--card))}.vim-mode[data-mode=INSERT]{background:color-mix(in oklab,var(--chart-3) 18%,var(--card))}.vim-mode[data-mode=LEADER]{background:color-mix(in oklab,var(--chart-4) 18%,var(--card))}.vim-mode[data-mode=SETTINGS],.vim-mode[data-mode=BACKSTAGE]{background:color-mix(in oklab,var(--chart-5) 18%,var(--card))}.vim-mode[data-mode=HELP]{background:color-mix(in oklab,var(--chart-6) 18%,var(--card))}.vim-mode[data-mode=THREAD]{background:color-mix(in oklab,var(--chart-7) 18%,var(--card))}
 .status-location{min-width:0;max-width:36vw;flex:0 1 auto;color:var(--foreground)}
-.status-keys{margin-left:auto;white-space:nowrap}.status-keys kbd{border:0;padding:0 3px;color:var(--foreground);font-size:9px}
+.status-keys{display:flex;align-items:center;gap:4px;margin-left:auto;white-space:nowrap}
 .status-position{white-space:nowrap;font-variant-numeric:tabular-nums;min-width:30px;text-align:right}
 
 body.zen .statusline{opacity:0;transform:translateY(calc(100% - 3px))}body.zen .reading-progress{opacity:0}
@@ -54,7 +54,7 @@ body.two-page .article{width:100%;max-width:none;height:100%;margin:0;columns:2;
 body.two-page .article>*{max-width:100%;overflow-wrap:anywhere}body.two-page .article h2,body.two-page .article h3{break-after:avoid}body.two-page .article pre,body.two-page .article table{break-inside:avoid;max-height:100%;overflow:auto}
 body.two-page .article img{max-height:65vh;object-fit:contain;break-inside:avoid}body.two-page .annotation-pin{position:fixed;right:auto;z-index:5}body.two-page .article .document-embed{padding-left:18px}
 @media(max-width:900px){body.two-page .article{columns:1;column-gap:40px}body.two-page .document-shell{padding:24px 30px}}
-@media(max-width:700px){.statusline{gap:8px;padding-right:4px;min-height:38px}.vim-mode{padding:12px 10px;min-width:75px;font-size:9px}.status-location{max-width:28vw;font-size:9px}.status-position{margin-left:auto;font-size:9px}#settings-open span{display:none}.reading-progress{height:25px}.progress-pip{width:28px;height:25px}.progress-slider{height:25px}.progress-popover{top:29px}body.two-page #smooth-wrapper{bottom:41px!important}}
+@media(max-width:700px){.statusline{gap:8px;padding-right:4px;min-height:38px}.vim-mode{min-width:0}.status-location{max-width:28vw;font-size:9px}.status-position{margin-left:auto;font-size:9px}#settings-open span{display:none}.reading-progress{height:25px}.progress-pip{width:28px;height:25px}.progress-slider{height:25px}.progress-popover{top:29px}body.two-page #smooth-wrapper{bottom:41px!important}}
 @media(prefers-reduced-motion:reduce){*,*:before,*:after{animation-duration:.01ms!important;transition-duration:.01ms!important;scroll-behavior:auto!important}}
 .pdf-page{position:relative;display:flex;align-items:center;justify-content:center;width:100%;margin:0 0 24px;background:#fff;break-inside:avoid;isolation:isolate;overflow:hidden;color:#161916}
 .pdf-page-label{position:absolute;bottom:4px;right:8px;font:10px var(--font-sans);color:#737a70;z-index:0}.pdf-page[data-error]:after{content:attr(data-error);position:absolute;padding:20px;font:14px var(--font-sans)}
@@ -62,15 +62,15 @@ body.two-page .article img{max-height:65vh;object-fit:contain;break-inside:avoid
 .textLayer :is(span,br){position:absolute;white-space:pre;color:transparent;cursor:text;transform-origin:0 0;user-select:text}.textLayer>:not(.markedContent),.textLayer .markedContent span:not(.markedContent){font-size:calc(var(--text-scale-factor)*var(--font-height));transform:rotate(var(--rotate,0deg)) scaleX(var(--scale-x,1)) scale(var(--min-font-size-inv))}.textLayer .markedContent{display:contents}.textLayer ::selection{background:#8caa7d66;color:transparent}
 body.two-page .pdf-page{height:100%;margin:0;aspect-ratio:auto!important;break-after:column}body.two-page .pdf-page:last-child{break-after:auto}
 
-.breadcrumb-list{display:flex;align-items:center;gap:5px;list-style:none;margin:0;padding:0;min-width:0;white-space:nowrap}
-.breadcrumb-item{display:inline-flex;align-items:center;min-width:0;flex:0 1 auto}.breadcrumb-link{display:block;color:var(--muted-foreground);font:inherit;padding:4px 1px;border-radius:3px;text-decoration:none;max-width:14ch;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.breadcrumb-link:hover{color:var(--foreground)}
-.breadcrumb-current{flex:1 1 auto}.breadcrumb-current [aria-current]{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:30ch}.breadcrumb-separator{display:flex;flex:none;color:var(--muted-foreground)}.breadcrumb-item:has([data-library-home]),.breadcrumb-overflow{flex:none}
-.breadcrumb-overflow{position:relative}.breadcrumb-overflow summary{cursor:pointer;list-style:none;padding:4px 5px}.breadcrumb-overflow summary::-webkit-details-marker{display:none}.breadcrumb-overflow summary::marker{content:''}
-.breadcrumb-menu{position:absolute;bottom:calc(100% + 10px);left:0;min-width:180px;max-width:min(360px,calc(100vw - 16px));max-height:min(320px,50dvh);overflow:auto;padding:5px;border:1px solid var(--border);border-radius:6px;background:var(--secondary);box-shadow:0 12px 32px #0000004d;color:var(--foreground);font:12px/1.4 var(--font-sans)}
-.breadcrumb-menu button{display:block;width:100%;padding:9px 11px;border-radius:3px;text-align:left;white-space:normal;overflow-wrap:anywhere}.breadcrumb-menu button:hover,.breadcrumb-menu button:focus-visible{background:var(--card)}
+
+
+
+
+
+
 .folder-scope{display:flex;align-items:center;gap:14px;padding:9px 20px;border-top:1px solid var(--border);color:var(--muted-foreground);font-size:11px}.folder-scope span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.folder-scope button{flex:none;margin-left:auto;color:var(--foreground)}
 @media(max-width:1100px){.status-location{max-width:none;flex:1 1 auto}.status-position{margin-left:auto}}
-@media(max-width:700px){.statusline{gap:5px}.status-location{min-width:0;max-width:none;font-size:9px;flex:1 1 auto}.breadcrumb-list{gap:2px}.breadcrumb-link{padding-inline:0}.breadcrumb-overflow summary{padding-inline:2px}.breadcrumb-separator svg{width:8px}.breadcrumb-current [aria-current]{max-width:none}.breadcrumb-menu{font-size:12px}.status-position{min-width:0}.status-position:empty{display:none}}
+@media(max-width:700px){.statusline{gap:5px}.status-location{min-width:0;max-width:none;font-size:9px;flex:1 1 auto}.status-position{min-width:0}.status-position:empty{display:none}}
 
 :root{--chart-1:#9fc08b;--chart-2:#86b2cb;--chart-3:#d8ac72;--chart-4:#c78e88;--chart-5:#b2a0ca;--chart-6:#8abeb0;--chart-7:#b9b88d;--chart-8:#c98aa8}
 :root[data-theme=paper]{--chart-1:#557a46;--chart-2:#407997;--chart-3:#a47935;--chart-4:#a45e59;--chart-5:#7d649c;--chart-6:#387e70;--chart-7:#7e7e40;--chart-8:#985779}.dashboard-header{display:flex;justify-content:space-between;align-items:center;gap:20px;padding-bottom:22px;border-bottom:1px solid var(--border)}.dashboard-header>div{display:flex;align-items:center;gap:20px}.dashboard-edition{font-size:10px;color:var(--muted-foreground);padding-left:20px;border-left:1px solid var(--border)}.dashboard-actions button{font-size:11px}.dashboard-open kbd{font-size:8px;margin-left:12px;border:0}
@@ -112,7 +112,7 @@ body.two-page .pdf-page{height:100%;margin:0;aspect-ratio:auto!important;break-a
 body.two-page .article .reading-log{margin:0 0 1.6em}
 .reading-log [data-reading-log-toggle]{padding-inline:0}
 @media(max-width:700px){.reading-log{margin-bottom:32px}}
-.speech-slot:empty{display:none}
+
 .document-footer .speak-article{margin-top:14px}
 
 /* The homepage issue: a magazine cover in the theme's own type and colors. */
@@ -306,8 +306,7 @@ body.two-page .change-banner{margin:0 0 1.4em}
    words instead of revealing the layer's glyphs, whatever their specificity. */
 .textLayer ::highlight(reader-prose-function),.textLayer ::highlight(reader-prose-proper),.textLayer ::highlight(reader-prose-quote),.textLayer ::highlight(reader-prose-number),.textLayer ::highlight(reader-prose-punct),.textLayer ::highlight(reader-prose-noun),.textLayer ::highlight(reader-prose-verb),.textLayer ::highlight(reader-prose-adjective),.textLayer ::highlight(reader-prose-adverb){color:transparent!important}
 /* Status chip: on while prose colors paint the open document. */
-.prose-chip{flex:none;align-self:center;font:600 10px/1 var(--font-mono);letter-spacing:.04em;padding:3px 6px;border:1px solid var(--border);border-radius:4px;color:var(--muted-foreground)}
-.prose-chip[hidden]{display:none}.prose-chip b{font-weight:600;color:var(--foreground)}.prose-chip i{font-style:normal;color:var(--foreground)}
+.prose-chip b{font-weight:600;color:var(--foreground)}.prose-chip i{font-style:normal;color:var(--foreground)}
 /* Reading queue (Space r): a quiet play queue in the right-hand panel; a bottom sheet on phones. */
 .vim-mode[data-mode=QUEUE]{background:color-mix(in oklab,var(--chart-7) 18%,var(--card))}
 .queue-panel{position:fixed;inset:0 0 32px auto;z-index:30;width:min(420px,100vw);background:var(--card);color:var(--foreground);border-left:1px solid var(--border);box-shadow:-20px 0 90px #0003;display:flex;flex-direction:column}
@@ -325,7 +324,7 @@ body.two-page .change-banner{margin:0 0 1.4em}
    the pass sees) instead of crushing the mode label; only the breadcrumb shrinks, down to a readable current crumb.
    The breakpoints below only compact labels to icons; they never decide which items stay. */
 .statusline>:not(.status-location){flex-shrink:0}.statusline>[data-status-hidden]{display:none!important}
-@media(max-width:520px){.vim-mode{min-width:0;padding-inline:9px}.status-version svg{display:none}}
+@media(max-width:520px){.status-version svg{display:none}}
 @media(max-width:340px){.statusline{gap:4px}}
 /* A ghost "+ Queue" keeps its text on the column's left edge (#58). */
 .issue-queue{margin-left:-.5rem}
@@ -341,7 +340,7 @@ body.split-active #smooth-wrapper,body.split-active #summon,body.split-active .s
 .split-root.dragging .split-frame{pointer-events:none}
 .split-divider{position:absolute;background:var(--border);touch-action:none}.split-divider.row{cursor:col-resize}.split-divider.col{cursor:row-resize}.split-divider:hover{background:var(--muted-foreground)}
 .split-bind{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);z-index:1;opacity:0;transition:opacity .15s}.split-divider:hover .split-bind,.split-bind:focus-visible,.split-bind[aria-pressed=true]{opacity:1}.split-bind[aria-pressed=true]{color:var(--primary);border-color:var(--primary)}
-.split-indicator{font:600 10px/1 var(--font-sans);color:var(--primary);letter-spacing:.04em;white-space:nowrap}
+
 .split-root.split-narrow .split-pane:not(.focused),.split-root.split-narrow .split-divider{display:none}
 .split-root.split-narrow .split-pane.focused{left:0!important;top:0!important;width:100%!important;height:calc(100% - 38px)!important}.split-root.split-narrow .split-pane.focused::after{display:none}
 /* Scratch pad (RW-33): Markdown source and the document renderer's preview, side by side or alone. */
@@ -361,19 +360,19 @@ body.split-active #smooth-wrapper,body.split-active #summon,body.split-active .s
 /* Modal keyboard (keys.mjs, visual.mjs, lists.mjs): VISUAL, the command line, lists and the generated help. */
 ::highlight(reader-cursor){text-decoration:underline 2px var(--primary);text-underline-offset:3px}
 .vim-mode:is([data-mode=VISUAL],[data-mode="VISUAL LINE"]){background:color-mix(in oklab,var(--chart-7) 18%,var(--card))}.vim-mode[data-mode=COMMAND]{background:color-mix(in oklab,var(--chart-4) 18%,var(--card))}.vim-mode:is([data-mode=QUICKFIX],[data-mode=REGISTERS],[data-mode=MARKS]){background:color-mix(in oklab,var(--chart-1) 18%,var(--card))}
-.status-pending{font:600 11px var(--font-mono);color:var(--foreground);white-space:nowrap}
+
 .status-count{color:var(--foreground);margin-right:8px}
 .status-qf{font-variant-numeric:tabular-nums;white-space:nowrap}
 .command-line{display:flex;align-items:center;gap:4px;flex:1 1 auto;min-width:0;align-self:stretch}
-.command-prompt{font:600 13px var(--font-mono);color:var(--primary)}
-.command-line input{flex:1 1 12ch;min-width:6ch;border:0;background:none;padding:0;font:13px var(--font-mono);color:var(--foreground);caret-color:var(--primary)}
+
+
 .command-menu{position:absolute;left:clamp(8px,10vw,160px);bottom:calc(100% + 8px);width:min(640px,calc(100vw - 16px));min-width:0;display:block;white-space:normal;color:var(--foreground);font:13px/1.4 var(--font-sans)}
 .command-choice{font-family:var(--font-mono)}
 .statusline.commanding :is(.status-location,.status-keys,.search-chip,#pagination-slot,.status-section,.status-position){display:none}
 .list-item small kbd{font:600 10px var(--font-mono);color:var(--primary);margin-right:4px}.list-item.current{box-shadow:inset 2px 0 0 var(--primary);padding-left:12px}.list-item blockquote{font-size:17px;overflow-wrap:anywhere}
 .help-group{font:650 10px var(--font-sans);letter-spacing:.1em;text-transform:uppercase;color:var(--muted-foreground);margin:28px 0 -14px}.help-keys .keymap{margin:24px 0}.help-keys>.quiet{margin:20px 0 -8px}
 .keymap .help-target,.keymap .help-target+dd{background:color-mix(in srgb,var(--primary) 16%,transparent)}
-@media(max-width:700px){.command-menu{left:8px}.status-pending{font-size:10px}}
+@media(max-width:700px){.command-menu{left:8px}}
 /* Bespoke article art (RW-43): the cover, feature thumbnails and an article's art (Space g). Theme tokens only;
    the scene's own colors come from the same tokens through the renderer. */
 .issue-cover:has(>.cover-art){display:flex;flex-direction:column;align-items:flex-start}

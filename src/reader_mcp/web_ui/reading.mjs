@@ -41,7 +41,7 @@ export function installReading({scratchStatus, statusOverride, onStatus, mayCurl
     if(owned){mode=owned.mode;keys=owned.keys;}
     else if(scratch&&!modalOpen()){mode=scratch.mode;keys=scratch.keys;}
     else if($('#picker')?.contains(active)){mode='BROWSE';keys='<kbd>j k</kbd> choose <kbd>/</kbd> filter <kbd>Enter</kbd> open <kbd>Esc</kbd> close';}
-    else if($('#status-location details[open]')){mode='BROWSE';keys='<kbd>↑ ↓</kbd> folders <kbd>Enter</kbd> browse <kbd>Esc</kbd> close';}
+    else if($('#status-location [data-popup-open]')){mode='BROWSE';keys='<kbd>↑ ↓</kbd> folders <kbd>Enter</kbd> browse <kbd>Esc</kbd> close';}
     else if($('#find-bar')){mode='SEARCH';keys='<kbd>Enter</kbd> find <kbd>n N</kbd> next / previous <kbd>Esc</kbd> close';}
     else if(active?.closest('#chat-panel')){mode='CHAT';keys=active.matches('textarea,input')?'<kbd>@</kbd> mention <kbd>Enter</kbd> send <kbd>Shift Enter</kbd> new line <kbd>Esc</kbd> close':'<kbd>Tab</kbd> move <kbd>Esc</kbd> close';}
     else if(active?.matches('textarea,input:not(.article-width input),[contenteditable=true]')&&!(state.view==='search'&&active.id==='search-query')){mode='INSERT';keys='<kbd>⌘ Enter</kbd> send <kbd>Esc</kbd> normal';}
@@ -59,13 +59,11 @@ export function installReading({scratchStatus, statusOverride, onStatus, mayCurl
     else if(state.view==='admin'){mode='ADMIN';keys='<kbd>Tab</kbd> move <kbd>h</kbd> back <kbd>Space p</kbd> settings <kbd>Space h</kbd> home';}
     else if(book){keys='<kbd>j k</kbd> or wheel to turn <kbd>/</kbd> find <kbd>Space e</kbd> files';}
     // Mode changes are announced once, for screen readers; the label itself is not a live region.
-    if($('#vim-mode').dataset.mode&&$('#vim-mode').dataset.mode!==mode&&$('#mode-live'))$('#mode-live').textContent=mode==='NORMAL'?'Normal mode':mode.charAt(0)+mode.slice(1).toLowerCase()+' mode';
-    $('#vim-mode').textContent=mode;$('#vim-mode').dataset.mode=mode;$('#status-keys').innerHTML=keys;
+    if(controls.getStatus().mode!==mode)controls.setStatus({modeLive:mode==='NORMAL'?'Normal mode':mode.charAt(0)+mode.slice(1).toLowerCase()+' mode'});
+    controls.setStatus({mode,keys,position:scratch?scratch.position:'',layout:state.prefs.layout});
     updateBreadcrumbs(state.doc?.path || (state.view==='admin'?state.adminPath:state.view==='search'?':search':state.view==='section'?':section='+state.sectionLabel:null));
-    $('#status-position').textContent=scratch?scratch.position:'';
     controls.update({value:clamp(progress()),words,pdfPages:state.doc?.kind==='.pdf'?(state.pdf?.count||0):null,pace:state.prefs.pace||220,spread:book?Math.round(book.viewport.scrollLeft/book.stride):0,spreads:book?.spreads||0,pages:book?.pages||0,columns:book?.columns||2,theme:state.prefs.theme});
 
-    $('#layout-swap').textContent=state.prefs.layout==='spread'?'Scroll':'2 pages';$('#layout-swap').setAttribute('aria-label',state.prefs.layout==='spread'?'Switch to continuous reading':'Switch to two-page reading');
     onStatus?.();
   }
   function measureBook(){
@@ -185,7 +183,7 @@ export function installReading({scratchStatus, statusOverride, onStatus, mayCurl
     ready=false;lastSaved='';book=null;
     const paged=!!state.doc&&state.prefs.layout==='spread'&&(state.doc.text!==null||!!state.pdf);
     document.body.classList.toggle('two-page',paged);document.body.classList.toggle('zen',!!state.prefs.zen);
-    $('#reading-progress').hidden=!state.doc;
+    controls.setStatus({reading:!!state.doc});
     if(paged){
       const article=$('#article'),viewport=document.createElement('div'),tail=document.createElement('span');viewport.className='book-viewport';viewport.tabIndex=-1;tail.className='book-tail';article.before(viewport);viewport.append(article,tail);
       book={article,viewport,tail,stride:1,spreads:1,animating:false,lastTurn:0,accumulated:0};
@@ -230,9 +228,7 @@ export function installReading({scratchStatus, statusOverride, onStatus, mayCurl
     }
     controls.update({pips});update();
   }
-  $('#settings-open').onclick=()=>openAdmin();  // The footer's Backstage: Reader Admin's Overview.
-
-  $('#layout-swap').onclick=async()=>{await save();state.prefs.layout=state.prefs.layout==='spread'?'scroll':'spread';savePrefs();if(state.doc)await reloadDocument();else updateStatus();};
+  async function swapLayout(){await save();state.prefs.layout=state.prefs.layout==='spread'?'scroll':'spread';savePrefs();if(state.doc)await reloadDocument();else updateStatus();}
   document.addEventListener('keydown',event=>{if((event.metaKey||event.ctrlKey)&&event.key==='Enter'&&event.target.matches('textarea')){event.preventDefault();event.target.closest('form')?.requestSubmit();}queueMicrotask(updateStatus);});
   document.addEventListener('focusin',updateStatus);document.addEventListener('focusout',()=>queueMicrotask(updateStatus));
   for(const el of document.querySelectorAll('dialog'))el.addEventListener('toggle',updateStatus);
@@ -272,7 +268,7 @@ export function installReading({scratchStatus, statusOverride, onStatus, mayCurl
     if(focused){if(book)loadTurner().then(()=>turnerModule?.scheduleWarm(0));return;}
     turner?.finish();turner?.dispose?.();turner=null;turnerLoad=null;
   }
-  return {prepare,restore,leave,save,capture,update,pips,hasBook,paneFocus,progress:()=>clamp(progress()),isTurning:()=>!!book?.animating,placeAtEnd,turn,seek,seekSpread(index,animate){finishReflow();seekSpread(index,animate);},reveal,revealLine,updateStatus,reflow(){measureBook();pips();notify('reflow');},subscribe(listener){listeners.add(listener);return ()=>listeners.delete(listener);},
+  return {swapLayout,prepare,restore,leave,save,capture,update,pips,hasBook,paneFocus,progress:()=>clamp(progress()),isTurning:()=>!!book?.animating,placeAtEnd,turn,seek,seekSpread(index,animate){finishReflow();seekSpread(index,animate);},reveal,revealLine,updateStatus,reflow(){measureBook();pips();notify('reflow');},subscribe(listener){listeners.add(listener);return ()=>listeners.delete(listener);},
     /** Two-page geometry for spread-based consumers; null in continuous reading. */
     geometry(){return book?{viewport:book.viewport,article:book.article,stride:book.stride,columns:book.columns,pages:book.pages,spreads:book.spreads,spread:Math.round(book.viewport.scrollLeft/book.stride)}:null;},toggleZen(){state.prefs.zen=!state.prefs.zen;document.body.classList.toggle('zen',state.prefs.zen);savePrefs();updateStatus();}};
 }

@@ -47,12 +47,11 @@ def main():
 </svg>
 '''
     OUTPUT.write_text(svg)
-    # Keep the inline footer copy on the same geometry as the standalone asset.
-    page = ROOT / 'src/reader_mcp/web_ui/index.html'
+    # Keep the inline footer copy on the same geometry as the standalone asset, drawn with live theme tokens.
+    page = ROOT / 'web/src/circle-mark.tsx'
     markup = page.read_text()
-    shapes = svg[svg.index('  <circle'):svg.rindex('</svg>')].strip()
-    inline = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" class="size-6" aria-hidden="true" focusable="false">' + shapes + '</svg>'
-    markup = re.sub(r'(?<=<!-- reader:circle-mark:start -->).*?(?=<!-- reader:circle-mark:end -->)', lambda _: inline, markup, flags=re.S)
+    shapes = svg[svg.index('  <circle'):svg.rindex('</svg>')].strip().replace('--surface', '--card').replace('--ink', '--foreground').replace('--accent', '--primary')
+    markup = re.sub(r'(?<=\{/\* reader:circle-mark:start \*/\}).*?(?=\{/\* reader:circle-mark:end \*/\})', lambda _: shapes, markup, flags=re.S)
     page.write_text(markup)
     print(OUTPUT.relative_to(ROOT))
 

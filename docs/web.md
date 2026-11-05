@@ -484,6 +484,15 @@ path on hover. The trail follows the composition in the
 [shadcn breadcrumb reference](https://ui.shadcn.com/docs/components/base/breadcrumb),
 adapted to Reader's existing plain-JavaScript interface.
 
+`web/src/status-line.tsx` renders the line into the empty `#statusline` footer in
+`index.html`. Plain JavaScript owns what it says and tells a small store (`setStatus`):
+the mode and its key hints, the breadcrumb trail, section, position, chips and pending
+keys. An item with nothing to say is not in the document, except the section and
+position labels, which are empty. Read a value with `getStatus()`, not from the DOM:
+React paints it a moment later. The hints stay `<kbd>j k</kbd> move` strings and
+become shadcn Kbds there. The command line (`:`) mounts when opened, and `keys.mjs`
+binds it by id each time.
+
 When the status line is too narrow for everything, items give way by declared
 priority (`status-priority.mjs`). Every `#statusline` child carries
 `data-status-priority`: `1` never gives way, and larger numbers give way first,

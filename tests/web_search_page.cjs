@@ -79,7 +79,7 @@ const {waitFor,watch:watchResponses}=require('./web_wait.cjs');
   assert.ok(await page.locator('.search-page').isVisible());
   // Enter opens at the passage with the terms highlighted.
   await page.keyboard.press('Enter');
-  await page.locator('#article').waitFor();await page.waitForFunction(()=>!document.getElementById('search-chip').hidden);
+  await page.locator('#article').waitFor();await page.waitForFunction(()=>!!document.getElementById('search-chip'));
   assert.match(await page.locator('#search-chip').textContent(),/^From search: distinct observation chapter 37 · \d+ of \d+ · Esc to clear$/);
   let match=await currentMatch(page);
   assert.ok(match&&/^(distinct|observation|chapter|37)$/i.test(match.text),'current match is a query word: '+match?.text);
@@ -89,7 +89,7 @@ const {waitFor,watch:watchResponses}=require('./web_wait.cjs');
   const before=(await page.locator('#search-chip').textContent()).match(/· (\d+) of/)[1];
   await page.keyboard.press('n');
   await page.waitForFunction(b=>!document.getElementById('search-chip').textContent.includes('· '+b+' of'),before);
-  await page.keyboard.press('Escape');await page.waitForFunction(()=>document.getElementById('search-chip').hidden);
+  await page.keyboard.press('Escape');await page.waitForFunction(()=>!document.getElementById('search-chip'));
   assert.equal((await highlighted(page,'reader-find')).length,0,'Esc clears the search highlights');
   // Returning to Search keeps the query; Esc returns to where you were.
   await page.locator('#main').focus();await page.keyboard.press('h');
@@ -124,7 +124,7 @@ const {waitFor,watch:watchResponses}=require('./web_wait.cjs');
   assert.equal(await page.locator('[data-search-mode=words]').getAttribute('aria-pressed'),'true');
   await page.keyboard.press('Escape');await page.waitForFunction(()=>document.activeElement?.dataset.passage==='0');
   await page.keyboard.press('Enter');
-  await page.locator('body.two-page .book-viewport').waitFor();await page.waitForFunction(()=>!document.getElementById('search-chip').hidden);
+  await page.locator('body.two-page .book-viewport').waitFor();await page.waitForFunction(()=>!!document.getElementById('search-chip'));
   await waitFor(page,'the match is on the visible spread',()=>{const r=[...(CSS.highlights.get('reader-current')||[])][0],b=r?.getBoundingClientRect();return {match:!!r,visible:!!b&&b.left>=0&&b.right<=innerWidth};},{timeout:5000});
   match=await currentMatch(page);
   assert.ok(match&&match.left>=0&&match.right<=match.width,'the match is on the visible spread: '+JSON.stringify(match));

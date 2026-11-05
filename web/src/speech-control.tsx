@@ -52,6 +52,8 @@ function label(s:Speaking){
   if(s.state==='Synthesizing')return 'Preparing speech';
   return s.held?'Queued · held':'Queued';
 }
+/** What is speaking now, for a slot that exists only while something is. */
+export const useSpeaking=()=>useSyncExternalStore(subscribe,()=>speaking);
 export function SpeechControl({expanded=false}:{expanded?:boolean}={}){
   const s=useSyncExternalStore(subscribe,()=>speaking);
   if(!s)return null;

@@ -106,7 +106,6 @@
   body.two-page .status-location { min-width: min-content; }
   body.two-page .status-location .breadcrumb-current { contain: inline-size; flex: 1 1 0; }
 }
-@media(max-width: 380px) { body.two-page .vim-mode { min-width: 0; padding-inline: 7px; } }
 
 /* Theme Editor */
 .theme-editor { font-family: var(--font-sans); gap: 0; }
@@ -151,7 +150,7 @@
 .theme-preview-chart { display: flex; align-items: flex-end; gap: 4px; height: 80px; padding: 6px; background: var(--background); border-radius: 6px; }
 .theme-preview-chart i { flex: 1; border-radius: 2px 2px 0 0; outline: 1px solid var(--card); }
 .theme-preview-status { display: flex; align-items: stretch; flex-wrap: wrap; border-top: 1px solid var(--border); background: var(--card); font-family: var(--font-sans); }
-.theme-preview-status .vim-mode { min-width: 0; padding: 8px 10px; }
+.theme-preview-status .vim-mode { min-width: 0; margin: 6px 4px; }
 .theme-preview-keys { padding: 8px 12px; font-size: 10px; color: var(--muted-foreground); align-self: center; }
 .theme-preview-keys kbd { font: 10px var(--font-mono); border: 1px solid var(--border); border-radius: 3px; padding: 0 3px; color: var(--foreground); }
 
@@ -320,7 +319,7 @@ body:has(#changes-panel[data-side=right]) [data-slot=sheet-overlay] { display: n
 .search-page { max-width: 1180px; margin: auto; padding: 48px 48px 120px; font-family: var(--font-sans); color: var(--foreground); }
 .search-meta { margin: 0 auto 0 0; font-size: 12px; color: var(--muted-foreground); font-variant-numeric: tabular-nums; }
 .search-works { list-style: none; margin: 0; padding: 0; }
-.search-chip { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--foreground); padding: 3px 9px; border: 1px solid var(--border); border-radius: 999px; font-variant-numeric: tabular-nums; }
+.search-chip { flex: 0 1 auto; min-width: 0; display: block; line-height: 16px; text-overflow: ellipsis; font-variant-numeric: tabular-nums; }
 .search-chip q { font-family: var(--font-serif); font-style: italic; font-size: 11px; }
 .search-chip-hint { color: var(--muted-foreground); }
 @media (max-width: 860px) {

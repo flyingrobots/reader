@@ -39,7 +39,9 @@ export {needsReader, NEEDS_READER};
 import {type MaintenanceStatus, type Job, type InboxStatus} from './backstage';
 import {AdminShell} from './admin/admin-shell';
 import type {AdminContext, AdminRoute} from './admin/sections';
-import {ArticleSpeechControl,SpeechControl, setSpeechApi} from './speech-control';
+import {ArticleSpeechControl, setSpeechApi} from './speech-control';
+import {StatusLine, getStatus, setStatus, type StatusActions} from './status-line';
+export {getStatus, setStatus};
 export {trackSpeech} from './speech-control';
 import {ChatPanel} from './chat/chat-panel';
 import {runSummary, type LocalModelStatus, type Run} from './local-model';
@@ -85,7 +87,7 @@ type Model={articleWidth:ArticleWidthModel;value:number;words:number;pdfPages:nu
 export type ActivityModel={runId:string|null;offset:number;activity:Activity;run:RunInfo|null;done:boolean};
 type Actions=ArticleWidthActions&{seek:(fraction:number)=>void;spread:(index:number)=>void;thread:(id:string)=>void;theme:()=>void;save:(prefs:Preferences)=>Promise<void>;error:(error:unknown)=>void;themeEditor:(open:boolean)=>void;themeEditorClosed:()=>void;api:(path:string,payload?:unknown)=>Promise<any>;themesChanged:(themes:Theme[],fonts:InstalledFont[])=>void;useTheme:(dataTheme:string)=>void;previewFont:(href:string)=>void;open:(path:string)=>void;libraryChanged:()=>Promise<void>;markdown:(text:string)=>string;chatMarkdown:(text:string)=>string;openPath:(path:string)=>void;chatChanged:(open:boolean)=>void;
   /** Reader Admin routes (web_ui/admin-routes.mjs): a section's hash, navigation to it, and the way back. */
-  adminHref:(section?:string,...params:string[])=>string;adminGo:(section?:string,...params:string[])=>void;backToLibrary:()=>void}&OutlineActions;
+  adminHref:(section?:string,...params:string[])=>string;adminGo:(section?:string,...params:string[])=>void;backToLibrary:()=>void}&OutlineActions&StatusActions;
 const dark=(theme:string)=>theme==='ink'||theme.endsWith('-dark');
 const clamp=(value:number)=>Math.max(0,Math.min(1,value));
 const builtInThemes=[{value:'ink',label:'Ink'},{value:'paper',label:'Paper'},{value:'orchid',label:'Orchid · Light'},{value:'orchid-dark',label:'Orchid · Dark'},{value:'harvest',label:'Harvest · Light'},{value:'harvest-dark',label:'Harvest · Dark'},...FAMOUS.flatMap(t=>(['light','dark'] as const).map(v=>({value:famousId(t.id,v),label:`${t.name} · ${t.labels[v]}`})))];
@@ -280,9 +282,7 @@ export async function promptCompanion(name:string,fallback?:string){
 let inboxTimer:ReturnType<typeof setTimeout>|undefined,inboxPolled=false;const runSeen=new Map<string,string>(),ownRuns=new Set<string>();
 const ACTIVE=['starting','running'];
 function inboxBadge(status:InboxStatus|null){
-  const button=document.getElementById('settings-open'),label=button?.querySelector('span');if(!button||!label)return;
-  const count=status?.arrivals.length||0;label.textContent=count?`Backstage · ${count}`:'Backstage';
-  button.dataset.inbox=String(count);button.setAttribute('aria-label',`Open Reader Admin${count?`; ${count} inbox arrival${count===1?'':'s'} waiting`:''}`);
+  setStatus({inbox:status?.arrivals.length||0});
 }
 function announceInbox(status:InboxStatus){
   const run=status.runner;
@@ -362,7 +362,7 @@ export async function stopInbox(){
 export function installControls(actions:Actions,prefs:Preferences){
   controlActions=actions;setSpeechApi(actions.api);setJobsApi(actions.api);
   model={articleWidth:{shown:false,standard:0,max:0},value:0,words:0,pdfPages:null,pace:220,spread:0,spreads:0,pages:0,columns:2,theme:prefs.theme,pips:[],prefs,participants:[],themeEditorOpen:false,customThemes:[],fonts:[],maintenance:null,prose:null,chat:{open:false,path:null,title:'',participant:''},outline:{mode:null,open:false,title:'',entries:[],folded:false,railOpen:false},outlineActive:-1,inbox:null,inboxStarting:false,activity:newActivity(),localModel:null,companions:null,admin:null,maintenanceError:null,inboxError:null,localModelError:null,companionsError:null};
-  function View(){const current=useSyncExternalStore(subscribe,snapshot);return <>{createPortal(<ReadingProgress model={current} actions={actions}/>,document.getElementById('progress-controls-slot')!)}{createPortal(<Pages model={current} actions={actions}/>,document.getElementById('pagination-slot')!)}{createPortal(<OutlineControl outline={current.outline} active={current.outlineActive} actions={actions}/>,document.getElementById('outline-slot')!)}{createPortal(<SpeechControl/>,document.getElementById('speech-slot')!)}{createPortal(<ArticleWidthControl model={current.articleWidth} value={String(current.prefs.articleWidth||'standard')} actions={actions}/>,document.getElementById('article-width-slot')!)}{createPortal(<QuickThemePicker model={current} actions={actions}/>,document.getElementById('theme-switch-slot')!)}<ThemeEditor open={current.themeEditorOpen} onOpenChange={actions.themeEditor} onClosed={actions.themeEditorClosed} themes={current.customThemes} fonts={current.fonts} current={current.theme} api={actions.api} onChanged={actions.themesChanged} onUse={actions.useTheme} onPreviewFont={actions.previewFont} error={actions.error}/><ChatPanel open={current.chat.open} path={current.chat.path} title={current.chat.title} participant={current.chat.participant} initialId={current.chat.initialId} api={actions.api} markdown={actions.chatMarkdown} openPath={actions.openPath} onClose={()=>closeChat()} notify={notify}/><Toaster theme={dark(current.theme)?'dark':'light'} position="bottom-center" offset={{bottom:44}} mobileOffset={{bottom:56}}/></>;}
+  function View(){const current=useSyncExternalStore(subscribe,snapshot);return <>{createPortal(<StatusLine actions={actions} progress={<ReadingProgress model={current} actions={actions}/>} pages={current.spreads?<Pages model={current} actions={actions}/>:null} outline={current.outline.mode?<OutlineControl outline={current.outline} active={current.outlineActive} actions={actions}/>:null} width={current.articleWidth.shown?<ArticleWidthControl model={current.articleWidth} value={String(current.prefs.articleWidth||'standard')} actions={actions}/>:null} theme={<QuickThemePicker model={current} actions={actions}/>}/>,document.getElementById('statusline')!)}<ThemeEditor open={current.themeEditorOpen} onOpenChange={actions.themeEditor} onClosed={actions.themeEditorClosed} themes={current.customThemes} fonts={current.fonts} current={current.theme} api={actions.api} onChanged={actions.themesChanged} onUse={actions.useTheme} onPreviewFont={actions.previewFont} error={actions.error}/><ChatPanel open={current.chat.open} path={current.chat.path} title={current.chat.title} participant={current.chat.participant} initialId={current.chat.initialId} api={actions.api} markdown={actions.chatMarkdown} openPath={actions.openPath} onClose={()=>closeChat()} notify={notify}/><Toaster theme={dark(current.theme)?'dark':'light'} position="bottom-center" offset={{bottom:44}} mobileOffset={{bottom:56}}/></>;}
   ensureProseRules();new MutationObserver(()=>ensureProseRules()).observe(document.documentElement,{attributes:true,attributeFilter:['data-theme']});
   observeButtons();installCodeCopy();
   const root=createRoot(document.getElementById('reader-controls-root')!);flushSync(()=>root.render(<View/>));
@@ -439,6 +439,8 @@ export function hidePanel(id:string){
   clearControlsWithin(container);container.remove();
 }
 const PANELS:Record<string,(props:any)=>ReactNode>={'thread-panel':ThreadPanel,'versions-panel':VersionsPanel,'list-panel':ListPanel,'selection-tools':SelectionTools,'find-bar':FindBar};
+/** The status line's command form: keys.mjs opens it, and binds it by id, in one go. */
+export function showCommandLine(open:boolean){const menu=document.getElementById('command-menu');if(!open&&menu)clearControlsWithin(menu);flushSync(()=>setStatus({command:open}));}
 /** Open a panel app.mjs fills by id, once; returns its element. */
 export function showPanel(id:string,props:object){if(!shown.has(id)){const Panel=PANELS[id];showChrome(id,<Panel {...props}/>);}return document.getElementById(id);}
 /** The search page, as a route-owned island; search-page.mjs owns its state and calls update(). */
