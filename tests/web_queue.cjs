@@ -34,13 +34,13 @@ const {sanitizerReport}=require('./web_wait.cjs');  // #151
 
   // q on a Read next item, and the + Queue button.
   await read('library/thought.md');
-  const nextTitles=await page.locator('.next-reads li .next-read-title').allTextContents();
+  const nextTitles=await page.locator('.next-reads [role=listitem] .next-read-title').allTextContents();
   assert.deepEqual(nextTitles,['Another thought','A newer observation','Notes on careful reading']);
-  await page.locator('.next-reads li .next-read').first().press('q');
+  await page.locator('.next-reads [role=listitem] .next-read').first().press('q');
   await toast('Added to your queue · 1st').waitFor();
-  await page.locator('.next-reads li').nth(1).getByRole('button',{name:'Add A newer observation to your queue'}).click();
+  await page.locator('.next-reads [role=listitem]').nth(1).getByRole('button',{name:'Add A newer observation to your queue'}).click();
   await toast('Added to your queue · 2nd').waitFor();
-  await page.locator('.next-reads li .next-read').first().press('q');
+  await page.locator('.next-reads [role=listitem] .next-read').first().press('q');
   await toast('Already in your queue · 1st').waitFor();
   await page.mouse.move(5,5);  // Rows under the pointer become active, as in the file picker.
   // Focusing Read next scrolled to the end; read back to half-way so the saved position is mid-article.

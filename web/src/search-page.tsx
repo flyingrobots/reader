@@ -5,13 +5,14 @@ import {useLayoutEffect, useRef, useState, type ReactNode} from 'react';
 import {FolderIcon, SearchIcon, SearchXIcon, SlidersHorizontalIcon, XIcon} from 'lucide-react';
 import {Badge} from './components/ui/badge';
 import {Button} from './components/ui/button';
+import {Card} from './components/ui/card';
 import {ButtonGroup} from './components/ui/button-group';
 import {Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyTitle} from './components/ui/empty';
 import {Checkbox} from './components/ui/checkbox';
 import {Field, FieldContent, FieldDescription, FieldGroup, FieldLabel, FieldLegend, FieldSet, FieldTitle} from './components/ui/field';
 import {Input} from './components/ui/input';
 import {InputGroup, InputGroupAddon, InputGroupInput} from './components/ui/input-group';
-import {Item, ItemActions, ItemContent, ItemDescription, ItemGroup, ItemTitle} from './components/ui/item';
+import {Item, ItemActions, ItemContent, ItemDescription, ItemGroup, ItemHeader, ItemTitle} from './components/ui/item';
 import {Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription} from './components/ui/sheet';
 import {Skeleton} from './components/ui/skeleton';
 import {Switch} from './components/ui/switch';
@@ -152,7 +153,7 @@ export function SearchPage({model,actions}:{model:SearchModel;actions:SearchActi
   const indexProblem=/index|format/i.test(model.error||'');
   let offset=0;
   return <section className="search-page mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 pt-8 pb-24 font-sans md:px-8" data-ui="shadcn" aria-labelledby="search-title" data-status={model.status}>
-    <header className="flex flex-col gap-3" data-search-head="">
+    <ItemHeader className="flex-col items-stretch gap-3" data-search-head="">
       <ItemTitle id="search-title" role="heading" aria-level={1} className="line-clamp-none w-full font-serif text-3xl leading-tight font-normal tracking-tight md:text-4xl">Search the library</ItemTitle>
       <InputGroup className="h-11">
         <InputGroupAddon><SearchIcon aria-hidden="true"/></InputGroupAddon>
@@ -164,9 +165,9 @@ export function SearchPage({model,actions}:{model:SearchModel;actions:SearchActi
         <ItemDescription id="search-meta" className="line-clamp-none min-w-0 flex-1" role="status">{model.status==='loading'&&!r?'Searching…':r&&model.query.trim()?<>{r.total.toLocaleString()} {r.total===1?'work':'works'}<span aria-hidden="true"> · </span>{passages} {passages===1?'passage':'passages'} shown<span aria-hidden="true"> · </span>{freshness(r.indexed_at)}</>:''}</ItemDescription>
         <Button variant="outline" size="sm" className="lg:hidden" data-filter-toggle="" onClick={()=>setSheet(true)}><SlidersHorizontalIcon data-icon="inline-start"/>Filters{active?` · ${active}`:''}</Button>
       </div>
-    </header>
+    </ItemHeader>
     <div className="grid gap-8 lg:grid-cols-[15rem_minmax(0,1fr)]">
-      <aside className="hidden flex-col gap-4 lg:flex" aria-label="Filters" data-search-rail=""><FilterPanel scope="rail" model={model} actions={actions}/>{active>0&&<Button variant="ghost" size="xs" className="self-start" data-clear-filters="" onClick={actions.clearFilters}>Clear filters</Button>}</aside>
+      <Card size="sm" role="complementary" className="hidden flex-col gap-4 p-3 lg:flex" aria-label="Filters" data-search-rail=""><FilterPanel scope="rail" model={model} actions={actions}/>{active>0&&<Button variant="ghost" size="xs" className="self-start" data-clear-filters="" onClick={actions.clearFilters}>Clear filters</Button>}</Card>
       <div className="flex min-w-0 flex-col gap-4" ref={results} data-search-results="">
         <Notes model={model} actions={actions}/>
         {model.status==='error'?<EmptyState data-state="error" icon={SearchXIcon} title={indexProblem?'The search index isn’t ready.':'Search couldn’t finish.'} description={model.error||undefined}>

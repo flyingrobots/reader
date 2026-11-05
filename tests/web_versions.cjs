@@ -71,6 +71,7 @@ const shots=process.env.READER_SHOTS||'.reader/web-dev';
   await page.waitForFunction(()=>!!document.querySelector('#main .reading-log')?.dataset.ready);
   // Only the server's record of you appears (from reading the current file); nothing is added for this view.
   const served=await page.evaluate(async path=>(await (await fetch('/api/readers?path='+encodeURIComponent(path)+'&participant=Browser%20tester')).json()).readers.filter(r=>r.group==='you').length,older.split('@')[0]);
+  await page.locator('[data-reading-log-toggle]').click();await page.locator('[data-reading-log-body]').waitFor();
   assert.equal(await page.locator('#main .reading-log [data-group=you]').count(),served,'no optimistic "You just now" on a historical version');
   await page.waitForTimeout(400);
   assert.equal(await page.locator('#main .linked-from-list, #main .linked-from-note').count(),0,'no Linked from on a historical version');

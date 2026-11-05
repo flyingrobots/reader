@@ -11,7 +11,6 @@ export function installOutline({state,reading,$,controls,scrollToPosition,savePr
   // entries: every extracted heading; shown: the subset at visible levels. Index math uses shown.
   let entries=[],shown=[],allLevels=false,eligible=false,pinned=false,open=false,mode=null,active=-1,pending=null,pendingAt=0,spreads=[],route=0;
   const rail=document.createElement('nav');rail.id='outline-rail';rail.className='outline-rail';rail.hidden=true;rail.dataset.readerDecoration='';rail.setAttribute('aria-label','Document outline');
-  document.body.append(rail);
   const line=()=>innerHeight*.22;
   const expired=()=>performance.now()-pendingAt>1500;
   const phone=()=>matchMedia(PHONE).matches;
@@ -68,6 +67,7 @@ export function installOutline({state,reading,$,controls,scrollToPosition,savePr
     mode=chooseMode();
     const minimum=Math.min(...shown.map(entry=>entry.level));
     if(mode==='rail'){
+      if(!rail.isConnected)document.body.append(rail);
       const folded=!allLevels&&entries.length>shown.length;
       renderOutlineRail(rail,{entries:shown.map(entry=>({href:'#'+(entry.el?.id||'page-'+entry.page),title:entry.title,depth:Math.min(3,entry.level-minimum)})),levels:folded||allLevels&&entries.length>FOLD?(allLevels?'Show fewer levels':'Show all levels'):null,onGo:go,onLevels:()=>{allLevels=!allLevels;filter();}});
       rail.querySelector('.outline-progress')?.remove();const bar=document.createElement('span');bar.className='outline-progress';bar.setAttribute('aria-hidden','true');bar.innerHTML='<span></span>';rail.append(bar);

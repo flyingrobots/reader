@@ -29,6 +29,7 @@ import {StatusCard} from './theme/organisms/status-card';
 import type {LibraryActions} from './admin/pages/library';
 import {Input} from './components/ui/input';
 import {Button} from './components/ui/button';
+import {ButtonGroup} from './components/ui/button-group';
 import {Badge} from './components/ui/badge';
 import {decorateCodeBlocks, installCodeCopy, type CodeBlockOptions} from './code-blocks';
 export {decorateCodeBlocks};
@@ -98,7 +99,7 @@ function QuickThemePicker({model,actions}:{model:Model;actions:Actions}){
   const items=themeChoices(model.customThemes);
   // A saved custom theme can paint from the local cache before its metadata arrives.
   if(!items.some(item=>item.value===model.theme))items.push({value:model.theme,label:'Saved theme'});
-  return <div className="quick-theme-controls">
+  return <ButtonGroup className="quick-theme-controls">
     <Select items={items} value={model.theme} onValueChange={value=>{if(value!==null)actions.useTheme(value);}}>
       <SelectTrigger id="quick-theme" size="sm" aria-label="Switch theme" title="Switch theme · Space Shift+T">
         <PaletteIcon aria-hidden="true"/><SelectValue/>
@@ -108,7 +109,7 @@ function QuickThemePicker({model,actions}:{model:Model;actions:Actions}){
       </SelectContent>
     </Select>
     <Label className="shrink-0 cursor-pointer gap-[7px] px-1.5 text-[10px] font-normal max-[700px]:hidden" data-theme-toggle=""><Switch id="theme-swap" size="sm" aria-label="Dark mode" checked={dark(model.theme)} onCheckedChange={checked=>{if(checked!==dark(model.theme))actions.theme();}}/>Dark</Label>
-  </div>;
+  </ButtonGroup>;
 }
 
 function Choice({id,label,value,items,onChange}:{id:string;label:string;value:string;items:{label:string;value:string}[];onChange:(value:string)=>void}){
@@ -165,7 +166,7 @@ function ReadingProgress({model,actions}:{model:Model;actions:Actions}){
   return <><div className="progress-rail"><div id="progress-slider" className="progress-slider" role="slider" tabIndex={0} aria-label="Seek reading position" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(model.value*100)} aria-valuetext={estimate(model.value)} onClick={event=>actions.seek(fraction(event))} onKeyDown={event=>{if(['ArrowLeft','ArrowRight','Home','End'].includes(event.key)){event.preventDefault();event.stopPropagation();if(event.key==='Home')actions.seek(0);else if(event.key==='End')actions.seek(1);else if(model.spreads)actions.spread(model.spread+(event.key==='ArrowRight'?1:-1));else actions.seek(clamp(model.value+(event.key==='ArrowRight'?.05:-.05)));}}}>
     <Progress value={model.value*100} aria-label="Reading progress" className="reader-progress"/>
   </div>
-  <div id="progress-pips" className="progress-pips">{model.pips.map(pip=><Popover key={pip.id}><PopoverTrigger className={'progress-pip'+(pip.kind==='warning'?' warning':pip.own?' own':'')} style={{left:`${pip.fraction*100}%`}} aria-label={`${pip.owner}’s ${pip.kind==='warning'?'warning':'highlight'} at ${Math.round(pip.fraction*100)} percent`} openOnHover delay={120} onClick={()=>actions.thread(pip.id)}/><PopoverContent side="top" initialFocus={false}><PopoverTitle>{pip.owner} · {estimate(model.value)}</PopoverTitle><PopoverDescription>{pip.quote}</PopoverDescription></PopoverContent></Popover>)}</div></div><span id="progress-readout" className="progress-readout">{estimate(model.value)}</span></>;
+  <div id="progress-pips" className="progress-pips">{model.pips.map(pip=><Popover key={pip.id}><PopoverTrigger className={'progress-pip'+(pip.kind==='warning'?' warning':pip.own?' own':'')} style={{left:`${pip.fraction*100}%`}} aria-label={`${pip.owner}’s ${pip.kind==='warning'?'warning':'highlight'} at ${Math.round(pip.fraction*100)} percent`} openOnHover delay={120} onClick={()=>actions.thread(pip.id)}/><PopoverContent side="top" initialFocus={false}><PopoverTitle>{pip.owner} · {estimate(model.value)}</PopoverTitle><PopoverDescription>{pip.quote}</PopoverDescription></PopoverContent></Popover>)}</div></div><Badge id="progress-readout" variant="ghost" className="progress-readout h-auto rounded-none p-0 font-normal">{estimate(model.value)}</Badge></>;
 }
 function Pages({model,actions}:{model:Model;actions:Actions}){
   if(!model.spreads)return null;
