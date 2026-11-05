@@ -45,11 +45,25 @@ const everything=dir=>{let all=Buffer.alloc(0);for(const e of readdirSync(dir,{w
     assert.equal(everything(root).includes(secret),false,secret+' in the vault');
   }
   // A delivery already waiting in the inbox can move in instead of being filed.
-  const waiting=page.locator('[data-private-waiting]').first();await waiting.waitFor({timeout:15000});
-  const moved=await waiting.getAttribute('data-private-waiting');
-  await waiting.getByRole('button',{name:'Encrypt'}).click();await page.locator('[data-confirm]').click();
-  await page.locator(`[data-private-item="${moved}"]`).waitFor({timeout:60000});
-  assert.equal(existsSync(join(root,'inbox',moved)),false,'the inbox copy is gone');
+  const waiting=page.locator('[data-private-waiting]');await waiting.first().waitFor({timeout:15000});
+  const ids=await waiting.evaluateAll(rows=>rows.map(row=>row.dataset.privateWaiting));assert.ok(ids.length>=2,'two deliveries are waiting');
+  const moved=ids[0],encrypt=page.locator('#private-encrypt-selected'),confirmEncrypt=()=>page.getByRole('alertdialog').getByRole('button',{name:'Encrypt'}).click();
+  assert.equal(await encrypt.isDisabled(),true,'nothing is selected yet');
+  await page.locator('label[for=private-select-all]').click();assert.match(await encrypt.textContent(),new RegExp(`Encrypt selected \\(${ids.length}\\)`));
+  await page.locator('label[for=private-select-all]').click();assert.equal(await encrypt.isDisabled(),true);
+  await page.locator(`[data-private-waiting="${ids[0]}"] [data-private-select]`).click();await page.locator(`[data-private-waiting="${ids[1]}"] [data-private-select]`).click();
+  assert.match(await encrypt.textContent(),/Encrypt selected \(2\)/);
+  await page.locator('#private-waiting').screenshot({path:'.reader/web-dev/private-waiting.png'});
+  // A failure stops the batch, says where, and leaves the selection to retry.
+  await page.route('**/api/private',route=>route.request().method()==='POST'?route.fulfill({status:500,json:{error:'Synthetic failure'}}):route.fallback());
+  await encrypt.click();await confirmEncrypt();
+  await page.locator('#private-error').filter({hasText:/Stopped at .*Synthetic failure/}).waitFor();
+  await page.unroute('**/api/private');
+  for(const id of ids.slice(0,2))assert.equal(existsSync(join(root,'inbox',id)),true,'nothing moved');
+  await page.locator(`[data-private-waiting="${ids[1]}"]`).waitFor();assert.match(await encrypt.textContent(),/Encrypt selected \(2\)/);
+  await encrypt.click();await confirmEncrypt();
+  for(const id of ids.slice(0,2))await page.locator(`[data-private-item="${id}"]`).waitFor({timeout:60000});
+  for(const id of ids.slice(0,2))assert.equal(existsSync(join(root,'inbox',id)),false,'the inbox copy is gone');
   // It opens through the session, and locks.
   const row=page.locator('[data-private-item]').filter({hasText:TITLE});await row.waitFor();
   await row.locator('[data-private-open]').click();

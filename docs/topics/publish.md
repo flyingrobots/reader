@@ -29,7 +29,7 @@ The first use installs a small pinned tool and asks you to choose a passphrase. 
 
 Once unlocked, you can open, download or delete these documents here or on the [Encrypted](#admin/encrypted) page. They open in the regular reader, but without search, highlights, bookmarks, reading history, art or chat, because those would save readable text in your vault. Opening one on screen doesn't lock it again when storage locks, so close it when you're done. They stay unlocked in this browser until you press **Lock**, Reader restarts, or 15 minutes pass without use. Deleting removes a document from encrypted storage, but it doesn't securely erase the disk.
 
-While it's unlocked, you can also encrypt a delivery that's waiting in the inbox instead of filing it. The inbox copy is removed once the encrypted copy has been checked.
+While it's unlocked, you can also select deliveries waiting in the inbox and press **Encrypt selected** instead of filing them. Each inbox copy is removed once its encrypted copy has been checked. If one fails, the batch stops there and says which, and the rest stay selected.
 
 This protects Reader's copy. The original file you uploaded stays wherever it was, and agents running as you can still read that copy, so remove it if it matters.
 

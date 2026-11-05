@@ -14,7 +14,7 @@
     "../docs/topics/logs.md": "cf2d367a13620967bb12e811834c22f23a73ec11f33783bfb287bad858cdc579",
     "../docs/topics/models.md": "525f9fb66a9565eb46a698b3a7163b890fa727b4930d922f7ebcf07ea5af4eb3",
     "../docs/topics/overview.md": "57520a0f5beb71ee8c7440c8b2c23f33b8e05a11cbbc9cc682f6db9779f67dcf",
-    "../docs/topics/publish.md": "7e12a5aef69aa322c6ca87c7ba589117c47286a39ebbbff80a6e52e85900ff4f",
+    "../docs/topics/publish.md": "97ac57b91d720c80b1ad9ba7148171be9cfc0dbe3ee50accde7753b2a9c0b7ba",
     "../docs/topics/repositories.md": "a380b973f9656d637411e05877310520107c1b0c6fd560015ea0bdde56a841e5",
     "../docs/topics/service.md": "afed76a054d5ee552c72b3db60365acf11c3eefd447798a449d0c312af3d21f0",
     "../docs/topics/settings.md": "99336b16eb57868f4a2943fe5e5bf58c2d5c7196e9116f93c0f22e33f2ed8932",
@@ -42,7 +42,7 @@
     "src/admin/pages/library-charts.ts": "934c246bde1dd47a99dd19ac3c4ba0ae6df98e98bb62ddd1912e39f211bfc902",
     "src/admin/pages/library.tsx": "1c4ee11da3a6491bf35261d747c9296251513d9e53e02ffff5b7288ba9c209e0",
     "src/admin/pages/logs.tsx": "ded000bd5ca82dce862fe1e86436383a326660f00be8c366fde7fdd978fb2609",
-    "src/admin/pages/private-shelf.tsx": "cfa37405425ef69bf0dc398ddef23f3f934a11657ad7a40055e8bc9f06f4b6ad",
+    "src/admin/pages/private-shelf.tsx": "d92a710143441dcc9734acd7ac6e9dda7d8108c6b1921ca27d3f195e47770d92",
     "src/admin/pages/publish.tsx": "f8d3b7186fea6ebdbe835710fa3030def06a4ebe268ae8ccb26df8bffbca0656",
     "src/admin/pages/repositories.tsx": "b27c3176025dd93ab4194beff4ec6eb12aca8a62235fb2b1a84c39ef97760c78",
     "src/admin/pages/shelves.tsx": "fe7173d11af9e4f0d05fee9afa631f3265438845426211ae4e6b0b05cde2159a",
@@ -165,7 +165,7 @@
     "src/theme/molecules/run-row.tsx": "77b5bedddac1e95e38295e04d994bdf51249de6410e1fd7ea5716adf0fa60563",
     "src/theme/molecules/states.tsx": "fe1755228ec0aaf43957714be7ea656bb9e174a96b04206a5ad52bc87094d6c5",
     "src/theme/molecules/toolbar.tsx": "7d1bcefa9703486b52f296afa2ba1c117ff1b0dd4aa1b7ea06310c04c367c820",
-    "src/theme/organisms/confirm-action.tsx": "4cf659336c8903df901e8c35a416eb893175519946a43180b1fa77264ebbc8b6",
+    "src/theme/organisms/confirm-action.tsx": "77ee206b92df3834f7e61cc9f323272c9aaca663d5d06ef8f3c25edd4b5b09f6",
     "src/theme/organisms/run-list.tsx": "bb9c9e00679d9e5543644544b9ff404a51d376cbfa1102d7d345eda2f868a951",
     "src/theme/organisms/status-card.tsx": "6576af39910c334872090af674ae750666d3b5b68716559f3549ba784f44e6be",
     "src/theme/templates/admin-page.tsx": "0d9f1b1c58fa9a75389496568a119323e553b8e6e7d97e9b922facd7bd8d60e4",
@@ -992,12 +992,12 @@
       "sha256": "cb2ee2554fd41ac9f8e2e69c350365f0e1cf9732d27ad161c9c97b20945bbe4c"
     },
     "reader-controls.css": {
-      "bytes": 183425,
-      "sha256": "8285cfa81d7c1f65a9dbbf264c36cf083684690e547dac47a315184c6da48470"
+      "bytes": 183468,
+      "sha256": "2f2db66390dc17eda8942ed0303f5c8934a4b6737af8b8b858dc456620a1f3f5"
     },
     "reader-controls.js": {
-      "bytes": 1362140,
-      "sha256": "17f139b41f2a78084d6f224edb38f3f7feb34cf3027cfa535f29c48949c5d054"
+      "bytes": 1364065,
+      "sha256": "686cb85df233e45efaab4579fe026e06851b2b085b6de8703eb6deed3d2bde65"
     },
     "reader-controls.js.LEGAL.txt": {
       "bytes": 6614,
