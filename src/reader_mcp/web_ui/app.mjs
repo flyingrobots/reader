@@ -1488,7 +1488,7 @@ keys.map(
   // Leader, in the order the status line lists it.
   {keys:'<Space>/',run:()=>openSearch(),hint:'search',group:L,help:'Search every passage: exact words or meaning'},
   {keys:'<Space>,e',run:togglePicker,hint:'files',group:L},
-  {keys:'<Space>e',run:togglePicker,hint:'files',group:L,help:'Toggle the File Explorer column'},
+  {keys:'<Space>e',run:togglePicker,hint:'files',group:L,display:'Space e / Space , e',help:'Toggle the File Explorer column'},
   {keys:'<Space>h',run:()=>navigate(null),hint:'home',group:L,help:'Return to your homepage'},
   {keys:'<Space>r',run:inShell('r',()=>queue.toggle()),hint:'queue',group:L,help:'Reading queue: Up next and History (`Tab` switches)'},
   {keys:'<Space>n',run:inShell('n',()=>queue.next()),hint:'next',group:L,help:'Open the next document in your queue'},
