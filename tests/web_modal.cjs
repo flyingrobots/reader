@@ -26,8 +26,8 @@ const highlightText=(page,name)=>page.evaluate(name=>[...(CSS.highlights.get(nam
 
   // The help is generated from the table: every mapped key appears, with the existing descriptions.
   // Help is a dialog now; it exists while open.
-  await page.locator('#main').focus();await page.keyboard.press('?');await page.locator('#help-keys dt').first().waitFor();
-  const help=await page.evaluate(()=>({text:document.querySelector('#help').textContent,dts:[...document.querySelectorAll('#help-keys dt')].map(dt=>dt.textContent.replace(/\s+/g,' ')),listed:window.readerKeymap.listed(),commands:window.readerKeymap.commands()}));
+  await page.locator('#main').focus();await page.keyboard.press('?');await page.locator('#help-keys [data-help-key]').first().waitFor();
+  const help=await page.evaluate(()=>({text:document.querySelector('#help').textContent,dts:[...document.querySelectorAll('#help-keys [data-help-key]')].map(dt=>dt.textContent.replace(/\s+/g,' ')),listed:window.readerKeymap.listed(),commands:window.readerKeymap.commands()}));
   await page.keyboard.press('Escape');await page.locator('#help').waitFor({state:'detached'});
   const label=key=>({'<Space>':'Space','<CR>':'Enter','<Down>':'↓','<Up>':'↑','<Left>':'←','<Right>':'→','{a-z}':'a–z','{mark}':'a–z'})[key]||key.replace(/^<C-(.)>$/,'Ctrl $1').replace(/^<(.+)>$/,'$1');
   const tokens=keys=>keys.match(/<[^>]+>|\{[a-z-]+\}|./g)||[];

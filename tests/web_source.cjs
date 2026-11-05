@@ -36,8 +36,8 @@ const {chromium}=require(process.env.READER_PLAYWRIGHT||'playwright-core');
   await check(filed,filedBytes,'filed');
   await check(preview,previewBytes,'inbox preview');
   // The key map lists the shortcut.
-  await page.locator('#main').focus();await page.keyboard.press('?');await page.locator('.keymap').first().waitFor();
-  assert.match((await page.locator('.keymap').allTextContents()).join('\n'),/Space u\s*Open the raw source file/);await page.keyboard.press('Escape');
+  await page.locator('#main').focus();await page.keyboard.press('?');await page.locator('.keymap-table').first().waitFor();
+  assert.match((await page.locator('.keymap-table').allTextContents()).join('\n'),/Space u\s*Open the raw source file/);await page.keyboard.press('Escape');
   // Every theme keeps the control readable against what it is painted on.
   const THEMES=['ink','paper','orchid','orchid-dark','harvest','harvest-dark',...require('../src/reader_mcp/web_ui/famous-themes.json').themes.flatMap(t=>[t.id,t.id+'-dark'])];
   const ratios=await page.evaluate(themes=>{

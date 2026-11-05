@@ -74,6 +74,7 @@ import {applyThemes, ensureProseRules, themeId, type InstalledFont} from './them
 import type {Theme} from './theme/color';
 export {applyThemes};
 import {observeButtons} from './vanilla-buttons';
+import {HelpKeys, type HelpSection} from './help-keys';
 import {LinkedFromHead, LinkedFromList, NextReads, OutlineRail, type LinkedFromRow, type NextReadsModel, type OutlineRailModel} from './reading-lists';
 import {OutlineControl, type OutlineModel, type OutlineActions} from './outline';
 import {FAMOUS, famousId} from './theme/famous';
@@ -497,6 +498,7 @@ function openAppDialog(id:string,onClosed:()=>void,render:(props:{register:(clos
 /** Close open modal app dialogs on navigation or leaving a context. */
 export function closeAppDialogs(){for(const entry of [...appDialogs.values()])entry.close();}
 function draw(container:HTMLElement,view:ReactNode){const root=islands.get(container);if(root)flushSync(()=>root.render(view));else mount(container,view);}
+export const renderHelpKeys=(container:HTMLElement,sections:HelpSection[])=>draw(container,<HelpKeys sections={sections}/>);
 export const renderOutlineRail=(container:HTMLElement,model:OutlineRailModel)=>draw(container,model.entries.length?<OutlineRail {...model}/>:null);
 export const renderNextReads=(container:HTMLElement,model:NextReadsModel)=>draw(container,<NextReads {...model}/>);
 export const renderLinkedFromHead=(container:HTMLElement,count:number)=>draw(container,<LinkedFromHead count={count}/>);

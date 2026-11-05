@@ -6,7 +6,7 @@ import {Alert, AlertDescription} from './components/ui/alert';
 import {Badge} from './components/ui/badge';
 import {Button} from './components/ui/button';
 import {ButtonGroup} from './components/ui/button-group';
-import {Item, ItemActions, ItemContent, ItemDescription, ItemMedia, ItemTitle} from './components/ui/item';
+import {Item, ItemActions, ItemContent, ItemDescription, ItemGroup, ItemHeader, ItemMedia, ItemTitle} from './components/ui/item';
 import {Kbd, KbdGroup} from './components/ui/kbd';
 import {Progress} from './components/ui/progress';
 import {Tabs, TabsList, TabsTrigger, TabsContent} from './components/ui/tabs';
@@ -35,31 +35,31 @@ function Row({row,props,tab}:{row:QueueRow;props:QueueProps;tab:string}){
     className="cursor-pointer items-start" onMouseEnter={()=>props.onActive(row.index)} onClick={()=>props.onOpen(row.index)}>
     <ItemMedia variant="icon" aria-hidden="true" className="mt-0.5">{<Lead row={row}/>}</ItemMedia>
     <ItemContent className="min-w-0">
-      <ItemTitle data-queue-title="" className="line-clamp-2 font-serif text-[15px] font-normal">{row.title}{!row.read?<span className="ml-1.5 inline-block size-1.5 rounded-full bg-primary align-middle" title="Unread edition" aria-label="Unread edition"/>:null}</ItemTitle>
+      <ItemTitle data-queue-title="" className="line-clamp-2 font-serif text-[15px] font-normal">{row.title}{!row.read?<Badge className="ml-1.5 size-1.5 p-0" title="Unread edition" aria-label="Unread edition"/>:null}</ItemTitle>
       <ItemDescription className="text-xs" data-queue-byline="">{row.byline}</ItemDescription>
       {row.reason?<ItemDescription className="line-clamp-none text-xs" data-queue-reason="">{row.voice?<Badge variant="outline" className="mr-1">{row.voice}</Badge>:null}{row.reason}</ItemDescription>:null}
       {row.kind==='now'&&row.progress!==null?<Progress value={Math.round(row.progress*100)} aria-label="Reading progress" className="mt-1"/>:null}
     </ItemContent>
     <ItemActions className="flex-col items-end gap-1">
-      {row.when?<span className="text-xs text-muted-foreground" data-queue-when="">{row.when}</span>:null}
-      <span className="flex items-center gap-1">
-        <span className="inline-flex items-center gap-1 text-xs text-muted-foreground tabular-nums" data-queue-time="">{row.finished?<><CheckIcon aria-hidden="true" className="size-3"/> Finished</>:row.time}</span>
+      {row.when?<ItemDescription className="text-xs" data-queue-when="">{row.when}</ItemDescription>:null}
+      <ButtonGroup className="items-center gap-1">
+        <Badge variant="ghost" className="tabular-nums text-muted-foreground" data-queue-time="">{row.finished?<><CheckIcon aria-hidden="true"/> Finished</>:row.time}</Badge>
         {row.changed?<Badge variant="outline" title="This document changed since you last opened it">Changed</Badge>:null}
         {row.kind==='suggested'?<Button variant="ghost" size="xs" tabIndex={-1} data-queue-action="" aria-label={`Add ${row.title} to your queue`} {...localOnly()} onClick={event=>{event.stopPropagation();props.onPin(row.index);}}><PlusIcon data-icon="inline-start"/>Queue</Button>:null}
         {row.kind==='queued'||row.kind==='history'?<Button variant="ghost" size="icon-xs" tabIndex={-1} data-queue-action="" aria-label={row.kind==='history'?`Remove ${row.title} from history`:`Remove ${row.title} from your queue`} {...(row.kind==='queued'?localOnly():{})} onClick={event=>{event.stopPropagation();props.onRemove(row.index);}}><XIcon/></Button>:null}
-      </span>
+      </ButtonGroup>
     </ItemActions>
   </Item>;
 }
-const Quiet=({children}:{children:React.ReactNode})=><p data-slot="queue-empty" className="px-3 py-4 text-sm text-muted-foreground" data-queue-empty="">{children}</p>;
+const Quiet=({children}:{children:React.ReactNode})=><ItemDescription className="line-clamp-none px-3 py-4" data-queue-empty="">{children}</ItemDescription>;
 function Sections({sections,props,tab,empty}:{sections:QueueSection[];props:QueueProps;tab:string;empty?:string|null}){
   return <div role="listbox" data-queue-list="" id={'queue-list-'+tab} className="flex flex-col gap-4 rounded-lg outline-none focus-visible:ring-3 focus-visible:ring-ring/50" tabIndex={0} aria-label={tab==='next'?'Up next':'History'} aria-activedescendant={empty?undefined:`queue-${tab}-${props.active}`}>
     {empty?<Quiet>{empty}</Quiet>:null}
-    {sections.map(section=><div key={section.id} role="group" aria-labelledby={'queue-section-'+section.id} className="flex flex-col gap-1" data-section={section.id}>
-      <div className="flex items-center justify-between gap-2 px-3"><span id={'queue-section-'+section.id} data-section-label="" className="text-xs font-medium tracking-wide text-muted-foreground uppercase">{section.label}{section.count!==undefined?<span className="tabular-nums"> · {section.count}</span>:null}</span>
-        {section.action?<Button variant="ghost" size="xs" tabIndex={-1} {...(section.id==='queued'?localOnly():{})} onClick={section.action.onClick}>{section.action.label}</Button>:null}</div>
+    {sections.map(section=><ItemGroup key={section.id} role="group" aria-labelledby={'queue-section-'+section.id} className="gap-1" data-section={section.id}>
+      <ItemHeader className="gap-2 px-3"><ItemTitle id={'queue-section-'+section.id} data-section-label="" className="text-xs tracking-wide text-muted-foreground uppercase">{section.label}{section.count!==undefined?<> · {section.count}</>:null}</ItemTitle>
+        {section.action?<Button variant="ghost" size="xs" tabIndex={-1} {...(section.id==='queued'?localOnly():{})} onClick={section.action.onClick}>{section.action.label}</Button>:null}</ItemHeader>
       {section.rows.length?section.rows.map(row=><Row key={row.kind+row.path} row={row} props={props} tab={tab}/>):section.empty?<Quiet>{section.empty}</Quiet>:null}
-    </div>)}
+    </ItemGroup>)}
   </div>;
 }
 const Keys=({keys}:{keys:[string,string][]})=><div className="flex flex-wrap gap-x-3 gap-y-1 border-t px-4 py-2 text-xs text-muted-foreground" aria-hidden="true" data-queue-keys="">

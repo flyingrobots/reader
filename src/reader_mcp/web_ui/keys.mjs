@@ -33,8 +33,6 @@ const LABELS={'<Space>':'Space','<CR>':'Enter','<Esc>':'Escape','<Tab>':'Tab','<
 /** Readable key names for the help and hints: <C-d> → Ctrl d. */
 export function keyLabel(token){if(LABELS[token])return LABELS[token];const ctrl=token.match(/^<C-(.+)>$/);if(ctrl)return 'Ctrl '+(LABELS['<'+ctrl[1]+'>']||ctrl[1]);return token.replace(/^<(.+)>$/,'$1');}
 /** Help text is plain; `x` marks a key. */
-const richHelp=text=>esc(text).replace(/`([^`]+)`/g,'<kbd>$1</kbd>');
-const kbd=tokens=>tokens.map(t=>`<kbd>${esc(keyLabel(t))}</kbd>`).join(' ');
 /** Closest command name for a typo: edit distance, preferring shared prefixes. */
 export function closest(word,names){
   const distance=(a,b)=>{const row=Array.from({length:b.length+1},(_,i)=>i);for(let i=1;i<=a.length;i++){let previous=row[0];row[0]=i;for(let j=1;j<=b.length;j++){const saved=row[j];row[j]=Math.min(row[j]+1,row[j-1]+1,previous+(a[i-1]===b[j-1]?0:1));previous=saved;}}return row[b.length];};
@@ -50,7 +48,7 @@ export const LIMITS={sequenceMs:650,leaderMs:1200,history:100,count:9999};
  *  - changed(): called when the mode, pending keys or table change (updates the status line);
  *  - notify(message, type): toasts for the command line.
  */
-export function createKeys({guard=()=>false,escape=()=>{},changed=()=>{},notify=()=>{},storage=globalThis.localStorage,suggestions=null,showPending=null,showLine=null}={}){
+export function createKeys({drawHelp=()=>{},guard=()=>false,escape=()=>{},changed=()=>{},notify=()=>{},storage=globalThis.localStorage,suggestions=null,showPending=null,showLine=null}={}){
   const table=[],commands=[],modes=new Map(),before=[],groups=new Map(),prefixes=new Map();
   const stack=['normal'];let sectionOrder=[];let pending=[],count='',register=null,timer=0;
   const mode=()=>stack.at(-1);
@@ -279,14 +277,11 @@ export function createKeys({guard=()=>false,escape=()=>{},changed=()=>{},notify=
     const root=byId('help-keys');if(!root)return;
     const sections=new Map();
     for(const entry of table){if(!entry.help)continue;const name=entry.group||'Reading';if(!sections.has(name))sections.set(name,[]);sections.get(name).push(entry);}
-    let html='';
     const rank=name=>{const i=sectionOrder.indexOf(name);return i<0?sectionOrder.length:i;};
-    for(const [name,entries] of [...sections].sort((a,b)=>rank(a[0])-rank(b[0]))){
-      html+=`<h3 class="help-group">${esc(name)}</h3><dl class="keymap">`+entries.map(entry=>`<dt>${entry.display?entry.display.split(' / ').map(part=>kbd(part.split(' '))).join(' / '):kbd(entry.tokens)}</dt><dd>${richHelp(entry.help)}</dd>`).join('')+'</dl>';
-    }
+    const model=[...sections].sort((a,b)=>rank(a[0])-rank(b[0])).map(([name,entries])=>({name,rows:entries.map(entry=>({keys:entry.display?entry.display.split(' / ').map(part=>part.split(' ')):[entry.tokens.map(keyLabel)],help:entry.help}))}));
     const documented=commands.filter(c=>c.help);
-    if(documented.length)html+=`<h3 class="help-group">Command line</h3><p class="quiet">Press <kbd>:</kbd> to type a command in the status line. <kbd>Tab</kbd> completes, <kbd>↑</kbd> <kbd>↓</kbd> select suggestions, <kbd>Ctrl p</kbd> <kbd>Ctrl n</kbd> recall earlier commands, <kbd>Enter</kbd> runs, <kbd>Esc</kbd> cancels.</p><dl class="keymap commands">`+documented.map(c=>`<dt data-command="${esc(c.name)}"><kbd>:${esc(c.name)}${c.args?' '+esc(c.args):''}</kbd></dt><dd>${richHelp(c.help)}</dd>`).join('')+'</dl>';
-    root.innerHTML=html;
+    if(documented.length)model.push({name:'Command line',note:true,rows:documented.map(c=>({keys:[[':'+c.name+(c.args?' '+c.args:'')]],help:c.help,command:c.name}))});
+    drawHelp(root,model);
   }
   /** Every key sequence a binding maps, for tests and the help. */
   const listed=()=>table.map(entry=>({mode:entry.modes,keys:entry.keys,help:entry.help||'',group:entry.group||'Reading',runs:!!entry.run,...(entry.display?{display:entry.display}:{})}));

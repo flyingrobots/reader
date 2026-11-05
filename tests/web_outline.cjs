@@ -76,7 +76,7 @@ const THEMES=['ink','paper','orchid','orchid-dark','harvest','harvest-dark',...r
    await page.locator('#main').focus();await leader(page,'p');const setting=page.getByRole('switch',{name:'Outline beside long documents'});await setting.waitFor();assert.equal(await setting.getAttribute('aria-checked'),'true');
    assert.equal(await rail.isVisible(),false,'no rail outside documents');assert.equal(await page.locator('#outline-open').count(),0);
    // Help and leader hints mention the keys.
-   await page.locator('#main').focus();await page.keyboard.press('?');await page.locator('#help-keys dt').first().waitFor();
+   await page.locator('#main').focus();await page.keyboard.press('?');await page.locator('#help-keys [data-help-key]').first().waitFor();
    assert.ok((await page.locator('#help').textContent()).includes('Show or hide the document outline'));
    await page.keyboard.press('Escape');await page.locator('#help').waitFor({state:'detached'});
    await page.locator('#main').focus();await page.keyboard.press('Space');assert.ok((await page.locator('#status-keys').textContent()).includes('outline'));await page.keyboard.press('Escape');

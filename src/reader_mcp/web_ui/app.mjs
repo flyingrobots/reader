@@ -23,7 +23,7 @@ import {drawable,fetchShape,paintShape} from './shapes.mjs';
 import {artJobs,fetchArt,focusArt,forgetArt,hasArt,paintArt,paintArtThumb,paintPlaceholder} from './art.mjs';
 import {closeArtFocus,focusOpen} from './art-focus.mjs';
 import {mountDiagramZoom} from './diagram-zoom.mjs';
-import {getStatus,setStatus,showCommandLine,renderNextReads,showPanel,hidePanel,renderCommandSuggestions,openScratchSave,closeAppDialogs,openAnnotationDialog,openSpeakMenu,openShellDialog,renderVersionsTimeline,renderLinkPreview,renderReadingLog,applyThemes,installControls,mountSkeleton,mountCodeBlocks,decorateCodeBlocks,clearControlsWithin,renderFileExplorer,mountArticleSpeech,mountMagazine,mountSectionPage,mountAdmin,setAdminRoute,mountChangesPanel,mountArtRegenerate,notify as shellNotify,openChat,closeChat,chatOpen,trackSpeech,renderQueuePanel,mountCallouts,mountQuiz,mountWritingPrompt,mountScratchQuestion,startJob,promptCompanion,needsReader,NEEDS_READER,mountPromptCards} from './controls/reader-controls.js';
+import {renderHelpKeys,getStatus,setStatus,showCommandLine,renderNextReads,showPanel,hidePanel,renderCommandSuggestions,openScratchSave,closeAppDialogs,openAnnotationDialog,openSpeakMenu,openShellDialog,renderVersionsTimeline,renderLinkPreview,renderReadingLog,applyThemes,installControls,mountSkeleton,mountCodeBlocks,decorateCodeBlocks,clearControlsWithin,renderFileExplorer,mountArticleSpeech,mountMagazine,mountSectionPage,mountAdmin,setAdminRoute,mountChangesPanel,mountArtRegenerate,notify as shellNotify,openChat,closeChat,chatOpen,trackSpeech,renderQueuePanel,mountCallouts,mountQuiz,mountWritingPrompt,mountScratchQuestion,startJob,promptCompanion,needsReader,NEEDS_READER,mountPromptCards} from './controls/reader-controls.js';
 import {promptPlugin,promptMounts} from './prompt-blocks.mjs';
 import {installVersions,chipMarkup,historicalMarkup,splitRef,compareLabel} from './versions.mjs';
 import {installSplit,installPane,cleanRoute} from './split.mjs';
@@ -1396,7 +1396,7 @@ function pageEscape(event){
 function syncChips(){
   const qf=quickfix?.get();setStatus({quickfix:qf?.items.length?`QF ${qf.index>=0?qf.index+1:'–'}/${qf.items.length}`:''});
 }
-keys=createKeys({showPending:text=>setStatus({pending:text}),showLine:showCommandLine,guard:typing,escape:pageEscape,notify,suggestions:renderCommandSuggestions,changed(){
+keys=createKeys({drawHelp:renderHelpKeys,showPending:text=>setStatus({pending:text}),showLine:showCommandLine,guard:typing,escape:pageEscape,notify,suggestions:renderCommandSuggestions,changed(){
   const pending=keys?.pending();state.leader=pending?.keys[0]==='<Space>'?(pending.keys[1]===','?',':true):null;state.windowKey=pending?.keys[0]==='<C-w>';
   syncChips();reading?.updateStatus();
 }});

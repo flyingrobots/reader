@@ -248,7 +248,7 @@ body.split-active #smooth-wrapper,body.split-active #summon,body.split-active .s
 .statusline.commanding :is(.status-location,.status-keys,.search-chip,#pagination-slot,.status-section,.status-position){display:none}
 .list-item small kbd{font:600 10px var(--font-mono);color:var(--primary);margin-right:4px}.list-item.current{box-shadow:inset 2px 0 0 var(--primary);padding-left:12px}.list-item blockquote{font-size:17px;overflow-wrap:anywhere}
 .help-group{font:650 10px var(--font-sans);letter-spacing:.1em;text-transform:uppercase;color:var(--muted-foreground);margin:28px 0 -14px}.help-keys .keymap{margin:24px 0}.help-keys>.quiet{margin:20px 0 -8px}
-.keymap .help-target,.keymap .help-target+dd{background:color-mix(in srgb,var(--primary) 16%,transparent)}
+.help-target{background:color-mix(in srgb,var(--primary) 16%,transparent)}
 @media(max-width:700px){.command-menu{left:8px}}
 /* Bespoke article art (RW-43): the cover, feature thumbnails and an article's art (Space g). Theme tokens only;
    the scene's own colors come from the same tokens through the renderer. */

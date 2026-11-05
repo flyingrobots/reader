@@ -70,7 +70,7 @@ const {scrollUntilHeld}=require('./web_wait.cjs');
   await page.locator('[data-companion-prompt=ai-tts] [data-prompt-action=dismiss]').click();await page.evaluate(()=>localStorage.removeItem('reader.companions.dismissed.v1'));
   flag('down',false);
   // Help lists the key; phone width keeps the glyph and pause/resume only.
-  await page.locator('#main').focus();await page.keyboard.press('?');await page.locator('#help-keys dt').first().waitFor();
+  await page.locator('#main').focus();await page.keyboard.press('?');await page.locator('#help-keys [data-help-key]').first().waitFor();
   assert.ok((await page.locator('#help').textContent()).includes('Send to AI-TTS'));
   await page.keyboard.press('Escape');await page.locator('#help').waitFor({state:'detached'});
   await page.locator('#speak-article').click();await control.waitFor();
