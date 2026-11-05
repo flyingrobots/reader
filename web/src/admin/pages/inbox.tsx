@@ -45,7 +45,7 @@ function ArrivalItem({arrival,onOpen,onChoose}:{arrival:Arrival;onOpen:(path:str
   return <div role="listitem" data-arrival-row={arrival.id}><Item size="sm" render={<button type="button"/>} data-arrival={arrival.id} onClick={()=>onOpen(arrival.document)} className="cursor-pointer text-left hover:bg-muted">
     <ItemContent className="min-w-0">
       <ItemTitle data-arrival-title="" className="font-serif text-base font-normal [overflow-wrap:anywhere]">{arrival.title}</ItemTitle>
-      {meta||arrival.source?<ItemDescription className="[overflow-wrap:anywhere]">{meta}{arrival.source?<span className="text-muted-foreground/80"> via {arrival.source}</span>:null}</ItemDescription>:null}
+      {meta||arrival.source?<ItemDescription className="[overflow-wrap:anywhere]">{meta}{arrival.source?<span> via {arrival.source}</span>:null}</ItemDescription>:null}
       <ItemDescription className="text-xs tabular-nums">{plural(arrival.files,'file')} · {size(arrival.bytes)}{arrival.received_at?<> · <RelativeTime value={arrival.received_at}/></>:null}</ItemDescription>
     </ItemContent>
     <ItemActions className="max-sm:basis-full">

@@ -428,7 +428,7 @@ deuteranopia, tritanopia or grayscale without changing the stored values.
 
 | Group | Rule |
 | --- | --- |
-| Text contrast (WCAG 2.2) | Text on page and surfaces 4.5:1, aim 7:1; muted on page, surfaces and raised fills 4.5:1; faint on page and surfaces 4.5:1; links on page and surfaces 4.5:1; on-accent, secondary emphasis and warning 4.5:1; text over each translucent highlight 4.5:1 |
+| Text contrast (WCAG 2.2) | Text on page and surfaces 4.5:1, aim 7:1; muted on page, surfaces and raised fills 4.5:1; faint on page and surfaces 4.5:1; links on page and surfaces 4.5:1; on-accent, secondary emphasis and warning 4.5:1; text over each translucent highlight 4.5:1; in dark variants, text and muted text on filled controls 4.5:1 |
 | Mode labels | On-accent text over each derived mode color 4.5:1 (shown only when failing) |
 | Interface boundaries | Accent 3:1 as a non-text control; rules about 1.2:1; surface layers ΔE_OK ≥ 0.012; text hierarchy steps by lightness; page polarity matches the variant |
 | Charts | Each fill 3:1 against the page *or* the chart border (the border rule) |

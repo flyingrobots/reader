@@ -23,7 +23,7 @@
   --color-destructive: var(--warning);
   --color-border: var(--line);
   /* Control borders must read at 3:1 (WCAG 1.4.11); --line is a decorative rule. Muted text is held at 4.5:1 in every theme, so this mix follows it. */
-  --color-input: color-mix(in oklab, var(--muted) 72%, var(--surface));
+  --color-input: color-mix(in oklab, var(--muted) 80%, var(--surface));
   --color-input-fill: var(--line);
   --color-ring: var(--accent);
   /* Reader Admin's sidebar uses the same theme tokens: no separate palette. */
@@ -387,3 +387,6 @@ html.embedded-pane [data-panel-sheet] { bottom: 0; }
   .admin-doc-body th,.admin-doc-body td { padding: .6rem; border: 1px solid var(--line); vertical-align: top; text-align: left; }
   .admin-doc-body h2:focus,.admin-doc-body h3:focus { outline: 2px solid var(--accent); outline-offset: 3px; }
 }
+
+/* A pie label sits on a theme-colored slice, so it brings its own backdrop: ink on a halo of the page color reads on every slice in every theme. */
+.pele-slice-labels text{fill:var(--ink);stroke:var(--bg);stroke-width:3px;paint-order:stroke;stroke-linejoin:round}

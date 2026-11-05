@@ -10,7 +10,7 @@ import {InputGroup, InputGroupAddon, InputGroupInput, InputGroupText} from '@/co
 export function FindBar(){
   return <div className="flex w-full items-center gap-2 rounded-xl bg-popover p-2 text-popover-foreground shadow-md ring-1 ring-foreground/10">
     <InputGroup className="min-w-0 flex-1">
-      <InputGroupAddon><label htmlFor="find-query" className="font-serif text-lg text-primary">/</label></InputGroupAddon>
+      <InputGroupAddon><label htmlFor="find-query" className="font-serif text-lg text-foreground">/</label></InputGroupAddon>
       <InputGroupInput id="find-query" aria-label="Find within this document" autoComplete="off" spellCheck={false}/>
       <InputGroupAddon align="inline-end"><InputGroupText id="find-count" aria-live="polite" className="text-xs tabular-nums">0 / 0</InputGroupText></InputGroupAddon>
     </InputGroup>

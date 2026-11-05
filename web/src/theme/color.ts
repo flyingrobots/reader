@@ -101,6 +101,11 @@ export function checkVariant(tokens:Tokens,variant:Variant):Check[]{
   for(const bg of ['bg','surface'])checks.push(ratioCheck('faint-'+bg,text,`Faint text on ${bg==='bg'?'page':'surfaces'}`,t.faint,t[bg],4.5,4.5,'faint',bg));
   checks.push(ratioCheck('accent-ink',text,'Text on accent',t['accent-ink'],t.accent,4.5,4.5,'accent-ink','accent'));
   for(const bg of ['bg','surface'])checks.push(ratioCheck('accent-'+bg,text,`Links on ${bg==='bg'?'page':'surfaces'}`,t.accent,t[bg],4.5,4.5,'accent',bg));
+  // In dark variants controls tint their fill with --line (bg-input-fill): 30% at rest, 50% on hover.
+  if(variant==='dark'){
+    checks.push(ratioCheck('ink-control',text,'Text on filled controls',t.ink,over(withAlpha(t.line,.5),t.raised),4.5,4.5,'ink'));
+    checks.push(ratioCheck('muted-control',text,'Muted text on filled controls',t.muted,over(withAlpha(t.line,.5),t.raised),4.5,4.5,'muted'));
+  }
   checks.push(ratioCheck('rust-bg',text,'Secondary emphasis on page',t.rust,t.bg,4.5,4.5,'rust','bg'));
   for(const bg of ['bg','surface'])checks.push(ratioCheck('warning-'+bg,text,`Warning on ${bg==='bg'?'page':'surfaces'}`,t.warning,t[bg],4.5,4.5,'warning',bg));
   for(const token of ['selection','own','other'])checks.push(ratioCheck('ink-'+token,text,`Text over ${COLOR_TOKENS.find(x=>x.name===token)!.label.toLowerCase()}`,t.ink,over(t[token],t.bg),4.5,4.5,null));

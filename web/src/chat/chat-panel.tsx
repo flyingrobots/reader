@@ -361,7 +361,7 @@ export function ChatPanel(props:ChatProps){
             }}
             onSelect={event=>{const element=event.currentTarget as unknown as HTMLTextAreaElement;setMention(mentionAt(element.value,element.selectionStart??element.value.length));}}/>
           <InputGroupAddon align="block-end">
-            {pasteName&&!offline?<InputGroupButton variant="ghost" size="xs" onClick={()=>setPasting(value=>!value)} aria-pressed={pasting} id="chat-paste-toggle"><ClipboardPasteIcon/>{manual.length>1?'Paste a reply':`Paste ${pasteName}’s reply`}</InputGroupButton>:null}
+            {pasteName&&!offline?<InputGroupButton variant="ghost" size="xs" className="text-foreground" onClick={()=>setPasting(value=>!value)} aria-pressed={pasting} id="chat-paste-toggle"><ClipboardPasteIcon/>{manual.length>1?'Paste a reply':`Paste ${pasteName}’s reply`}</InputGroupButton>:null}
             <InputGroupButton type="submit" variant="default" size="icon-xs" className="ml-auto" aria-label="Send" disabled={!draft.trim()||busy} {...localOnly('chat')} id="chat-send"><ArrowUpIcon/></InputGroupButton>
           </InputGroupAddon>
         </InputGroup>
