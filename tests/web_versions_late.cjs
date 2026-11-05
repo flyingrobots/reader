@@ -93,6 +93,15 @@ const DELAY=2000;
   {const {page,context}=await open({layout:'scroll'});
    await page.goto(url+'#read='+encodeURIComponent(essay+'tidal.md'));await ready(page);await page.locator('#article > .document-meta > .version-line').waitFor();
    assert.equal(await page.locator('.version-line').count(),1);await context.close();}
+  // A reader at the top stays at the top: no block is kept yet, whatever sits on the save line.
+  {const {page,context}=await open({layout:'scroll'});
+   await page.goto(url+'#read='+encodeURIComponent(essay+'tidal.v3.md'));await ready(page);await page.waitForTimeout(150);
+   const saved=page.waitForResponse(r=>r.url().includes('/api/bookmark')&&r.request().method()==='POST',{timeout:5000});
+   await page.evaluate(()=>scrollTo(0,1));await saved;await page.evaluate(()=>scrollTo(0,0));
+   const again=page.waitForResponse(r=>r.url().includes('/api/bookmark')&&r.request().method()==='POST',{timeout:5000});await again;
+   await page.reload();await ready(page);await page.waitForTimeout(250);
+   assert.ok(await page.evaluate(()=>scrollY<=1),'reopening from the top keeps the title in view');
+   await context.close();}
   // Progress measures the article: the footer and what follows it are not reading still to do.
   {const {page,context}=await open({layout:'scroll'});
    await page.goto(url+'#read='+encodeURIComponent(essay+'tidal.md'));await ready(page);await page.locator('#article > .document-meta > .version-line').waitFor();
