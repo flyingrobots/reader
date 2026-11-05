@@ -522,8 +522,8 @@ click, Left/Right, Home and End. A persistent readout at the right end shows
 percentage and estimated minutes remaining, based on visible text and the selected
 reading pace. The seek track has no hover popup. The readout follows the current
 reading position, independently of the pointer location. PDF estimates use pages remaining. Highlight/warning pips identify an owner
-and open the corresponding thread. Seeking uses the document's scroll range or
-the discrete spread index; it is a layout position, not a measure of comprehension.
+and open the corresponding thread. Seeking uses the article's reading range (see
+[automatic bookmarks](#two-page-mode-and-automatic-bookmarks)) or the discrete spread index; it is a layout position, not a measure of comprehension.
 
 ### Two-page mode and automatic bookmarks
 
@@ -1965,7 +1965,7 @@ line says who has a read receipt for the document and when, for example
 - **Empty and live state.** With no receipts the line reads *Not yet read by
   anyone. You'll be first.* Opening the document records your receipt as before
   (`/api/seen`), and the line then shows *You just now* without a reload.
-- **Placement.** The line follows `.document-meta` (the title's one row: byline, date, Read aloud, Source and the edition chip) and carries
+- **Placement.** The line follows `.document-meta` (the title's row, which wraps at phone width: byline, date, Read aloud, Source and the edition chip) and carries
   `data-reader-decoration`, so passage selection, annotations and find skip it. Its
   slot reserves one line before the response arrives, so the article does not move.
   In two-page reading (where the meta row keeps only Read aloud and the chip) it stays in the first column
@@ -2005,7 +2005,7 @@ speech stay in force.
 
 - **Entry points.** **Space s** opens a small menu: **Whole article** (`a`),
   **From here** (`f`) and **Selection** (`s`, enabled while a passage is
-  selected). **Read aloud**, below the article title and metadata, sends the whole
+  selected). **Read aloud**, in the row under the article title, sends the whole
   article. It switches to playback controls for that article and edition while queued
   or playing, then returns when the utterance finishes. The
   selection toolbar's **Speak** sends only the selected passage.
@@ -2286,14 +2286,14 @@ is written or repaired.
 
 ### Versions: the chip, its twin and the explorer
 
-**The version chip.** Under the title meta, one bordered chip says which version
+**The version chip.** At the end of the row under the title, one bordered chip says which version
 you are reading: `v1 of 3`, `Reading copy of v2`, `Reading copy of the
 original`, `Original · 1 reading copy`, or, for a file without siblings whose
 path has at least two commits in the vault's git history, `Current · 7
 revisions`. Beside it, **Newer v3 available · Open v3 · Compare v1 → v3** when a
-higher version exists (the chip's dot turns `--accent`), and **You read this on
-Oct 16** (or **You read v2 on …**) when your receipt matches a family member's
-current bytes. The chip replaces the frontmatter's "Edition N" meta item, which
+higher version exists (the chip shows an `--accent` dot only then), and **You read
+v2 on …** when your receipt matches a sibling edition's current bytes. On a later day it also says **You last read this on …**, because opening the
+file rewrites your receipt and the reading log then says *just now*. The chip replaces the frontmatter's "Edition N" meta item, which
 still shows when there is no chip. A file with no siblings and at most one
 commit shows nothing. The line is `data-reader-decoration` (excluded from
 selection, find and word counts). The text never waits for `/api/versions` (a
@@ -3466,8 +3466,12 @@ Navigation and hiding the browser page still save the currently visible place
 immediately. It restores a matching
 source edition before revealing the document. Text positions include a source
 block offset and relative position, with a normalized progress fallback. In
-continuous reading, progress runs from the top of the page to the end of the
-article's last block coming into view; the footer and Read next add nothing. PDF
+continuous reading, progress runs from the top of the page until the bottom edge
+of the article's last content, tables and embeds included, is in view; the footer
+and Read next add nothing, and `End` on the slider stops there. An article that
+fits the first screen uses the whole page's range, and only the dwell finishes it.
+A saved share of 0.97 or more counts as finished, so that now means 97% of the
+article. Offset-less bookmarks saved before this rule restore on the new scale. PDF
 positions include an explicit page number. A saved spread index is reused when
 the current number of spreads matches. Layout changes use the source/page anchor
 where possible. A changed source SHA-256 starts at the beginning with a notice;
@@ -4604,7 +4608,8 @@ fixture and delays every `/api/versions` answer by 2 s (a Playwright route): the
 article must be visible before the timeline arrives and within 600 ms of asking
 for it, the chip and twin follow, a saved place stays on the same paragraph in
 scroll and two-page reading, and edition and `@commit` deep links open what they
-name. All three need `git` on `PATH`.
+name. `web_reading_position.cjs` checks what progress measures and which place a
+bookmark keeps. All four need `git` on `PATH`.
 
 `web_queue.cjs` starts the fixture with `--queue` (the Read next works plus a
 longer document in another project). It checks the panel, keys, toasts, reorder

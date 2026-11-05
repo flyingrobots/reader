@@ -206,7 +206,7 @@ holds at most 500,000 links and 256 MiB.
 
 Under a document's title, a version chip names the version being read (`v1 of 3`,
 a reading copy, an original, or `Current · 7 revisions` for a file with git
-history), says when a newer version exists and when you read it; a status-bar twin
+history), says when a newer version exists, when you read a sibling edition and when you last read this file on an earlier day; a status-bar twin
 (`v1/3`) mirrors it. Space v opens a version explorer (a bottom sheet at phone
 width): a timeline of the edition family and, under each edition, the commits that
 changed it (at most 50 per file, 200 per family, 2 s), with markers for where you

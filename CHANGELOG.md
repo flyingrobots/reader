@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+- Reading progress measures the article, tables and embeds included, not the footer and Read next. A saved share of 97% now means 97% of the article, and older bookmarks with no saved block restore on this scale.
+
+- A bookmark in the margin between two blocks keeps the next block; inside a table or embed it keeps its share of the article, and at the top of a document it keeps the top.
+
+- The title's controls share one row, which wraps on a phone. The chip says when you last read this file only on a later day, since the reading log already covers today. Two-page PDFs keep their full page height.
+
+- The issue page stays inside its column at any width, including with the File Explorer open.
+
 - Reader Admin pages no longer draw a title and description above their content; the breadcrumb names the section, and screen readers still get both.
 
 - A two-page turn made just after a resize, such as closing the file explorer, is no longer undone when the delayed reflow runs.

@@ -14,10 +14,12 @@ export function installReading({scratchStatus, statusOverride, onStatus, mayCurl
   const listeners=new Set(),notify=reason=>{for(const listener of listeners)listener(reason);};
   const hasBook=()=>!!book;
   const scrollSpan=()=>Math.max(0,document.documentElement.scrollHeight-innerHeight);
-  const lastBlock=()=>[...document.querySelectorAll('#article [data-source-start], #article [data-pdf-page]')].filter(el=>!el.closest('.document-embed,[data-reader-decoration]')).at(-1);
+  // The article's last real content, tables and embeds included; the title decorations and pins are not reading.
+  const lastBlock=()=>[...document.querySelectorAll('#article > :not([data-reader-decoration],.annotation-pin)')].filter(el=>el.getClientRects().length).at(-1);
   // Reading ends where the article does: the footer and what follows it are no part of the distance.
-  const readingSpan=()=>{const last=lastBlock();return last?Math.min(scrollSpan(),Math.max(0,last.getBoundingClientRect().bottom+shownTop(state.smoother)-innerHeight)):scrollSpan();};
-  const progress=()=>{if(book)return book.spreads>1?Math.round(book.viewport.scrollLeft/book.stride)/(book.spreads-1):0;const span=readingSpan();return span?clamp(scrollY/span):scrollY>0?1:0;};
+  // An article that fits the first screen has no distance of its own, so the page's is used: the slider still moves, and only the dwell finishes it.
+  const readingSpan=()=>{const last=lastBlock(),page=scrollSpan();return last?Math.min(page,Math.max(0,last.getBoundingClientRect().bottom+shownTop(state.smoother)-innerHeight))||page:page;};
+  const progress=()=>{if(book)return book.spreads>1?Math.round(book.viewport.scrollLeft/book.stride)/(book.spreads-1):0;const span=readingSpan();return span?clamp(scrollY/span):0;};
   // A document whose end is in view counts as finished after a short dwell, so one-screen documents can finish without scrolling.
   const DWELL=3000;let openedAt=0,dwellTimer;
   const endVisible=()=>{
@@ -147,8 +149,13 @@ export function installReading({scratchStatus, statusOverride, onStatus, mayCurl
       const line=innerHeight*.22;
       target=blocks.filter(el=>{const r=el.getBoundingClientRect();return r.top<=line&&r.bottom>line;}).sort((a,b)=>(+a.dataset.sourceEnd-a.dataset.sourceStart)-(+b.dataset.sourceEnd-b.dataset.sourceStart))[0];
       // The line can fall in the margin between two blocks: keep the next one, not just a share of the page's height.
-      // Above the first block (the title, a hero) there is no place to keep yet: the reader is at the top.
-      if(!target&&blocks.some(el=>el.getBoundingClientRect().bottom<=line))target=blocks.find(el=>el.getBoundingClientRect().top>line);
+      // Not a margin: inside a table or embed, which has no source position, the next block may be screens away, so the share stands.
+      // Not yet: until a block other than the title has gone by, the reader is at the top and no place is kept.
+      if(!target){
+        const covers=el=>{const r=el.getBoundingClientRect();return r.top<=line&&r.bottom>line;};
+        const inContent=[...document.querySelectorAll('#article > :not(.annotation-pin)')].some(covers);
+        if(!inContent&&blocks.some(el=>!el.matches('.document-title')&&el.getBoundingClientRect().bottom<=line))target=blocks.find(el=>el.getBoundingClientRect().top>line);
+      }
       if(target){const r=target.getBoundingClientRect();fraction=clamp((line-r.top)/r.height);}
     }
     return {participant:state.prefs.participant,path:state.doc.path,source_sha256:state.doc.sha256,progress:savedProgress(),source_offset:target?.dataset.sourceStart!==undefined?+target.dataset.sourceStart:null,pdf_page:target?.dataset.pdfPage?+target.dataset.pdfPage:null,block_fraction:fraction,layout:book?'spread':'scroll',spread_count:book?.spreads || null};
@@ -205,12 +212,12 @@ export function installReading({scratchStatus, statusOverride, onStatus, mayCurl
       if(book&&!book.animating&&!prepare.resizeTimer&&book.viewport.clientWidth===book.width){const index=Math.round(book.viewport.scrollLeft/book.stride);if(index!==book.anchorSpread){book.anchor=spreadAnchor();book.anchorSpread=index;}}notify('frame');});
   }
   function pips(){
-    const pips=[];
+    const pips=[],span=book?0:readingSpan();
     for(const {thread,range} of state.ranges){
       const rect=[...range.getClientRects()][0];if(!rect)continue;
       let fraction;
       if(book){const x=rect.left-book.viewport.getBoundingClientRect().left+book.viewport.scrollLeft;fraction=book.spreads>1?Math.floor((x+2)/book.stride)/(book.spreads-1):0;}
-      else{const span=readingSpan();fraction=span?clamp((rect.top+shownTop(state.smoother)-innerHeight*.36)/span):0;}
+      else fraction=span?clamp((rect.top+shownTop(state.smoother)-innerHeight*.36)/span):0;
       pips.push({id:thread.id,owner:thread.owner,quote:thread.anchor.quote.slice(0,180),kind:thread.kind,own:thread.owner===state.prefs.participant,fraction:clamp(fraction)});
     }
     controls.update({pips});update();

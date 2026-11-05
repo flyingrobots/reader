@@ -125,6 +125,10 @@ const THEMES=['ink','paper','orchid','orchid-dark','harvest','harvest-dark',...r
   assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),'no horizontal scroll at phone width');
   const box=await page.locator('.issue-cover').boundingBox();assert.ok(box.x>=15&&box.x+box.width<=390-15,'16px gutters');
   await page.screenshot({path:'.reader/web-dev/magazine-mobile.png',fullPage:true});
+  // The layout follows the issue's column: the File Explorer narrows it at any window width, and counts can grow.
+  await page.locator('#main').focus();await page.keyboard.press('Space');await page.keyboard.press('e');await page.locator('#picker:not([hidden])').waitFor();
+  await page.evaluate(()=>{for(const dd of document.querySelectorAll('.issue-summary dd'))dd.textContent='12,345';});
+  for(const width of [320,390,641,700,1000]){await page.setViewportSize({width,height:844});await page.waitForTimeout(150);assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),`no horizontal scroll at ${width} with the File Explorer open`);}
   assert.deepEqual(external,[]);assert.deepEqual(errors,[]);
   console.log(`Magazine passed: masthead, cover, ${features.length} features from distinct projects, standfirst, contents with read dimmed, j/k/g c/Enter, q and + Queue (Space q unbound), [ ] issues and URLs, dashboard on Reader Admin's Library page, ${THEMES.length} theme contrasts, 1920/2560 full-width spread with rail, bounded measures and ${wide.map(w=>w.columns).join('/')} contents columns, phone width, local-only requests.`);
  }finally{await browser?.close();if(fixture.exitCode===null&&fixture.signalCode===null){fixture.kill('SIGTERM');await new Promise(resolve=>fixture.once('exit',resolve));}}
