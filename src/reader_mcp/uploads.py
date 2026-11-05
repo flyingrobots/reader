@@ -3,7 +3,9 @@
 A body is one JSON header line followed by each file's bytes, in the header's order. The server checks every length
 and SHA-256 while staging, then runs the ordinary ingest, so receipts, retries and path rules match every other
 delivery. It decides the uploader's name and refuses what it cannot honor: an unknown or unavailable privacy level
-stores nothing rather than a weaker level."""
+stores nothing rather than a weaker level. A machine-only upload never touches the vault or a staging file: it stays in
+memory until the encrypted store has it."""
+from datetime import datetime, timezone
 import hashlib
 import json
 from pathlib import Path
@@ -15,7 +17,7 @@ from uuid import UUID
 from pydantic import ValidationError
 
 from .resources import has_capacity
-from .store import MAX_FILE, MAX_TOTAL, Attachment, Provenance, Store, Submission
+from .store import MAX_FILE, MAX_TOTAL, Attachment, Provenance, Store, Submission, relative_path
 
 CONTENT_TYPE = 'application/vnd.reader.delivery'
 NORMAL, NO_CLOUD, MACHINE_ONLY = 'normal', 'no-cloud', 'machine-only'
@@ -46,9 +48,7 @@ def parse_header(line):
     if not isinstance(header, dict) or header.get('upload') != 1 or set(header) - HEADER_FIELDS:
         raise ValueError('Unrecognized upload header')
     privacy = header.get('privacy', DEFAULT_PRIVACY)
-    if privacy == MACHINE_ONLY:
-        raise ValueError('“This machine only” is not available yet, so nothing was stored. Choose another level, or wait for encrypted storage.')
-    if privacy not in (NORMAL, NO_CLOUD):
+    if privacy not in (NORMAL, NO_CLOUD, MACHINE_ONLY):
         raise ValueError('Unknown privacy level; nothing was stored')
     provenance = header.get('provenance', {})
     if not isinstance(provenance, dict) or set(provenance) - CLIENT_PROVENANCE:
@@ -90,8 +90,40 @@ def stage(stream, files, staging, length, used, deadline, clock=time.monotonic):
     return paths
 
 
-def receive(root, stream, length, identity, clock=time.monotonic):
-    """Stage one framed upload and deliver it to the inbox. Returns the receipt status."""
+def receive_private(stream, header, provenance, files, length, used, identity, private, session, deadline, clock):
+    """Check one upload in memory and hand it to the encrypted store. Nothing is written in plaintext."""
+    if not identity or identity.get('via') != 'local' or private is None:
+        raise ValueError('“This machine only” needs a browser on this machine, so nothing was stored.')
+    if not private.unlocked(session):
+        raise ValueError('Unlock encrypted storage first, so nothing was stored.')
+    if used + sum(item['bytes'] for item in files) != length:
+        raise ValueError('The upload’s length does not match its header')
+    title = header.get('title')
+    if not isinstance(title, str) or not title.strip() or len(title) > 500:
+        raise ValueError('The upload’s title, request ID or provenance is invalid')
+    payloads = []
+    for item in files:
+        relative_path(item['path'])
+        parts, digest, remaining = [], hashlib.sha256(), item['bytes']
+        while remaining:
+            if clock() > deadline:
+                raise ValueError('The upload took too long')
+            chunk = stream.read(min(remaining, CHUNK))
+            if not chunk:
+                raise ValueError('The upload ended early')
+            digest.update(chunk)
+            parts.append(chunk)
+            remaining -= len(chunk)
+        if digest.hexdigest() != item['sha256']:
+            raise ValueError('An uploaded file does not match its SHA-256')
+        payloads.append((item['path'], b''.join(parts)))
+    meta = {'title': title.strip(), 'author': provenance.get('author'), 'uploaded_by': uploader(identity),
+            'received_at': datetime.now(timezone.utc).isoformat()}
+    return private.store(session, UUID(header.get('request_id')), meta, payloads)
+
+
+def receive(root, stream, length, identity, clock=time.monotonic, private=None, session=None):
+    """Stage one framed upload and deliver it to the inbox, or to encrypted storage. Returns its status."""
     if not 0 < length <= MAX_BODY:
         raise ValueError('An upload is at most 64 MiB')
     root = Path(root)
@@ -100,6 +132,8 @@ def receive(root, stream, length, identity, clock=time.monotonic):
     deadline = clock() + DEADLINE
     line = stream.readline(MAX_HEADER + 1)
     header, privacy, provenance, files = parse_header(line)
+    if privacy == MACHINE_ONLY:
+        return receive_private(stream, header, provenance, files, length, len(line), identity, private, session, deadline, clock)
     state = root / '.reader/upload-staging'
     if state.is_symlink():
         raise ValueError('Upload staging must not be a symlink')

@@ -22,7 +22,7 @@ const {chromium}=require(process.env.READER_PLAYWRIGHT||'playwright-core');
   await choose('a-private-memo.md','# A private memo\n');
   assert.equal(await page.locator('#publish-title').inputValue(),'a private memo');
   assert.equal(await page.locator('input[name=publish-level]:checked').inputValue(),'no-cloud');
-  assert.equal(await page.locator('input[name=publish-level][value=machine-only]').isDisabled(),true);
+  assert.equal(await page.locator('input[name=publish-level][value=machine-only]').count(),1,'this browser is on the machine');
   assert.match(await page.locator('#publish-summary').textContent(),/1 file/);
   // No cloud models, with only a fake cloud model in the order: it stays in the inbox, and the page says why.
   await page.locator('#publish-submit').click();

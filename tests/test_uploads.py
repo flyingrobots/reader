@@ -71,10 +71,10 @@ def test_the_default_level_is_no_cloud(vault):
     assert json.loads((vault / 'inbox' / header['request_id'] / 'receipt.json').read_text())['provenance']['privacy'] == 'no-cloud'
 
 
-@pytest.mark.parametrize('level,message', [('machine-only', 'not available yet'), ('secret', 'Unknown privacy')])
+@pytest.mark.parametrize('level,message', [('machine-only', 'browser on this machine'), ('secret', 'Unknown privacy')])
 def test_an_unavailable_level_stores_nothing_rather_than_a_weaker_one(vault, level, message):
     with pytest.raises(ValueError, match=message):
-        send(vault, frame(privacy=level)[0])
+        send(vault, frame(privacy=level)[0], TAILNET)
     assert not arrivals(vault) and not (vault / '.reader/upload-staging').exists()
 
 

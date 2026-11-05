@@ -663,7 +663,7 @@ def contract_inventory():
 def area(path):
     path = path.rstrip('*')
     table = [('/api/chat', 'chat'), ('/api/art', 'art'), ('/api/search', 'search'), ('/api/speak', 'speech'),
-             ('/api/inbox', 'inbox'), ('/api/companions', 'companions'), ('/api/local-model', 'local model'), ('/api/model-chain', 'inbox'),
+             ('/api/inbox', 'inbox'), ('/api/companions', 'companions'), ('/api/local-model', 'local model'), ('/api/model-chain', 'inbox'), ('/api/private', 'inbox'),
              ('/api/editions', 'versions'), ('/api/version', 'versions'), ('/api/changes', 'versions'),
              ('/api/annotations', 'annotations'), ('/api/discussion', 'annotations'), ('/api/seen', 'engagement'), ('/api/readers', 'engagement'),
              ('/api/queue', 'queue'), ('/api/history', 'queue'), ('/api/next', 'queue'),

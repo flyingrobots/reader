@@ -35,7 +35,7 @@ from . import embeds as embed_tree
 from .engagement import ONE_OFF_RECEIPTS, Engagement
 from .inbox_view import InboxView, RunConflict
 from .writing import NOTEBOOK, Writing, WritingConflict
-from . import model_chain, uploads
+from . import model_chain, private_store, uploads
 from .local_model import LocalModel
 from .links import LinkError, LinkGraph, Resolver, excerpt, title_of
 from .magazine import Magazine
@@ -194,6 +194,7 @@ class WebLibrary:
         self.links = LinkGraph(self.root, primaries=lambda: [w['primary'] for w in self.works()[0]])
         self.maintenance = Maintenance(self.root, maintenance_runners, links=self.links)
         self.local_model = LocalModel(self.root, self, **(local_model or {}))
+        self.private = private_store.PrivateStore()
         self.prose = prose or Prose()
         self.related = Related(self.root)
         self.editions = Editions(self.root)
@@ -357,6 +358,7 @@ class WebLibrary:
         self.art.close()
         self.conversations.close()
         self.local_model.close()
+        self.private.close()
 
     def works(self):
         path = self.root / 'indexes/coverage.json'
@@ -1292,12 +1294,14 @@ class WebHandler(BaseHTTPRequestHandler):
             policy = "default-src 'none'; sandbox; frame-ancestors 'self'"
         self.send_header('Content-Security-Policy', policy)
 
-    def json(self, data, status=200):
+    def json(self, data, status=200, headers=()):
         if status >= 400 and isinstance(data.get('error'), str):
             # An OSError's message names the file it failed on; show it as <vault>/… or ~/… (#105).
             data = data | {'error': shown(data['error'], self.server.library.root)}
         body = json.dumps(data, ensure_ascii=False).encode()
         self.response_headers(status, 'application/json; charset=utf-8', len(body))
+        for name, value in headers:
+            self.send_header(name, value)
         self.end_headers()
         self.wfile.write(body)
 
@@ -1447,6 +1451,50 @@ class WebHandler(BaseHTTPRequestHandler):
     def do_POST(self):
         self.handle_request(True)
 
+    def private_session_cookie(self, session, max_age=None):
+        age = private_store.IDLE_LIMIT if max_age is None else max_age
+        return (('Set-Cookie', f'{private_store.COOKIE}={session}; HttpOnly; SameSite=Strict; Path=/api; Max-Age={age}'),)
+
+    def private_write(self, library, request):
+        """Encrypted storage's actions. Through a tailnet it doesn't exist at all, and its cookie names one browser."""
+        if not self.identity or self.identity.get('via') != 'local':
+            self.json({'error': 'Not found'}, 404)
+            return
+        store, action = library.private, request.get('action')
+        session = private_store.cookie_value(self.headers.get('Cookie'))
+        if action == 'install':
+            self.json(store.install())
+        elif action in ('setup', 'unlock') and set(request) == {'action', 'passphrase'}:
+            opened = (store.setup if action == 'setup' else store.unlock)(request['passphrase'])
+            self.json(store.status(opened), headers=self.private_session_cookie(opened))
+        elif action == 'lock':
+            store.close()
+            self.json(store.status(None), headers=self.private_session_cookie('', 0))
+        elif action == 'delete':
+            self.json(store.delete(session, request.get('id')))
+        else:
+            raise ValueError('Unknown encrypted storage action')
+
+    def private_read(self, library, path, args):
+        if not self.identity or self.identity.get('via') != 'local':
+            self.json({'error': 'Not found'}, 404)
+            return
+        store, session = library.private, private_store.cookie_value(self.headers.get('Cookie'))
+        if path == '/api/private':
+            status = store.status(session)
+            self.json({**status, 'items': store.items(session) if status['unlocked'] else []})
+        elif path == '/api/private/item':
+            self.json(store.view(session, args.get('id', '')))
+        else:
+            _, files = store.read(session, args.get('id', ''))
+            data = files.get(args.get('path', ''))
+            if data is None:
+                raise ValueError('That file doesn’t exist.')
+            self.response_headers(200, 'application/octet-stream', len(data), raw=True)
+            self.send_header('Content-Disposition', "attachment; filename*=UTF-8''" + quote(Path(args['path']).name, safe=''))
+            self.end_headers()
+            self.wfile.write(data)
+
     def receive_upload(self, library):
         """A framed upload, not JSON: checked for its token, type and size before any body is read."""
         self.close_connection = True  # A refused upload leaves its body unread on this connection.
@@ -1459,8 +1507,10 @@ class WebHandler(BaseHTTPRequestHandler):
             self.json({'error': 'Reader is receiving other uploads; try again shortly'}, 429)
             return
         try:
-            result = uploads.receive(library.root, self.rfile, int(self.headers.get('Content-Length', '0')), self.identity)
-            self.json(uploads.public_status(library.root, result['id']))
+            session = private_store.cookie_value(self.headers.get('Cookie'))
+            result = uploads.receive(library.root, self.rfile, int(self.headers.get('Content-Length', '0')), self.identity,
+                                     private=library.private, session=session)
+            self.json(result if result.get('status') == 'encrypted' else uploads.public_status(library.root, result['id']))
         finally:
             self.server.uploads.release()
 
@@ -1571,6 +1621,8 @@ class WebHandler(BaseHTTPRequestHandler):
                     self.json(library.local_model.dispatch(request))
                 elif parsed.path == '/api/model-chain':
                     self.json(model_chain.configure(library.root, request, self.identity))
+                elif parsed.path == '/api/private':
+                    self.private_write(library, request)
                 elif parsed.path == '/api/art':
                     participant = library.engagement.participant(request.pop('participant', self.server.participant))
                     self.json(library.art.dispatch(request, participant))
@@ -1649,6 +1701,8 @@ class WebHandler(BaseHTTPRequestHandler):
                 self.json(library.inbox.status())
             elif parsed.path == '/api/inbox/deliveries':
                 self.json(uploads.public_status(library.root, args.get('id', '')))
+            elif parsed.path == '/api/private' or parsed.path == '/api/private/item' or parsed.path == '/api/private/file':
+                self.private_read(library, parsed.path, args)
             elif parsed.path == '/api/model-chain':
                 self.json(model_chain.settings_view(library.root, self.identity))
             elif parsed.path == '/api/links':

@@ -114,7 +114,22 @@ The server records `uploaded_by` from how it identified the request; a client ca
 | --- | --- | --- |
 | `normal` | The whole [model order](inbox-runner.md#the-model-order) | Yes |
 | `no-cloud` (the default) | Local model only. If none can answer, it is deferred and stays in the inbox | Yes, including its logged excerpts |
-| `machine-only` | Refused for now, storing nothing, until encrypted storage exists | |
+| `machine-only` | Nothing through Reader. Encrypted outside the vault | No |
+
+### This machine only
+
+A `machine-only` upload never enters the vault. It needs a browser on the vault machine with encrypted storage unlocked; any other request stores nothing. The server checks it in memory and passes it to git-cas over stdin, so no plaintext is written to disk. It skips the inbox, intake, catalogs, indexes, LLM logs and read records, so no model or Reader tool can find it.
+
+- **Storage:** a bare Git repository at `~/.reader/private.git` (or under `READER_HOME`), mode `0700`, in git-cas's privacy-mode vault with `framed` AES-256-GCM. Titles and filenames are encrypted too. File sizes, the number of documents and random document IDs remain visible.
+- **Guards:** before every write, Reader refuses if the repository has a Git remote, and restores its mode and a `pre-push` hook that refuses every push. Someone can bypass a hook deliberately, so this guards against accidents.
+- **Tool:** **Install encrypted storage** on the Publish page runs `npm ci --ignore-scripts` from a pinned lockfile into `~/.reader/tools/git-cas-bridge`. It needs Node.js and npm.
+- **Unlocking:** the passphrase goes to the server once. The derived key stays in the server's memory, and the browser gets an `HttpOnly`, `SameSite=Strict` cookie. A session ends on Lock, on a server restart, or after 15 idle minutes. Five wrong passphrases block attempts for a minute.
+- **Access:** `/api/private` and its sub-routes answer 404 to anything but a browser on this machine, and need the cookie as well as the page's token.
+- **Deleting:** this removes the document and prunes the repository's unreachable objects. It isn't secure erasure of the disk.
+
+**Limits.** There is no passphrase recovery and no backup: a lost passphrase or a failed disk loses these files. This protects Reader's stored copy. It doesn't protect the original file wherever it came from, a document while it is open, or against a program that can read the server's memory or browser data while it's unlocked. A backup tool would copy only ciphertext. Reading happens only on this page: Obsidian sees nothing, and these documents can't be highlighted or searched.
+
+Other programs running as you can read `~/.reader/private.git`, but only as ciphertext.
 
 ## Remote delivery over SSH
 

@@ -43,6 +43,8 @@ PARAMS = {
     '/api/companions/log': [{'name': 'colorful'}, {'name': 'wide-md'}, {'name': 'ai-tts'}],
     '/api/inbox/events': {'after': '0'},
     '/api/inbox/deliveries': {'id': '00000000-0000-4000-8000-000000000000'},
+    '/api/private/item': {'id': '00000000-0000-4000-8000-000000000000'},
+    '/api/private/file': {'id': '00000000-0000-4000-8000-000000000000', 'path': 'a.md'},
     '/api/issue': {'start': '2026-10-01', 'end': '2026-10-31'},
     '/api/changes': [{'path': DOC}, {'a': 'HEAD', 'b': 'HEAD'}],
     '/api/version': {'path': DOC, 'commit': 'HEAD'},

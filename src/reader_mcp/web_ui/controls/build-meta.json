@@ -41,12 +41,13 @@
     "src/admin/pages/library-charts.ts": "934c246bde1dd47a99dd19ac3c4ba0ae6df98e98bb62ddd1912e39f211bfc902",
     "src/admin/pages/library.tsx": "1c4ee11da3a6491bf35261d747c9296251513d9e53e02ffff5b7288ba9c209e0",
     "src/admin/pages/logs.tsx": "ded000bd5ca82dce862fe1e86436383a326660f00be8c366fde7fdd978fb2609",
-    "src/admin/pages/publish.tsx": "5b24d0b001e9c1b2f31c9082c875cdac4a411ea159522cefe6775b1f9a828f7f",
+    "src/admin/pages/private-shelf.tsx": "352f1d4552beb75fd6766044df0d7226aaa51033935d18a70919fcb40a81fcfb",
+    "src/admin/pages/publish.tsx": "996f761f73b10284a7ccf2d099505ee789e5e6f75fd9c392f5b43880ff39d22c",
     "src/admin/pages/repositories.tsx": "b27c3176025dd93ab4194beff4ec6eb12aca8a62235fb2b1a84c39ef97760c78",
     "src/admin/pages/shelves.tsx": "fe7173d11af9e4f0d05fee9afa631f3265438845426211ae4e6b0b05cde2159a",
     "src/admin/pages/voices.tsx": "2c2ab2da0029eb1209922b79927799da6734a68a5867bf9a7c0d0e61ca3e31bb",
     "src/admin/panels.tsx": "7616bfdc58c4837a0cc5af4685d990e2bd4edc568ea5266a25dd0541b8db7a64",
-    "src/admin/sections.tsx": "9d8ab3e20d8cdc3d28bc8f461ee6e5c720cc2d3fb3a04f1c7a1d08a46d827eea",
+    "src/admin/sections.tsx": "003d2d254ff852506162e6d4351bc4fe35cdc2ff12c21f69f0a04ba6e13c0fdf",
     "src/art-focus-chrome.tsx": "51fd02526aea995a20a91490da61ca3d31cf25d06eda9fb30e8bce82fed457fa",
     "src/art-prompt-card.tsx": "6cd9e2d4c4f1b9a2469841b87038dfd19e0e7f9e986fd80141e2a7b8950b154a",
     "src/art-regenerate.tsx": "1d1187b7482efb4ce0ba829e1bfb94fe8f1af72d9a90f6e525edb59e1be76f2f",
@@ -993,12 +994,12 @@
       "sha256": "8285cfa81d7c1f65a9dbbf264c36cf083684690e547dac47a315184c6da48470"
     },
     "reader-controls.js": {
-      "bytes": 1345318,
-      "sha256": "6f58420e86e1da9ef628de2859e7e0090cd41342facd11fcf3e0ab95848f30d4"
+      "bytes": 1352165,
+      "sha256": "bcf586796f190fc60c333c1182ad0acf21ce72e2551d414a30be32b7db498802"
     },
     "reader-controls.js.LEGAL.txt": {
-      "bytes": 6577,
-      "sha256": "9e189b223c272e772bfffc7262036b8b1e1af45f07e5de7962de2c501a169297"
+      "bytes": 6614,
+      "sha256": "95092ed52568a85adefe18375f7cc2525b4a3808526fa3352952aeeb675e41e3"
     },
     "shape.js": {
       "bytes": 8806,

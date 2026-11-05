@@ -267,6 +267,10 @@ Claude, agy, then the local model, which Reader can start the configured way. Ea
 step appears live in the Activity transcript, and any model but Codex is told it
 stands in for the librarian. See [the model order](inbox-runner.md#the-model-order).
 
+Reader Admin's Publish page uploads documents and files them while showing each step, at one of
+three levels: Normal, No cloud models, or This machine only, which encrypts a document outside the
+vault under a passphrase with no recovery. See [uploads](delivery.md#upload-from-the-web).
+
 Reader Admin also supervises a local model on any OpenAI-compatible server:
 LM Studio (the default), Ollama, llama.cpp's `llama-server`, or another server such
 as vLLM, LocalAI or Jan, chosen by preset or base URL, with models discovered through

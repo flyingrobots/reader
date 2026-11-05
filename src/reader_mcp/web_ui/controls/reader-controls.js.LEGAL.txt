@@ -142,6 +142,7 @@ lucide-react/dist/esm/icons/library.js:
 lucide-react/dist/esm/icons/list-checks.js:
 lucide-react/dist/esm/icons/list.js:
 lucide-react/dist/esm/icons/loader-circle.js:
+lucide-react/dist/esm/icons/lock.js:
 lucide-react/dist/esm/icons/mail.js:
 lucide-react/dist/esm/icons/message-square-text.js:
 lucide-react/dist/esm/icons/monitor.js:

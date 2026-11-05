@@ -12,18 +12,19 @@ import {Notice} from '@/theme/molecules/notice';
 import {StatusCard} from '@/theme/organisms/status-card';
 import {plural} from '../../plural';
 import {size} from './inbox';
+import {PrivateShelf, usePrivateStatus} from './private-shelf';
 
 type Api=(path:string,payload?:unknown,extra?:Record<string,unknown>)=>Promise<any>;
-type Stage='idle'|'uploading'|'waiting'|'filing'|'filed'|'stopped';
+type Stage='idle'|'uploading'|'waiting'|'filing'|'filed'|'encrypted'|'stopped';
 type Step={message:string;state?:string};
 
 const CONTENT_TYPE='application/vnd.reader.delivery',MAX_FILE=32*1024**2,MAX_TOTAL=64*1024**2,MAX_FILES=64;
-const LEVELS=[
+const levels=(available:boolean)=>[
   {value:'no-cloud',label:'No cloud models',detail:'Only a local model reads it. It is still committed and pushed with your vault.'},
   {value:'normal',label:'Normal',detail:'Codex, Claude Code, agy or a local model may read excerpts, in that order. Committed and pushed with your vault.'},
-  {value:'machine-only',label:'This machine only',detail:'Encrypted and never pushed. Not available yet.',disabled:true}];
+  {value:'machine-only',label:'This machine only',detail:'Encrypted with a passphrase only you know. Never pushed, and no model or agent can find it. If you lose the passphrase, it’s gone.',disabled:!available}].filter(option=>option.value!=='machine-only'||available);
 const STAGES:Record<Stage,{label:string;tone:Tone}>={idle:{label:'Ready',tone:'neutral'},uploading:{label:'Uploading',tone:'active'},waiting:{label:'Uploaded',tone:'active'},
-  filing:{label:'Filing',tone:'active'},filed:{label:'Filed',tone:'ok'},stopped:{label:'Not filed',tone:'error'}};
+  filing:{label:'Filing',tone:'active'},filed:{label:'Filed',tone:'ok'},encrypted:{label:'Encrypted',tone:'ok'},stopped:{label:'Not filed',tone:'error'}};
 
 async function digest(file:File){
   const hash=await crypto.subtle.digest('SHA-256',await file.arrayBuffer());
@@ -33,7 +34,8 @@ const titleOf=(name:string)=>name.replace(/\.[^.]+$/,'').replace(/[-_]+/g,' ').t
 /** Browsers report a chosen folder's files with their paths; a bare file uses its name. */
 const pathOf=(file:File)=>(file as File&{webkitRelativePath?:string}).webkitRelativePath||file.name;
 
-export function PublishPage({api}:{api:Api}){
+export function PublishPage({api,html}:{api:Api;html:(text:string)=>string}){
+  const privacy=usePrivateStatus(api);
   const [files,setFiles]=useState<File[]>([]),[title,setTitle]=useState(''),[author,setAuthor]=useState(''),[level,setLevel]=useState('no-cloud');
   const [stage,setStage]=useState<Stage>('idle'),[steps,setSteps]=useState<Step[]>([]),[error,setError]=useState<string|null>(null),[note,setNote]=useState<string|null>(null);
   const [dragging,setDragging]=useState(false);
@@ -64,6 +66,7 @@ export function PublishPage({api}:{api:Api}){
       const id=crypto.randomUUID();
       const header={upload:1,request_id:id,title:title.trim(),privacy:level,provenance:author.trim()?{author:author.trim()}:{},files:described};
       await api('/api/inbox/deliveries',{},{contentType:CONTENT_TYPE,body:new Blob([JSON.stringify(header)+'\n',...files])});
+      if(level==='machine-only'){setStage('encrypted');setNote('Encrypted on this machine. It wasn’t added to your vault, and nothing was pushed.');privacy.refresh();return;}
       setStage('waiting');
       let run:string|null=null;
       try{run=(await api('/api/inbox',{action:'start',arrivals:[id]})).run_id;setStage('filing');}
@@ -77,7 +80,7 @@ export function PublishPage({api}:{api:Api}){
     <form className="contents" onSubmit={event=>{event.preventDefault();publish();}}>
       <StatusCard title="Publish to your library" description="Files go into your private vault. Nothing here becomes public."
         badge={<StatusBadge tone={state.tone} busy={busy} data-publish-badge="">{state.label}</StatusBadge>}
-        footer={<Button id="publish-submit" type="submit" disabled={busy||!files.length||!title.trim()||!!problem}>{busy?<Spinner data-icon="inline-start" aria-hidden/>:<FileUpIcon data-icon="inline-start" aria-hidden/>}{busy?state.label+'…':'Publish'}</Button>}>
+        footer={<Button id="publish-submit" type="submit" disabled={busy||!files.length||!title.trim()||!!problem||level==='machine-only'&&!privacy.status?.unlocked}>{busy?<Spinner data-icon="inline-start" aria-hidden/>:<FileUpIcon data-icon="inline-start" aria-hidden/>}{busy?state.label+'…':'Publish'}</Button>}>
         <FieldGroup>
           <Field>
             <FieldLabel htmlFor="publish-files">Files</FieldLabel>
@@ -96,22 +99,24 @@ export function PublishPage({api}:{api:Api}){
           </div>
           <fieldset className="flex flex-col gap-3" disabled={busy}>
             <legend className="mb-2 text-sm font-medium">Who can read it</legend>
-            {LEVELS.map(option=><label key={option.value} className="flex items-start gap-2 text-sm has-[:disabled]:opacity-60">
-              <input type="radio" name="publish-level" className="mt-1" value={option.value} checked={level===option.value} disabled={option.disabled} onChange={()=>setLevel(option.value)}/>
+            {levels(privacy.available).map(option=><label key={option.value} className="flex items-start gap-2 text-sm has-[:disabled]:opacity-60">
+              <input type="radio" name="publish-level" className="mt-1" value={option.value} checked={level===option.value} onChange={()=>setLevel(option.value)}/>
               <span><span className="font-medium">{option.label}</span><br/><span className="text-muted-foreground">{option.detail}</span></span>
             </label>)}
+            {level==='machine-only'&&!privacy.status?.unlocked?<Notice id="publish-locked" role="note">Set up or unlock encrypted storage below first.</Notice>:null}
           </fieldset>
         </FieldGroup>
       </StatusCard>
     </form>
     {stage!=='idle'?<StatusCard title="Progress">
       <ol id="publish-steps" className="flex flex-col gap-1 text-sm" aria-live="polite">
-        <li data-step="upload">{stage==='uploading'?'Uploading…':error&&stage==='stopped'&&!steps.length&&!note?'The upload failed.':'Uploaded, with its receipt checked.'}</li>
+        <li data-step="upload">{stage==='encrypted'?'Encrypted in memory and stored.':stage==='uploading'?'Uploading…':error&&stage==='stopped'&&!steps.length&&!note?'The upload failed.':'Uploaded, with its receipt checked.'}</li>
         {stage==='filing'&&!steps.length?<li>Starting the filing run…</li>:null}
         {steps.map((step,index)=><li key={index} data-step-state={step.state}>{step.message}</li>)}
       </ol>
       {error?<Notice id="publish-error" tone="error" role="alert">{error}</Notice>:null}
-      {note?<Notice id="publish-note" tone={stage==='filed'?'info':'error'}>{note}</Notice>:null}
+      {note?<Notice id="publish-note" tone={['filed','encrypted'].includes(stage)?'info':'error'}>{note}</Notice>:null}
     </StatusCard>:null}
+    <PrivateShelf api={api} html={html} privacy={privacy}/>
   </section>;
 }
