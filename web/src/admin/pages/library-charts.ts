@@ -66,7 +66,7 @@ export function calendar(mount:HTMLElement,panel:Panel,hooks:ChartHooks){
   const max=Math.max(1,...rows.map(row=>row.value)),cell=22,left=46,top=18;
   chart.selectAll('.calendar-weekday').data(['Mon','Tue','Wed','Thu','Fri','Sat','Sun']).join('text').attr('class','axis-text').attr('x',38).attr('y',(_:string,i:number)=>top+i*cell+14).attr('text-anchor','end').text((day:string)=>day);
   const days=chart.selectAll('.calendar-day').data(rows).join('rect').attr('class','calendar-day').attr('x',(row:any)=>left+row.week*cell).attr('y',(row:any)=>top+row.weekday*cell).attr('width',19).attr('height',19).attr('rx',2)
-    .attr('fill',(row:any)=>row.value?'var(--chart-1)':'var(--secondary)').attr('fill-opacity',(row:any)=>row.value?.35+.65*row.value/max:1).attr('stroke','var(--chart-stroke, var(--border))');
+    .attr('fill',(row:any)=>row.value?'var(--chart-1)':'var(--secondary)').attr('fill-opacity',(row:any)=>row.value?.35+.65*row.value/max:1).attr('stroke','var(--card)');
   const occupied=days.filter((row:any)=>row.value>0);
   interactive(occupied,(row:any)=>hooks.choose({key:'calendar:'+row.key,label:shortDate(row.key),value:row.value,works:row.works}),hooks,(row:any)=>shortDate(row.key),(row:any)=>plural(row.value,'arrival'));
   occupied.attr('data-chart-choice',(row:any)=>panel.id+':calendar:'+row.key).attr('aria-pressed','false');
@@ -87,7 +87,7 @@ function readingTopicsChart(mount:HTMLElement,panel:Panel,hooks:ChartHooks){
     let offset=0;
     const segments=row.segments.map((segment:any)=>{const start=offset;offset+=segment.value;return {...segment,start};}).filter((segment:any)=>segment.value);
     const bars=d3.select(this).selectAll('rect').data(segments).join('rect').attr('class','topic-reading-segment').attr('x',(segment:any)=>x(segment.start)).attr('y',y(row.key))
-      .attr('width',(segment:any)=>x(segment.start+segment.value)-x(segment.start)).attr('height',y.bandwidth()).attr('fill',(segment:any)=>palette[segment.series]).attr('stroke','var(--chart-stroke, var(--card))');
+      .attr('width',(segment:any)=>x(segment.start+segment.value)-x(segment.start)).attr('height',y.bandwidth()).attr('fill',(segment:any)=>palette[segment.series]).attr('stroke','var(--card)');
     interactive(bars,hooks.choose,hooks,(segment:any)=>segment.label,(segment:any)=>plural(segment.value,'work'));
     bars.attr('data-chart-choice',(segment:any)=>panel.id+':'+segment.key).attr('aria-pressed','false');
   });
