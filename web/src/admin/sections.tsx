@@ -7,7 +7,7 @@
  * Overview, as the design's sidebar lists them. A section whose backend needs Reader on this computer sets `needsReader`, and the static
  * web demo shows an honest unavailable page for it instead of empty controls. */
 import type {ReactNode} from 'react';
-import {BotIcon, CpuIcon, DatabaseIcon, FolderGitIcon, GitPullRequestArrowIcon, ScrollTextIcon, ImageIcon, InboxIcon, LayoutDashboardIcon, LibraryIcon, ServerIcon, SettingsIcon, type LucideIcon} from 'lucide-react';
+import {BotIcon, CpuIcon, FileUpIcon, DatabaseIcon, FolderGitIcon, GitPullRequestArrowIcon, ScrollTextIcon, ImageIcon, InboxIcon, LayoutDashboardIcon, LibraryIcon, ServerIcon, SettingsIcon, type LucideIcon} from 'lucide-react';
 import type {MaintenanceStatus, InboxStatus} from '../backstage';
 import type {ActivityModel} from '../reader-controls';
 import type {LocalModelStatus} from '../local-model';
@@ -17,13 +17,14 @@ import {ArtworkPanel, IndexesPanel, InboxPanel, LibraryPanel, ModelsPanel, Servi
 import {Overview} from './overview';
 import {ATTENTION_CHECKS} from '../backstage';
 import {type AdminPanelProps} from '../jobs/admin';
+import {PublishPage} from './pages/publish';
 import {RepositoriesPage} from './pages/repositories';
 import {LogPage, LogsPage} from './pages/logs';
 import {JobPage, JobsPage} from './pages/jobs';
 import {jobViewOptions} from '../reader-controls';
 
 export type AdminRoute={section:string;params:string[]};
-type Api=(path:string,payload?:unknown)=>Promise<any>;
+type Api=(path:string,payload?:unknown,extra?:Record<string,unknown>)=>Promise<any>;
 /** What a section page can read and do. Status comes from the polls Reader already runs; actions are the existing
  *  handlers, unchanged. Errors are kept beside each status so a failed read shows as unavailable, not empty. */
 export type AdminContext={
@@ -81,6 +82,7 @@ export const ADMIN_SECTIONS:AdminSection[]=[
   {id:'logs',title:'LLM logs',icon:ScrollTextIcon,group:'Monitor',needsReader:true,description:'Every archived LLM run, kept forever: prompts, captured output, events and results. Read in pages; nothing is pruned.',
     params:params=>params.length===3&&/^[a-z-]+$/.test(params[0])&&/^\d{4}-\d{2}-\d{2}$/.test(params[1]),
     render:context=>context.route.params.length?<LogPage params={context.route.params} {...panelProps(context)}/>:<LogsPage {...panelProps(context)}/>},
+  {id:'publish',title:'Publish',icon:FileUpIcon,group:'Library',needsReader:true,description:'Upload documents into your private library and watch them get filed.',render:context=><PublishPage api={context.api}/>},
   {id:'inbox',title:'Inbox',icon:InboxIcon,group:'Library',description:'Arrivals waiting to be filed, their receipts, and the librarian run that files them.',render:context=><InboxPanel context={context}/>},
   {id:'library',title:'Library',icon:LibraryIcon,group:'Library',description:'Holdings, arrivals, reading and the margins.',render:context=><LibraryPanel context={context}/>},
   {id:'indexes',title:'Indexes',icon:DatabaseIcon,group:'Library',count:context=>Object.values(context.maintenance?.checks||{}).filter(check=>ATTENTION_CHECKS.includes(check.state)).length,description:'Rebuildable copies of what the vault holds: check whether they have drifted and rebuild one when it has.',render:context=><IndexesPanel context={context}/>},

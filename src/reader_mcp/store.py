@@ -33,6 +33,8 @@ class Provenance(BaseModel):
     author: str | None = Field(default=None, max_length=1000)
     report_date: str | None = Field(default=None, max_length=100)
     commit: str | None = Field(default=None, max_length=100)
+    privacy: str | None = Field(default=None, max_length=40, description="Filing limit: normal, or no-cloud for local models only")
+    uploaded_by: str | None = Field(default=None, max_length=320, description="Set by the server for web uploads")
 
 
 class Submission(BaseModel):

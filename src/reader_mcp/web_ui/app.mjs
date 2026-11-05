@@ -130,11 +130,12 @@ function reachable() {
   notify(unsaved ? 'Reader is reachable again. Redo your last change if it’s missing.' : 'Reader is reachable again.', 'success', {id:OFFLINE_TOAST, duration:6000});
 }
 async function api(path, payload, extra={}) {
-  const options = payload ? {method:'POST', headers:{'Content-Type':'application/json','X-Reader-Token':state.token}, body:JSON.stringify(payload)} : {};
+  const {contentType,...sent}=extra;
+  const options = payload ? {method:'POST', headers:{'Content-Type':contentType||'application/json','X-Reader-Token':state.token}, body:contentType?null:JSON.stringify(payload)} : {};
   let response;
-  try { response = await fetchRequest(path, {...options,...extra});
+  try { response = await fetchRequest(path, {...options,...sent});
     // Several panes load at once; a busy server's 429 on a read is retried once.
-    if (EMBEDDED && !payload && response.status === 429) { await new Promise(resolve => setTimeout(resolve, 400)); response = await fetchRequest(path, {...options,...extra}); } }
+    if (EMBEDDED && !payload && response.status === 429) { await new Promise(resolve => setTimeout(resolve, 400)); response = await fetchRequest(path, {...options,...sent}); } }
   catch (cause) {
     if (cause?.name === 'AbortError') throw cause;
     unreachable(!!payload);

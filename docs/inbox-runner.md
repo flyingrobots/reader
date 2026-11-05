@@ -24,7 +24,8 @@ local model. Any failure moves to the next provider: not installed, out of usage
 not signed in, timed out, unreachable, or an answer that fails validation. A
 provider found missing, out of usage or signed out is not asked again in that run.
 Stopping a run stops the walk. If every provider fails, the run fails with each
-reason, its queue is kept, and retrying resumes it.
+reason, its queue is kept, and retrying resumes it. A no-cloud arrival is deferred
+instead and stays in the inbox, so waiting for a local model holds nothing else back.
 
 Every step appears as it happens, naming the provider and the reason but never
 source text: as a line in the Activity transcript, and under `model_chain` in
@@ -48,6 +49,8 @@ Filing is librarian work, and Codex is the librarian. Any other provider is told
 its prompt that the librarian is out of office and that it is a stand-in for this one
 task, not to adopt the librarian's persona, voice or name. The transcript says who is
 standing in, and the archive's `meta.json` records `stand_in`.
+
+An arrival whose receipt says `"privacy": "no-cloud"` only ever uses the local model, whatever the order says. `--only ARRIVAL` (repeatable) and `arrivals` on `POST /api/inbox` limit a new run to those arrivals. A retry of a failed or interrupted run resumes its frozen queue instead, so a chosen arrival waits until that queue finishes.
 
 The chain otherwise serves decisions that belong to no one. Voice turns and coding jobs do
 not use it: an answer under one voice's name written by another provider would

@@ -270,7 +270,7 @@ def test_every_provider_failing_keeps_the_work_and_names_each_reason(setup):
         decide(make(client=FakeClient(up=False)), runtime)
     text = str(caught.value)
     assert 'Codex is out of usage' in text and 'Claude Code is not installed' in text and 'not running' in text
-    assert 'stays safely queued' in text
+    assert 'stays safely in the inbox' in text
 
 
 def test_each_step_renews_the_supervisors_progress_deadline(setup):
@@ -358,3 +358,15 @@ def test_the_settings_page_shows_what_is_saved_not_a_process_override(tmp_path, 
     monkeypatch.setenv('READER_MODEL_CHAIN', 'codex')
     assert model_chain.settings_view(tmp_path)['config']['order'] == list(model_chain.ORDER)
     assert read_config(tmp_path)['order'] == ['codex']
+
+
+def test_only_limits_a_decision_to_the_named_providers(setup):
+    root, runtime, bin_dir, make = setup
+    json_result(bin_dir / 'claude', 'pathlib.Path(' + repr(str(bin_dir / 'claude-ran')) + ').write_text("")')
+    work = runtime / 'editorial'
+    work.mkdir()
+    assert make(client=FakeClient()).decide('Classify.', SCHEMA, lambda value: value, work, only=('local',)) == (ANSWER, 'local')
+    assert not (bin_dir / 'claude-ran').exists()
+    write_config(root, {'order': ['claude']})
+    with pytest.raises(ValueError, match='No permitted model'):
+        make().decide('Classify.', SCHEMA, lambda value: value, work, only=('local',))

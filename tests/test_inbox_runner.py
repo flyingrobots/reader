@@ -222,3 +222,41 @@ def test_group_permission_error_requires_proof_that_group_is_gone(monkeypatch):
     monkeypatch.setattr(subprocess, 'check_output', unreadable)
     with pytest.raises(subprocess.CalledProcessError):
         WorkerProcesses.signal_group(333, signal.SIGKILL)
+
+
+def upload(vault, name, privacy):
+    import hashlib, io
+    from uuid import uuid4
+    from reader_mcp import uploads
+    data = f'# {name}\n'.encode()
+    header = {'upload': 1, 'request_id': str(uuid4()), 'title': name, 'privacy': privacy,
+              'files': [{'path': f'{name}.md', 'bytes': len(data), 'sha256': hashlib.sha256(data).hexdigest()}]}
+    body = json.dumps(header).encode() + b'\n' + data
+    return uploads.receive(vault, io.BytesIO(body), len(body), {'via': 'local'})['id']
+
+
+def test_a_no_cloud_upload_never_reaches_a_cloud_model(vault, executable):
+    (vault / 'inbox/test.md').unlink(missing_ok=True)
+    fake = executable(before="(base/'cloud-saw-it').write_text('yes')")
+    (vault / 'inbox/test.md').unlink(missing_ok=True)
+    arrival = upload(vault, 'confidential', 'no-cloud')
+    assert run(vault, str(fake)) == 0
+    state = json.loads((vault / '.reader/inbox-runner/state.json').read_text())
+    assert state['status'] == 'finished' and state['result']['deferred_count'] == 1 and not (vault / '.reader/cloud-saw-it').exists()
+    assert (vault / 'inbox' / arrival / 'confidential.md').is_file()
+    assert not (vault / '.reader/inbox-runner/queue.json').exists(), 'it must not pin the queue for later uploads'
+    steps = json.loads((vault / '.reader/inbox-runner/model-chain.json').read_text())['steps']
+    assert steps[-1]['state'] == 'unanswered' and 'No permitted model' in steps[-1]['message']
+    later = upload(vault, 'later', 'normal')
+    assert run(vault, str(fake), only={later}) == 0
+    assert not (vault / 'inbox' / later).exists() and (vault / 'inbox' / arrival).exists()
+
+
+def test_a_scoped_run_files_only_the_chosen_arrival(vault, executable):
+    fake = executable()
+    chosen, other = upload(vault, 'chosen', 'normal'), upload(vault, 'other', 'normal')
+    assert run(vault, str(fake), only={chosen}) == 0
+    selection = json.loads((vault / '.reader/inbox-runner/selection.json').read_text())
+    assert selection['arrivals'] == ['inbox/' + chosen]
+    assert not (vault / 'inbox' / chosen).exists()
+    assert (vault / 'inbox' / other / 'other.md').is_file() and (vault / 'inbox/test.md').is_file()

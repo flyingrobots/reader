@@ -35,7 +35,7 @@ from . import embeds as embed_tree
 from .engagement import ONE_OFF_RECEIPTS, Engagement
 from .inbox_view import InboxView, RunConflict
 from .writing import NOTEBOOK, Writing, WritingConflict
-from . import model_chain
+from . import model_chain, uploads
 from .local_model import LocalModel
 from .links import LinkError, LinkGraph, Resolver, excerpt, title_of
 from .magazine import Magazine
@@ -1244,6 +1244,7 @@ class WebServer(ThreadingHTTPServer):
         self.requests = threading.BoundedSemaphore(EXPENSIVE_LIMIT)
         self.reads = threading.BoundedSemaphore(READ_LIMIT)
         self.streams = threading.BoundedSemaphore(4)  # SSE streams: outside both pools
+        self.uploads = threading.BoundedSemaphore(2)
         self.chat_heartbeat = 15  # Seconds between `ping` events on an idle chat stream.
         self.chat_hangup_check = 0.25  # Seconds between checks for a chat stream's client hanging up (#152).
         super().__init__(address, WebHandler)
@@ -1446,6 +1447,23 @@ class WebHandler(BaseHTTPRequestHandler):
     def do_POST(self):
         self.handle_request(True)
 
+    def receive_upload(self, library):
+        """A framed upload, not JSON: checked for its token, type and size before any body is read."""
+        self.close_connection = True  # A refused upload leaves its body unread on this connection.
+        if self.headers.get_content_type() != uploads.CONTENT_TYPE:
+            raise PermissionError('An upload needs its own content type and a same-origin Reader token')
+        if self.headers.get('X-Reader-Token') != self.server.token:
+            self.json({'error': 'A same-origin Reader token is required', 'code': 'reader_token_expired'}, 403)
+            return
+        if not self.server.uploads.acquire(blocking=False):
+            self.json({'error': 'Reader is receiving other uploads; try again shortly'}, 429)
+            return
+        try:
+            result = uploads.receive(library.root, self.rfile, int(self.headers.get('Content-Length', '0')), self.identity)
+            self.json(uploads.public_status(library.root, result['id']))
+        finally:
+            self.server.uploads.release()
+
     def admission(self, write):
         path = urlsplit(self.path).path
         if not write and (path in UNGATED or path.startswith(STATIC_PREFIXES)):
@@ -1470,6 +1488,9 @@ class WebHandler(BaseHTTPRequestHandler):
             args = {k: v[0] for k, v in parse_qs(parsed.query).items()}
             library = self.server.library
             if write:
+                if parsed.path == '/api/inbox/deliveries':
+                    self.receive_upload(library)
+                    return
                 if self.headers.get_content_type() != 'application/json':
                     raise PermissionError('A same-origin Reader token and JSON request are required')
                 if self.headers.get('X-Reader-Token') != self.server.token:
@@ -1539,8 +1560,9 @@ class WebHandler(BaseHTTPRequestHandler):
                     self.json(library.companions.dispatch(request, self.identity))
                 elif parsed.path == '/api/inbox':
                     action = request.get('action')
-                    if action == 'start' and not set(request) - {'action', 'sandbox_mode'}:
-                        self.json(library.inbox.start(request.get('sandbox_mode', 'read-only')))
+                    if action == 'start' and not set(request) - {'action', 'sandbox_mode', 'arrivals'}:
+                        scope = {'arrivals': request['arrivals']} if 'arrivals' in request else {}
+                        self.json(library.inbox.start(request.get('sandbox_mode', 'read-only'), **scope))
                     elif action == 'stop' and set(request) == {'action'}:
                         self.json(library.inbox.stop())
                     else:
@@ -1625,6 +1647,8 @@ class WebHandler(BaseHTTPRequestHandler):
                 self.json(library.speech.get(parsed.path[len('/api/speak/'):]))
             elif parsed.path == '/api/inbox':
                 self.json(library.inbox.status())
+            elif parsed.path == '/api/inbox/deliveries':
+                self.json(uploads.public_status(library.root, args.get('id', '')))
             elif parsed.path == '/api/model-chain':
                 self.json(model_chain.settings_view(library.root, self.identity))
             elif parsed.path == '/api/links':

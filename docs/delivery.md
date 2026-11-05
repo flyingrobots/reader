@@ -94,6 +94,28 @@ python3 "$HOME/.codex/skills/reader/scripts/reader.py" status RECEIPT_UUID
 
 The core CLI also accepts `READER_ROOT` instead of `--root`, and `ingest -` reads JSON from standard input. It does not infer the vault from the calling project's current directory. Successful output is JSON; CLI failures exit nonzero and describe the error on stderr. MCP failures are tool errors. Neither adapter executes source content.
 
+## Upload from the web
+
+Reader Admin's **Publish** page uploads files into the inbox and files them, showing each step. "Publish" means filing into your private vault; nothing becomes public. Filing runs only on that upload (`POST /api/inbox` with `arrivals`), so anything else waiting stays put.
+
+`POST /api/inbox/deliveries` takes the content type `application/vnd.reader.delivery`: one JSON header line, then each file's bytes in header order.
+
+```json
+{"upload": 1, "request_id": "UUID", "title": "A title", "privacy": "no-cloud",
+ "provenance": {"author": "A. Writer"},
+ "files": [{"path": "note.md", "bytes": 7, "sha256": "…"}]}
+```
+
+The first file is the main document. It uses the same ingest, receipts, retries and limits as other deliveries: 64 files, 32 MiB per file, 64 MiB in total. Access is the same as every other write: a browser on this machine or an approved Tailscale login, with Host and Origin checks and the page's write token. Sizes are refused from the header and `Content-Length` before the body is stored, two uploads run at once, and each has a 5-minute limit. `GET /api/inbox/deliveries?id=UUID` reports its state without local paths.
+
+The server records `uploaded_by` from how it identified the request; a client cannot set it.
+
+| `privacy` | Who can read it | Pushed with the vault |
+| --- | --- | --- |
+| `normal` | The whole [model order](inbox-runner.md#the-model-order) | Yes |
+| `no-cloud` (the default) | Local model only. If none can answer, it is deferred and stays in the inbox | Yes, including its logged excerpts |
+| `machine-only` | Refused for now, storing nothing, until encrypted storage exists | |
+
 ## Remote delivery over SSH
 
 Remote delivery is optional and off by default. Nothing listens on the network, and nothing changes on either machine until you run `remote-setup`. Without `~/.config/reader/remote.json`, the helper behaves exactly as described above.

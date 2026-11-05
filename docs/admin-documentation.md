@@ -16,6 +16,7 @@ Selected headings and reference scroll positions are saved per section in `sessi
 - [Repositories](topics/repositories.md)
 - [Voices](topics/voices.md)
 - [Models](topics/models.md)
+- [Publish](topics/publish.md)
 - [Inbox](topics/inbox.md)
 - [Indexes](topics/indexes.md)
 - [Artwork](topics/artwork.md)

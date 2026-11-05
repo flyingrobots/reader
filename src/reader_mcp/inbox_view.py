@@ -19,7 +19,7 @@ import subprocess
 import sys
 import threading
 import time
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 from . import model_chain
 from .display import shown
@@ -543,17 +543,22 @@ class InboxView:
 
     # Actions ------------------------------------------------------------
 
-    def command(self, codex, run_id, sandbox_mode):
+    def command(self, codex, run_id, sandbox_mode, only=()):
         argv = [self.python, '-m', 'reader_mcp.inbox_runner', '--root', str(self.root), '--codex', codex,
                 '--run-id', run_id, '--sandbox-mode', 'read-only']
+        for arrival in only:
+            argv += ['--only', arrival]
         store = (self.environ.get('READER_WORKSTATION_LOCK_STORE') or '').strip()
         if store:
             argv += ['--workstation-lock-store', store]
         return argv
 
-    def start(self, sandbox_mode='read-only', wait=3.0):
+    def start(self, sandbox_mode='read-only', wait=3.0, arrivals=()):
         if sandbox_mode not in SANDBOX_MODES:
             raise ValueError('Unsupported inbox sandbox mode')
+        if not isinstance(arrivals, (list, tuple)) or len(arrivals) > 64:
+            raise ValueError('Expected at most 64 arrival IDs')
+        only = [str(UUID(arrival)) for arrival in arrivals]
         if sys.platform == 'win32':
             raise ValueError('The inbox runner currently requires macOS or Linux.')
         with self.lock:
@@ -564,7 +569,7 @@ class InboxView:
             # Absent Codex is not a refusal: the chain reports it and moves to the next provider.
             codex = find_codex(self.environ) or 'codex'
             run_id = str(uuid4())
-            argv = self.command(codex, run_id, sandbox_mode)
+            argv = self.command(codex, run_id, sandbox_mode, only)
             # The supervisor imports the same reader_mcp package as this server, whatever its working directory.
             package_root = str(Path(__file__).resolve().parents[1])
             env = dict(os.environ, PYTHONPATH=os.pathsep.join(p for p in (package_root, os.environ.get('PYTHONPATH', '')) if p))

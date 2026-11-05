@@ -62,6 +62,10 @@ STAND_IN = ('Codex, the Reader librarian, is out of office, so you are working a
 DIRECTORIES = ('~/.local/bin', '~/.cargo/bin', '/opt/homebrew/bin', '/usr/local/bin')
 
 
+class NoModelAnswered(ValueError):
+    """Every permitted provider failed. The work is intact; only this decision has no answer yet."""
+
+
 class ModelFailure(Exception):
     def __init__(self, reason, detail=None):
         super().__init__(detail or FAILURES.get(reason, reason))
@@ -430,11 +434,12 @@ class Chain:
 
     # The walk ------------------------------------------------------------
 
-    def decide(self, prompt, schema, validate, work, role=None):
+    def decide(self, prompt, schema, validate, work, role=None, only=None):
         """(validated value, provider). Raises ValueError, naming each provider's reason, when none can answer.
 
-        With role='librarian', any other provider is told it is a stand-in and never handed the librarian's identity."""
-        self.order = read_config(self.root)['order']
+        With role='librarian', any other provider is told it is a stand-in and never handed the librarian's identity.
+        `only` limits this decision to those providers, whatever the order says, so a no-cloud document cannot reach a vendor."""
+        self.order = [name for name in read_config(self.root)['order'] if only is None or name in only]
         self.calls += 1
         log = self.open_log(prompt)
         failures = []
@@ -475,9 +480,10 @@ class Chain:
             self.say(f'{self.sentence(name)} {text}.{then}', provider=name, state='failed', reason=reason)
         self.current = None
         self.close_log(log, 'failed')
-        if not failures:
-            raise ValueError('No model is enabled for intake.')
-        raise ValueError('No model could classify this arrival: ' + '; '.join(failures) + '. It stays safely queued; retry when one is available.')
+        reason = ('No permitted model is turned on for this arrival' if not failures
+                  else 'No model could classify this arrival: ' + '; '.join(failures))
+        self.say(reason + '. It stays safely in the inbox.', state='unanswered')
+        raise NoModelAnswered(reason + '. It stays safely in the inbox; retry when a model is available.')
 
     # The permanent archive -----------------------------------------------
 

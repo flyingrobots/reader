@@ -156,7 +156,7 @@ class WorkerProcesses:
                 raise
 
 
-def run(root, codex, run_id=None, timeout=1800, workstation_lock_store=None, sandbox_mode='read-only'):
+def run(root, codex, run_id=None, timeout=1800, workstation_lock_store=None, sandbox_mode='read-only', only=None):
     root = root.resolve(strict=True)
     runtime = root / '.reader/inbox-runner'
     from .intake_journal import local_path, MAX_PLAN
@@ -196,6 +196,9 @@ def run(root, codex, run_id=None, timeout=1800, workstation_lock_store=None, san
                 raise ValueError('Unsupported inbox sandbox mode')
             recovering = (runtime / 'pending.json').exists() or (runtime / 'queue.json').exists()
             paths = inventory(root, strict=not recovering)
+            if only and not recovering:
+                # A run for chosen arrivals, so an upload's filing never sweeps up what else is waiting.
+                paths = [p for p in paths if p.split('/')[1] in only]
             arrivals = sorted({p.split('/')[1] for p in paths})
             state['arrivals'] = arrivals[:20]
             state['arrival_count'] = len(arrivals)
@@ -324,11 +327,12 @@ def main():
     parser.add_argument('--root',required=True,type=Path)
     parser.add_argument('--codex',default='codex')
     parser.add_argument('--run-id')
+    parser.add_argument('--only', action='append', help='File only this arrival; repeatable')
     parser.add_argument('--workstation-lock-store', help='Existing Git lock store for shared host resources')
     parser.add_argument('--sandbox-mode', choices=['read-only', 'workspace-write', 'danger-full-access'], default='read-only',
                         help='Legacy permission arguments are accepted; editorial calls always use read-only')
     args=parser.parse_args()
-    raise SystemExit(run(args.root,args.codex,args.run_id,workstation_lock_store=args.workstation_lock_store,sandbox_mode=args.sandbox_mode))
+    raise SystemExit(run(args.root,args.codex,args.run_id,workstation_lock_store=args.workstation_lock_store,only=set(args.only or ()) or None,sandbox_mode=args.sandbox_mode))
 
 
 if __name__=='__main__':

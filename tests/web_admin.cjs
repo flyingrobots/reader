@@ -54,7 +54,7 @@ const shots=process.env.READER_SHOTS||'.reader/web-dev';
    assert.match(await page.locator('[data-overview=inbox]').textContent(),/3 arrivals waiting/);
    assert.match(await page.locator('[data-overview=indexes]').textContent(),/Not checked yet/,'no check has run, and none is started');
    assert.deepEqual(await page.locator('[data-sidebar=group-label]').allTextContents(),['Monitor','Library','Configure'],'the sections are grouped');
-   assert.deepEqual(await page.locator('[data-admin-nav]').evaluateAll(links=>links.map(link=>link.dataset.adminNav)),['overview','jobs','logs','inbox','library','indexes','artwork','repositories','voices','models','service','settings'],'every section is listed once');
+   assert.deepEqual(await page.locator('[data-admin-nav]').evaluateAll(links=>links.map(link=>link.dataset.adminNav)),['overview','jobs','logs','publish','inbox','library','indexes','artwork','repositories','voices','models','service','settings'],'every section is listed once');
    assert.match(await page.locator('[data-overview-summary=inbox]').textContent(),/3/);assert.match(await page.locator('[data-overview-summary=indexes]').textContent(),/Not checked yet/);
    // The section name is in the breadcrumb, so the page head is for assistive technology only: announced and focusable, never drawn.
    const head=await page.evaluate(()=>{const h=document.querySelector('#admin-title').getBoundingClientRect(),l=document.querySelector('[data-slot=admin-lede]').getBoundingClientRect(),bar=document.querySelector('[data-admin-header]').getBoundingClientRect(),first=document.querySelector('#admin-overview').getBoundingClientRect();return {tall:Math.max(h.height,l.height),gap:first.top-bar.bottom,role:document.querySelector('h1#admin-title')!==null};});

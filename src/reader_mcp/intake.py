@@ -19,7 +19,7 @@ import yaml
 
 from .browse import SKIP as BROWSE_SKIP
 from .junk import os_junk
-from .model_chain import Chain
+from .model_chain import Chain, NoModelAnswered
 from .metadata import source_frontmatter
 from .portable_links import PortableLinks, digest, atomic
 from .intake_journal import Journal, file_hash, local_path, save, load, MAX_PLAN
@@ -205,7 +205,16 @@ def model_call(root, runtime, entry, codex, context):
         raise ValueError('Internal editorial partition exceeded its call budget')
     (work / 'context.txt').write_text(prompt)
     chain = model_chain_for(root, runtime, codex)
-    decision, provider = chain.decide(prompt, decision_schema(), lambda value: validate_decision(value, entry), work, role='librarian')
+    local_only = entry.get('receipt', {}).get('provenance', {}).get('privacy') == 'no-cloud'
+    try:
+        decision, provider = chain.decide(prompt, decision_schema(), lambda value: validate_decision(value, entry), work, role='librarian',
+                                          only=('local',) if local_only else None)
+    except NoModelAnswered as exc:
+        if not local_only:
+            raise
+        # Defer, not fail: a failed run pins its queue, and this arrival may wait a long time for a local model.
+        return validate_decision({**dict.fromkeys(DECISION_FIELDS, ''), 'source': entry['source'], 'snapshot_sha256': entry['snapshot_sha256'],
+                                  'disposition': 'defer', 'reason': str(exc)[:2000]}, entry)
     # Which model decided stays with the batch evidence, since the answer's quality depends on it.
     used = entry.setdefault('editorial_models', {})
     used[provider] = used.get(provider, 0) + 1
