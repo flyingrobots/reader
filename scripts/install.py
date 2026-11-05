@@ -73,10 +73,10 @@ def main():
         pending.symlink_to(target, target_is_directory=True)
         os.replace(pending, link)
     # Reader SSH keys name this launcher, so moving the checkout only needs this step again.
-    spec = importlib.util.spec_from_file_location('reader_remote', code / 'skills/reader/scripts/remote.py')
-    remote = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(remote)
     try:
+        spec = importlib.util.spec_from_file_location('reader_remote', code / 'skills/reader/scripts/remote.py')
+        remote = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(remote)
         launcher = remote.write_launcher(code / 'skills/reader/scripts/reader.py')
         print(f'Stable launcher: {launcher}')
     except (ValueError, OSError) as exc:
