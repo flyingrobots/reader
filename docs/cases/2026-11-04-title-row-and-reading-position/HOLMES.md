@@ -6,7 +6,7 @@ Most of this ledger balances, Watson, but one headline does not. Commit 39417c9c
 - I read every diff and the surrounding code.
 - I did not run the browser suites.
 - I ran two small probes of my own in Chrome against throwaway fixtures, including one stylesheet counterfactual served by network route.
-- Logs are at `<scratchpad>/holmes/probe.log` and `<scratchpad>/holmes/probe2.log`.
+- Logs are at [`evidence/probe.log`](evidence/probe.log) and [`evidence/probe2.log`](evidence/probe2.log).
 - `git status --short` in the pinned checkout listed nothing after either probe.
 
 ## The four drifts

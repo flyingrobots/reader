@@ -48,7 +48,7 @@ Watson's, in this order. Details are in `WATSON.md`.
 ## Chain of custody
 
 - **Landed before review:** the commits were pushed directly to `main` before this review. There was no PR to review. The findings were live on the user's server while it ran.
-- **Paths redacted:** testimonies are verbatim except that machine-local paths are replaced with `<scratchpad>`, `<checkout>`, `<live-checkout>` and `<vault>`, because this repository is public.
+- **Paths edited:** testimonies are verbatim except for paths, because this repository is public. Paths inside the repository are repo-relative. Evidence the detectives kept in a temporary directory is copied to `evidence/` and linked from there; the new suite's path points to where it landed.
 - **Tooling:** Graft tools were not available to the detectives. Cross-examination (`--cross-examine`) was not requested and did not run.
 - **Not covered:** non-Chrome browsers, hero documents under the repairs, the speech playing state, historical view layout, and a dedicated split `docFraction` probe.
 - **Detective errors kept:** Watson's stumble 25 stands in his first deposition with its retraction in the second.

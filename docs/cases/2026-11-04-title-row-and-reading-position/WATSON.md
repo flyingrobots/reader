@@ -14,12 +14,12 @@ Evidence, all measured at HEAD:
 
 | Scene | Observation | File |
 |---|---|---|
-| Title row, 1300 px, v1 | All controls on one line: Ada, Oct 12, Read aloud, Source, `v1 of 3`, Newer v3 available, Open v3, Compare v1 → v3. Reading log `You just now` below. | `<scratchpad>/desk-v1.png` |
-| Title row, 390 px, v1 | **Three lines:** byline, date and two buttons; then the chip; then the "Newer" text | `<scratchpad>/phone-v1.png` |
-| Title row, 390 px, v3 | Two lines | `<scratchpad>/phone-v3.png` |
-| Issue page, Explorer closed, 390 and 320 px | 0 px overflow | `<scratchpad>/issue-390.png` |
-| Issue page, Explorer open, 390 px | 0 px overflow; issue column 211 px wide | `<scratchpad>/issue-explorer-390.png` |
-| Issue page, Explorer open, 320 px | **33 px overflow**; the masthead's forward arrow is out of view | `<scratchpad>/issue-explorer-320.png` |
+| Title row, 1300 px, v1 | All controls on one line: Ada, Oct 12, Read aloud, Source, `v1 of 3`, Newer v3 available, Open v3, Compare v1 → v3. Reading log `You just now` below. | [`evidence/desk-v1.png`](evidence/desk-v1.png) |
+| Title row, 390 px, v1 | **Three lines:** byline, date and two buttons; then the chip; then the "Newer" text | [`evidence/phone-v1.png`](evidence/phone-v1.png) |
+| Title row, 390 px, v3 | Two lines | [`evidence/phone-v3.png`](evidence/phone-v3.png) |
+| Issue page, Explorer closed, 390 and 320 px | 0 px overflow | [`evidence/issue-390.png`](evidence/issue-390.png) |
+| Issue page, Explorer open, 390 px | 0 px overflow; issue column 211 px wide | [`evidence/issue-explorer-390.png`](evidence/issue-explorer-390.png) |
+| Issue page, Explorer open, 320 px | **33 px overflow**; the masthead's forward arrow is out of view | [`evidence/issue-explorer-320.png`](evidence/issue-explorer-320.png) |
 
 The 320 px Explorer measurement used a plain viewport rather than full mobile emulation.
 
@@ -122,8 +122,8 @@ I recommend repairing rather than reverting, because the fix is small and tested
 
 - **Setup:** I applied the edits to a scratch `git archive` of 71f0041e. The pinned checkout stayed clean.
 - **Files:**
-  - Patch for the existing files: `<scratchpad>/watson-repairs.patch` (passes `git apply --check` at 71f0041e)
-  - New suite: `<scratchpad>/watson-repair/tests/web_reading_position.cjs`
+  - Patch for the existing files: [`evidence/watson-repairs.patch`](evidence/watson-repairs.patch) (passes `git apply --check` at 71f0041e)
+  - New suite: `tests/web_reading_position.cjs`
 - **Full run:** 92/92 browser suites passed with R1–R9 together, including the new suite.
 - **RED:** the new suite fails against 71f0041e at its first assertion, the 1440×1000 top-of-document case. The other cases are RED by the before-and-after table below.
 - **Limits:**

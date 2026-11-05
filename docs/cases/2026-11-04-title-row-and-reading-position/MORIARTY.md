@@ -145,7 +145,7 @@ How charming: 91 suites in green, and a reader who opens a long table is told sh
 
 ## Cleanup
 - `git status --short` is clean at `71f0041e`.
-- Generated data is 88 MiB in the ignored `.reader/`, plus 5.6 MiB in the scratchpad at `<scratchpad>`.
+- Generated data is 88 MiB in the ignored `.reader/`, plus 5.6 MiB in a session scratch directory.
 - I did not push, commit or fetch, and I did not touch the live checkout or port 8766.
 
 ## Strikes landed

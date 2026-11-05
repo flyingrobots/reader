@@ -1,0 +1,251 @@
+--- a/src/reader_mcp/web_ui/reading.mjs
++++ b/src/reader_mcp/web_ui/reading.mjs
+@@ -14,10 +14,12 @@
+   const listeners=new Set(),notify=reason=>{for(const listener of listeners)listener(reason);};
+   const hasBook=()=>!!book;
+   const scrollSpan=()=>Math.max(0,document.documentElement.scrollHeight-innerHeight);
+-  const lastBlock=()=>[...document.querySelectorAll('#article [data-source-start], #article [data-pdf-page]')].filter(el=>!el.closest('.document-embed,[data-reader-decoration]')).at(-1);
++  // The article's last real content, tables and embeds included; the title decorations and pins are not reading.
++  const lastBlock=()=>[...document.querySelectorAll('#article > :not([data-reader-decoration],.annotation-pin)')].filter(el=>el.getClientRects().length).at(-1);
+   // Reading ends where the article does: the footer and what follows it are no part of the distance.
+-  const readingSpan=()=>{const last=lastBlock();return last?Math.min(scrollSpan(),Math.max(0,last.getBoundingClientRect().bottom+shownTop(state.smoother)-innerHeight)):scrollSpan();};
+-  const progress=()=>{if(book)return book.spreads>1?Math.round(book.viewport.scrollLeft/book.stride)/(book.spreads-1):0;const span=readingSpan();return span?clamp(scrollY/span):scrollY>0?1:0;};
++  // An article that fits the first screen has no distance of its own, so the page's is used: the slider still moves, and only the dwell finishes it.
++  const readingSpan=()=>{const last=lastBlock(),page=scrollSpan();return last?Math.min(page,Math.max(0,last.getBoundingClientRect().bottom+shownTop(state.smoother)-innerHeight))||page:page;};
++  const progress=()=>{if(book)return book.spreads>1?Math.round(book.viewport.scrollLeft/book.stride)/(book.spreads-1):0;const span=readingSpan();return span?clamp(scrollY/span):0;};
+   // A document whose end is in view counts as finished after a short dwell, so one-screen documents can finish without scrolling.
+   const DWELL=3000;let openedAt=0,dwellTimer;
+   const endVisible=()=>{
+@@ -147,8 +149,13 @@
+       const line=innerHeight*.22;
+       target=blocks.filter(el=>{const r=el.getBoundingClientRect();return r.top<=line&&r.bottom>line;}).sort((a,b)=>(+a.dataset.sourceEnd-a.dataset.sourceStart)-(+b.dataset.sourceEnd-b.dataset.sourceStart))[0];
+       // The line can fall in the margin between two blocks: keep the next one, not just a share of the page's height.
+-      // Above the first block (the title, a hero) there is no place to keep yet: the reader is at the top.
+-      if(!target&&blocks.some(el=>el.getBoundingClientRect().bottom<=line))target=blocks.find(el=>el.getBoundingClientRect().top>line);
++      // Not a margin: inside a table or embed, which has no source position, the next block may be screens away, so the share stands.
++      // Not yet: until a block other than the title has gone by, the reader is at the top and no place is kept.
++      if(!target){
++        const covers=el=>{const r=el.getBoundingClientRect();return r.top<=line&&r.bottom>line;};
++        const inContent=[...document.querySelectorAll('#article > :not(.annotation-pin)')].some(covers);
++        if(!inContent&&blocks.some(el=>!el.matches('.document-title')&&el.getBoundingClientRect().bottom<=line))target=blocks.find(el=>el.getBoundingClientRect().top>line);
++      }
+       if(target){const r=target.getBoundingClientRect();fraction=clamp((line-r.top)/r.height);}
+     }
+     return {participant:state.prefs.participant,path:state.doc.path,source_sha256:state.doc.sha256,progress:savedProgress(),source_offset:target?.dataset.sourceStart!==undefined?+target.dataset.sourceStart:null,pdf_page:target?.dataset.pdfPage?+target.dataset.pdfPage:null,block_fraction:fraction,layout:book?'spread':'scroll',spread_count:book?.spreads || null};
+@@ -205,12 +212,12 @@
+       if(book&&!book.animating&&!prepare.resizeTimer&&book.viewport.clientWidth===book.width){const index=Math.round(book.viewport.scrollLeft/book.stride);if(index!==book.anchorSpread){book.anchor=spreadAnchor();book.anchorSpread=index;}}notify('frame');});
+   }
+   function pips(){
+-    const pips=[];
++    const pips=[],span=book?0:readingSpan();
+     for(const {thread,range} of state.ranges){
+       const rect=[...range.getClientRects()][0];if(!rect)continue;
+       let fraction;
+       if(book){const x=rect.left-book.viewport.getBoundingClientRect().left+book.viewport.scrollLeft;fraction=book.spreads>1?Math.floor((x+2)/book.stride)/(book.spreads-1):0;}
+-      else{const span=readingSpan();fraction=span?clamp((rect.top+shownTop(state.smoother)-innerHeight*.36)/span):0;}
++      else fraction=span?clamp((rect.top+shownTop(state.smoother)-innerHeight*.36)/span):0;
+       pips.push({id:thread.id,owner:thread.owner,quote:thread.anchor.quote.slice(0,180),kind:thread.kind,own:thread.owner===state.prefs.participant,fraction:clamp(fraction)});
+     }
+     controls.update({pips});update();
+--- a/src/reader_mcp/web_ui/style.css
++++ b/src/reader_mcp/web_ui/style.css
+@@ -48,7 +48,7 @@
+ body:not(.two-page) #article:not(.pdf-document)>:is(p,h1,h2,h3,h4,h5,h6,pre,table,hr,.reader-code-block,.reader-math-block,.reader-diagram,.callout){content-visibility:auto;contain-intrinsic-size:auto 240px}
+ body.two-page{overflow:hidden}body.two-page #smooth-wrapper{position:fixed!important;inset:0 var(--dock-width,0px) 35px 0!important;overflow:hidden!important}body.two-page #smooth-content{height:100%!important;transform:none!important}body.two-page #main{height:100%}
+ body.two-page .document-shell{max-width:1500px;width:100%;height:100%;padding:25px 52px 25px;display:flex;flex-direction:column}
+-body.two-page .document-kicker,body.two-page .document-footer,body.two-page .document-meta>:not(.article-speech,.version-line){display:none}body.two-page .document-meta{margin:0 0 .6em}
++body.two-page .document-kicker,body.two-page .document-footer{display:none}body.two-page .document-meta>:not(.article-speech,.version-line){display:none!important}body.two-page .document-meta{margin:0 0 .6em}
+ .article .document-title{font-family:var(--h1-font,var(--serif));font-size:clamp(36px,4.8vw,68px);line-height:1.08;letter-spacing:-.018em;max-width:22ch;margin:0 0 .65em;color:var(--ink);white-space:normal;overflow-wrap:anywhere;break-inside:avoid;break-after:avoid;hyphens:none}.article .document-meta{font-family:var(--sans)}
+ .book-viewport{position:relative;flex:1;min-height:0;overflow-x:auto;overflow-y:hidden;scrollbar-width:none;overscroll-behavior-x:contain}
+ .book-tail{position:absolute;top:0;width:1px;height:1px;pointer-events:none}
+@@ -187,8 +187,10 @@
+ .issue-empty{padding:80px 0;max-width:46ch}.issue-empty h2{font-weight:420;font-size:40px;margin-bottom:16px}.issue-empty p{color:var(--muted);line-height:1.6}
+ .issue-footer{display:flex;justify-content:space-between;align-items:baseline;gap:32px;margin-top:40px;padding-top:20px;border-top:1px solid var(--line);font-size:11px;line-height:1.6;color:var(--muted)}
+ .issue-footer p{max-width:72ch;margin:0}.issue-footer button{flex:none;font-size:11px}
+-@media(max-width:1000px){.issue{padding:32px 36px 100px}.issue-spread{grid-template-columns:minmax(0,1fr)}.issue-cover{padding:48px 0 40px}.issue-summary{grid-column:1;grid-row:auto;margin:0 0 52px;padding:24px 0 0;border-left:0;border-top:1px solid var(--line);grid-template-columns:auto 1fr;align-items:start;gap:28px 40px}.issue-summary dl{grid-auto-flow:column;gap:28px}.issue-keys{grid-column:1/-1}.issue-features{grid-template-columns:repeat(2,minmax(0,1fr));row-gap:40px}.issue-feature:nth-child(odd){padding-left:0;border-left:0}}
+-@media(max-width:640px){.issue{padding:20px 16px 96px}.issue-masthead{grid-template-columns:1fr auto;gap:10px 16px}.issue-flag{grid-column:1/-1;grid-row:1;text-align:left;font-size:52px}.issue-nav{gap:2px}.issue-cover{padding:36px 0 32px}.issue-summary{margin-bottom:40px}.cover-title{font-size:clamp(36px,10.5vw,48px);max-width:none}.cover-standfirst{font-size:18px;margin-top:22px}.issue-footer{flex-wrap:wrap}#issue-backstage{flex:0 1 auto;max-width:100%;height:auto;white-space:normal;text-align:left}.issue-summary{grid-template-columns:minmax(0,1fr)}.issue-summary dl{grid-auto-flow:row;grid-template-columns:repeat(auto-fit,minmax(72px,1fr))}.issue-summary dd{font-size:34px}.issue-features{grid-template-columns:1fr;row-gap:0;padding:8px 0 24px}.issue-feature{padding:28px 0;border-left:0;border-top:1px solid var(--line)}.issue-feature:first-child{border-top:0}.feature-number{display:none}.feature-standfirst{-webkit-line-clamp:4}.issue-footer{display:block}.issue-footer button{margin-top:12px}.issue-keys{display:none}}
++/* These follow the issue's column, not the window: the File Explorer can narrow it at any window width. */
++#main:has(.issue){container:issue-column/inline-size}
++@container issue-column (max-width:1000px){.issue{padding:32px 36px 100px}.issue-spread{grid-template-columns:minmax(0,1fr)}.issue-cover{padding:48px 0 40px}.issue-summary{grid-column:1;grid-row:auto;margin:0 0 52px;padding:24px 0 0;border-left:0;border-top:1px solid var(--line);grid-template-columns:auto 1fr;align-items:start;gap:28px 40px}.issue-summary dl{grid-auto-flow:column;gap:28px}.issue-keys{grid-column:1/-1}.issue-features{grid-template-columns:repeat(2,minmax(0,1fr));row-gap:40px}.issue-feature:nth-child(odd){padding-left:0;border-left:0}}
++@container issue-column (max-width:640px){.issue{padding:20px 16px 96px}.issue-masthead{grid-template-columns:minmax(0,1fr) auto;gap:10px 16px}.issue-flag{grid-column:1/-1;grid-row:1;text-align:left;font-size:52px}.issue-nav{gap:2px}.issue-cover{padding:36px 0 32px}.issue-summary{margin-bottom:40px}.cover-title{font-size:clamp(36px,10.5vw,48px);max-width:none}.cover-standfirst{font-size:18px;margin-top:22px}#issue-backstage{max-width:100%;height:auto;white-space:normal;text-align:left;padding-inline:0}.issue-nav{flex-wrap:wrap}.issue-summary{grid-template-columns:minmax(0,1fr)}.issue-summary dl{display:flex;flex-wrap:wrap}.issue-summary dl>div{flex:1 1 72px}.issue-summary dd{font-size:34px}.issue-features{grid-template-columns:1fr;row-gap:0;padding:8px 0 24px}.issue-feature{padding:28px 0;border-left:0;border-top:1px solid var(--line)}.issue-feature:first-child{border-top:0}.feature-number{display:none}.feature-standfirst{-webkit-line-clamp:4}.issue-footer{display:block}.issue-footer button{margin-top:12px}.issue-keys{display:none}}
+ 
+ /* Wide windows: a twelve-column broadsheet plus a rail. The cover takes eight columns with the
+    lead feature beside it; the other features share the next row; the rail keeps the issue's
+@@ -270,7 +272,7 @@
+ .linked-from-more{margin-top:.6em}
+ .linked-from-compact{break-inside:avoid;margin:1.4em 0 .5em;font-family:var(--sans);text-indent:0}
+ .linked-from.in-panel{margin:0;padding:0;border:0}
+-/* Versions: one chip under the title meta says which version this is; the timeline panel (Space v) explores the rest. */
++/* Versions: one chip at the end of the title's row says which version this is; the timeline panel (Space v) explores the rest. */
+ .version-line{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;font:12px/1.5 var(--sans);color:var(--muted);min-width:0;break-inside:avoid;break-after:avoid}.version-line:not(.has-newer) .version-dot{display:none}
+ .version-chip{display:inline-flex;align-items:center;gap:7px;min-height:26px;padding:2px 8px 2px 10px;border:1px solid var(--line);border-radius:999px;background:var(--surface);color:var(--ink);font:600 12px/1.2 var(--sans);cursor:pointer;transition:border-color .15s,background .15s}
+ .version-chip:hover{border-color:var(--accent);background:var(--raised)}.version-chip:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+--- a/src/reader_mcp/web_ui/versions.mjs
++++ b/src/reader_mcp/web_ui/versions.mjs
+@@ -39,7 +39,7 @@
+   const parts=[];
+   if(d.newer)parts.push(`<span class="version-newer">Newer v${esc(d.newer.revision)} available <a href="${esc('#read='+param(d.newer.path))}" data-path="${esc(d.newer.path)}">Open v${esc(d.newer.revision)}</a><button type="button" data-button="link sm" class="compare-successor" data-compare="successor">Compare ${esc(compareLabel(v))}</button></span>`);
+   const read=v.read;
+-  // The reading log says when you read this file; only a read of a sibling edition is news here.
++  // The chip reports a read of a sibling edition only. Your read of this file shows in Space v; the reading log shows only this open.
+   if(read?.where==='current'&&read.at&&read.path!==current?.path)parts.push(`<span class="version-read">You read ${esc(read.label)} on ${esc(day(read.at))}</span>`);
+   return `<div class="version-line${d.newer?' has-newer':''}" data-reader-decoration><button type="button" class="version-chip" data-version-chip aria-haspopup="dialog" aria-controls="versions-panel" title="${esc(d.title)}"><span class="version-dot" aria-hidden="true"></span>${esc(d.chip)}<svg class="version-caret" viewBox="0 0 16 16" width="12" height="12" aria-hidden="true"><path d="M5 6.5 8 9.5l3-3" fill="none" stroke="currentColor" stroke-width="1.5"/></svg></button>${parts.join('')}</div>`;
+ }
+--- a/docs/web.md
++++ b/docs/web.md
+@@ -522,8 +522,8 @@
+ percentage and estimated minutes remaining, based on visible text and the selected
+ reading pace. The seek track has no hover popup. The readout follows the current
+ reading position, independently of the pointer location. PDF estimates use pages remaining. Highlight/warning pips identify an owner
+-and open the corresponding thread. Seeking uses the document's scroll range or
+-the discrete spread index; it is a layout position, not a measure of comprehension.
++and open the corresponding thread. Seeking uses the article's reading range (see
++[automatic bookmarks](#two-page-mode-and-automatic-bookmarks)) or the discrete spread index; it is a layout position, not a measure of comprehension.
+ 
+ ### Two-page mode and automatic bookmarks
+ 
+@@ -1965,7 +1965,7 @@
+ - **Empty and live state.** With no receipts the line reads *Not yet read by
+   anyone. You'll be first.* Opening the document records your receipt as before
+   (`/api/seen`), and the line then shows *You just now* without a reload.
+-- **Placement.** The line follows `.document-meta` (the title's one row: byline, date, Read aloud, Source and the edition chip) and carries
++- **Placement.** The line follows `.document-meta` (the title's row, which wraps at phone width: byline, date, Read aloud, Source and the edition chip) and carries
+   `data-reader-decoration`, so passage selection, annotations and find skip it. Its
+   slot reserves one line before the response arrives, so the article does not move.
+   In two-page reading (where the meta row keeps only Read aloud and the chip) it stays in the first column
+@@ -2005,7 +2005,7 @@
+ 
+ - **Entry points.** **Space s** opens a small menu: **Whole article** (`a`),
+   **From here** (`f`) and **Selection** (`s`, enabled while a passage is
+-  selected). **Read aloud**, below the article title and metadata, sends the whole
++  selected). **Read aloud**, in the row under the article title, sends the whole
+   article. It switches to playback controls for that article and edition while queued
+   or playing, then returns when the utterance finishes. The
+   selection toolbar's **Speak** sends only the selected passage.
+@@ -2286,14 +2286,14 @@
+ 
+ ### Versions: the chip, its twin and the explorer
+ 
+-**The version chip.** Under the title meta, one bordered chip says which version
++**The version chip.** At the end of the row under the title, one bordered chip says which version
+ you are reading: `v1 of 3`, `Reading copy of v2`, `Reading copy of the
+ original`, `Original · 1 reading copy`, or, for a file without siblings whose
+ path has at least two commits in the vault's git history, `Current · 7
+ revisions`. Beside it, **Newer v3 available · Open v3 · Compare v1 → v3** when a
+-higher version exists (the chip's dot turns `--accent`), and **You read this on
+-Oct 16** (or **You read v2 on …**) when your receipt matches a family member's
+-current bytes. The chip replaces the frontmatter's "Edition N" meta item, which
++higher version exists (the chip shows an `--accent` dot only then), and **You read
++v2 on …** when your receipt matches a sibling edition's current bytes. Your read of
++this file is not repeated here: the explorer's tag gives its date. The chip replaces the frontmatter's "Edition N" meta item, which
+ still shows when there is no chip. A file with no siblings and at most one
+ commit shows nothing. The line is `data-reader-decoration` (excluded from
+ selection, find and word counts). The text never waits for `/api/versions` (a
+@@ -3466,8 +3466,12 @@
+ immediately. It restores a matching
+ source edition before revealing the document. Text positions include a source
+ block offset and relative position, with a normalized progress fallback. In
+-continuous reading, progress runs from the top of the page to the end of the
+-article's last block coming into view; the footer and Read next add nothing. PDF
++continuous reading, progress runs from the top of the page until the bottom edge
++of the article's last content, tables and embeds included, is in view; the footer
++and Read next add nothing, and `End` on the slider stops there. An article that
++fits the first screen uses the whole page's range, and only the dwell finishes it.
++A saved share of 0.97 or more counts as finished, so that now means 97% of the
++article. Offset-less bookmarks saved before this rule restore on the new scale. PDF
+ positions include an explicit page number. A saved spread index is reused when
+ the current number of spreads matches. Layout changes use the source/page anchor
+ where possible. A changed source SHA-256 starts at the beginning with a notice;
+@@ -4602,7 +4606,8 @@
+ article must be visible before the timeline arrives and within 600 ms of asking
+ for it, the chip and twin follow, a saved place stays on the same paragraph in
+ scroll and two-page reading, and edition and `@commit` deep links open what they
+-name. All three need `git` on `PATH`.
++name. `web_reading_position.cjs` checks what progress measures and which place a
++bookmark keeps. All four need `git` on `PATH`.
+ 
+ `web_queue.cjs` starts the fixture with `--queue` (the Read next works plus a
+ longer document in another project). It checks the panel, keys, toasts, reorder
+--- a/docs/capabilities.md
++++ b/docs/capabilities.md
+@@ -206,7 +206,7 @@
+ 
+ Under a document's title, a version chip names the version being read (`v1 of 3`,
+ a reading copy, an original, or `Current · 7 revisions` for a file with git
+-history), says when a newer version exists and when you read it; a status-bar twin
++history), says when a newer version exists and when you read a sibling edition; a status-bar twin
+ (`v1/3`) mirrors it. Space v opens a version explorer (a bottom sheet at phone
+ width): a timeline of the edition family and, under each edition, the commits that
+ changed it (at most 50 per file, 200 per family, 2 s), with markers for where you
+--- a/CHANGELOG.md
++++ b/CHANGELOG.md
+@@ -2,6 +2,14 @@
+ 
+ ## Unreleased
+ 
++- Reading progress measures the article, tables and embeds included, not the footer and Read next. A saved share of 97% now means 97% of the article, and older bookmarks with no saved block restore on this scale.
++
++- A bookmark in the margin between two blocks keeps the next block; inside a table or embed it keeps its share of the article, and at the top of a document it keeps the top.
++
++- The title's controls share one row, which wraps on a phone. The chip no longer repeats your read of this file; Space v still shows the date.
++
++- The issue page stays inside its column at any width, including with the File Explorer open.
++
+ - Reader Admin pages no longer draw a title and description above their content; the breadcrumb names the section, and screen readers still get both.
+ 
+ - A two-page turn made just after a resize, such as closing the file explorer, is no longer undone when the delayed reflow runs.
+--- a/tests/web_service.cjs
++++ b/tests/web_service.cjs
+@@ -13,7 +13,8 @@
+   const errors=[],external=[];
+   const context=await browser.newContext({viewport:{width:1300,height:900},reducedMotion:'reduce'});
+   await context.addInitScript(()=>{try{localStorage.setItem('reader.preferences.v1',JSON.stringify({smooth:false,theme:'user-reader-test'}));}catch{}});
+-  const page=await context.newPage();page.on('pageerror',e=>errors.push(e.message));page.on('console',m=>{if(m.type()==='error'&&!m.location()?.url?.endsWith('/api/speech-voices'))errors.push(m.text()+' '+(m.location()?.url||''));/* No AI-TTS daemon in this fixture: the voice field answers 503 and offers a retry. */});page.on('request',r=>{if(!r.url().startsWith(url))external.push(r.url());});
++  const page=await context.newPage();page.on('pageerror',e=>errors.push(e.message));page.on('console',m=>{// No AI-TTS daemon in this fixture: the voice field answers 503, and nothing else from it is excused.
++    if(m.type()==='error'&&!(m.location()?.url?.endsWith('/api/speech-voices')&&/status of 503/.test(m.text())))errors.push(m.text()+' '+(m.location()?.url||''));});page.on('request',r=>{if(!r.url().startsWith(url))external.push(r.url());});
+   const toast=text=>page.locator('[data-sonner-toast]').filter({hasText:text});
+   const card=page.locator('[data-card=service]');
+   // Installable app: manifest, touch icon, and a theme colour that follows the theme.
+@@ -24,6 +25,7 @@
+   await page.waitForFunction(()=>document.querySelector('meta[name=theme-color]').content===getComputedStyle(document.documentElement).getPropertyValue('--bg').trim());
+   // The card.
+   await page.goto(url+'#admin/service');await card.waitFor();
++  await page.getByRole('button',{name:'Retry voices'}).waitFor();  // The 503 above reaches the person as a retry.
+   await card.locator('[data-fact=commit]').waitFor();
+   assert.match(await card.locator('[data-fact=commit] [data-fact-value]').textContent(),/^1f2e3d4 · /);
+   assert.equal(await card.locator('[data-fact=source] [data-fact-value]').textContent(),'preview/integration');
+--- a/tests/web_links.cjs
++++ b/tests/web_links.cjs
+@@ -118,7 +118,7 @@
+   // Reader Admin, Indexes: the Link graph card and a refresh with toasts.
+   {const {page,context}=await open({});
+    await page.goto(url+'#admin/indexes');await page.locator('[data-index=links][data-state=current]').waitFor({timeout:20000});
+-   await page.locator('[data-index=links] button',{hasText:'Link graph'}).first().click();assert.match(await page.locator('#index-inspector[data-inspected-index=links] [data-fact=links]').textContent(),/20/);
++   await page.locator('[data-index=links] button',{hasText:'Link graph'}).first().click();assert.equal(await page.locator('#index-inspector[data-inspected-index=links] [data-fact=links] td').last().textContent(),'20');
+    await page.locator('[data-job=links]').click();
+    await page.locator('[data-sonner-toast]').filter({hasText:'Link graph finished'}).waitFor({timeout:15000});
+    assert.match(await page.locator('[data-sonner-toast]').filter({hasText:'Link graph finished'}).textContent(),/0 documents read, 20 links, 1 unresolved/);
+--- a/tests/web_magazine.cjs
++++ b/tests/web_magazine.cjs
+@@ -125,6 +125,10 @@
+   assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),'no horizontal scroll at phone width');
+   const box=await page.locator('.issue-cover').boundingBox();assert.ok(box.x>=15&&box.x+box.width<=390-15,'16px gutters');
+   await page.screenshot({path:'.reader/web-dev/magazine-mobile.png',fullPage:true});
++  // The layout follows the issue's column: the File Explorer narrows it at any window width, and counts can grow.
++  await page.locator('#main').focus();await page.keyboard.press('Space');await page.keyboard.press('e');await page.locator('#picker:not([hidden])').waitFor();
++  await page.evaluate(()=>{for(const dd of document.querySelectorAll('.issue-summary dd'))dd.textContent='12,345';});
++  for(const width of [320,390,641,700,1000]){await page.setViewportSize({width,height:844});await page.waitForTimeout(150);assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),`no horizontal scroll at ${width} with the File Explorer open`);}
+   assert.deepEqual(external,[]);assert.deepEqual(errors,[]);
+   console.log(`Magazine passed: masthead, cover, ${features.length} features from distinct projects, standfirst, contents with read dimmed, j/k/g c/Enter, q and + Queue (Space q unbound), [ ] issues and URLs, dashboard on Reader Admin's Library page, ${THEMES.length} theme contrasts, 1920/2560 full-width spread with rail, bounded measures and ${wide.map(w=>w.columns).join('/')} contents columns, phone width, local-only requests.`);
+  }finally{await browser?.close();if(fixture.exitCode===null&&fixture.signalCode===null){fixture.kill('SIGTERM');await new Promise(resolve=>fixture.once('exit',resolve));}}
+--- a/tests/web_content_visibility.cjs
++++ b/tests/web_content_visibility.cjs
+@@ -141,7 +141,7 @@
+     const marks=[];page.on('request',r=>{if(r.url().includes('/api/bookmark')&&r.method()==='POST')marks.push(r.postDataJSON());});
+     await page.evaluate(()=>{const h=[...document.querySelectorAll('#article h2')].find(h=>h.textContent==='Section 300');const content=document.querySelector('#smooth-content').getBoundingClientRect().top;scrollTo(0,h.getBoundingClientRect().top-content-innerHeight*.22+4);});
+     await page.waitForTimeout(2000);
+-    // A reading line between two blocks saves no block; move a little until it falls inside one.
++    // A reading line inside something with no source position saves no block; move a little until it falls on one.
+     for(let nudge=0;nudge<6&&marks.at(-1)?.source_offset==null;nudge++){await page.evaluate(()=>scrollBy(0,12));await page.waitForTimeout(1200);}
+     const mark=marks.at(-1);assert.ok(mark?.source_offset>1e6,'a late place was saved: '+JSON.stringify(mark));
+     // Reopen without the heading link, which would win over the bookmark.
