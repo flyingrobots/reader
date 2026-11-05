@@ -73,7 +73,7 @@ import {applyThemes, ensureProseRules, themeId, type InstalledFont} from './them
 import type {Theme} from './theme/color';
 export {applyThemes};
 import {observeButtons} from './vanilla-buttons';
-import {LinkedFromList, NextReads, OutlineRail, type LinkedFromRow, type NextReadsModel, type OutlineRailModel} from './reading-lists';
+import {LinkedFromHead, LinkedFromList, NextReads, OutlineRail, type LinkedFromRow, type NextReadsModel, type OutlineRailModel} from './reading-lists';
 import {OutlineControl, type OutlineModel, type OutlineActions} from './outline';
 import {FAMOUS, famousId} from './theme/famous';
 import {plural} from './plural';
@@ -107,7 +107,7 @@ function QuickThemePicker({model,actions}:{model:Model;actions:Actions}){
         <SelectGroup>{items.map(item=><SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>)}</SelectGroup>
       </SelectContent>
     </Select>
-    <Label className="shrink-0 cursor-pointer gap-0 px-1.5 text-[10px] font-normal max-[700px]:hidden" data-theme-toggle=""><Switch id="theme-swap" size="sm" aria-label="Dark mode" checked={dark(model.theme)} onCheckedChange={checked=>{if(checked!==dark(model.theme))actions.theme();}}/><span className="ml-[7px]">Dark</span></Label>
+    <Label className="shrink-0 cursor-pointer gap-[7px] px-1.5 text-[10px] font-normal max-[700px]:hidden" data-theme-toggle=""><Switch id="theme-swap" size="sm" aria-label="Dark mode" checked={dark(model.theme)} onCheckedChange={checked=>{if(checked!==dark(model.theme))actions.theme();}}/>Dark</Label>
   </div>;
 }
 
@@ -498,6 +498,7 @@ export function closeAppDialogs(){for(const entry of [...appDialogs.values()])en
 function draw(container:HTMLElement,view:ReactNode){const root=islands.get(container);if(root)flushSync(()=>root.render(view));else mount(container,view);}
 export const renderOutlineRail=(container:HTMLElement,model:OutlineRailModel)=>draw(container,model.entries.length?<OutlineRail {...model}/>:null);
 export const renderNextReads=(container:HTMLElement,model:NextReadsModel)=>draw(container,<NextReads {...model}/>);
+export const renderLinkedFromHead=(container:HTMLElement,count:number)=>draw(container,<LinkedFromHead count={count}/>);
 export const renderLinkedFromList=(container:HTMLElement,rows:LinkedFromRow[])=>draw(container,<LinkedFromList rows={rows}/>);
 export function openShellDialog(options:ShellDialogOptions){
   const handle=openAppDialog(options.id,options.onClosed,({register,onClosed})=><ShellDialog options={{...options,onClosed}} register={register}/>);

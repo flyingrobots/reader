@@ -42,3 +42,6 @@ export function LinkedFromList({rows}:{rows:LinkedFromRow[]}){
     <ItemTitle className="linked-from-title line-clamp-none block">{row.title}</ItemTitle><ItemDescription className="linked-from-meta">{row.meta}</ItemDescription>
   </Item>)}</ItemGroup>;
 }
+export function LinkedFromHead({count}:{count:number}){
+  return <ItemTitle className="eyebrow" id="linked-from-title">Linked from{count?<Badge variant="secondary" className="linked-from-count tabular-nums">{count}</Badge>:null}</ItemTitle>;
+}

@@ -1,5 +1,5 @@
 /** Link previews on hover and focus, and the "Linked from" list at the end of an article. */
-import {renderLinkedFromList} from './controls/reader-controls.js';
+import {renderLinkedFromHead,renderLinkedFromList} from './controls/reader-controls.js';
 import {escapeHTML as esc} from './logic.mjs';
 
 const VISIBLE=12;
@@ -69,8 +69,8 @@ export function installLinks({threadPanel,closeThreadPanel,state,api,reading,nav
   }
   function section(data,path){
     const element=document.createElement('section');element.className='linked-from';element.dataset.readerDecoration='';element.dataset.endOrder='1';element.dataset.state=data.state;element.setAttribute('aria-labelledby','linked-from-title');
-    element.innerHTML=`<div class="eyebrow" id="linked-from-title">Linked from${data.inbound_count?` <span class="linked-from-count">${data.inbound_count}</span>`:''}</div><div class="linked-from-body">${body(data,false)}</div>${data.state==='ready'&&data.stale?'<p class="linked-from-stale">The link graph is older than the library. <a href="#backstage" data-backstage>Refresh it behind the scenes</a>.</p>':''}`;
-    wire(element,data,path);return element;
+    element.innerHTML=`<div class="linked-from-head"></div><div class="linked-from-body">${body(data,false)}</div>${data.state==='ready'&&data.stale?'<p class="linked-from-stale">The link graph is older than the library. <a href="#backstage" data-backstage>Refresh it behind the scenes</a>.</p>':''}`;
+    renderLinkedFromHead(element.querySelector('.linked-from-head'),data.inbound_count||0);wire(element,data,path);return element;
   }
   function openList(data,path){
     hide();state.activeThread=null;threadPanel();$('#thread-title').textContent='Linked from';

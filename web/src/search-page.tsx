@@ -5,6 +5,8 @@ import {useLayoutEffect, useRef, useState, type ReactNode} from 'react';
 import {FolderIcon, SearchIcon, SearchXIcon, SlidersHorizontalIcon, XIcon} from 'lucide-react';
 import {Badge} from './components/ui/badge';
 import {Button} from './components/ui/button';
+import {ButtonGroup} from './components/ui/button-group';
+import {Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyTitle} from './components/ui/empty';
 import {Checkbox} from './components/ui/checkbox';
 import {Field, FieldContent, FieldDescription, FieldGroup, FieldLabel, FieldLegend, FieldSet, FieldTitle} from './components/ui/field';
 import {Input} from './components/ui/input';
@@ -122,13 +124,13 @@ function Passages({work,offset,active,actions}:{work:Work;offset:number;active:n
 }
 
 function Start({model,actions}:{model:SearchModel;actions:SearchActions}){
-  return <div className="flex flex-col gap-6" data-search-empty="">
-    <p className="max-w-prose font-serif text-lg text-muted-foreground">Every indexed passage in the library, by its words or by what it means. Results open at the passage.</p>
-    {model.recent.length>0&&<section className="flex flex-col gap-2"><h2 className="text-xs font-medium tracking-wide text-muted-foreground uppercase">Recent searches</h2>
-      <div className="flex flex-wrap gap-2">{model.recent.map(q=><Button key={q} variant="outline" size="sm" onClick={()=>actions.query(q)}>{q}</Button>)}</div></section>}
-    {model.suggestions.length>0&&<section className="flex flex-col gap-2"><h2 className="text-xs font-medium tracking-wide text-muted-foreground uppercase">Topics in your unread works</h2>
-      <div className="flex flex-wrap gap-2">{model.suggestions.map(q=><Button key={q} variant="ghost" size="sm" onClick={()=>actions.query(q)}>{q}</Button>)}</div></section>}
-  </div>;
+  return <Empty className="items-start p-0 text-left" data-search-empty="">
+    <EmptyHeader className="max-w-prose items-start text-left"><EmptyDescription className="font-serif text-lg">Every indexed passage in the library, by its words or by what it means. Results open at the passage.</EmptyDescription></EmptyHeader>
+    {model.recent.length>0&&<EmptyContent className="max-w-none items-start"><EmptyTitle className="text-xs font-medium tracking-wide text-muted-foreground uppercase" role="heading" aria-level={2}>Recent searches</EmptyTitle>
+      <ButtonGroup className="flex-wrap gap-2">{model.recent.map(q=><Button key={q} variant="outline" size="sm" onClick={()=>actions.query(q)}>{q}</Button>)}</ButtonGroup></EmptyContent>}
+    {model.suggestions.length>0&&<EmptyContent className="max-w-none items-start"><EmptyTitle className="text-xs font-medium tracking-wide text-muted-foreground uppercase" role="heading" aria-level={2}>Topics in your unread works</EmptyTitle>
+      <ButtonGroup className="flex-wrap gap-2">{model.suggestions.map(q=><Button key={q} variant="ghost" size="sm" onClick={()=>actions.query(q)}>{q}</Button>)}</ButtonGroup></EmptyContent>}
+  </Empty>;
 }
 
 function Notes({model,actions}:{model:SearchModel;actions:SearchActions}){
@@ -151,7 +153,7 @@ export function SearchPage({model,actions}:{model:SearchModel;actions:SearchActi
   let offset=0;
   return <section className="search-page mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 pt-8 pb-24 font-sans md:px-8" data-ui="shadcn" aria-labelledby="search-title" data-status={model.status}>
     <header className="flex flex-col gap-3" data-search-head="">
-      <h1 id="search-title" className="font-serif text-3xl leading-tight font-normal tracking-tight md:text-4xl">Search the library</h1>
+      <ItemTitle id="search-title" role="heading" aria-level={1} className="line-clamp-none w-full font-serif text-3xl leading-tight font-normal tracking-tight md:text-4xl">Search the library</ItemTitle>
       <InputGroup className="h-11">
         <InputGroupAddon><SearchIcon aria-hidden="true"/></InputGroupAddon>
         <InputGroupInput id="search-query" type="search" autoComplete="off" spellCheck={false} placeholder="A phrase, a name, an idea…" aria-label="Search the library" aria-describedby="search-meta" className="text-base" value={model.query} onChange={event=>actions.query(event.target.value)} onKeyDown={actions.fieldKey}/>
@@ -159,7 +161,7 @@ export function SearchPage({model,actions}:{model:SearchModel;actions:SearchActi
       <div className="flex flex-wrap items-center gap-3">
         <ToggleGroup variant="outline" size="sm" aria-label="Search mode" data-search-modes="" value={[model.mode]} onValueChange={one<SearchModel['mode']>(actions.mode)}>
           {MODES.map(m=><ToggleGroupItem key={m.value} value={m.value} title={m.hint} data-search-mode={m.value}>{m.label}</ToggleGroupItem>)}</ToggleGroup>
-        <p id="search-meta" className="min-w-0 flex-1 text-sm text-muted-foreground" role="status">{model.status==='loading'&&!r?'Searching…':r&&model.query.trim()?<>{r.total.toLocaleString()} {r.total===1?'work':'works'}<span aria-hidden="true"> · </span>{passages} {passages===1?'passage':'passages'} shown<span aria-hidden="true"> · </span>{freshness(r.indexed_at)}</>:''}</p>
+        <ItemDescription id="search-meta" className="line-clamp-none min-w-0 flex-1" role="status">{model.status==='loading'&&!r?'Searching…':r&&model.query.trim()?<>{r.total.toLocaleString()} {r.total===1?'work':'works'}<span aria-hidden="true"> · </span>{passages} {passages===1?'passage':'passages'} shown<span aria-hidden="true"> · </span>{freshness(r.indexed_at)}</>:''}</ItemDescription>
         <Button variant="outline" size="sm" className="lg:hidden" data-filter-toggle="" onClick={()=>setSheet(true)}><SlidersHorizontalIcon data-icon="inline-start"/>Filters{active?` · ${active}`:''}</Button>
       </div>
     </header>

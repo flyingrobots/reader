@@ -485,13 +485,15 @@ const library={
   tooltip:(event,title,detail)=>showChartTooltip(event,title,detail),hideTooltip:()=>hideChartTooltip(),
 };
 function showChartTooltip(event,title,detail='') {
-  const tip=$('#chart-tooltip'); tip.replaceChildren();
+  const tip=floatingTip('chart-tooltip'); tip.replaceChildren();
   const strong=document.createElement('strong');strong.textContent=title;tip.append(strong,document.createTextNode(detail));
   const rect=event.currentTarget.getBoundingClientRect();
   tip.style.left=Math.min(innerWidth-310,Math.max(12,event.clientX || rect.x+rect.width/2))+12+'px';
   tip.style.top=Math.min(innerHeight-100,(event.clientY || rect.y)+15)+'px';tip.classList.add('visible');
 }
-function hideChartTooltip(){ $('#chart-tooltip').classList.remove('visible'); }
+/** Hover tips exist from their first use. */
+function floatingTip(id){let tip=document.getElementById(id);if(!tip){tip=document.createElement('div');tip.id=id;tip.className=id;if(id==='chart-tooltip')tip.setAttribute('role','status');document.body.append(tip);}return tip;}
+function hideChartTooltip(){ floatingTip('chart-tooltip').classList.remove('visible'); }
 function wireDocumentLinks(root) {
   root.querySelectorAll('[data-path]').forEach(el=>{
     const open=()=>navigate(el.dataset.path,{thread:el.dataset.threadLink});
@@ -504,7 +506,7 @@ function wireDocumentLinks(root) {
 function closeContext() {
   quiz?.close();writingPrompts?.close();
   if(visual?.active())visual.exit();panels?.close(false);keys?.closeLine(false);
-  closeChat();links?.hide();hideChartTooltip();$('#passage-tooltip').classList.remove('visible');hidePanel('selection-tools');closeThreadPanel();hidePanel('find-bar');versions?.close();
+  closeChat();links?.hide();hideChartTooltip();floatingTip('passage-tooltip').classList.remove('visible');hidePanel('selection-tools');closeThreadPanel();hidePanel('find-bar');versions?.close();
   closeAppDialogs();
   queue?.close(false);state.smoother?.paused(false);
 }
@@ -1370,7 +1372,7 @@ let hoverFrame;
 document.addEventListener('mousemove',event=>{
   document.body.classList.toggle('reveal-controls',event.clientX>pageWidth()-75&&event.clientX<pageWidth()&&event.clientY>innerHeight-80);
   if(hoverFrame)return;
-  hoverFrame=requestAnimationFrame(()=>{hoverFrame=null;const spread=reading?.geometry()?.viewport.getBoundingClientRect(),inside=!spread||event.clientX>=spread.left&&event.clientX<=spread.right&&event.clientY>=spread.top&&event.clientY<=spread.bottom;const hit=inside&&state.ranges.find(({range})=>[...range.getClientRects()].some(r=>event.clientX>=r.left&&event.clientX<=r.right&&event.clientY>=r.top&&event.clientY<=r.bottom));const tip=$('#passage-tooltip');if(hit){tip.textContent=`${hit.thread.owner} · ${plural(hit.thread.comments.length,'comment')}`;tip.style.left=Math.max(10,Math.min(innerWidth-260,event.clientX+12))+'px';tip.style.top=event.clientY+20+'px';tip.classList.add('visible');}else tip.classList.remove('visible');});
+  hoverFrame=requestAnimationFrame(()=>{hoverFrame=null;const spread=reading?.geometry()?.viewport.getBoundingClientRect(),inside=!spread||event.clientX>=spread.left&&event.clientX<=spread.right&&event.clientY>=spread.top&&event.clientY<=spread.bottom;const hit=inside&&state.ranges.find(({range})=>[...range.getClientRects()].some(r=>event.clientX>=r.left&&event.clientX<=r.right&&event.clientY>=r.top&&event.clientY<=r.bottom));const tip=floatingTip('passage-tooltip');if(hit){tip.textContent=`${hit.thread.owner} · ${plural(hit.thread.comments.length,'comment')}`;tip.style.left=Math.max(10,Math.min(innerWidth-260,event.clientX+12))+'px';tip.style.top=event.clientY+20+'px';tip.classList.add('visible');}else tip.classList.remove('visible');});
 });
 // Keyboard ------------------------------------------------------------------------------------------
 // Every page key is a row in the keymap table (keys.mjs); the help dialog and the leader hints are generated from it.

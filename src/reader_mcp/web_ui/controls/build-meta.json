@@ -143,11 +143,11 @@
     "src/plural.ts": "4c0d0698a171b39d5683548f00e2e9a8a7c5ea1af28e4067aaa63612476b5fa2",
     "src/queue-panel.tsx": "f94dbf25fb0b53288a3de2b9ae46029eab1b9522a2ebe3655cb32a3b65d816bb",
     "src/quiz.tsx": "da429b5617a6c905d376cea263c1901325c2e1d43890957e294114492a852cb2",
-    "src/reader-controls.tsx": "37a6d904fb46fdbd0b56484b1dbc48ebe126ccdc26426f031a9ce7fc7a6e88dc",
-    "src/reading-lists.tsx": "abe00d2193f39c49787bba7bfcbbd8fecc3bb0419cdc7b2019407faf72674bbd",
+    "src/reader-controls.tsx": "baf073fc3816c870ef53d7b57468c5d5a69fd8b8dfc45f5024c9b540f9d2fb5c",
+    "src/reading-lists.tsx": "0dfa3db093deb63b984a71de1e0d534e2028475ab953fafaefb309cce4e6cad2",
     "src/reading-log.tsx": "1981dbb7da8a7c010d38d588992ba1b9afc5ef9c611badb247d6f8fadc8a4fda",
     "src/scratch-question.tsx": "ae90d508a8ca52994fb567380d60bef8644475691754a97fd697b323dcb7e7e3",
-    "src/search-page.tsx": "c6cc0ff6d70b6eb07d6d2d3efce80b7accfcf6d84b5aeb398fd3fe560b938944",
+    "src/search-page.tsx": "110e2d217e3066033089b1b7a3cb1adc69dc33cf75545c85a01a435f0f4bef46",
     "src/server-card.tsx": "3889c7bd5c2f961490dc43ec9566caf9eea2b68f04dd45c81f8715976f476602",
     "src/shape/shape.ts": "9fe4b2b1dd21a2869130afa25aed34e2ea482fc8fe05aa2609193aa24c04b50c",
     "src/shell-dialog.tsx": "894e39bb3e44d40e1c47d6a10ac7b0c6fcb6100c9c3b7aec77b88d627f7ea148",
@@ -997,12 +997,12 @@
       "sha256": "81af208706838cea41272dc94c876c36a4680e3b692562cb0be12711f5c88dec"
     },
     "reader-controls.css": {
-      "bytes": 202650,
-      "sha256": "388c33410364daf678dc99ceb0f5888e599691566c80eb2caf2cf5b68fb12f01"
+      "bytes": 202643,
+      "sha256": "a3776a271694193df1da9f247e80bc39996e55a2c71fe34989047e7c40bf7865"
     },
     "reader-controls.js": {
-      "bytes": 1404868,
-      "sha256": "8580e274695f9845f72d7ca37db9096744ecd28cea49c4a923386098d4fbf6da"
+      "bytes": 1405214,
+      "sha256": "8e12fce763910c1308dbf0e5541408c5c5585a380bc8157b3e8b6548c5fb6416"
     },
     "reader-controls.js.LEGAL.txt": {
       "bytes": 6614,
