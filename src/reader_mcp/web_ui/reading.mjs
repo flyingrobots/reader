@@ -14,12 +14,15 @@ export function installReading({scratchStatus, statusOverride, onStatus, mayCurl
   const listeners=new Set(),notify=reason=>{for(const listener of listeners)listener(reason);};
   const hasBook=()=>!!book;
   const scrollSpan=()=>Math.max(0,document.documentElement.scrollHeight-innerHeight);
-  const progress=()=>book?(book.spreads>1?Math.round(book.viewport.scrollLeft/book.stride)/(book.spreads-1):0):scrollSpan()?clamp(scrollY/scrollSpan()):0;
+  const lastBlock=()=>[...document.querySelectorAll('#article [data-source-start], #article [data-pdf-page]')].filter(el=>!el.closest('.document-embed,[data-reader-decoration]')).at(-1);
+  // Reading ends where the article does: the footer and what follows it are no part of the distance.
+  const readingSpan=()=>{const last=lastBlock();return last?Math.min(scrollSpan(),Math.max(0,last.getBoundingClientRect().bottom+shownTop(state.smoother)-innerHeight)):scrollSpan();};
+  const progress=()=>{if(book)return book.spreads>1?Math.round(book.viewport.scrollLeft/book.stride)/(book.spreads-1):0;const span=readingSpan();return span?clamp(scrollY/span):scrollY>0?1:0;};
   // A document whose end is in view counts as finished after a short dwell, so one-screen documents can finish without scrolling.
   const DWELL=3000;let openedAt=0,dwellTimer;
   const endVisible=()=>{
     if(book)return book.spreads<=1||Math.round(book.viewport.scrollLeft/book.stride)>=book.spreads-1;
-    const last=[...document.querySelectorAll('#article [data-source-start], #article [data-pdf-page]')].filter(el=>!el.closest('.document-embed,[data-reader-decoration]')).at(-1);
+    const last=lastBlock();
     return !!last&&last.getBoundingClientRect().bottom<=innerHeight+1;
   };
   const savedProgress=()=>endVisible()&&performance.now()-openedAt>=DWELL?1:clamp(progress());
@@ -103,7 +106,7 @@ export function installReading({scratchStatus, statusOverride, onStatus, mayCurl
     if(animate&&!matchMedia('(prefers-reduced-motion: reduce)').matches)gsap.to(viewport,{scrollLeft:target,duration:.48,ease:'power2.inOut',overwrite:true,onUpdate:update,onComplete:()=>{if(book?.viewport===viewport)book.animating=false;update();scheduleSave();}});
     else{gsap.killTweensOf(viewport);viewport.scrollLeft=target;book.animating=false;update();}
   }
-  function seek(fraction,animate=true){if(book)seekSpread(Math.round(clamp(fraction)*(book.spreads-1)),animate);else scrollToPosition(scrollSpan()*clamp(fraction),animate);}
+  function seek(fraction,animate=true){if(book)seekSpread(Math.round(clamp(fraction)*(book.spreads-1)),animate);else scrollToPosition(readingSpan()*clamp(fraction),animate);}
   function reveal(range,animate=true){
     if(!book)return false;const rect=[...range.getClientRects()][0];if(!rect)return true;
     const x=rect.left-book.viewport.getBoundingClientRect().left+book.viewport.scrollLeft;
@@ -206,7 +209,7 @@ export function installReading({scratchStatus, statusOverride, onStatus, mayCurl
       const rect=[...range.getClientRects()][0];if(!rect)continue;
       let fraction;
       if(book){const x=rect.left-book.viewport.getBoundingClientRect().left+book.viewport.scrollLeft;fraction=book.spreads>1?Math.floor((x+2)/book.stride)/(book.spreads-1):0;}
-      else fraction=scrollSpan()?clamp((rect.top+shownTop(state.smoother)-innerHeight*.36)/scrollSpan()):0;
+      else{const span=readingSpan();fraction=span?clamp((rect.top+shownTop(state.smoother)-innerHeight*.36)/span):0;}
       pips.push({id:thread.id,owner:thread.owner,quote:thread.anchor.quote.slice(0,180),kind:thread.kind,own:thread.owner===state.prefs.participant,fraction:clamp(fraction)});
     }
     controls.update({pips});update();

@@ -3465,7 +3465,9 @@ keeps an intermediate animation frame from replacing a restored bookmark.
 Navigation and hiding the browser page still save the currently visible place
 immediately. It restores a matching
 source edition before revealing the document. Text positions include a source
-block offset and relative position, with a normalized progress fallback. PDF
+block offset and relative position, with a normalized progress fallback. In
+continuous reading, progress runs from the top of the page to the end of the
+article's last block coming into view; the footer and Read next add nothing. PDF
 positions include an explicit page number. A saved spread index is reused when
 the current number of spreads matches. Layout changes use the source/page anchor
 where possible. A changed source SHA-256 starts at the beginning with a notice;

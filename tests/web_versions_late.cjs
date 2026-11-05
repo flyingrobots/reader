@@ -93,6 +93,18 @@ const DELAY=2000;
   {const {page,context}=await open({layout:'scroll'});
    await page.goto(url+'#read='+encodeURIComponent(essay+'tidal.md'));await ready(page);await page.locator('#article > .document-meta > .version-line').waitFor();
    assert.equal(await page.locator('.version-line').count(),1);await context.close();}
+  // Progress measures the article: the footer and what follows it are not reading still to do.
+  {const {page,context}=await open({layout:'scroll'});
+   await page.goto(url+'#read='+encodeURIComponent(essay+'tidal.md'));await ready(page);await page.locator('#article > .document-meta > .version-line').waitFor();
+   const value=async()=>{await page.waitForTimeout(150);return +await page.locator('#progress-slider').getAttribute('aria-valuenow');};
+   const end=()=>page.evaluate(()=>{const last=[...document.querySelectorAll('#article [data-source-start]')].filter(el=>!el.closest('[data-reader-decoration]')).at(-1);return {y:Math.round(last.getBoundingClientRect().bottom+scrollY-innerHeight),max:document.documentElement.scrollHeight-innerHeight,scrollY:Math.round(scrollY)};});
+   const start=await end();assert.ok(start.y>200&&start.max>start.y+20,'a long article with page after it: '+JSON.stringify(start));
+   await page.locator('#progress-slider').focus();await page.keyboard.press('End');await page.waitForTimeout(250);
+   const atEnd=await end();assert.ok(Math.abs(atEnd.scrollY-atEnd.y)<=2,'End stops where the article ends: '+JSON.stringify(atEnd));assert.equal(await value(),100);
+   await page.evaluate(y=>scrollTo(0,y),Math.round(atEnd.y/2));assert.ok(Math.abs(await value()-50)<=2,'halfway through the article reads as halfway');
+   await page.evaluate(y=>scrollTo(0,y),atEnd.y);assert.equal(await value(),100,'the article\'s end reads as 100%');
+   await page.evaluate(()=>scrollTo(0,document.documentElement.scrollHeight));assert.equal(await value(),100,'the footer stays at 100%');
+   await context.close();}
   assert.deepEqual(errors,[]);
   console.log(`Late versions passed: with /api/versions delayed ${DELAY} ms the article shows first, the chip and status twin follow, the restored paragraph stays put in scroll and two-page reading, and edition and historical deep links open what they name.`);
  }finally{await browser?.close();if(fixture.exitCode===null&&fixture.signalCode===null){fixture.kill('SIGTERM');await new Promise(resolve=>fixture.once('exit',resolve));}}
