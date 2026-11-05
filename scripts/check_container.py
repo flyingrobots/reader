@@ -84,9 +84,10 @@ def main():
                     continue
                 for path in ([ROOT/top] if (ROOT/top).is_file() else sorted((ROOT/top).rglob('*'))):
                     rel = path.relative_to(ROOT)
-                    # Published screenshots are not executable test input. Keep the
-                    # existing archive cap for source, fixtures and the Linux formatter.
-                    if rel.parts[:2] == ('docs', 'images'):
+                    # Published screenshots and review case files are not executable test
+                    # input. Keep the existing archive cap for source, fixtures and the
+                    # Linux formatter.
+                    if rel.parts[:2] in (('docs', 'images'), ('docs', 'cases')):
                         continue
                     if path.is_file() and not path.is_symlink() and not any(p in ('node_modules','dist','__pycache__') for p in rel.parts):
                         archive.add(path, arcname=str(rel), recursive=False)
