@@ -143,6 +143,8 @@ export function installReading({scratchStatus, statusOverride, onStatus, mayCurl
     }else{
       const line=innerHeight*.22;
       target=blocks.filter(el=>{const r=el.getBoundingClientRect();return r.top<=line&&r.bottom>line;}).sort((a,b)=>(+a.dataset.sourceEnd-a.dataset.sourceStart)-(+b.dataset.sourceEnd-b.dataset.sourceStart))[0];
+      // The line can fall in the margin between two blocks: keep the next one, not just a share of the page's height.
+      target??=blocks.find(el=>el.getBoundingClientRect().top>line);
       if(target){const r=target.getBoundingClientRect();fraction=clamp((line-r.top)/r.height);}
     }
     return {participant:state.prefs.participant,path:state.doc.path,source_sha256:state.doc.sha256,progress:savedProgress(),source_offset:target?.dataset.sourceStart!==undefined?+target.dataset.sourceStart:null,pdf_page:target?.dataset.pdfPage?+target.dataset.pdfPage:null,block_fraction:fraction,layout:book?'spread':'scroll',spread_count:book?.spreads || null};
