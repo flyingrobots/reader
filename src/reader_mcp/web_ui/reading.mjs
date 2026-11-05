@@ -15,14 +15,17 @@ export function installReading({scratchStatus, statusOverride, onStatus, mayCurl
   const hasBook=()=>!!book;
   const scrollSpan=()=>Math.max(0,document.documentElement.scrollHeight-innerHeight);
   // The article's last real content, tables and embeds included; the title decorations and pins are not reading.
-  const lastBlock=()=>[...document.querySelectorAll('#article > :not([data-reader-decoration],.annotation-pin)')].filter(el=>el.getClientRects().length).at(-1);
+  const lastBlock=()=>{let el=document.querySelector('#article')?.lastElementChild;while(el&&(el.matches('[data-reader-decoration],.annotation-pin')||!el.getClientRects().length))el=el.previousElementSibling;return el||undefined;};
   // Reading ends where the article does: the footer and what follows it are no part of the distance.
-  // An article that fits the first screen has no distance of its own, so the page's is used: the slider still moves, and only the dwell finishes it.
-  const readingSpan=()=>{const last=lastBlock(),page=scrollSpan();return last?Math.min(page,Math.max(0,last.getBoundingClientRect().bottom+shownTop(state.smoother)-innerHeight))||page:page;};
+  // An article that fits the first screen, or nearly, has no distance of its own, so the page's is used: the slider still moves, and only the dwell finishes it.
+  const NEAR_FIT=48;
+  const readingSpan=()=>{const last=lastBlock(),page=scrollSpan();if(!last)return page;const own=Math.min(page,last.getBoundingClientRect().bottom+shownTop(state.smoother)-innerHeight);return own>=NEAR_FIT?own:page;};
   const progress=()=>{if(book)return book.spreads>1?Math.round(book.viewport.scrollLeft/book.stride)/(book.spreads-1):0;const span=readingSpan();return span?clamp(scrollY/span):0;};
   // A document whose end is in view counts as finished after a short dwell, so one-screen documents can finish without scrolling.
   const DWELL=3000;let openedAt=0,dwellTimer;
   const endVisible=()=>{
+    // A download or preview is not read by waiting on it: only text and PDFs finish.
+    if(state.doc?.text==null&&!state.pdf)return false;
     if(book)return book.spreads<=1||Math.round(book.viewport.scrollLeft/book.stride)>=book.spreads-1;
     const last=lastBlock();
     return !!last&&last.getBoundingClientRect().bottom<=innerHeight+1;
@@ -148,17 +151,21 @@ export function installReading({scratchStatus, statusOverride, onStatus, mayCurl
     }else{
       const line=innerHeight*.22;
       target=blocks.filter(el=>{const r=el.getBoundingClientRect();return r.top<=line&&r.bottom>line;}).sort((a,b)=>(+a.dataset.sourceEnd-a.dataset.sourceStart)-(+b.dataset.sourceEnd-b.dataset.sourceStart))[0];
-      // The line can fall in the margin between two blocks: keep the next one, not just a share of the page's height.
-      // Not a margin: inside a table or embed, which has no source position, the next block may be screens away, so the share stands.
-      // Not yet: until a block other than the title has gone by, the reader is at the top and no place is kept.
       if(!target){
-        const covers=el=>{const r=el.getBoundingClientRect();return r.top<=line&&r.bottom>line;};
-        const inContent=[...document.querySelectorAll('#article > :not(.annotation-pin)')].some(covers);
-        if(!inContent&&blocks.some(el=>!el.matches('.document-title')&&el.getBoundingClientRect().bottom<=line))target=blocks.find(el=>el.getBoundingClientRect().top>line);
+        const children=[...document.querySelectorAll('#article > :not(.annotation-pin)')],box=el=>el.getBoundingClientRect();
+        const covering=children.find(el=>box(el).top<=line&&box(el).bottom>line);
+        // Inside a table or embed: keep it, and how far down it. Anything else with no position keeps its share.
+        if(covering)target=covering.matches('[data-place-start]')?covering:null;
+        // In the margin between two blocks: keep the next one, or its first positioned block. Until a block other
+        // than the title has gone by, the reader is at the top and no place is kept.
+        else if(children.some(el=>!el.matches('.document-title,[data-reader-decoration]')&&box(el).bottom<=line)){
+          const next=children.find(el=>box(el).top>line);
+          target=next?.matches('[data-source-start],[data-place-start]')?next:next?.querySelector('[data-source-start]')||null;
+        }
       }
       if(target){const r=target.getBoundingClientRect();fraction=clamp((line-r.top)/r.height);}
     }
-    return {participant:state.prefs.participant,path:state.doc.path,source_sha256:state.doc.sha256,progress:savedProgress(),source_offset:target?.dataset.sourceStart!==undefined?+target.dataset.sourceStart:null,pdf_page:target?.dataset.pdfPage?+target.dataset.pdfPage:null,block_fraction:fraction,layout:book?'spread':'scroll',spread_count:book?.spreads || null};
+    return {participant:state.prefs.participant,path:state.doc.path,source_sha256:state.doc.sha256,progress:savedProgress(),source_offset:(target?.dataset.sourceStart??target?.dataset.placeStart)!==undefined?+(target.dataset.sourceStart??target.dataset.placeStart):null,pdf_page:target?.dataset.pdfPage?+target.dataset.pdfPage:null,block_fraction:fraction,layout:book?'spread':'scroll',spread_count:book?.spreads || null};
   }
   function save(keepalive=false){
     if(!ready)return saveQueue;const snapshot=capture();if(!snapshot)return saveQueue;
@@ -193,8 +200,9 @@ export function installReading({scratchStatus, statusOverride, onStatus, mayCurl
     await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
     measureBook();const mark=doc.bookmark;
     if(mark?.source_sha256===doc.sha256){
-      const targets=mark.pdf_page?[...document.querySelectorAll('#article [data-pdf-page]')].filter(el=>+el.dataset.pdfPage===mark.pdf_page):mark.source_offset!==null?[...document.querySelectorAll('#article [data-source-start]')].filter(el=>+el.dataset.sourceStart===mark.source_offset):[];
-      const target=targets.sort((a,b)=>(+a.dataset.sourceEnd-a.dataset.sourceStart)-(+b.dataset.sourceEnd-b.dataset.sourceStart))[0];
+      const targets=mark.pdf_page?[...document.querySelectorAll('#article [data-pdf-page]')].filter(el=>+el.dataset.pdfPage===mark.pdf_page):mark.source_offset!==null?[...document.querySelectorAll('#article [data-source-start], #article [data-place-start]')].filter(el=>+(el.dataset.sourceStart??el.dataset.placeStart)===mark.source_offset&&!(el.dataset.placeStart!==undefined&&el.parentElement.closest('.document-embed'))):[];
+      const size=el=>el.dataset.sourceEnd===undefined?Infinity:+el.dataset.sourceEnd-el.dataset.sourceStart;
+      const target=targets.sort((a,b)=>size(a)-size(b))[0];
       if(book && mark.layout==='spread' && mark.spread_count===book.spreads)seek(mark.progress,false);
       else if(target){
         const range=document.createRange();range.selectNode(target);

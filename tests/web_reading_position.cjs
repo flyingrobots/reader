@@ -50,8 +50,44 @@ const TRAILING_TABLE=`# Probe\n\n${paragraphs(3)}\n\n${table}\n`;
    assert.ok(await page.evaluate(()=>Math.abs(document.querySelector('#article table').getBoundingClientRect().bottom-innerHeight)<=2),'End stops at the foot of the table');
    const y=await page.evaluate(()=>{const t=document.querySelector('#article table').getBoundingClientRect();return Math.round(t.top+scrollY+t.height/2-innerHeight*.22);});
    const mark=saved(page);await page.evaluate(y=>scrollTo(0,y),y);const inside=await mark;
-   assert.equal(inside.source_offset,null,'inside a table the next block is not this place');assert.ok(inside.progress<.97,'and it is not finished');
+   assert.equal(inside.source_offset,await page.evaluate(()=>+document.querySelector('#article table').dataset.placeStart),'inside a table the table is the place');assert.ok(inside.progress<.97,'and it is not finished');
    assert.ok(Math.abs(await reopen(page)-y)<=4,'reopening returns to the middle of the table');
+   await context.close();}
+
+  // A table or embed in the middle is a place: inside it you come back to it, and in the margin above it you do not skip it.
+  {const body=`# Probe\n\n${paragraphs(4)}\n\n${table}\n\n${paragraphs(40)}\n`;
+   const {page,context}=await open(essay+'tidal.md',{text:body,participant:'Mid table reader'});
+   const box=()=>page.evaluate(()=>{const t=document.querySelector('#article table').getBoundingClientRect();return {top:t.top+scrollY,height:t.height,line:innerHeight*.22,start:+document.querySelector('#article table').dataset.placeStart};});
+   const {top,height,line,start}=await box();
+   const y=Math.round(top+height/2-line);let mark=saved(page);await page.evaluate(y=>scrollTo(0,y),y);const inside=await mark;
+   assert.equal(inside.source_offset,start,'inside a table the table is the place');assert.ok(inside.block_fraction>.3&&inside.block_fraction<.7,'and how far down it');
+   assert.ok(Math.abs(await reopen(page)-y)<=4,'reopening returns to the middle of the table');
+   const margin=Math.round(top-line-8);mark=saved(page);await page.evaluate(y=>scrollTo(0,y),margin);assert.equal((await mark).source_offset,start,'the margin above a table names the table');
+   assert.ok(Math.abs(await reopen(page)-(top-line))<=4,'and reopening does not skip it');
+   await context.close();}
+  {const body=`# Probe\n\n${paragraphs(4)}\n\n![[tidal.v2.md]]\n\n![[tidal.v3.md]]\n\n${paragraphs(40)}\n`;
+   const {page,context}=await open(essay+'tidal.md',{text:body,participant:'Mid embed reader'});
+   await page.locator('#article > .document-embed').nth(1).locator('p').first().waitFor();await page.waitForTimeout(400);
+   const {y,start}=await page.evaluate(()=>{const e=document.querySelectorAll('#article > .document-embed')[1],r=e.getBoundingClientRect();return {y:Math.round(r.top+scrollY+r.height/2-innerHeight*.22),start:+e.dataset.placeStart};});
+   const mark=saved(page);await page.evaluate(y=>scrollTo(0,y),y);assert.equal((await mark).source_offset,start,'inside an embed the embed is the place');
+   await reopen(page);await page.locator('#article > .document-embed').nth(1).locator('p').first().waitFor();await page.waitForTimeout(600);
+   assert.ok(await page.evaluate(()=>{const e=document.querySelectorAll('#article > .document-embed')[1].getBoundingClientRect(),line=innerHeight*.22;return e.top<=line&&e.bottom>line;}),'reopening returns inside that embed');
+   await context.close();}
+
+  // An attachment is not finished by waiting on it.
+  {const context=await browser.newContext({viewport:{width:1300,height:800},reducedMotion:'reduce'});
+   await context.addInitScript(value=>{try{localStorage.setItem('reader.preferences.v1',value);}catch{}},JSON.stringify({smooth:false,theme:'user-reader-test',nextReads:false,participant:'Attachment reader'}));
+   await context.route('**/api/document?*',async route=>{const response=await route.fetch(),body=await response.json();await route.fulfill({response,json:{...body,text:null,kind:'.zip',preview_url:null}});});
+   const page=await context.newPage(),progress=[];page.on('request',r=>{if(r.url().includes('/api/bookmark')&&r.method()==='POST')progress.push(r.postDataJSON().progress);});
+   await page.goto(url+'#read='+encodeURIComponent(essay+'tidal.md'));await page.getByText('Download attachment').waitFor();await page.waitForTimeout(3600);
+   assert.ok(progress.every(p=>p<.97),'no finish after the dwell: '+progress);
+   await context.close();}
+
+  // Nearly fitting is still one screen: a small scroll does not finish it.
+  {const {page,context}=await open(essay+'tidal.md',{width:1300,height:500,text:`# Short\n\n${paragraphs(2)}\n`,participant:'Near fit reader'});
+   const over=await page.evaluate(()=>{const kids=[...document.querySelectorAll('#article > p')];return Math.round(kids.at(-1).getBoundingClientRect().bottom-innerHeight);});
+   await page.setViewportSize({width:1300,height:500+over-20});await page.waitForTimeout(250);
+   const mark=saved(page);await page.evaluate(()=>scrollTo(0,20));assert.ok((await mark).progress<.5,'twenty pixels into a nearly fitting article is not most of it');
    await context.close();}
 
   // One screen: only the dwell finishes it, and the slider still moves the page.

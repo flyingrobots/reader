@@ -79,7 +79,7 @@ const {chromium}=require(process.env.READER_PLAYWRIGHT || 'playwright-core');
   assert.ok(Math.abs(await page.locator('.book-viewport').evaluate(el=>el.scrollLeft)-pdfPosition)<3);
   await page.keyboard.press('/');await page.locator('#find-query').fill('precise observation');
   await page.waitForFunction(()=>document.querySelector('#find-count')?.textContent==='1 / 6');await page.keyboard.press('Enter');await page.waitForTimeout(500);
-  assert.equal(await page.locator('.document-meta').isVisible(),false,'a two-page PDF gives the title row\'s height to its pages');
+  assert.equal(await page.locator('#speak-article').isVisible(),true,'a two-page PDF keeps Read aloud in reach');
   await page.screenshot({path:'.reader/web-dev/two-pages-pdf.png'});
   await page.locator('#layout-swap').click();await page.waitForTimeout(900);
   assert.equal(await page.locator('body').evaluate(el=>el.classList.contains('two-page')),false);

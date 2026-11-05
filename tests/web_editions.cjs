@@ -64,6 +64,7 @@ const essay='library/essays/tidal/';
   {const {page,context}=await open({layout:'spread'});
    await page.goto(url+'#read='+encodeURIComponent(essay+'tidal.v2.md'));await page.waitForFunction(()=>document.body.classList.contains('two-page')&&!document.querySelector('.resume-pending'));
    const measure=()=>page.evaluate(()=>{const v=document.querySelector('.book-viewport').getBoundingClientRect(),l=document.querySelector('.version-line').getBoundingClientRect(),h=document.querySelector('#article h1').getBoundingClientRect();return {label:document.querySelector('#pagination-slot [aria-label^="Pages "]:last-of-type')?.textContent||document.querySelectorAll('#pagination-slot a').length,top:Math.round(l.top),head:Math.round(h.top),inside:l.left>=v.left-1&&l.right<=v.right+1};});
+   assert.equal(await page.locator('.document-source').isVisible(),false,'two-page reading hides Source, as documented');
    const first=await measure();await page.waitForTimeout(900);const later=await measure();
    assert.deepEqual(later,first,'no layout shift after the first measurement');assert.ok(first.inside&&first.top>first.head,'the line sits under the title on the first spread');
    await leader(page,'v');await page.locator('#versions-panel').waitFor();await page.keyboard.press('Escape');
