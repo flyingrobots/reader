@@ -45,6 +45,15 @@ Watson's, in this order. Details are in `WATSON.md`.
 
 **REQUIRES INVESTIGATION.** Sound after R1–R3. These commits are already on `main`, so the repairs go through a PR and are reviewed there.
 
+## Addendum: the repairs under attack
+
+Moriarty was recalled against PR #238 at `281574c9`, in `MORIARTY-RECALL.md`: resilience C+, should not merge yet. He found the margin above a table or embed still jumped past it (R1), share restore failed on lazily loaded embeds (R2), the guard could be deleted with every suite passing (R3), and attachments were marked finished by the dwell (R4). He also retracted S5, which had overstated the two-page PDF loss.
+
+- **Rulings:** R1 and R2 are closed together by giving tables and embeds their own position (`data-place-start`), rather than a further fallback. R3 is closed by reopen tests, each confirmed to fail when its fix is removed. R4 is closed by finishing only text and PDFs.
+- **Reversal:** D2, restoring two-page PDF height, is reverted. It followed S5 and hid Read aloud and the chip for 36px.
+- **Also closed:** R6 (comment), R9 (year on the note), R10 (test), R11 (near fit), R12 (frame cost).
+- **Left open:** R7, no fallback for browsers without container queries or `:has`; R8, a slow `/api/versions` loses the earlier-read note. The split view's own position lookup does not use the new markers.
+
 ## Chain of custody
 
 - **Landed before review:** the commits were pushed directly to `main` before this review. There was no PR to review. The findings were live on the user's server while it ran.
