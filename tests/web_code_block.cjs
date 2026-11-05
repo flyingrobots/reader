@@ -76,9 +76,9 @@ const {chromium}=require(process.env.READER_PLAYWRIGHT||'playwright-core');
    await toast(page,'Copied 6 lines of code.').waitFor();assert.equal(await page.evaluate(()=>navigator.clipboard.readText()),fences[0][1]);
    await page.waitForFunction(()=>document.querySelector('#article [data-code-copy]').getAttribute('aria-label')==='Copy code',null,{timeout:4000});
    // Theme switch recolors through CSS variables: same ranges, new ink.
-   const before=await page.evaluate(()=>{window.__keyword=CSS.highlights.get('reader-syntax-keyword');const probe=document.createElement('span');probe.style.color='var(--code-keyword)';document.body.append(probe);const color=getComputedStyle(probe).color;probe.remove();return color;});
+   const before=await page.evaluate(()=>{window.__keyword=CSS.highlights.get('reader-syntax-keyword');const probe=document.createElement('span');const color=getComputedStyle(document.querySelector('#article code'),'::highlight(reader-syntax-keyword)').color;return color;});
    await page.getByRole('switch',{name:'Dark mode',exact:true}).click();assert.equal(await page.locator('html').getAttribute('data-theme'),'user-reader-test-dark');
-   const after=await page.evaluate(()=>{const probe=document.createElement('span');probe.style.color='var(--code-keyword)';document.body.append(probe);const color=getComputedStyle(probe).color;probe.remove();return {color,same:CSS.highlights.get('reader-syntax-keyword')===window.__keyword&&window.__keyword.size>0};});
+   const after=await page.evaluate(()=>{const probe=document.createElement('span');const color=getComputedStyle(document.querySelector('#article code'),'::highlight(reader-syntax-keyword)').color;return {color,same:CSS.highlights.get('reader-syntax-keyword')===window.__keyword&&window.__keyword.size>0};});
    assert.notEqual(after.color,before,'keyword ink follows the theme');assert.ok(after.same,'no re-highlighting on theme change');
    await page.locator('.reader-code-block').first().scrollIntoViewIfNeeded();await page.screenshot({path:'.reader/web-dev/code-block-ink.png'});
    // Every theme: each syntax role and the header label are readable on the block's background.
@@ -92,7 +92,7 @@ const {chromium}=require(process.env.READER_PLAYWRIGHT||'playwright-core');
      for(const theme of THEMES){document.documentElement.dataset.theme=theme;await new Promise(r=>setTimeout(r,0));
        const bg=rgb(getComputedStyle(block).backgroundColor);
        const check=(what,color)=>{const r=ratio(rgb(color),bg);min=Math.min(min,r);if(r<4.5)failures.push(`${theme} ${what} ${r.toFixed(2)}`);};
-       for(const role of roles){probe.style.color=`var(--code-${role})`;check(role,getComputedStyle(probe).color);}
+       for(const role of roles){check(role,getComputedStyle(code,`::highlight(reader-syntax-${role})`).color);}
        check('code',getComputedStyle(code).color);check('title',getComputedStyle(title).color);check('gutter',getComputedStyle(gutter).color);}
      probe.remove();still.remove();return {themes:THEMES.length,failures,min};});
    assert.equal(report.themes,6+2*require('../src/reader_mcp/web_ui/famous-themes.json').themes.length);assert.deepEqual(report.failures,[]);
@@ -134,7 +134,7 @@ const {chromium}=require(process.env.READER_PLAYWRIGHT||'playwright-core');
      const box={x:r.left<v.left+half?v.left:v.left+half,y:v.top,w:half,h:v.height};
      // Probe colors without the page's color transitions.
      const probe=document.createElement('span');probe.style.transition='none';document.body.append(probe);const color=value=>{probe.style.color=value;return getComputedStyle(probe).color.match(/\d+/g).slice(0,3).map(Number);};
-     const bg=`rgb(${color('var(--background)').join(',')})`,keyword=color('var(--code-keyword)'),ink=color('var(--foreground)');probe.remove();
+     const bg=`rgb(${color('var(--background)').join(',')})`,keyword=color(getComputedStyle(document.querySelector('#article code'),'::highlight(reader-syntax-keyword)').color),ink=color('var(--foreground)');probe.remove();
      const canvas=m.rasterize(article,box,0,bg,1),data=canvas.getContext('2d').getImageData(Math.round(r.left-box.x),Math.round(r.top-box.y),Math.round(r.width),Math.round(r.height)).data;
      let near=0;for(let i=0;i<data.length;i+=4)if(Math.abs(data[i]-keyword[0])+Math.abs(data[i+1]-keyword[1])+Math.abs(data[i+2]-keyword[2])<40&&Math.abs(data[i]-ink[0])+Math.abs(data[i+1]-ink[1])+Math.abs(data[i+2]-ink[2])>40)near++;
      return {near,png:canvas.toDataURL('image/png')};});

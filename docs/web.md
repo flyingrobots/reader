@@ -386,15 +386,14 @@ in `web_ui/theme-tokens.json`, which both the server validator and the editor re
 
 | Group | Tokens |
 | --- | --- |
-| Surfaces | `--bg`, `--surface`, `--raised`, `--line` |
-| Text | `--ink`, `--muted`, `--faint` |
-| Accent | `--accent`, `--accent-ink`, `--rust` (secondary emphasis) |
-| Signals | `--warning` |
-| Annotations (translucent) | `--selection`, `--own`, `--other` |
-| Charts | `--chart-1` … `--chart-8`, `--chart-stroke` |
-| Fonts | `--serif` (reading), `--sans` (interface), `--mono` (code) |
+| Surfaces | `--background`, `--card`, `--secondary`, `--border` |
+| Text | `--foreground`, `--muted-foreground` |
+| Accent | `--primary`, `--primary-foreground` |
+| Signals | `--destructive` |
+| Charts | `--chart-1` … `--chart-8` |
+| Fonts | `--font-serif` (reading), `--font-sans` (interface), `--font-mono` (code) |
 
-`--shadow` and the footer's `--mode-*` colors are derived from these, not edited.
+Highlights, code colors, callouts and the footer's mode labels mix from the chart colors, so they follow a theme's palette and aren't edited on their own. A theme saved with the retired `faint`, `rust`, `selection`, `own`, `other` or `chart-stroke` values still loads, and those values are dropped.
 Tailwind semantic colors (`--color-primary` and so on) map onto the same tokens.
 A dark variant is any `data-theme` that is `ink` or ends in `-dark`.
 

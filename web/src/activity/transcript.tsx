@@ -35,13 +35,13 @@ const plural=(n:number,word:string)=>`${n.toLocaleString()} ${word}${n===1?'':'s
 
 function Output({output,omittedBytes,failed,logHint}:{output:Lines;omittedBytes:number;failed:boolean;logHint:string|null}){
   const [all,setAll]=useState(false);
-  if(!output.full)return <span className="text-xs text-[var(--activity-secondary)]" data-activity-quiet="">No output.</span>;
+  if(!output.full)return <span className="text-xs text-[var(--muted-foreground)]" data-activity-quiet="">No output.</span>;
   return <div className="activity-output">
     <CodeBlock size="sm" variant={failed?'destructive':'default'} data-activity-terminal="">
       <CodeBlockContent wrap className="max-h-64">{all?output.full:output.lines.join('\n')}</CodeBlockContent>
     </CodeBlock>
     {output.omitted&&!all?<Button variant="ghost" size="xs" data-activity-full="" onClick={()=>setAll(true)}>Show all {plural(output.omitted+output.lines.length,'line')}</Button>:null}
-    {omittedBytes?<span className="text-xs text-[var(--activity-secondary)]" data-activity-quiet="">The server kept the first and last 64 KiB of {tokens(omittedBytes)} characters{logHint?`; the full log stays in ${logHint}`:''}.</span>:null}
+    {omittedBytes?<span className="text-xs text-[var(--muted-foreground)]" data-activity-quiet="">The server kept the first and last 64 KiB of {tokens(omittedBytes)} characters{logHint?`; the full log stays in ${logHint}`:''}.</span>:null}
   </div>;
 }
 
@@ -80,7 +80,7 @@ function TestResults({tests}:{tests:NonNullable<Extract<Item,{kind:'tool'}>['tes
         </TraceLine>
       </TraceCollapsibleTrigger>
       <TraceCollapsibleContent>
-        <Trace>{tests.failures.length?tests.failures.map(f=><TraceLine key={f.name} status="error"><TraceIcon><XIcon/></TraceIcon><TraceTitle title={f.detail||f.name}>{f.name}{f.detail?<span className="text-xs text-[var(--activity-secondary)]"> — {f.detail}</span>:null}</TraceTitle></TraceLine>)
+        <Trace>{tests.failures.length?tests.failures.map(f=><TraceLine key={f.name} status="error"><TraceIcon><XIcon/></TraceIcon><TraceTitle title={f.detail||f.name}>{f.name}{f.detail?<span className="text-xs text-[var(--muted-foreground)]"> — {f.detail}</span>:null}</TraceTitle></TraceLine>)
           :<TraceLine><TraceIcon><CircleCheckIcon/></TraceIcon><TraceTitle>{tests.failed?'Failures are listed in the output below.':'Every test passed.'}</TraceTitle></TraceLine>}</Trace>
       </TraceCollapsibleContent>
     </TraceCollapsible>
@@ -152,7 +152,7 @@ function Citation({path,onOpen}:{path:string;onOpen:(path:string)=>void}){
     <HoverCardTrigger delay={150} closeDelay={100} render={<Button variant="outline" size="xs" className="activity-cite" data-cite={path} onClick={()=>onOpen(path)}/>}><FileIcon/>{name}</HoverCardTrigger>
     <HoverCardContent className="flex w-72 flex-col gap-2" data-reader-decoration="">
       <div className="font-medium break-all">{name}</div>
-      <div className="break-all text-xs text-[var(--activity-secondary)]">{path}</div>
+      <div className="break-all text-xs text-[var(--muted-foreground)]">{path}</div>
       <Button size="xs" variant="outline" className="self-start" onClick={()=>onOpen(path)}>Open in the reader</Button>
     </HoverCardContent>
   </HoverCard>;
@@ -186,7 +186,7 @@ function StackTrace({message,detail}:{message:string;detail?:string|null}){
     <TraceCollapsibleTrigger><TraceLine status="error"><TraceIcon><CircleXIcon/></TraceIcon><TraceTitle>Failed: {message}</TraceTitle></TraceLine></TraceCollapsibleTrigger>
     <TraceCollapsibleContent>
       <div className="activity-stack" data-activity-stack="">
-        <span className="block font-mono text-xs text-[var(--activity-error)] [overflow-wrap:anywhere]" data-activity-stack-error="">{message}</span>
+        <span className="block font-mono text-xs text-[var(--destructive)] [overflow-wrap:anywhere]" data-activity-stack-error="">{message}</span>
         {detail?<ol>{[first,...rest].slice(-40).map((frame,index)=><li key={index}>{frame}</li>)}</ol>:null}
       </div>
     </TraceCollapsibleContent>
@@ -213,7 +213,7 @@ function Row({item,live,html,onOpen,onReport,labels}:{item:Item;live:boolean;htm
         <TraceCollapsibleTrigger><TraceLine status={running?'running':failed?'error':undefined}><TraceIcon><WrenchIcon/></TraceIcon><TraceTitle>{running?'Calling':failed?'Failed to call':'Called'} <code>{item.server}.{item.tool}</code></TraceTitle></TraceLine></TraceCollapsibleTrigger>
         <TraceCollapsibleContent><div className="activity-tool">
           {item.args?<><span className="text-[10px] font-semibold tracking-wide text-muted-foreground uppercase" data-activity-label="">Arguments</span><CodeBlock size="sm"><CodeBlockContent wrap className="max-h-48">{item.args}</CodeBlockContent></CodeBlock></>:null}
-          {item.error?<span className="block font-mono text-xs text-[var(--activity-error)] [overflow-wrap:anywhere]" data-activity-stack-error="">{item.error}</span>:item.result?<><span className="text-[10px] font-semibold tracking-wide text-muted-foreground uppercase" data-activity-label="">Result</span><CodeBlock size="sm"><CodeBlockContent wrap className="max-h-48">{item.result.length>20000?item.result.slice(0,20000)+'\n…':item.result}</CodeBlockContent></CodeBlock></>:null}
+          {item.error?<span className="block font-mono text-xs text-[var(--destructive)] [overflow-wrap:anywhere]" data-activity-stack-error="">{item.error}</span>:item.result?<><span className="text-[10px] font-semibold tracking-wide text-muted-foreground uppercase" data-activity-label="">Result</span><CodeBlock size="sm"><CodeBlockContent wrap className="max-h-48">{item.result.length>20000?item.result.slice(0,20000)+'\n…':item.result}</CodeBlockContent></CodeBlock></>:null}
         </div></TraceCollapsibleContent>
       </TraceCollapsible></Trace>;
     }
@@ -255,9 +255,9 @@ function Context({usage,elapsed,tool}:{usage:Usage|null;elapsed:number|null;tool
     </HoverCardTrigger>
     <HoverCardContent className="flex w-64 flex-col gap-3" data-reader-decoration="">
       <div className="flex items-center justify-between gap-3 text-sm"><span className="font-medium">Context</span>{elapsed!==null?<span className="text-muted-foreground">{clock(elapsed)}</span>:null}</div>
-      {usage?<><Progress value={cached} aria-label="Share of input served from cache"/><span className="text-xs text-[var(--activity-secondary)]">{cached}% of input tokens came from the cache over {plural(usage.turns,'turn')}.</span>
+      {usage?<><Progress value={cached} aria-label="Share of input served from cache"/><span className="text-xs text-[var(--muted-foreground)]">{cached}% of input tokens came from the cache over {plural(usage.turns,'turn')}.</span>
         <div className="flex flex-col gap-1 text-sm tabular-nums">{rows.map(([label,value])=><div key={label} className="flex justify-between gap-3"><span className="text-muted-foreground">{label}</span><span>{value.toLocaleString()}</span></div>)}</div></>
-        :<span className="text-xs text-[var(--activity-secondary)]">{tool} has not reported token usage yet.</span>}
+        :<span className="text-xs text-[var(--muted-foreground)]">{tool} has not reported token usage yet.</span>}
     </HoverCardContent>
   </HoverCard>;
 }
@@ -314,7 +314,7 @@ export function ActivityTranscript({activity,run,live,html,onOpen,onReport,label
     <div className="activity-meta"><Steps activity={activity} finished={finished} status={run.status}/><Queue run={run} activity={activity}/></div>
     <div ref={log} className="activity-log" role="log" aria-live="polite" aria-relevant="additions" aria-label={`${labels.log}. j and k move between items; Enter opens one.`} tabIndex={0}
       onKeyDown={move} onScroll={()=>{const el=log.current!;const atEnd=el.scrollHeight-el.scrollTop-el.clientHeight<48;if(atEnd!==follow)setFollow(atEnd);}}>
-      {empty?<span className="text-xs text-[var(--activity-secondary)]" data-activity-empty="">{live?labels.waiting:'No activity was recorded for this run.'}</span>:null}
+      {empty?<span className="text-xs text-[var(--muted-foreground)]" data-activity-empty="">{live?labels.waiting:'No activity was recorded for this run.'}</span>:null}
       {activity.items.map(item=><div key={item.kind+item.id} className="activity-item" data-activity-item={item.kind} data-item-id={item.id} tabIndex={-1}><Row item={item} live={live} html={html} onOpen={onOpen} onReport={onReport} labels={labels}/></div>)}
       {failed?<div className="activity-item" data-activity-item="error" tabIndex={-1}><Trace><StackTrace message={run.message||'The run failed.'} detail={run.stderr}/></Trace></div>:null}
       {commit?<div className="activity-item" data-activity-item="checkpoint" tabIndex={-1}><Checkpoint hash={commit.hash} subject={commit.subject} onReport={onReport}/></div>:null}

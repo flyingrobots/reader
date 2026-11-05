@@ -113,7 +113,7 @@ export function rasterize(article:HTMLElement,page:Box,dx:number,background:stri
     for(const range of set){const node=(range as Range).startContainer;if(node!==(range as Range).endContainer||!article.contains(node))continue;
       let list=proseInk.get(node);if(!list)proseInk.set(node,list=[]);list.push([(range as Range).startOffset,(range as Range).endOffset,ink]);}}
   // Code Block syntax colors (code-blocks.ts): one range per token inside one line's text node.
-  if(highlights)for(const role of CODE_ROLES){const set=highlights.get('reader-syntax-'+role),ink=token('--code-'+role);if(!set||!ink)continue;
+  if(highlights)for(const role of CODE_ROLES){const set=highlights.get('reader-syntax-'+role);if(!set)continue;const ink=getComputedStyle(article,`::highlight(reader-syntax-${role})`).color;if(!ink)continue;
     for(const range of set){const node=(range as Range).startContainer;if(node!==(range as Range).endContainer||!article.contains(node))continue;
       let list=proseInk.get(node);if(!list)proseInk.set(node,list=[]);list.push([(range as Range).startOffset,(range as Range).endOffset,ink]);}}
   // 3. Text, word by word at the browser's own rectangles.

@@ -16,6 +16,8 @@ const BOOK_SINGLE=900;
 const PANELS='#thread-panel,#versions-panel,#list-panel,#queue-panel,#chat-panel,#changes-panel';
 let width=0;
 /** The width the dock takes from the right of the window: 0 when nothing is docked. */
+/** What an open panel reserves beside the page. */
+const PANEL_WIDTHS=[['#changes-panel',520],['.chat-panel',440],['.queue-panel',420],['.thread-panel',410]];
 export function dockWidth(){return width;}
 /** The window width left to the page. */
 export function pageWidth(){return innerWidth-width;}
@@ -27,7 +29,7 @@ export function installDock({before,after}={}){
   const root=document.documentElement;
   function refresh(){
     const shown=[...document.querySelectorAll(PANELS)].filter(open);
-    let next=shown.length?Math.max(...shown.map(el=>parseFloat(getComputedStyle(el).getPropertyValue('--panel-width'))||0)):0;
+    let next=shown.length?Math.max(...shown.map(el=>PANEL_WIDTHS.find(([selector])=>el.matches(selector))?.[1]||0)):0;
     const explorer=document.getElementById('picker'),left=explorer&&!explorer.hidden?explorer.getBoundingClientRect().width:0;
     if(innerWidth-next-left<DOCK_ROOM)next=0;
     const narrow=(next>0||left>0)&&innerWidth-next-left<=BOOK_SINGLE;

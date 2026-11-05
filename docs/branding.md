@@ -6,9 +6,9 @@ The homepage keeps the full **Reader.** wordmark. The [circular r. mark](../src/
 
 The SVG has a 256 × 256 viewBox, a borderless circular background, an outlined serif r and a separate circular dot. The dot is 48 units across against a 132-unit letter height, with a 10-unit gap and aligned to the letter’s baseline. The r is the bundled Newsreader glyph at weight 600 converted to an SVG path. It contains no `<text>`, embedded font, script or external resource.
 
-- Background: `--surface` in the standalone asset, `--raised` in the footer so the circle remains distinct from the footer surface.
-- Letter: `--ink`.
-- Dot: `--accent`.
+- Background: `--card` in the standalone asset, `--secondary` in the footer so the circle remains distinct from the footer surface.
+- Letter: `--foreground`.
+- Dot: `--primary`.
 
 Inline SVG inherits Reader’s theme tokens. An SVG loaded through an external `<img>` or favicon does not inherit the containing page’s custom properties; its fallbacks use Reader’s One Dark roles. A theme-specific external icon needs its colors resolved into the exported asset. Raster app icons should be generated from the vector after adoption; do not convert the existing homepage wordmark into this symbol.
 

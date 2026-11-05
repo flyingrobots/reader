@@ -28,7 +28,7 @@ export type MarkdownEditor={view:EditorView;text():string;setText(text:string):v
 const highlight=HighlightStyle.define([
   {tag:t.heading,color:'var(--primary)',fontWeight:'600'},
   {tag:t.strong,fontWeight:'700'},{tag:t.emphasis,fontStyle:'italic'},{tag:t.strikethrough,textDecoration:'line-through'},
-  {tag:[t.link,t.url],color:'var(--own)'},{tag:t.monospace,color:'var(--foreground)'},
+  {tag:[t.link,t.url],color:'color-mix(in oklab,var(--chart-2) 35%,transparent)'},{tag:t.monospace,color:'var(--foreground)'},
   {tag:t.quote,color:'var(--muted-foreground)',fontStyle:'italic'},{tag:t.list,color:'var(--primary)'},
   {tag:[t.processingInstruction,t.meta,t.contentSeparator,t.labelName],color:'var(--muted-foreground)'},
 ]);
@@ -41,7 +41,7 @@ const theme=EditorView.theme({
   '&:not(.cm-focused) .cm-fat-cursor':{background:'none',outline:'solid 1px var(--primary)',color:'transparent'},
   '&.cm-focused .cm-selectionBackground, .cm-selectionBackground, ::selection':{backgroundColor:'color-mix(in srgb, var(--primary) 28%, transparent)'},
   '.cm-activeLine':{backgroundColor:'color-mix(in srgb, var(--foreground) 4%, transparent)'},
-  '.cm-placeholder':{color:'var(--faint)'},
+  '.cm-placeholder':{color:'var(--muted-foreground)'},
   '.cm-panels':{backgroundColor:'var(--secondary)',color:'var(--foreground)',borderTop:'1px solid var(--border)'},
   '.cm-vim-panel input':{color:'var(--foreground)',fontFamily:'var(--font-mono)'},
   '&.cm-focused':{outline:'none'},

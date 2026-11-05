@@ -17,12 +17,11 @@ export function headingProperties(headings:Theme['headings']):Record<string,stri
   return out;
 }
 export function variantProperties(tokens:Tokens,fonts:Theme['fonts'],variant:Variant,headings?:Theme['headings']):Record<string,string>{
-  const shadow=variant==='dark'?'#00000080':withAlpha(tokens.ink.slice(0,7),.14);
   return {...Object.fromEntries(COLOR_TOKENS.map(t=>[cssVar(t.name),tokens[t.name]])),
     ...Object.fromEntries(Object.entries(proseColors(tokens)).map(([name,value])=>['--'+name,value])),
     ...Object.fromEntries(FONT_ROLES.map(f=>[cssVar(f.name),fontStack(f.name,fonts[f.name])])),
     ...headingProperties(headings),
-    '--shadow':`0 32px 120px ${shadow}`,'color-scheme':variant};
+    'color-scheme':variant};
 }
 
 /** Palette-only built-ins keep prose and modal signals inside their supplied swatches.
@@ -42,8 +41,7 @@ export function paletteOnlyProperties(tokens:Tokens):Record<string,string>{
     '--prose-subtle-function':shade(readable.length-1),'--prose-subtle-proper':shade(1),
     '--prose-subtle-number':shade(2),'--prose-subtle-quote':shade(3),
     '--prose-wash':tokens.surface,'--prose-underline':shade(1)};
-  return {...prose,...Object.fromEntries(['browse','search','insert','leader','settings','help','thread'].map(mode=>['--mode-'+mode,tokens.accent])),
-    '--shadow':'none'};
+  return prose;
 }
 
 /** Stylesheet for built-in and custom themes, using validated tokens and font names. */
@@ -51,8 +49,8 @@ export function themeStylesheet(themes:Theme[],idOf:(theme:Theme,variant:Variant
   return themes.flatMap(theme=>(['light','dark'] as Variant[]).map(variant=>{
     const id=idOf(theme,variant),props={...variantProperties(theme[variant],theme.fonts,variant,theme.headings),...(theme.paletteOnly?paletteOnlyProperties(theme[variant]):{})};
     return `:root[data-theme="${id}"]{${Object.entries(props).map(([k,v])=>`${k}:${v}`).join(';')}}\n`+
-      `:root[data-theme="${id}"] .chart-mount path[role=button],:root[data-theme="${id}"] .chart-bar-row rect:not([fill=transparent]),:root[data-theme="${id}"] .chart-mount>svg>rect{stroke:var(--chart-stroke);stroke-width:1}\n`+
-      `:root[data-theme="${id}"] [data-chart-swatch]{outline:1px solid var(--chart-stroke)}\n`;
+      `:root[data-theme="${id}"] .chart-mount path[role=button],:root[data-theme="${id}"] .chart-bar-row rect:not([fill=transparent]),:root[data-theme="${id}"] .chart-mount>svg>rect{stroke:var(--card);stroke-width:1}\n`+
+      `:root[data-theme="${id}"] [data-chart-swatch]{outline:1px solid var(--card)}\n`;
   })).join('');
 }
 export function fontLinks(themes:Theme[],installed:InstalledFont[]){
@@ -78,7 +76,6 @@ export function readBuiltIn(dataTheme:string):{tokens:Tokens;fonts:Theme['fonts'
     const style=getComputedStyle(root),tokens:Tokens={};
     for(const t of COLOR_TOKENS){
       const raw=style.getPropertyValue(cssVar(t.name)).trim();
-      if(!raw&&t.name==='chart-stroke'){tokens[t.name]=tokens.surface;continue;}
       probe.style.color=`var(${cssVar(t.name)})`;tokens[t.name]=hex(getComputedStyle(probe).color);
     }
     const family=(name:string)=>{const first=style.getPropertyValue(cssVar(name)).split(',')[0].trim().replace(/^['"]|['"]$/g,'');const role=FONT_ROLES.find(f=>f.name===name)!;return first&&first!==role.default&&!role.fallback.startsWith(first)?first:null;};

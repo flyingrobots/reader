@@ -21,7 +21,7 @@ export const BUNDLED_FONTS:string[]=contract.bundled_fonts;
 export type HeadingInfo={level:string;label:string;size:number;description:string};
 export const HEADINGS:HeadingInfo[]=contract.headings;
 export const HEADING_SIZES=contract.heading_size_range as [number,number];
-export const CHARTS=COLOR_TOKENS.filter(t=>t.group==='Charts'&&t.name!=='chart-stroke').map(t=>t.name);
+export const CHARTS=COLOR_TOKENS.filter(t=>t.group==='Charts').map(t=>t.name);
 export type ProseInfo={name:string;label:string;hue:number|'accent';description:string};
 export const PROSE_TOKENS:ProseInfo[]=contract.prose as ProseInfo[];
 
@@ -83,10 +83,6 @@ export function suggestAccents(tokens:Tokens,variant:Variant,count=6):string[]{
 
 export type Severity='pass'|'warn'|'fail';
 export type Check={id:string;group:string;label:string;detail:string;severity:Severity;value:string;fix?:{token:string;value:string}};
-const MODES:[string,number,number,number,number,number,number][]=[
-  ['browse',40,.09,195,80,.10,195],['search',40,.13,260,80,.11,260],['insert',40,.11,55,82,.12,65],['leader',40,.13,305,80,.12,305],['settings',37,.035,240,77,.035,240],['help',40,.12,345,80,.12,345],['thread',38,.10,145,78,.12,145]];
-/** The footer's mode colors, mixed from fixed hues and the accent exactly as style.css does. */
-export function modeColors(tokens:Tokens,variant:Variant){return MODES.map(([name,l1,c1,h1,l2,c2,h2])=>({name,value:mix(hex(variant==='dark'?{mode:'oklch',l:l2/100,c:c2,h:h2}:{mode:'oklch',l:l1/100,c:c1,h:h1}),tokens.accent,.85)}));}
 
 function ratioCheck(id:string,group:string,label:string,fg:string,bg:string,min:number,target:number,token:string|null,backdropToken?:string):Check{
   const ratio=contrast(fg,bg),severity:Severity=ratio>=target?'pass':ratio>=min?'warn':'fail';
@@ -101,7 +97,6 @@ export function checkVariant(tokens:Tokens,variant:Variant):Check[]{
   checks.push(ratioCheck('ink-surface',text,'Text on surfaces',t.ink,t.surface,4.5,7,'ink','surface'));
   checks.push(ratioCheck('ink-raised',text,'Text on raised fills',t.ink,t.raised,4.5,4.5,'ink','raised'));
   for(const bg of ['bg','surface','raised'])checks.push(ratioCheck('muted-'+bg,text,`Muted text on ${({bg:'page',surface:'surfaces',raised:'raised fills'} as Record<string,string>)[bg]}`,t.muted,t[bg],4.5,4.5,'muted',bg));
-  for(const bg of ['bg','surface'])checks.push(ratioCheck('faint-'+bg,text,`Faint text on ${bg==='bg'?'page':'surfaces'}`,t.faint,t[bg],4.5,4.5,'faint',bg));
   checks.push(ratioCheck('accent-ink',text,'Text on accent',t['accent-ink'],t.accent,4.5,4.5,'accent-ink','accent'));
   for(const bg of ['bg','surface'])checks.push(ratioCheck('accent-'+bg,text,`Links on ${bg==='bg'?'page':'surfaces'}`,t.accent,t[bg],4.5,4.5,'accent',bg));
   // In dark variants controls tint their fill with --border (bg-input-fill): 30% at rest, 50% on hover.
@@ -109,21 +104,18 @@ export function checkVariant(tokens:Tokens,variant:Variant):Check[]{
     checks.push(ratioCheck('ink-control',text,'Text on filled controls',t.ink,over(withAlpha(t.line,.5),t.raised),4.5,4.5,'ink'));
     checks.push(ratioCheck('muted-control',text,'Muted text on filled controls',t.muted,over(withAlpha(t.line,.5),t.raised),4.5,4.5,'muted'));
   }
-  checks.push(ratioCheck('rust-bg',text,'Secondary emphasis on page',t.rust,t.bg,4.5,4.5,'rust','bg'));
   for(const bg of ['bg','surface'])checks.push(ratioCheck('warning-'+bg,text,`Warning on ${bg==='bg'?'page':'surfaces'}`,t.warning,t[bg],4.5,4.5,'warning',bg));
-  for(const token of ['selection','own','other'])checks.push(ratioCheck('ink-'+token,text,`Text over ${COLOR_TOKENS.find(x=>x.name===token)!.label.toLowerCase()}`,t.ink,over(t[token],t.bg),4.5,4.5,null));
-  for(const mode of modeColors(t,variant)){const c=ratioCheck('mode-'+mode.name,'Mode labels',`${mode.name.toUpperCase()} label`,t['accent-ink'],mode.value,4.5,4.5,'accent-ink');if(c.severity!=='pass')checks.push(c);}
   const ui='Interface boundaries';
   const lineRatio=contrast(t.line,t.bg);checks.push({id:'line',group:ui,label:'Rules visible on page',detail:`${lineRatio.toFixed(2)}:1; decorative rules read at about 1.2:1 or more`,severity:lineRatio>=1.2?'pass':'warn',value:lineRatio.toFixed(2)});
   checks.push(ratioCheck('accent-ui',ui,'Focus ring and controls on page (non-text 3:1)',t.accent,t.bg,3,3,'accent','bg'));
   const layers=distance(t.surface,t.bg),raised=distance(t.raised,t.surface);
   checks.push({id:'layers',group:ui,label:'Surface layers distinguishable',detail:`ΔE_OK page→surface ${layers.toFixed(3)}, surface→raised ${raised.toFixed(3)}; aim ≥ 0.012`,severity:layers>=.012&&raised>=.012?'pass':'warn',value:layers.toFixed(3)});
-  const L=(k:string)=>lightness(t[k]);const ordered=variant==='light'?L('ink')<L('muted')&&L('muted')<=L('faint')+.001:L('ink')>L('muted')&&L('muted')>=L('faint')-.001;
-  checks.push({id:'hierarchy',group:ui,label:'Text hierarchy by lightness',detail:'Text → muted → faint should step steadily away from the text color.',severity:ordered?'pass':'warn',value:''});
+  const L=(k:string)=>lightness(t[k]);const ordered=variant==='light'?L('ink')<L('muted'):L('ink')>L('muted');
+  checks.push({id:'hierarchy',group:ui,label:'Text hierarchy by lightness',detail:'Muted text should step away from the text color.',severity:ordered?'pass':'warn',value:''});
   const polarity=variant==='light'?L('bg')>=.6:L('bg')<=.4;
   checks.push({id:'polarity',group:ui,label:variant==='light'?'Light variant has a light page':'Dark variant has a dark page',detail:`Page lightness ${(L('bg')*100).toFixed(0)}% (OKLCH)`,severity:polarity?'pass':'fail',value:''});
   const charts='Charts';
-  for(const name of CHARTS){const page=contrast(t[name],t.bg),stroke=contrast(t[name],over(t['chart-stroke'],t.bg)),best=Math.max(page,stroke);
+  for(const name of CHARTS){const page=contrast(t[name],t.bg),stroke=contrast(t[name],t.surface),best=Math.max(page,stroke);
     checks.push({id:name,group:charts,label:`${COLOR_TOKENS.find(x=>x.name===name)!.label} separable`,detail:`${page.toFixed(2)}:1 on page, ${stroke.toFixed(2)}:1 against border; needs 3:1 against one`,severity:best>=3?'pass':'warn',value:best.toFixed(2),...(best<3?{fix:{token:name,value:nearestPassing(t[name],t.bg,3)??t[name]}}:{})});}
   const prose=proseColors(t),pg='Prose colors (derived)',label=(role:string)=>role==='punct'?'Punctuation':role==='content'?'Content words':PROSE_TOKENS.find(r=>r.name==='prose-'+role)!.label;
   for(const intensity of ['subtle','clear','vivid'] as const){const name=intensity[0].toUpperCase()+intensity.slice(1);
@@ -142,8 +134,6 @@ export function checkVariant(tokens:Tokens,variant:Variant):Check[]{
     for(let i=0;i<CHARTS.length;i++)for(let j=i+1;j<CHARTS.length;j++){const d=distance(sim(t[CHARTS[i]]),sim(t[CHARTS[j]]));if(d<worst.d)worst={d,a:CHARTS[i],b:CHARTS[j]};}
     const label=kind==='none'?'Typical vision':kind[0].toUpperCase()+kind.slice(1);
     checks.push({id:'cvd-chart-'+kind,group:cvd,label:`Chart colors · ${label}`,detail:`Closest pair ${worst.a} / ${worst.b}: ΔE_OK ${worst.d.toFixed(3)}; aim ≥ 0.06 (legends still name every series)`,severity:worst.d>=.06?'pass':'warn',value:worst.d.toFixed(3)});
-    const hl=distance(sim(over(t.own,t.bg)),sim(over(t.other,t.bg)));
-    checks.push({id:'cvd-highlights-'+kind,group:cvd,label:`Your vs others' highlights · ${label}`,detail:`ΔE_OK ${hl.toFixed(3)}; aim ≥ 0.04`,severity:hl>=.04?'pass':'warn',value:hl.toFixed(3)});
     const warn=distance(sim(t.warning),sim(t.accent));
     checks.push({id:'cvd-warning-'+kind,group:cvd,label:`Warning vs accent · ${label}`,detail:`ΔE_OK ${warn.toFixed(3)}; aim ≥ 0.08`,severity:warn>=.08?'pass':'warn',value:warn.toFixed(3)});
   }
@@ -185,7 +175,7 @@ function vivid(value:string,bg:string,floor:number):string|null{
     Derived, never stored, so built-in, famous and custom themes all have them. */
 export function proseColors(tokens:Tokens):Tokens{
   const bg=tokens.bg,ink=tokens.ink,muted=tokens.muted||mix(ink,bg,.6);
-  const pool=['rust',...CHARTS].filter(name=>tokens[name]).map(name=>({name,value:hex(tokens[name],false),c:oklch(toColor(tokens[name]))!}));
+  const pool=[...CHARTS].filter(name=>tokens[name]).map(name=>({name,value:hex(tokens[name],false),c:oklch(toColor(tokens[name]))!}));
   const colorful=pool.filter(p=>p.c.c>=.035);
   const chroma=Math.max(.12,Math.min(.18,colorful.length?colorful.map(p=>p.c.c).sort((a,b)=>a-b)[Math.floor(colorful.length/2)]:.14));
   const dark=lightness(bg)<.5,light=dark?.78:.52;
@@ -242,8 +232,8 @@ export function prosePaint(p:Tokens,intensity:'subtle'|'clear'|'vivid'):Record<s
 
 type Role={l:number;c:number;h?:number;alpha?:number};
 const TEMPLATE:Record<Variant,Record<string,Role>>={
-  light:{bg:{l:.965,c:.012},surface:{l:.985,c:.008},raised:{l:.93,c:.014},line:{l:.87,c:.016},ink:{l:.27,c:.03},muted:{l:.46,c:.03},faint:{l:.53,c:.025},accent:{l:.45,c:.12},rust:{l:.47,c:.12,h:50},warning:{l:.5,c:.17,h:27},selection:{l:.8,c:.13,h:95,alpha:.32},own:{l:.8,c:.12,alpha:.34},other:{l:.75,c:.09,h:-1,alpha:.3},chart:{l:.6,c:.13},'chart-stroke':{l:.4,c:.06}},
-  dark:{bg:{l:.17,c:.012},surface:{l:.205,c:.014},raised:{l:.25,c:.016},line:{l:.33,c:.018},ink:{l:.93,c:.015},muted:{l:.76,c:.02},faint:{l:.64,c:.02},accent:{l:.8,c:.1},rust:{l:.79,c:.09,h:55},warning:{l:.77,c:.12,h:25},selection:{l:.78,c:.11,h:95,alpha:.27},own:{l:.82,c:.1,alpha:.27},other:{l:.75,c:.08,h:-1,alpha:.26},chart:{l:.76,c:.11},'chart-stroke':{l:.17,c:.012}},
+  light:{bg:{l:.965,c:.012},surface:{l:.985,c:.008},raised:{l:.93,c:.014},line:{l:.87,c:.016},ink:{l:.27,c:.03},muted:{l:.46,c:.03},accent:{l:.45,c:.12},rust:{l:.47,c:.12,h:50},warning:{l:.5,c:.17,h:27},selection:{l:.8,c:.13,h:95,alpha:.32},own:{l:.8,c:.12,alpha:.34},other:{l:.75,c:.09,h:-1,alpha:.3},chart:{l:.6,c:.13},'chart-stroke':{l:.4,c:.06}},
+  dark:{bg:{l:.17,c:.012},surface:{l:.205,c:.014},raised:{l:.25,c:.016},line:{l:.33,c:.018},ink:{l:.93,c:.015},muted:{l:.76,c:.02},accent:{l:.8,c:.1},rust:{l:.79,c:.09,h:55},warning:{l:.77,c:.12,h:25},selection:{l:.78,c:.11,h:95,alpha:.27},own:{l:.82,c:.1,alpha:.27},other:{l:.75,c:.08,h:-1,alpha:.26},chart:{l:.76,c:.11},'chart-stroke':{l:.17,c:.012}},
 };
 const role=(r:Role,h:number)=>hex({mode:'oklch',l:r.l,c:r.c,h:r.h===-1?(h+180)%360:r.h??h,...(r.alpha!==undefined?{alpha:r.alpha}:{})} as Oklch);
 
@@ -265,7 +255,7 @@ export function autoFix(tokens:Tokens,variant:Variant):Tokens{
 export function generateVariant(seed:string,variant:Variant):Tokens{
   const s=oklch(toColor(seed))!,h=s.h??250,t=TEMPLATE[variant];const tokens:Tokens={};
   for(const [name,r] of Object.entries(t))if(name!=='chart')tokens[name]=role(name==='accent'?{...r,c:Math.min(Math.max(s.c,.04),r.c+.04)}:r,h);
-  const rh=oklch(toColor(tokens.rust))!.h??50;if(Math.abs(((rh-h+540)%360)-180)>150)tokens.rust=role({...t.rust,h:(h+150)%360},h);
+  
   const wh=oklch(toColor(tokens.warning))!.h??27;if(Math.abs(((wh-h+540)%360)-180)>155)tokens.warning=role({...t.warning,h:(h+40)%360},h);
   chartColors(h,t.chart).forEach((c,i)=>{tokens[CHARTS[i]]=c;});
   tokens['accent-ink']=bestContrastWith(tokens.accent,[tokens.bg,tokens.ink,'#ffffff','#111111']);
@@ -276,7 +266,7 @@ export function generateVariant(seed:string,variant:Variant):Tokens{
 export function deriveVariant(tokens:Tokens,to:Variant):Tokens{
   const t=TEMPLATE[to],out:Tokens={};
   for(const [name,value] of Object.entries(tokens)){
-    const c=oklch(toColor(value))!,r=name.startsWith('chart-')&&name!=='chart-stroke'?t.chart:t[name];
+    const c=oklch(toColor(value))!,r=name.startsWith('chart-')?t.chart:t[name];
     if(!r){out[name]=value;continue;}
     const chroma=name==='accent'||name.startsWith('chart')?Math.min(c.c,r.c+.04):Math.min(c.c,r.c*1.5);
     out[name]=hex({mode:'oklch',l:r.l,c:chroma,h:c.h??0,...(c.alpha!==undefined&&c.alpha<1?{alpha:c.alpha}:{})} as Oklch);

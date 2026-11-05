@@ -26,7 +26,6 @@
   --color-border: var(--border);
   /* Control borders must read at 3:1 (WCAG 1.4.11); --border is a decorative rule. Muted text is held at 4.5:1 in every theme, so this mix follows it. */
   --color-input: color-mix(in oklab, var(--muted-foreground) 80%, var(--card));
-  --color-input-fill: var(--border);
   --color-ring: var(--primary);
   /* Reader Admin's sidebar uses the same theme tokens: no separate palette. */
   --color-sidebar: var(--card);
@@ -124,7 +123,7 @@
 .theme-seed p { flex-basis: 100%; font-size: 11px; color: var(--muted-foreground); line-height: 1.4; }
 .theme-preview-bar { display: flex; align-items: end; justify-content: space-between; gap: 16px; }
 .theme-preview-bar [data-slot=field] { max-width: 220px; }
-.theme-preview { background: var(--background); color: var(--foreground); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; color-scheme: inherit; box-shadow: var(--shadow); }
+.theme-preview { background: var(--background); color: var(--foreground); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; color-scheme: inherit; box-shadow: 0 12px 32px #0000004d; }
 .theme-preview-page { display: grid; grid-template-columns: 1fr; gap: 24px; padding: 28px 32px 20px; }
 @media (min-width: 1300px) { .theme-preview-page { grid-template-columns: 1fr 230px; } }
 .theme-preview .article { font: 17px/1.62 var(--font-serif); max-width: 640px; }
@@ -137,38 +136,32 @@
 .theme-preview .article h6 { font-size: var(--h6-size, 17px); }
 @media (max-width: 520px) { .theme-heading { grid-template-columns: 1fr; } }
 .theme-preview .article code { font: 13px var(--font-mono); background: var(--secondary); padding: .15em .3em; border-radius: 3px; }
-.theme-preview-kicker { font: 650 10px var(--font-sans); letter-spacing: .08em; text-transform: uppercase; color: var(--rust); margin: 0; }
+.theme-preview-kicker { font: 650 10px var(--font-sans); letter-spacing: .08em; text-transform: uppercase; color: color-mix(in oklab,var(--chart-3) 70%,var(--foreground)); margin: 0; }
 .theme-preview-byline { font: 12px var(--font-sans); color: var(--muted-foreground); margin-bottom: 1.4em; }
-.theme-mark.own { background: var(--own); }
-.theme-mark.other { background: var(--other); }
-.theme-mark.selection { background: var(--selection); }
+.theme-mark.own { background: color-mix(in oklab,var(--chart-2) 35%,transparent); }
+.theme-mark.other { background: color-mix(in oklab,var(--chart-1) 30%,transparent); }
+.theme-mark.selection { background: color-mix(in oklab,var(--chart-3) 35%,transparent); }
 .theme-mark.warning { text-decoration: underline wavy var(--destructive); text-underline-offset: 3px; }
 .theme-preview-code { background: var(--background); }
 .theme-preview-panel { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 16px; font-family: var(--font-sans); align-self: start; display: flex; flex-direction: column; gap: 6px; }
 .theme-preview-panel h3 { font: 600 18px var(--font-serif); margin: 0; }
 .theme-preview-muted { color: var(--muted-foreground); font-size: 12px; margin: 0; }
-.theme-preview-faint { color: var(--faint); font-size: 11px; margin: 0; }
+.theme-preview-faint { color: var(--muted-foreground); font-size: 11px; margin: 0; }
 .theme-preview-actions { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0; }
 .theme-preview-chart { display: flex; align-items: flex-end; gap: 4px; height: 80px; padding: 6px; background: var(--background); border-radius: 6px; }
-.theme-preview-chart i { flex: 1; border-radius: 2px 2px 0 0; outline: 1px solid var(--chart-stroke); }
+.theme-preview-chart i { flex: 1; border-radius: 2px 2px 0 0; outline: 1px solid var(--card); }
 .theme-preview-status { display: flex; align-items: stretch; flex-wrap: wrap; border-top: 1px solid var(--border); background: var(--card); font-family: var(--font-sans); }
 .theme-preview-status .vim-mode { min-width: 0; padding: 8px 10px; }
 .theme-preview-keys { padding: 8px 12px; font-size: 10px; color: var(--muted-foreground); align-self: center; }
 .theme-preview-keys kbd { font: 10px var(--font-mono); border: 1px solid var(--border); border-radius: 3px; padding: 0 3px; color: var(--foreground); }
 
 /* Reader Admin: a sidebar layout with native scrolling. The fixed sidebar stops at the status line. */
-.reader-admin { font-family: var(--font-sans); --admin-status: 33px; }
-.reader-admin [data-slot="sidebar-container"] { bottom: var(--admin-status); height: auto; }
+.reader-admin { font-family: var(--font-sans); }
+.reader-admin [data-slot="sidebar-container"] { bottom: 33px; height: auto; }
 /* The static web demo (#107): a control that needs a running Reader stays disabled but keeps its tooltip under the pointer. */
 [data-needs-reader]:disabled { pointer-events: auto; cursor: not-allowed; }
 #backstage-local-only { font-size: 13px; max-width: 70ch; }
 .activity {
-  --activity-text: color-mix(in oklab, var(--muted-foreground) 25%, var(--foreground));
-  --activity-secondary: color-mix(in oklab, var(--muted-foreground) 65%, var(--foreground));
-  --activity-running: color-mix(in oklab, var(--mode-search) 70%, var(--foreground));
-  --activity-done: color-mix(in oklab, var(--mode-thread) 70%, var(--foreground));
-  --activity-error: color-mix(in oklab, var(--destructive) 50%, var(--foreground));
-  --activity-rule: color-mix(in oklab, var(--border) 75%, var(--foreground));
 }
 .inbox-report { font-family: var(--font-serif); font-size: 15px; line-height: 1.55; overflow-wrap: anywhere; max-height: 420px; overflow: auto; margin-top: 8px; }
 .inbox-report :is(h1, h2, h3) { font-size: 17px; margin: 12px 0 6px; }
@@ -194,25 +187,25 @@
 .activity-steps { gap: 6px; }
 .activity-dots { display: flex; gap: 4px; list-style: none; margin: 0 0 0 24px; padding: 0; }
 .activity-dots li { width: 24px; height: 4px; border-radius: 2px; background: var(--border); }
-.activity-dots li[data-step=done] { background: var(--activity-done); }
-.activity-dots li[data-step=running] { background: var(--activity-running); box-shadow: 0 0 0 2px color-mix(in oklab, var(--activity-running) 25%, var(--background)); }
-.activity-dots li[data-step=failed] { background: var(--activity-error); }
+.activity-dots li[data-step=done] { background: var(--muted-foreground); }
+.activity-dots li[data-step=running] { background: var(--primary); box-shadow: 0 0 0 2px color-mix(in oklab, var(--primary) 25%, var(--background)); }
+.activity-dots li[data-step=failed] { background: var(--destructive); }
 .activity-log { display: grid; gap: 12px; align-content: start; max-height: min(64vh, 620px); overflow: auto; overscroll-behavior: contain; padding: 4px 4px 8px 2px; min-width: 0; border-radius: 8px; scroll-padding-block: 12px; }
 .activity-log:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
 .activity-item { min-width: 0; border-radius: 6px; }
 .activity-item:focus { outline: none; }
 .activity-item:focus-visible { box-shadow: 0 0 0 2px var(--primary); }
-.activity [data-slot=trace-line] { font-size: 13px; color: var(--activity-text); }
-.activity [data-slot=trace-description], .activity [data-slot=trace-collapsible-trigger] > [data-slot=trace-icon] { color: var(--activity-secondary); }
-.activity [data-slot=trace-line][data-status=pending] { color: var(--activity-secondary); opacity: 1; }
-.activity [data-slot=trace-line][data-status=running] { color: var(--activity-running); }
+.activity [data-slot=trace-line] { font-size: 13px; color: var(--foreground); }
+.activity [data-slot=trace-description], .activity [data-slot=trace-collapsible-trigger] > [data-slot=trace-icon] { color: var(--muted-foreground); }
+.activity [data-slot=trace-line][data-status=pending] { color: var(--muted-foreground); opacity: 1; }
+.activity [data-slot=trace-line][data-status=running] { color: var(--primary); }
 .activity [data-slot=trace-line][data-status=running] [data-slot=trace-title] { animation: none; background: none; color: inherit; font-weight: 600; }
-.activity [data-slot=trace-line][data-status=error], .activity [data-slot=trace-collapsible-trigger]:has([data-status=error]) { color: var(--activity-error); }
-.activity [data-step=done] > [data-slot=trace-icon], .activity [data-filed] > [data-slot=trace-icon] { color: var(--activity-done); }
+.activity [data-slot=trace-line][data-status=error], .activity [data-slot=trace-collapsible-trigger]:has([data-status=error]) { color: var(--destructive); }
+.activity [data-step=done] > [data-slot=trace-icon], .activity [data-filed] > [data-slot=trace-icon] { color: var(--muted-foreground); }
 .activity-item [data-slot=trace-title] code, .activity-checkpoint code { font-family: var(--font-mono); font-size: .9em; color: var(--foreground); }
 .activity-item [data-slot=trace-line][data-status=running] [data-slot=trace-title] code { color: inherit; }
-.activity-message { padding: 10px 12px; border: 1px solid var(--activity-rule); border-left: 2px solid var(--primary); border-radius: 8px; background: var(--card); }
-.activity-message [data-slot=message-header] { font: 650 11px var(--font-sans); letter-spacing: .04em; color: var(--activity-secondary); }
+.activity-message { padding: 10px 12px; border: 1px solid var(--border); border-left: 2px solid var(--primary); border-radius: 8px; background: var(--card); }
+.activity-message [data-slot=message-header] { font: 650 11px var(--font-sans); letter-spacing: .04em; color: var(--muted-foreground); }
 .activity-prose { font-family: var(--font-serif); font-size: 15px; line-height: 1.55; color: var(--foreground); overflow-wrap: anywhere; max-width: 68ch; }
 .activity-prose > :first-child { margin-top: 0; } .activity-prose > :last-child { margin-bottom: 0; }
 .activity-prose p, .activity-prose ul, .activity-prose ol { margin: 6px 0; }
@@ -232,16 +225,16 @@
 .activity-tree { display: flex; flex-direction: column; min-width: 0; max-width: 520px; }
 .activity-file { gap: 6px; }
 .activity-file:disabled { opacity: 1; color: var(--muted-foreground); }
-.activity-file[data-change=delete] span:first-of-type { text-decoration: line-through; text-decoration-color: var(--faint); }
+.activity-file[data-change=delete] span:first-of-type { text-decoration: line-through; text-decoration-color: var(--muted-foreground); }
 .activity-source { display: grid; gap: 4px; }
 .activity-link { text-decoration: none; padding-left: 24px; }
 .activity-stack { display: grid; gap: 6px; padding: 10px 12px; border-radius: 6px; background: var(--background); font: 11.5px/1.5 var(--font-mono); color: var(--muted-foreground); overflow-wrap: anywhere; }
 .activity-stack ol { margin: 0; padding-left: 0; list-style: none; display: grid; gap: 2px; white-space: pre-wrap; color: var(--foreground); }
-.activity-checkpoint { color: var(--activity-done); font-size: 12px; }
+.activity-checkpoint { color: var(--muted-foreground); font-size: 12px; }
 .activity-checkpoint [data-slot=marker-content] { max-width: 80%; }
-.activity-context { font-variant-numeric: tabular-nums; background: var(--card); color: var(--activity-text); border-color: var(--activity-rule); }
+.activity-context { font-variant-numeric: tabular-nums; background: var(--card); color: var(--foreground); border-color: var(--border); }
 .activity-end [data-slot=marker] { color: var(--muted-foreground); }
-.activity-working { margin: 0; display: inline-flex; align-items: center; gap: 8px; font-size: 12px; color: var(--activity-running); }
+.activity-working { margin: 0; display: inline-flex; align-items: center; gap: 8px; font-size: 12px; color: var(--primary); }
 .activity-foot { display: flex; justify-content: flex-end; margin-top: -4px; }
 [data-activity-notice] { color: var(--muted-foreground); }
 [data-activity-notice] [data-slot=trace-icon] { color: var(--destructive); }
@@ -261,7 +254,7 @@
   .activity-dots { margin-left: 0; }
 }
 @media (max-width: 700px) {
-  .reader-admin { --admin-status: 39px; }
+  .reader-admin [data-slot="sidebar-container"] { bottom: 39px; }
 }
 
 /* Diagrams (Pele). Colors follow Reader tokens through CSS variables, so a theme change recolors without re-rendering. */
@@ -301,8 +294,6 @@ body.two-page .reader-math-block { max-height: 60vh; overflow-y: auto; }
 .changes-panel[data-side=bottom] { max-height: 88vh; }
 body:has(#changes-panel[data-side=right]) [data-slot=sheet-overlay] { display: none; }
 /* Docked beside the page on wide screens (dock.mjs in web_ui): one column width, no shadow. */
-#changes-panel { --panel-width: 520px; }
-.chat-panel { --panel-width: 440px; }
 :root[data-dock] #changes-panel[data-side=right], :root[data-dock] .chat-panel { top: 0; bottom: 0; width: var(--dock-width); max-width: none; box-shadow: none; }
 
 /* Chat with the voices: a right-side panel, a bottom sheet on phones. */

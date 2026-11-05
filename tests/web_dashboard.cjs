@@ -23,7 +23,7 @@ const THEMES=['ink','paper','orchid','orchid-dark','harvest','harvest-dark',...r
     function rgb(name){const color=getComputedStyle(document.documentElement).getPropertyValue(name),canvas=document.createElement('canvas');canvas.width=canvas.height=1;const c=canvas.getContext('2d');c.fillStyle=color;c.fillRect(0,0,1,1);return [...c.getImageData(0,0,1,1).data].slice(0,3);}
     function lum(c){return c.map(v=>v/255).map(v=>v<=.04045?v/12.92:((v+.055)/1.055)**2.4).reduce((n,v,i)=>n+v*[.2126,.7152,.0722][i],0);}
     function ratio(a,b){const [lo,hi]=[lum(a),lum(b)].sort((a,b)=>a-b);return (hi+.05)/(lo+.05);}
-    return themes.map(theme=>{document.documentElement.dataset.theme=theme;return {theme,minimum:Math.min(...['--foreground','--muted-foreground','--faint','--primary'].flatMap(foreground=>['--card','--background'].map(background=>ratio(rgb(foreground),rgb(background))))),button:ratio(rgb('--primary'),rgb('--primary-foreground'))};});
+    return themes.map(theme=>{document.documentElement.dataset.theme=theme;return {theme,minimum:Math.min(...['--foreground','--muted-foreground','--primary'].flatMap(foreground=>['--card','--background'].map(background=>ratio(rgb(foreground),rgb(background))))),button:ratio(rgb('--primary'),rgb('--primary-foreground'))};});
   },THEMES);
   console.log(JSON.stringify(contrast));
   for(const row of contrast){assert.ok(row.minimum>=4.5,JSON.stringify(row));assert.ok(row.button>=4.5,JSON.stringify(row));}

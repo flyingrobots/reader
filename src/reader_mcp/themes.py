@@ -21,6 +21,7 @@ from urllib.request import Request, urlopen
 
 TOKENS = json.loads((Path(__file__).with_name('web_ui') / 'theme-tokens.json').read_text())
 COLOR_TOKENS = [token['name'] for token in TOKENS['colors']]
+RETIRED_TOKENS = {'faint', 'rust', 'selection', 'own', 'other', 'chart-stroke'}
 FONT_ROLES = [font['name'] for font in TOKENS['fonts']]
 HEADING_LEVELS = [heading['level'] for heading in TOKENS['headings']]
 HEADING_SIZES = tuple(TOKENS['heading_size_range'])
@@ -123,6 +124,9 @@ class Themes:
                   'headings': self.validate_headings(theme.get('headings', {}))}
         for variant in ('light', 'dark'):
             tokens = theme.get(variant)
+            # Themes saved before these tokens left the contract still load.
+            if isinstance(tokens, dict):
+                tokens = {name: value for name, value in tokens.items() if name not in RETIRED_TOKENS}
             if not isinstance(tokens, dict) or set(tokens) != set(COLOR_TOKENS):
                 raise ValueError(f'The {variant} variant must define exactly the standard color tokens')
             for token, value in tokens.items():

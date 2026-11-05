@@ -18,7 +18,7 @@ import {ChevronRightIcon} from 'lucide-react';
 import {Input} from '../components/ui/input';
 import {Button} from '../components/ui/button';
 import {ButtonGroup} from '../components/ui/button-group';
-import {bestContrastWith, COLOR_TOKENS, FONT_ROLES, HEADINGS, HEADING_SIZES, BUNDLED_FONTS, CHARTS, alphaOf, autoFix, checkVariant, deriveVariant, generateVariant, modeColors, simulateTokens, suggestAccents, withAlpha, type Check, type HeadingStyle, type Simulation, type Theme, type Tokens, type Variant} from './color';
+import {bestContrastWith, COLOR_TOKENS, FONT_ROLES, HEADINGS, HEADING_SIZES, BUNDLED_FONTS, CHARTS, alphaOf, autoFix, checkVariant, deriveVariant, generateVariant, simulateTokens, suggestAccents, withAlpha, type Check, type HeadingStyle, type Simulation, type Theme, type Tokens, type Variant} from './color';
 import {FAMOUS, famousId} from './famous';
 import {readBuiltIn, themeId, variantProperties, type InstalledFont} from './theme-css';
 
@@ -75,7 +75,7 @@ function HeadingRow({level,label,size,description,value,fontGroups,onChange}:{le
 
 function Preview({tokens,fonts,headings,variant,sim}:{tokens:Tokens;fonts:Theme['fonts'];headings:Theme['headings'];variant:Variant;sim:Simulation}){
   const shown=simulateTokens(tokens,sim);
-  const style={...variantProperties(shown,fonts,variant,headings),...Object.fromEntries(modeColors(shown,variant).map(m=>['--mode-'+m.name,m.value]))} as CSSProperties;
+  const style={...variantProperties(shown,fonts,variant,headings)} as CSSProperties;
   return <div className="theme-preview" style={style} data-variant={variant} aria-label="Sample article preview">
     <div className="theme-preview-page">
       <article className="article">

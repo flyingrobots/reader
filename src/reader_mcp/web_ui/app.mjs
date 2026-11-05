@@ -86,11 +86,12 @@ if(knownTheme(previewTheme))state.prefs.theme=previewTheme;
 if(!knownTheme(state.prefs.theme))state.prefs.theme='ink';
 document.documentElement.dataset.theme=state.prefs.theme;
 /** Continuous reading's article width (style.css); two-page reading ignores it. */
+const ARTICLE_WIDTHS={narrow:['640px'],wide:['960px','1070px'],wider:['1200px','1310px'],full:['none','none']};
 function applyArticleWidth(){
   const value=String(state.prefs.articleWidth),root=document.documentElement,px=/^\d+$/.test(value)?Number(value):0;
   root.dataset.articleWidth=px?'custom':value;
-  if(px){root.style.setProperty('--article-width',px+'px');root.style.setProperty('--article-shell',Math.max(980,px+110)+'px');}
-  else{root.style.removeProperty('--article-width');root.style.removeProperty('--article-shell');}
+  const preset=ARTICLE_WIDTHS[value],article=px?px+'px':preset?.[0],shell=px?Math.max(980,px+110)+'px':preset?.[1];
+  for(const [name,size] of [['--article-width',article],['--article-shell',shell]]){if(size)root.style.setProperty(name,size);else root.style.removeProperty(name);}
 }
 applyArticleWidth();
 // The browser chrome (and the installed app's status bar) follows the theme's page colour.
@@ -1221,11 +1222,11 @@ function updateExplorer(){
     onClearFolder:()=>{state.pickerFolder=null;updateExplorer();}});
 }
 function closePicker(){
-  $('#picker').hidden=true;
+  $('#picker').hidden=true;delete document.documentElement.dataset.explorerOpen;
   $('#summon').setAttribute('aria-expanded','false');dispatchEvent(new Event('resize'));refreshScroll();focusMain();reading?.updateStatus();
 }
 function openPicker(source='all',folder=null){
-  state.pickerFolder=folder;updateExplorer();$('#picker').hidden=false;
+  state.pickerFolder=folder;updateExplorer();$('#picker').hidden=false;document.documentElement.dataset.explorerOpen='';
   $('#summon').setAttribute('aria-expanded','true');dispatchEvent(new Event('resize'));refreshScroll();$('#file-results').focus({preventScroll:true});reading?.updateStatus();
 }
 function togglePicker(){if($('#picker').hidden)openPicker();else closePicker();}
