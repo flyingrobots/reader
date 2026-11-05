@@ -16,7 +16,7 @@ const {sanitizerReport}=require('./web_wait.cjs');  // #151
   await context.addInitScript(()=>{try{if(!localStorage.getItem('reader.preferences.v1'))localStorage.setItem('reader.preferences.v1',JSON.stringify({smooth:false,theme:'user-reader-test',layout:'scroll'}));}catch{}});
   const page=await context.newPage();page.on('pageerror',e=>errors.push(e.message));page.on('console',m=>{if(m.type()==='error'&&!sanitizerReport(m))errors.push(m.text());});page.on('request',r=>{if(!r.url().startsWith(url))external.push(r.url());});
   const toast=text=>page.locator('[data-sonner-toast]').filter({hasText:text});
-  const leader=async key=>{await page.evaluate(()=>{if(!document.querySelector('#queue-panel').contains(document.activeElement))document.querySelector('#main').focus({preventScroll:true});});await page.keyboard.press('Space');await page.keyboard.press(key);};
+  const leader=async key=>{await page.evaluate(()=>{if(!document.querySelector('#queue-panel')?.contains(document.activeElement))document.querySelector('#main').focus({preventScroll:true});});await page.keyboard.press('Space');await page.keyboard.press(key);};
   const panel=page.locator('#queue-panel');
   const titles=section=>panel.locator(`[data-section=${section}] [data-queue-title]`).allTextContents();
   const openPanel=async()=>{await leader('r');await panel.waitFor();await panel.locator('[data-section=queued]').waitFor();await page.locator('#queue-panel:not([aria-busy])').waitFor();};

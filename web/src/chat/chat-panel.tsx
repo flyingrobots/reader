@@ -280,7 +280,9 @@ export function ChatPanel(props:ChatProps){
   const isVoice=(m:ChatMessage)=>!!m.turn||!!m.runtime?.manual;
   const isMine=(m:ChatMessage)=>!m.turn&&!m.runtime?.manual;
 
-  return <aside data-ui="shadcn" id="chat-panel" className="chat-panel" hidden={!open} aria-labelledby="chat-title" data-reader-decoration="">
+  // Closed, the panel keeps its state and any stream but leaves nothing in the document.
+  if(!open)return null;
+  return <aside data-ui="shadcn" id="chat-panel" className="chat-panel" aria-labelledby="chat-title" data-reader-decoration="">
     <div className="flex items-start justify-between gap-2.5">
       <div className="flex min-w-0 flex-col gap-1"><span className="text-xs font-medium tracking-wide text-muted-foreground uppercase">Chat with the voices</span><h2 id="chat-title" data-slot="panel-title" title={title} className="line-clamp-2 font-serif text-2xl leading-tight font-normal max-[700px]:line-clamp-1 max-[700px]:text-[19px]">{title||'This document'}</h2></div>
       <ButtonGroup>

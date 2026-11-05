@@ -22,7 +22,7 @@ export function dockWidth(){return width;}
 /** The window width left to the page. */
 export function pageWidth(){return innerWidth-width;}
 
-const open=el=>el.id==='changes-panel'?el.dataset.side==='right'&&!el.hasAttribute('data-closed')&&!el.hasAttribute('data-ending-style'):!el.hidden;
+const open=el=>el.id==='changes-panel'?el.dataset.side==='right'&&!el.hasAttribute('data-closed')&&!el.hasAttribute('data-ending-style'):true;
 
 /** `before()` returns what to keep (called while the old layout is still in place); `after(kept)` restores it. */
 export function installDock({before,after}={}){
@@ -30,7 +30,7 @@ export function installDock({before,after}={}){
   function refresh(){
     const shown=[...document.querySelectorAll(PANELS)].filter(open);
     let next=shown.length?Math.max(...shown.map(el=>PANEL_WIDTHS.find(([selector])=>el.matches(selector))?.[1]||0)):0;
-    const explorer=document.getElementById('picker'),left=explorer&&!explorer.hidden?explorer.getBoundingClientRect().width:0;
+    const left=document.getElementById('picker')?.getBoundingClientRect().width||0;
     if(innerWidth-next-left<DOCK_ROOM)next=0;
     const narrow=(next>0||left>0)&&innerWidth-next-left<=BOOK_SINGLE;
     if(next===width&&narrow===root.hasAttribute('data-dock-narrow'))return;
@@ -41,10 +41,11 @@ export function installDock({before,after}={}){
     after?.(kept);
     dispatchEvent(new Event('resize'));
   }
-  // Panels open and close by their hidden attribute; What changed is a Sheet portal that comes and goes.
+  // A closed panel is not in the document: each comes and goes as a child of the body, or of the controls root (Chat).
   const attributes=new MutationObserver(refresh),children=new MutationObserver(refresh);
-  attributes.observe(document.body,{subtree:true,attributes:true,attributeFilter:['hidden','data-side','data-closed','data-ending-style']});
+  attributes.observe(document.body,{subtree:true,attributes:true,attributeFilter:['data-side','data-closed','data-ending-style']});
   children.observe(document.body,{childList:true});
+  const controls=document.getElementById('reader-controls-root');if(controls)children.observe(controls,{childList:true});
   addEventListener('resize',event=>{if(event.isTrusted)refresh();});
   refresh();
   return {refresh};

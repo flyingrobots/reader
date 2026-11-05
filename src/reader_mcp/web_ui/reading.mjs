@@ -40,18 +40,18 @@ export function installReading({scratchStatus, statusOverride, onStatus, mayCurl
     const owned=keyStatus();
     if(owned){mode=owned.mode;keys=owned.keys;}
     else if(scratch&&!modalOpen()){mode=scratch.mode;keys=scratch.keys;}
-    else if(!$('#picker').hidden&&$('#picker').contains(active)){mode='BROWSE';keys='<kbd>j k</kbd> choose <kbd>/</kbd> filter <kbd>Enter</kbd> open <kbd>Esc</kbd> close';}
+    else if($('#picker')?.contains(active)){mode='BROWSE';keys='<kbd>j k</kbd> choose <kbd>/</kbd> filter <kbd>Enter</kbd> open <kbd>Esc</kbd> close';}
     else if($('#status-location details[open]')){mode='BROWSE';keys='<kbd>↑ ↓</kbd> folders <kbd>Enter</kbd> browse <kbd>Esc</kbd> close';}
-    else if(!$('#find-bar').hidden){mode='SEARCH';keys='<kbd>Enter</kbd> find <kbd>n N</kbd> next / previous <kbd>Esc</kbd> close';}
-    else if(active?.closest('#chat-panel')&&!$('#chat-panel').hidden){mode='CHAT';keys=active.matches('textarea,input')?'<kbd>@</kbd> mention <kbd>Enter</kbd> send <kbd>Shift Enter</kbd> new line <kbd>Esc</kbd> close':'<kbd>Tab</kbd> move <kbd>Esc</kbd> close';}
+    else if($('#find-bar')){mode='SEARCH';keys='<kbd>Enter</kbd> find <kbd>n N</kbd> next / previous <kbd>Esc</kbd> close';}
+    else if(active?.closest('#chat-panel')){mode='CHAT';keys=active.matches('textarea,input')?'<kbd>@</kbd> mention <kbd>Enter</kbd> send <kbd>Shift Enter</kbd> new line <kbd>Esc</kbd> close':'<kbd>Tab</kbd> move <kbd>Esc</kbd> close';}
     else if(active?.matches('textarea,input:not(.article-width input),[contenteditable=true]')&&!(state.view==='search'&&active.id==='search-query')){mode='INSERT';keys='<kbd>⌘ Enter</kbd> send <kbd>Esc</kbd> normal';}
     else if(state.themeEditorOpen){mode='SETTINGS';keys='<kbd>Tab</kbd> move <kbd>F10</kbd> <kbd>Esc</kbd> close';}
     else if($('#help')?.matches('[data-open]')){mode='HELP';keys='<kbd>Esc</kbd> return to reading';}
-    else if(!$('#queue-panel').hidden){mode='QUEUE';keys='<kbd>j k</kbd> move <kbd>Enter</kbd> open <kbd>Tab</kbd> up next / history <kbd>Esc</kbd> close';}
-    else if(!$('#list-panel').hidden){mode=$('#list-panel').dataset.mode||'LIST';keys='<kbd>j k</kbd> move <kbd>Enter</kbd> open <kbd>Esc</kbd> close';}
-    else if(!$('#versions-panel').hidden){mode='VERSIONS';keys='<kbd>j k</kbd> move <kbd>Enter</kbd> open <kbd>c</kbd> compare <kbd>Esc</kbd> close';}
-    else if($('#chat-panel')&&!$('#chat-panel').hidden){mode='CHAT';keys='<kbd>Tab</kbd> move to the composer <kbd>Space m</kbd> <kbd>Esc</kbd> close';}
-    else if(!$('#thread-panel').hidden){mode='THREAD';keys='<kbd>Tab</kbd> move <kbd>Esc</kbd> return to reading';}
+    else if($('#queue-panel')){mode='QUEUE';keys='<kbd>j k</kbd> move <kbd>Enter</kbd> open <kbd>Tab</kbd> up next / history <kbd>Esc</kbd> close';}
+    else if($('#list-panel')){mode=$('#list-panel').dataset.mode||'LIST';keys='<kbd>j k</kbd> move <kbd>Enter</kbd> open <kbd>Esc</kbd> close';}
+    else if($('#versions-panel')){mode='VERSIONS';keys='<kbd>j k</kbd> move <kbd>Enter</kbd> open <kbd>c</kbd> compare <kbd>Esc</kbd> close';}
+    else if($('#chat-panel')){mode='CHAT';keys='<kbd>Tab</kbd> move to the composer <kbd>Space m</kbd> <kbd>Esc</kbd> close';}
+    else if($('#thread-panel')){mode='THREAD';keys='<kbd>Tab</kbd> move <kbd>Esc</kbd> return to reading';}
     else if(active?.matches?.('.cover-shape,.article-shape')){mode='SHAPE';keys='<kbd>← →</kbd> passages <kbd>↑ ↓</kbd> related works <kbd>Enter</kbd> open <kbd>Esc</kbd> page';}
     else if(state.view==='issue'&&!state.doc){keys='<kbd>j k</kbd> pieces <kbd>↵</kbd> open <kbd>g c</kbd> cover <kbd>[ ]</kbd> issues <kbd>Space e</kbd> files';}
     else if(state.view==='search'&&!active?.matches('input,textarea')){mode='SEARCH';keys='<kbd>j k</kbd> passages <kbd>J K</kbd> works <kbd>Enter</kbd> open <kbd>o</kbd> new tab <kbd>/</kbd> query <kbd>Esc</kbd> back';}
@@ -236,7 +236,8 @@ export function installReading({scratchStatus, statusOverride, onStatus, mayCurl
   document.addEventListener('keydown',event=>{if((event.metaKey||event.ctrlKey)&&event.key==='Enter'&&event.target.matches('textarea')){event.preventDefault();event.target.closest('form')?.requestSubmit();}queueMicrotask(updateStatus);});
   document.addEventListener('focusin',updateStatus);document.addEventListener('focusout',()=>queueMicrotask(updateStatus));
   for(const el of document.querySelectorAll('dialog'))el.addEventListener('toggle',updateStatus);
-  const observer=new MutationObserver(updateStatus);for(const el of [$('#find-bar'),$('#thread-panel'),$('#versions-panel'),$('#queue-panel'),$('#list-panel')])observer.observe(el,{attributes:true,attributeFilter:['hidden']});
+  // Closed panels are not in the document, so their coming and going is a change to the body's children.
+  new MutationObserver(updateStatus).observe(document.body,{childList:true});
   window.addEventListener('scroll',()=>{update();scheduleSave();},{passive:true});
   document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden')save(true);});window.addEventListener('pagehide',()=>save(true));
   /** The first visible character of the first visible block: the reading position a reflow must keep. */

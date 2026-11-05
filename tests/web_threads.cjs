@@ -12,7 +12,7 @@ const {chromium}=require(process.env.READER_PLAYWRIGHT||'playwright-core');
   const seen=page.waitForResponse(response=>response.url().endsWith('/api/seen')&&response.request().method()==='POST');
   await page.goto(url+'/#read='+encodeURIComponent('library/thought.md'));await seen;await page.waitForFunction(()=>!document.querySelector('.resume-pending')&&document.querySelector('#progress-pips button'));
   const focused=()=>page.evaluate(()=>{const a=document.activeElement;return a.id||a.className||a.tagName;});
-  const inPanel=()=>page.evaluate(()=>document.querySelector('#thread-panel').contains(document.activeElement));
+  const inPanel=()=>page.evaluate(()=>!!document.querySelector('#thread-panel')?.contains(document.activeElement));
   // Enter on a progress pip opens its thread with focus inside; the reply box is a few Tab stops away; Escape returns to the pip.
   await page.locator('#progress-pips button').first().focus();await page.keyboard.press('Enter');await page.locator('#thread-reply').waitFor();await page.waitForTimeout(400);
   assert.equal(await focused(),'thread-title','focus moves to the thread heading');

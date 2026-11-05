@@ -4,7 +4,7 @@ import {escapeHTML as esc} from './logic.mjs';
 const VISIBLE=12;
 const plural=(n,one,many)=>n===1?one:many;
 
-export function installLinks({state,api,reading,navigate,openBackstage,renderPreview}){
+export function installLinks({threadPanel,closeThreadPanel,state,api,reading,navigate,openBackstage,renderPreview}){
   const $=selector=>document.querySelector(selector);
   const param=encodeURIComponent;
   // The card itself is web/src/link-preview.tsx (a shadcn HoverCard); this module decides when it shows.
@@ -63,7 +63,7 @@ export function installLinks({state,api,reading,navigate,openBackstage,renderPre
     return rows(shown)+(!all&&count>VISIBLE?`<button type="button" data-button="ghost xs" class="linked-from-more">Show all ${count}</button>`:'')+(all&&count>data.inbound.length?`<p class="linked-from-note">Showing the ${data.inbound.length} documents with the most links of ${count}.</p>`:'');
   }
   function wire(root,data,path){
-    root.querySelectorAll('.linked-from-row').forEach(row=>row.addEventListener('click',event=>{event.preventDefault();hide();if(root.closest('#thread-panel'))$('#thread-panel').hidden=true;navigate(row.dataset.source,{fragment:row.dataset.fragment});}));
+    root.querySelectorAll('.linked-from-row').forEach(row=>row.addEventListener('click',event=>{event.preventDefault();hide();if(root.closest('#thread-panel'))closeThreadPanel();navigate(row.dataset.source,{fragment:row.dataset.fragment});}));
     root.querySelectorAll('[data-backstage]').forEach(link=>link.addEventListener('click',event=>{event.preventDefault();openBackstage();}));
     root.querySelector('.linked-from-more')?.addEventListener('click',()=>{const section=root;section.querySelector('.linked-from-body').innerHTML=body(data,true);wire(section,data,path);section.querySelector('.linked-from-row')?.focus();reading.reflow();});
   }
@@ -73,7 +73,7 @@ export function installLinks({state,api,reading,navigate,openBackstage,renderPre
     wire(element,data,path);return element;
   }
   function openList(data,path){
-    hide();state.activeThread=null;$('#thread-panel').hidden=false;$('#thread-title').textContent='Linked from';
+    hide();state.activeThread=null;threadPanel();$('#thread-title').textContent='Linked from';
     const body=$('#thread-body');body.innerHTML=`<p class="thread-status">${data.inbound_count} ${plural(data.inbound_count,'document links','documents link')} here.</p><div class="linked-from in-panel"><div class="linked-from-body">${rows(data.inbound)}</div></div>`;
     wire(body.querySelector('.linked-from'),data,path);body.querySelector('.linked-from-row')?.focus();
   }

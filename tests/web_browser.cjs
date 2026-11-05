@@ -25,9 +25,11 @@ const {chromium}=require(process.env.READER_PLAYWRIGHT || 'playwright-core');
   assert.equal(await page.locator('#main').evaluate(el=>getComputedStyle(el).outlineStyle),'none');
   assert.equal(await page.locator('#progress-pips button').count(),1);
   await page.keyboard.press('/');await page.locator('#find-query').fill('distinct observation');await page.keyboard.press('Enter');
-  assert.match(await page.locator('#find-count').textContent(),/1 \/ 44/);
-  await page.keyboard.press('n');assert.match(await page.locator('#find-count').textContent(),/2 \/ 44/);
-  await page.keyboard.press('N');assert.match(await page.locator('#find-count').textContent(),/1 \/ 44/);
+  // Enter closes the bar; reopening it shows the same find.
+  const findCount=async()=>{await page.keyboard.press('/');const text=await page.locator('#find-count').textContent();await page.keyboard.press('Escape');return text;};
+  assert.match(await findCount(),/1 \/ 44/);
+  await page.keyboard.press('n');assert.match(await findCount(),/2 \/ 44/);
+  await page.keyboard.press('N');assert.match(await findCount(),/1 \/ 44/);
   await page.locator('#layout-swap').click();await page.waitForFunction(()=>document.body.classList.contains('two-page') && document.querySelector('.book-viewport')?.scrollWidth>innerWidth);
   await page.waitForTimeout(600);
   const initial=await page.locator('.book-viewport').evaluate(el=>({left:el.scrollLeft,width:el.clientWidth,scroll:el.scrollWidth,height:el.clientHeight,columns:getComputedStyle(el.querySelector('article')).columnCount}));

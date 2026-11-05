@@ -2,7 +2,7 @@ import {CommandSuggestions, type CommandChoices} from './command-suggestions';
 import {SectionItems,SectionPage,type SectionLink,type SectionPageProps} from './library-sections';
 import {useState, useSyncExternalStore, useEffect, type ReactNode} from 'react';
 import {FindBar} from './find-bar';
-import {PanelSheet} from './panel-sheet';
+import {ListPanel, SelectionTools, ThreadPanel, VersionsPanel} from './panel-sheet';
 import {ArtPromptCard, type ArtPromptView} from './art-prompt-card';
 import {ArtFocusChrome, type ArtFocusChromeProps} from './art-focus-chrome';
 import {ReadingLog, type ReadingLogActions, type ReadingLogModel} from './reading-log';
@@ -424,11 +424,22 @@ export function setAdminRoute(route:AdminRoute){flushSync(()=>update({admin:rout
 // Route-owned roots are always disposed before the vanilla renderer replaces DOM.
 const islands=new Map<HTMLElement,Root>();
 function mount(container:HTMLElement,content:ReactNode){clearControlsWithin(container);const root=createRoot(container);islands.set(container,root);flushSync(()=>root.render(content));}
-// The Find bar's controls render as this module loads, before app.mjs binds its handlers to them by id.
-{const findBar=document.getElementById('find-bar');if(findBar){findBar.dataset.ui='shadcn';mount(findBar,<FindBar/>);}}
-// The right-hand panels become non-modal Sheets around their existing asides (panel-sheet.tsx), also before app.mjs runs.
-for(const id of ['thread-panel','versions-panel','list-panel']){const panel=document.getElementById(id);
-  if(panel){const container=document.createElement('div');container.dataset.panelHost=id;document.body.append(container);mount(container,<PanelSheet panel={panel}/>);}}
+/** Chrome that exists only while open, so that a closed panel leaves nothing in the document: each gets its own container
+    just before the status line (the tab order they had in index.html) and takes it away again on closing. */
+const shown=new Map<string,HTMLElement>();
+function showChrome(id:string,content:ReactNode){
+  const open=shown.get(id);if(open){flushSync(()=>islands.get(open)!.render(content));return;}
+  const container=document.createElement('div');document.getElementById('statusline')?.before(container);shown.set(id,container);mount(container,content);
+}
+export function hidePanel(id:string){
+  const container=shown.get(id);if(!container)return;shown.delete(id);
+  // A Sheet's aside is portalled out of its container, with any island (the versions timeline) still inside it.
+  const element=document.getElementById(id);if(element)clearControlsWithin(element);
+  clearControlsWithin(container);container.remove();
+}
+const PANELS:Record<string,(props:any)=>ReactNode>={'thread-panel':ThreadPanel,'versions-panel':VersionsPanel,'list-panel':ListPanel,'selection-tools':SelectionTools,'find-bar':FindBar};
+/** Open a panel app.mjs fills by id, once; returns its element. */
+export function showPanel(id:string,props:object){if(!shown.has(id)){const Panel=PANELS[id];showChrome(id,<Panel {...props}/>);}return document.getElementById(id);}
 /** The search page, as a route-owned island; search-page.mjs owns its state and calls update(). */
 export function mountSearchPage(container:HTMLElement,initial:SearchModel,actions:SearchActions){
   let current=initial;const watchers=new Set<()=>void>();
@@ -457,9 +468,8 @@ export function mountSectionPage(container:HTMLElement,props:SectionPageProps){
   const root=islands.get(container);
   if(root)flushSync(()=>root.render(<SectionPage {...props}/>));else mount(container,<SectionPage {...props}/>);
 }
-export function renderFileExplorer(container:HTMLElement,props:ExplorerProps){
-  const root=islands.get(container);
-  if(root)flushSync(()=>root.render(<FileExplorer {...props}/>));else mount(container,<FileExplorer {...props}/>);
+export function renderFileExplorer(props:ExplorerProps){
+  showChrome('picker',<aside id="picker" className="file-explorer" aria-labelledby="picker-title"><FileExplorer {...props}/></aside>);
 }
 /** What changed, as a Sheet island; closing unmounts it. */
 export function mountChangesPanel(container:HTMLElement,options:Omit<ChangesOptions,'onClose'>){
@@ -524,9 +534,8 @@ export function renderReadingLog(container:HTMLElement,model:ReadingLogModel|nul
   if(root)flushSync(()=>root.render(<ReadingLog model={model} actions={actions}/>));else mount(container,<ReadingLog model={model} actions={actions}/>);
 }
 /** The reading queue panel: one persistent root, re-rendered with fresh props from queue.mjs. */
-export function renderQueuePanel(container:HTMLElement,props:QueueProps){
-  const root=islands.get(container);
-  if(root)flushSync(()=>root.render(<QueuePanel {...props}/>));else mount(container,<QueuePanel {...props}/>);
+export function renderQueuePanel(props:QueueProps){
+  showChrome('queue-panel',<aside id="queue-panel" className="queue-panel" aria-labelledby="queue-title" aria-busy={props.loading||undefined}><QueuePanel {...props}/></aside>);
 }
 export function clearControlsWithin(container:HTMLElement){for(const [element,root] of islands){if(element===container||container.contains(element)){root.unmount();islands.delete(element);}}container.removeAttribute('aria-busy');}
 export function mountSkeleton(container:HTMLElement,kind='document'){

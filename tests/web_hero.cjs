@@ -110,8 +110,8 @@ const {chromium}=require(process.env.READER_PLAYWRIGHT||'playwright-core');
    await read(page,'library/issue/edict.md');await read(page,'library/issue/long-art.md','&h=part-25');await page.waitForTimeout(500);
    const at=await page.evaluate(()=>{const v=document.querySelector('.book-viewport').getBoundingClientRect(),h=document.querySelector('#part-25').getBoundingClientRect();return h.left>=v.left-1&&h.right<=v.right+1;});
    assert.equal(at,true,'a heading link turns to the heading’s spread');
-   const count=async()=>{await page.locator('#main').focus();await page.keyboard.press('/');await page.keyboard.type('long piece with');await page.keyboard.press('Enter');
-     await page.waitForFunction(()=>/\d+ \/ \d+/.test(document.querySelector('#find-count').textContent));const text=await page.locator('#find-count').textContent();await page.keyboard.press('Escape');return +text.split('/')[1];};
+   const count=async()=>{await page.locator('#main').focus();await page.keyboard.press('/');await page.keyboard.type('long piece with');
+     await page.waitForFunction(()=>/\d+ \/ \d+/.test(document.querySelector('#find-count').textContent));const text=await page.locator('#find-count').textContent();await page.keyboard.press('Enter');await page.keyboard.press('Escape');return +text.split('/')[1];};
    assert.equal(await count(),1,'find matches the title once: the hero’s opener is not searched');
    assert.deepEqual(errors,[]);await context.close();}
 

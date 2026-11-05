@@ -8,7 +8,7 @@ const {chromium}=require(process.env.READER_PLAYWRIGHT||'playwright-core');
  await page.addInitScript(()=>localStorage.setItem('reader.preferences.v1',JSON.stringify({smooth:false,nextReads:false})));
  await page.goto(url+'#read=library%2Fthought.md');await page.locator('#article').waitFor();await page.locator('#main').focus();await page.keyboard.press('Control+w');await page.keyboard.press('v');
  await page.waitForFunction(()=>document.querySelectorAll('.split-pane iframe').length===2);
- const frame=await (await page.locator('iframe[title^="Pane 2 of"]').elementHandle()).contentFrame();await frame.locator('#picker:not([hidden])').waitFor();await page.keyboard.press('Escape');await frame.waitForFunction(()=>document.querySelector('#picker').hidden&&!!document.querySelector('#article')&&!document.querySelector('.resume-pending'));
+ const frame=await (await page.locator('iframe[title^="Pane 2 of"]').elementHandle()).contentFrame();await frame.locator('#picker:not([hidden])').waitFor();await page.keyboard.press('Escape');await frame.waitForFunction(()=>!document.querySelector('#picker')&&!!document.querySelector('#article')&&!document.querySelector('.resume-pending'));
  await page.waitForFunction(()=>document.querySelector('#status-location').textContent.includes('thought.md'));
  assert.match(await page.locator('#status-position').textContent(),/^\d+%$/,'focused article reports progress in the visible outer footer');
  const before=Number((await page.locator('#status-position').textContent()).replace('%',''));for(let i=0;i<8;i++)await page.keyboard.press('j');await frame.waitForFunction(()=>scrollY>300);

@@ -13,10 +13,9 @@ export function citation(entry){
 }
 const sameSpot=(a,b)=>!!a&&!!b&&a.path===b.path&&a.offset===b.offset&&Math.abs((a.fraction||0)-(b.fraction||0))<.05;
 
-export function installLists({state,api,notify,openAt,position,goTo,param=encodeURIComponent,onChange=()=>{}}){
+export function installLists({showPanel,hidePanel,state,api,notify,openAt,position,goTo,param=encodeURIComponent,onChange=()=>{}}){
   const $=selector=>document.querySelector(selector);
   const who=()=>state.prefs.participant||'You';
-  const panel=$('#list-panel'),body=$('#list-body'),title=$('#list-title');
   let opener=null,current=null;
 
   // Registers ---------------------------------------------------------------------------------
@@ -130,33 +129,33 @@ export function installLists({state,api,notify,openAt,position,goTo,param=encode
   const EMPTY={quickfix:'No locations yet. :grep <words> fills this list.',registers:'Nothing yanked yet. Select with v, then press y or "ay.',marks:'No marks yet. Press m and a letter to mark your place.'};
   function render(){
     if(!current)return;const items=rows(current);
-    title.textContent=TITLES[current]();panel.dataset.mode=current.toUpperCase();
+    const body=$('#list-body');$('#list-title').textContent=TITLES[current]();$('#list-panel').dataset.mode=current.toUpperCase();
     body.innerHTML=items.length?items.map((item,index)=>`<button type="button" class="thread-list-item list-item${item.current?' current':''}" data-list-index="${index}"${item.current?' aria-current="true"':''}><small><kbd>${esc(item.key)}</kbd> ${esc(item.small)}</small>${item.quote?`<blockquote>${esc(item.quote)}</blockquote>`:''}</button>`).join(''):`<p class="empty-note">${esc(EMPTY[current])}</p>`;
     body.querySelectorAll('[data-list-index]').forEach(button=>button.onclick=()=>items[+button.dataset.listIndex].open());
   }
   const lists={
     /** Show a list in the side panel ('quickfix', 'registers' or 'marks'); focus moves into it. */
     open(kind){
-      const active=document.activeElement;if(!panel.contains(active))opener=active&&active!==document.body?active:null;
-      current=kind;render();panel.hidden=false;
-      (body.querySelector('.list-item.current')||body.querySelector('.list-item')||title).focus({preventScroll:true});onChange();
+      const active=document.activeElement;if(!$('#list-panel')?.contains(active))opener=active&&active!==document.body?active:null;
+      if(!$('#list-panel')){showPanel('list-panel',{onClose:()=>close()});$('#list-body').addEventListener('keydown',listKeys);}
+      current=kind;render();
+      ($('#list-body .list-item.current')||$('#list-body .list-item')||$('#list-title')).focus({preventScroll:true});onChange();
     },
     close,
-    isOpen:()=>!panel.hidden,
-    contains:element=>panel.contains(element),
-    refresh(){if(!panel.hidden)render();},
+    isOpen:()=>!!$('#list-panel'),
+    contains:element=>!!$('#list-panel')?.contains(element),
+    refresh(){if($('#list-panel'))render();},
   };
   function close(restore=true){
-    if(panel.hidden)return;panel.hidden=true;current=null;const back=opener;opener=null;
+    if(!$('#list-panel'))return;hidePanel('list-panel');current=null;const back=opener;opener=null;
     if(restore)(back?.isConnected&&!back.closest('[hidden],dialog:not([open])')?back:$('#main')).focus({preventScroll:true});onChange();
   }
-  $('#list-close').onclick=()=>close();
   // j / k or arrows between rows, as in the other panels; Enter opens one.
-  body.addEventListener('keydown',event=>{
-    const items=[...body.querySelectorAll('.list-item')],index=items.indexOf(document.activeElement);
+  function listKeys(event){
+    const items=[...$('#list-body').querySelectorAll('.list-item')],index=items.indexOf(document.activeElement);
     if(index<0||event.ctrlKey||event.metaKey||event.altKey)return;
     if(['j','k','ArrowDown','ArrowUp'].includes(event.key)){event.preventDefault();event.stopPropagation();items[(index+(['j','ArrowDown'].includes(event.key)?1:-1)+items.length)%items.length].focus();}
     else if(event.key==='g'||event.key==='G'||event.key==='Home'||event.key==='End'){event.preventDefault();event.stopPropagation();items[event.key==='g'||event.key==='Home'?0:items.length-1].focus();}
-  });
+  }
   return {registers,quickfix,marks,jumps,lists};
 }

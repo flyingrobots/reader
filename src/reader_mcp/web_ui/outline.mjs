@@ -26,7 +26,7 @@ export function installOutline({state,reading,$,controls,scrollToPosition,savePr
     const clear=shell?shell.getBoundingClientRect().left+parseFloat(getComputedStyle(shell).paddingLeft||0):Infinity;
     return Math.min(article.getBoundingClientRect().left-48,clear-16);
   }
-  const leftEdge=()=>$('#picker')&&!$('#picker').hidden?$('#picker').getBoundingClientRect().right:0;
+  const leftEdge=()=>$('#picker')?.getBoundingClientRect().right||0;
   function railFits(){
     if(!$('#article')||geometry()||phone())return false;
     return railEdge()-leftEdge()>=RAIL_MIN+8;

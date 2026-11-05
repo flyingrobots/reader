@@ -85,9 +85,9 @@ export function timelineModel(v,{at,marked,participant,title,historical,sideBySi
     marked:marked?labelOf(marked):null,editions,more:v.more||0,catalog:v.catalog||null};
 }
 
-export function installVersions({state,api,navigate,openCompare,openSideBySide,notify,param,onChange,renderTimeline}){
+export function installVersions({showPanel,hidePanel,state,api,navigate,openCompare,openSideBySide,notify,param,onChange,renderTimeline}){
   const $=s=>document.querySelector(s);
-  const panel=$('#versions-panel'),body=$('#versions-body'),twin=$('#status-version');
+  const twin=$('#status-version');
   let marked=null,focusRef=null,hashedFor=null,lastItem=null;
 
   /** The status-bar twin: compact, accent when a newer version exists, warning tone when historical. */
@@ -111,11 +111,11 @@ export function installVersions({state,api,navigate,openCompare,openSideBySide,n
   const resolve=ref=>{const {path,commit}=splitRef(ref);if(!commit)return ref;const c=state.versions?.history?.[path]?.find(x=>x.commit.startsWith(commit));return c?.matches_current&&!state.versions.family.find(e=>e.path===path)?.uncommitted?path:ref;};
 
   function render(){
-    const v=state.versions;if(!v){renderTimeline(body,null);return;}
+    const v=state.versions,body=$('#versions-body');if(!v){renderTimeline(body,null);return;}
     renderTimeline(body,timelineModel(v,{at:here(),marked,participant:state.prefs.participant,title:state.doc?.metadata?.title||state.doc?.title||'',
       historical:!!state.doc?.historical,sideBySide:!!openSideBySide,labelOf}),state.doc?.path||'');
   }
-  const items=()=>[...body.querySelectorAll('[data-vt-item]')].filter(el=>el.offsetParent!==null);
+  const items=()=>[...$('#versions-body').querySelectorAll('[data-vt-item]')].filter(el=>el.offsetParent!==null);
   /** Focus a row by its key (data-vt-key: a reference, or `history:<path>` for a History toggle), else where you are. */
   function focus(ref){
     const all=items();
@@ -142,21 +142,22 @@ export function installVersions({state,api,navigate,openCompare,openSideBySide,n
     const waiting=state.versionsPending;
     if(state.doc&&!state.versions&&waiting?.path===state.doc.path){const late=await waiting.timeline;if(late&&!state.versions&&state.doc?.path===waiting.path){state.versions=late;update();}}
     if(!state.doc||!describe(state.versions,state.doc)){notify(state.doc?'This document has one version and no earlier revisions in the vault history.':'Open a document to see its versions.');return;}
-    panel.hidden=false;render();focus(ref||here());onChange?.();
+    if(!$('#versions-panel'))wire(showPanel('versions-panel',{onClose:()=>{close();$('#main').focus({preventScroll:true});}}));
+    render();focus(ref||here());onChange?.();
     // Content hashes place your read marker (and other readers) on historical revisions; fetched on demand.
     const key=state.doc.path;
     if(hashedFor!==key&&state.versions.git){
       try{const fresh=await api('/api/versions?path='+param(key)+'&participant='+param(state.prefs.participant)+'&hashes=1');
         if(state.doc?.path!==key)return;hashedFor=key;state.versions=fresh;
         // The re-render keeps the keyboard where it was, a History toggle included.
-        const active=document.activeElement?.dataset?.vtKey;if(!panel.hidden){render();focus(active||here());}update();}
+        const active=document.activeElement?.dataset?.vtKey;if($('#versions-panel')){render();focus(active||here());}update();}
       catch{/* The timeline stays usable without read markers on old revisions. */}
     }
   }
-  function close(){if(panel.hidden)return;panel.hidden=true;onChange?.();}
+  function close(){if(!$('#versions-panel'))return;hidePanel('versions-panel');onChange?.();}
   function reset(){hashedFor=null;marked=null;lastItem=null;}
 
-  panel.addEventListener('click',event=>{
+  function wire(panel){panel.addEventListener('click',event=>{
     if(event.target.closest('[data-unmark]')){marked=null;render();focus(focusRef);return;}
     const compareButton=event.target.closest('[data-compare-ref]');if(compareButton){choose(compareButton.dataset.compareRef);return;}
     const openButton=event.target.closest('[data-open-ref]');if(openButton){go(openButton.dataset.openRef);return;}
@@ -188,8 +189,7 @@ export function installVersions({state,api,navigate,openCompare,openSideBySide,n
       event.preventDefault();if(marked){marked=null;render();focus(focusRef);return;}
       close();$('#main').focus({preventScroll:true});
     }
-  });
-  twin.addEventListener('click',()=>panel.hidden?open():close());
-  $('#versions-close').addEventListener('click',()=>{close();$('#main').focus({preventScroll:true});});
-  return {open,close,update,reset,isOpen:()=>!panel.hidden,wire(root){root.querySelector('[data-version-chip]')?.addEventListener('click',()=>open());}};
+  });}
+  twin.addEventListener('click',()=>$('#versions-panel')?close():open());
+  return {open,close,update,reset,isOpen:()=>!!$('#versions-panel'),wire(root){root.querySelector('[data-version-chip]')?.addEventListener('click',()=>open());}};
 }

@@ -67,7 +67,7 @@ export function AdminShell({context}:{context:AdminContext}){
   </>;
   return <SidebarProvider className="reader-admin font-sans" id="reader-admin" data-admin-section={section?.id||'not-found'}>
     <Sidebar collapsible="offcanvas" mobileTitle="Admin sections" mobileDescription="Reader Admin’s sections." mobileFinalFocus={sheetFocus}>
-      <SidebarHeader><AdminLink context={context} section={OVERVIEW} className="px-2 text-sm font-semibold text-sidebar-foreground no-underline">Reader Admin</AdminLink></SidebarHeader>
+      <SidebarHeader><Button variant="ghost" size="sm" className="justify-start font-semibold" nativeButton={false} render={<AdminLink context={context} section={OVERVIEW}/>}>Reader Admin</Button></SidebarHeader>
       <SidebarContent><SectionNav context={context} current={section?.id||''}/></SidebarContent>
       <SidebarFooter><Button id="admin-back" variant="ghost" size="sm" className="justify-start" onClick={context.backToLibrary}><ArrowLeftIcon data-icon="inline-start" aria-hidden/>Back to Library</Button></SidebarFooter>
     </Sidebar>

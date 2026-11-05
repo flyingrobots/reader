@@ -53,6 +53,5 @@ export function installSpeech({state, api, reading, notify, track, openMenu: sho
     if (!spoken()) { notify(state.doc ? 'This document has no text to speak.' : 'Open a document to send it to AI-TTS.'); return; }
     menu = showMenu({hasSelection: !!selection(), api, choose: (scope, voice) => send(scope, voice), onClosed: () => { menu = null; }});
   }
-  $('#speak-selection').onclick = () => { $('#selection-tools').hidden = true; send('selection'); };
   return {send, openMenu};
 }

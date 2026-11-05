@@ -1,4 +1,4 @@
-import {useMemo,useState,type KeyboardEvent} from 'react';
+import {useEffect,useMemo,useState,type KeyboardEvent} from 'react';
 import {SearchIcon,XIcon} from 'lucide-react';
 import {Button} from '@/components/ui/button';
 import {Separator} from '@/components/ui/separator';
@@ -10,9 +10,12 @@ import {ExplorerPagination} from './explorer-pagination';
 import {filterArticles,PAGE_SIZE,type Article,type ReadFilter,type SortOrder} from './model';
 
 export type ExplorerProps={articles:Article[];current:string|null;folder:string|null;onOpen:(path:string)=>void;onClose:()=>void;onSearch:()=>void;onClearFolder:()=>void;onQueue:(path:string)=>void};
-/** Organism: a persistent, nonmodal library column. State survives article navigation and closing/reopening. */
+// Closing the column unmounts it; what it was showing is here when it comes back.
+let kept:{query:string;read:ReadFilter;sort:SortOrder;page:number}={query:'',read:'',sort:'newest',page:0};
+/** Organism: a nonmodal library column. State survives article navigation and closing/reopening. */
 export function FileExplorer({articles,current,folder,onOpen,onClose,onSearch,onClearFolder,onQueue}:ExplorerProps){
-  const [query,setQuery]=useState(''),[read,setRead]=useState<ReadFilter>(''),[sort,setSort]=useState<SortOrder>('newest'),[page,setPage]=useState(0);
+  const [query,setQuery]=useState(kept.query),[read,setRead]=useState<ReadFilter>(kept.read),[sort,setSort]=useState<SortOrder>(kept.sort),[page,setPage]=useState(kept.page);
+  useEffect(()=>{kept={query,read,sort,page};},[query,read,sort,page]);
   const matches=useMemo(()=>filterArticles(articles,query,read,sort,folder),[articles,query,read,sort,folder]);
   const pages=Math.max(1,Math.ceil(matches.length/PAGE_SIZE)),safePage=Math.min(page,pages-1),start=safePage*PAGE_SIZE,rows=matches.slice(start,start+PAGE_SIZE);
   function pageTo(next:number){setPage(next);document.getElementById('file-results')?.scrollTo(0,0);}

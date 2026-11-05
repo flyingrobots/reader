@@ -2078,14 +2078,22 @@ and margin pins stop at the column's edge, and the find bar centres on the page.
 interactive: it scrolls, selects and opens links while the panel is open, and a click
 on the page leaves a docked What changed open.
 
-`web_ui/dock.mjs` is the one mechanism. It watches the panels' `hidden` attributes
-(and the What changed Sheet's `data-side`), and while one is open it sets
+`web_ui/dock.mjs` is the one mechanism. A closed panel is not in the document, so it
+watches panels come and go as children of the body and the controls root (and the
+What changed Sheet's `data-side`), and while one is open it sets
 `data-dock="right"` and `--dock-width` on the root; the layout rules in `style.css`
 and `web/src/styles.css` consume them. Each panel declares its width as
 `--panel-width` (410 px for the margins, Versions and lists, 420 px for the queue,
 440 px for Chat, 520 px for What changed). Panels open together share the column: the
 widest sets its width, every docked panel takes it, and the one opened last is on top.
 Code that clamps to the window uses `pageWidth()` (the window less the dock).
+
+The File Explorer, Find bar, selection toolbar, queue, margins, Versions, lists and Chat
+mount when opened and unmount when closed (`showPanel`, `hidePanel` and `renderFileExplorer`
+in `reader-controls.tsx`): test for one with its element, as `$('#queue-panel')`, and keep
+what must outlast it elsewhere. Find's query and count are in `state`, the Explorer's filters
+in its module, a reply being written in `state.replyDraft`, and Chat's stream and draft in
+its component, which stays mounted and renders nothing while closed.
 
 A dock change keeps the reader's place. In continuous reading the block at the reading
 line (22% down the window) is measured before the column narrows and scrolled back to

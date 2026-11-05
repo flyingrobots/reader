@@ -6,7 +6,7 @@ import {pageWidth} from './dock.mjs';
 import {plural} from './logic.mjs';
 import {shownTop} from './place.mjs';
 
-export function installVisual({state,keys,reading,scrollToPosition,notify,captureSelection,createAnnotation,annotate,speak,registers,quickfix,links,jumps,report}){
+export function installVisual({hideTools,state,keys,reading,scrollToPosition,notify,captureSelection,createAnnotation,annotate,speak,registers,quickfix,links,jumps,report}){
   const $=selector=>document.querySelector(selector);
   const v={model:null,anchor:0,head:0,linewise:false,goal:null,remembered:null,flashTimer:0,flashed:null};
   const active=()=>keys.mode()==='visual';
@@ -39,7 +39,7 @@ export function installVisual({state,keys,reading,scrollToPosition,notify,captur
       if(head>=model.length||!onScreen(model.rect(head)))head=Math.min(first,model.length-1);
     }
     v.anchor=v.head=linewise?model.blockStart(head):head;
-    state.visual=true;$('#selection-tools').hidden=true;
+    state.visual=true;hideTools();
     keys.enter('visual');draw();
   }
   function exit(){
@@ -112,7 +112,7 @@ export function installVisual({state,keys,reading,scrollToPosition,notify,captur
     if(state.doc?.historical){notify('Historical versions are read-only. Open the current file to annotate or copy with its citation.');return false;}
     const range=m().range(lo,hi),selection=getSelection();selection.removeAllRanges();selection.addRange(range);
     // The model's text is the rendered text, so this works even before the page has painted the selection.
-    state.selected=null;captureSelection({range,quote:m().text.slice(lo,hi)});$('#selection-tools').hidden=true;
+    state.selected=null;captureSelection({range,quote:m().text.slice(lo,hi)});hideTools();
     return !!state.selected&&state.selected.path===state.doc?.path;
   }
   function act(fn){if(!v.model)return;try{fn();}finally{exit();}}
@@ -181,7 +181,7 @@ export function installVisual({state,keys,reading,scrollToPosition,notify,captur
     revealNormal(model.range(target.index,target.end));
   }
   function firstUseNormal(){
-    const term=$('#find-query')?.value||state.fromSearch?.query||'';
+    const term=state.findQuery||state.fromSearch?.query||'';
     if(!term.trim()){notify('Find a term with / first, or select it with v, then press gd.');return;}
     const model=normalModel();if(!model)return;const hit=firstUse(model,term);
     if(!hit){notify('“'+term+'” is not in this document.');return;}
