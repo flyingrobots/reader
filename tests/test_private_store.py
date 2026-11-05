@@ -207,6 +207,30 @@ def test_end_to_end_retry_is_idempotent_and_delete_removes_it(real):
         real.read(session, identity)
 
 
+def test_end_to_end_a_document_opens_by_id_and_position_never_by_name(real):
+    session = real.setup(PASSPHRASE)
+    identity = str(uuid4())
+    real.store(session, identity, {'title': 'A debrief', 'received_at': 'now'}, [('secret-name.md', b'# Text'), ('notes/raw.txt', b'raw'), ('receipt.json', b'{}')])
+    first = real.document(session, f'private/{identity}')
+    assert first['text'] == '# Text' and first['title'] == 'A debrief' and first['kind'] == '.md' and first['preview'] and first['item'] is None and first['bookmark'] is None
+    assert [row['path'] for row in first['private_files']] == [f'private/{identity}', f'private/{identity}/1']
+    assert 'secret-name' not in first['path'] and all('secret-name' not in row['path'] for row in first['private_files'])
+    assert real.document(session, f'private/{identity}/1')['text'] == 'raw'
+    for bad in (f'private/{identity}/9', f'private/{identity}/secret-name.md', f'private/{identity}/1/2', 'private/not-an-id', 'library/x.md'):
+        with pytest.raises(ValueError):
+            real.document(session, bad)
+    with pytest.raises(private_store.Locked):
+        real.document('wrong session', f'private/{identity}')
+
+
+def test_the_reader_route_to_encrypted_storage_is_only_for_a_browser_here():
+    source = (Path(private_store.__file__).parent / 'web.py').read_text()
+    route = source[source.index("elif parsed.path == '/api/document' and args.get('path', '').startswith('private/')"):]
+    assert route.split('\n')[2].strip() == 'self.private_read(library, parsed.path, args)'
+    guard = source[source.index('def private_read'):]
+    assert "self.identity.get('via') != 'local'" in guard.split('\n')[1]
+
+
 def waiting_delivery(vault, title='A waiting debrief', text=b'WAITINGMARKER6620 text\n'):
     body, identity = frame(privacy='no-cloud', data=text, path='debrief.md', title=title)
     uploads.receive(vault, io.BytesIO(body), len(body), LOCAL)

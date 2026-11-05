@@ -10,6 +10,7 @@ export function breadcrumbTrail(path, narrow=false) {
   if(VIEWS[path])return {items:[{label:VIEWS[path],current:true,title:VIEWS[path]}],hidden:[]};
   if(!path)return {items:[],hidden:[]};
   // Inbox previews are not library folders; name the inbox instead of offering folder browsing.
+  if(path.startsWith('private/'))return {items:[{label:'Encrypted document',current:true,title:'Encrypted document'}],hidden:[]};
   if(path.startsWith('inbox/'))return {items:[{label:'Inbox · '+path.split('/').at(-1),current:true,title:path}],hidden:[]};
   const parts=path.split('/'), folders=parts.slice(1,-1).map((label,index)=>({label,folder:parts.slice(0,index+2).join('/')+'/'}));
   const hidden=narrow?folders:folders.length>2?folders.slice(0,-1):[];

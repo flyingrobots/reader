@@ -14,6 +14,6 @@ import settings from '../../../docs/topics/settings.md';
 export const ADMIN_DOCUMENTS:Record<string,{title:string;source:string;aliases?:Record<string,string>}>= {
   overview:{title:'Overview',source:overview}, jobs:{title:'Coding Jobs',source:jobs,aliases:{jobs:'job-list'}},
   logs:{title:'LLM logs',source:logs},repositories:{title:'Repositories',source:repositories},voices:{title:'Voices',source:voices},
-  models:{title:'Models',source:models},publish:{title:'Publish',source:publish},inbox:{title:'Inbox',source:inbox},indexes:{title:'Indexes',source:indexes},
+  models:{title:'Models',source:models},publish:{title:'Publish',source:publish},encrypted:{title:'Publish',source:publish},inbox:{title:'Inbox',source:inbox},indexes:{title:'Indexes',source:indexes},
   artwork:{title:'Artwork',source:artwork},library:{title:'Library',source:library},service:{title:'Service & tools',source:service,aliases:{server:'reader-service'}},settings:{title:'Settings',source:settings}
 };

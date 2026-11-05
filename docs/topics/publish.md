@@ -27,7 +27,7 @@ After the upload, a filing run starts for that upload alone, so anything else wa
 
 The first use installs a small pinned tool and asks you to choose a passphrase. **There is no recovery:** if you lose it, these files are gone, and nothing backs them up.
 
-Once unlocked, you can open, download or delete these documents here. They stay unlocked in this browser until you press **Lock**, Reader restarts, or 15 minutes pass without use. Deleting removes a document from encrypted storage, but it doesn't securely erase the disk.
+Once unlocked, you can open, download or delete these documents here or on the [Encrypted](#admin/encrypted) page. They open in the regular reader, but without search, highlights, bookmarks, reading history, art or chat, because those would save readable text in your vault. Opening one on screen doesn't lock it again when storage locks, so close it when you're done. They stay unlocked in this browser until you press **Lock**, Reader restarts, or 15 minutes pass without use. Deleting removes a document from encrypted storage, but it doesn't securely erase the disk.
 
 While it's unlocked, you can also encrypt a delivery that's waiting in the inbox instead of filing it. The inbox copy is removed once the encrypted copy has been checked.
 

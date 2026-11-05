@@ -14,7 +14,7 @@
     "../docs/topics/logs.md": "cf2d367a13620967bb12e811834c22f23a73ec11f33783bfb287bad858cdc579",
     "../docs/topics/models.md": "525f9fb66a9565eb46a698b3a7163b890fa727b4930d922f7ebcf07ea5af4eb3",
     "../docs/topics/overview.md": "57520a0f5beb71ee8c7440c8b2c23f33b8e05a11cbbc9cc682f6db9779f67dcf",
-    "../docs/topics/publish.md": "1b1c42185f500453c6c2d7c6eceda473f6d86f1df29bb1c0ebaa2857cea7c4d5",
+    "../docs/topics/publish.md": "7e12a5aef69aa322c6ca87c7ba589117c47286a39ebbbff80a6e52e85900ff4f",
     "../docs/topics/repositories.md": "a380b973f9656d637411e05877310520107c1b0c6fd560015ea0bdde56a841e5",
     "../docs/topics/service.md": "afed76a054d5ee552c72b3db60365acf11c3eefd447798a449d0c312af3d21f0",
     "../docs/topics/settings.md": "99336b16eb57868f4a2943fe5e5bf58c2d5c7196e9116f93c0f22e33f2ed8932",
@@ -29,7 +29,7 @@
     "src/activity/reducer.ts": "5694d95a7c4c44369b3e46aed7a4707077f227edf6bbe55d5f9908db7b9e531f",
     "src/activity/transcript.tsx": "347811fb4a82a573c3a3df8ca9d4778f5c0c8581a0043934b17e31c379a5fd98",
     "src/admin/admin-shell.tsx": "5c004724436ddf2590afddb1ba18e9dcade8cd4f37ecc99a5a72148c5ae1506f",
-    "src/admin/documentation-topics.ts": "8e2c96aedfeb6a9d16c5f57775df7450a5f6b06eb824430062ab3e145ef3db17",
+    "src/admin/documentation-topics.ts": "891e8deb45fcf8e1561b8812ca954035a1a98463d4383cb7ffd854247f547d22",
     "src/admin/documentation.tsx": "9601acd5b631b4123ecc533ef97f6aec3c75058a38b0133fea75ff81d46b0254",
     "src/admin/link.tsx": "1364e49c693a3fdfdfda3b767e4914019c7092ad552a13b14d70fe61af03a714",
     "src/admin/overview.tsx": "9d374ccf81b59c979459f03a0a6eefe54475d7395ca1933bb3c474922bcf435d",
@@ -42,13 +42,13 @@
     "src/admin/pages/library-charts.ts": "934c246bde1dd47a99dd19ac3c4ba0ae6df98e98bb62ddd1912e39f211bfc902",
     "src/admin/pages/library.tsx": "1c4ee11da3a6491bf35261d747c9296251513d9e53e02ffff5b7288ba9c209e0",
     "src/admin/pages/logs.tsx": "ded000bd5ca82dce862fe1e86436383a326660f00be8c366fde7fdd978fb2609",
-    "src/admin/pages/private-shelf.tsx": "fcf9b77ab48818ffa672d12d449dfb23974f0fddccaac2d5abdcfc009522a337",
-    "src/admin/pages/publish.tsx": "e97742547617bfde4457addf83471e90df9662b15c51a3fa709ed6d43346ee78",
+    "src/admin/pages/private-shelf.tsx": "cfa37405425ef69bf0dc398ddef23f3f934a11657ad7a40055e8bc9f06f4b6ad",
+    "src/admin/pages/publish.tsx": "f8d3b7186fea6ebdbe835710fa3030def06a4ebe268ae8ccb26df8bffbca0656",
     "src/admin/pages/repositories.tsx": "b27c3176025dd93ab4194beff4ec6eb12aca8a62235fb2b1a84c39ef97760c78",
     "src/admin/pages/shelves.tsx": "fe7173d11af9e4f0d05fee9afa631f3265438845426211ae4e6b0b05cde2159a",
     "src/admin/pages/voices.tsx": "2c2ab2da0029eb1209922b79927799da6734a68a5867bf9a7c0d0e61ca3e31bb",
     "src/admin/panels.tsx": "d88dd39444a97060735e6134c107f72561b450689df44c61f6018d917f623706",
-    "src/admin/sections.tsx": "cbd0c7c148545109f7d83c7096f87d6fb7f6447876a027f1c533257f77812c6f",
+    "src/admin/sections.tsx": "4e388ec1c6378d1c4e01ed17dbb1ed36728fa35267e5a4d322d67730598e3e5a",
     "src/art-focus-chrome.tsx": "51fd02526aea995a20a91490da61ca3d31cf25d06eda9fb30e8bce82fed457fa",
     "src/art-prompt-card.tsx": "6cd9e2d4c4f1b9a2469841b87038dfd19e0e7f9e986fd80141e2a7b8950b154a",
     "src/art-regenerate.tsx": "1d1187b7482efb4ce0ba829e1bfb94fe8f1af72d9a90f6e525edb59e1be76f2f",
@@ -996,8 +996,8 @@
       "sha256": "8285cfa81d7c1f65a9dbbf264c36cf083684690e547dac47a315184c6da48470"
     },
     "reader-controls.js": {
-      "bytes": 1362449,
-      "sha256": "4934e6f4641568c7e3b13d43ceac1bbceebf8249ebe30f6d1c7bfa3c2c3f6bf5"
+      "bytes": 1362140,
+      "sha256": "17f139b41f2a78084d6f224edb38f3f7feb34cf3027cfa535f29c48949c5d054"
     },
     "reader-controls.js.LEGAL.txt": {
       "bytes": 6614,

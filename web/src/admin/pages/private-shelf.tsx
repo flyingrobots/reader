@@ -1,6 +1,6 @@
 /* Admin › Publish: documents encrypted on this machine. Only a browser here sees this: through a tailnet the API answers
    404, so the upload level doesn't appear and a note says where to go instead. Passphrases go to the server once, and the key stays in its memory
-   behind an HttpOnly cookie. Text is shown here and never cached or saved by this page. */
+   behind an HttpOnly cookie. Documents open in the reader, as previews: nothing about them is saved, and their URLs carry only an ID. */
 import {useCallback, useEffect, useState} from 'react';
 import {LockIcon} from 'lucide-react';
 import {Button} from '@/components/ui/button';
@@ -18,7 +18,7 @@ import {plural} from '../../plural';
 
 type Api=(path:string,payload?:unknown,extra?:Record<string,unknown>)=>Promise<any>;
 type StoredFile={path:string;bytes:number};
-type Stored={id:string;title:string;author?:string|null;received_at?:string;files:StoredFile[];text?:string|null};
+type Stored={id:string;title:string;author?:string|null;received_at?:string;files:StoredFile[]};
 export type PrivateStatus={installed:boolean;initialized:boolean;unlocked:boolean;items:Stored[]};
 const MIN_PASSPHRASE=12;
 
@@ -29,21 +29,20 @@ export function usePrivateStatus(api:Api){
   return {status,available,checked,refresh};
 }
 
-export function PrivateShelf({api,html,privacy}:{api:Api;html:(text:string)=>string;privacy:ReturnType<typeof usePrivateStatus>}){
+export function PrivateShelf({api,privacy}:{api:Api;privacy:ReturnType<typeof usePrivateStatus>}){
   const {status,available,checked,refresh}=privacy;
   const [passphrase,setPassphrase]=useState(''),[again,setAgain]=useState(''),[understood,setUnderstood]=useState(false);
-  const [busy,setBusy]=useState(false),[error,setError]=useState<string|null>(null),[open,setOpen]=useState<Stored|null>(null);
+  const [busy,setBusy]=useState(false),[error,setError]=useState<string|null>(null);
   const act=async(payload:Record<string,unknown>)=>{setBusy(true);setError(null);
     try{await api('/api/private',payload);setPassphrase('');setAgain('');setUnderstood(false);await refresh();return true;}
     catch(cause){setError((cause as Error).message);return false;}finally{setBusy(false);}};
   const [waiting,setWaiting]=useState<{id:string;title:string}[]>([]);
   useEffect(()=>{if(!status?.unlocked){setWaiting([]);return;}api('/api/inbox').then(inbox=>setWaiting((inbox.arrivals||[]).filter((arrival:{bundle?:boolean;integrity?:string})=>arrival.bundle&&arrival.integrity==='intact'))).catch(()=>setWaiting([]));},[api,status]);
-  const view=async(id:string)=>{setError(null);try{setOpen(await api('/api/private/item?id='+encodeURIComponent(id)));}catch(cause){setError((cause as Error).message);await refresh();}};
   if(!available||!status)return checked?<Notice id="private-elsewhere" role="note" title="Encrypted storage isn’t available at this address.">To set a passphrase or encrypt documents, open Publish in a browser on the computer that holds your library, using its local address (for example <code className="font-mono text-xs">http://127.0.0.1:8766/#admin/publish</code>). A Tailscale address can’t reach it, even on that computer.</Notice>:null;
   const badge=status.unlocked?<StatusBadge tone="active" data-private-state="unlocked">Unlocked</StatusBadge>:status.initialized?<StatusBadge tone="neutral" data-private-state="locked">Locked</StatusBadge>:<StatusBadge tone="neutral" data-private-state="unset">Not set up</StatusBadge>;
   const mismatch=!!again&&again!==passphrase;
   return <StatusCard data-private="" title="On this machine only" description="Encrypted copies that never join your vault or leave this Mac. No model, voice or search can find them through Reader." badge={badge}
-    footer={status.unlocked?<Button id="private-lock" variant="outline" size="sm" disabled={busy} onClick={()=>{setOpen(null);act({action:'lock'});}}><LockIcon data-icon="inline-start" aria-hidden/>Lock</Button>:undefined}>
+    footer={status.unlocked?<Button id="private-lock" variant="outline" size="sm" disabled={busy} onClick={()=>act({action:'lock'})}><LockIcon data-icon="inline-start" aria-hidden/>Lock</Button>:undefined}>
     {error?<Notice id="private-error" tone="error" role="alert">{error}</Notice>:null}
     {!status.installed?<div className="flex flex-col gap-3">
       <p className="text-sm text-muted-foreground">This needs a small pinned tool, which Reader installs into <code className="font-mono text-xs">~/.reader</code>. It needs Node.js.</p>
@@ -65,8 +64,8 @@ export function PrivateShelf({api,html,privacy}:{api:Api;html:(text:string)=>str
         <ItemDescription>{plural(item.files.length,'file')}{item.received_at?<> · <RelativeTime value={item.received_at}/></>:null}</ItemDescription>
       </ItemContent>
       <ItemActions>
-        <Button size="sm" variant="outline" data-private-open="" onClick={()=>view(item.id)}>Open</Button>
-        <ConfirmAction label="Delete" title={`Delete “${item.title}”?`} description="This removes it from encrypted storage for good." confirm="Delete" onConfirm={()=>{setOpen(null);act({action:'delete',id:item.id});}}/>
+        <Button size="sm" variant="outline" data-private-open="" render={<a href={`#read=private/${encodeURIComponent(item.id)}`}/>}>Open</Button>
+        <ConfirmAction label="Delete" title={`Delete “${item.title}”?`} description="This removes it from encrypted storage for good." confirm="Delete" onConfirm={()=>act({action:'delete',id:item.id})}/>
       </ItemActions>
     </Item>)}</ItemGroup>:<p id="private-empty" className="text-sm text-muted-foreground">Nothing is stored here yet. Choose “This machine only” above.</p>}
     {status.unlocked&&waiting.length?<div id="private-waiting" className="mt-4 flex flex-col gap-2">
@@ -77,11 +76,10 @@ export function PrivateShelf({api,html,privacy}:{api:Api;html:(text:string)=>str
         <ItemActions><ConfirmAction label="Encrypt" title={`Encrypt “${arrival.title}”?`} description="It moves to encrypted storage and leaves the inbox. It won’t be filed, and a lost passphrase loses it." confirm="Encrypt" disabled={busy} onConfirm={()=>{act({action:'encrypt-arrival',id:arrival.id});}}/></ItemActions>
       </Item>)}</ItemGroup>
     </div>:null}
-    {open&&status.unlocked?<article id="private-view" className="mt-4 rounded-lg border border-border p-4">
-      <h3 className="font-serif text-lg">{open.title}</h3>
-      <p data-private-encrypted="" className="mt-1 flex items-center gap-1.5 text-sm text-muted-foreground"><LockIcon className="size-3.5" aria-hidden/>Encrypted</p>
-      <ul className="my-2 text-sm">{open.files.map(file=><li key={file.path}><a data-private-file={file.path} href={`/api/private/file?id=${encodeURIComponent(open.id)}&path=${encodeURIComponent(file.path)}`}>{file.path}</a></li>)}</ul>
-      {open.text!=null?<div id="private-text" data-reader-decoration="" dangerouslySetInnerHTML={{__html:html(open.text)}}/>:<p className="text-sm text-muted-foreground">Download its files above to read them.</p>}
-    </article>:null}
   </StatusCard>;
+}
+
+export function EncryptedPage({api}:{api:Api}){
+  const privacy=usePrivateStatus(api);
+  return <section id="backstage-encrypted" aria-label="Encrypted" className="flex flex-col gap-6"><PrivateShelf api={api} privacy={privacy}/></section>;
 }

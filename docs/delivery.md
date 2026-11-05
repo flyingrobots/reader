@@ -128,6 +128,8 @@ A delivery from a helper or MCP tool that sends no level is treated like `no-clo
 
 ### This machine only
 
+The reader opens these as `/api/document?path=private/<id>[/<index>]`, with no names in the URL, under the same local-browser and session rules as `/api/private`.
+
 A `machine-only` upload never enters the vault. It needs a browser on the vault machine with encrypted storage unlocked; any other request stores nothing. The server checks it in memory and passes it to git-cas over stdin, so no plaintext is written to disk. It skips the inbox, intake, catalogs, indexes, LLM logs and read records, so no model or Reader tool can find it.
 
 - **Storage:** a bare Git repository at `~/.reader/private.git` (or under `READER_HOME`), mode `0700`, in git-cas's privacy-mode vault with `framed` AES-256-GCM. Titles and filenames are encrypted too. File sizes, the number of documents and random document IDs remain visible.

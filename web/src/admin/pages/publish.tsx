@@ -35,7 +35,7 @@ const titleOf=(name:string)=>name.replace(/\.[^.]+$/,'').replace(/[-_]+/g,' ').t
 /** Browsers report a chosen folder's files with their paths; a bare file uses its name. */
 const pathOf=(file:File)=>(file as File&{webkitRelativePath?:string}).webkitRelativePath||file.name;
 
-export function PublishPage({api,html}:{api:Api;html:(text:string)=>string}){
+export function PublishPage({api}:{api:Api}){
   const privacy=usePrivateStatus(api);
   const [files,setFiles]=useState<File[]>([]),[title,setTitle]=useState(''),[author,setAuthor]=useState(''),[level,setLevel]=useState('no-cloud');
   const [stage,setStage]=useState<Stage>('idle'),[steps,setSteps]=useState<Step[]>([]),[error,setError]=useState<string|null>(null),[note,setNote]=useState<string|null>(null);
@@ -118,7 +118,7 @@ export function PublishPage({api,html}:{api:Api;html:(text:string)=>string}){
       {error?<Notice id="publish-error" tone="error" role="alert">{error}</Notice>:null}
       {note?<Notice id="publish-note" tone={['filed','encrypted'].includes(stage)?'info':'error'}>{note}</Notice>:null}
     </StatusCard>:null}
-    <PrivateShelf api={api} html={html} privacy={privacy}/>
+    <PrivateShelf api={api} privacy={privacy}/>
     <DeliveryTokens api={api}/>
   </section>;
 }

@@ -1504,6 +1504,8 @@ class WebHandler(BaseHTTPRequestHandler):
             self.json({**status, 'items': store.items(session) if status['unlocked'] else []})
         elif path == '/api/private/item':
             self.json(store.view(session, args.get('id', '')))
+        elif path == '/api/document':
+            self.json(store.document(session, args.get('path', '')))
         else:
             _, files = store.read(session, args.get('id', ''))
             data = files.get(args.get('path', ''))
@@ -1682,6 +1684,9 @@ class WebHandler(BaseHTTPRequestHandler):
                 self.json(library.bootstrap(args.get('participant', self.server.participant)) | {'token': self.server.token})
             elif parsed.path == '/api/token':
                 self.json({'token': self.server.token})
+            elif parsed.path == '/api/document' and args.get('path', '').startswith('private/'):
+                # The same local-browser and session rules as the rest of encrypted storage.
+                self.private_read(library, parsed.path, args)
             elif parsed.path == '/api/document':
                 self.json(library.document(args.get('path', ''), args.get('participant', self.server.participant)))
             elif parsed.path == '/api/search':

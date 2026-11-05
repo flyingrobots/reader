@@ -53,15 +53,20 @@ const everything=dir=>{let all=Buffer.alloc(0);for(const e of readdirSync(dir,{w
   // It opens through the session, and locks.
   const row=page.locator('[data-private-item]').filter({hasText:TITLE});await row.waitFor();
   await row.locator('[data-private-open]').click();
-  await page.locator('#private-text').filter({hasText:MARKER}).waitFor();
-  // The title says what this is, with an icon a reader can see and a word a screen reader can read.
-  const title=page.locator('#private-view h3'),mark=page.locator('#private-view [data-private-encrypted]');
-  assert.equal((await mark.textContent()).trim(),'Encrypted');assert.equal(await mark.locator('svg').isVisible(),true,'the icon shows');
-  const [titleBox,markBox]=await Promise.all([title.boundingBox(),mark.boundingBox()]);assert.ok(markBox.y>=titleBox.y+titleBox.height-1,'it sits under the title');
+  // It opens in the regular reader. The URL carries only an ID, and nothing about it is saved.
+  await page.locator('.document-kicker').filter({hasText:'Encrypted'}).waitFor();
+  await page.locator('#article').filter({hasText:MARKER}).waitFor();
+  for(const secret of [TITLE,'secret-file-name'])assert.equal(page.url().includes(secret),false,secret+' in the URL');
+  assert.equal(await page.evaluate(()=>JSON.stringify({...localStorage}).includes('MARKER')),false);
+  for(const secret of [MARKER,TITLE,'secret-file-name'])assert.equal(everything(root).includes(secret),false,secret+' reached the vault while reading');
+  await page.goBack();
+  // It also has its own page.
+  await page.goto(url+'#admin/encrypted');await page.locator('#backstage-encrypted [data-private-item]').first().waitFor();
   await page.locator('#private-lock').click();await state('locked');
-  assert.equal(await page.locator('[data-private-item]').count(),0);assert.equal(await page.locator('#private-text').count(),0);
+  assert.equal(await page.locator('[data-private-item]').count(),0);
   const denied=await page.evaluate(async()=>{const list=await (await fetch('/api/private')).json();return list;});
   assert.equal(denied.unlocked,false);assert.deepEqual(denied.items,[]);
+  const refused=await page.evaluate(async id=>(await fetch('/api/document?path=private/'+id)).status,moved);assert.notEqual(refused,200,'a locked store opens nothing');
   // A wrong passphrase gets nothing; the right one reopens it.
   await page.locator('#private-passphrase').fill('not the right passphrase');await page.locator('#private-unlock').click();
   await page.locator('#private-error').filter({hasText:'doesn’t match'}).waitFor({timeout:30000});

@@ -12,6 +12,7 @@ import hashlib
 import json
 import os
 from pathlib import Path
+from urllib.parse import quote
 import re
 import secrets
 import shutil
@@ -280,6 +281,30 @@ class PrivateStore:
             except UnicodeDecodeError:
                 pass
         return {**meta, 'text': text}
+
+    def document(self, session_id, path):
+        """A stored file as the reader opens it, addressed by `private/<id>` or `private/<id>/<index>`. Names stay out of the URL, and so out of browser history."""
+        parts = path.split('/')
+        if parts[0] != 'private' or len(parts) not in (2, 3) or (len(parts) == 3 and not (parts[2].isascii() and parts[2].isdigit() and len(parts[2]) < 5)):
+            raise ValueError('That document doesn’t exist.')
+        meta, files = self.read(session_id, parts[1])
+        index = int(parts[2]) if len(parts) == 3 else 0
+        if index >= len(meta['files']):
+            raise ValueError('That document doesn’t exist.')
+        row = meta['files'][index]
+        data, text = files[row['path']], None
+        if len(data) <= MAX_PREVIEW and b'\x00' not in data:
+            try:
+                text = data.decode()
+            except UnicodeDecodeError:
+                pass
+        name = Path(row['path'])
+        identity = parts[1]
+        return {'path': path, 'sha256': row['sha256'], 'kind': name.suffix.lower(), 'text': text, 'title': meta['title'] if index == 0 else name.stem.replace('-', ' '),
+                'metadata': {}, 'file_url': '/api/private/file?id=' + quote(identity, safe='') + '&path=' + quote(row['path'], safe=''),
+                'item': None, 'preview': True, 'private': True, 'bookmark': None,
+                'private_files': [{'path': f'private/{identity}' + (f'/{number}' if number else ''), 'name': other['path'], 'current': number == index}
+                                  for number, other in enumerate(meta['files']) if other['path'] != 'receipt.json']}
 
     def delete(self, session_id, request_id):
         identity = checked_id(request_id)
