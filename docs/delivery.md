@@ -136,7 +136,7 @@ A `machine-only` upload never enters the vault. It needs a browser on the vault 
 - **Encrypting a waiting delivery:** the Publish page can move an intact delivery from the inbox into encrypted storage, receipt included, without filing it. Reader reads the encrypted copy back and matches every file before it removes the inbox copy, and refuses while a filing run or an agent's claim could be using it.
 - **Deleting:** this removes the document and prunes the repository's unreachable objects. It isn't secure erasure of the disk.
 
-**Limits.** There is no passphrase recovery and no backup: a lost passphrase or a failed disk loses these files. This protects Reader's stored copy. It doesn't protect the original file wherever it came from, a document while it is open, or against a program that can read the server's memory or browser data while it's unlocked. A backup tool would copy only ciphertext. Reading happens only on this page: Obsidian sees nothing, and these documents can't be highlighted or searched.
+**Limits.** There is no passphrase recovery and no backup: a lost passphrase or a failed disk loses these files. This protects Reader's stored copy. It doesn't protect the original file wherever it came from, a document while it is open, or against a program that can read the server's memory or browser data while it's unlocked. A backup tool would copy only ciphertext. Reading happens only on this page, where an open document shows **Encrypted** and a lock under its title: Obsidian sees nothing, and these documents can't be highlighted or searched.
 
 Other programs running as you can read `~/.reader/private.git`, but only as ciphertext.
 

@@ -42,7 +42,7 @@
     "src/admin/pages/library-charts.ts": "934c246bde1dd47a99dd19ac3c4ba0ae6df98e98bb62ddd1912e39f211bfc902",
     "src/admin/pages/library.tsx": "1c4ee11da3a6491bf35261d747c9296251513d9e53e02ffff5b7288ba9c209e0",
     "src/admin/pages/logs.tsx": "ded000bd5ca82dce862fe1e86436383a326660f00be8c366fde7fdd978fb2609",
-    "src/admin/pages/private-shelf.tsx": "13c828b537e588fafb1e016ed249644e37b5037a4aeffb49b0e5141c6c9add64",
+    "src/admin/pages/private-shelf.tsx": "97292b6e2fef0b7322143e8fdeeda580464143829f1e7d586c6e5c093ec8ca28",
     "src/admin/pages/publish.tsx": "e97742547617bfde4457addf83471e90df9662b15c51a3fa709ed6d43346ee78",
     "src/admin/pages/repositories.tsx": "b27c3176025dd93ab4194beff4ec6eb12aca8a62235fb2b1a84c39ef97760c78",
     "src/admin/pages/shelves.tsx": "fe7173d11af9e4f0d05fee9afa631f3265438845426211ae4e6b0b05cde2159a",
@@ -995,8 +995,8 @@
       "sha256": "8285cfa81d7c1f65a9dbbf264c36cf083684690e547dac47a315184c6da48470"
     },
     "reader-controls.js": {
-      "bytes": 1357300,
-      "sha256": "a1ddaa82da5549e591350b013bf135dfc68726282bfba533f19014698310bc6c"
+      "bytes": 1357498,
+      "sha256": "5188d8c68ed3e17b41401cfe299f9ade205d85afeafbc26cfc3a08d67be2dad1"
     },
     "reader-controls.js.LEGAL.txt": {
       "bytes": 6614,

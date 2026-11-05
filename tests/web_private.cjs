@@ -54,6 +54,10 @@ const everything=dir=>{let all=Buffer.alloc(0);for(const e of readdirSync(dir,{w
   const row=page.locator('[data-private-item]').filter({hasText:TITLE});await row.waitFor();
   await row.locator('[data-private-open]').click();
   await page.locator('#private-text').filter({hasText:MARKER}).waitFor();
+  // The title says what this is, with an icon a reader can see and a word a screen reader can read.
+  const title=page.locator('#private-view h3'),mark=page.locator('#private-view [data-private-encrypted]');
+  assert.equal((await mark.textContent()).trim(),'Encrypted');assert.equal(await mark.locator('svg').isVisible(),true,'the icon shows');
+  const [titleBox,markBox]=await Promise.all([title.boundingBox(),mark.boundingBox()]);assert.ok(markBox.y>=titleBox.y+titleBox.height-1,'it sits under the title');
   await page.locator('#private-lock').click();await state('locked');
   assert.equal(await page.locator('[data-private-item]').count(),0);assert.equal(await page.locator('#private-text').count(),0);
   const denied=await page.evaluate(async()=>{const list=await (await fetch('/api/private')).json();return list;});

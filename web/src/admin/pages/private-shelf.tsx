@@ -79,6 +79,7 @@ export function PrivateShelf({api,html,privacy}:{api:Api;html:(text:string)=>str
     </div>:null}
     {open&&status.unlocked?<article id="private-view" className="mt-4 rounded-lg border border-border p-4">
       <h3 className="font-serif text-lg">{open.title}</h3>
+      <p data-private-encrypted="" className="mt-1 flex items-center gap-1.5 text-sm text-muted-foreground"><LockIcon className="size-3.5" aria-hidden/>Encrypted</p>
       <ul className="my-2 text-sm">{open.files.map(file=><li key={file.path}><a data-private-file={file.path} href={`/api/private/file?id=${encodeURIComponent(open.id)}&path=${encodeURIComponent(file.path)}`}>{file.path}</a></li>)}</ul>
       {open.text!=null?<div id="private-text" data-reader-decoration="" dangerouslySetInnerHTML={{__html:html(open.text)}}/>:<p className="text-sm text-muted-foreground">Download its files above to read them.</p>}
     </article>:null}
