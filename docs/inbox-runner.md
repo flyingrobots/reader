@@ -24,7 +24,7 @@ local model. Any failure moves to the next provider: not installed, out of usage
 not signed in, timed out, unreachable, or an answer that fails validation. A
 provider found missing, out of usage or signed out is not asked again in that run.
 Stopping a run stops the walk. If every provider fails, the run fails with each
-reason, its queue is kept, and retrying resumes it. A no-cloud arrival is deferred
+reason, its queue is kept, and retrying resumes it. An arrival limited to the local model is deferred
 instead and stays in the inbox, so waiting for a local model holds nothing else back.
 
 Every step appears as it happens, naming the provider and the reason but never
@@ -50,7 +50,16 @@ its prompt that the librarian is out of office and that it is a stand-in for thi
 task, not to adopt the librarian's persona, voice or name. The transcript says who is
 standing in, and the archive's `meta.json` records `stand_in`.
 
-An arrival whose receipt says `"privacy": "no-cloud"` only ever uses the local model, whatever the order says. `--only ARRIVAL` (repeatable) and `arrivals` on `POST /api/inbox` limit a new run to those arrivals. A retry of a failed or interrupted run resumes its frozen queue instead, so a chosen arrival waits until that queue finishes.
+An arrival only uses the whole order if its receipt says `"privacy": "normal"`. Any other arrival only ever uses the local model, whatever the order says: `no-cloud`, a receipt with no level, a dropped file with no receipt, or a level this version doesn't recognize.
+
+Receipts stay as delivered, so what you decide about an arrival lives in ignored `.reader/arrival-choices.json`, from the Inbox page or `reader inbox hold|release|allow-cloud ARRIVAL`:
+
+- **Hold** keeps the arrival out of every run, including a run that names it with `--only`. It leaves no trace in the batch record, unless the hold arrives after the run's queue was frozen. Then the arrival is deferred before its model call, and the batch record keeps its name and hashes. A hold can't stop a model call already under way or filing already decided.
+- **Allow cloud models** lets the arrival use the whole order. What a cloud model reads can't be recalled.
+
+An unreadable or invalid choices file stops the run, since it might be holding something. Setting `READER_UNMARKED_PRIVACY=normal` in the server's environment treats arrivals with no level as `normal`, for a machine with no local model.
+
+`--only ARRIVAL` (repeatable) and `arrivals` on `POST /api/inbox` limit a new run to those arrivals. A retry of a failed or interrupted run resumes its frozen queue instead, so a chosen arrival waits until that queue finishes.
 
 The chain otherwise serves decisions that belong to no one. Voice turns and coding jobs do
 not use it: an answer under one voice's name written by another provider would

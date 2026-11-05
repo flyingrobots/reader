@@ -6,6 +6,7 @@ import time
 
 import pytest
 
+from reader_mcp import arrival_choices
 from reader_mcp.inbox_runner import inventory, run, sandbox_writable_paths
 from reader_mcp import intake
 from test_intake import vault, plan_for
@@ -260,3 +261,82 @@ def test_a_scoped_run_files_only_the_chosen_arrival(vault, executable):
     assert selection['arrivals'] == ['inbox/' + chosen]
     assert not (vault / 'inbox' / chosen).exists()
     assert (vault / 'inbox' / other / 'other.md').is_file() and (vault / 'inbox/test.md').is_file()
+
+
+def test_an_arrival_with_no_level_never_reaches_a_cloud_model(vault, executable, monkeypatch):
+    monkeypatch.delenv('READER_UNMARKED_PRIVACY')
+    fake = executable(before="(base/'cloud-saw-it').write_text('yes')")
+    assert run(vault, str(fake)) == 0
+    state = json.loads((vault / '.reader/inbox-runner/state.json').read_text())
+    assert state['result']['deferred_count'] == 1 and not (vault / '.reader/cloud-saw-it').exists()
+    assert (vault / 'inbox/test.md').is_file()
+
+
+def test_allowing_cloud_models_files_an_arrival_with_no_level(vault, executable, monkeypatch):
+    monkeypatch.delenv('READER_UNMARKED_PRIVACY')
+    arrival_choices.choose(vault, 'test.md', arrival_choices.CLOUD)
+    assert run(vault, str(executable())) == 0
+    assert not (vault / 'inbox/test.md').exists()
+
+
+def test_a_level_it_does_not_know_stays_local(vault, executable, monkeypatch):
+    monkeypatch.delenv('READER_UNMARKED_PRIVACY')
+    assert arrival_choices.local_only(vault, 'x', {'privacy': 'normal'}) is False
+    for provenance in ({}, {'privacy': 'no-cloud'}, {'privacy': 'machine-only'}, {'privacy': 'NORMAL'}, {'privacy': ['normal']}, None):
+        assert arrival_choices.local_only(vault, 'x', provenance) is True
+
+
+def test_a_held_arrival_is_left_out_of_every_run(vault, executable):
+    fake = executable(before="(base/'model-saw-it').write_text('yes')")
+    held = upload(vault, 'held', 'normal')
+    arrival_choices.choose(vault, held, arrival_choices.HOLD)
+    (vault / 'inbox/test.md').unlink()
+    assert run(vault, str(fake)) == 0
+    state = json.loads((vault / '.reader/inbox-runner/state.json').read_text())
+    assert state['status'] == 'empty' and 'on hold' in state['message'] and not (vault / '.reader/model-saw-it').exists()
+    assert run(vault, str(fake), only={held}) == 0, 'naming it does not get past the hold'
+    assert (vault / 'inbox' / held / 'held.md').is_file() and not (vault / '.reader/model-saw-it').exists()
+    assert held not in subprocess.run(['git', 'log', '--all', '-p'], cwd=vault, capture_output=True, text=True).stdout
+    arrival_choices.choose(vault, held, None)
+    assert run(vault, str(fake)) == 0
+    assert not (vault / 'inbox' / held).exists()
+
+
+def test_a_run_files_what_is_not_held(vault, executable):
+    fake = executable()
+    held = upload(vault, 'held', 'normal')
+    arrival_choices.choose(vault, held, arrival_choices.HOLD)
+    assert run(vault, str(fake)) == 0
+    assert not (vault / 'inbox/test.md').exists() and (vault / 'inbox' / held / 'held.md').is_file()
+
+
+def test_a_hold_placed_during_a_run_stops_that_arrivals_model_call(vault, executable):
+    held = upload(vault, 'held', 'normal')
+    # The first arrival's model call places a hold on the other, as a person pressing Hold mid-run would.
+    fake = executable(before=f"""(base/'calls').open('a').write(context['source']+chr(10))
+import reader_mcp.arrival_choices as choices
+choices.choose(base.parent, 'test.md' if context['source'].endswith({held!r}) else {held!r}, choices.HOLD)""")
+    assert run(vault, str(fake)) == 0
+    calls = (vault / '.reader/calls').read_text().split()
+    assert len(calls) == 1, calls
+    left = (vault / 'inbox/test.md') if calls[0].endswith(held) else (vault / 'inbox' / held / 'held.md')
+    assert left.is_file()
+
+
+def test_an_unreadable_choices_file_stops_the_run(vault, executable):
+    (vault / '.reader/arrival-choices.json').write_text('not json')
+    assert run(vault, str(executable())) != 0
+    assert (vault / 'inbox/test.md').is_file()
+    with pytest.raises(ValueError):
+        arrival_choices.choose(vault, 'test.md', arrival_choices.HOLD)
+    assert (vault / '.reader/arrival-choices.json').read_text() == 'not json'
+
+
+def test_a_choice_needs_a_waiting_arrival(vault):
+    with pytest.raises(ValueError):
+        arrival_choices.choose(vault, '../escape', arrival_choices.HOLD)
+    with pytest.raises(ValueError):
+        arrival_choices.choose(vault, 'test.md', 'sometimes')
+    with pytest.raises(ValueError):
+        arrival_choices.choose(vault, 'not-waiting.md', arrival_choices.HOLD)
+    assert arrival_choices.read(vault) == {}

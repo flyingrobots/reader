@@ -1,6 +1,6 @@
 /* Admin › Inbox: what is waiting, and You got mail, which starts the existing librarian inbox runner.
-   Design sheet: docs/admin-design/inbox.md. The run card holds the one primary action; the list below is read-only
-   (opening an arrival previews it and writes nothing for the librarian). */
+   Design sheet: docs/admin-design/inbox.md. The run card holds the one primary action; the list below previews
+   (opening an arrival writes nothing for the librarian), and each arrival can be held or allowed to use cloud models. */
 import {Fragment, useState} from 'react';
 import {ChevronRightIcon, InboxIcon, MailIcon, SquareIcon} from 'lucide-react';
 import {toast} from 'sonner';
@@ -13,6 +13,7 @@ import {Elapsed, RelativeTime} from '@/theme/atoms/time';
 import {Notice} from '@/theme/molecules/notice';
 import {EmptyState, LoadingState, Unavailable} from '@/theme/molecules/states';
 import {StatusCard} from '@/theme/organisms/status-card';
+import {ConfirmAction} from '@/theme/organisms/confirm-action';
 import {ActivityTranscript} from '../../activity/transcript';
 import type {Arrival, InboxStatus} from '../../backstage';
 import type {ActivityModel} from '../../reader-controls';
@@ -38,9 +39,10 @@ function Report({markdown,html,onOpen}:{markdown:string;html:(text:string)=>stri
 }
 
 /** One arrival: a button-rendered shadcn Item. Its receipt status is the badge; files, size and arrival time follow. */
-function ArrivalItem({arrival,onOpen}:{arrival:Arrival;onOpen:(path:string)=>void}){
+function ArrivalItem({arrival,onOpen,onChoose}:{arrival:Arrival;onOpen:(path:string)=>void;onChoose:(arrival:string,choice:'hold'|'cloud'|null)=>void}){
   const meta=[arrival.author,arrival.project,arrival.report_date].filter(Boolean).join(' · ');
-  return <Item size="sm" role="listitem" render={<button type="button"/>} data-arrival={arrival.id} onClick={()=>onOpen(arrival.document)} className="cursor-pointer text-left hover:bg-muted">
+  const held=arrival.choice==='hold';
+  return <div role="listitem" data-arrival-row={arrival.id}><Item size="sm" render={<button type="button"/>} data-arrival={arrival.id} onClick={()=>onOpen(arrival.document)} className="cursor-pointer text-left hover:bg-muted">
     <ItemContent className="min-w-0">
       <ItemTitle data-arrival-title="" className="font-serif text-base font-normal [overflow-wrap:anywhere]">{arrival.title}</ItemTitle>
       {meta||arrival.source?<ItemDescription className="[overflow-wrap:anywhere]">{meta}{arrival.source?<span className="text-muted-foreground/80"> via {arrival.source}</span>:null}</ItemDescription>:null}
@@ -51,23 +53,31 @@ function ArrivalItem({arrival,onOpen}:{arrival:Arrival;onOpen:(path:string)=>voi
         :<StatusBadge tone="neutral" data-integrity="none" title={arrival.receipt_error||undefined}>{arrival.receipt_error?'Unreadable receipt':'No receipt'}</StatusBadge>}
       <ChevronRightIcon aria-hidden className="size-4 text-muted-foreground max-sm:hidden"/>
     </ItemActions>
-  </Item>;
+  </Item>
+  <div className="flex flex-wrap items-center gap-2 px-3 pb-2 text-xs text-muted-foreground" data-arrival-choice={arrival.choice||'none'} {...localOnly()}>
+    <span data-arrival-level="" className="min-w-0 flex-1">{held?'On hold: filing skips this until you release it.':arrival.local_only?'Local model only. If it can’t answer, this keeps waiting.':'Cloud models may read this when it’s filed.'}</span>
+    {held?<Button size="xs" variant="ghost" data-arrival-release="" onClick={()=>onChoose(arrival.id,null)}>Release</Button>:<>
+      {arrival.choice==='cloud'?<Button size="xs" variant="ghost" data-arrival-local="" onClick={()=>onChoose(arrival.id,null)}>Use the level it arrived with</Button>
+        :arrival.local_only?<ConfirmAction label="Allow cloud models" title={`Allow cloud models for “${arrival.title}”?`} description="Codex, Claude or agy may read this document when it’s filed, and what they read can’t be recalled." confirm="Allow cloud models" onConfirm={()=>onChoose(arrival.id,'cloud')}/>:null}
+      <Button size="xs" variant="ghost" data-arrival-hold="" onClick={()=>onChoose(arrival.id,'hold')}>Hold</Button>
+    </>}
+  </div></div>;
 }
 
-export function InboxPage({status,error=null,starting,onMail,onStop,onOpen,html,activity}:{status:InboxStatus|null;error?:string|null;starting:boolean;onMail:()=>void;onStop:()=>void;onOpen:(path:string)=>void;html:(text:string)=>string;activity:ActivityModel|null}){
-  const arrivals=status?.arrivals||[],run=status?.runner,active=starting||ACTIVE_RUN.includes(run?.status||''),blocked=status?.blocked;
+export function InboxPage({status,error=null,starting,onMail,onStop,onChoose,onOpen,html,activity}:{status:InboxStatus|null;error?:string|null;starting:boolean;onMail:()=>void;onStop:()=>void;onChoose:(arrival:string,choice:'hold'|'cloud'|null)=>void;onOpen:(path:string)=>void;html:(text:string)=>string;activity:ActivityModel|null}){
+  const arrivals=status?.arrivals||[],ready=arrivals.filter(arrival=>arrival.choice!=='hold'),run=status?.runner,active=starting||ACTIVE_RUN.includes(run?.status||''),blocked=status?.blocked;
   const state=starting&&!active?RUN_STATES.starting:run?RUN_STATES[run.status]||{label:run.status,tone:'neutral' as const}:null;
   const [reportOpen,setReportOpen]=useState<boolean|null>(null),showReport=reportOpen??run?.status==='finished';
   const report=()=>{setReportOpen(true);requestAnimationFrame(()=>document.getElementById('inbox-report-wrap')?.scrollIntoView({block:'start',behavior:'smooth'}));};
   const transcript=activity?.run?<ActivityTranscript activity={activity.activity} run={activity.run} live={active||!activity.done} html={html} onOpen={onOpen} onReport={run?.report_md?report:undefined}/>:null;
   const finished=run&&!ACTIVE_RUN.includes(run.status)&&!active;
-  const note=active?'Filing sources and checking the result.':needsReader()?`Filing ${plural(arrivals.length,'arrival')} needs Reader on your computer.`:blocked?'Filing is paused; see why above.':status?.pending?'Resume the interrupted filing batch.':`File ${plural(arrivals.length,'arrival')}.`;
+  const note=active?'Filing sources and checking the result.':needsReader()?`Filing ${plural(ready.length,'arrival')} needs Reader on your computer.`:blocked?'Filing is paused; see why above.':status?.pending?'Resume the interrupted filing batch.':arrivals.length&&!ready.length?'Everything waiting is on hold.':`File ${plural(ready.length,'arrival')}.`;
   return <div id="inbox" className="flex flex-col gap-6" data-run-state={starting?'starting':run?.status||'none'} data-state={status?'ready':error?'unavailable':'loading'}>
     {status?.broken_delivery_keys?<Notice id="inbox-broken-keys" tone="error" title={`${plural(status.broken_delivery_keys,'delivery key')} can’t reach Reader on this machine.`}>Deliveries using {status.broken_delivery_keys===1?'it':'them'} will fail. On each delivering machine, run <code className="font-mono text-xs">remote-setup --force</code> again; see Remote delivery in the docs.</Notice>:null}
     <StatusCard title="Librarian run" titleId="inbox-title"
       badge={state?<StatusBadge tone={state.tone} busy={active} data-inbox-badge="">{state.label}</StatusBadge>:null}
       footer={<>
-        <Button id="inbox-mail" disabled={!status||active||!!blocked} {...localOnly()} onClick={onMail} aria-describedby="inbox-mail-note">{active?<Spinner data-icon="inline-start" aria-hidden/>:<MailIcon data-icon="inline-start" aria-hidden/>}You got mail</Button>
+        <Button id="inbox-mail" disabled={!status||active||!!blocked||(!!arrivals.length&&!ready.length&&!status?.pending)} {...localOnly()} onClick={onMail} aria-describedby="inbox-mail-note">{active?<Spinner data-icon="inline-start" aria-hidden/>:<MailIcon data-icon="inline-start" aria-hidden/>}You got mail</Button>
         {active?<Button id="inbox-stop" variant="destructive" disabled={starting&&!run?.started_at} onClick={onStop}><SquareIcon data-icon="inline-start" aria-hidden/>Stop</Button>:null}
         <span id="inbox-mail-note" className="min-w-48 flex-1 text-sm text-muted-foreground">{note}</span>
       </>}>
@@ -90,7 +100,7 @@ export function InboxPage({status,error=null,starting,onMail,onStop,onOpen,html,
     <StatusCard title="Waiting to be filed" description={status&&arrivals.length?'Opening one previews it; it is not marked read.':undefined}
       badge={status?<StatusBadge tone={arrivals.length?'active':'ok'} data-arrivals={arrivals.length}>{arrivals.length?plural(arrivals.length,'arrival'):'Empty'}</StatusBadge>:null}>
       {!status?(error?null:<LoadingState/>)
-        :arrivals.length?<ItemGroup role="list" aria-label="Arrivals waiting in the inbox">{arrivals.map((arrival,index)=><Fragment key={arrival.id}>{index?<ItemSeparator role="presentation"/>:null}<ArrivalItem arrival={arrival} onOpen={onOpen}/></Fragment>)}</ItemGroup>
+        :arrivals.length?<ItemGroup role="list" aria-label="Arrivals waiting in the inbox">{arrivals.map((arrival,index)=><Fragment key={arrival.id}>{index?<ItemSeparator role="presentation"/>:null}<ArrivalItem arrival={arrival} onOpen={onOpen} onChoose={onChoose}/></Fragment>)}</ItemGroup>
         :<EmptyState icon={InboxIcon} title="No arrivals are waiting" description="Deliveries from other agents and dropped files appear here until the librarian files them."/>}
     </StatusCard>
   </div>;

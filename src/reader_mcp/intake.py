@@ -17,6 +17,7 @@ from uuid import UUID, uuid4
 
 import yaml
 
+from . import arrival_choices
 from .browse import SKIP as BROWSE_SKIP
 from .inbox_paths import physical
 from .junk import os_junk
@@ -206,7 +207,7 @@ def model_call(root, runtime, entry, codex, context):
         raise ValueError('Internal editorial partition exceeded its call budget')
     (work / 'context.txt').write_text(prompt)
     chain = model_chain_for(root, runtime, codex)
-    local_only = entry.get('receipt', {}).get('provenance', {}).get('privacy') == 'no-cloud'
+    local_only = arrival_choices.local_only(root, arrival_choices.name_of(entry['source']), entry.get('receipt', {}).get('provenance'))
     try:
         decision, provider = chain.decide(prompt, decision_schema(), lambda value: validate_decision(value, entry), work, role='librarian',
                                           only=('local',) if local_only else None)
@@ -749,7 +750,8 @@ def worker(root, codex, run_id):
             if 'decision' not in entry:
                 if manifest(checked_path(root, entry['source'])) != entry['files']:
                     raise ValueError('Arrival changed before editorial classification')
-                if refusal := catalog_refusal(root, entry):
+                # Read again here: a hold can arrive after this queue was frozen, or while a stopped run waits to resume.
+                if refusal := ('On hold.' if arrival_choices.name_of(entry['source']) in arrival_choices.held(root) else catalog_refusal(root, entry)):
                     entry['decision'] = dict(source=entry['source'], snapshot_sha256=entry['snapshot_sha256'],
                         disposition='defer', collection='', slug='', title='', author='', summary='', reason=refusal)
                 else:

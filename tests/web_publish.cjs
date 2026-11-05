@@ -55,6 +55,14 @@ const {chromium}=require(process.env.READER_PLAYWRIGHT||'playwright-core');
   await page.locator('#publish-files').setInputFiles({name:'huge.md',mimeType:'text/markdown',buffer:Buffer.alloc(33*1024*1024)});
   await page.locator('#publish-problem').waitFor();
   assert.equal(await page.locator('#publish-submit').isDisabled(),true);
+  // The deferred upload can be allowed cloud models, after a warning, and put back.
+  await page.goto(url+'#admin/inbox');const waitingRow=page.locator(`[data-arrival-row="${added[0]}"]`);await waitingRow.waitFor();
+  assert.match(await waitingRow.locator('[data-arrival-level]').textContent(),/Local model only/);
+  await waitingRow.getByRole('button',{name:'Allow cloud models'}).click();await page.getByRole('alertdialog').getByRole('button',{name:'Allow cloud models'}).click();
+  await waitingRow.locator('[data-arrival-choice=cloud]').waitFor();
+  assert.match(await waitingRow.locator('[data-arrival-level]').textContent(),/Cloud models may read/);
+  await waitingRow.locator('[data-arrival-local]').click();await waitingRow.locator('[data-arrival-choice=none]').waitFor();
+  await page.goto(url+'#admin/publish');await page.locator('#backstage-publish').waitFor();
   // Through a tailnet address the private API answers 404: no level or card, and a note says where to go.
   await page.locator('input[name=publish-level][value=machine-only]').waitFor({state:'attached'});assert.equal(await page.locator('#private-elsewhere').count(),0);
   const away=await page.context().newPage();await away.route('**/api/private',route=>route.fulfill({status:404,json:{error:'Not found'}}));

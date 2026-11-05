@@ -40,6 +40,16 @@ const {chromium}=require(process.env.READER_PLAYWRIGHT||'playwright-core');
   await page.goBack();await page.locator('#inbox [data-arrival]').first().waitFor();
   assert.deepEqual(writes.slice(before),[],'no receipts, bookmarks or discussion for an inbox preview');
   assert.equal(existsSync(join(root,'engagement')),false);
+  // A hold keeps an arrival out of the run; allowing cloud models asks first.
+  const heldId='22222222-2222-4222-8222-222222222222',row=page.locator(`[data-arrival-row="${heldId}"]`);
+  await row.locator('[data-arrival-hold]').click();
+  await row.locator('[data-arrival-choice=hold]').waitFor();
+  assert.match(await page.locator('#inbox-mail-note').textContent(),/File 2 arrivals/);
+  await row.locator('[data-arrival-release]').click();
+  await row.locator('[data-arrival-choice=none]').waitFor();
+  assert.match(await page.locator('#inbox-mail-note').textContent(),/File 3 arrivals/);
+  const levels=await page.evaluate(()=>fetch('/api/inbox').then(r=>r.json()).then(s=>s.arrivals.map(a=>a.local_only)));
+  assert.deepEqual(levels,[false,false,false],'this fixture treats unmarked arrivals as normal');
   // You got mail: loading toast, a live activity transcript from scripted Codex events, success toast, report.
   writeFileSync(join(root,'.fake-pause'),'');
   await page.locator('#inbox-mail').click();

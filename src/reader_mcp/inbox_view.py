@@ -21,6 +21,7 @@ import threading
 import time
 from uuid import UUID, uuid4
 
+from . import arrival_choices
 from . import model_chain
 from .display import shown
 from .inbox_paths import inbox_dir, sweep
@@ -208,7 +209,7 @@ class InboxView:
         groups = {}
         for path in paths:
             groups.setdefault(path.split('/')[1], []).append(path)
-        rows = []
+        rows, choices = [], arrival_choices.read(self.root)
         for name, members in sorted(groups.items()):
             top = inbox_dir(self.root) / name
             bundle = top.is_dir()
@@ -243,6 +244,7 @@ class InboxView:
                 'request_id': receipt.get('id') if receipt else None,
                 'integrity': self.integrity(top, receipt) if receipt else None,
                 'receipt_error': receipt_error,
+                'choice': choices.get(name), 'local_only': arrival_choices.local_only(self.root, name, provenance if provenance else None),
                 'files': len(members), 'bytes': sizes, 'received_at': received})
         return rows
 
@@ -545,6 +547,9 @@ class InboxView:
         return None
 
     # Actions ------------------------------------------------------------
+
+    def choose(self, arrival, choice):
+        return arrival_choices.choose(self.root, arrival, choice)
 
     def command(self, codex, run_id, sandbox_mode, only=()):
         argv = [self.python, '-m', 'reader_mcp.inbox_runner', '--root', str(self.root), '--codex', codex,

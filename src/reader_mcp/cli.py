@@ -28,7 +28,8 @@ def main():
     repair.add_argument("--git-root", type=Path, help="Root containing local Git checkouts (default ~/git)")
     repair.add_argument("--image-root", type=Path, action='append', default=[], help="Explicit additional image directory; repeat as needed")
     inbox = commands.add_parser("inbox", help="Start, inspect or stop deterministic inbox processing")
-    inbox.add_argument("action", choices=['start', 'status', 'stop'])
+    inbox.add_argument("action", choices=['start', 'status', 'stop', 'hold', 'release', 'allow-cloud'])
+    inbox.add_argument("arrival", nargs='?', help="The arrival for hold, release or allow-cloud")
     status = commands.add_parser("status", help="Inspect a receipt by UUID")
     status.add_argument("request_id")
     serve_parser = commands.add_parser("serve", help="Run the local MCP server over stdio")
@@ -130,7 +131,8 @@ def main():
         elif args.command == "inbox":
             from .inbox_view import InboxView
             view = InboxView(store.root)
-            result = getattr(view, args.action)()
+            choices = {'hold': 'hold', 'release': None, 'allow-cloud': 'cloud'}
+            result = view.choose(args.arrival, choices[args.action]) if args.action in choices else getattr(view, args.action)()
         elif args.command == "repair-links":
             from .portable_links import PortableLinks
             if bool(args.paths) == bool(args.all):

@@ -7,6 +7,7 @@ import os
 from pathlib import Path
 import resource
 import shutil
+from . import arrival_choices
 from .inbox_paths import PREFIX, inbox_dir, sweep
 from .resources import has_capacity, minimum_free_bytes
 import signal
@@ -202,13 +203,17 @@ def run(root, codex, run_id=None, timeout=1800, workstation_lock_store=None, san
             if only and not recovering:
                 # A run for chosen arrivals, so an upload's filing never sweeps up what else is waiting.
                 paths = [p for p in paths if p.split('/')[1] in only]
+            on_hold = arrival_choices.held(root)
+            kept = [p for p in paths if p.split('/')[1] not in on_hold] if not recovering else paths
+            nothing = 'Nothing to file: everything waiting is on hold.' if paths and not kept else 'The inbox is empty.'
+            paths = kept
             arrivals = sorted({p.split('/')[1] for p in paths})
             state['arrivals'] = arrivals[:20]
             state['arrival_count'] = len(arrivals)
             state['file_count'] = len(paths)
             state['inventory'] = 'selection.json'
             if not paths and not recovering:
-                state.update(status='empty',message='The inbox is empty.'); return 0
+                state.update(status='empty',message=nothing); return 0
             for name in ('last-message.md','events.jsonl','stderr.log'):
                 (runtime / name).write_bytes(b'')
             atomic(runtime / 'selection.json', {'run_id': state['run_id'], 'arrivals': ['inbox/' + name for name in arrivals], 'files': paths}, limit=MAX_PLAN)

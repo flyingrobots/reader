@@ -12,6 +12,15 @@ One complete top-level bundle is an arrival; attachments do not count as indepen
 
 Selecting an arrival opens a preview. Previews are read-only discovery surfaces: they do not file the content or create normal library read receipts, bookmarks or discussion state. Previewing does not prove that every attachment has been read.
 
+## Who can read an arrival
+
+An arrival only goes to cloud models if it was delivered with the level Normal. Anything else, including an arrival with no level, is read only by a local model when filed. If that model can't answer, the arrival keeps waiting.
+
+- **Hold** keeps an arrival out of every filing run until you release it.
+- **Allow cloud models** lets Codex, Claude or agy read it when it's filed. What they read can't be recalled.
+
+Filed documents are committed and pushed with your vault at every level. To keep a document off GitHub, encrypt it instead, from Publish.
+
 ## Receipt integrity
 
 An intact receipt means current payload bytes match recorded hashes. It does not prove the report’s claims, completion of reading, safe execution of embedded commands, backup durability or catalog inclusion. Changed integrity requires investigation; do not rewrite receipt bytes to make it green. A missing receipt and a corrupted receipt are distinct states.

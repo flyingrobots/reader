@@ -347,6 +347,11 @@ export async function startInbox(){
   finally{update({inboxStarting:false});}
   pollInbox();
 }
+export async function chooseArrival(arrival:string,choice:'hold'|'cloud'|null){
+  try{await controlActions.api('/api/inbox',{action:'choose',arrival,choice});}
+  catch(error){toast.error('Couldn’t change that arrival',{description:error instanceof Error?error.message:String(error),duration:10000});}
+  pollInbox();
+}
 export async function stopInbox(){
   try{await controlActions.api('/api/inbox',{action:'stop'});toast('Stop requested',{description:'The runner stops the librarian’s process group; partial changes stay for inspection.'});}
   catch(error){toast.error('Couldn’t stop the run',{description:error instanceof Error?error.message:String(error)});}
@@ -402,7 +407,7 @@ function AdminView({library}:{library?:LibraryActions}){
     localModel:current.localModel,localModelError:current.localModelError,companions:current.companions,companionsError:current.companionsError,
     api:controlActions.api,markdown:controlActions.markdown,open:controlActions.open,
     href:controlActions.adminHref,go:controlActions.adminGo,backToLibrary:controlActions.backToLibrary,
-    startJob,startInbox,stopInbox,localModelAction,companionAction,refreshCompanions,refreshIndexes:pollMaintenance,watchLocalModel,
+    startJob,startInbox,stopInbox,chooseArrival,localModelAction,companionAction,refreshCompanions,refreshIndexes:pollMaintenance,watchLocalModel,
     settings:<SettingsForm model={current} actions={controlActions}/>,themeEditor:()=>controlActions.themeEditor(true),library};
   return <AdminShell context={context}/>;
 }

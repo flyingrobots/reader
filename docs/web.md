@@ -3980,7 +3980,7 @@ accepts exactly `{"action": …}` with `pause`, `resume`, `skip`, `next_segment`
 `previous_segment` or `cancel`. A foreign id is refused with 403; an unavailable
 daemon answers 503 with `unavailable: true`. POST `/api/inbox` accepts exactly
 `{"action": "start", "sandbox_mode": "workspace-write" | "danger-full-access"}` or
-`{"action": "stop"}`. A start returns the run id, the argv and the supervisor's first
+`{"action": "stop"}`, or `{"action": "choose", "arrival": …, "choice": "hold"|"cloud"|null}`. A start returns the run id, the argv and the supervisor's first
 state; a start while a run is active is a state conflict, refused with HTTP 409
 (*The librarian is already reading the mail.*), and other refusals
 with HTTP 400. Receipts, state and claims are read at most 256 KiB (claims 1 MiB),

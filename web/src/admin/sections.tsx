@@ -43,7 +43,7 @@ export type AdminContext={
   go:(section?:string,...params:string[])=>void;
   /** Leave Admin for the library view it was opened from (a document at its saved place, or a split layout). */
   backToLibrary:()=>void;
-  startJob:(kind:string)=>void;startInbox:()=>void;stopInbox:()=>void;
+  startJob:(kind:string)=>void;startInbox:()=>void;stopInbox:()=>void;chooseArrival:(arrival:string,choice:'hold'|'cloud'|null)=>void;
   localModelAction:(action:string,payload?:Record<string,unknown>)=>Promise<unknown>;
   companionAction:(name:string,action:string,extra?:Record<string,unknown>)=>Promise<unknown>;
   refreshCompanions:()=>void;

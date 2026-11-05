@@ -28,7 +28,7 @@ export function NeedsReader({what}:{what:string}){
 
 export function InboxPanel({context:c}:Props){
   return <section id="backstage-inbox" aria-label="Inbox">
-    <InboxPage status={c.inbox} error={c.inboxError} starting={c.inboxStarting} onMail={c.startInbox} onStop={c.stopInbox} onOpen={c.open} html={c.markdown} activity={c.activity}/>
+    <InboxPage status={c.inbox} error={c.inboxError} starting={c.inboxStarting} onMail={c.startInbox} onStop={c.stopInbox} onChoose={c.chooseArrival} onOpen={c.open} html={c.markdown} activity={c.activity}/>
   </section>;
 }
 

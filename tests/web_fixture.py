@@ -3,6 +3,7 @@ import os
 
 # A failing fake Codex must never fall through to a real Claude or agy on this machine.
 os.environ['READER_MODEL_CHAIN'] = 'codex'
+os.environ['READER_UNMARKED_PRIVACY'] = 'normal'
 os.environ.setdefault('READER_INBOX', 'inbox')
 os.environ['READER_AUTHORIZED_KEYS'] = '/nonexistent/authorized_keys'
 # Encrypted storage stays in a throwaway home; READER_HOME lets a suite reuse an installed bridge.

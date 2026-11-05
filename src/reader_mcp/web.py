@@ -1643,8 +1643,10 @@ class WebHandler(BaseHTTPRequestHandler):
                         self.json(library.inbox.start(request.get('sandbox_mode', 'read-only'), **scope))
                     elif action == 'stop' and set(request) == {'action'}:
                         self.json(library.inbox.stop())
+                    elif action == 'choose' and set(request) == {'action', 'arrival', 'choice'}:
+                        self.json(library.inbox.choose(request['arrival'], request['choice']))
                     else:
-                        raise ValueError('Expected {"action": "start", "sandbox_mode": ...} or {"action": "stop"}')
+                        raise ValueError('Expected {"action": "start", "sandbox_mode": ...}, {"action": "stop"} or {"action": "choose", "arrival": ..., "choice": ...}')
                 elif parsed.path == '/api/local-model':
                     self.json(library.local_model.dispatch(request))
                 elif parsed.path == '/api/model-chain':

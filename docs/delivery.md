@@ -124,6 +124,8 @@ The server records `uploaded_by` from how it identified the request; a client ca
 | `no-cloud` (the default) | Local model only. If none can answer, it is deferred and stays in the inbox | Yes, including its logged excerpts |
 | `machine-only` | Nothing through Reader. Encrypted outside the vault | No |
 
+A delivery from a helper or MCP tool that sends no level is treated like `no-cloud` when it's filed. You can change that per arrival on the Inbox page; see [the model order](inbox-runner.md#the-model-order).
+
 ### This machine only
 
 A `machine-only` upload never enters the vault. It needs a browser on the vault machine with encrypted storage unlocked; any other request stores nothing. The server checks it in memory and passes it to git-cas over stdin, so no plaintext is written to disk. It skips the inbox, intake, catalogs, indexes, LLM logs and read records, so no model or Reader tool can find it.
