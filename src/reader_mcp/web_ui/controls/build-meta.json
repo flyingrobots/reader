@@ -14,7 +14,7 @@
     "../docs/topics/logs.md": "cf2d367a13620967bb12e811834c22f23a73ec11f33783bfb287bad858cdc579",
     "../docs/topics/models.md": "525f9fb66a9565eb46a698b3a7163b890fa727b4930d922f7ebcf07ea5af4eb3",
     "../docs/topics/overview.md": "57520a0f5beb71ee8c7440c8b2c23f33b8e05a11cbbc9cc682f6db9779f67dcf",
-    "../docs/topics/publish.md": "6b2754e1e2e37955dcda3c26598ef9bbafbd3ef153ed58a94ea25a5247d1f0f9",
+    "../docs/topics/publish.md": "bc42279849db706ca726b72e058a3e21e5d466c0c8e401156190d19f367ac5f6",
     "../docs/topics/repositories.md": "a380b973f9656d637411e05877310520107c1b0c6fd560015ea0bdde56a841e5",
     "../docs/topics/service.md": "afed76a054d5ee552c72b3db60365acf11c3eefd447798a449d0c312af3d21f0",
     "../docs/topics/settings.md": "99336b16eb57868f4a2943fe5e5bf58c2d5c7196e9116f93c0f22e33f2ed8932",
@@ -994,8 +994,8 @@
       "sha256": "8285cfa81d7c1f65a9dbbf264c36cf083684690e547dac47a315184c6da48470"
     },
     "reader-controls.js": {
-      "bytes": 1352165,
-      "sha256": "bcf586796f190fc60c333c1182ad0acf21ce72e2551d414a30be32b7db498802"
+      "bytes": 1352956,
+      "sha256": "39bb7a40534805d0ea4d84aa13a2d0fbac8006a10ae538297b64b2e5815b683a"
     },
     "reader-controls.js.LEGAL.txt": {
       "bytes": 6614,
