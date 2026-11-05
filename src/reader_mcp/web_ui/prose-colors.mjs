@@ -75,7 +75,8 @@ export function installProseColors({setStatus,state,api,notify,companion=null,on
     onChange(style);
   }
   // A block owns the text whose nearest block ancestor is itself (a list item, not its nested list).
-  const accept=block=>node=>{const parent=node.parentElement;return !!parent&&!parent.closest(EXCLUDED)&&parent.closest(BLOCKS)===block;};
+  // The issue names its prose blocks; a standfirst is a Card description, not a <p>.
+  const accept=block=>node=>{const parent=node.parentElement;return !!parent&&!parent.closest(EXCLUDED)&&(parent.closest(BLOCKS)===block||block.matches(ISSUE_PROSE));};
   function register(block,pdf=false){
     if(blocks.has(block))return;const id='b'+(nextId++).toString(36);
     blocks.set(block,{id,pdf});pending.push(block);observer?.observe(block);

@@ -1,5 +1,6 @@
 import {CommandSuggestions, type CommandChoices} from './command-suggestions';
-import {SectionItems,SectionPage,type SectionLink,type SectionPageProps} from './library-sections';
+import {SectionPage,type SectionPageProps} from './library-sections';
+import {Magazine,type IssueActions,type IssueModel} from './magazine/magazine';
 import {useState, useSyncExternalStore, useEffect, type ReactNode} from 'react';
 import {FindBar} from './find-bar';
 import {ListPanel, SelectionTools, ThreadPanel, VersionsPanel} from './panel-sheet';
@@ -466,7 +467,7 @@ export function mountArtRegenerate(container:HTMLElement,options:ArtRegenerateOp
   return {unmount(){clearControlsWithin(container);}};
 }
 export function mountArticleSpeech(container:HTMLElement,props:{path:string;sourceSha:string;onRead:()=>Promise<unknown>}){mount(container,<ArticleSpeechControl {...props}/>);}
-export function mountSectionItems(container:HTMLElement,items:SectionLink[]){container.dataset.ui='shadcn';mount(container,<SectionItems items={items}/>);}
+export function mountMagazine(container:HTMLElement,model:IssueModel,actions:IssueActions){mount(container,<Magazine model={model} actions={actions}/>);actions.wire(container);return {pieces:()=>[...container.querySelectorAll<HTMLElement>('[data-piece]')].filter(el=>el.checkVisibility())};}
 export function mountSectionPage(container:HTMLElement,props:SectionPageProps){
   const root=islands.get(container);
   if(root)flushSync(()=>root.render(<SectionPage {...props}/>));else mount(container,<SectionPage {...props}/>);

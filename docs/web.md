@@ -609,7 +609,7 @@ current one.
 
 - **Masthead:** the issue number and its Monday-to-Sunday dates (ISO weeks, the
   same weeks as the inventory's `week` field), previous/next buttons and a **Past
-  issues** list of the last twelve weeks that hold pieces.
+  issues** popover of the last twelve weeks that hold pieces (Escape closes it).
 - **Cover story:** a large serif headline with a kicker (Cover story · project ·
   type), a standfirst, and a byline with author, date, approximate reading time and
   read state. When the cover story has [bespoke art](#article-art), it is drawn
@@ -641,8 +641,14 @@ Elsewhere aggregate. Section pages filter title/author/path metadata and paginat
 browser Back returns to the section route. Inbox completion refreshes its article
 inventory while preserving the active filter, page and input focus.
 
-**Layout by window width.** The issue fills the window, with outer margins that scale
-from 40 to 120px (`clamp(…, 4vw, …)`); added width becomes columns, not longer lines.
+**Layout by column width.** The issue is a React island (`web/src/magazine/magazine.tsx`,
+drawing the model from `issueModel` in `web_ui/magazine.mjs`) built from shadcn Card,
+Item, Badge, Separator, Popover, Collapsible and Empty, with Tailwind container queries
+on the issue's own column: the File Explorer narrows it at any window width, and every
+layout below follows the column, not the window. With nothing docked the column is the
+window. Outer margins scale from 40 to 120px (`clamp(…, 4vw, …)`); added width becomes
+columns, not longer lines. Class names such as `.issue-cover` are hooks for the app, art,
+prose colors and tests; they carry no style.
 
 - **1360px and wider:** a twelve-column spread plus a rail (260–400px). The cover takes
   eight columns and the first feature sits beside it as a second lead, bottom-aligned

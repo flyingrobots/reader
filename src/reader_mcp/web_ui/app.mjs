@@ -16,14 +16,14 @@ import {installSearch} from './search-page.mjs';
 import {installProseColors} from './prose-colors.mjs';
 import {installQueue} from './queue.mjs';
 import {libraryModel} from './dashboard.mjs';
-import {DEFAULT_EXCLUDED_TYPES,currentIssue,isoWeek,issueWindow,issueWeeks,selectIssue,mountMagazine} from './magazine.mjs';
+import {DEFAULT_EXCLUDED_TYPES,currentIssue,isoWeek,issueWindow,issueWeeks,selectIssue,issueModel,animateIssue} from './magazine.mjs';
 import {THEMES,oppositeTheme} from './themes.mjs';
 import {calloutPlugin} from './callouts.mjs';
 import {drawable,fetchShape,paintShape} from './shapes.mjs';
 import {artJobs,fetchArt,focusArt,forgetArt,hasArt,paintArt,paintArtThumb,paintPlaceholder} from './art.mjs';
 import {closeArtFocus,focusOpen} from './art-focus.mjs';
 import {mountDiagramZoom} from './diagram-zoom.mjs';
-import {getStatus,setStatus,showCommandLine,renderNextReads,showPanel,hidePanel,renderCommandSuggestions,openScratchSave,closeAppDialogs,openAnnotationDialog,openSpeakMenu,openShellDialog,renderVersionsTimeline,renderLinkPreview,renderReadingLog,applyThemes,installControls,mountSkeleton,mountCodeBlocks,decorateCodeBlocks,clearControlsWithin,renderFileExplorer,mountArticleSpeech,mountSectionItems,mountSectionPage,mountAdmin,setAdminRoute,mountChangesPanel,mountArtRegenerate,notify as shellNotify,openChat,closeChat,chatOpen,trackSpeech,renderQueuePanel,mountCallouts,mountQuiz,mountWritingPrompt,mountScratchQuestion,startJob,promptCompanion,needsReader,NEEDS_READER,mountPromptCards} from './controls/reader-controls.js';
+import {getStatus,setStatus,showCommandLine,renderNextReads,showPanel,hidePanel,renderCommandSuggestions,openScratchSave,closeAppDialogs,openAnnotationDialog,openSpeakMenu,openShellDialog,renderVersionsTimeline,renderLinkPreview,renderReadingLog,applyThemes,installControls,mountSkeleton,mountCodeBlocks,decorateCodeBlocks,clearControlsWithin,renderFileExplorer,mountArticleSpeech,mountMagazine,mountSectionPage,mountAdmin,setAdminRoute,mountChangesPanel,mountArtRegenerate,notify as shellNotify,openChat,closeChat,chatOpen,trackSpeech,renderQueuePanel,mountCallouts,mountQuiz,mountWritingPrompt,mountScratchQuestion,startJob,promptCompanion,needsReader,NEEDS_READER,mountPromptCards} from './controls/reader-controls.js';
 import {promptPlugin,promptMounts} from './prompt-blocks.mjs';
 import {installVersions,chipMarkup,historicalMarkup,splitRef,compareLabel} from './versions.mjs';
 import {installSplit,installPane,cleanRoute} from './split.mjs';
@@ -273,14 +273,10 @@ async function renderHome(path=null,id=state.routeId) {
   state.issue=issue;
   const artwork=await issueArt(issue);if(id!==state.routeId)return;
   clearControlsWithin($('#main'));
-  state.magazine=mountMagazine({root:$('#main'),issue,weeks:issueWeeks(works,{exclude:options.exclude,through:isoWeek(state.data.today).end}),signals,prefs:state.prefs,api,wireDocumentLinks,openIssue,motion:()=>!reduced.matches,art:artwork,artMake:state.prefs.art!==false&&!!artProducer()});
-  const sections=$('#issue-sections');if(sections)mountSectionItems(sections,sectionsForIssue(issue,works));
+  const model=issueModel({issue,weeks:issueWeeks(works,{exclude:options.exclude,through:isoWeek(state.data.today).end}),signals,prefs:state.prefs,art:artwork,artMake:state.prefs.art!==false&&!!artProducer(),sections:sectionsForIssue(issue,works)});
+  state.magazine=mountMagazine($('#main'),model,{api,openIssue,wire:wireDocumentLinks,queue:path=>queue.add(path),makeArt:commissionArt,admin:()=>openAdmin('library'),writing:needsReader()?null:()=>api('/api/writing?participant='+param(state.prefs.participant)).then(data=>(data.pieces||[]).slice(0,10).map(piece=>({path:piece.path,title:piece.title,date:formatDate(piece.date)})))});
+  if(!reduced.matches)animateIssue($('#main'));
   prose?.attach($('#main'),{kind:'issue',issue:issue.id});  // Space c colors the issue's standfirsts and note.
-  $('#main').querySelectorAll('.issue [data-art-generate]').forEach(button=>{if(needsReader('art')){localOnly(button);return;}
-    button.onclick=event=>{event.preventDefault();button.disabled=true;button.textContent='Making art…';commissionArt(button.dataset.artGenerate);};});
-  $('#issue-backstage').onclick=()=>openAdmin('library');
-  $('#main').querySelectorAll('.issue [data-queue-add]').forEach(button=>{if(needsReader()){localOnly(button);return;}button.onclick=event=>{event.preventDefault();queue.add(button.dataset.queueAdd);};});
-  if(!needsReader())api('/api/writing?participant='+param(state.prefs.participant)).then(data=>{if(id!==state.routeId||!data.pieces?.length)return;const section=document.createElement('section');section.className='your-writing';section.dataset.readerDecoration='';section.innerHTML='<h2>Your writing</h2><ul>'+data.pieces.slice(0,10).map(piece=>`<li><a href="#read=${param(piece.path)}" data-path="${esc(piece.path)}">${esc(piece.title)}</a><time>${esc(formatDate(piece.date))}</time></li>`).join('')+'</ul>';$('#main').append(section);wireDocumentLinks(section);}).catch(error=>console.warn('Your writing',error));
   resetScroll();reading?.updateStatus();
   paintIssueArt(artwork,id).catch(error=>console.warn('Article art',error));
   autoCommission(issue,artwork);
@@ -335,7 +331,6 @@ function autoCommission(issue,found){
 /** No producer for art: Reader Admin's Voices page, which lists the agent command lines Reader found. */
 async function openArtSetup(){await openAdmin('voices');}
 /** The static web demo (#107): a control that needs a running Reader, disabled with the reason as its tooltip. */
-function localOnly(button){button.disabled=true;button.title=NEEDS_READER;button.dataset.needsReader='';button.onclick=null;}
 async function commissionArt(path){
   const producer=artProducer();
   if(needsReader('art')){notify('Making art needs Reader on your computer.','info',{description:'This web demo has no server. Run Reader locally: reader demo has a scripted voice that answers art commissions.'});return;}

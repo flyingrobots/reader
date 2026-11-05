@@ -30,7 +30,7 @@ const THEMES=['ink','paper','orchid','orchid-dark','harvest','harvest-dark',...r
   assert.equal(await page.locator('.issue-letter-title').textContent(),'The Weekly: a synthetic issue');
   await page.waitForFunction(()=>document.querySelector('.cover-standfirst')?.dataset.source==='opening');
   const standfirst=await page.locator('.cover-standfirst').textContent();assert.match(standfirst,/^The distance between the map and the coast — The opening paragraph/);assert.ok(!/quotation|mermaid/.test(standfirst));
-  assert.equal(await page.locator('.contents-group li[data-read]').count(),1);
+  assert.equal(await page.locator('.contents-group [role=listitem][data-read]').count(),1);
   await page.screenshot({path:'.reader/web-dev/magazine.png',fullPage:true});
   // Keyboard: j/k between pieces, g c to the cover, Enter opens.
   await page.locator('#main').focus();await page.keyboard.press('j');
@@ -63,7 +63,7 @@ const THEMES=['ink','paper','orchid','orchid-dark','harvest','harvest-dark',...r
   assert.equal(await page.locator('.cover-title').textContent(),'Last week’s lead essay');
   await page.reload();await page.locator('.issue-cover').waitFor();assert.equal(await page.locator('#issue').getAttribute('data-week'),previous,'past issues are addressable');
   await page.locator('#main').focus();await page.keyboard.press(']');await page.waitForFunction(w=>document.querySelector('#issue')?.dataset.week===w,week);assert.equal(new URL(page.url()).hash,'');
-  await page.locator('.issue-archive summary').click();assert.ok(await page.locator('.issue-archive li').count()>=2);await page.keyboard.press('Escape');
+  await page.locator('.issue-archive').click();await page.locator('.issue-archive-list [data-issue]').first().waitFor();assert.ok(await page.locator('.issue-archive-list [data-issue]').count()>=2);await page.keyboard.press('Escape');await page.locator('.issue-archive-list').waitFor({state:'detached'});
   // The dashboard is Reader Admin's Library page.
   await page.locator('#issue-backstage').click();await page.locator('#backstage-library [data-statistics-grid]').waitFor();
   assert.equal(await page.locator('#backstage-library [data-stat-panel]').count(),12);assert.equal(await page.locator('#reader-admin h1').count(),1,'one page heading');assert.equal(new URL(page.url()).hash,'#admin/library');
@@ -75,7 +75,7 @@ const THEMES=['ink','paper','orchid','orchid-dark','harvest','harvest-dark',...r
     function rgb(color){c.clearRect(0,0,1,1);c.fillStyle='#000';c.fillStyle=color;c.fillRect(0,0,1,1);return [...c.getImageData(0,0,1,1).data].slice(0,3);}
     function lum(v){return v.map(x=>x/255).map(x=>x<=.04045?x/12.92:((x+.055)/1.055)**2.4).reduce((n,x,i)=>n+x*[.2126,.7152,.0722][i],0);}
     function ratio(a,b){const [lo,hi]=[lum(a),lum(b)].sort((x,y)=>x-y);return (hi+.05)/(lo+.05);}
-    const selectors=['.issue-flag','.issue-dateline','.cover-title a','.cover-standfirst','.issue-kicker','.issue-byline','.feature-title a','.feature-standfirst','.contents-title','.contents-group li[data-read] .contents-title','.contents-meta','.issue-summary dt','.issue-footer','.issue-index [data-library-section]'];
+    const selectors=['.issue-flag','.issue-dateline','.cover-title a','.cover-standfirst','.issue-kicker','.issue-byline','.feature-title a','.feature-standfirst','.contents-title','.contents-group [role=listitem][data-read] .contents-title','.contents-meta','[data-issue-stat] [data-slot=item-description]','.issue-footer','.issue-index [data-library-section]'];
     return themes.map(theme=>{document.documentElement.dataset.theme=theme;const bg=rgb(getComputedStyle(document.body).backgroundColor==='rgba(0, 0, 0, 0)'?getComputedStyle(document.documentElement).backgroundColor:getComputedStyle(document.body).backgroundColor);
       const rows=selectors.map(s=>[s,ratio(rgb(getComputedStyle(document.querySelector(s)).color),bg)]);const worst=rows.sort((a,b)=>a[1]-b[1])[0];return {theme,worst:worst[0],minimum:Math.round(worst[1]*100)/100};});
   },THEMES);
@@ -127,7 +127,7 @@ const THEMES=['ink','paper','orchid','orchid-dark','harvest','harvest-dark',...r
   await page.screenshot({path:'.reader/web-dev/magazine-mobile.png',fullPage:true});
   // The layout follows the issue's column: the File Explorer narrows it at any window width, and counts can grow.
   await page.locator('#main').focus();await page.keyboard.press('Space');await page.keyboard.press('e');await page.locator('#picker:not([hidden])').waitFor();
-  await page.evaluate(()=>{for(const dd of document.querySelectorAll('.issue-summary dd'))dd.textContent='12,345';});
+  await page.evaluate(()=>{for(const dd of document.querySelectorAll('[data-issue-stat] [data-slot=item-title]'))dd.textContent='12,345';});
   for(const width of [320,390,641,700,1000]){await page.setViewportSize({width,height:844});await page.waitForTimeout(150);assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),`no horizontal scroll at ${width} with the File Explorer open`);}
   assert.deepEqual(external,[]);assert.deepEqual(errors,[]);
   console.log(`Magazine passed: masthead, cover, ${features.length} features from distinct projects, standfirst, contents with read dimmed, j/k/g c/Enter, q and + Queue (Space q unbound), [ ] issues and URLs, dashboard on Reader Admin's Library page, ${THEMES.length} theme contrasts, 1920/2560 full-width spread with rail, bounded measures and ${wide.map(w=>w.columns).join('/')} contents columns, phone width, local-only requests.`);
