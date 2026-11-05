@@ -77,13 +77,23 @@ const covered=page=>page.evaluate(()=>Object.fromEntries([...CSS.highlights].fil
    assert.ok(posts[0].segments.some(s=>s.text.startsWith('The quiet library holds 12 rooms')),'first batch carries the visible opening');
    const requests=posts.length;
    // Space c steps Subtle → Clear → Vivid → Off → Subtle: CSS only, the colored ranges are reused.
-   const paints=()=>page.evaluate(()=>{const b=getComputedStyle(document.body),r=getComputedStyle(document.documentElement);return {fn:b.getPropertyValue('--prose-ink-function').trim(),line:b.getPropertyValue('--prose-line-proper').trim(),wash:b.getPropertyValue('--prose-bg-quoted').trim(),recede:r.getPropertyValue('--prose-recede').trim(),vivid:r.getPropertyValue('--prose-function').trim(),underline:r.getPropertyValue('--prose-underline').trim(),washToken:r.getPropertyValue('--prose-wash').trim()};});
+   const paints=()=>page.evaluate(()=>{document.body.offsetWidth;for(const animation of document.getAnimations())if(animation instanceof CSSTransition)animation.finish(); // The chip's color may be easing; the end state is what's compared.
+     const a=document.querySelector('#article'),style=role=>getComputedStyle(a,'::highlight(reader-prose-'+role+')'),proper=style('proper');
+     // The literal this intensity's generated rule holds, normalized the way the computed style reports it.
+     const sheet=document.querySelector('#reader-prose-tokens').textContent,level=document.body.className.match(/prose-(subtle|clear|vivid)/)[1],probe=document.createElement('canvas').getContext('2d');
+     const literal=role=>{const m=sheet.match(new RegExp(':where\\(:root\\[data-theme="user-reader-test"\\]\\) body\\.prose-'+level+' ::highlight\\(reader-prose-'+role+'\\)\\{(?:color|background-color):(#[0-9a-f]+)'));return m&&m[1];};
+     const hex=value=>{probe.fillStyle='#000';probe.fillStyle=value;return probe.fillStyle;};
+     return {fn:hex(style('function').color),ruleFn:literal('function'),properInk:style('proper').color,quoteInk:style('quote').color,line:proper.textDecorationLine,lineColor:proper.textDecorationColor,wash:style('quoted').backgroundColor,ruleWash:literal('quoted'),chipProper:getComputedStyle(document.querySelector('#prose-chip b')||document.body).color,chipNumber:getComputedStyle(document.querySelector('#prose-chip i')||document.body).color,numberInk:style('number').color};});
+   const sameRgb=(alpha,ink)=>alpha.match(/[\d.]+/g).slice(0,3).join()===ink.match(/[\d.]+/g).slice(0,3).join();
    await leader(page,'c');await page.waitForFunction(()=>document.body.classList.contains('prose-clear'));
    assert.equal(await page.locator('#prose-chip').getAttribute('aria-label'),'Prose colors: Clear');
-   let paint=await paints();assert.equal(paint.fn,paint.recede,'Clear recedes function words');assert.equal(paint.line,'','Clear underlines nothing');
+   let paint=await paints();const clearFn=paint.fn;assert.equal(paint.fn,paint.ruleFn,'Clear recedes function words');assert.equal(paint.line,'none','Clear underlines nothing');assert.equal(paint.wash,'rgba(0, 0, 0, 0)','Clear washes nothing');
+   assert.equal(paint.chipProper,paint.properInk,'the chip shows the names color');assert.equal(paint.chipNumber,paint.numberInk,'the chip shows the numbers color');
    await leader(page,'c');await page.waitForFunction(()=>document.body.classList.contains('prose-vivid'));
    assert.equal(await page.locator('#prose-chip').getAttribute('aria-label'),'Prose colors: Vivid');
-   paint=await paints();assert.equal(paint.fn,paint.vivid,'Vivid paints the derived role token');assert.equal(paint.line,paint.underline,'Vivid underlines names');assert.equal(paint.wash,paint.washToken,'Vivid washes quoted passages');
+   paint=await paints();assert.equal(paint.fn,paint.ruleFn,'Vivid paints the derived role color');assert.notEqual(paint.fn,clearFn,'Vivid and Clear paint function words differently');
+   assert.equal(paint.line,'underline','Vivid underlines names');assert.ok(sameRgb(paint.lineColor,paint.properInk)&&/, 0\.7\)$/.test(paint.lineColor),'the underline is the names color at 70%: '+paint.lineColor);
+   assert.ok(sameRgb(paint.wash,paint.quoteInk)&&/, 0\.\d+\)$/.test(paint.wash),'Vivid washes quoted passages in the quote color: '+paint.wash);
    await page.screenshot({path:'.reader/web-dev/prose-vivid.png'});
    await leader(page,'c');await page.waitForFunction(()=>!/prose-(subtle|clear|vivid)/.test(document.body.className)&&!CSS.highlights.has('reader-prose-function'));
    assert.equal(await page.locator('#prose-chip').isHidden(),true);
@@ -126,21 +136,41 @@ const covered=page=>page.evaluate(()=>Object.fromEntries([...CSS.highlights].fil
    await page.waitForFunction(()=>document.querySelector('#article').scrollWidth>0);await page.waitForTimeout(500);
    await page.locator('#main').focus();await page.keyboard.press('j');
    await page.waitForFunction(()=>window.inks.size>2,null,{timeout:4000});
-   const result=await page.evaluate(()=>{const c=document.createElement('canvas').getContext('2d');const norm=v=>{c.fillStyle=v;return c.fillStyle;};const s=getComputedStyle(document.body);return {inks:[...window.inks],want:['function','noun','verb'].map(r=>norm(s.getPropertyValue('--prose-ink-'+r).trim()))};});
+   const result=await page.evaluate(()=>{const c=document.createElement('canvas').getContext('2d');const norm=v=>{c.fillStyle=v;return c.fillStyle;};const a=document.querySelector('#article');return {inks:[...window.inks],want:['function','noun','verb'].map(r=>norm(getComputedStyle(a,'::highlight(reader-prose-'+r+')').color))};});
    for(const ink of result.want)assert.ok(result.inks.includes(ink),'page turn paints '+ink+' among '+result.inks.join(' '));
    await page.waitForFunction(()=>!document.querySelector('.page-turn-canvas'),null,{timeout:4000});
    await page.screenshot({path:'.reader/web-dev/prose-two-page.png'});
+   assert.deepEqual(errors,[]);await context.close();}
+  // A role the intensity doesn't paint keeps its element's own color on the texture, as it does on screen.
+  {const {page,context,errors}=await open({layout:'spread',proseColors:'clear',reducedMotion:'no-preference'},'library/prose.md',{width:1300,height:820});
+   await page.waitForFunction(()=>document.body.classList.contains('two-page'));await settled(page);
+   await page.waitForFunction(()=>import('/assets/controls/page-turn.js').then(()=>true));
+   // Rasterized after the color changes: the first page's texture may already be cached.
+   await page.evaluate(()=>{window.nouns=new Set([...CSS.highlights.get('reader-prose-noun')].map(r=>r.toString()));const s=document.createElement('style');s.textContent='#article p{color:#010203}';document.head.append(s);
+     window.painted=[];const fill=CanvasRenderingContext2D.prototype.fillText;CanvasRenderingContext2D.prototype.fillText=function(...args){window.painted.push([args[0].trim(),this.fillStyle]);return fill.apply(this,args);};});
+   await page.waitForTimeout(500);await page.locator('#main').focus();await page.keyboard.press('j');
+   await page.waitForFunction(()=>window.painted.some(([text])=>window.nouns.has(text)),null,{timeout:4000});
+   const inks=await page.evaluate(()=>[...new Set(window.painted.filter(([text])=>window.nouns.has(text)).map(([,ink])=>ink))]);
+   assert.deepEqual(inks,['#010203'],'an unpainted noun keeps its element color');
+   await page.waitForFunction(()=>!document.querySelector('.page-turn-canvas'),null,{timeout:4000});
    assert.deepEqual(errors,[]);await context.close();}
 
   // Monocolor paints real Colorful Language ranges with multiple supplied shades.
   for(const theme of ['monocolor','monocolor-dark']){
    const {page,context,errors}=await open({theme,proseColors:'vivid'});await settled(page);
    const paint=await page.evaluate(()=>{
-    const body=getComputedStyle(document.body),roles=['function','proper','quote','number','noun','verb','adjective','adverb'];
-    return Object.fromEntries(roles.map(role=>[role,body.getPropertyValue('--prose-'+role).trim()]));
+    const a=document.querySelector('#article'),c=document.createElement('canvas').getContext('2d'),roles=['function','proper','quote','number','noun','verb','adjective','adverb'];
+    return Object.fromEntries(roles.map(role=>{c.fillStyle=getComputedStyle(a,'::highlight(reader-prose-'+role+')').color;return [role,c.fillStyle];}));
    });
    const palette=new Set(Object.values(require('../src/reader_mcp/web_ui/famous-themes.json').themes.find(t=>t.id==='monocolor').palette));
    for(const value of Object.values(paint))assert.ok(palette.has(value));
+   // Palette-only contrast, in the colors actually painted: 4.5:1 on the page and over the wash, Clear's skeleton 3:1.
+   const lum=v=>[1,3,5].map(i=>parseInt(v.slice(i,i+2),16)/255).map(c=>c<=.04045?c/12.92:((c+.055)/1.055)**2.4).reduce((s,c,i)=>s+c*[.2126,.7152,.0722][i],0);
+   const ratio=(a,b)=>(Math.max(lum(a),lum(b))+.05)/(Math.min(lum(a),lum(b))+.05);
+   const ground=await page.evaluate(()=>{const c=document.createElement('canvas').getContext('2d'),a=document.querySelector('#article'),hex=v=>{c.fillStyle=v;return c.fillStyle;},root=getComputedStyle(document.documentElement),wash=hex(getComputedStyle(a,'::highlight(reader-prose-quoted)').backgroundColor);
+    document.body.classList.replace('prose-vivid','prose-clear');const recede=hex(getComputedStyle(a,'::highlight(reader-prose-function)').color);document.body.classList.replace('prose-clear','prose-vivid');return {bg:hex(root.getPropertyValue('--background').trim()),wash,recede};});
+   for(const [role,value] of Object.entries(paint)){assert.ok(ratio(value,ground.bg)>=4.5,theme+' '+role+' on the page');assert.ok(ratio(value,ground.wash)>=4.5,theme+' '+role+' over the wash');}
+   assert.ok(ratio(ground.recede,ground.bg)>=3,theme+' recede');assert.ok(palette.has(ground.wash)&&palette.has(ground.recede),theme+' wash and recede stay in the palette');
    assert.ok(new Set(Object.values(paint)).size>=(theme.endsWith('-dark')?5:4),theme+' uses a grayscale range');
    assert.ok((await covered(page)).proper.includes('Ada'),'Colorful ranges are active');
    await page.screenshot({path:'.reader/web-dev/prose-'+theme+'.png'});
@@ -162,7 +192,6 @@ const covered=page=>page.evaluate(()=>Object.fromEntries([...CSS.highlights].fil
      const lab=([r,g,b])=>{[r,g,b]=[r,g,b].map(lin);const l=Math.cbrt(.4122214708*r+.5363325363*g+.0514459929*b),m=Math.cbrt(.2119034982*r+.6806995451*g+.1073969566*b),s=Math.cbrt(.0883024619*r+.2817188376*g+.6299787005*b);return [.2104542553*l+.793617785*m-.0040720468*s,1.9779984951*l-2.428592205*m+.4505937099*s,.0259040371*l+.7827717662*m-.808675766*s];};
      const dE=(a,b)=>{const x=lab(a),y=lab(b);return Math.hypot(x[0]-y[0],x[1]-y[1],x[2]-y[2]);};
      const over=(top,alpha,back)=>top.map((v,i)=>Math.round(v*alpha+back[i]*(1-alpha)));
-     const probe=document.createElement('span');probe.style.transition='none';document.querySelector('#article').append(probe);
      const still=document.createElement('style');still.textContent='*{transition:none!important}';document.head.append(still);
      const paragraph=document.querySelector('#article p');const failures=[],min={subtle:9,clearRecede:9,clearRecedeMax:0,clearRole:9,content:99,vivid:9,distinct:9,wash:9,names:9};
      const roles=['function','proper','quote','number','punct','noun','verb','adjective','adverb'];
@@ -174,7 +203,7 @@ const covered=page=>page.evaluate(()=>Object.fromEntries([...CSS.highlights].fil
        const fail=(what,value)=>failures.push(`${theme} ${what} ${typeof value==='number'?value.toFixed(3):value}`);
        for(const level of ['subtle','clear','vivid']){document.body.classList.remove('prose-subtle','prose-clear','prose-vivid');document.body.classList.add('prose-'+level);
          const ink=rgb(getComputedStyle(paragraph).color),paint={};
-         for(const role of roles){probe.style.color=`var(--prose-ink-${role},var(--foreground))`;paint[role]=rgb(getComputedStyle(probe).color);}
+         for(const role of roles)paint[role]=rgb(getComputedStyle(paragraph,`::highlight(reader-prose-${role})`).color);
          if(level==='subtle')for(const role of roles){const v=ratio(paint[role],bg);min.subtle=Math.min(min.subtle,v);if(v<4.5)fail('subtle '+role,v);}
          if(level==='clear'){
            const v=ratio(ink,bg);min.content=Math.min(min.content,v);if(v<7)fail('clear content',v);
@@ -185,9 +214,9 @@ const covered=page=>page.evaluate(()=>Object.fromEntries([...CSS.highlights].fil
            for(const role of roles){const r=ratio(paint[role],bg);min.vivid=Math.min(min.vivid,r);if(r<4.5)fail('vivid '+role,r);}
            const colored=roles.filter(r=>r!=='punct');
            for(let i=0;i<colored.length;i++)for(const [name,other] of [...colored.slice(i+1).map(n=>[n,paint[n]]),['ink',ink],['muted',muted]]){const d=dE(paint[colored[i]],other);min.distinct=Math.min(min.distinct,d);if(d<.08)fail(`vivid ΔE ${colored[i]}/${name}`,d);}
-           const wash=getComputedStyle(document.body).getPropertyValue('--prose-bg-quoted').trim();probe.style.color=wash;const parts=getComputedStyle(probe).color.match(/[\d.]+/g).map(Number);
+           const parts=getComputedStyle(paragraph,'::highlight(reader-prose-quoted)').backgroundColor.match(/[\d.]+/g).map(Number);
            const washed=over(parts.slice(0,3),parts[3]??1,bg);for(const value of [ink,...colored.map(r=>paint[r])]){const r=ratio(value,washed);min.wash=Math.min(min.wash,r);if(r<4.5)fail('vivid over wash',r);}}}}
-     probe.remove();still.remove();return {themes:THEMES.length,failures,min};});
+     still.remove();return {themes:THEMES.length,failures,min};});
    assert.equal(report.themes,6+2*require('../src/reader_mcp/web_ui/famous-themes.json').themes.length);assert.deepEqual(report.failures,[]);
    const m=report.min;console.log(`  prose contrast, 22 themes: Subtle ≥ ${m.subtle.toFixed(2)}:1; Clear skeleton ${m.clearRecede.toFixed(2)}–${m.clearRecedeMax.toFixed(2)}:1, content ≥ ${m.content.toFixed(2)}:1, roles ≥ ${m.clearRole.toFixed(2)}:1, names ΔE_OK ≥ ${m.names.toFixed(3)} from ink; Vivid ≥ ${m.vivid.toFixed(2)}:1, roles ΔE_OK ≥ ${m.distinct.toFixed(3)}, over wash ≥ ${m.wash.toFixed(2)}:1`);
    assert.deepEqual(errors,[]);await context.close();}
@@ -203,6 +232,9 @@ const covered=page=>page.evaluate(()=>Object.fromEntries([...CSS.highlights].fil
    await page.waitForFunction(()=>document.querySelector('.textLayer span'));await settled(page);
    const words=await covered(page);assert.ok(words.adjective.includes('precise')||words.noun.includes('observation'),'PDF words carry roles');
    assert.ok(await page.evaluate(()=>[...CSS.highlights.get('reader-prose-function')].every(r=>r.startContainer.parentElement.closest('.textLayer'))));
+   // The page image shows through: every role tints behind the word, and no generated rule reveals the layer's glyphs.
+   const layer=await page.evaluate(()=>{const span=document.querySelector('.textLayer span');return Object.fromEntries(['function','proper','quote','number','punct','noun','verb','adjective','adverb'].map(role=>{const s=getComputedStyle(span,'::highlight(reader-prose-'+role+')');return [role,[s.color,s.backgroundColor]];}));});
+   for(const [role,[ink,tint]] of Object.entries(layer)){assert.equal(ink,'rgba(0, 0, 0, 0)',role+' stays transparent in a text layer');if(role!=='punct')assert.notEqual(tint,'rgba(0, 0, 0, 0)',role+' tints in a text layer');}
    assert.deepEqual(errors,[]);await context.close();}
   // 8. The home issue: Space c colors its standfirsts and note under the issue's week, never titles or controls.
   {const context=await browser.newContext({viewport:{width:1200,height:900},reducedMotion:'reduce'});

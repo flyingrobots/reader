@@ -77,6 +77,10 @@ const {chromium}=require(process.env.READER_PLAYWRIGHT||'playwright-core');
   await page.goto(url);await page.locator('#home-title').waitFor();
   // Delete returns to a built-in of the same polarity.
   await page.keyboard.press('F10');await editor.waitFor();assert.equal(await page.locator('#theme-name').inputValue(),'Dusk test');
+  // Saving new colors under the same id repaints prose colors without a theme change.
+  const proseSheet=()=>page.evaluate(()=>document.querySelector('#reader-prose-tokens').textContent);const before=await proseSheet();assert.ok(before.includes('[data-theme="user-dusk-test'),'prose rules follow the active custom theme');
+  await page.locator('#token-accent').fill('#aa2266');await page.locator('#token-accent').press('Enter');await page.getByRole('button',{name:'Save',exact:true}).click();
+  await page.waitForFunction(old=>document.querySelector('#reader-prose-tokens').textContent!==old,before);
   await page.getByRole('button',{name:'Delete theme'}).click();await page.getByRole('alertdialog').getByRole('button',{name:'Delete theme',exact:true}).click();await page.waitForFunction(()=>document.documentElement.dataset.theme==='ink');
   assert.deepEqual((await (await page.request.get(url+'/api/themes')).json()).themes,[]);
   await page.screenshot({path:'.reader/web-dev/theme-editor-new.png'});

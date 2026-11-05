@@ -445,9 +445,9 @@ with `id`, `name`, `fonts` (`serif`/`sans`/`mono` family or null for the default
 a size in pixels from 10 to 120 or null for the stylesheet default), `light` and `dark` (every color token, lowercase `#rrggbb` or `#rrggbbaa`),
 `created_at` and `updated_at`. Ids are 1–40 lowercase letters, digits or hyphens. They
 cannot be a built-in name or end in `-dark`. A theme saved before `headings` existed
-reads with every level at its default. Heading settings become `--h1-font`/`--h1-size`
-through `--h6-*` custom properties, which only the document's headings read; the H1 font
-also sets the document title, whose size stays responsive. The page uses
+reads with every level at its default. Heading settings become generated rules on the document's headings
+(`headingRules()` in `web/src/theme/theme-css.ts`), at the same specificity as `style.css` and later in
+the cascade; the H1 font also sets the document title, whose size stays responsive. The page uses
 `data-theme="user-<id>"` and `user-<id>-dark`. Writes are atomic under
 `.reader/themes.lock`. Limits are 64 themes and 64 KiB per theme. The generated CSS is
 cached in `reader.themes.v1` local storage so a saved theme paints before
@@ -2820,10 +2820,10 @@ underlines and background washes rather than weight or size.
   numbers and quotation marks take a faint tint of their role color. Every role reads at
   4.5:1 or more.
 - **Clear (default):** function words and punctuation recede strongly, to about 3:1 on the
-  page (`--prose-recede`, between 3.0:1 and 3.3:1). This is WCAG's large-text level, and a
+  page (`prose-recede`, between 3.0:1 and 3.3:1). This is WCAG's large-text level, and a
   deliberate choice: the receding words are de-emphasized structure whose meaning the
   sentence carries anyway, while the content words, which carry the meaning, stay at 7:1 or
-  more (`--prose-content`, the theme's ink raised to 7:1 when it is below it). Proper nouns
+  more (`prose-content`, the theme's ink raised to 7:1 when it is below it). Proper nouns
   and acronyms take the accent's hue, numbers and quotation marks their own hues, each at
   4.5:1 or more.
 - **Vivid:** every role Colorful emits gets its own saturated hue, as in its CLI: function
@@ -2870,18 +2870,19 @@ and Clear only names, numbers and quotes. Function words cannot recede in a PDF.
 from the cache.
 
 **Two-page reading.** The page-turn rasterizer reads each role's current ink,
-wash and underline (`--prose-ink-<role>`, `--prose-bg-<role>`, `--prose-line-<role>` on
-`<body>`) and draws words split at role boundaries, so the 3D sheet shows the same
+wash and underline from the article's computed `::highlight(reader-prose-<role>)` style
+(`color`, `backgroundColor`, `textDecorationColor`) and draws words split at role boundaries, so the 3D sheet shows the same
 colors. Find and annotation inks win. PDF tints are not
 rasterized; the sheet shows the PDF page without them.
 
 **Theme colors.** Prose colors are derived per theme, never stored (the `prose`
 and `prose_derived` lists in `theme-tokens.json`), by `proseColors()` in
-`web/src/theme/color.ts`:
+`web/src/theme/color.ts`, and reach the page as generated rules holding literal colors, per
+theme and per intensity (`proseRules()` in `web/src/theme/theme-css.ts`), not as custom properties:
 
-- The eight role colors `--prose-function`, `--prose-proper`, `--prose-quote`,
-  `--prose-number`, `--prose-noun`, `--prose-verb`, `--prose-adjective` and
-  `--prose-adverb` are Vivid's. They are chosen greedily in OKLCH, proper nouns first. The
+- The eight role colors `prose-function`, `prose-proper`, `prose-quote`,
+  `prose-number`, `prose-noun`, `prose-verb`, `prose-adjective` and
+  `prose-adverb` are Vivid's. They are chosen greedily in OKLCH, proper nouns first. The
   proper-noun role starts from the accent. Each other role tries the unused theme colors
   (secondary emphasis, charts) within 40° of its target hue, then synthesized hues stepping
   away from it. Each candidate's chroma is raised to at least 0.11 (0.12 for names) and its
@@ -2889,14 +2890,18 @@ and `prose_derived` lists in `theme-tokens.json`), by `proseColors()` in
   least 0.11 ΔE_OK from ink, content ink, muted and the roles already chosen wins (names
   also 0.14 from the ink, so they stand out in Clear), otherwise the most separated one.
   Function words, a third of all words, also keep at least 60° of hue from the names.
-- `--prose-punct` (muted at 4.5:1), `--prose-recede` (muted's hue moved toward the page
-  until just above 3:1), `--prose-content` (ink at 7:1), `--prose-subtle-function`,
-  `--prose-subtle-proper`, `--prose-subtle-number` and `--prose-subtle-quote` (OKLab mixes
-  with ink at 4.5:1), `--prose-wash` (the quote color at the highest alpha, up to 0.2 dark
-  or 0.22 light, that keeps ink and every role at 4.5:1 over it) and `--prose-underline`.
+- `prose-punct` (muted at 4.5:1), `prose-recede` (muted's hue moved toward the page
+  until just above 3:1), `prose-content` (ink at 7:1), `prose-subtle-function`,
+  `prose-subtle-proper`, `prose-subtle-number` and `prose-subtle-quote` (OKLab mixes
+  with ink at 4.5:1), `prose-wash` (the quote color at the highest alpha, up to 0.2 dark
+  or 0.22 light, that keeps ink and every role at 4.5:1 over it) and `prose-underline`.
 
-Famous and custom theme stylesheets carry the derived values; built-in themes get them at
-runtime from the cascade, at zero specificity. The Theme Editor's *Prose colors (derived)*
+Only the active theme has these rules: `ensureProseRules()` derives them from the cascade
+into the `reader-prose-tokens` sheet when the theme or its stylesheet changes, for built-in,
+famous and custom themes alike, and palette-only themes keep to their swatches there.
+Shipping every theme's rules would slow style recalculation, because a `::highlight` rule's
+last selector is universal and so is tried on every element. The rule that keeps PDF text layers transparent is `!important`,
+so no generated rule can reveal the layer's glyphs. The Theme Editor's *Prose colors (derived)*
 group checks each intensity's paint against its floor (3:1 for Clear's receding words, 7:1
 for content words, 4.5:1 for every colored role), Vivid's closest pair of roles (0.08
 ΔE_OK) and text over the wash. The browser test checks the same floors in all 22 built-in
@@ -3458,10 +3463,9 @@ prompts in chat raw output, and the theme preview use the React component direct
   `-function`, `-parameter`, `-punctuation`, `-comment`, `-link`) over the unchanged
   text node: highlighting never changes the DOM, so it cannot move an annotation, a find
   match or a selection. Their priority is below annotations and find.
-- **Theme colors.** `--code-<role>` (style.css) maps each role to the theme's derived
-  prose colors (`--prose-function`, `--prose-quote`, `--prose-number`, …), which hold
-  4.5:1 on the page (the browser suite checks all 22 bundled themes); comments and punctuation
-  use `--muted`. A theme change recolors without re-highlighting. The block's background
+- **Theme colors.** Each `::highlight(reader-syntax-<role>)` rule in `style.css` mixes a
+  chart color into the foreground or uses the primary color; comments and punctuation
+  use `--muted-foreground`. A theme change recolors without re-highlighting. The block's background
   is the page color, so these ratios hold inside it.
 - **Two-page mode.** Blocks avoid column breaks and scroll inside the column. The
   page-turn rasterizer paints the syntax colors (it reads `--code-<role>`) and the

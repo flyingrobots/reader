@@ -94,9 +94,9 @@ export function rasterize(article:HTMLElement,page:Box,dx:number,background:stri
   const highlights=(CSS as unknown as {highlights?:Map<string,Set<AbstractRange>>}).highlights;
   const inkRanges:{range:Range;ink:string}[]=[];
   // Prose washes (Vivid's quoted passages) and underlines (Vivid's names) go under everything else.
-  const body=getComputedStyle(document.body);
+  const proseStyle=(role:string)=>getComputedStyle(article,`::highlight(reader-prose-${role})`);
   if(highlights)for(const role of [...PROSE,'quoted']){const set=highlights.get('reader-prose-'+role);if(!set)continue;
-    const fill=body.getPropertyValue('--prose-bg-'+role).trim(),line=body.getPropertyValue('--prose-line-'+role).trim();if(!visible(fill)&&!visible(line))continue;
+    const style=proseStyle(role),fill=style.backgroundColor,line=style.textDecorationLine==='none'?'':style.textDecorationColor;if(!visible(fill)&&!visible(line))continue;
     for(const range of set){if(!(range instanceof Range)||!article.contains(range.commonAncestorContainer))continue;
       for(const r of range.getClientRects()){if(!hit(r,src))continue;
         if(visible(fill)){ctx.fillStyle=fill;ctx.fillRect(r.left,r.top,r.width,r.height);}
@@ -109,7 +109,9 @@ export function rasterize(article:HTMLElement,page:Box,dx:number,background:stri
         if(spec.wavy){ctx.strokeStyle=token(spec.wavy);ctx.lineWidth=1.5;ctx.beginPath();for(let x=r.left,i=0;x<=r.right;x+=3,i++)ctx.lineTo(x,r.bottom-1+(i%2?1.5:-1.5));ctx.stroke();}}
       if(spec.ink)inkRanges.push({range,ink:token(spec.ink)});}}
   const proseInk=new Map<Node,[number,number,string][]>();
-  if(highlights)for(const role of PROSE){const set=highlights.get('reader-prose-'+role),ink=body.getPropertyValue('--prose-ink-'+role).trim();if(!set||!ink)continue;
+  // A role with no rule computes to the article's color, which would flatten links and headings: only the intensity's own roles paint.
+  const classes=document.body.classList,painted=classes.contains('prose-vivid')?PROSE:classes.contains('prose-clear')||classes.contains('prose-subtle')?PROSE.slice(0,5):[];
+  if(highlights)for(const role of painted){const set=highlights.get('reader-prose-'+role);if(!set)continue;const ink=proseStyle(role).color;
     for(const range of set){const node=(range as Range).startContainer;if(node!==(range as Range).endContainer||!article.contains(node))continue;
       let list=proseInk.get(node);if(!list)proseInk.set(node,list=[]);list.push([(range as Range).startOffset,(range as Range).endOffset,ink]);}}
   // Code Block syntax colors (code-blocks.ts): one range per token inside one line's text node.

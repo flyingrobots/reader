@@ -20,7 +20,7 @@ import {Button} from '../components/ui/button';
 import {ButtonGroup} from '../components/ui/button-group';
 import {bestContrastWith, COLOR_TOKENS, FONT_ROLES, HEADINGS, HEADING_SIZES, BUNDLED_FONTS, CHARTS, alphaOf, autoFix, checkVariant, deriveVariant, generateVariant, simulateTokens, suggestAccents, withAlpha, type Check, type HeadingStyle, type Simulation, type Theme, type Tokens, type Variant} from './color';
 import {FAMOUS, famousId} from './famous';
-import {readBuiltIn, themeId, variantProperties, type InstalledFont} from './theme-css';
+import {headingRules, readBuiltIn, themeId, variantProperties, type InstalledFont} from './theme-css';
 
 export type EditorProps={open:boolean;onOpenChange:(open:boolean)=>void;/** After the close animation ends and the sheet unmounts: the caller restores focus (#124). */onClosed?:()=>void;themes:Theme[];fonts:InstalledFont[];current:string;
   api:(path:string,payload?:unknown)=>Promise<any>;onChanged:(themes:Theme[],fonts:InstalledFont[])=>void;onUse:(dataTheme:string)=>void;onPreviewFont:(href:string)=>void;error:(error:unknown)=>void};
@@ -75,8 +75,9 @@ function HeadingRow({level,label,size,description,value,fontGroups,onChange}:{le
 
 function Preview({tokens,fonts,headings,variant,sim}:{tokens:Tokens;fonts:Theme['fonts'];headings:Theme['headings'];variant:Variant;sim:Simulation}){
   const shown=simulateTokens(tokens,sim);
-  const style={...variantProperties(shown,fonts,variant,headings)} as CSSProperties;
+  const style={...variantProperties(shown,fonts,variant)} as CSSProperties;
   return <div className="theme-preview" style={style} data-variant={variant} aria-label="Sample article preview">
+    <style>{headingRules(headings,'.theme-preview[data-variant]')}</style>
     <div className="theme-preview-page">
       <article className="article">
         <p className="theme-preview-kicker">Essay · 9 min read</p>

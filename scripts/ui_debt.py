@@ -5,7 +5,8 @@
     python3 scripts/ui_debt.py --json
 
 tests/test_ui_debt.py holds each count to a ceiling that only moves down. A token is custom when its name isn't in shadcn's
-set. An inline style is hard-coded when its value is a literal; a value computed at run time, such as a popover's position, isn't."""
+set, wherever it is defined: in a stylesheet or as a key the theme code emits. Two groups are reported apart rather than hidden: variables
+set from a value computed at run time, and the named inputs of third-party libraries. An inline style is hard-coded when its value is a literal; a value computed at run time, such as a popover's position, isn't."""
 import json
 from pathlib import Path
 import re
@@ -18,6 +19,10 @@ CSS = [UI / 'style.css', UI / 'harvest.css', SRC / 'styles.css']
 SHADCN = re.compile(r'--(color-)?(background|foreground|card(-foreground)?|popover(-foreground)?|primary(-foreground)?|secondary(-foreground)?|muted(-foreground)?'
                     r'|accent(-foreground)?|destructive(-foreground)?|border|input|ring|radius(-\w+)?|chart-\d+|sidebar(-[a-z-]+)?|font-\w+)$')
 DEFINED = re.compile(r'(?:^|[{;\s])(--[a-zA-Z][\w-]*)\s*:')
+THEME_KEY = re.compile(r"""['"](--[a-zA-Z][\w-]*)['"]\s*:""")
+# A name on a line that calls setProperty: setProperty('--x', ...), or a list of names the line loops over.
+SET_AT_RUNTIME = re.compile(r"""['"`](--[a-zA-Z][\w-]*)['"`]""")
+THIRD_PARTY = re.compile(r'--pele-[\w-]+$|--(min-font-size|min-font-size-inv|text-scale-factor|scale-factor|total-scale-factor)$')  # Pele's API; pdf.js's text layer.
 LITERAL = r"""(?:'[^'$`]*'|"[^"$`]*"|`[^`$]*`|-?\d[\d.]*)"""
 INLINE = [re.compile(r'''\bstyle="[^"$]+"'''),                                    # Markup, and markup in template strings.
           re.compile(r'\bstyle=\{\{[^}]*?:\s*' + LITERAL + r'\s*[,}]'),           # React.
@@ -34,21 +39,45 @@ def sources():
             yield path
 
 
+def emitted():
+    """Names set from code: {name: where} for the theme code's keys, and for setProperty anywhere."""
+    keys, runtime = {}, {}
+    for path in SRC.glob('theme/*.ts'):
+        for name in THEME_KEY.findall(path.read_text()):
+            keys.setdefault(name, path.relative_to(ROOT).as_posix())
+    for path in sources():
+        for line in path.read_text().splitlines():
+            if 'setProperty(' in line:
+                for name in SET_AT_RUNTIME.findall(line):
+                    runtime.setdefault(name, path.relative_to(ROOT).as_posix())
+    return keys, runtime
+
+
 def count():
     tokens, rules = {}, {}
+    defined = set()
     for path in CSS:
         text = re.sub(r'/\*.*?\*/', '', path.read_text(), flags=re.S)
         names = set(DEFINED.findall(text))
+        defined |= names
         tokens[path.relative_to(ROOT).as_posix()] = sorted(name for name in names if not SHADCN.match(name))
         rules[path.relative_to(ROOT).as_posix()] = text.count('{')
+    keys, runtime = emitted()
+    for name, where in keys.items():
+        if not SHADCN.match(name):
+            tokens.setdefault(where, []).append(name)
+    names = {name for found in tokens.values() for name in found} | {name for name in runtime if not SHADCN.match(name)}
+    third_party = sorted(name for name in names if THIRD_PARTY.match(name))
+    computed = sorted(name for name in runtime if name not in third_party and not SHADCN.match(name) and name not in defined and name not in keys)
+    custom = sorted(names - set(third_party) - set(computed))
     inline = {}
     for path in sources():
         text = path.read_text()
         found = sum(len(pattern.findall(text)) for pattern in INLINE)
         if found:
             inline[path.relative_to(ROOT).as_posix()] = found
-    return {'custom_tokens': len({name for names in tokens.values() for name in names}), 'css_rules': sum(rules.values()),
-            'hard_coded_inline_styles': sum(inline.values()), 'tokens': tokens, 'rules': rules, 'inline': inline}
+    return {'custom_tokens': len(custom), 'runtime_variables': len(computed), 'third_party_variables': len(third_party), 'css_rules': sum(rules.values()),
+            'hard_coded_inline_styles': sum(inline.values()), 'custom': custom, 'runtime': computed, 'third_party': third_party, 'tokens': tokens, 'rules': rules, 'inline': inline}
 
 
 if __name__ == '__main__':
@@ -56,6 +85,9 @@ if __name__ == '__main__':
     if '--json' in sys.argv:
         print(json.dumps(result, indent=1))
     else:
-        print(f"custom tokens {result['custom_tokens']}, CSS rules {result['css_rules']}, hard-coded inline styles {result['hard_coded_inline_styles']}")
+        print(f"custom tokens {result['custom_tokens']}, runtime variables {result['runtime_variables']}, third-party variables {result['third_party_variables']}, CSS rules {result['css_rules']}, hard-coded inline styles {result['hard_coded_inline_styles']}")
+        for label in ('custom', 'runtime', 'third_party'):
+            if result[label]:
+                print(f"  {label}: {' '.join(result[label])}")
         for name, total in sorted(result['inline'].items(), key=lambda row: -row[1]):
             print(f'  {total:4} {name}')

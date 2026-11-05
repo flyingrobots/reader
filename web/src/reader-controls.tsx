@@ -66,7 +66,7 @@ export {mountQuiz} from './quiz';
 export {mountWritingPrompt} from './writing-prompt';
 export {mountScratchQuestion} from './scratch-question';
 import {ThemeEditor} from './theme/theme-editor';
-import {applyThemes, ensureProseTokens, themeId, type InstalledFont} from './theme/theme-css';
+import {applyThemes, ensureProseRules, themeId, type InstalledFont} from './theme/theme-css';
 import type {Theme} from './theme/color';
 export {applyThemes};
 import {observeButtons} from './vanilla-buttons';
@@ -362,7 +362,7 @@ export function installControls(actions:Actions,prefs:Preferences){
   controlActions=actions;setSpeechApi(actions.api);setJobsApi(actions.api);
   model={articleWidth:{shown:false,standard:0,max:0},value:0,words:0,pdfPages:null,pace:220,spread:0,spreads:0,pages:0,columns:2,theme:prefs.theme,pips:[],prefs,participants:[],themeEditorOpen:false,customThemes:[],fonts:[],maintenance:null,prose:null,chat:{open:false,path:null,title:'',participant:''},outline:{mode:null,open:false,title:'',entries:[],folded:false,railOpen:false},outlineActive:-1,inbox:null,inboxStarting:false,activity:newActivity(),localModel:null,companions:null,admin:null,maintenanceError:null,inboxError:null,localModelError:null,companionsError:null};
   function View(){const current=useSyncExternalStore(subscribe,snapshot);return <>{createPortal(<ReadingProgress model={current} actions={actions}/>,document.getElementById('progress-controls-slot')!)}{createPortal(<Pages model={current} actions={actions}/>,document.getElementById('pagination-slot')!)}{createPortal(<OutlineControl outline={current.outline} active={current.outlineActive} actions={actions}/>,document.getElementById('outline-slot')!)}{createPortal(<SpeechControl/>,document.getElementById('speech-slot')!)}{createPortal(<ArticleWidthControl model={current.articleWidth} value={String(current.prefs.articleWidth||'standard')} actions={actions}/>,document.getElementById('article-width-slot')!)}{createPortal(<QuickThemePicker model={current} actions={actions}/>,document.getElementById('theme-switch-slot')!)}<ThemeEditor open={current.themeEditorOpen} onOpenChange={actions.themeEditor} onClosed={actions.themeEditorClosed} themes={current.customThemes} fonts={current.fonts} current={current.theme} api={actions.api} onChanged={actions.themesChanged} onUse={actions.useTheme} onPreviewFont={actions.previewFont} error={actions.error}/><ChatPanel open={current.chat.open} path={current.chat.path} title={current.chat.title} participant={current.chat.participant} initialId={current.chat.initialId} api={actions.api} markdown={actions.chatMarkdown} openPath={actions.openPath} onClose={()=>closeChat()} notify={notify}/><Toaster theme={dark(current.theme)?'dark':'light'} position="bottom-center" offset={{bottom:44}} mobileOffset={{bottom:56}}/></>;}
-  ensureProseTokens();new MutationObserver(()=>ensureProseTokens()).observe(document.documentElement,{attributes:true,attributeFilter:['data-theme']});
+  ensureProseRules();new MutationObserver(()=>ensureProseRules()).observe(document.documentElement,{attributes:true,attributeFilter:['data-theme']});
   observeButtons();installCodeCopy();
   const root=createRoot(document.getElementById('reader-controls-root')!);flushSync(()=>root.render(<View/>));
   pollMaintenance();pollInbox();

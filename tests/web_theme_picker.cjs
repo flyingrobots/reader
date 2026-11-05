@@ -44,11 +44,14 @@ const {chromium}=require(process.env.READER_PLAYWRIGHT||'playwright-core');
    await page.waitForFunction(theme=>document.documentElement.dataset.theme===theme,theme);
    const tokens=await page.evaluate(()=>{
     const s=getComputedStyle(document.documentElement),names=['bg','surface','raised','line','ink','muted','accent','accent-ink','warning',...Array.from({length:8},(_,i)=>'chart-'+(i+1)),
-     ...['function','proper','quote','number','noun','verb','adjective','adverb','punct','recede','content','subtle-function','subtle-proper','subtle-number','subtle-quote','wash','underline'].map(n=>'prose-'+n),
      ];
     return Object.fromEntries(names.map(n=>[n,s.getPropertyValue('--'+({bg:'background',surface:'card',raised:'secondary',ink:'foreground',muted:'muted-foreground',line:'border',accent:'primary','accent-ink':'primary-foreground',warning:'destructive'}[n]||n)).trim()]));
    });
    for(const [name,value] of Object.entries(tokens))assert.ok(palette.has(value),`${theme} ${name}: ${value}`);
+   // Prose colors are literal rules: every intensity's paint stays inside the palette too.
+   const proseRules=await page.evaluate(theme=>document.querySelector('#reader-prose-tokens').textContent.split('\n').filter(line=>line.startsWith(`:where(:root[data-theme="${theme}"]) body.prose-`)&&!line.includes('.textLayer')),theme);
+   assert.ok(proseRules.length>=20,theme+' ships prose rules');
+   for(const rule of proseRules)for(const value of rule.match(/#[0-9a-f]{6,8}/g))assert.ok(palette.has(value),`${theme} ${rule}`);
    const shots=process.env.READER_SHOTS||'.reader/web-dev';mkdirSync(shots,{recursive:true});
    await page.waitForTimeout(400); // Let the theme view transition finish before capturing pixels.
    await page.screenshot({path:shots+'/'+theme+'.png'});

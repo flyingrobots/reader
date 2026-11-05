@@ -149,8 +149,7 @@ def test_monocolor_shipped_tokens_preserve_palette_and_contrast(variant):
     identifier = 'monocolor' + ('-dark' if variant == 'dark' else '')
     block = re.search(r':root\[data-theme="' + identifier + r'"\]\{([^}]+)\}', css)[1]
     props = dict(item.split(':', 1) for item in block.split(';'))
-    names = COLOR_TOKENS + module.TOKENS['prose_derived'] + [t['name'] for t in module.TOKENS['prose']]
-    names += [n for n in module.TOKENS['derived'] if n.startswith('mode-')]
+    names = COLOR_TOKENS + [n for n in module.TOKENS['derived'] if n.startswith('mode-')]
     for name in names:
         assert props[token_var(name)] in palette, (name, props[token_var(name)])
     assert props['color-scheme'] == variant
@@ -170,9 +169,5 @@ def test_monocolor_shipped_tokens_preserve_palette_and_contrast(variant):
     assert ratio('ink', 'bg') >= 7
     assert ratio('accent-ink', 'accent') >= 4.5
 
-    prose_roles = [t['name'] for t in module.TOKENS['prose']]
-    assert len({props[token_var(role)] for role in prose_roles}) >= (4 if variant == 'light' else 5)
-    for role in prose_roles:
-        assert ratio(role, 'bg') >= 4.5
-        assert ratio(role, 'prose-wash') >= 4.5
-    assert ratio('prose-recede', 'bg') >= 3
+    # Prose colors are generated for the active theme at run time (web_prose and web_theme_picker check them there).
+    assert 'prose' not in block and 'reader-prose' not in css

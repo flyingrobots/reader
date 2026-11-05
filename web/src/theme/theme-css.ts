@@ -1,4 +1,5 @@
-import {cssVar, COLOR_TOKENS, FONT_ROLES, HEADINGS, BUNDLED_FONTS, hex, lightness, contrast, proseColors, PROSE_TOKENS, withAlpha, type Theme, type Tokens, type Variant} from './color';
+import {cssVar, COLOR_TOKENS, FONT_ROLES, HEADINGS, BUNDLED_FONTS, hex, lightness, contrast, proseColors, prosePaint, PROSE_TOKENS, type Theme, type Tokens, type Variant} from './color';
+import {FAMOUS, famousId} from './famous';
 
 export type InstalledFont={family:string;slug:string;category:string;license:string|null;stylesheet:string};
 export const themeId=(theme:Theme,variant:Variant)=>'user-'+theme.id+(variant==='dark'?'-dark':'');
@@ -8,25 +9,23 @@ export function fontStack(role:string,family:string|null|undefined){
   return chosen?`'${chosen}', ${info.fallback}`:info.fallback;
 }
 /** Custom properties for one variant; used by both the generated stylesheet and the editor preview. */
-/** --hN-font and --hN-size for each level the theme sets; unset levels fall back to style.css. */
-export function headingProperties(headings:Theme['headings']):Record<string,string>{
-  const out:Record<string,string>={};
-  for(const h of HEADINGS){const set=headings?.[h.level];if(!set)continue;
-    if(set.font)out[`--${h.level}-font`]=fontStack('serif',set.font);
-    if(typeof set.size==='number'&&Number.isFinite(set.size))out[`--${h.level}-size`]=`${set.size}px`;}
-  return out;
-}
-export function variantProperties(tokens:Tokens,fonts:Theme['fonts'],variant:Variant,headings?:Theme['headings']):Record<string,string>{
+export function variantProperties(tokens:Tokens,fonts:Theme['fonts'],variant:Variant):Record<string,string>{
   return {...Object.fromEntries(COLOR_TOKENS.map(t=>[cssVar(t.name),tokens[t.name]])),
-    ...Object.fromEntries(Object.entries(proseColors(tokens)).map(([name,value])=>['--'+name,value])),
     ...Object.fromEntries(FONT_ROLES.map(f=>[cssVar(f.name),fontStack(f.name,fonts[f.name])])),
-    ...headingProperties(headings),
     'color-scheme':variant};
 }
+/** Font and size for each level the theme sets; unset levels keep style.css. H1's font also sets the title and the quiz dialog's. */
+export function headingRules(headings:Theme['headings'],scope:string){
+  return HEADINGS.flatMap(h=>{const set=headings?.[h.level];if(!set)return [];
+    const font=set.font?`font-family:${fontStack('serif',set.font)}`:'',size=typeof set.size==='number'&&Number.isFinite(set.size)?`font-size:${set.size}px`:'',rules=[];
+    if(font||size)rules.push(`${scope} .article ${h.level}{${[font,size].filter(Boolean).join(';')}}\n`);
+    if(h.level==='h1'&&font)rules.push(`${scope} .article .document-title,${scope} .reader-quiz-dialog [data-slot=dialog-title]{${font}}\n`);
+    return rules;}).join('');
+}
 
-/** Palette-only built-ins keep prose and modal signals inside their supplied swatches.
+/** Palette-only built-ins keep prose signals inside their supplied swatches.
  * Labels, warning icons and underline styles continue to convey meaning without hue. */
-export function paletteOnlyProperties(tokens:Tokens):Record<string,string>{
+export function paletteOnlyProse(tokens:Tokens):Tokens{
   // Use every readable swatch, ordered from strongest to softest. Never synthesize a hue.
   const palette=[...new Set(Object.values(tokens))].filter(value=>/^#[0-9a-f]{6}$/.test(value));
   const readable=palette.filter(value=>contrast(value,tokens.bg)>=4.5&&contrast(value,tokens.surface)>=4.5)
@@ -36,19 +35,33 @@ export function paletteOnlyProperties(tokens:Tokens):Record<string,string>{
     .sort((a,b)=>contrast(a,tokens.bg)-contrast(b,tokens.bg))[0]||tokens.muted;
   const roles:Record<string,string>={function:shade(readable.length-1),proper:shade(1),quote:shade(3),
     number:shade(2),noun:shade(0),verb:shade(2),adjective:shade(1),adverb:shade(3)};
-  const prose={...Object.fromEntries(PROSE_TOKENS.map(t=>['--'+t.name,roles[t.name.slice(6)]])),
-    '--prose-punct':shade(readable.length-1),'--prose-recede':recede,'--prose-content':tokens.ink,
-    '--prose-subtle-function':shade(readable.length-1),'--prose-subtle-proper':shade(1),
-    '--prose-subtle-number':shade(2),'--prose-subtle-quote':shade(3),
-    '--prose-wash':tokens.surface,'--prose-underline':shade(1)};
-  return prose;
+  return {...Object.fromEntries(PROSE_TOKENS.map(t=>[t.name,roles[t.name.slice(6)]])),
+    'prose-punct':shade(readable.length-1),'prose-recede':recede,'prose-content':tokens.ink,
+    'prose-subtle-function':shade(readable.length-1),'prose-subtle-proper':shade(1),
+    'prose-subtle-number':shade(2),'prose-subtle-quote':shade(3),
+    'prose-wash':tokens.surface,'prose-underline':shade(1)};
+}
+
+/** One theme's prose colors as literal rules, per intensity. Subtle: the skeleton fades toward muted, names, numbers and
+    quotes take a faint tint; all 4.5:1. Clear: function words and punctuation recede to 3:1, content words hold 7:1, names,
+    numbers and quotes take their own hues. Vivid: every role its own saturated hue at 4.5:1, names underlined, quoted
+    passages washed. PDF text layers are transparent over a white page image, so they tint behind the words at a fixed
+    lightness: Subtle and Clear tint names, numbers and quotes; Vivid tints every role. */
+export function proseRules(theme:string,p:Tokens){
+  const tint=(level:string,role:string,alpha:number)=>`${theme} ${level} .textLayer ::highlight(reader-prose-${role}){background-color:oklch(from ${p['prose-'+role]} .62 c h / ${alpha})}\n`;
+  return (['subtle','clear','vivid'] as const).map(level=>{const body=`${theme} body.prose-${level}`,{content,...inks}=prosePaint(p,level);
+    return Object.entries(inks).map(([role,ink])=>`${body} ::highlight(reader-prose-${role}){color:${ink}${level==='vivid'&&role==='proper'?`;text-decoration:underline 1px ${p['prose-underline']}`:''}}\n`).join('')+
+      (content?`${body} #article{color:${content}}\n`:'')+`${body} .prose-chip b{color:${inks.proper}}\n${body} .prose-chip i{color:${inks.number}}\n`;}).join('')+
+    `${theme} body.prose-vivid ::highlight(reader-prose-quoted){background-color:${p['prose-wash']}}\n`+
+    tint('body.prose-vivid','function',.2)+['noun','verb','adjective','adverb'].map(role=>tint('body.prose-vivid',role,.24)).join('')+
+    [['proper',.24],['number',.24],['quote',.3]].map(([role,alpha])=>tint('body:is(.prose-subtle,.prose-clear,.prose-vivid)',role as string,alpha as number)).join('');
 }
 
 /** Stylesheet for built-in and custom themes, using validated tokens and font names. */
 export function themeStylesheet(themes:Theme[],idOf:(theme:Theme,variant:Variant)=>string=themeId){
   return themes.flatMap(theme=>(['light','dark'] as Variant[]).map(variant=>{
-    const id=idOf(theme,variant),props={...variantProperties(theme[variant],theme.fonts,variant,theme.headings),...(theme.paletteOnly?paletteOnlyProperties(theme[variant]):{})};
-    return `:root[data-theme="${id}"]{${Object.entries(props).map(([k,v])=>`${k}:${v}`).join(';')}}\n`+
+    const id=idOf(theme,variant),props=variantProperties(theme[variant],theme.fonts,variant);
+    return `:root[data-theme="${id}"]{${Object.entries(props).map(([k,v])=>`${k}:${v}`).join(';')}}\n`+headingRules(theme.headings,`:where(:root[data-theme="${id}"])`)+
       `:root[data-theme="${id}"] .chart-mount path[role=button],:root[data-theme="${id}"] .chart-bar-row rect:not([fill=transparent]),:root[data-theme="${id}"] .chart-mount>svg>rect{stroke:var(--card);stroke-width:1}\n`+
       `:root[data-theme="${id}"] [data-chart-swatch]{outline:1px solid var(--card)}\n`;
   })).join('');
@@ -63,7 +76,7 @@ export function applyThemes(themes:Theme[],installed:InstalledFont[],extraFonts:
   const css=themeStylesheet(themes),links=[...new Set([...fontLinks(themes,installed),...extraFonts])];
   let style=document.getElementById('reader-user-themes') as HTMLStyleElement|null;
   if(!style){style=document.createElement('style');style.id='reader-user-themes';document.head.append(style);}
-  style.textContent=css;
+  style.textContent=css;ensureProseRules();
   for(const href of links)if(!document.querySelector(`link[data-theme-font][href="${href}"]`)){const link=document.createElement('link');link.rel='stylesheet';link.href=href;link.dataset.themeFont='';document.head.append(link);}
   return {css,links,ids:themes.flatMap(t=>[themeId(t,'light'),themeId(t,'dark')])};
 }
@@ -84,18 +97,19 @@ export function readBuiltIn(dataTheme:string):{tokens:Tokens;fonts:Theme['fonts'
 }
 export const isLightPage=(tokens:Tokens)=>lightness(tokens.bg)>=.5;
 
-/** Built-in themes (style.css) get derived prose colors at runtime, read from the cascade
-    for the current theme only; famous and custom themes carry them in their stylesheet. */
-export function ensureProseTokens(){
-  const root=document.documentElement,theme=root.dataset.theme||'ink',style=getComputedStyle(root);
-  if(style.getPropertyValue('--prose-recede').trim())return;
+/** Prose rules for the current theme only, derived from the cascade. A ::highlight rule is tried on
+    every element, so rules for every theme at once made a style recalculation about five times slower on a formula-heavy page. */
+const proseSheets=new Map<string,string>();
+export function ensureProseRules(){
+  const root=document.documentElement,theme=(root.dataset.theme||'ink').replace(/[^a-z0-9-]/g,''),style=getComputedStyle(root);
   const probe=document.createElement('span');probe.hidden=true;document.body.append(probe);
   const tokens:Tokens={};
   try{for(const t of COLOR_TOKENS){if(!style.getPropertyValue(cssVar(t.name)).trim())continue;probe.style.color=`var(${cssVar(t.name)})`;tokens[t.name]=hex(getComputedStyle(probe).color);}}finally{probe.remove();}
   if(!tokens.bg||!tokens.ink)return;
+  const key=theme+JSON.stringify(tokens);let rules=proseSheets.get(key);
+  if(!rules){const paletteOnly=FAMOUS.some(t=>t.paletteOnly&&(theme===famousId(t.id,'light')||theme===famousId(t.id,'dark')));
+    rules=proseRules(`:where(:root[data-theme="${theme}"])`,{...proseColors(tokens),...(paletteOnly?paletteOnlyProse(tokens):{})});proseSheets.set(key,rules);}
   let sheet=document.getElementById('reader-prose-tokens') as HTMLStyleElement|null;
   if(!sheet){sheet=document.createElement('style');sheet.id='reader-prose-tokens';document.head.append(sheet);}
-  // Zero specificity: a theme stylesheet that arrives later still wins.
-  const selector=`:where(:root[data-theme="${theme.replace(/[^a-z0-9-]/g,'')}"])`;
-  sheet.textContent+=`${selector}{${Object.entries(proseColors(tokens)).map(([k,v])=>`--${k}:${v}`).join(';')}}\n`;
+  if(sheet.textContent!==rules)sheet.textContent=rules;
 }
