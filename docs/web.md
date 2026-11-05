@@ -1965,10 +1965,10 @@ line says who has a read receipt for the document and when, for example
 - **Empty and live state.** With no receipts the line reads *Not yet read by
   anyone. You'll be first.* Opening the document records your receipt as before
   (`/api/seen`), and the line then shows *You just now* without a reload.
-- **Placement.** The line follows `.document-meta` and carries
+- **Placement.** The line follows `.document-meta` (the title's one row: byline, date, Read aloud, Source and the edition chip) and carries
   `data-reader-decoration`, so passage selection, annotations and find skip it. Its
   slot reserves one line before the response arrives, so the article does not move.
-  In two-page reading (where the meta row is hidden) it stays in the first column
+  In two-page reading (where the meta row keeps only Read aloud and the chip) it stays in the first column
   under the title, on one line; at phone width it wraps.
 - **Requests.** `/api/readers` is requested once per path, edition and participant
   per page session, in parallel with the discussion, and never delays the article.

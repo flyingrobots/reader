@@ -46,6 +46,9 @@ const THEMES=['ink','paper','orchid','orchid-dark','harvest','harvest-dark',...r
    await page.setViewportSize({width:390,height:844});await page.waitForTimeout(200);
    assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),'no horizontal scroll at 390 px');
    const box=await page.locator('.reading-log').boundingBox();assert.ok(box.x>=16-1&&box.x+box.width<=390-16+1,JSON.stringify(box));
+   const sizes=await page.evaluate(()=>['#speak-article','.document-source'].map(s=>{const el=document.querySelector(s),c=getComputedStyle(el);return [el.getBoundingClientRect().height,c.fontSize];}));
+   assert.deepEqual(sizes[0],sizes[1],'the title row keeps one size of control on a phone');
+   assert.ok(await page.evaluate(()=>{const l=s=>document.querySelector(s).getBoundingClientRect().left;return Math.abs(l('.document-meta')-l('[data-reading-log-line]'))<1;}),'the log lines up with the row above it');
    await page.screenshot({path:'.reader/web-dev/reading-log-phone.png'});
    // Every theme: the log's text keeps contrast against the page.
    const contrast=await page.evaluate(themes=>{

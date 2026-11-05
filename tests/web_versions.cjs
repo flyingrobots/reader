@@ -23,7 +23,7 @@ const shots=process.env.READER_SHOTS||'.reader/web-dev';
   {const {page,context}=await open({layout:'scroll'});
    await page.goto(url+'#read='+encodeURIComponent(essay+'tidal.md'));await page.getByRole('heading',{name:'The tidal archive',exact:true}).waitFor();await ready(page);
    // One chip, its twin, and nothing duplicated.
-   const line=page.locator('#article > .version-line');await line.waitFor();
+   const line=page.locator('#article > .document-meta > .version-line');await line.waitFor();
    assert.ok(await line.evaluate(el=>el.hasAttribute('data-reader-decoration')));
    assert.equal((await line.locator('[data-version-chip]').textContent()).trim(),'v1 of 3');
    assert.match(await line.textContent(),/v1 of 3Newer v3 available Open v3Compare v1 → v3/);
@@ -32,7 +32,7 @@ const shots=process.env.READER_SHOTS||'.reader/web-dev';
    assert.ok(await twin.evaluate(el=>el.classList.contains('newer')),'the twin is accent-coloured when a newer version exists');
    const first=await receipt(page);assert.equal(first.read,true,'the current v1 is marked read on open');
    await page.reload();await ready(page);
-   assert.match(await page.locator('.version-line .version-read').textContent(),/^You read this on [A-Z][a-z]{2} \d+$/);
+   assert.equal(await page.locator('.version-line .version-read').count(),0,'the reading log, not the chip, says when you read this file');await page.locator('.reading-log [data-reading-log-entry]',{hasText:/^. ?You/}).waitFor();
    await page.screenshot({path:shots+'/versions-chip.png'});
    // Space v opens the timeline with editions and history.
    await leader(page,'v');const panel=page.locator('#versions-panel');await panel.waitFor();
@@ -104,7 +104,7 @@ const shots=process.env.READER_SHOTS||'.reader/web-dev';
    await changes.waitFor();assert.match(await changes.locator('[data-slot=sheet-title]').textContent(),/^v1 @ Oct 12 → v1$/);
    await page.keyboard.press('Escape');await changes.waitFor({state:'hidden'});
    // Return to current.
-   await banner.locator('a').click();await page.locator('#article > .version-line').waitFor();await ready(page);
+   await banner.locator('a').click();await page.locator('#article > .document-meta > .version-line').waitFor();await ready(page);
    assert.equal(decodeURIComponent(new URL(page.url()).hash),'#read='+essay+'tidal.md');
    // "Edition N" from frontmatter no longer duplicates the chip.
    await page.goto(url+'#read='+encodeURIComponent(essay+'tidal.v2.md'));await page.getByRole('heading',{name:'The tidal archive (v2)',exact:true}).waitFor();await ready(page);
@@ -124,7 +124,7 @@ const shots=process.env.READER_SHOTS||'.reader/web-dev';
   // Two pages: once the chip is placed (first layout, or late when the timeline is slow; see web_versions_late), nothing shifts.
   {const {page,context}=await open({layout:'spread'});
    await page.goto(url+'#read='+encodeURIComponent(essay+'tidal.md'));await page.waitForFunction(()=>document.body.classList.contains('two-page')&&!document.querySelector('.resume-pending'));
-   await page.locator('#article > .version-line').waitFor();
+   await page.locator('#article > .document-meta > .version-line').waitFor();
    const measure=()=>page.evaluate(()=>{const l=document.querySelector('.version-line').getBoundingClientRect();return {top:Math.round(l.top),pages:document.querySelectorAll('#pagination-slot a').length};});
    const first=await measure();await page.waitForTimeout(900);assert.deepEqual(await measure(),first,'no layout shift after the first measurement');
    await page.screenshot({path:shots+'/versions-spread.png'});

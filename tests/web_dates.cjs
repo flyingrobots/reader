@@ -1,5 +1,5 @@
 /* Local dates: receipts minutes either side of midnight UTC are labelled with the reader's own day in Los Angeles and Tokyo
-   (version chip, timeline tag, reading log, History groups) instead of the UTC calendar date. */
+   (timeline tag, reading log, History groups) instead of the UTC calendar date. */
 const assert=require('node:assert/strict');
 const {spawn}=require('node:child_process');
 const {createInterface}=require('node:readline');
@@ -13,10 +13,10 @@ const tidal='library/essays/tidal/tidal.md';
   const errors=[],external=[];
   const cases=[
    // 17:20 PDT on Oct 24: the 00:16Z receipt is this evening, not "Oct 25".
-   {timezoneId:'America/Los_Angeles',participant:'Evening tester',now:'2026-10-25T00:20:00Z',chip:'You read this on Oct 24',tag:'you read Oct 24',
+   {timezoneId:'America/Los_Angeles',participant:'Evening tester',now:'2026-10-25T00:20:00Z',tag:'you read Oct 24',
     other:['Night owl','Oct 16'],history:[['Today',['The tidal archive']],['Yesterday',['A quiet thought']],['Oct 21',['Another thought']]]},
    // 00:20 JST on Oct 25: the 15:16Z receipt is already today, not "Oct 24".
-   {timezoneId:'Asia/Tokyo',participant:'Morning tester',now:'2026-10-24T15:20:00Z',chip:'You read this on Oct 25',tag:'you read Oct 25',
+   {timezoneId:'Asia/Tokyo',participant:'Morning tester',now:'2026-10-24T15:20:00Z',tag:'you read Oct 25',
     other:['Early bird','Oct 17'],history:[['Today',['The tidal archive']],['Yesterday',['A quiet thought']],['Oct 20',['Another thought']]]}];
   for(const c of cases){
    const context=await browser.newContext({viewport:{width:1300,height:900},reducedMotion:'reduce',timezoneId:c.timezoneId});
@@ -31,9 +31,7 @@ const tidal='library/essays/tidal/tidal.md';
    assert.equal(await page.evaluate(()=>Intl.DateTimeFormat().resolvedOptions().timeZone),c.timezoneId);
    await page.getByRole('heading',{name:'The tidal archive',exact:true}).waitFor();
    await page.waitForFunction(()=>document.querySelector('#article')&&!document.querySelector('.resume-pending'));
-   // Version chip and the explorer's read tag.
-   const read=page.locator('.version-line .version-read');await read.waitFor();
-   assert.equal((await read.textContent()).trim(),c.chip,c.timezoneId+' chip');
+   // The explorer's read tag.
    await page.locator('#main').focus();await page.keyboard.press('Space');await page.keyboard.press('v');
    const panel=page.locator('#versions-panel');await panel.locator('[data-vt-tag=read]').first().waitFor();
    assert.equal(await panel.locator('[data-vt-item=file] [data-vt-tag=read]').first().textContent(),c.tag,c.timezoneId+' timeline tag');
@@ -53,6 +51,6 @@ const tidal='library/essays/tidal/tidal.md';
    await context.close();
   }
   assert.deepEqual(external,[]);assert.deepEqual(errors,[]);
-  console.log('Local dates passed: in America/Los_Angeles and Asia/Tokyo, receipts minutes either side of midnight UTC show the local day in the version chip and timeline tag, reading log dates and local-zone titles, and History Today/Yesterday/date groups.');
+  console.log('Local dates passed: in America/Los_Angeles and Asia/Tokyo, receipts minutes either side of midnight UTC show the local day in the timeline tag, reading log dates and local-zone titles, and History Today/Yesterday/date groups.');
  }finally{await browser?.close();if(fixture.exitCode===null&&fixture.signalCode===null){fixture.kill('SIGTERM');await new Promise(resolve=>fixture.once('exit',resolve));}}
 })().catch(error=>{console.error(error);process.exitCode=1;});

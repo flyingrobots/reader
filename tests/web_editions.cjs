@@ -26,11 +26,13 @@ const essay='library/essays/tidal/';
    await page.locator('[data-version-chip]').click();const panel=page.locator('#versions-panel');await panel.waitFor();
    await panel.locator(`[data-vt-item=file][data-ref="${essay}tidal.v2.md"]`).click();await page.getByRole('heading',{name:'The tidal archive (v2)',exact:true}).waitFor();await ready(page);
    await page.keyboard.press('Escape');await panel.waitFor({state:'hidden'});
-   const line=page.locator('#article > .version-line');await line.waitFor();
+   const line=page.locator('#article > .document-meta > .version-line');await line.waitFor();
    assert.ok(await line.evaluate(el=>el.hasAttribute('data-reader-decoration')));
    assert.equal((await line.locator('[data-version-chip]').textContent()).trim(),'v2 of 3');
-   assert.ok(await page.evaluate(()=>document.querySelector('#article > .document-meta + .reading-log + .version-line')!==null),'the chip follows the title meta and its reading log');
+   assert.ok(await page.evaluate(()=>document.querySelector('#article > .document-meta > .version-line')!==null&&document.querySelector('#article > .document-meta + .reading-log')!==null),'the chip sits in the title row, above the reading log');
    assert.match(await line.textContent(),/Newer v3 available Open v3/);
+   const controls=await page.evaluate(()=>['#speak-article','.document-source','[data-version-chip]'].map(s=>{const el=document.querySelector(s),r=el.getBoundingClientRect(),c=getComputedStyle(el);return {top:Math.round(r.top),height:Math.round(r.height),font:c.fontFamily,size:c.fontSize,color:c.color};}));
+   for(const c of controls)assert.deepEqual(c,controls[0],'Read aloud, Source and the chip are one row of one kind of control');
    await page.screenshot({path:'.reader/web-dev/editions-line.png'});
    // Find skips the decoration.
    await page.locator('#main').focus();await page.keyboard.press('/');await page.locator('#find-query').fill('Newer v3');await page.waitForTimeout(150);

@@ -565,7 +565,7 @@ async function navigate(path,{thread=null,fragment='',record=true,commit=null,at
     const title=doc.metadata.title || known?.title || doc.title;
     clearControlsWithin($('#main'));
     const chip=doc.preview?'':chipMarkup(state.versions,doc,param);
-    $('#main').innerHTML=`<div class="document-shell resume-pending${historical?' historical':''}"><div class="eyebrow document-kicker">${esc(doc.preview?'Inbox preview · not yet filed':known?.projects?.[0] || 'From the library')}</div><h1 class="document-title">${esc(title)}</h1><div class="document-meta">${author?`<span class="by">${esc(author)}</span>`:''}${doc.metadata.created||doc.metadata.added?`<span>${formatDate(doc.metadata.created||doc.metadata.added)}</span>`:''}${doc.metadata.document_revision&&!chip?`<span class="document-edition">Edition ${esc(doc.metadata.document_revision)}</span>`:''}${historical?'':`<a class="document-source" data-button="outline sm" href="${esc(doc.file_url)}" target="_blank" rel="noopener noreferrer" title="Open the raw source file · Space u">Source</a>`}</div><div id="article-speech" class="article-speech" data-reader-decoration></div>${historical?historicalMarkup(doc,param):chip}${changeMarkup(changes)}<div class="reading-log" data-reader-decoration aria-live="polite"></div><article id="article" class="article"></article><footer class="document-footer">${esc(path)}${historical?` @ ${esc(doc.short)}<br>Historical text from the vault’s git history · <a href="${esc('#read='+param(path))}" data-path="${esc(path)}">Open the current file</a>`:`<br>Original source preserved · <a href="${esc(doc.file_url)}" target="_blank" rel="noopener noreferrer">Open original</a>${/^library\/notebook\/[^/]+\.md$/.test(path)&&doc.text!==null?' <button type="button" id="edit-scratch" data-button="outline sm" title="Open this piece in the scratch pad; saving writes a new version">Edit in scratch</button>':''}`}</footer></div>`;
+    $('#main').innerHTML=`<div class="document-shell resume-pending${historical?' historical':''}"><div class="eyebrow document-kicker">${esc(doc.preview?'Inbox preview · not yet filed':known?.projects?.[0] || 'From the library')}</div><h1 class="document-title">${esc(title)}</h1><div class="document-meta">${author?`<span class="by">${esc(author)}</span>`:''}${doc.metadata.created||doc.metadata.added?`<span>${formatDate(doc.metadata.created||doc.metadata.added)}</span>`:''}${doc.metadata.document_revision&&!chip?`<span class="document-edition">Edition ${esc(doc.metadata.document_revision)}</span>`:''}<div id="article-speech" class="article-speech" data-reader-decoration></div>${historical?'':`<a class="document-source" data-button="outline sm" href="${esc(doc.file_url)}" target="_blank" rel="noopener noreferrer" title="Open the raw source file · Space u">Source</a>`}${historical?'':chip}</div><div class="reading-log" data-reader-decoration aria-live="polite"></div>${historical?historicalMarkup(doc,param):''}${changeMarkup(changes)}<article id="article" class="article"></article><footer class="document-footer">${esc(path)}${historical?` @ ${esc(doc.short)}<br>Historical text from the vault’s git history · <a href="${esc('#read='+param(path))}" data-path="${esc(path)}">Open the current file</a>`:`<br>Original source preserved · <a href="${esc(doc.file_url)}" target="_blank" rel="noopener noreferrer">Open original</a>${/^library\/notebook\/[^/]+\.md$/.test(path)&&doc.text!==null?' <button type="button" id="edit-scratch" data-button="outline sm" title="Open this piece in the scratch pad; saving writes a new version">Edit in scratch</button>':''}`}</footer></div>`;
     // A historical view keeps the reading log of the current file (it never adds you: nothing is marked read).
     const article=$('#article');$('#edit-scratch')?.addEventListener('click',()=>scratch.editSaved(doc,bodyOf(doc.text).text.replace(/^\r?\n/,'')));if(doc.preview){$('.reading-log')?.remove();$('#speak-article')?.remove();}else loadReadingLog(doc,id);
     if(doc.kind==='.md' || doc.kind==='.markdown'){
@@ -592,7 +592,7 @@ async function navigate(path,{thread=null,fragment='',record=true,commit=null,at
       if(heading!==placeholder)placeholder.remove();else heading.dataset.readerDecoration='';
       const kicker=$('.document-kicker'),meta=$('.document-meta');
       kicker.dataset.readerDecoration='';meta.dataset.readerDecoration='';
-      article.prepend(kicker,heading,meta,...(speechSlot?.isConnected?[speechSlot]:[]),$('.reading-log'),...$('#main').querySelectorAll('.document-shell>.version-line,.document-shell>.historical-banner,.document-shell>.change-banner'));
+      article.prepend(kicker,heading,meta,$('.reading-log'),...$('#main').querySelectorAll('.document-shell>.historical-banner,.document-shell>.change-banner'));
     }
     if(id!==state.routeId)return;
     // Show shape is on for this session: reserve the figure before the reading position is restored.
@@ -641,8 +641,8 @@ async function markRead(doc,path,title,author){
     state.data.recent=[{...(work||{}),title,primary:path,authors:author?[author]:[],read:true,read_at:new Date().toISOString()},...state.data.recent.filter(w=>w.primary!==path)].slice(0,50);
 }
 const LATE=Symbol('late');
-/** A version timeline that arrived after first render: fill the status twin, then put the chip line where the
- *  first layout would have (after the reading log), keeping the reader on the same block as drawLate() does. */
+/** A version timeline that arrived after first render: fill the status twin, then put the chip where the first
+ *  layout would have (at the end of the title's row of controls), keeping the reader on the same block as drawLate() does. */
 function placeLateChip(late,doc,id){
   if(id!==state.routeId||state.doc!==doc||!late)return;
   state.editions=state.versions=late;versions.update();
@@ -650,9 +650,9 @@ function placeLateChip(late,doc,id){
   const template=document.createElement('template');template.innerHTML=markup;const line=template.content.firstElementChild;
   versions.wire(template.content);wireDocumentLinks(line);
   for(const button of line.querySelectorAll('[data-compare]'))button.addEventListener('click',()=>openChanges(button.dataset.compare,button.dataset.against));
-  const anchor=$('#article > .reading-log')||$('#main .document-meta');if(!anchor)return;
+  const meta=$('#main .document-meta');if(!meta)return;
   const place=readingPlace();
-  anchor.after(line);$('#main .document-meta .document-edition')?.remove();refreshScroll();
+  meta.append(line);meta.querySelector('.document-edition')?.remove();refreshScroll();
   if(!place?.block.isConnected)return;
   if(reading?.geometry()){const range=document.createRange();range.selectNodeContents(place.block);reading.reveal(range,false);}
   else{const shift=place.block.getBoundingClientRect().top-place.top;if(Math.abs(shift)>1)scrollTo(0,scrollY+shift);}

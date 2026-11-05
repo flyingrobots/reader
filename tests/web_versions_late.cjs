@@ -36,7 +36,7 @@ const DELAY=2000;
     assert.equal(m.chipAtVisible,false);
     assert.ok(m.visible-m.versionsAsked<600,`first text waited ${Math.round(m.visible-m.versionsAsked)} ms after /api/versions was requested (the old 600 ms race)`);
     return m;};
-  const chipArrives=async(page,label)=>{const line=page.locator('#article > .version-line');await line.waitFor({timeout:DELAY+5000});
+  const chipArrives=async(page,label)=>{const line=page.locator('#article > .document-meta > .version-line');await line.waitFor({timeout:DELAY+5000});
     assert.equal((await line.locator('[data-version-chip]').textContent()).trim(),label);
     const m=await marks(page);assert.ok(m.versionsAnswered>m.visible,'the chip follows the text');
     assert.equal(await page.locator('.version-line').count(),1,'one chip');
@@ -45,12 +45,12 @@ const DELAY=2000;
   let expected;
   // A saved place: Paragraph 20 near the top of a short window, in continuous reading.
   {const {page,context}=await open({layout:'scroll'});
-   await page.goto(url+'#read='+encodeURIComponent(essay+'tidal.md'));await ready(page);await page.locator('#article > .version-line').waitFor();
+   await page.goto(url+'#read='+encodeURIComponent(essay+'tidal.md'));await ready(page);await page.locator('#article > .document-meta > .version-line').waitFor();
    const saved=page.waitForResponse(r=>r.url().includes('/api/bookmark')&&r.request().method()==='POST',{timeout:5000});
    await page.evaluate(code=>{const p=eval(code);scrollTo(0,p.getBoundingClientRect().top+scrollY-innerHeight*.22);},paragraph(20));
    await saved;
    // With a quick timeline (chip in the first layout), reopening lands Paragraph 20 here.
-   await page.reload();await ready(page);await page.locator('#article > .version-line').waitFor();expected=(await where(page,20)).top;
+   await page.reload();await ready(page);await page.locator('#article > .document-meta > .version-line').waitFor();expected=(await where(page,20)).top;
    await context.close();}
 
   // Continuous reading: text first, chip after, and the restored paragraph does not move.
@@ -58,7 +58,7 @@ const DELAY=2000;
    await page.goto(url+'#read='+encodeURIComponent(essay+'tidal.md'));await ready(page);await firstText(page);
    const before=await where(page,20);assert.ok(Math.abs(before.top-expected)<=4,`the bookmark restores Paragraph 20 where a quick timeline does: ${before.top} vs ${expected}`);
    await chipArrives(page,'v1 of 3');
-   assert.match(await page.locator('#article > .version-line').textContent(),/Newer v3 available/);
+   assert.match(await page.locator('#article > .document-meta > .version-line').textContent(),/Newer v3 available/);
    assert.equal(await page.locator('#status-version span').textContent(),'v1/3','the status twin fills in too');
    const after=await where(page,20);assert.ok(Math.abs(after.top-before.top)<=2,`Paragraph 20 stays put when the chip arrives: ${before.top} → ${after.top}`);
    await context.close();}
@@ -91,7 +91,7 @@ const DELAY=2000;
 
   // A quick timeline still lands in the first layout.
   {const {page,context}=await open({layout:'scroll'});
-   await page.goto(url+'#read='+encodeURIComponent(essay+'tidal.md'));await ready(page);await page.locator('#article > .version-line').waitFor();
+   await page.goto(url+'#read='+encodeURIComponent(essay+'tidal.md'));await ready(page);await page.locator('#article > .document-meta > .version-line').waitFor();
    assert.equal(await page.locator('.version-line').count(),1);await context.close();}
   assert.deepEqual(errors,[]);
   console.log(`Late versions passed: with /api/versions delayed ${DELAY} ms the article shows first, the chip and status twin follow, the restored paragraph stays put in scroll and two-page reading, and edition and historical deep links open what they name.`);
