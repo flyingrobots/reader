@@ -417,7 +417,8 @@ class Chain:
                 time.sleep(1)
 
     def call_local(self, schema, prompt):
-        request = prompt + '\n\nAnswer with one JSON object and nothing else, matching this JSON Schema:\n' + json.dumps(schema)
+        request = (prompt + '\n\nAnswer with one JSON object and nothing else, matching this JSON Schema. '
+                   'Every field is required; use an empty string, never null, when one does not apply:\n' + json.dumps(schema))
         if len(request) > LOCAL_PROMPT_CHARS:
             raise ModelFailure('too-large')
         from .local_model import GPULock
@@ -430,7 +431,10 @@ class Chain:
         with lock('Reader inbox classification'):
             answer = client.chat(model, [{'role': 'user', 'content': request}], timeout=CALL_TIMEOUT,
                                  max_output=LOCAL_OUTPUT_TOKENS, reasoning=LOCAL_REASONING_TOKENS)
-        return parse_json_object(answer['text'])
+        # Nothing enforces the schema on a local server, and small models write null for "not applicable".
+        names = schema.get('properties', {})
+        return {key: '' if value is None and names.get(key, {}).get('type') == 'string' else value
+                for key, value in parse_json_object(answer['text']).items()}
 
     # The walk ------------------------------------------------------------
 
@@ -461,9 +465,10 @@ class Chain:
                 reason, text = exc.reason, str(exc)
             except subprocess.TimeoutExpired:
                 reason, text = 'timeout', FAILURES['timeout']
-            except (ValueError, KeyError, TypeError):
-                # A validator's message can quote model output, so only the kind of failure is shown.
+            except (ValueError, KeyError, TypeError) as exc:
+                # A validator's message can quote model output, so only the kind of failure is shown or logged.
                 reason, text = 'invalid', FAILURES['invalid']
+                print(f'Reader model chain: {label}: rejected answer ({type(exc).__name__})', file=sys.stderr, flush=True)
             except Exception as exc:
                 reason, text = 'unavailable', FAILURES['unavailable']
                 print(f'Reader model chain: {label}: {type(exc).__name__}', file=sys.stderr, flush=True)

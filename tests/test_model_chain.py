@@ -370,3 +370,15 @@ def test_only_limits_a_decision_to_the_named_providers(setup):
     write_config(root, {'order': ['claude']})
     with pytest.raises(ValueError, match='No permitted model'):
         make().decide('Classify.', SCHEMA, lambda value: value, work, only=('local',))
+
+
+def test_a_local_null_for_a_string_field_becomes_empty_but_other_shapes_stay_wrong(setup):
+    root, runtime, bin_dir, make = setup
+    write_config(root, {'order': ['local']})
+    schema = {'type': 'object', 'properties': {'title': {'type': 'string'}, 'reason': {'type': 'string'}}, 'required': ['title', 'reason']}
+    work = runtime / 'editorial'
+    work.mkdir()
+    client = FakeClient(json.dumps({'title': 'T', 'reason': None}))
+    assert make(client=client).decide('Classify.', schema, lambda value: value, work)[0] == {'title': 'T', 'reason': ''}
+    assert 'never null' in client.asked[0][1][0]['content']
+    assert make(client=FakeClient(json.dumps({'title': 7, 'reason': None}))).decide('Classify.', schema, lambda value: value, work)[0]['title'] == 7
