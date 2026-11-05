@@ -13,7 +13,8 @@ const {chromium}=require(process.env.READER_PLAYWRIGHT||'playwright-core');
   const errors=[],external=[];
   const context=await browser.newContext({viewport:{width:1300,height:900},reducedMotion:'reduce'});
   await context.addInitScript(()=>{try{localStorage.setItem('reader.preferences.v1',JSON.stringify({smooth:false,theme:'user-reader-test'}));}catch{}});
-  const page=await context.newPage();page.on('pageerror',e=>errors.push(e.message));page.on('console',m=>{if(m.type()==='error'&&!m.location()?.url?.endsWith('/api/speech-voices'))errors.push(m.text()+' '+(m.location()?.url||''));/* No AI-TTS daemon in this fixture: the voice field answers 503 and offers a retry. */});page.on('request',r=>{if(!r.url().startsWith(url))external.push(r.url());});
+  const page=await context.newPage();page.on('pageerror',e=>errors.push(e.message));page.on('console',m=>{// No AI-TTS daemon in this fixture: the voice field answers 503, and nothing else from it is excused.
+    if(m.type()==='error'&&!(m.location()?.url?.endsWith('/api/speech-voices')&&/status of 503/.test(m.text())))errors.push(m.text()+' '+(m.location()?.url||''));});page.on('request',r=>{if(!r.url().startsWith(url))external.push(r.url());});
   const toast=text=>page.locator('[data-sonner-toast]').filter({hasText:text});
   const card=page.locator('[data-card=service]');
   // Installable app: manifest, touch icon, and a theme colour that follows the theme.
@@ -24,6 +25,7 @@ const {chromium}=require(process.env.READER_PLAYWRIGHT||'playwright-core');
   await page.waitForFunction(()=>document.querySelector('meta[name=theme-color]').content===getComputedStyle(document.documentElement).getPropertyValue('--bg').trim());
   // The card.
   await page.goto(url+'#admin/service');await card.waitFor();
+  await page.getByRole('button',{name:'Retry voices'}).waitFor();  // The 503 above reaches the person as a retry.
   await card.locator('[data-fact=commit]').waitFor();
   assert.match(await card.locator('[data-fact=commit] [data-fact-value]').textContent(),/^1f2e3d4 · /);
   assert.equal(await card.locator('[data-fact=source] [data-fact-value]').textContent(),'preview/integration');

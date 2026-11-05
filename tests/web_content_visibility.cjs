@@ -141,7 +141,7 @@ const PART=process.env.READER_CV_PART||'layout',part=name=>PART===name;
     const marks=[];page.on('request',r=>{if(r.url().includes('/api/bookmark')&&r.method()==='POST')marks.push(r.postDataJSON());});
     await page.evaluate(()=>{const h=[...document.querySelectorAll('#article h2')].find(h=>h.textContent==='Section 300');const content=document.querySelector('#smooth-content').getBoundingClientRect().top;scrollTo(0,h.getBoundingClientRect().top-content-innerHeight*.22+4);});
     await page.waitForTimeout(2000);
-    // A reading line between two blocks saves no block; move a little until it falls inside one.
+    // A reading line inside something with no source position saves no block; move a little until it falls on one.
     for(let nudge=0;nudge<6&&marks.at(-1)?.source_offset==null;nudge++){await page.evaluate(()=>scrollBy(0,12));await page.waitForTimeout(1200);}
     const mark=marks.at(-1);assert.ok(mark?.source_offset>1e6,'a late place was saved: '+JSON.stringify(mark));
     // Reopen without the heading link, which would win over the bookmark.

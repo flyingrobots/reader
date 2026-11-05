@@ -1,0 +1,34 @@
+== A top bookmark, doc with source H1 (tidal.v3.md)
+1300x520 {"line":114,"h1":[132,200],"h1HasOffset":"163","h1Deco":false,"firstTag":"H1","second":"P337,367","hit":"","gone":false} saved offset null frac 0 progress 0 => reopen scrollY 0
+1300x700 {"line":154,"h1":[132,200],"h1HasOffset":"163","h1Deco":false,"firstTag":"H1","second":"P337,367","hit":"H1","gone":false} saved offset 163 frac 0.32204961743565963 progress 0 => reopen scrollY 0
+1440x800 {"line":176,"h1":[132,206],"h1HasOffset":"163","h1Deco":false,"firstTag":"H1","second":"P346,376","hit":"H1","gone":false} saved offset 163 frac 0.5951063829787234 progress 0 => reopen scrollY 0
+1440x900 {"line":198,"h1":[132,206],"h1HasOffset":"163","h1Deco":false,"firstTag":"H1","second":"P346,376","hit":"H1","gone":false} saved offset 163 frac 0.8946808510638298 progress 0 => reopen scrollY 0
+1440x1000 {"line":220,"h1":[132,206],"h1HasOffset":"163","h1Deco":false,"firstTag":"H1","second":"P346,376","hit":"","gone":true} saved offset 189 frac 0 progress 0 => reopen scrollY 126
+1920x1200 {"line":264,"h1":[132,206],"h1HasOffset":"163","h1Deco":false,"firstTag":"H1","second":"P346,376","hit":"","gone":true} saved offset 189 frac 0 progress 0 => reopen scrollY 82
+390x664 {"line":146,"h1":[102,141],"h1HasOffset":"163","h1Deco":false,"firstTag":"H1","second":"P281,367","hit":"","gone":true} saved offset 189 frac 0 progress 0 => reopen scrollY 135
+== G margin between paragraphs
+{"gap":18.890625,"next":"1074","nextText":"Paragraph 13 o"} saved 1074 frac 0
+reopen next-block top minus line 0.421875
+== B saved progress vs dwell
+{"y":935.9375,"max":1351} at 97.5% of article: saved progress 0.9754924874791319 old-formula would be 0.676 ms 468 {"lastTop":792.921875,"lastBottom":822.9375,"ih":800}
+tall window {"y":-664.0625,"max":0}
+== C title row tops
+1300 tidal.md {".document-meta .by":[243,16,"Manrope, Helve","11px"],".document-meta .by+span":[243,16,"Manrope, Helve","11px"],"#speak-article":[238,26,"Manrope, Helve","12px"],".document-source":[238,26,"Manrope, Helve","12px"],"[data-version-chip]":[238,26,"Manrope, Helve","12px"],".version-newer":[241,20,"Manrope, Helve","12px"],"[data-reading-log-line]":[275,17,"Manrope, Helve","11px"]}
+1300 tidal.v3.md {".document-meta .by":[243,16,"Manrope, Helve","11px"],".document-meta .by+span":[243,16,"Manrope, Helve","11px"],"#speak-article":[238,26,"Manrope, Helve","12px"],".document-source":[238,26,"Manrope, Helve","12px"],"[data-version-chip]":[238,26,"Manrope, Helve","12px"],".version-newer":null,"[data-reading-log-line]":[275,17,"Manrope, Helve","11px"]}
+900 tidal.md {".document-meta .by":[190,16,"Manrope, Helve","11px"],".document-meta .by+span":[190,16,"Manrope, Helve","11px"],"#speak-article":[185,26,"Manrope, Helve","12px"],".document-source":[185,26,"Manrope, Helve","12px"],"[data-version-chip]":[185,26,"Manrope, Helve","12px"],".version-newer":[188,20,"Manrope, Helve","12px"],"[data-reading-log-line]":[222,17,"Manrope, Helve","11px"]}
+390 tidal.md {".document-meta .by":[168,16,"Manrope, Helve","11px"],".document-meta .by+span":[168,16,"Manrope, Helve","11px"],"#speak-article":[162,26,"Manrope, Helve","12px"],".document-source":[162,26,"Manrope, Helve","12px"],"[data-version-chip]":[194,26,"Manrope, Helve","12px"],".version-newer":[226,20,"Manrope, Helve","12px"],"[data-reading-log-line]":[257,17,"Manrope, Helve","11px"]}
+390 tidal.v3.md {".document-meta .by":[168,16,"Manrope, Helve","11px"],".document-meta .by+span":[168,16,"Manrope, Helve","11px"],"#speak-article":[162,26,"Manrope, Helve","12px"],".document-source":[162,26,"Manrope, Helve","12px"],"[data-version-chip]":[194,26,"Manrope, Helve","12px"],".version-newer":null,"[data-reading-log-line]":[231,17,"Manrope, Helve","11px"]}
+== D sibling read line
+v1 first open .version-read: 0
+v2 first open .version-read: 1 ["You read v1 on Nov 4"]
+v2 after reload .version-read: 0 []
+log entries: ["◉ You just now","6 task agents"]
+== E help
+#help before 0
+#help after 1 [open] 0 [data-open] 1
+dt: ["Space e / Space , e","Space , t / F10"]
+== F issue page at phone with explorer
+HEAD explorer false {"sw":390,"iw":390,"main":390,"picker":null,"footer":"block","footWrap":"wrap","dl":"row","btnWS":"normal"}
+HEAD explorer true {"sw":390,"iw":390,"main":211,"picker":179,"footer":"block","footWrap":"wrap","dl":"row","btnWS":"normal"}
+7bb3ef66~1 css explorer false {"sw":390,"iw":390,"main":390,"picker":null,"footer":"block","footWrap":"nowrap","dl":"column","btnWS":"nowrap"}
+7bb3ef66~1 css explorer true {"sw":417,"iw":417,"main":211,"picker":179,"footer":"block","footWrap":"nowrap","dl":"column","btnWS":"nowrap"}

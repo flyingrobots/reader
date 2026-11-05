@@ -39,8 +39,11 @@ export function chipMarkup(v,doc,param){
   const parts=[];
   if(d.newer)parts.push(`<span class="version-newer">Newer v${esc(d.newer.revision)} available <a href="${esc('#read='+param(d.newer.path))}" data-path="${esc(d.newer.path)}">Open v${esc(d.newer.revision)}</a><button type="button" data-button="link sm" class="compare-successor" data-compare="successor">Compare ${esc(compareLabel(v))}</button></span>`);
   const read=v.read;
-  // The reading log says when you read this file; only a read of a sibling edition is news here.
-  if(read?.where==='current'&&read.at&&read.path!==current?.path)parts.push(`<span class="version-read">You read ${esc(read.label)} on ${esc(day(read.at))}</span>`);
+  // Opening a file rewrites your receipt, so the reading log says "just now": only this line can say you were here before.
+  if(read?.where==='current'&&read.at){
+    if(read.path!==current?.path)parts.push(`<span class="version-read">You read ${esc(read.label)} on ${esc(day(read.at))}</span>`);
+    else if(new Date(read.at).toDateString()!==new Date().toDateString()){const year=new Date(read.at).getFullYear();parts.push(`<span class="version-read">You last read this on ${esc(day(read.at))}${year!==new Date().getFullYear()?`, ${year}`:''}</span>`);}
+  }
   return `<div class="version-line${d.newer?' has-newer':''}" data-reader-decoration><button type="button" class="version-chip" data-version-chip aria-haspopup="dialog" aria-controls="versions-panel" title="${esc(d.title)}"><span class="version-dot" aria-hidden="true"></span>${esc(d.chip)}<svg class="version-caret" viewBox="0 0 16 16" width="12" height="12" aria-hidden="true"><path d="M5 6.5 8 9.5l3-3" fill="none" stroke="currentColor" stroke-width="1.5"/></svg></button>${parts.join('')}</div>`;
 }
 export function compareLabel(v){const current=v.family.find(e=>e.current);const from=current?.role==='version'?'v'+current.revision:current?.label||'this';return `${from} → v${v.newer.revision}`;}

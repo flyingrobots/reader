@@ -91,7 +91,7 @@ const reduced = matchMedia('(prefers-reduced-motion: reduce)');
 // Callouts register before the source-map wrapper below, so their asides receive the blockquote's map.
 // reader:prompt blocks (RW-44) are found from these tokens before sanitizing; see prompt-blocks.mjs.
 const md = window.markdownit({html:true, linkify:true, breaks:false}).use(mathPlugin).use(calloutPlugin).use(embedPlugin).use(promptPlugin).use(portableLinkPlugin);
-for (const type of ['paragraph_open','heading_open','blockquote_open','bullet_list_open','ordered_list_open','math_block','fence']) {
+for (const type of ['paragraph_open','heading_open','blockquote_open','bullet_list_open','ordered_list_open','math_block','fence','table_open']) {
   const original = md.renderer.rules[type];
   md.renderer.rules[type] = (tokens, index, options, env, self) => {
     const token = tokens[index];
@@ -101,8 +101,9 @@ for (const type of ['paragraph_open','heading_open','blockquote_open','bullet_li
       const offset = env.offset || 0;
       const begin = offset + env.lineOffsets[token.map[0]];
       const end = offset + env.lineOffsets[token.map[1]];
-      token.attrSet('data-source-start', env.codePoint(begin));
-      token.attrSet('data-source-end', env.codePoint(Math.min(end, env.full.length)));
+      // A table is a place to keep, not a passage to annotate, so it stays out of the source-range lookups.
+      if(type==='table_open')token.attrSet('data-place-start', env.codePoint(begin));
+      else{token.attrSet('data-source-start', env.codePoint(begin));token.attrSet('data-source-end', env.codePoint(Math.min(end, env.full.length)));}
     }
     return original ? original(tokens, index, options, env, self) : self.renderToken(tokens, index, options);
   };
@@ -360,7 +361,7 @@ async function toggleArt(){
 /** Change the article above the reader's place, keeping the first visible block in view in two-page reading. */
 function keepPlace(change){
   const mark=reading?.hasBook()?reading.capture():null;change();refreshScroll();positionPins();
-  const block=mark?.source_offset!=null&&$(`#article [data-source-start="${mark.source_offset}"]`);
+  const block=mark?.source_offset!=null&&$(`#article [data-source-start="${mark.source_offset}"],#article [data-place-start="${mark.source_offset}"]`);
   if(block){const range=document.createRange();range.selectNode(block);reading.reveal(range,false);}
 }
 function removeArticleArt(figure){
@@ -1401,7 +1402,7 @@ function position(){
 }
 function restorePlace(spot){
   const size=el=>+el.dataset.sourceEnd-el.dataset.sourceStart;
-  const blocks=spot.page?[...document.querySelectorAll(`#article [data-pdf-page="${spot.page}"]`)]:spot.offset!=null?[...document.querySelectorAll(`#article [data-source-start="${spot.offset}"]`)].filter(el=>!el.closest('.document-embed')).sort((a,b)=>size(a)-size(b)):[];
+  const blocks=spot.page?[...document.querySelectorAll(`#article [data-pdf-page="${spot.page}"]`)]:spot.offset!=null?[...[...document.querySelectorAll(`#article [data-source-start="${spot.offset}"]`)].filter(el=>!el.closest('.document-embed')).sort((a,b)=>size(a)-size(b)),...[...document.querySelectorAll(`#article [data-place-start="${spot.offset}"]`)].filter(el=>!el.parentElement.closest('.document-embed'))]:[];
   const target=blocks[0];if(!target){reading.seek(spot.progress??0,false);return;}
   const range=document.createRange();range.selectNode(target);
   if(!reading.reveal(range,false)){const r=target.getBoundingClientRect();scrollToPosition(shown()+r.top+r.height*(spot.fraction||0)-innerHeight*.22,false,target,spot.fraction||0);}
