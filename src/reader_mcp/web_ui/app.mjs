@@ -44,7 +44,7 @@ if(EMBEDDED)document.documentElement.classList.add('embedded-pane');
 let split=null,pane=null;
 /** Toasts from a pane appear in the shell's toaster. */
 function notify(message,type,options){if(pane){pane.post({type:'toast',message:String(message),kind:type,options:options&&{id:options.id,duration:options.duration}});return;}return shellNotify(message,type,options);}
-const defaults = {theme:'ink', participant:null, recent:20, atlas:true, activity:true, smooth:true, layout:'scroll', pace:220, zen:false, pageTurn:'curl', nextReads:true, backlinks:true, outline:true, issueExclude:DEFAULT_EXCLUDED_TYPES.join(', '), proseColors:'clear', shapes:true, art:true, artHero:true, artBy:'', artAuto:'off'};
+const defaults = {theme:'ink', participant:null, recent:20, atlas:true, activity:true, smooth:true, layout:'scroll', pace:220, zen:false, pageTurn:'curl', nextReads:true, backlinks:true, outline:true, issueExclude:DEFAULT_EXCLUDED_TYPES.join(', '), proseColors:'clear', shapes:true, art:true, artHero:true, artBy:'', artAuto:'off', articleWidth:'standard'};
 // Route sentinels for views that are not documents (document routes are always library/ paths). Reader Admin's are
 // ':admin' and ':admin/<section>/…' (admin-routes.mjs); legacy #backstage opens its Overview.
 const SEARCH=':search',SCRATCH=':scratch';  // A scratch buffer: ':scratch' (the latest draft) or ':scratch=<id>'.
@@ -84,6 +84,9 @@ const previewTheme=new URLSearchParams(location.search).get('theme');
 if(knownTheme(previewTheme))state.prefs.theme=previewTheme;
 if(!knownTheme(state.prefs.theme))state.prefs.theme='ink';
 document.documentElement.dataset.theme=state.prefs.theme;
+/** Continuous reading's article width (style.css); two-page reading ignores it. */
+function applyArticleWidth(){document.documentElement.dataset.articleWidth=state.prefs.articleWidth;}
+applyArticleWidth();
 // The browser chrome (and the installed app's status bar) follows the theme's page colour.
 const syncThemeColor=()=>{const meta=document.querySelector('meta[name=theme-color]'),bg=getComputedStyle(document.documentElement).getPropertyValue('--bg').trim();if(meta&&bg)meta.content=bg;};
 new MutationObserver(syncThemeColor).observe(document.documentElement,{attributes:true,attributeFilter:['data-theme']});addEventListener('load',syncThemeColor,{once:true});
@@ -1320,7 +1323,7 @@ function themesChanged(themes,fonts){
 async function loadThemes(){try{const list=await api('/api/themes');themesChanged(list.themes,list.fonts);}catch(error){report(error);}}
 function previewFont(href){if(!/^\/fonts\/[a-z0-9-]+\/font\.css$/.test(href)||document.querySelector(`link[data-theme-font][href="${href}"]`))return;const link=document.createElement('link');link.rel='stylesheet';link.href=href;link.dataset.themeFont='';document.head.append(link);}
 async function applyPreferences(prefs){
-  await reading?.leave();if(prefs.proseColors!==state.prefs.proseColors)state.proseStyles?.clear();state.prefs={...state.prefs,...prefs};savePrefs();document.documentElement.dataset.theme=state.prefs.theme;
+  await reading?.leave();if(prefs.proseColors!==state.prefs.proseColors)state.proseStyles?.clear();state.prefs={...state.prefs,...prefs};savePrefs();document.documentElement.dataset.theme=state.prefs.theme;applyArticleWidth();
   await loadLibrary();
   if(state.view==='admin'){controls.update({theme:state.prefs.theme,prefs:{...state.prefs},participants:state.data?.participants||[]});notify('Preferences saved.','success');}
   else if(state.doc)await navigate(state.doc.path,{record:false});else if(state.view==='section')await navigate(SECTION+state.sectionLabel,{record:false});else await renderHome(state.issuePath);reading?.updateStatus();
@@ -1857,7 +1860,10 @@ function prefsFromStorage(){
   let fresh;try{fresh=JSON.parse(localStorage.getItem('reader.preferences.v1')||'{}');}catch{return;}
   if(!fresh||typeof fresh!=='object')return;
   const relayout=typeof fresh.layout==='string'&&fresh.layout!==state.prefs.layout;
+  const rewrap=typeof fresh.articleWidth==='string'&&fresh.articleWidth!==state.prefs.articleWidth;
   state.prefs={...state.prefs,...fresh,participant:state.prefs.participant};
+  // A width chosen in another tab or window rewraps this one's article around the reader's line.
+  if(rewrap){const kept=readingLine.before();applyArticleWidth();readingLine.after(kept);dispatchEvent(new Event('resize'));}
   // A layout change (continuous or two-page) reopens the document in its new layout, at the same place.
   if(relayout&&state.doc&&!state.doc.preview){const doc=state.doc;reading.save().then(()=>{if(state.doc===doc)navigate(doc.historical?doc.path+'@'+doc.commit:doc.path,{record:false});});}
   if(knownTheme(state.prefs.theme)&&document.documentElement.dataset.theme!==state.prefs.theme){document.documentElement.dataset.theme=state.prefs.theme;controls.update({theme:state.prefs.theme,prefs:{...state.prefs}});}
@@ -1865,8 +1871,8 @@ function prefsFromStorage(){
 }
 window.addEventListener('storage',event=>{if(event.key==='reader.preferences.v1')prefsFromStorage();else if(event.key==='reader.themes.v1')loadThemes();});
 window.addEventListener('reader:prefs',prefsFromStorage);
-// A docked panel narrows continuous reading: keep the line at the reading line (22% down) in view.
-installDock({
+// A docked panel or a new article width rewraps continuous reading: keep the line at the reading line (22% down) in view.
+const readingLine={
   before(){
     const article=$('#article');if(!article||reading?.hasBook()||split?.active())return null;
     const list=[...article.children].filter(el=>!el.classList.contains('annotation-pin')),line=innerHeight*.22;
@@ -1877,7 +1883,8 @@ installDock({
   after(kept){
     if(!kept?.el.isConnected)return;const rect=kept.el.getBoundingClientRect(),shift=rect.top+rect.height*kept.fraction-kept.line;
     if(Math.abs(shift)>1)scrollToPosition(scrollY+shift,false,kept.el,kept.fraction);
-  }});
+  }};
+installDock(readingLine);
 mountSkeleton($('#main'),'library');
 loadThemes();
 try{await loadLibrary();

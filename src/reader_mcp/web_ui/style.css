@@ -590,3 +590,11 @@ html.embedded-pane .file-explorer{bottom:0}
 .status-position:empty{display:none}
 .article-speech{margin:0}.article-speech:empty{display:none}
 }
+
+/* Article width (Settings), continuous reading only. A wider article also widens the shell, so the footer and Read next line up with it. */
+:root[data-article-width=narrow]{--article-width:640px}
+:root[data-article-width=wide]{--article-width:960px;--article-shell:1070px}
+:root[data-article-width=wider]{--article-width:1200px;--article-shell:1310px}
+:root[data-article-width=full]{--article-width:none;--article-shell:none}
+body:not(.two-page) #article{max-width:var(--article-width,65ch)}
+:root:is([data-article-width=wide],[data-article-width=wider],[data-article-width=full]) body:not(.two-page) .document-shell{max-width:var(--article-shell)}

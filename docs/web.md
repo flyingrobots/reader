@@ -1310,12 +1310,18 @@ the first success, or any request that reaches the server, replaces the toast wi
 *Reader is reachable again.*
 
 The Settings page holds the preferences form in four cards: *You and the page* (reading name, palette), *Reading*
-(layout, page turn, pace, recent files, prose colors, and switches for the atlas, activity, smooth scrolling, Read
+(layout, article width, page turn, pace, recent files, prose colors, and switches for the atlas, activity, smooth scrolling, Read
 next, Linked from and the outline rail), *The issue and article art* (excluded kinds of writing, article art, art
 producer and automatic art) and *Inbox* (job permissions). Choices are shadcn **Select** controls. Escape dismisses
 an open Select only, and Reader's global Vim commands yield to these controls. A save bar stays in view at the bottom
 of the page. Preferences take effect when saved; you stay on the page, and a toast confirms the save. **Theme
 Editor…**, in the toolbar above the form, opens the editor over the page.
+
+**Article width** sets the article column in continuous reading: Narrow (640 px), Standard (65ch, the default), Wide
+(960 px), Wider (1200 px) or Full window. It is a maximum, so a narrower window, a docked panel or the File Explorer
+still narrows the column. Wide and up also widen the shell, so the footer and Read next line up with the article, and
+the outline rail becomes a popover when no margin is left for it. Two-page reading ignores the setting. Like other
+preferences it is saved per browser; a tab or pane already reading rewraps at the same line.
 
 ### Inbox and You got mail
 

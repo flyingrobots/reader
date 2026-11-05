@@ -74,7 +74,7 @@ import {FAMOUS, famousId} from './theme/famous';
 import {plural} from './plural';
 export const famousThemeIds=FAMOUS.flatMap(t=>[famousId(t.id,'light'),famousId(t.id,'dark')]);
 
-type Preferences={participant:string;theme:string;recent:number;pace:number;layout:string;pageTurn:string;proseColors:string;atlas:boolean;activity:boolean;smooth:boolean;nextReads:boolean;backlinks:boolean;outline:boolean;shapes?:boolean;art?:boolean;artHero?:boolean;artBy?:string;artAuto?:string;issueExclude:string};
+type Preferences={participant:string;theme:string;recent:number;pace:number;layout:string;pageTurn:string;proseColors:string;atlas:boolean;activity:boolean;smooth:boolean;nextReads:boolean;backlinks:boolean;outline:boolean;shapes?:boolean;art?:boolean;artHero?:boolean;artBy?:string;artAuto?:string;issueExclude:string;articleWidth?:string};
 export type ProseStatus={available:boolean;version:string|null;path:string|null;origin:string|null;message:string|null;install:string};
 type Pip={id:string;owner:string;quote:string;kind:string;own:boolean;fraction:number};
 type Model={value:number;words:number;pdfPages:number|null;pace:number;spread:number;spreads:number;pages:number;columns:number;theme:string;pips:Pip[];prefs:Preferences;participants:string[];themeEditorOpen:boolean;customThemes:Theme[];fonts:InstalledFont[];maintenance:MaintenanceStatus|null;prose:ProseStatus|null;outline:OutlineModel;outlineActive:number;inbox:InboxStatus|null;inboxStarting:boolean;chat:{open:boolean;path:string|null;title:string;participant:string;initialId?:string};localModel:LocalModelStatus|null;activity:ActivityModel;companions:CompanionsStatus|null;
@@ -126,6 +126,7 @@ function SettingsForm({model,actions}:{model:Model;actions:Actions}){
     <StatusCard title="Reading" description="Layout, pace and what appears around an article.">
       <FieldGroup className="max-w-2xl">
       <Choice id="reading-mode" label="Reading layout" value={draft.layout} items={[{value:'scroll',label:'Continuous'},{value:'spread',label:'Two pages'}]} onChange={value=>set('layout',value)}/>
+      <Choice id="article-width" label="Article width (continuous)" value={draft.articleWidth||'standard'} items={[{value:'narrow',label:'Narrow: 640 px'},{value:'standard',label:'Standard: about 65 characters a line'},{value:'wide',label:'Wide: 960 px'},{value:'wider',label:'Wider: 1200 px'},{value:'full',label:'Full window'}]} onChange={value=>set('articleWidth',value)}/>
       <Choice id="page-turn" label="Page turn (two pages)" value={draft.pageTurn||'curl'} items={[{value:'curl',label:'Turn the page (3D)'},{value:'slide',label:'Slide'}]} onChange={value=>set('pageTurn',value)}/>
       <Choice id="reading-speed" label="Reading pace" value={String(draft.pace)} items={[160,220,300].map(n=>({value:String(n),label:`${n} words / min`}))} onChange={value=>set('pace',+value)}/>
       <Choice id="recent-count" label="Recent files" value={String(draft.recent)} items={[10,20,30,50].map(n=>({value:String(n),label:String(n)}))} onChange={value=>set('recent',+value)}/>

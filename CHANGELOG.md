@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Settings has an Article width for continuous reading: Narrow, Standard, Wide, Wider or Full window. Standard is the width Reader has always used, and two-page reading is unchanged.
+
 - Reading progress measures the article, tables and embeds included, not the footer and Read next. A saved share of 97% now means 97% of the article, and older bookmarks with no saved block restore on this scale.
 
 - A bookmark in the margin between two blocks keeps the next block; inside a table or embed it keeps its place in that table or embed, and at the top of a document it keeps the top. Attachments are no longer marked finished by waiting on them.
