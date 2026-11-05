@@ -1,4 +1,5 @@
 /** Document outline: a quiet rail in continuous reading, a popover in two-page reading, a sheet on phones. */
+import {renderOutlineRail} from './controls/reader-controls.js';
 import {escapeHTML as esc} from './logic.mjs';
 const LIMIT=500,FOLD=150,RAIL_MIN=150,RAIL_MAX=240;
 const PHONE='(max-width: 700px)';
@@ -34,7 +35,7 @@ export function installOutline({state,reading,$,controls,scrollToPosition,savePr
   function chooseMode(){if(!shown.length)return null;if(phone())return 'sheet';if(geometry()||!railFits())return 'popover';return 'rail';}
   const railVisible=()=>mode==='rail'&&state.prefs.outline!==false&&(eligible||pinned);
 
-  function clear(){route++;allLevels=false;entries=[];shown=[];spreads=[];active=-1;pending=null;open=false;pinned=false;mode=null;rail.hidden=true;rail.replaceChildren();$('#status-section').textContent='';publish();}
+  function clear(){route++;allLevels=false;entries=[];shown=[];spreads=[];active=-1;pending=null;open=false;pinned=false;mode=null;rail.hidden=true;renderOutlineRail(rail,{entries:[],levels:null});$('#status-section').textContent='';publish();}
   /** Collect headings after a document renders; PDFs use their own outline. */
   async function refresh(article){
     clear();const id=route;if(!state.doc||!article)return;
@@ -68,12 +69,10 @@ export function installOutline({state,reading,$,controls,scrollToPosition,savePr
     const minimum=Math.min(...shown.map(entry=>entry.level));
     if(mode==='rail'){
       const folded=!allLevels&&entries.length>shown.length;
-      rail.innerHTML=`<div class="outline-head">Contents</div><ol class="outline-list">${shown.map((entry,index)=>`<li data-depth="${Math.min(3,entry.level-minimum)}"><a href="#${esc(entry.el?.id || 'page-'+entry.page)}" data-outline-index="${index}">${esc(entry.title)}</a></li>`).join('')}</ol>${folded||allLevels&&entries.length>FOLD?`<button type="button" data-button="ghost xs" class="outline-levels">${allLevels?'Show fewer levels':'Show all levels'}</button>`:''}`;
-      rail.querySelectorAll('[data-outline-index]').forEach(link=>link.addEventListener('click',event=>{event.preventDefault();go(+link.dataset.outlineIndex);}));
-      rail.querySelector('.outline-levels')?.addEventListener('click',()=>{allLevels=!allLevels;filter();});
-      const bar=document.createElement('span');bar.className='outline-progress';bar.setAttribute('aria-hidden','true');bar.innerHTML='<span></span>';rail.append(bar);
+      renderOutlineRail(rail,{entries:shown.map(entry=>({href:'#'+(entry.el?.id||'page-'+entry.page),title:entry.title,depth:Math.min(3,entry.level-minimum)})),levels:folded||allLevels&&entries.length>FOLD?(allLevels?'Show fewer levels':'Show all levels'):null,onGo:go,onLevels:()=>{allLevels=!allLevels;filter();}});
+      rail.querySelector('.outline-progress')?.remove();const bar=document.createElement('span');bar.className='outline-progress';bar.setAttribute('aria-hidden','true');bar.innerHTML='<span></span>';rail.append(bar);
       place();
-    }else rail.replaceChildren();
+    }else renderOutlineRail(rail,{entries:[],levels:null});
     rail.hidden=!railVisible();active=-1;sync();publish();
   }
   function place(){

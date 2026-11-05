@@ -23,7 +23,7 @@ import {drawable,fetchShape,paintShape} from './shapes.mjs';
 import {artJobs,fetchArt,focusArt,forgetArt,hasArt,paintArt,paintArtThumb,paintPlaceholder} from './art.mjs';
 import {closeArtFocus,focusOpen} from './art-focus.mjs';
 import {mountDiagramZoom} from './diagram-zoom.mjs';
-import {showPanel,hidePanel,renderCommandSuggestions,openScratchSave,closeAppDialogs,openAnnotationDialog,openSpeakMenu,openShellDialog,renderVersionsTimeline,renderLinkPreview,renderReadingLog,applyThemes,installControls,mountSkeleton,mountCodeBlocks,decorateCodeBlocks,clearControlsWithin,renderFileExplorer,mountArticleSpeech,mountSectionItems,mountSectionPage,mountAdmin,setAdminRoute,mountChangesPanel,mountArtRegenerate,notify as shellNotify,openChat,closeChat,chatOpen,trackSpeech,renderQueuePanel,mountCallouts,mountQuiz,mountWritingPrompt,mountScratchQuestion,startJob,promptCompanion,needsReader,NEEDS_READER,mountPromptCards} from './controls/reader-controls.js';
+import {renderNextReads,showPanel,hidePanel,renderCommandSuggestions,openScratchSave,closeAppDialogs,openAnnotationDialog,openSpeakMenu,openShellDialog,renderVersionsTimeline,renderLinkPreview,renderReadingLog,applyThemes,installControls,mountSkeleton,mountCodeBlocks,decorateCodeBlocks,clearControlsWithin,renderFileExplorer,mountArticleSpeech,mountSectionItems,mountSectionPage,mountAdmin,setAdminRoute,mountChangesPanel,mountArtRegenerate,notify as shellNotify,openChat,closeChat,chatOpen,trackSpeech,renderQueuePanel,mountCallouts,mountQuiz,mountWritingPrompt,mountScratchQuestion,startJob,promptCompanion,needsReader,NEEDS_READER,mountPromptCards} from './controls/reader-controls.js';
 import {promptPlugin,promptMounts} from './prompt-blocks.mjs';
 import {installVersions,chipMarkup,historicalMarkup,splitRef,compareLabel} from './versions.mjs';
 import {installSplit,installPane,cleanRoute} from './split.mjs';
@@ -957,10 +957,10 @@ async function showNextReads(path,id){
   if(id!==state.routeId||state.doc?.path!==path||!items.length&&!queued||$('#main .next-reads'))return;
   const aside=document.createElement('aside');aside.className='next-reads';aside.dataset.readerDecoration='';aside.dataset.endOrder='2';
   if(items.length)aside.setAttribute('aria-labelledby','next-reads-title');else aside.setAttribute('aria-label','Next in your queue');
-  const byline=w=>esc([w.authors?.join(' · '),w.date?formatDate(w.date):''].filter(Boolean).join(' · ')||'Unspecified author');
+  const byline=w=>[w.authors?.join(' · '),w.date?formatDate(w.date):''].filter(Boolean).join(' · ')||'Unspecified author';
   // When the queue has something, it leads: the next track before the recommendations.
-  const lead=queued?`<a class="next-read next-in-queue" href="${esc('#read='+param(queued.path))}" data-path="${esc(queued.path)}"><span class="next-in-queue-label">Next in your queue →</span><span class="next-read-title">${esc(queued.title)}${!queued.read?'<span class="unread-pip" title="Unread edition" aria-label="Unread edition"></span>':''}</span><span class="next-read-byline">${byline(queued)}</span><span class="next-read-keys"><kbd>Space</kbd> <kbd>n</kbd></span></a>`:'';
-  aside.innerHTML=lead+(items.length?`<div class="eyebrow" id="next-reads-title">Read next</div><ol>${items.map(w=>`<li><a class="next-read" href="${esc('#read='+param(w.primary))}" data-path="${esc(w.primary)}"><span class="next-read-title">${esc(w.title)}${!w.read?'<span class="unread-pip" title="Unread edition" aria-label="Unread edition"></span>':''}</span><span class="next-read-byline">${byline(w)}</span><span class="next-read-reasons">${w.reasons.map(r=>`<span>${esc(r)}</span>`).join('')}</span></a><button type="button" data-button="ghost xs" class="next-read-queue" data-queue-add="${esc(w.primary)}" aria-label="Add ${esc(w.title)} to your queue" title="Add to your queue · q">+ Queue</button></li>`).join('')}</ol>`:'');
+  const read=(path,w,reasons)=>({path,href:'#read='+param(path),title:w.title,unread:!w.read,byline:byline(w),reasons});
+  renderNextReads(aside,{queued:queued?{...read(queued.path,queued,[]),label:'Next in your queue →'}:null,items:items.map(w=>read(w.primary,w,w.reasons))});
   wireDocumentLinks(aside);
   aside.querySelectorAll('[data-queue-add]').forEach(button=>button.onclick=event=>{event.preventDefault();queue.add(button.dataset.queueAdd);});
   if(!reading?.placeAtEnd(aside))return;

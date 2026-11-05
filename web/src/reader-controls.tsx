@@ -70,6 +70,7 @@ import {applyThemes, ensureProseRules, themeId, type InstalledFont} from './them
 import type {Theme} from './theme/color';
 export {applyThemes};
 import {observeButtons} from './vanilla-buttons';
+import {LinkedFromList, NextReads, OutlineRail, type LinkedFromRow, type NextReadsModel, type OutlineRailModel} from './reading-lists';
 import {OutlineControl, type OutlineModel, type OutlineActions} from './outline';
 import {FAMOUS, famousId} from './theme/famous';
 import {plural} from './plural';
@@ -491,6 +492,10 @@ function openAppDialog(id:string,onClosed:()=>void,render:(props:{register:(clos
 }
 /** Close open modal app dialogs on navigation or leaving a context. */
 export function closeAppDialogs(){for(const entry of [...appDialogs.values()])entry.close();}
+function draw(container:HTMLElement,view:ReactNode){const root=islands.get(container);if(root)flushSync(()=>root.render(view));else mount(container,view);}
+export const renderOutlineRail=(container:HTMLElement,model:OutlineRailModel)=>draw(container,model.entries.length?<OutlineRail {...model}/>:null);
+export const renderNextReads=(container:HTMLElement,model:NextReadsModel)=>draw(container,<NextReads {...model}/>);
+export const renderLinkedFromList=(container:HTMLElement,rows:LinkedFromRow[])=>draw(container,<LinkedFromList rows={rows}/>);
 export function openShellDialog(options:ShellDialogOptions){
   const handle=openAppDialog(options.id,options.onClosed,({register,onClosed})=><ShellDialog options={{...options,onClosed}} register={register}/>);
   return {...handle,body:()=>document.getElementById(options.bodyId)};
