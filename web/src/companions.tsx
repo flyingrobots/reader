@@ -51,7 +51,7 @@ export function focusCompanion(name:string,panel='guide'){focus={name,panel};foc
 
 async function copy(text:string){
   try{await navigator.clipboard.writeText(text);return true;}
-  catch{const area=document.createElement('textarea');area.value=text;area.setAttribute('readonly','');area.style.position='fixed';area.style.opacity='0';document.body.append(area);area.select();
+  catch{const area=document.createElement('textarea');area.value=text;area.setAttribute('readonly','');area.className='fixed opacity-0';document.body.append(area);area.select();
     const ok=document.execCommand('copy');area.remove();return ok;}
 }
 function Commands({guide,id}:{guide:Guide;id:string}){

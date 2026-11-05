@@ -3,6 +3,8 @@
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
 @source "./";
+/* The reader surfaces outside web/src are plain modules. Utilities they name are built too. */
+@source "../../src/reader_mcp/web_ui/*.mjs";
 @custom-variant dark (&:where([data-theme="ink"], [data-theme="ink"] *, [data-theme$="-dark"], [data-theme$="-dark"] *));
 @theme inline {
   --color-background: var(--bg);

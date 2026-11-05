@@ -73,7 +73,7 @@ export function applyThemes(themes:Theme[],installed:InstalledFont[],extraFonts:
 /** Concrete sRGB values of a built-in theme, read from the cascade without repainting. */
 export function readBuiltIn(dataTheme:string):{tokens:Tokens;fonts:Theme['fonts']}{
   const root=document.documentElement,previous=root.dataset.theme;root.dataset.theme=dataTheme;
-  const probe=document.createElement('span');probe.style.display='none';document.body.append(probe);
+  const probe=document.createElement('span');probe.hidden=true;document.body.append(probe);
   try{
     const style=getComputedStyle(root),tokens:Tokens={};
     for(const t of COLOR_TOKENS){
@@ -92,7 +92,7 @@ export const isLightPage=(tokens:Tokens)=>lightness(tokens.bg)>=.5;
 export function ensureProseTokens(){
   const root=document.documentElement,theme=root.dataset.theme||'ink',style=getComputedStyle(root);
   if(style.getPropertyValue('--prose-recede').trim())return;
-  const probe=document.createElement('span');probe.style.display='none';document.body.append(probe);
+  const probe=document.createElement('span');probe.hidden=true;document.body.append(probe);
   const tokens:Tokens={};
   try{for(const t of COLOR_TOKENS){if(!style.getPropertyValue('--'+t.name).trim())continue;probe.style.color=`var(--${t.name})`;tokens[t.name]=hex(getComputedStyle(probe).color);}}finally{probe.remove();}
   if(!tokens.bg||!tokens.ink)return;

@@ -563,6 +563,7 @@ body{margin-right:var(--dock-width,0px);transition-property:none}#smooth-wrapper
 
 /* Explorer reserves a left column; discussion/chat retain their right dock. */
 @layer reader-legacy {
+:root:has(.file-explorer:not([hidden])){--explorer-width:min(22rem,46vw)}
 body{margin-left:var(--explorer-width,0px)}
 #smooth-wrapper,body.two-page #smooth-wrapper{left:var(--explorer-width,0px)!important;width:auto!important}
 .file-explorer{position:fixed;inset:0 auto 35px 0;width:var(--explorer-width);min-width:0;z-index:15;border-right:1px solid var(--line);overflow:hidden}

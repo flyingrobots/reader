@@ -349,10 +349,10 @@ class LiveView implements ArtView{
   private interact(){
     const el=this.renderer.domElement,view=this.built.view,clamp=(v:number,a:number,b:number)=>Math.max(a,Math.min(b,v));
     const apply=()=>{view.pitch=clamp(view.pitch,-1.2,1.2);view.zoom=clamp(view.zoom,.35,3);this.built.aim();if(!this.frame)this.draw(0);};
-    let drag:{x:number;y:number}|null=null;el.style.touchAction='none';el.style.cursor='grab';
-    el.addEventListener('pointerdown',e=>{drag={x:e.clientX,y:e.clientY};el.setPointerCapture(e.pointerId);el.style.cursor='grabbing';});
+    let drag:{x:number;y:number}|null=null;el.classList.add('touch-none','cursor-grab');
+    el.addEventListener('pointerdown',e=>{drag={x:e.clientX,y:e.clientY};el.setPointerCapture(e.pointerId);el.classList.replace('cursor-grab','cursor-grabbing');});
     el.addEventListener('pointermove',e=>{if(!drag)return;view.yaw-=(e.clientX-drag.x)*.006;view.pitch+=(e.clientY-drag.y)*.006;drag={x:e.clientX,y:e.clientY};apply();});
-    const end=()=>{drag=null;el.style.cursor='grab';};el.addEventListener('pointerup',end);el.addEventListener('pointercancel',end);
+    const end=()=>{drag=null;el.classList.replace('cursor-grabbing','cursor-grab');};el.addEventListener('pointerup',end);el.addEventListener('pointercancel',end);
     el.addEventListener('wheel',e=>{e.preventDefault();view.zoom*=Math.exp(e.deltaY*.0015);apply();},{passive:false});
     this.host.addEventListener('keydown',e=>{const k=e.key,step=.12;
       if(k==='ArrowLeft')view.yaw+=step;else if(k==='ArrowRight')view.yaw-=step;else if(k==='ArrowUp')view.pitch-=step;else if(k==='ArrowDown')view.pitch+=step;

@@ -1113,7 +1113,7 @@ function positionPins(){
   for(const {thread,range} of state.ranges){const rects=[...range.getClientRects()];const rect=spread?rects.find(r=>r.width>0&&r.right>spread.left+1&&r.left<spread.right-1):reading?.hasBook()?null:rects.at(-1);const pin=article.querySelector(`[data-thread="${CSS.escape(thread.id)}"]`);if(!pin)continue;pin.hidden=!rect;if(rect)placed.push({pin,rect});}
   for(const piece of state.writingRecords||[]){const range=learningEvidenceRange(piece.evidence||piece.prompt?.evidence);if(!range)continue;let pin=article.querySelector(`[data-writing-pin="${CSS.escape(piece.path)}"]`);if(!pin){pin=document.createElement('button');pin.className='annotation-pin writing-pin';pin.dataset.readerDecoration='';pin.dataset.writingPin=piece.path;pin.type='button';pin.textContent='✎';pin.title='Your writing: '+piece.title;pin.setAttribute('aria-label',pin.title);pin.onclick=()=>navigate(piece.path);article.append(pin);}const rects=[...range.getClientRects()],rect=spread?rects.find(r=>r.width>0&&r.right>spread.left+1&&r.left<spread.right-1):reading?.hasBook()?null:rects.at(-1);pin.hidden=!rect;if(rect)placed.push({pin,rect});}
   placed.sort((a,b)=>a.rect.top-b.rect.top||a.rect.left-b.rect.left);
-  for(const {pin,rect} of placed){if(place){const at=place(rect,pin);pin.style.left=at.left+'px';pin.style.top=at.top+'px';}else if(reading?.hasBook()){pin.style.left=Math.min(pageWidth()-25,rect.right+9)+'px';pin.style.top=rect.bottom-5+'px';}else{pin.style.left='';const top=Math.max(previous+27,rect.bottom-box.top-5);pin.style.top=top+'px';previous=top;}}
+  for(const {pin,rect} of placed){if(place){const at=place(rect,pin);pin.style.left=at.left+'px';pin.style.top=at.top+'px';}else if(reading?.hasBook()){pin.style.left=Math.min(pageWidth()-25,rect.right+9)+'px';pin.style.top=rect.bottom-5+'px';}else{pin.style.removeProperty('left');const top=Math.max(previous+27,rect.bottom-box.top-5);pin.style.top=top+'px';previous=top;}}
 }
 function threadUnread(id){return state.attention.find(i=>i.key==='thread:'+id)?.read!==true;}
 function seenLabel(key){const item=state.attention.find(i=>i.key===key);return item?.seen_by?.length?'Seen by '+item.seen_by.map(r=>r.participant).join(', '):'Not yet seen by another reader';}
@@ -1221,12 +1221,11 @@ function updateExplorer(){
     onClearFolder:()=>{state.pickerFolder=null;updateExplorer();}});
 }
 function closePicker(){
-  $('#picker').hidden=true;document.documentElement.style.removeProperty('--explorer-width');
+  $('#picker').hidden=true;
   $('#summon').setAttribute('aria-expanded','false');dispatchEvent(new Event('resize'));refreshScroll();focusMain();reading?.updateStatus();
 }
 function openPicker(source='all',folder=null){
   state.pickerFolder=folder;updateExplorer();$('#picker').hidden=false;
-  document.documentElement.style.setProperty('--explorer-width','min(22rem, 46vw)');
   $('#summon').setAttribute('aria-expanded','true');dispatchEvent(new Event('resize'));refreshScroll();$('#file-results').focus({preventScroll:true});reading?.updateStatus();
 }
 function togglePicker(){if($('#picker').hidden)openPicker();else closePicker();}
@@ -1906,7 +1905,7 @@ function publishArticleWidth(){
   if(!eligible){controls.update({articleWidth:{shown:false,standard:0,max:0}});return;}
   const style=getComputedStyle(shell),room=main.clientWidth-parseFloat(style.paddingLeft)-parseFloat(style.paddingRight);
   // Longhands: the computed font shorthand is empty when the article sets any font feature.
-  const face=getComputedStyle(article),probe=document.createElement('span');probe.style.cssText=`position:absolute;visibility:hidden;width:65ch;font-family:${face.fontFamily};font-size:${face.fontSize};font-weight:${face.fontWeight};font-style:${face.fontStyle};font-stretch:${face.fontStretch}`;document.body.append(probe);
+  const face=getComputedStyle(article),probe=document.createElement('span');probe.className='invisible absolute w-[65ch]';Object.assign(probe.style,{fontFamily:face.fontFamily,fontSize:face.fontSize,fontWeight:face.fontWeight,fontStyle:face.fontStyle,fontStretch:face.fontStretch});document.body.append(probe);
   const standard=probe.getBoundingClientRect().width;probe.remove();
   controls.update({articleWidth:{shown:room>640,standard,max:480+Math.floor((room-480)/10)*10}});
 }

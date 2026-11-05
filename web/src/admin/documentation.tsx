@@ -20,7 +20,7 @@ export function AdminDocsButton(){
   const context=useContext(DocumentationContext);if(!context)return null;
   return <Button id="admin-doc-toggle" variant="outline" size="sm" aria-controls="admin-reference-pane" aria-expanded={context.open} onClick={context.show}><BookOpenIcon data-icon="inline-start" aria-hidden/><span className="max-sm:sr-only">Docs</span></Button>;
 }
-/** Gives the Admin header and page a section's reference, shown over them in a Sheet. The Sheet stays mounted while closed, so its headings, section and scroll position survive. */
+/** Gives the Admin header and page a section's reference, shown over them in a Sheet. Its text renders the first time it opens, then stays so its section and scroll position survive. */
 export function AdminDocumentationWorkspace({topic,markdown,children}:{topic:string;markdown:(text:string)=>string;children:ReactNode}){
   const body=useRef<HTMLDivElement|null>(null),panel=useRef<HTMLDivElement|null>(null),[section,setSection]=useState('overview');
   // The Sheet's portal mounts after this component's first commit, so setup waits for the element to arrive.
@@ -31,7 +31,8 @@ export function AdminDocumentationWorkspace({topic,markdown,children}:{topic:str
   const sectionRef=useRef(section),position=useRef(0),pendingHeading=useRef<string|null>(null),openingHeading=useRef<string|null>(null);sectionRef.current=section;
   const [visible,setVisible]=useState(false),jumpFrame=useRef(0);
   useEffect(()=>()=>cancelAnimationFrame(jumpFrame.current),[]);
-  const html=useMemo(()=>markdown(reference),[markdown,reference]);
+  const [opened,setOpened]=useState(false);if(visible&&!opened)setOpened(true);
+  const html=useMemo(()=>opened?markdown(reference):'',[markdown,reference,opened]);
   const scrollToHeading=useCallback((id:string)=>{
     const element=body.current,target=element?.querySelector<HTMLElement>('#admin-doc-'+id);if(!target||!element)return;
     element.scrollTo({top:Math.max(0,element.scrollTop+target.getBoundingClientRect().top-element.getBoundingClientRect().top-16),behavior:'instant'});position.current=element.scrollTop;target.focus({preventScroll:true});

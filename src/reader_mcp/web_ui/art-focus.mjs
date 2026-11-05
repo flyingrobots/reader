@@ -18,7 +18,7 @@ export function openArtFocus(data,{api,stage,palette,motion,stillUrl,restore,reg
   const view=document.createElement('div');view.className='art-focus';view.setAttribute('role','dialog');view.setAttribute('aria-modal','true');
   view.setAttribute('aria-label',`Art: ${title}`);view.dataset.readerDecoration='';view.dataset.art=data.path;view.tabIndex=-1;
   view.innerHTML=`<div class="art-focus-stage" tabindex="0" role="img" aria-label="Art: ${esc(title)}${motion?'. Drag or use the arrow keys to turn, + and − to zoom, 0 to reset.':''}" aria-describedby="art-focus-note"></div>
-    <div style="display:contents" data-focus-chrome></div>
+    <div class="contents" data-focus-chrome></div>
     <div class="art-focus-regenerate" hidden></div>`;
   // The heading, actions, note and status are web/src/art-focus-chrome.tsx, rendered before they are wired below.
   const credit=art.provenance?.producer?.label?`by ${art.provenance.producer.label}${art.provenance.producer.model?` (${art.provenance.producer.model})`:''}`:'';

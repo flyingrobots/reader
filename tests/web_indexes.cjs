@@ -21,11 +21,10 @@ await page.locator('[data-admin-nav=indexes]').click();await page.locator('[data
 assert.equal(posts.length,0,'revisiting Indexes does not recheck already-stale results');
 assert.equal(await page.locator('[data-index-chart=coverage] svg[role=group]').textContent().then(s=>s.includes('75%')),true);
 assert.equal(await page.locator('#indexing-guide').count(),0,'inline guide moved to reference');
-await page.locator('#admin-doc-model-use-and-determinism').waitFor({state:'attached'});assert.deepEqual(await page.locator('#admin-doc-body h2').allTextContents(),[...readFileSync('docs/topics/indexes.md','utf8').matchAll(/^## (.+)$/gm)].map(match=>match[1]),'viewer renders canonical topic headings');assert.match(await page.locator('#admin-doc-body').textContent(),/no recurring index-rebuild schedule/);
 const openDocs=async()=>{await page.locator('#admin-doc-toggle').click();await page.locator('#admin-reference-pane').waitFor();},closeDocs=async()=>{await page.keyboard.press('Escape');await page.locator('#admin-reference-pane').waitFor({state:'hidden'});};
 assert.ok(await page.locator('#admin-reference-pane').isHidden(),'documentation starts closed');assert.equal(await page.locator('#admin-doc-toggle').getAttribute('aria-expanded'),'false');assert.equal(await page.locator('#admin-dashboard-pane').count(),0,'no split pane');
 assert.ok(await page.locator('[data-index-fleet]').evaluate(el=>el.getBoundingClientRect().width>800),'the dashboard has the full width');
-await openDocs();assert.equal(await page.getByRole('dialog',{name:'Indexes reference'}).count(),1,'documentation is a titled sheet');assert.equal(await page.locator('#admin-doc-toggle').getAttribute('aria-expanded'),'true');await closeDocs();assert.equal(await page.evaluate(()=>document.activeElement?.id),'admin-doc-toggle','Escape returns focus to the Docs button');
+await openDocs();await page.locator('#admin-doc-model-use-and-determinism').waitFor({state:'attached'});assert.deepEqual(await page.locator('#admin-doc-body h2').allTextContents(),[...readFileSync('docs/topics/indexes.md','utf8').matchAll(/^## (.+)$/gm)].map(match=>match[1]),'viewer renders canonical topic headings');assert.match(await page.locator('#admin-doc-body').textContent(),/no recurring index-rebuild schedule/);assert.equal(await page.getByRole('dialog',{name:'Indexes reference'}).count(),1,'documentation is a titled sheet');assert.equal(await page.locator('#admin-doc-toggle').getAttribute('aria-expanded'),'true');await closeDocs();assert.equal(await page.evaluate(()=>document.activeElement?.id),'admin-doc-toggle','Escape returns focus to the Docs button');
 
 
 await page.getByRole('button',{name:'About Index update policy',exact:true}).click();await page.locator('#admin-reference-pane').waitFor();assert.equal(await page.locator('#admin-doc-toggle').getAttribute('aria-expanded'),'true','info icons open the reference');await closeDocs();
@@ -70,7 +69,9 @@ for(const topic of ['overview','jobs','logs','repositories','voices','models','i
   await page.locator('[data-admin-nav="'+topic+'"]').click();
   await page.waitForFunction(topic=>document.querySelector('#admin-reference-pane')?.dataset.docTopic===topic,topic);
   assert.equal(await page.locator('#admin-workspace').count(),1,'one shared workspace for '+topic);
+  await openDocs();
   assert.deepEqual(await page.locator('#admin-doc-body h2').allTextContents(),[...readFileSync('docs/topics/'+topic+'.md','utf8').matchAll(/^## (.+)$/gm)].map(match=>match[1]),topic+' canonical headings');
+  await closeDocs();
   const targets=await page.locator('[data-admin-doc-link]').evaluateAll(nodes=>nodes.map(node=>node.dataset.adminDocLink));
   assert.ok(await page.evaluate(ids=>ids.every(id=>!!document.getElementById('admin-doc-'+id)),targets),topic+' help targets resolve');
   assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),topic+' fits desktop');

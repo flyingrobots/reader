@@ -58,7 +58,7 @@ export function shapeSVG(shape,width,height,{labels=true}={}){
   beads.forEach(([x,y,r],i)=>{const u=beads.length>1?i/(beads.length-1):0;
     if(headings.has(i))el('circle',{cx:x.toFixed(1),cy:y.toFixed(1),r:(r+3).toFixed(1),fill:'none',stroke:'var(--muted)','stroke-width':1,'stroke-opacity':.7});
     const bead=el('circle',{cx:x.toFixed(1),cy:y.toFixed(1),r:r.toFixed(1)});bead.style.fill=shape.threads[i]?'var(--accent)':`color-mix(in srgb, var(--chart-1) ${Math.round(100-100*u)}%, var(--chart-2))`;bead.style.fillOpacity=String(1-.35*u);});
-  if(labels)shape.terms.forEach((term,k)=>{const [x,y]=beads[Math.min(term.i,beads.length-1)];const text=el('text',{x:(x+7).toFixed(1),y:(y-6).toFixed(1),'font-size':12,'font-weight':k<3?600:500});text.style.fill=k<3?'var(--ink)':'var(--muted)';text.style.fontFamily='var(--sans)';text.textContent=term.text;});
+  if(labels)shape.terms.forEach((term,k)=>{const [x,y]=beads[Math.min(term.i,beads.length-1)];const text=el('text',{x:(x+7).toFixed(1),y:(y-6).toFixed(1),'font-size':12,'font-weight':k<3?600:500});text.classList.add(k<3?'fill-foreground':'fill-muted-foreground','font-sans');text.textContent=term.text;});
   return {svg,layout};
 }
 

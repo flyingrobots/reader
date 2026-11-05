@@ -8,7 +8,7 @@ export function mountDiagramZoom(body,svg,width,height,room){
   const button=(label,name,run)=>{const b=document.createElement('button');b.type='button';b.dataset.button='outline sm';b.dataset.diagramZoom=name;b.setAttribute('aria-label',name);b.textContent=label;b.addEventListener('click',run);return b;};
   const readout=document.createElement('span');readout.className='diagram-zoom-level';readout.setAttribute('aria-live','polite');
   const bar=document.createElement('div');bar.className='diagram-zoom';bar.setAttribute('role','toolbar');bar.setAttribute('aria-label','Diagram zoom');
-  const paint=()=>{svg.style.width=Math.round(width*scale)+'px';svg.style.maxWidth='none';svg.style.height='auto';readout.textContent=Math.round(scale*100)+'%';
+  const paint=()=>{svg.style.width=Math.round(width*scale)+'px';svg.classList.add('max-w-none!','h-auto');readout.textContent=Math.round(scale*100)+'%';
     svg.classList.toggle('diagram-pannable',body.scrollWidth>body.clientWidth+1||body.scrollHeight>body.clientHeight+1);};
   /** Change the scale, keeping the same point of the diagram under the pointer or the middle of the box. */
   function zoom(next,clientX,clientY){
