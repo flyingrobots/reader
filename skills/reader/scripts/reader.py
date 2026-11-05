@@ -30,9 +30,11 @@ def local():
 def main():
     args = sys.argv[1:]
     command = args[0] if args else None
-    if command in ("remote-setup", "remote-gate", "remote-authorize"):
+    if command in ("remote-setup", "remote-token-setup", "remote-gate", "remote-authorize"):
         remote = load_remote()
         try:
+            if command == "remote-token-setup":
+                raise SystemExit(remote.http_setup(args[1:]))
             if command == "remote-setup":
                 raise SystemExit(remote.setup(args[1:]))
             if command == "remote-authorize":

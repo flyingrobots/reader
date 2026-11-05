@@ -51,7 +51,14 @@ const {chromium}=require(process.env.READER_PLAYWRIGHT||'playwright-core');
   await page.locator('#publish-files').setInputFiles({name:'huge.md',mimeType:'text/markdown',buffer:Buffer.alloc(33*1024*1024)});
   await page.locator('#publish-problem').waitFor();
   assert.equal(await page.locator('#publish-submit').isDisabled(),true);
+  // A delivery token is shown once, stored only as a hash, and can be revoked.
+  await page.locator('#token-name').fill('My laptop');await page.locator('#token-create').click();
+  const secret=await page.locator('#token-value').textContent();assert.match(secret,/^rdt_/);
+  assert.equal(readFileSync(join(root,'.reader/delivery-tokens.json'),'utf8').includes(secret),false);
+  const row=page.locator('[data-token="My laptop"]');await row.waitFor();
+  await row.getByRole('button',{name:'Revoke'}).click();await page.locator('[data-confirm]').click();
+  await row.waitFor({state:'detached'});
   assert.deepEqual(errors,[]);
-  console.log('Publish passed: upload, safe default, refused level, no-cloud stays queued, others untouched, size refusal.');
+  console.log('Publish passed: upload, safe default, refused level, no-cloud stays queued, others untouched, size refusal, token create and revoke.');
  }finally{await browser?.close();if(fixture.exitCode===null&&fixture.signalCode===null)fixture.kill('SIGTERM');}
 })().catch(error=>{console.error(error);process.exitCode=1;});

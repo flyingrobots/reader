@@ -31,6 +31,10 @@ Once unlocked, you can open, download or delete these documents here. They stay 
 
 This protects Reader's copy. The original file you uploaded stays wherever it was, and agents running as you can still read that copy, so remove it if it matters.
 
+## Delivery tokens
+
+A token lets another machine or agent send documents to your inbox over HTTPS. It can't read your library or start filing, so what it sends waits until you file it. Each token gets 200 uploads and 512 MB a day. Create one here, copy it right away because it's shown only once, and revoke it when it's no longer needed.
+
 ## Access
 
-The page is available to a browser on this machine and to approved Tailscale logins, the same as every other Reader Admin action. Other machines and agents can deliver over SSH.
+The page is available to a browser on this machine and to approved Tailscale logins, the same as every other Reader Admin action. Other machines and agents can deliver over SSH or with a delivery token.

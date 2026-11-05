@@ -113,6 +113,8 @@ If delivery is requested and neither a local vault nor `remote.json` exists, or 
 python3 /path/to/this/skill/scripts/reader.py remote-setup user@vault-host
 ```
 
+With `"url"` in `remote.json`, the helper delivers over HTTPS with a delivery token instead (`remote-token-setup`, also run by the user in their own terminal), and only `ingest` and `status` work. The optional `privacy` request field is `no-cloud` (its default) or `normal`.
+
 It reuses an existing working setup, otherwise creates a dedicated Reader key and authorizes it on the vault computer for delivery only. Do not create or change SSH keys, `authorized_keys` or SSH configuration yourself. Suggest `--scope library` only when the user wants search and reading from this machine too. Details are in the checkout's `docs/delivery.md`.
 
 ## Separate private vault

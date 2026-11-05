@@ -35,6 +35,8 @@ def uploader(identity):
     """The name a receipt records. It comes from how the server identified the request, never from the request."""
     if not identity or identity.get('via') == 'local':
         return 'browser on this machine'
+    if identity.get('via') == 'token':
+        return 'token: ' + identity['name']
     return identity.get('login') or identity.get('via') or 'unknown'
 
 
@@ -153,7 +155,11 @@ def receive(root, stream, length, identity, clock=time.monotonic, private=None, 
         shutil.rmtree(staging, ignore_errors=True)
 
 
-def public_status(root, request_id):
-    """A delivery's state for the page that uploaded it, without local paths or the file list's hashes."""
+def public_status(root, request_id, sender=None):
+    """A delivery's state for the page that uploaded it, without local paths or the file list's hashes.
+
+    A token only sees receipts it uploaded; anyone else's look exactly like ones that don't exist."""
     result = Store(root).status(str(UUID(request_id)))
+    if sender is not None and result.get('provenance', {}).get('uploaded_by') != uploader(sender):
+        return {'id': str(UUID(request_id)), 'status': 'not_found', 'integrity': None, 'title': None, 'bundle_path': None}
     return {key: result.get(key) for key in ('id', 'status', 'integrity', 'title', 'bundle_path')}

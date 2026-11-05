@@ -12,6 +12,7 @@ import {Notice} from '@/theme/molecules/notice';
 import {StatusCard} from '@/theme/organisms/status-card';
 import {plural} from '../../plural';
 import {size} from './inbox';
+import {DeliveryTokens} from './delivery-tokens';
 import {PrivateShelf, usePrivateStatus} from './private-shelf';
 
 type Api=(path:string,payload?:unknown,extra?:Record<string,unknown>)=>Promise<any>;
@@ -118,5 +119,6 @@ export function PublishPage({api,html}:{api:Api;html:(text:string)=>string}){
       {note?<Notice id="publish-note" tone={['filed','encrypted'].includes(stage)?'info':'error'}>{note}</Notice>:null}
     </StatusCard>:null}
     <PrivateShelf api={api} html={html} privacy={privacy}/>
+    <DeliveryTokens api={api}/>
   </section>;
 }

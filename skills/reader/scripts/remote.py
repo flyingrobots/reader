@@ -8,6 +8,7 @@ the Reader operations allowed by its scope.
 
 import argparse
 import fcntl
+import getpass
 import hashlib
 import json
 import os
@@ -20,6 +21,8 @@ import stat
 import subprocess
 import sys
 import tempfile
+import urllib.error
+import urllib.request
 from uuid import UUID
 
 MAX_FILE = 32 * 1024 * 1024
@@ -58,6 +61,8 @@ def load_config():
         config = json.loads(path.read_text())
     except ValueError:
         config = None
+    if isinstance(config, dict) and isinstance(config.get('url'), str) and isinstance(config.get('token_file'), str):
+        return config
     if not (isinstance(config, dict) and isinstance(config.get('host'), str)
             and isinstance(config.get('identity'), str)):
         raise ValueError(f'{path} is not a valid remote configuration; run reader.py remote-setup again '
@@ -127,10 +132,89 @@ def encode_delivery(submission: dict) -> bytes:
     return json.dumps(header, ensure_ascii=False).encode() + b'\n' + b''.join(payloads)
 
 
+def encode_upload(submission: dict) -> bytes:
+    """The web upload route's framing: a JSON header line, then the document and each attachment."""
+    if not isinstance(submission, dict) or (submission.get('document_path') is None) == (submission.get('markdown') is None):
+        raise ValueError('The request needs exactly one of document_path or markdown')
+    if submission.get('document_path') is not None:
+        document = read_local(submission['document_path'])
+    else:
+        document = submission['markdown'].encode()
+    listed = submission.get('attachments') or []
+    if not isinstance(listed, list) or not all(isinstance(a, dict) for a in listed):
+        raise ValueError('attachments must be a list of objects')
+    if len(listed) + 1 > MAX_FILES:
+        raise ValueError('Delivery exceeds the 64-file limit')
+    payloads = [(submission.get('filename') or 'report.md', document), *((a['path'], read_local(a['source_path'])) for a in listed)]
+    if sum(len(data) for _, data in payloads) > MAX_TOTAL:
+        raise ValueError('Delivery exceeds the 64 MiB limit')
+    provenance = {k: v for k, v in (submission.get('provenance') or {}).items() if k in ('project', 'source', 'author', 'report_date', 'commit')}
+    header = {'upload': 1, 'request_id': submission.get('request_id'), 'title': submission.get('title'), 'privacy': submission.get('privacy', 'no-cloud'),
+              'provenance': provenance, 'files': [{'path': path, 'bytes': len(data), 'sha256': hashlib.sha256(data).hexdigest()} for path, data in payloads]}
+    return json.dumps(header, ensure_ascii=False).encode() + b'\n' + b''.join(data for _, data in payloads)
+
+
+def http_request(config, method, path, body=None):
+    token = Path(config['token_file']).expanduser().read_text().strip()
+    url = config['url'].rstrip('/')
+    if not url.startswith('https://') and not re.match(r'http://(127\.0\.0\.1|localhost)(:\d+)?$', url):
+        raise ValueError('A delivery token is only sent over https or to this machine')
+    headers = {'Authorization': 'Bearer ' + token}
+    if body is not None:
+        headers['Content-Type'] = 'application/vnd.reader.delivery'
+    request = urllib.request.Request(url + path, data=body, headers=headers, method=method)
+    try:
+        with urllib.request.urlopen(request, timeout=300) as response:
+            sys.stdout.write(response.read().decode() + '\n')
+        return 0
+    except urllib.error.HTTPError as exc:
+        try:
+            message = json.loads(exc.read()).get('error')
+        except ValueError:
+            message = None
+        print(f'Reader: {message or exc.reason} (HTTP {exc.code})', file=sys.stderr)
+    except urllib.error.URLError as exc:
+        print(f'Reader: could not reach {url}: {exc.reason}', file=sys.stderr)
+    return 1
+
+
+def http_client(args, config) -> int:
+    """Delivery with a token instead of an SSH key. Only ingest and status exist on this route."""
+    if not args or args[0] not in ('ingest', 'status') or len(args) != 2:
+        raise ValueError('With a delivery token, the helper runs: ingest REQUEST.json, or status RECEIPT_ID')
+    if args[0] == 'status':
+        return http_request(config, 'GET', '/api/inbox/deliveries?id=' + str(UUID(args[1])))
+    raw = sys.stdin.buffer.read() if args[1] == '-' else Path(args[1]).read_bytes()
+    return http_request(config, 'POST', '/api/inbox/deliveries', encode_upload(json.loads(raw)))
+
+
+def http_setup(argv) -> int:
+    parser = argparse.ArgumentParser(prog='reader.py remote-token-setup',
+                                     description='Deliver to Reader over https with a delivery token, instead of an SSH key.')
+    parser.add_argument('url', help='Reader on your tailnet, for example https://reader.example.ts.net')
+    args = parser.parse_args(argv)
+    if not args.url.startswith('https://'):
+        raise ValueError('Use the https:// address Reader has on your tailnet')
+    token = getpass.getpass('Delivery token: ').strip()
+    if not token.startswith('rdt_'):
+        raise ValueError('That doesn’t look like a delivery token')
+    path = config_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    token_file = path.with_name('delivery-token')
+    for target, text in ((token_file, token + '\n'), (path, json.dumps({'url': args.url, 'token_file': str(token_file)}, indent=2) + '\n')):
+        fd = os.open(target, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+        with os.fdopen(fd, 'w') as stream:
+            stream.write(text)
+    print(f'Ready: deliveries from this machine now go to Reader at {args.url}. Config: {path}')
+    return 0
+
+
 def client(args, config) -> int:
     """Run a helper command on the vault machine."""
     if not args:
         raise ValueError('Missing command')
+    if 'url' in config:
+        return http_client(args, config)
     op, rest, stdin = args[0], list(args[1:]), b''
     if op == 'ingest':
         if len(rest) != 1:

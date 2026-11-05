@@ -14,7 +14,7 @@
     "../docs/topics/logs.md": "cf2d367a13620967bb12e811834c22f23a73ec11f33783bfb287bad858cdc579",
     "../docs/topics/models.md": "525f9fb66a9565eb46a698b3a7163b890fa727b4930d922f7ebcf07ea5af4eb3",
     "../docs/topics/overview.md": "57520a0f5beb71ee8c7440c8b2c23f33b8e05a11cbbc9cc682f6db9779f67dcf",
-    "../docs/topics/publish.md": "bc42279849db706ca726b72e058a3e21e5d466c0c8e401156190d19f367ac5f6",
+    "../docs/topics/publish.md": "8daeb07ef889246a0a6dd069fe09653b9d17c2511c6df55b105bb4715289f0b6",
     "../docs/topics/repositories.md": "a380b973f9656d637411e05877310520107c1b0c6fd560015ea0bdde56a841e5",
     "../docs/topics/service.md": "afed76a054d5ee552c72b3db60365acf11c3eefd447798a449d0c312af3d21f0",
     "../docs/topics/settings.md": "99336b16eb57868f4a2943fe5e5bf58c2d5c7196e9116f93c0f22e33f2ed8932",
@@ -33,6 +33,7 @@
     "src/admin/documentation.tsx": "9601acd5b631b4123ecc533ef97f6aec3c75058a38b0133fea75ff81d46b0254",
     "src/admin/link.tsx": "1364e49c693a3fdfdfda3b767e4914019c7092ad552a13b14d70fe61af03a714",
     "src/admin/overview.tsx": "9d374ccf81b59c979459f03a0a6eefe54475d7395ca1933bb3c474922bcf435d",
+    "src/admin/pages/delivery-tokens.tsx": "bdf4df54f8f6c9bec70b2912b4f9b10c140929454ccdae716d4e30542bd58b43",
     "src/admin/pages/gallery-model.ts": "9682e5a75aeaa7fb3400a5f6489b28775560f10136580488e246c9ecddd5fbd7",
     "src/admin/pages/inbox.tsx": "0bdd9c73c8ecd4c20ebf036b0231bfd274daab2f8d345b074a5e13f4900e3334",
     "src/admin/pages/index-charts.tsx": "fd2fb0bdb136de7139d5da561c38d331cbb271f3640e1278b30277308cc5fc11",
@@ -42,7 +43,7 @@
     "src/admin/pages/library.tsx": "1c4ee11da3a6491bf35261d747c9296251513d9e53e02ffff5b7288ba9c209e0",
     "src/admin/pages/logs.tsx": "ded000bd5ca82dce862fe1e86436383a326660f00be8c366fde7fdd978fb2609",
     "src/admin/pages/private-shelf.tsx": "352f1d4552beb75fd6766044df0d7226aaa51033935d18a70919fcb40a81fcfb",
-    "src/admin/pages/publish.tsx": "996f761f73b10284a7ccf2d099505ee789e5e6f75fd9c392f5b43880ff39d22c",
+    "src/admin/pages/publish.tsx": "e97742547617bfde4457addf83471e90df9662b15c51a3fa709ed6d43346ee78",
     "src/admin/pages/repositories.tsx": "b27c3176025dd93ab4194beff4ec6eb12aca8a62235fb2b1a84c39ef97760c78",
     "src/admin/pages/shelves.tsx": "fe7173d11af9e4f0d05fee9afa631f3265438845426211ae4e6b0b05cde2159a",
     "src/admin/pages/voices.tsx": "2c2ab2da0029eb1209922b79927799da6734a68a5867bf9a7c0d0e61ca3e31bb",
@@ -994,8 +995,8 @@
       "sha256": "8285cfa81d7c1f65a9dbbf264c36cf083684690e547dac47a315184c6da48470"
     },
     "reader-controls.js": {
-      "bytes": 1352956,
-      "sha256": "39bb7a40534805d0ea4d84aa13a2d0fbac8006a10ae538297b64b2e5815b683a"
+      "bytes": 1355681,
+      "sha256": "15ae350e8fc4048fd9d82969f6629a0c0a0fa8c4ab8dd97bbe924af7e3497882"
     },
     "reader-controls.js.LEGAL.txt": {
       "bytes": 6614,

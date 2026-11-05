@@ -35,7 +35,7 @@ from . import embeds as embed_tree
 from .engagement import ONE_OFF_RECEIPTS, Engagement
 from .inbox_view import InboxView, RunConflict
 from .writing import NOTEBOOK, Writing, WritingConflict
-from . import model_chain, private_store, uploads
+from . import delivery_tokens, model_chain, private_store, uploads
 from .local_model import LocalModel
 from .links import LinkError, LinkGraph, Resolver, excerpt, title_of
 from .magazine import Magazine
@@ -195,6 +195,7 @@ class WebLibrary:
         self.maintenance = Maintenance(self.root, maintenance_runners, links=self.links)
         self.local_model = LocalModel(self.root, self, **(local_model or {}))
         self.private = private_store.PrivateStore()
+        self.delivery_tokens = delivery_tokens.DeliveryTokens(self.root)
         self.prose = prose or Prose()
         self.related = Related(self.root)
         self.editions = Editions(self.root)
@@ -1451,6 +1452,17 @@ class WebHandler(BaseHTTPRequestHandler):
     def do_POST(self):
         self.handle_request(True)
 
+    def token_write(self, library, request):
+        """Creating or revoking a delivery token takes a browser on this machine."""
+        if not self.identity or self.identity.get('via') != 'local':
+            self.json({'error': 'Not found'}, 404)
+        elif request.get('action') == 'create':
+            self.json(library.delivery_tokens.create(request.get('name')))
+        elif request.get('action') == 'revoke':
+            self.json(library.delivery_tokens.revoke(request.get('id')))
+        else:
+            raise ValueError('Unknown delivery token action')
+
     def private_session_cookie(self, session, max_age=None):
         age = private_store.IDLE_LIMIT if max_age is None else max_age
         return (('Set-Cookie', f'{private_store.COOKIE}={session}; HttpOnly; SameSite=Strict; Path=/api; Max-Age={age}'),)
@@ -1500,16 +1512,25 @@ class WebHandler(BaseHTTPRequestHandler):
         self.close_connection = True  # A refused upload leaves its body unread on this connection.
         if self.headers.get_content_type() != uploads.CONTENT_TYPE:
             raise PermissionError('An upload needs its own content type and a same-origin Reader token')
-        if self.headers.get('X-Reader-Token') != self.server.token:
+        sender = self.identity
+        if self.headers.get('Authorization'):
+            sender = library.delivery_tokens.verify(self.headers.get('Authorization'))
+            if sender is None:
+                self.json({'error': 'That delivery token isn’t valid'}, 401)
+                return
+        elif self.headers.get('X-Reader-Token') != self.server.token:
             self.json({'error': 'A same-origin Reader token is required', 'code': 'reader_token_expired'}, 403)
             return
+        length = int(self.headers.get('Content-Length', '0'))
+        if not 0 < length <= uploads.MAX_BODY:
+            raise ValueError('An upload is at most 64 MiB')
+        library.delivery_tokens.admit(sender, length)
         if not self.server.uploads.acquire(blocking=False):
             self.json({'error': 'Reader is receiving other uploads; try again shortly'}, 429)
             return
         try:
             session = private_store.cookie_value(self.headers.get('Cookie'))
-            result = uploads.receive(library.root, self.rfile, int(self.headers.get('Content-Length', '0')), self.identity,
-                                     private=library.private, session=session)
+            result = uploads.receive(library.root, self.rfile, length, sender, private=library.private, session=session)
             self.json(result if result.get('status') == 'encrypted' else uploads.public_status(library.root, result['id']))
         finally:
             self.server.uploads.release()
@@ -1623,6 +1644,8 @@ class WebHandler(BaseHTTPRequestHandler):
                     self.json(model_chain.configure(library.root, request, self.identity))
                 elif parsed.path == '/api/private':
                     self.private_write(library, request)
+                elif parsed.path == '/api/delivery-tokens':
+                    self.token_write(library, request)
                 elif parsed.path == '/api/art':
                     participant = library.engagement.participant(request.pop('participant', self.server.participant))
                     self.json(library.art.dispatch(request, participant))
@@ -1700,7 +1723,18 @@ class WebHandler(BaseHTTPRequestHandler):
             elif parsed.path == '/api/inbox':
                 self.json(library.inbox.status())
             elif parsed.path == '/api/inbox/deliveries':
-                self.json(uploads.public_status(library.root, args.get('id', '')))
+                sender = None
+                if self.headers.get('Authorization'):
+                    sender = library.delivery_tokens.verify(self.headers.get('Authorization'))
+                    if sender is None:
+                        self.json({'error': 'That delivery token isn’t valid'}, 401)
+                        return
+                self.json(uploads.public_status(library.root, args.get('id', ''), sender))
+            elif parsed.path == '/api/delivery-tokens':
+                if not self.identity or self.identity.get('via') != 'local':
+                    self.json({'error': 'Not found'}, 404)
+                else:
+                    self.json(library.delivery_tokens.list())
             elif parsed.path == '/api/private' or parsed.path == '/api/private/item' or parsed.path == '/api/private/file':
                 self.private_read(library, parsed.path, args)
             elif parsed.path == '/api/model-chain':

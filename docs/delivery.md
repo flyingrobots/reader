@@ -131,6 +131,24 @@ A `machine-only` upload never enters the vault. It needs a browser on the vault 
 
 Other programs running as you can read `~/.reader/private.git`, but only as ciphertext.
 
+## Delivery tokens
+
+A token lets one named machine or agent deliver over HTTPS, as an alternative to an SSH key. Create and revoke tokens on the Publish page; only a browser on the vault machine can, and the secret is shown once. Reader stores only its hash in `.reader/delivery-tokens.json`, mode `0600`.
+
+A token can `POST` deliveries and `GET` the status of receipts it uploaded. It can't read the library, see other receipts, use machine-only storage or start filing, so it can't spend a model's usage. Its uploads wait in the inbox until someone files them, and `uploaded_by` records its name.
+
+A token doesn't open a new door. The request must still reach Reader: from this machine, or through `tailscale serve` from an approved Tailscale login. Public (Funnel) requests stay refused.
+
+**Quotas.** Each token and each tailnet login gets 200 uploads and 512 MiB per UTC day, checked from `Content-Length` before the body is read. A browser on this machine has no quota. Refused uploads answer 400 and store nothing.
+
+To use one from another machine, run this and paste the token:
+
+```sh
+python3 /path/to/skills/reader/scripts/reader.py remote-token-setup https://reader.example.ts.net
+```
+
+The helper's `ingest` and `status` then use HTTPS, and nothing else is available. It refuses to send a token over plain HTTP except to this machine. Delete `~/.config/reader/remote.json` to stop.
+
 ## Remote delivery over SSH
 
 Remote delivery is optional and off by default. Nothing listens on the network, and nothing changes on either machine until you run `remote-setup`. Without `~/.config/reader/remote.json`, the helper behaves exactly as described above.
