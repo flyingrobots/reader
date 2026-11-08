@@ -12,7 +12,9 @@ Drop files on the page or choose them. The first file is the main document, and 
 
 Each upload picks a level, and the page shows what it means before you send it.
 
-- **No cloud models** is the default. Only a local model reads the document. The document and its logged excerpts are still committed and pushed with your vault.
+Normal is the initial default. Choose a level and select **Use this choice as the default** to save Normal or No cloud models for future uploads.
+
+- **No cloud models** is optional. Only a local model reads the document. The document and its logged excerpts are still committed and pushed with your vault.
 - **Normal** lets Codex, Claude Code, agy or a local model read excerpts, in that order.
 - **This machine only** encrypts the document with a passphrase only you know. It never joins your vault or leaves this machine, and no model, voice or search can find it through Reader. It works only in a browser on the computer that holds your library, at its local address such as `http://127.0.0.1:8766/#admin/publish`. A Tailscale address, even on that computer, shows a note instead of this option.
 

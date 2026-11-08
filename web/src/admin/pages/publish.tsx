@@ -38,7 +38,9 @@ const pathOf=(file:File)=>(file as File&{webkitRelativePath?:string}).webkitRela
 
 export function PublishPage({api}:{api:Api}){
   const privacy=usePrivateStatus(api);
-  const [files,setFiles]=useState<File[]>([]),[title,setTitle]=useState(''),[author,setAuthor]=useState(''),[level,setLevel]=useState('no-cloud');
+  const [files,setFiles]=useState<File[]>([]),[title,setTitle]=useState(''),[author,setAuthor]=useState(''),[level,setLevel]=useState('normal');
+  const [defaultLevel,setDefaultLevel]=useState<string|null>(null);
+  useEffect(()=>{let active=true;api('/api/upload-settings').then(value=>{if(active){setDefaultLevel(value.default_privacy);setLevel(value.default_privacy);}},cause=>{if(active)setError(String(cause));});return()=>{active=false;};},[api]);
   const [stage,setStage]=useState<Stage>('idle'),[steps,setSteps]=useState<Step[]>([]),[error,setError]=useState<string|null>(null),[note,setNote]=useState<string|null>(null);
   const [dragging,setDragging]=useState(false);
   const input=useRef<HTMLInputElement>(null),timer=useRef<ReturnType<typeof setTimeout>|null>(null);
@@ -107,6 +109,7 @@ export function PublishPage({api}:{api:Api}){
                 <FieldContent><FieldLabel htmlFor={'publish-level-'+option.value}>{option.label}</FieldLabel><FieldDescription>{option.detail}</FieldDescription></FieldContent>
               </Field>)}
             </RadioGroup>
+            <Button type="button" variant="outline" disabled={busy||level==='machine-only'||level===defaultLevel} onClick={async()=>{try{const value=await api('/api/upload-settings',{default_privacy:level});setDefaultLevel(value.default_privacy);}catch(cause){setError(String(cause));}}}>Use this choice as the default</Button>
             {level==='machine-only'&&!privacy.status?.unlocked?<Notice id="publish-locked" role="note">Set up or unlock encrypted storage below first.</Notice>:null}
           </FieldSet>
         </FieldGroup>

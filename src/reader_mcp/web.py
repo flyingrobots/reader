@@ -1651,6 +1651,8 @@ class WebHandler(BaseHTTPRequestHandler):
                         raise ValueError('Expected {"action": "start", "sandbox_mode": ...}, {"action": "stop"} or {"action": "choose", "arrival": ..., "choice": ...}')
                 elif parsed.path == '/api/local-model':
                     self.json(library.local_model.dispatch(request))
+                elif parsed.path == '/api/upload-settings':
+                    self.json(uploads.settings(library.root, request))
                 elif parsed.path == '/api/model-chain':
                     self.json(model_chain.configure(library.root, request, self.identity))
                 elif parsed.path == '/api/private':
@@ -1751,6 +1753,8 @@ class WebHandler(BaseHTTPRequestHandler):
                     self.json(library.delivery_tokens.list())
             elif parsed.path == '/api/private' or parsed.path == '/api/private/item' or parsed.path == '/api/private/file':
                 self.private_read(library, parsed.path, args)
+            elif parsed.path == '/api/upload-settings':
+                self.json(uploads.settings(library.root))
             elif parsed.path == '/api/model-chain':
                 self.json(model_chain.settings_view(library.root, self.identity))
             elif parsed.path == '/api/links':

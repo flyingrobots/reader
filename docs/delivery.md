@@ -121,10 +121,10 @@ The server records `uploaded_by` from how it identified the request; a client ca
 | `privacy` | Who can read it | Pushed with the vault |
 | --- | --- | --- |
 | `normal` | The whole [model order](inbox-runner.md#the-model-order) | Yes |
-| `no-cloud` (the default) | Local model only. If none can answer, it is deferred and stays in the inbox | Yes, including its logged excerpts |
+| `no-cloud` | Local model only. If none can answer, it is deferred and stays in the inbox | Yes, including its logged excerpts |
 | `machine-only` | Nothing through Reader. Encrypted outside the vault | No |
 
-A delivery from a helper or MCP tool that sends no level is treated like `no-cloud` when it's filed. You can change that per arrival on the Inbox page; see [the model order](inbox-runner.md#the-model-order).
+The upload default is Normal. Change it on the Publish page with **Use this choice as the default**. The per-vault setting is stored in `.reader/uploads.json` as `{"default_privacy":"normal"}` (or `"no-cloud"`). `GET /api/upload-settings` reads it; `POST` saves it. Uploads, helper deliveries and dropped files with no privacy label use this setting; explicit choices and existing receipts remain unchanged. Machine-only requires an explicit choice.
 
 ### This machine only
 

@@ -21,7 +21,7 @@ from .store import MAX_FILE, MAX_TOTAL, Attachment, Provenance, Store, Submissio
 
 CONTENT_TYPE = 'application/vnd.reader.delivery'
 NORMAL, NO_CLOUD, MACHINE_ONLY = 'normal', 'no-cloud', 'machine-only'
-DEFAULT_PRIVACY = NO_CLOUD
+DEFAULT_PRIVACY = NORMAL
 MAX_FILES = 64
 MAX_HEADER = 256 * 1024
 MAX_BODY = MAX_TOTAL + MAX_HEADER
@@ -40,7 +40,21 @@ def uploader(identity):
     return identity.get('login') or identity.get('via') or 'unknown'
 
 
-def parse_header(line):
+def settings(root, request=None):
+    from .portable_links import atomic
+    path = Path(root) / '.reader/uploads.json'
+    if request is not None:
+        if set(request) != {'default_privacy'} or request['default_privacy'] not in (NORMAL, NO_CLOUD):
+            raise ValueError('Default upload privacy must be normal or no-cloud')
+        path.parent.mkdir(parents=True, exist_ok=True)
+        atomic(path, request)
+    value = json.loads(path.read_text()) if path.exists() else {'default_privacy': DEFAULT_PRIVACY}
+    if not isinstance(value, dict) or value.get('default_privacy') not in (NORMAL, NO_CLOUD):
+        raise ValueError('Invalid upload privacy settings')
+    return {'default_privacy': value['default_privacy']}
+
+
+def parse_header(line, default_privacy=DEFAULT_PRIVACY):
     if not line.endswith(b'\n') or len(line) > MAX_HEADER:
         raise ValueError('Missing or oversized upload header')
     try:
@@ -49,7 +63,7 @@ def parse_header(line):
         raise ValueError('Unrecognized upload header') from None
     if not isinstance(header, dict) or header.get('upload') != 1 or set(header) - HEADER_FIELDS:
         raise ValueError('Unrecognized upload header')
-    privacy = header.get('privacy', DEFAULT_PRIVACY)
+    privacy = header.get('privacy', default_privacy)
     if privacy not in (NORMAL, NO_CLOUD, MACHINE_ONLY):
         raise ValueError('Unknown privacy level; nothing was stored')
     provenance = header.get('provenance', {})
@@ -133,7 +147,7 @@ def receive(root, stream, length, identity, clock=time.monotonic, private=None, 
         raise ValueError('Reader is at its free-space reserve, so nothing was stored')
     deadline = clock() + DEADLINE
     line = stream.readline(MAX_HEADER + 1)
-    header, privacy, provenance, files = parse_header(line)
+    header, privacy, provenance, files = parse_header(line, settings(root)['default_privacy'])
     if privacy == MACHINE_ONLY:
         return receive_private(stream, header, provenance, files, length, len(line), identity, private, session, deadline, clock)
     state = root / '.reader/upload-staging'

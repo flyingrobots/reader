@@ -1,7 +1,6 @@
 """What you've decided about an arrival still waiting. Receipts stay exactly as delivered, so choices live beside them, in ignored `.reader/`.
 
-Two choices: hold keeps an arrival out of every filing run, and cloud lets models other than the local one read it. With no choice, an arrival
-without the level `normal` stays local. That covers helpers that send no level, dropped files and any level this version doesn't know. A file
+Two choices: hold keeps an arrival out of every filing run, and cloud lets models other than the local one read it. With no choice, unlabelled arrivals use the saved inbox default. Explicit restrictions and unknown levels stay local. A file
 we can't read stops the run, because it might be holding something."""
 import fcntl
 import json
@@ -70,11 +69,12 @@ def name_of(source):
 
 
 def local_only(root, name, provenance):
-    """Whether only the local model may read this arrival. Anything but a plain `normal` is local unless you chose otherwise."""
+    """Whether only the local model may read this arrival. Unlabelled arrivals use the saved default; explicit restrictions remain local."""
     if read(root).get(name) == CLOUD:
         return False
     level = provenance.get('privacy') if isinstance(provenance, dict) else None
     # Test fixtures and operators who want the old behavior can set this. It only ever applies to an arrival with no level.
     if level is None:
-        level = os.environ.get('READER_UNMARKED_PRIVACY')
+        from .uploads import settings
+        level = os.environ.get('READER_UNMARKED_PRIVACY') or settings(root)['default_privacy']
     return level != NORMAL

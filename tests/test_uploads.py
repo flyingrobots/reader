@@ -63,12 +63,12 @@ def test_a_client_cannot_set_the_servers_fields_in_provenance(vault, claim):
     assert not arrivals(vault)
 
 
-def test_the_default_level_is_no_cloud(vault):
+def test_the_default_level_is_normal(vault):
     def drop(header):
         del header['privacy']
     body, header = frame(damage=drop)
     send(vault, body)
-    assert json.loads((vault / 'inbox' / header['request_id'] / 'receipt.json').read_text())['provenance']['privacy'] == 'no-cloud'
+    assert json.loads((vault / 'inbox' / header['request_id'] / 'receipt.json').read_text())['provenance']['privacy'] == 'normal'
 
 
 @pytest.mark.parametrize('level,message', [('machine-only', 'browser on this machine'), ('secret', 'Unknown privacy')])
@@ -186,3 +186,34 @@ def test_status_route_validates_its_id(server):
     connection.request('GET', '/api/inbox/deliveries?id=../../etc')
     assert connection.getresponse().status == 400
     connection.close()
+
+
+@pytest.mark.parametrize('default', ['normal', 'no-cloud'])
+def test_saved_default_applies_only_when_upload_omits_privacy(vault, default):
+    assert uploads.settings(vault, {'default_privacy': default}) == {'default_privacy': default}
+    body, header = frame(damage=lambda header: header.pop('privacy'))
+    send(vault, body)
+    receipt = json.loads((vault / 'inbox' / header['request_id'] / 'receipt.json').read_text())
+    assert receipt['provenance']['privacy'] == default
+    body, header = frame(privacy='no-cloud' if default == 'normal' else 'normal')
+    send(vault, body)
+    receipt = json.loads((vault / 'inbox' / header['request_id'] / 'receipt.json').read_text())
+    assert receipt['provenance']['privacy'] == header['privacy']
+
+
+def test_machine_only_cannot_be_a_saved_default(vault):
+    with pytest.raises(ValueError, match='Default upload privacy'):
+        uploads.settings(vault, {'default_privacy': 'machine-only'})
+    assert uploads.settings(vault) == {'default_privacy': 'normal'}
+
+
+@pytest.mark.parametrize('default', ['normal', 'no-cloud'])
+def test_unmarked_arrivals_use_saved_default_but_explicit_levels_win(vault, default, monkeypatch):
+    from reader_mcp.arrival_choices import local_only
+    monkeypatch.delenv('READER_UNMARKED_PRIVACY', raising=False)
+    uploads.settings(vault, {'default_privacy': default})
+    assert local_only(vault, 'drop.md', None) == (default == 'no-cloud')
+    assert local_only(vault, 'drop.md', {}) == (default == 'no-cloud')
+    assert local_only(vault, 'drop.md', {'privacy': 'no-cloud'})
+    assert local_only(vault, 'drop.md', {'privacy': 'unknown'})
+    assert not local_only(vault, 'drop.md', {'privacy': 'normal'})

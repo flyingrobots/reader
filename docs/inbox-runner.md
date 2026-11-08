@@ -50,7 +50,7 @@ its prompt that the librarian is out of office and that it is a stand-in for thi
 task, not to adopt the librarian's persona, voice or name. The transcript says who is
 standing in, and the archive's `meta.json` records `stand_in`.
 
-An arrival only uses the whole order if its receipt says `"privacy": "normal"`. Any other arrival only ever uses the local model, whatever the order says: `no-cloud`, a receipt with no level, a dropped file with no receipt, or a level this version doesn't recognize.
+An arrival uses the whole order if its receipt says `"privacy": "normal"`. A receipt with no level or a dropped file with no receipt uses the saved inbox default (initially Normal), configurable on Publish. Explicit `no-cloud` or an unrecognized level only uses the local model. Existing per-arrival choices still take precedence.
 
 Receipts stay as delivered, so what you decide about an arrival lives in ignored `.reader/arrival-choices.json`, from the Inbox page or `reader inbox hold|release|allow-cloud ARRIVAL`:
 
