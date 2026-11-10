@@ -38,9 +38,16 @@ def stamp():
     return datetime.now(timezone.utc).isoformat()
 
 
-def progress(runtime, phase):
-    """Only completed script-owned steps renew the supervisor's progress deadline."""
-    atomic(runtime / 'progress.json', {'token': uuid4().hex, 'phase': phase}, limit=4096)
+COUNTS = {}
+
+
+def progress(runtime, phase, done=None, total=None):
+    """Only completed script-owned steps renew the supervisor's progress deadline.
+    Counts are arrivals, for the admin progress bar. A step without counts (a model step) repeats the last ones: the
+    supervisor reads only the newest checkpoint, so it must not lose them."""
+    if total is not None:
+        COUNTS[str(runtime)] = {'done': done, 'total': total}
+    atomic(runtime / 'progress.json', {'token': uuid4().hex, 'phase': phase, **COUNTS.get(str(runtime), {})}, limit=4096)
 
 
 def decision_schema():
@@ -711,7 +718,7 @@ def worker(root, codex, run_id):
                 entries.append(snapshot(root, source))
             except (ValueError, OSError, KeyError, TypeError, AttributeError) as exc:
                 raise ValueError(source + ': ' + str(exc)) from exc
-            progress(runtime, 'snapshot')
+            progress(runtime, 'snapshot', len(entries), len(paths))
         frozen_files = sorted(e['source'] + '/' + f['path'] if e['is_directory'] else e['source'] for e in entries for f in e['files'])
         if frozen_files != selected['files']:
             raise ValueError('Inbox contents changed after the selected inventory')
@@ -719,6 +726,12 @@ def worker(root, codex, run_id):
         atomic(queue_path, queue, limit=MAX_PLAN)
     if queue.get('schema_version') != 1 or str(UUID(queue['queue_id'])) != queue['queue_id']:
         raise ValueError('Invalid frozen queue identity')
+    # A resumed queue counts the arrivals its earlier batches already decided.
+    total = len(queue['entries']) + sum(len(r['filed']) + len(r['deferred']) for r in queue['results'])
+    def decided(plan):
+        return total - len(queue['entries']) + sum('decision' in e for e in plan['entries'])
+    # The queue is frozen: classification starts here, so the bar stops saying it is still reading.
+    progress(runtime, 'decision', total - len(queue['entries']), total)
     while queue['entries'] or pending.exists():
         if pending.exists():
             plan = validate_plan(root, load(runtime))
@@ -761,9 +774,9 @@ def worker(root, codex, run_id):
                     if (root / entry['destination']).exists():
                         raise ValueError('Planned filing destination already exists')
                 save(runtime, plan)
-                progress(runtime, 'decision')
+                progress(runtime, 'decision', decided(plan), total)
         if any(e['decision']['disposition'] == 'file' for e in plan['entries']):
-            progress(runtime, 'filing')
+            progress(runtime, 'filing', decided(plan), total)
             plan = locked_apply(root, runtime, plan)
             changes = [{'path': e['source'], 'kind': 'delete'} for e in plan['entries'] if e.get('filed')]
             changes += [{'path': e['destination'] + '/index.md', 'kind': 'add'} for e in plan['entries'] if e.get('filed')]
@@ -776,7 +789,7 @@ def worker(root, codex, run_id):
         queue['results'].append(batch)
         queue['entries'] = queue['entries'][len(plan['entries']):]
         atomic(queue_path, queue, limit=MAX_PLAN)
-        progress(runtime, 'committed')
+        progress(runtime, 'committed', total - len(queue['entries']), total)
         pending.unlink()
         clear_prepared(runtime)
     commits = [r['commit'] for r in queue['results'] if r['commit']]

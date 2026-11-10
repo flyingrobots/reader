@@ -577,3 +577,76 @@ def test_changed_later_source_refuses_the_whole_fresh_batch_before_any_move(vaul
         intake.apply_plan(vault, vault / '.reader/inbox-runner', first)
     assert (vault / 'inbox/first.md').read_text() == 'First original'
     assert not (vault / 'library/reports').exists()
+
+
+def queue_of_packets(vault, count):
+    runtime = vault / '.reader/inbox-runner'
+    sources, files = [], []
+    for number in range(count):
+        source = f'inbox/packet-{number:03}'
+        (vault / source).mkdir()
+        (vault / source / 'source.md').write_text('Source')
+        sources.append(source)
+        files.append(source + '/source.md')
+    run_id = str(uuid4())
+    (runtime / 'selection.json').write_text(json.dumps({'run_id': run_id, 'arrivals': sources, 'files': sorted(files)}))
+    return runtime, run_id
+
+
+def record_progress(monkeypatch):
+    """Every checkpoint the worker writes, read back from progress.json: what the supervisor sees."""
+    seen, original = [], intake.progress
+    def record(runtime, phase, done=None, total=None):
+        original(runtime, phase, done, total)
+        seen.append(json.loads((runtime / 'progress.json').read_text()))
+    monkeypatch.setattr(intake, 'progress', record)
+    return seen
+
+
+def defer(root, runtime, entry, codex, checkpoint):
+    value = decision(entry)
+    value.update(disposition='defer', reason='Synthetic deferral for this progress check')
+    return value
+
+
+def test_progress_counts_arrivals_read_then_decided_across_batches(vault, monkeypatch):
+    runtime, run_id = queue_of_packets(vault, 102)  # two batches: 100 and 2
+    seen = record_progress(monkeypatch)
+    monkeypatch.setattr(intake, 'classify', defer)
+    intake.worker(vault, 'never-invoked', run_id)
+    counted = [c for c in seen if 'total' in c]
+    assert counted and {c['total'] for c in counted} == {102}
+    assert [c['done'] for c in counted if c['phase'] == 'snapshot'] == list(range(1, 103))
+    decided = [c['done'] for c in counted if c['phase'] != 'snapshot']
+    assert decided[0] == 0 and decided == sorted(decided) and decided[-1] == 102
+    assert counted[-1]['phase'] == 'committed'
+    # One decision checkpoint when classification starts, then one per arrival decided.
+    assert [c['done'] for c in counted if c['phase'] == 'decision'] == list(range(0, 103))
+    assert [c['done'] for c in counted if c['phase'] == 'committed'] == [100, 102]
+
+
+def test_a_resumed_queue_counts_the_arrivals_its_earlier_batch_decided(vault, monkeypatch):
+    runtime, run_id = queue_of_packets(vault, 102)
+    def stop_in_second_batch(root, runtime, entry, codex, checkpoint):
+        if entry['source'] == 'inbox/packet-101':
+            raise RuntimeError('simulated interruption')
+        return defer(root, runtime, entry, codex, checkpoint)
+    monkeypatch.setattr(intake, 'classify', stop_in_second_batch)
+    with pytest.raises(RuntimeError, match='simulated interruption'):
+        intake.worker(vault, 'never-invoked', run_id)
+    seen = record_progress(monkeypatch)
+    monkeypatch.setattr(intake, 'classify', defer)
+    intake.worker(vault, 'never-invoked', run_id)
+    counted = [c for c in seen if 'total' in c]
+    # The first batch's 100 and the second batch's already-saved decision count from the start of the resumed run.
+    assert counted[0] == {**counted[0], 'phase': 'decision', 'done': 100, 'total': 102}
+    assert counted[-1] == {**counted[-1], 'phase': 'committed', 'done': 102, 'total': 102}
+
+
+def test_a_model_step_checkpoint_keeps_the_last_arrival_counts(vault):
+    # The supervisor reads only the newest checkpoint; a model step written right after a decision must not hide it.
+    runtime = vault / '.reader/inbox-runner'
+    intake.progress(runtime, 'decision', 2, 5)
+    intake.progress(runtime, 'editorial')
+    checkpoint = json.loads((runtime / 'progress.json').read_text())
+    assert (checkpoint['phase'], checkpoint['done'], checkpoint['total']) == ('editorial', 2, 5)

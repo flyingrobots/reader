@@ -352,3 +352,20 @@ def test_a_choice_needs_a_waiting_arrival(vault):
     with pytest.raises(ValueError):
         arrival_choices.choose(vault, 'not-waiting.md', arrival_choices.HOLD)
     assert arrival_choices.read(vault) == {}
+
+
+def test_progress_counts_are_shown_only_when_plausible():
+    from reader_mcp.inbox_runner import progress_counts
+    assert progress_counts({'phase': 'decision', 'done': 3, 'total': 7}) == {'done': 3, 'total': 7}
+    assert progress_counts({'phase': 'decision', 'done': 0, 'total': 7}) == {'done': 0, 'total': 7}
+    for bad in ({}, {'done': 3}, {'done': 8, 'total': 7}, {'done': -1, 'total': 7}, {'done': 0, 'total': 0},
+                {'done': '3', 'total': 7}, {'done': True, 'total': 7}, {'done': 3.0, 'total': 7}):
+        assert progress_counts({'phase': 'decision', **bad}) is None, bad
+
+
+def test_a_finished_run_reports_every_arrival_decided(vault, executable):
+    for name in ('second', 'third'):
+        (vault / 'inbox' / (name + '.md')).write_text('Another source')
+    assert run(vault, str(executable())) == 0
+    state = json.loads((vault / '.reader/inbox-runner/state.json').read_text())
+    assert state['phase'] == 'committed' and state['progress'] == {'done': 3, 'total': 3}

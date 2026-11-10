@@ -6,6 +6,7 @@ import {ChevronRightIcon, InboxIcon, MailIcon, SquareIcon} from 'lucide-react';
 import {toast} from 'sonner';
 import {Button} from '@/components/ui/button';
 import {Spinner} from '@/components/ui/spinner';
+import {Progress, ProgressLabel} from '@/components/ui/progress';
 import {Collapsible, CollapsibleContent, CollapsibleTrigger} from '@/components/ui/collapsible';
 import {Item, ItemActions, ItemContent, ItemDescription, ItemGroup, ItemSeparator, ItemTitle} from '@/components/ui/item';
 import {StatusBadge, type Tone} from '@/theme/atoms/status-badge';
@@ -15,7 +16,7 @@ import {EmptyState, LoadingState, Unavailable} from '@/theme/molecules/states';
 import {StatusCard} from '@/theme/organisms/status-card';
 import {ConfirmAction} from '@/theme/organisms/confirm-action';
 import {ActivityTranscript} from '../../activity/transcript';
-import type {Arrival, InboxStatus} from '../../backstage';
+import type {Arrival, InboxRun, InboxStatus} from '../../backstage';
 import type {ActivityModel} from '../../reader-controls';
 import {plural} from '../../plural';
 import {localOnly, needsReader} from '../../static-demo';
@@ -25,6 +26,26 @@ const RUN_STATES:Record<string,{label:string;tone:Tone}>={
   starting:{label:'Starting…',tone:'active'},running:{label:'Processing',tone:'active'},finished:{label:'Completed',tone:'ok'},
   empty:{label:'Nothing to file',tone:'neutral'},stopped:{label:'Stopped',tone:'neutral'},failed:{label:'Failed',tone:'error'},interrupted:{label:'Interrupted',tone:'error'}};
 export function size(bytes:number){return bytes<1024?bytes+' B':bytes<1024**2?(bytes/1024).toFixed(1)+' KB':(bytes/1024**2).toFixed(1)+' MB';}
+
+/** Reading arrivals is quick, classifying each one is the long part, and filing closes each batch. */
+export function ingestProgress(run:InboxRun|null|undefined){
+  const phase=run?.phase,done=run?.progress?.done??0,total=run?.progress?.total??0;
+  if(!phase||!total)return {value:null,label:phase==='editorial'||phase==='decision'?'Classifying arrivals':phase==='filing'?'Filing and committing':'Getting ready',count:null};
+  const decided=10+85*done/total,count=`${done} of ${total}`;
+  if(phase==='snapshot')return {value:10*done/total,label:'Reading arrivals',count};
+  if(phase==='filing')return {value:decided,label:'Filing and committing',count};
+  if(phase==='committed')return {value:done===total?100:decided,label:done===total?'Committed':'Committed a batch',count};
+  return {value:decided,label:done<total?`Classifying arrival ${done+1} of ${total}`:'Classified every arrival',count:`${done} decided`};
+}
+
+function IngestProgress({run}:{run:InboxRun|null|undefined}){
+  const {value,label,count}=ingestProgress(run);
+  return <Progress id="inbox-progress" value={value} data-phase={run?.phase||'none'} aria-label="Filing progress"
+    className="gap-2 [&_[data-slot=progress-indicator][data-indeterminate]]:w-1/3 [&_[data-slot=progress-indicator][data-indeterminate]]:animate-pulse">
+    <ProgressLabel className="text-sm font-normal text-muted-foreground">{label}</ProgressLabel>
+    {count?<span className="ml-auto text-sm text-muted-foreground tabular-nums" data-progress-count="">{count}</span>:null}
+  </Progress>;
+}
 
 function Report({markdown,html,onOpen}:{markdown:string;html:(text:string)=>string;onOpen:(path:string)=>void}){
   // Sanitized by DOMPurify; vault links open in the reader, others in a new tab.
@@ -84,6 +105,7 @@ export function InboxPage({status,error=null,starting,onMail,onStop,onChoose,onO
       {!status?(error?<Unavailable id="inbox-unavailable" what="The inbox" error={error}/>:<LoadingState>Looking in the inbox…</LoadingState>):null}
       {blocked&&!active?<Notice id="inbox-blocked" data-reason={blocked.reason} tone={['interrupted','error','model'].includes(blocked.reason)?'error':'info'}>{blocked.message}</Notice>:null}
       {active?<div className="flex min-w-0 flex-col gap-3" data-inbox-run="" aria-live="polite">
+        {run?.started_at?<IngestProgress run={run}/>:null}
         {!transcript?<span className="text-sm text-muted-foreground" data-run-clock="">{starting&&!run?.started_at?'Starting the librarian…':<>Running for {run?.started_at?<Elapsed since={run.started_at} clock/>:'…'}{run?.arrivals?<> · {plural(run.arrivals,'arrival')}</>:null}{run?.sandbox_mode==='danger-full-access'?' · Host access':''}</>}</span>
           :run?.sandbox_mode==='danger-full-access'?<span className="text-sm text-muted-foreground">Host access</span>:null}
         {transcript||(run?.event?<span className="truncate font-mono text-xs text-muted-foreground" title={run.event}>{run.event}</span>:null)}

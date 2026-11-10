@@ -491,7 +491,7 @@ class InboxView:
             result['errors'].append(f'Cannot read inbox coordination (inbox-runner/state.json): {exc}')
         if state:
             runner = {k: state.get(k) for k in ('status', 'run_id', 'started_at', 'updated_at', 'finished_at', 'message',
-                                                 'arrivals', 'remaining', 'exit_code', 'sandbox_mode')}
+                                                 'arrivals', 'remaining', 'exit_code', 'sandbox_mode', 'phase', 'progress')}
             runner['arrivals'] = state.get('arrival_count', len(state['arrivals']) if isinstance(state.get('arrivals'), list) else None)
             runner['remaining'] = state.get('remaining_count', len(state['remaining']) if isinstance(state.get('remaining'), list) else None)
             summary = state.get('result')

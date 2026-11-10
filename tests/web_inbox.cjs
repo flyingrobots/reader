@@ -55,6 +55,9 @@ const {chromium}=require(process.env.READER_PLAYWRIGHT||'playwright-core');
   await page.locator('#inbox-mail').click();
   await toast('The librarian is reading the mail…').waitFor();assert.equal(await toast('reading the mail').getAttribute('data-type'),'loading');
   await page.locator('#inbox[data-run-state=running]').waitFor();assert.ok(await page.locator('#inbox-mail').isDisabled());
+  // The progress bar: every arrival read, the first of three being classified while the fake Codex is paused.
+  const bar=page.locator('#inbox-progress').filter({hasText:'Classifying arrival 1 of 3'});await bar.waitFor({timeout:10000});
+  assert.equal(await bar.getAttribute('role'),'progressbar');assert.equal(await bar.getAttribute('aria-valuenow'),'10');
   const log=page.locator('#inbox .activity-log'),item=id=>log.locator(`[data-item-id="${id}"]`);
   await item('item_8').waitFor({timeout:10000});
   await page.screenshot({path:'.reader/web-dev/inbox-timer-and-colors.png'});

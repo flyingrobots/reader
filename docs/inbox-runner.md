@@ -197,6 +197,15 @@ snapshot, a step down the model order, validated model response, recorded decisi
 entry into filing, or committed batch renews that deadline. Model output streaming alone does not. Each
 filing stage remains bounded to 30 minutes, within its 40-minute repository lease.
 A finite frozen queue can span several such stages without manual restarts.
+
+**Progress.** Each counted checkpoint in `progress.json` also carries `done` and `total`, in arrivals: reading
+counts arrivals snapshotted; classification (a `decision` checkpoint as soon as the queue is frozen, then one per
+recorded decision), filing and committed count arrivals decided, including those an earlier, resumed batch decided.
+Steps without counts (a step down the model order) keep the last counts. The supervisor copies `phase` and, when
+`done` and `total` are integers with `0 ≤ done ≤ total` and `total > 0`, `progress` (`{"done", "total"}`) into its
+state; `/api/inbox` reports both on the runner, and Admin › Inbox draws a progress bar from them (reading is the
+first tenth, classification most of the rest, and a fully committed queue the end). Implausible counts are ignored,
+never shown.
 Cancellation allows up to 35 seconds for cleanup, including the 30-second lock
 release call, before forcefully terminating remaining descendants.
 

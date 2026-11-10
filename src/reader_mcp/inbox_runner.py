@@ -158,6 +158,14 @@ class WorkerProcesses:
                 raise
 
 
+def progress_counts(checkpoint):
+    """Arrival counts from the worker's checkpoint for the admin progress bar, or None when absent or implausible."""
+    done, total = checkpoint.get('done'), checkpoint.get('total')
+    if type(done) is int and type(total) is int and 0 <= done <= total and total > 0:
+        return {'done': done, 'total': total}
+    return None
+
+
 def run(root, codex, run_id=None, timeout=1800, workstation_lock_store=None, sandbox_mode='read-only', only=None):
     root = root.resolve(strict=True)
     runtime = root / '.reader/inbox-runner'
@@ -274,6 +282,24 @@ def run(root, codex, run_id=None, timeout=1800, workstation_lock_store=None, san
                 write_state(runtime,state)
                 deadline=time.monotonic()+timeout
                 last_progress = None
+                def follow_checkpoint():
+                    """Copy a new checkpoint's phase and counts into the state; True when it is new."""
+                    nonlocal last_progress
+                    checkpoint = runtime / 'progress.json'
+                    if not checkpoint.exists():
+                        return False
+                    if checkpoint.is_symlink() or checkpoint.stat().st_size > 4096:
+                        raise ValueError('Unsafe intake progress checkpoint')
+                    current = json.loads(checkpoint.read_text())
+                    if current.get('phase') not in ('snapshot', 'editorial', 'decision', 'filing', 'committed') or not isinstance(current.get('token'), str):
+                        raise ValueError('Invalid intake progress checkpoint')
+                    if current['token'] == last_progress:
+                        return False
+                    last_progress = current['token']
+                    state['phase'] = current['phase']
+                    if counts := progress_counts(current):
+                        state['progress'] = counts
+                    return True
                 while worker.poll() is None:
                     check_limits()
                     rss = tree.measure()
@@ -281,21 +307,14 @@ def run(root, codex, run_id=None, timeout=1800, workstation_lock_store=None, san
                         raise ValueError('Inbox run exceeded its 4 GiB process-group memory limit')
                     if (runtime/'cancel').exists():
                         state.update(status='stopped',message='Stopped by user. Inspect partial changes before retrying.');return 1
-                    checkpoint = runtime / 'progress.json'
-                    if checkpoint.exists():
-                        if checkpoint.is_symlink() or checkpoint.stat().st_size > 4096:
-                            raise ValueError('Unsafe intake progress checkpoint')
-                        current = json.loads(checkpoint.read_text())
-                        if current.get('phase') not in ('snapshot', 'editorial', 'decision', 'filing', 'committed') or not isinstance(current.get('token'), str):
-                            raise ValueError('Invalid intake progress checkpoint')
-                        if current['token'] != last_progress:
-                            last_progress = current['token']
-                            deadline = time.monotonic() + timeout
-                            state['phase'] = current['phase']
+                    if follow_checkpoint():
+                        deadline = time.monotonic() + timeout
                     if time.monotonic()>deadline:
                         raise ValueError('Inbox step exceeded its progress time limit; inspect partial changes')
                     write_state(runtime,state)
                     time.sleep(1)
+                # A quick worker can finish between polls; its last checkpoint still belongs in the state.
+                follow_checkpoint()
                 tree.stop()
                 for reader in readers: reader.join(timeout=2)
                 if any(reader.is_alive() for reader in readers):raise ValueError('Runner output did not close; inspect the owned process group')
