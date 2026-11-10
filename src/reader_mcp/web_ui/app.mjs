@@ -72,9 +72,12 @@ function passageFromHash(){
   catch{return null;}
 }
 let reading,controls,links,outline,speech,versions,search,prose,queue,scratch,quiz,writingPrompts,keys,visual,registers,quickfix,marks,jumps,panels;
+// Choose the layout preference for this window when it opens. Resizing still reflows the current layout.
+const mobileLayout = matchMedia('(max-width: 899px)').matches;
+const layoutPreferences = prefs => ({...prefs,layout:(mobileLayout?prefs.mobileLayout:prefs.layout)||'scroll'});
 let saved = {};
 try { saved = JSON.parse(localStorage.getItem('reader.preferences.v1') || '{}'); } catch {}
-const state = {prefs:{...defaults,...saved}, data:null, doc:null, threads:[], attention:[], token:null, routeId:0, pdf:null, smoother:null, find:[], findIndex:-1, findQuery:'', findCount:'0 / 0', selected:null, activeThread:null, replyTo:null, visits:[null], cursor:0, ranges:[], leader:null,themeEditorOpen:false,view:null};
+const state = {prefs:{...defaults,...layoutPreferences(saved)}, data:null, doc:null, threads:[], attention:[], token:null, routeId:0, pdf:null, smoother:null, find:[], findIndex:-1, findQuery:'', findCount:'0 / 0', selected:null, activeThread:null, replyTo:null, visits:[null], cursor:0, ranges:[], leader:null,themeEditorOpen:false,view:null};
 const fetchRequest=createTokenFetch({getToken:()=>state.token,setToken:token=>{state.token=token;}});
 // Custom theme CSS is cached so a saved custom theme paints before /api/themes answers.
 let themeCache={css:'',links:[],ids:[]};
@@ -258,7 +261,16 @@ async function loadLibrary() {
   if($('#picker'))updateExplorer();
   return data;
 }
-function savePrefs() { const url=new URL(location.href);if(url.searchParams.has('theme') && url.searchParams.get('theme')!==state.prefs.theme){url.searchParams.delete('theme');history.replaceState(history.state,'',url);}try { localStorage.setItem('reader.preferences.v1', JSON.stringify(state.prefs)); } catch {} if(split?.active())split.broadcast({type:'prefs-changed'}); }
+function savePrefs() {
+  const url=new URL(location.href);if(url.searchParams.has('theme') && url.searchParams.get('theme')!==state.prefs.theme){url.searchParams.delete('theme');history.replaceState(history.state,'',url);}
+  try {
+    const stored=JSON.parse(localStorage.getItem('reader.preferences.v1')||'{}');
+    localStorage.setItem('reader.preferences.v1',JSON.stringify({...state.prefs,
+      layout:mobileLayout?(stored.layout||'scroll'):state.prefs.layout,
+      mobileLayout:mobileLayout?state.prefs.layout:stored.mobileLayout}));
+  } catch {}
+  if(split?.active())split.broadcast({type:'prefs-changed'});
+}
 function issueOptions(){return {today:state.data.today,exclude:state.prefs.issueExclude};}
 async function renderHome(path=null,id=state.routeId) {
   state.issuePath=path;
@@ -1861,6 +1873,7 @@ else{
 function prefsFromStorage(){
   let fresh;try{fresh=JSON.parse(localStorage.getItem('reader.preferences.v1')||'{}');}catch{return;}
   if(!fresh||typeof fresh!=='object')return;
+  fresh=layoutPreferences(fresh);
   const relayout=typeof fresh.layout==='string'&&fresh.layout!==state.prefs.layout;
   const rewrap=typeof fresh.articleWidth==='string'&&fresh.articleWidth!==state.prefs.articleWidth;
   state.prefs={...state.prefs,...fresh,participant:state.prefs.participant};

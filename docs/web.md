@@ -535,6 +535,12 @@ and open the corresponding thread. Seeking uses the article's reading range (see
 
 ### Two-page mode and automatic bookmarks
 
+On mobile windows below 900 CSS pixels, articles open in continuous scrolling
+by default, even when an older desktop preference selected **Two pages**.
+Mobile and desktop layout choices are remembered separately in this browser.
+Reader chooses which preference to use when the window opens; resizing reflows
+the current layout without switching it.
+
 Choose **2 pages** in the footer or **Two pages** in settings. Text flows through
 two facing columns at a fixed viewport height, continuing across successive
 spreads. The document title flows as a full-size heading at the start of the
