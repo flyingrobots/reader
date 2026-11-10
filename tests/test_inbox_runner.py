@@ -6,7 +6,7 @@ import time
 
 import pytest
 
-from reader_mcp import arrival_choices
+from reader_mcp import arrival_choices, uploads
 from reader_mcp.inbox_runner import inventory, run, sandbox_writable_paths
 from reader_mcp import intake
 from test_intake import vault, plan_for
@@ -263,8 +263,9 @@ def test_a_scoped_run_files_only_the_chosen_arrival(vault, executable):
     assert (vault / 'inbox' / other / 'other.md').is_file() and (vault / 'inbox/test.md').is_file()
 
 
-def test_an_arrival_with_no_level_never_reaches_a_cloud_model(vault, executable, monkeypatch):
+def test_no_cloud_default_keeps_an_unlabelled_arrival_off_cloud_models(vault, executable, monkeypatch):
     monkeypatch.delenv('READER_UNMARKED_PRIVACY')
+    uploads.settings(vault, {'default_privacy': 'no-cloud'})
     fake = executable(before="(base/'cloud-saw-it').write_text('yes')")
     assert run(vault, str(fake)) == 0
     state = json.loads((vault / '.reader/inbox-runner/state.json').read_text())
@@ -272,18 +273,30 @@ def test_an_arrival_with_no_level_never_reaches_a_cloud_model(vault, executable,
     assert (vault / 'inbox/test.md').is_file()
 
 
+def test_initial_default_files_an_unlabelled_arrival_with_cloud_models(vault, executable, monkeypatch):
+    monkeypatch.delenv('READER_UNMARKED_PRIVACY')
+    fake = executable(before="(base/'cloud-saw-it').write_text('yes')")
+    assert run(vault, str(fake)) == 0
+    state = json.loads((vault / '.reader/inbox-runner/state.json').read_text())
+    assert state['result']['filed_count'] == 1
+    assert (vault / '.reader/cloud-saw-it').read_text() == 'yes'
+    assert not (vault / 'inbox/test.md').exists()
+
+
 def test_allowing_cloud_models_files_an_arrival_with_no_level(vault, executable, monkeypatch):
     monkeypatch.delenv('READER_UNMARKED_PRIVACY')
+    uploads.settings(vault, {'default_privacy': 'no-cloud'})
     arrival_choices.choose(vault, 'test.md', arrival_choices.CLOUD)
     assert run(vault, str(executable())) == 0
     assert not (vault / 'inbox/test.md').exists()
 
 
-def test_a_level_it_does_not_know_stays_local(vault, executable, monkeypatch):
+@pytest.mark.parametrize('default', ['normal', 'no-cloud'])
+@pytest.mark.parametrize('level', ['no-cloud', 'machine-only', 'NORMAL', ['normal']])
+def test_restricted_or_unknown_levels_stay_local(vault, monkeypatch, default, level):
     monkeypatch.delenv('READER_UNMARKED_PRIVACY')
-    assert arrival_choices.local_only(vault, 'x', {'privacy': 'normal'}) is False
-    for provenance in ({}, {'privacy': 'no-cloud'}, {'privacy': 'machine-only'}, {'privacy': 'NORMAL'}, {'privacy': ['normal']}, None):
-        assert arrival_choices.local_only(vault, 'x', provenance) is True
+    uploads.settings(vault, {'default_privacy': default})
+    assert arrival_choices.local_only(vault, 'x', {'privacy': level}) is True
 
 
 def test_a_held_arrival_is_left_out_of_every_run(vault, executable):

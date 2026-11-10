@@ -22,7 +22,7 @@ os.environ['PYTHONPATH'] = os.pathsep.join([SRC, *[p for p in os.environ.get('PY
 
 # A failing fake Codex must never fall through to a real Claude or agy on this machine.
 os.environ['READER_MODEL_CHAIN'] = 'codex'
-# Most fixtures deliver without a level and a fake Codex files them; the safe default has its own tests.
+# Most fixtures deliver without a level and a fake Codex files them; saved defaults have their own tests.
 os.environ['READER_UNMARKED_PRIVACY'] = 'normal'
 # Most fixtures write arrivals directly into inbox/. test_inbox_paths covers the default hidden folder.
 os.environ.setdefault('READER_INBOX', 'inbox')
