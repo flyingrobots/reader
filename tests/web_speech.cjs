@@ -1,5 +1,6 @@
 /* Send to AI-TTS against the fixture's fake daemon: footer button, Space s menu, selection,
    From here, held playback, now-playing controls, an unavailable daemon, phone width. */
+require('./jail_guard.cjs');
 const assert=require('node:assert/strict');
 const {spawn}=require('node:child_process');
 const {createInterface}=require('node:readline');

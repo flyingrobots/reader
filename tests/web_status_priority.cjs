@@ -1,5 +1,6 @@
 /* Status line priority (#74), using only a disposable synthetic vault: items give way by their declared
    data-status-priority, lowest first, so an extra item never pushes the mode or Backstage off screen. */
+require('./jail_guard.cjs');
 const assert=require('node:assert/strict');
 const {spawn}=require('node:child_process');
 const {createInterface}=require('node:readline');

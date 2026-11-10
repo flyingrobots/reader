@@ -1,4 +1,5 @@
 /* Prose colors (Colorful Language) against a synthetic vault and the fake colorful CLI. */
+require('./jail_guard.cjs');
 const assert=require('node:assert/strict');
 const {spawn}=require('node:child_process');
 const {createInterface}=require('node:readline');

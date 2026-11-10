@@ -1,6 +1,7 @@
 /* Article width: Settings sets the article column in continuous reading. Standard stays exactly as it was, wider
    choices widen the shell with it, margin pins stay on screen, two-page reading ignores it, and another tab's change
    rewraps an open article at the same line. Synthetic fixture only. */
+require('./jail_guard.cjs');
 const assert=require('node:assert/strict');
 const {spawn}=require('node:child_process');
 const {createInterface}=require('node:readline');

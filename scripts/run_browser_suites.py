@@ -25,6 +25,8 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / 'tests'))
+import jail_guard  # noqa: E402  (refuses to run outside the enforced test sandbox)
 OUT = ROOT / '.reader/web-dev/suites'
 TIMES = OUT / 'durations.json'
 
@@ -79,6 +81,7 @@ def tail(log, lines=12):
 
 
 def main(argv=None):
+    jail_guard.require()
     parser = argparse.ArgumentParser(description=__doc__.split('\n', 1)[0])
     parser.add_argument('patterns', nargs='*', help='Run only suites whose names contain one of these')
     parser.add_argument('-j', '--jobs', type=int, default=None, help='Suites at a time (default: two thirds of the cores, less the current load)')

@@ -1,4 +1,5 @@
 /* Reader Admin · Models: the filing model order and how the local model starts, saved through /api/model-chain. */
+require('./jail_guard.cjs');
 const assert=require('node:assert/strict');
 const {spawn}=require('node:child_process');
 const {createInterface}=require('node:readline');

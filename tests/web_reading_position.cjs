@@ -1,6 +1,7 @@
 /* Reading position in continuous reading: what progress measures, and which place a bookmark keeps.
  * Covers tables and embeds at the end of an article, one-screen articles, the margin between two blocks,
  * the top of a document at several window sizes, and the note for a read of a sibling edition. */
+require('./jail_guard.cjs');
 const assert=require('node:assert/strict');
 const {spawn}=require('node:child_process');
 const {createInterface}=require('node:readline');

@@ -2,6 +2,7 @@
    (Ink) theme, against the synthetic fixture. Saves one full-page screenshot per page, profile and theme under
    READER_SHOTS/page-review/, and fails on page errors, console errors or horizontal page overflow.
    Usage: node tests/web_page_review.cjs [page …]   (default: every page below). Admin has tests/web_admin_review.cjs. */
+require('./jail_guard.cjs');
 const assert=require('node:assert/strict');
 const {spawn}=require('node:child_process');
 const {createInterface}=require('node:readline');

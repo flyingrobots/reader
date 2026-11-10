@@ -1,4 +1,5 @@
 /* Quick theme changes against a disposable synthetic vault, without opening Settings. */
+require('./jail_guard.cjs');
 const assert=require('node:assert/strict');
 const {spawn}=require('node:child_process');
 const {createInterface}=require('node:readline');

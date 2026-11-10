@@ -1,6 +1,7 @@
 // Canaries for the enforced test sandbox (scripts/test_jail.py, #247), from Node: a protected path cannot be read,
 // the live Reader port cannot be reached, and loopback still works. Refusals must be permission errors; a refused
 // connection or a missing file would pass even without the sandbox.
+import './jail_guard.cjs';
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {closeSync, openSync} from 'node:fs';

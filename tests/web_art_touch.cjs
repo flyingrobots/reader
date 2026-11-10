@@ -1,4 +1,5 @@
 /* Real Chromium touch events: dragging expanded art is not a stationary long press. */
+require('./jail_guard.cjs');
 const assert=require('node:assert/strict');
 const {spawn}=require('node:child_process');
 const {createInterface}=require('node:readline');

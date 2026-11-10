@@ -1,6 +1,7 @@
 /* The shadcn Code Block for every fenced block: header, language label and copy button as decoration,
    exact source text and offsets, lazy local syntax highlighting as CSS highlights, every theme,
    annotations inside code, the Mermaid source, chat, phone width, two-page layout and the page-turn texture. */
+require('./jail_guard.cjs');
 const assert=require('node:assert/strict');
 const {spawn}=require('node:child_process');
 const {createInterface}=require('node:readline');

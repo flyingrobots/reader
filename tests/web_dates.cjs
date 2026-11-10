@@ -1,5 +1,6 @@
 /* Local dates: receipts minutes either side of midnight UTC are labelled with the reader's own day in Los Angeles and Tokyo
    (timeline tag, reading log, History groups) instead of the UTC calendar date. */
+require('./jail_guard.cjs');
 const assert=require('node:assert/strict');
 const {spawn}=require('node:child_process');
 const {createInterface}=require('node:readline');

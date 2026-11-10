@@ -3,6 +3,7 @@
    and date, and each stage's archived prompt: instructions first, the quoted article and the scene-language
    reference collapsed, with Copy. A version without a run log says the prompt was not recorded; handcrafted art
    says so. Synthetic fixture and a fake voice only; never a real model. */
+require('./jail_guard.cjs');
 const assert=require('node:assert/strict');
 const {spawn}=require('node:child_process');
 const {createInterface}=require('node:readline');

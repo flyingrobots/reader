@@ -1,3 +1,4 @@
+import './jail_guard.cjs';
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {ADMIN,adminHash,adminPath,adminPathFromHash,adminRoute,isAdminHash,isAdminPath,libraryReturn} from '../src/reader_mcp/web_ui/admin-routes.mjs';

@@ -1,4 +1,5 @@
 /* Indexes: truthful D3 geometry, shadcn composition, keyboard inspection, busy/unknown/error states and phone bounds. */
+require('./jail_guard.cjs');
 const assert=require('node:assert/strict');const {spawn}=require('node:child_process');const {createInterface}=require('node:readline');const {mkdirSync,readFileSync}=require('node:fs');
 const {chromium}=require(process.env.READER_PLAYWRIGHT||'playwright-core');
 (async()=>{let browser;const fixture=spawn(process.env.READER_PYTHON||'.venv/bin/python',['tests/web_fixture.py','--maintenance'],{stdio:['ignore','pipe','inherit']});

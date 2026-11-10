@@ -1,4 +1,5 @@
 /* The document header's Source link and `Space u`: both open the raw file bytes. Synthetic data only. */
+require('./jail_guard.cjs');
 const assert=require('node:assert/strict');
 const {spawn}=require('node:child_process');
 const {createInterface}=require('node:readline');

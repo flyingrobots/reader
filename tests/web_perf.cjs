@@ -1,4 +1,5 @@
 /* Large-document regression benchmark: a ~2 MB synthetic Markdown document must render, anchor and paginate promptly. */
+require('./jail_guard.cjs');
 const assert=require('node:assert/strict');
 const {spawn}=require('node:child_process');
 const {createInterface}=require('node:readline');

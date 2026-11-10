@@ -1,4 +1,5 @@
 /* Explorer split geometry and AI-TTS catalog recovery without remounting the page. */
+require('./jail_guard.cjs');
 const assert=require('node:assert/strict');
 const {spawn}=require('node:child_process');const {createInterface}=require('node:readline');
 const {writeFileSync,rmSync}=require('node:fs');const {join}=require('node:path');

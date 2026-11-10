@@ -1,5 +1,6 @@
 /* Right-hand panels dock beside the page on wide screens: the page gives up the panel's width, nothing is covered,
    no backdrop or shadow, and the reader's line stays put; narrow windows keep the overlay. Synthetic data, fake voices. */
+require('./jail_guard.cjs');
 const assert=require('node:assert/strict');
 const {spawn}=require('node:child_process');
 const {createInterface}=require('node:readline');

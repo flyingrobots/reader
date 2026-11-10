@@ -2,6 +2,7 @@
    whole first spread in two-page reading, with the text from the next spread on; the Artist's note is reachable and a
    button leads into the text. Spread math, page-turn rasterization, bookmarks, heading jumps and find stay correct.
    Articles without art are unchanged, and a setting turns the hero off. Synthetic fixture only; never a real model. */
+require('./jail_guard.cjs');
 const assert=require('node:assert/strict');
 const {spawn}=require('node:child_process');
 const {createInterface}=require('node:readline');

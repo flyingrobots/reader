@@ -1,4 +1,5 @@
 /* Theme Editor against a disposable synthetic vault and a fake Google Fonts. */
+require('./jail_guard.cjs');
 const assert=require('node:assert/strict');
 const {spawn}=require('node:child_process');
 const {createInterface}=require('node:readline');

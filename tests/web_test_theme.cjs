@@ -1,5 +1,6 @@
 /* The browser suites' frozen test theme (tests/test_theme_fixture.py): the default from the first paint, explicit themes
    still win, and the frozen stylesheet still matches what the app builds from the frozen JSON. */
+require('./jail_guard.cjs');
 const assert=require('node:assert/strict');
 const {spawn}=require('node:child_process');
 const {createInterface}=require('node:readline');

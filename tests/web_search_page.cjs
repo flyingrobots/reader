@@ -1,4 +1,5 @@
 /* The search page: Space /, passages with custom-highlighted terms, facets in the URL, keys, open-at-passage in both layouts, phone width. */
+require('./jail_guard.cjs');
 const assert=require('node:assert/strict');
 const {spawn}=require('node:child_process');
 const {createInterface}=require('node:readline');

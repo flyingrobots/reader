@@ -1,6 +1,7 @@
 /* Math typeset by KaTeX: display, inline, invalid and currency cases, copying TeX,
    annotations beside math, two-page fit, the page-turn texture and lazy local loading.
    A math-heavy document is shown before its formulas typeset, and keeps the reader's place. */
+require('./jail_guard.cjs');
 const assert=require('node:assert/strict');
 const {spawn}=require('node:child_process');
 const {createInterface}=require('node:readline');

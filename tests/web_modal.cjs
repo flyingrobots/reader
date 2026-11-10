@@ -1,6 +1,7 @@
 /* The modal keyboard (synthetic data): VISUAL selections anchor like mouse ones, the `:` command line,
    registers and Ctrl-r, the location list, marks and jumps, document motions, the generated help, and
    two-page VISUAL. No page errors, no external requests and no key capture while typing. */
+require('./jail_guard.cjs');
 const assert=require('node:assert/strict');
 const {spawn}=require('node:child_process');
 const {createInterface}=require('node:readline');

@@ -1,4 +1,5 @@
 /* Reading log under the title: marks and order, expanded groups, folded agents, your own read, find exclusion, phone width, two pages, PDFs, errors and every theme. */
+require('./jail_guard.cjs');
 const assert=require('node:assert/strict');
 const {spawn}=require('node:child_process');
 const {createInterface}=require('node:readline');

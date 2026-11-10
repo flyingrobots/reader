@@ -1,4 +1,5 @@
 /* Two-page annotation pins sit in the gutter, clear of the text (synthetic data). */
+require('./jail_guard.cjs');
 const assert=require('node:assert/strict');
 const {spawn}=require('node:child_process');
 const {createInterface}=require('node:readline');

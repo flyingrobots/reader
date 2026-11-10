@@ -1,5 +1,6 @@
 /* Scratch pad (RW-33): Space w buffers, Vim modes and Escape, the shared-renderer preview (Mermaid and math), drafts that
    survive reload, :drafts, :cite, Save to vault with its commit, Edit in scratch giving .v2.md, 390px layout, lazy editor chunk. */
+require('./jail_guard.cjs');
 const assert=require('node:assert/strict');
 const {spawn,execFileSync}=require('node:child_process');
 const {createInterface}=require('node:readline');

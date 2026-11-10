@@ -1,3 +1,4 @@
+require('./jail_guard.cjs');
 const test=require('node:test');
 const assert=require('node:assert/strict');
 const {pathToFileURL}=require('node:url');

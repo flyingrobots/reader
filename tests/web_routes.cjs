@@ -1,4 +1,5 @@
 /* Routes: heading fragments in #read= URLs, the h / l visit list after hash arrivals, and missing documents (synthetic data). */
+require('./jail_guard.cjs');
 const assert=require('node:assert/strict');
 const {spawn}=require('node:child_process');
 const {createInterface}=require('node:readline');

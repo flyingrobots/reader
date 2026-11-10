@@ -1,4 +1,5 @@
 /* Live Ex suggestions: names, contextual arguments, keyboard/click acceptance, safe execution and phone bounds. */
+require('./jail_guard.cjs');
 const assert=require('node:assert/strict');const {spawn}=require('node:child_process');const {createInterface}=require('node:readline');const {chromium}=require(process.env.READER_PLAYWRIGHT||'playwright-core');const {mkdirSync}=require('node:fs');
 (async()=>{let browser;const fixture=spawn(process.env.READER_PYTHON||'.venv/bin/python',['tests/web_fixture.py'],{stdio:['ignore','pipe','inherit']});try{
 const {url}=await new Promise((resolve,reject)=>{createInterface({input:fixture.stdout}).once('line',s=>resolve(JSON.parse(s)));fixture.once('exit',c=>reject(Error('fixture '+c)));});

@@ -1,4 +1,5 @@
 /* Reader Admin's Indexes and Settings pages: index cards, job toasts, settings, and Read next at the end of a document. */
+require('./jail_guard.cjs');
 const assert=require('node:assert/strict');
 const {spawn}=require('node:child_process');
 const {createInterface}=require('node:readline');

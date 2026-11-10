@@ -17,6 +17,13 @@ python3 scripts/test_jail.py -- npm run test:server
 Run the installs (`uv sync`, `npm ci`, `npm run build` in `web/`) outside the sandbox first; they write caches in your
 home folder, which the sandbox refuses.
 
+Tests refuse to run any other way. Every entry point loads a guard first (`tests/jail_guard.py` through
+`tests/conftest.py`, `tests/web_fixture.py` and `scripts/run_browser_suites.py`; `tests/jail_guard.cjs` at the top of
+every browser suite, Node test, contract harness, `server/` test and Obsidian plugin test), and exits with the command
+to use instead. Setting the runner's variables by hand does not get past it: the guard writes to the runner's probe
+directory, which only the sandbox refuses, so a successful write means no sandbox. `tests/test_jail_guard.py` finds
+every entry file the way the runners do and fails when one lacks the guard, so a new suite cannot skip it.
+
 ## What the sandbox allows
 
 On macOS the runner writes a `sandbox-exec` profile for each run. Child processes inherit it.
@@ -44,8 +51,10 @@ be read: the live vault would then be unknown.
   when the service tests run it, detects that (the process is sandboxed and the sandbox's probe refuses a write) and
   relies on the outer sandbox.
 - Linux: the runner only accepts a container marked `READER_TEST_JAIL=container` with `/.dockerenv` or
-  `/run/.containerenv`, and runs the command unchanged there. CI's workers (`scripts/check_container.py`) already run
-  in containers with no host mounts.
+  `/run/.containerenv`, and runs the command unchanged there. CI's workers (`scripts/check_container.py`) run in such
+  containers, with no host mounts, and set the marker.
+- The Obsidian plugin's `plugins/reader/tests/live/` scripts are not tests: they are manual acceptance checks, run from a
+  real vault against a running Obsidian, and are outside the guard by design.
 
 ## The service updater's smoke step
 
@@ -59,7 +68,7 @@ Before deploying a commit, `scripts/reader_service.py` smoke-tests it in a tempo
 `tests/test_jail_canaries.py` and `tests/jail_canary.test.mjs` try each refused action and require a permission error,
 not some other failure: a refused connection or a missing file would also fail, and would pass without the sandbox.
 Positive controls show loopback and the run directory still work. `tests/test_test_jail.py` covers the runner's
-refusals. Outside the sandbox the canaries skip.
+refusals. Outside the sandbox the guard stops them before they run.
 
 To show a rule matters, build a profile without it and run the canaries; exactly the matching canary fails. Do this
 from a scratch script that calls `prepare()` and `command_for()`; the runner has no option to weaken itself.

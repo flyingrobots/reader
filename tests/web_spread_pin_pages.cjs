@@ -1,4 +1,5 @@
 /* Two-page margin pins appear only on the spread that shows their highlight, beside its line and column (synthetic data). */
+require('./jail_guard.cjs');
 const assert=require('node:assert/strict');
 const {spawn}=require('node:child_process');
 const {createInterface}=require('node:readline');

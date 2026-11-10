@@ -1,3 +1,4 @@
+import './jail_guard.cjs';
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {isoWeek,weekRange,issueWindow,currentIssue,issueWeeks,selectIssue,interest,candidates,minutes,section,parseExcluded,DEFAULT_EXCLUDED_TYPES} from '../src/reader_mcp/web_ui/magazine.mjs';

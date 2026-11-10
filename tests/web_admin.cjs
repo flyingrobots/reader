@@ -2,6 +2,7 @@
    points and legacy route, Settings opening at its top without scrollIntoView, Back/Forward and direct reloads, Back to
    Library restoring the document's saved place (and a split layout) without new reading progress, no reading chrome or
    smoother in Admin, unavailable backends, a read-only Overview, focus and keyboard use, and phone width (synthetic data). */
+require('./jail_guard.cjs');
 const assert=require('node:assert/strict');
 const {spawn}=require('node:child_process');
 const {createInterface}=require('node:readline');

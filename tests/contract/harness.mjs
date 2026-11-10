@@ -19,6 +19,7 @@
 // never be pointed at a real library. Children get a scrubbed environment: a temporary HOME, a
 // minimal PATH, no READER_ROOT or GIT_LOCKS_STORE, dead model/speech endpoints, no agent CLI
 // search folders and git-locks disabled. Only the demo's scripted voices (no AI) ever run.
+import '../jail_guard.cjs';
 import {spawn, spawnSync} from 'node:child_process';
 import {existsSync, mkdtempSync, mkdirSync, readFileSync, realpathSync, rmSync, writeFileSync, readdirSync, statSync} from 'node:fs';
 import http from 'node:http';

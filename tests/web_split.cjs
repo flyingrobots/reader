@@ -1,5 +1,6 @@
 /* Split view (RW-32): Ctrl-w keys, panes as embedded same-origin apps, the shell's status bar, open-in-split, per-pane
    bookmarks and receipts, theme sync, history, layout restore, side-by-side compare with scrollbind, two-page panes, phone refusal. */
+require('./jail_guard.cjs');
 const assert=require('node:assert/strict');
 const {spawn}=require('node:child_process');
 const {createInterface}=require('node:readline');

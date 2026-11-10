@@ -1,5 +1,6 @@
 // reader:prompt v1 (RW-44) in the browser: the shared corpus, a generated agreement corpus, rendering and mounting.
 // tests/test_prompt_blocks.py runs the same corpus and the generated cases through the server parser.
+import './jail_guard.cjs';
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';

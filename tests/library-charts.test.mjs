@@ -1,3 +1,4 @@
+import './jail_guard.cjs';
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {arrivalCalendar,readingTopics,shelfHierarchy} from '../web/src/admin/pages/gallery-model.ts';

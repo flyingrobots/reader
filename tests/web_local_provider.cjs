@@ -1,4 +1,5 @@
 /* Reader Admin · Models: the local model with any OpenAI-compatible provider: presets, discovery, "start it yourself", a run on fake Ollama, llama.cpp, the remote opt-in and its notice, the API key never shown, phone width. Fake servers only. */
+require('./jail_guard.cjs');
 const assert=require('node:assert/strict');
 const {spawn}=require('node:child_process');
 const {createInterface}=require('node:readline');

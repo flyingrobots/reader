@@ -30,6 +30,13 @@ os.environ.setdefault('READER_INBOX', 'inbox')
 os.environ['READER_HOME'] = str(Path(tempfile.gettempdir()) / f'reader-test-home-{os.getpid()}')
 os.environ['READER_AUTHORIZED_KEYS'] = str(Path(os.environ['READER_HOME']) / 'authorized_keys')
 
+# No test runs outside the enforced sandbox (scripts/test_jail.py, docs/testing.md).
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import jail_guard  # noqa: E402
+
+if reason := jail_guard.problem():
+    pytest.exit(f'{jail_guard.MESSAGE}\n({reason})', returncode=2)
+
 import reader_mcp  # noqa: E402
 
 if not Path(reader_mcp.__file__).resolve().is_relative_to(Path(SRC).resolve()):

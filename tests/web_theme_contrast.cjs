@@ -1,6 +1,7 @@
 /* Every surface in every shipped theme: text reads at WCAG AA and control borders at 3:1, measured from what the browser computed and composited over what is
    behind it. Text over images is skipped, because no single background color exists to measure against. Hover and focus states aren't covered.
    READER_CONTRAST_ONLY=name limits a run to surfaces whose names contain it. */
+require('./jail_guard.cjs');
 const assert=require('node:assert/strict');
 const {spawn}=require('node:child_process');
 const {createInterface}=require('node:readline');

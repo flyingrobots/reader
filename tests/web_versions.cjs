@@ -1,4 +1,5 @@
 /* Version explorer: the chip and its status twin, the Space v timeline, read-only historical versions, any-to-any comparison, phone sheet. */
+require('./jail_guard.cjs');
 const assert=require('node:assert/strict');
 const {spawn}=require('node:child_process');
 const {createInterface}=require('node:readline');

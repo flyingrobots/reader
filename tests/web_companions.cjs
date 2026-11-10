@@ -1,6 +1,7 @@
 /* Companions with git-locks absent and fake tools only: the not-installed prompt (Space s, Space c), Don't show again,
    Install from the prompt as a background job with progress and toasts, the Companions card (status, guide, Copy, confirm,
    Set path, install log), and the git-locks fallbacks end to end: a chat reply, a scratch pad save and a local-model run. */
+require('./jail_guard.cjs');
 const assert=require('node:assert/strict');
 const {spawn,execFileSync}=require('node:child_process');
 const {createInterface}=require('node:readline');

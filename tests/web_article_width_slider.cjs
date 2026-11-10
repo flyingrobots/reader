@@ -1,5 +1,6 @@
 /* The footer's article width slider: only for articles, only in continuous reading, never on a phone. Dragging rewraps
    live, saves once on release, keeps the reading line, and leaves the reading keys working. Synthetic fixture only. */
+require('./jail_guard.cjs');
 const assert=require('node:assert/strict');
 const {spawn}=require('node:child_process');
 const {createInterface}=require('node:readline');

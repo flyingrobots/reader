@@ -1,6 +1,7 @@
 /* A slow version timeline never holds back the text: with /api/versions delayed by 2 s the article is shown first,
  * the chip arrives afterwards, the reading position stays on the same block (scroll and two pages), and deep links
  * to an edition or a historical commit still open that edition. */
+require('./jail_guard.cjs');
 const assert=require('node:assert/strict');
 const {spawn}=require('node:child_process');
 const {createInterface}=require('node:readline');

@@ -1,6 +1,7 @@
 /* Obsidian callouts: rendering in three themes, exact annotation anchoring over callout
    bodies, find into folded callouts, contrast in every built-in theme, the two-page
    rasterizer and phone width. Synthetic fixture only. */
+require('./jail_guard.cjs');
 const assert=require('node:assert/strict');
 const {spawn}=require('node:child_process');
 const {createInterface}=require('node:readline');

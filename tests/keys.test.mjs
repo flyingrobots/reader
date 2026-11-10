@@ -1,5 +1,6 @@
 // The keymap's sequence parser: tokens, counts, "a registers, multi-key timeouts, leader swallowing,
 // declining bindings and the mode stack's Escape. No DOM: keys.mjs only touches the page when it exists.
+import './jail_guard.cjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createKeys,keyToken,parseKeys,matchKeys,keyLabel,closest,LIMITS} from '../src/reader_mcp/web_ui/keys.mjs';

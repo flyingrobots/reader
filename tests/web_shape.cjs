@@ -1,6 +1,7 @@
 /* Article shapes (RW-20) as the data view (`:shape`): no longer the magazine's art (RW-43). An article's shape
    above its kicker, reduced motion, identical across reloads, two articles differ, keys and hover, a live canvas
    at most 30 fps, SVG without WebGL, short pieces, the term form and phone width. */
+require('./jail_guard.cjs');
 const assert=require('node:assert/strict');
 const {spawn}=require('node:child_process');
 const {createInterface}=require('node:readline');

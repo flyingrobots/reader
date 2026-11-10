@@ -1,5 +1,6 @@
 // The browser's scene validator (web_ui/art-scene.mjs) against the shared fixtures: the same verdicts and
 // the very same error messages as the server's validator (src/reader_mcp/art_scene.py), case for case.
+import './jail_guard.cjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync,readdirSync} from 'node:fs';

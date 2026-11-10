@@ -1,4 +1,5 @@
 /* Chat with the voices: Space m, @mentions, streamed replies, replies, raised hands and chime-ins, Kai paste, cancel, reload and phone width. Fake voices only. */
+require('./jail_guard.cjs');
 const assert=require('node:assert/strict');
 const {spawn}=require('node:child_process');
 const {createInterface}=require('node:readline');

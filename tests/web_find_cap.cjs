@@ -1,4 +1,5 @@
 /* Find reports a capped count as a floor ("2000+") and an exact count otherwise (synthetic data). */
+require('./jail_guard.cjs');
 const assert=require('node:assert/strict');
 const {spawn}=require('node:child_process');
 const {createInterface}=require('node:readline');

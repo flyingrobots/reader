@@ -1,4 +1,5 @@
 /* Two-page resize keeps the reading position and re-checks Read next placement (synthetic data). */
+require('./jail_guard.cjs');
 const assert=require('node:assert/strict');
 const {spawn}=require('node:child_process');
 const {createInterface}=require('node:readline');

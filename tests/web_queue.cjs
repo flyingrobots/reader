@@ -1,4 +1,5 @@
 /* Reading queue (Space r): q from Read next, reorder across reload, Now reading, Space n, History, themes and phone width. */
+require('./jail_guard.cjs');
 const assert=require('node:assert/strict');
 const {spawn}=require('node:child_process');
 const {createInterface}=require('node:readline');

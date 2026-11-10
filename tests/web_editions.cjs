@@ -1,4 +1,5 @@
 /* Editions: the edition line, newer-version callout, Space v menu (Popover / phone Sheet) and Backstage diagnostics. */
+require('./jail_guard.cjs');
 const assert=require('node:assert/strict');
 const {spawn}=require('node:child_process');
 const {createInterface}=require('node:readline');

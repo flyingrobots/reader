@@ -1,5 +1,6 @@
 /* Mermaid diagrams drawn by Pele: figures, error fallback, live theming, find, annotations,
    the enlarge dialog, two-page fit, the page-turn texture and local-only loading. */
+require('./jail_guard.cjs');
 const assert=require('node:assert/strict');
 const {spawn}=require('node:child_process');
 const {createInterface}=require('node:readline');

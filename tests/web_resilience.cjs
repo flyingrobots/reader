@@ -1,4 +1,5 @@
 /* Resilience: partial metadata loads margins; secondary-request failures keep the article; assets survive concurrency. */
+require('./jail_guard.cjs');
 const assert=require('node:assert/strict');
 const {spawn}=require('node:child_process');
 const {createInterface}=require('node:readline');

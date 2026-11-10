@@ -2,6 +2,7 @@
    serves under /reader/. The magazine, documents, outline, editions and What changed, Read next, the link
    graph, keyword search, themes, a PDF, an image, article art and a local-only highlight all work, no request reaches
    /api/* on the server or leaves the origin, and the shim is inert on a page without the flag. */
+require('./jail_guard.cjs');
 const assert=require('node:assert/strict');
 const {spawnSync}=require('node:child_process');
 const http=require('node:http');

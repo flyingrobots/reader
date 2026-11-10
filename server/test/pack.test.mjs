@@ -1,6 +1,7 @@
 // The packed artifact is what users get: build the tarball, install it into a fresh
 // directory outside the checkout and run its bin from there. `npm test` builds dist first;
 // --ignore-scripts keeps prepack from rewriting dist while the lock tests import it.
+import '../../tests/jail_guard.cjs';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFile } from 'node:child_process';

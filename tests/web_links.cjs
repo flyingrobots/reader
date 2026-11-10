@@ -1,4 +1,5 @@
 /* Link previews on hover and focus, the Linked from list, its two-page placement, and the Link graph card. */
+require('./jail_guard.cjs');
 const assert=require('node:assert/strict');
 const {spawn}=require('node:child_process');
 const {createInterface}=require('node:readline');

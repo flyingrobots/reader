@@ -1,4 +1,5 @@
 /* The Server card on Reader Admin's Service & tools page: commit, source, Tailscale address, identity, and the Update now / Pause toasts. */
+require('./jail_guard.cjs');
 const assert=require('node:assert/strict');
 const {spawn}=require('node:child_process');
 const {createInterface}=require('node:readline');

@@ -1,4 +1,5 @@
 /* Document outline: continuous rail, ]] / [[, Space o, two-page popover, phone sheet, embeds, short documents and PDF outlines. */
+require('./jail_guard.cjs');
 const assert=require('node:assert/strict');
 const {spawn}=require('node:child_process');
 const {createInterface}=require('node:readline');

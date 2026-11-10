@@ -1,4 +1,5 @@
 /* A label on a shape its author colored stays readable in every theme: at least 4.5:1, measured from what the browser computed. */
+require('./jail_guard.cjs');
 const assert=require('node:assert/strict');
 const {spawn}=require('node:child_process');
 const {createInterface}=require('node:readline');

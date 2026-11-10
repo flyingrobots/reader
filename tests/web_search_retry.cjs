@@ -1,4 +1,5 @@
 /* A content search refused with 429 (another search running) retries with backoff instead of showing an empty "try another phrase" state. */
+require('./jail_guard.cjs');
 const assert=require('node:assert/strict');
 const {spawn}=require('node:child_process');
 const {createInterface}=require('node:readline');

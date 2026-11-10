@@ -1,6 +1,10 @@
 """Disposable, synthetic browser fixture. No configured/private vault access."""
 import os
 
+import jail_guard
+
+jail_guard.require()
+
 # A failing fake Codex must never fall through to a real Claude or agy on this machine.
 os.environ['READER_MODEL_CHAIN'] = 'codex'
 os.environ['READER_UNMARKED_PRIVACY'] = 'normal'

@@ -3,6 +3,7 @@
    Esc or Close returns to the same place in both layouts with focus restored. Regenerate this opens the Prompt
    Input prefilled with the version's direction (or its Artist's note), with the Art made by menu; submitting queues
    a new version with the edited direction (a fake voice), and the note then counts two versions. Synthetic only. */
+require('./jail_guard.cjs');
 // suite: exclusive (drives the live 3D scene, which the art kill switch turns into a still on a starved machine; run_browser_suites.py runs it on a quiet machine)
 const assert=require('node:assert/strict');
 const {spawn}=require('node:child_process');

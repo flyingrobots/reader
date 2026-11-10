@@ -1,4 +1,5 @@
 /* Dashboard (Reader Admin's Library page), browse-first picker and theme acceptance on a synthetic vault. */
+require('./jail_guard.cjs');
 const assert=require('node:assert/strict');
 const {spawn}=require('node:child_process');
 const {createInterface}=require('node:readline');
