@@ -13,6 +13,10 @@ and the Python server, CLI and MCP are unchanged.
 | `server/dist/` | Compiled JavaScript and `.d.ts` files. Ignored by Git; this, with `package.json`, is all the tarball ships |
 | `server/test/` | `node:test` suites: `pack.test.mjs` and `lock.test.mjs`, with Python and Node fixtures in `fixtures/` |
 
+From PR 5 the sources split into port interfaces (`src/ports/`), real adapters (`src/adapters/`) and fakes
+(`src/fakes/`), with one contract suite per port in `test/ports/` and a ratchet that keeps host calls inside
+adapters; see [driven ports](plan.md#driven-ports-fakes-and-contract-suites).
+
 ```sh
 npm run test:server              # from the repository root: npm ci, type-check, build, test
 npm --prefix server run check    # tsc --noEmit with the strict tsconfig

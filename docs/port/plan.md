@@ -1,6 +1,9 @@
 # Porting the Reader server to TypeScript: phase 0 and the plan
 
-Status: the D1 plan, revision 2, with the user's rulings of 2026-10-27 (see [Decisions](#decisions)). Written
+Status: the D1 plan, revision 3. Revision 2 recorded the user's rulings of 2026-10-27 (see
+[Decisions](#decisions)). Revision 3 (#248) adds [driven ports](#driven-ports-fakes-and-contract-suites): every
+port ships a real adapter, a fake and one contract suite that runs against both, a `server/` ratchet keeps direct
+host calls inside adapters, and the PR table names which PR introduces each port. Written
 with the phase 0 foundation (`docs/port/surface.md`, `tests/contract/`, `scripts/port_bench.mjs`). Nothing here
 ports production code. Measurements were taken on one Apple-silicon
 Mac (18 cores, 64 GiB) on 2026-10-26; they are indicative, not a benchmark suite.
@@ -212,6 +215,68 @@ flowchart LR
   bypass it; the docs say so.
 - **Packaging:** modules inside Reader; a separate package only when another app needs it.
 
+## Driven ports, fakes and contract suites
+
+The operations layer reaches storage and the host only through driven ports. Each port is a small TypeScript
+interface in Reader's own terms. Tests drive operations through those interfaces with fakes, so no TypeScript
+test outside a port's own contract suite needs real storage, a real git, a model or a speaker.
+
+| Port | Covers | Real adapter | Fake | Introduced by |
+| - | - | - | - | - |
+| Lock | exclusive `.reader/*.lock` files shared with Python | `helperLockAdapter` (`server/src/lock.ts`, PR 1b) | in-memory locks keyed by path, waits on the clock port's timers | 1b (real adapter); fake and contract suite in 5 |
+| Clock | the current time and timers | `Date.now()`, `setTimeout` | a settable clock; timers fire when the test advances it | 5 |
+| ID generation | comment, chat and job IDs | `crypto.randomUUID()` | a seeded sequence | 5 |
+| Environment | configuration read from the process environment | a snapshot of `process.env` at start | a plain map | 5 |
+| Vault files | reading and writing vault files: atomic replace (write, fsync, link-publish), symlink refusal, directory listing | `node:fs` | an in-memory tree that can hold symlinks and refuses them the same way | 5 |
+| SQLite stores | one port per store, in domain terms: links (8), search and the embedding cache (10), local-model outputs (15), catalog (19) | `node:sqlite` on the vault's file | in-memory; a store whose behaviour is SQL itself (FTS5 ranking) may use the real adapter on `:memory:` | 8, 10, 15, 19 |
+| Git | revisions, blobs and diffs through `git cat-file --batch` | the `git` binary | an in-memory object store | 9 |
+| Model providers | embeddings (10); completions and local-model server control (15) | OpenAI-compatible HTTP (LM Studio included); the Python index worker as one more adapter until PR 20 | deterministic vectors and scripted replies | 10, extended in 15 |
+| Process supervisor | process groups, limits, RSS polling, deadlines, bounded logs | `node:child_process` with the `ulimit` wrapper | scripted children: recorded spawn requests, played-back output and exits | 12 |
+| Speech | speaking text through AI-TTS | the AI-TTS socket over `node:net` | records what was asked to be spoken | 13 |
+
+Every port has four parts, all in the `server/` package:
+
+1. **An interface module,** `server/src/ports/<port>.ts`: the interface, its option types and its errors.
+2. **The real adapter,** under `server/src/adapters/<port>/`. Only adapters import host modules.
+3. **A fake,** `server/src/fakes/<port>.ts`, owned with the real adapter and changed in the same PR. Fakes are
+   type-checked with the package and left out of the tarball (the pack test pins its file list).
+4. **One contract suite,** `server/test/ports/<port>.test.mjs`, written once and run against both the real adapter
+   and the fake. A real adapter runs against a temporary local resource (a directory, a git repository, a
+   database file, a child process) or, for model providers and speech, the existing loopback stand-ins
+   (`tests/fake_lmstudio.py`, `tests/fake_openai_servers.py`, the fake AI-TTS server). A behaviour the fake gets
+   wrong fails its suite, so no fake drifts from the real thing.
+
+A PR that adds a method to a port adds it to the interface, the real adapter, the fake and the contract suite
+together. Behaviour only the real thing can show, such as Python interop and a killed holder releasing a lock,
+stays in real-only tests beside the suite. These port suites are separate from `tests/contract/`, which remains
+the cross-language gate over HTTP, stdio and vault files. PR 12 needs only PR 2, so it may land before PR 5; if
+it does, it creates this layout for itself.
+
+**The lock adapter is the first example.** PR 1b already has the shape: callers depend on `LockAdapter`, timers
+are injected, and `helperLockAdapter` is one replaceable implementation. Its fake and contract suite land with the
+first PR that needs a lock in a test without the host, planned as PR 5; its interface moves to
+`server/src/ports/lock.ts` there, and the `reader-library/lock` export keeps working. `lock.test.mjs` keeps the
+Python contention and crash tests as real-only tests.
+
+### The ratchet
+
+A `server/` check, run by `npm run test:server` and so in CI, fails when production code outside
+`server/src/adapters/` does any of these directly:
+
+- imports `node:fs`, `node:child_process`, `node:sqlite` or `node:net`, in any spelling (`fs`, `node:fs/promises`);
+- reads `process.env`;
+- calls `Date.now()` (or `new Date()` with no argument), `Math.random()` or `crypto.randomUUID()`.
+
+Tests, fakes and fixtures are not production code. Each existing violation is listed in an allowlist with its file
+and call. The allowlist can only shrink: the check fails on a violation that is not listed, on a listed entry that
+no longer occurs (delete it), and on any entry the merge base did not have. The check lands in PR 5. Its first
+allowlist holds what is on `main` then: `cli.ts` reading its own `package.json`, and the front's environment reads,
+child supervision and static-file reads from PRs 2 to 4. Each entry leaves with the PR that gives it a port, and
+the list is empty by PR 21.
+
+**Scope:** the Python server gets no ports. It is being replaced, and refactoring it would be wasted work, as with
+#16. Running its suites, and the contract suite, in OS-level isolation is a separate change, tracked in #247.
+
 ## Annotation anchors during the port
 
 - Annotations keep today's convention, **Unicode code-point offsets**. JavaScript strings are UTF-16 and Rust
@@ -224,7 +289,9 @@ flowchart LR
 ## The ordered PRs
 
 Each row is one atomic PR. Prerequisites name only PRs that must be merged for this one to be correct. "Contract"
-means the whole suite passes against both the front and Python, plus the tests named.
+means the whole suite passes against both the front and Python, plus the tests named. From PR 5 on, "port" means
+the interface, real adapter, fake and contract suite described in [Driven ports](#driven-ports-fakes-and-contract-suites);
+operation tests use the fakes of the ports they touch, and those ports' contract suites pass.
 
 | # | Scope | Prerequisites (why) | Acceptance |
 | - | - | - | - |
@@ -234,23 +301,23 @@ means the whole suite passes against both the front and Python, plus the tests n
 | 2 | TS front, pass-through: `server/` binds the port, implements identity, token, admission pools, body limits, headers, error mapping and SSE pass-through; it supervises the Python child (start, restart, stop with it) | 1 (without the identity handoff, tailnet users would look local, and companion path-setting would open up), 1b (the front ships in that package and uses its lock adapter) | full contract against the front; front tests: a child crash gives 503 and then recovers, and a client hang-up frees the slot at once |
 | 3 | Updater: the smoke step runs `tests/contract` read and security tests against the candidate's real entry point; `start_web.py --front` and `reader_service.py install --front` switch the LaunchAgent to the front (default off) | 2 (the front must exist to be smoked) | smoke passes in both modes; flipping the flag and kickstarting serves the same vault; rollback by flag |
 | 4 | Port static files, `/api/health`, `/api/file`, themes and fonts | 2 | read/security/theme tests; ranges, CSP and sandbox headers |
-| 5 | The operations layer and TS vault primitives (atomic replace with fsync and link-publish, symlink refusals, code-point offsets), plus the annotate, record-a-reading and bookmark operations with their stores: `POST /api/annotations`, `/api/seen`, `/api/bookmark`, `GET /api/discussion` | 2 | write tests; ok/refused/conflict cases with a stale basis; the flock coexistence test with a TS writer; the anchor cases (emoji, combining marks, repeated passages, transformed reading copies); conflict cases (two replacements of one comment, an edit racing a delete) surface a conflict |
-| 6 | Works and documents: coverage and catalog reading, frontmatter (YAML parity corpus), `/api/library`, `/api/document`, `/api/preview`, `/api/readers`, `/api/standfirst`, `/api/issue`, `/api/editions*` | 5 (bootstrap and readers report receipts and threads) | read tests; a frontmatter parity corpus run through both implementations |
-| 7 | Queue, history and next (related works without vectors): `/api/queue`, `/api/history`, `/api/next` | 6 (rows are built from works) | read/write queue tests; value tests for the suggestion order |
-| 8 | Link graph: `links.sqlite3` read and refresh, `/api/links`, `/api/link-counts`, `/api/resolve*`, `/api/embeds` | 6 (resolution uses the works inventory) | read tests; the transclusion corpus `tests/fixtures/transclusion/corpus.json` |
-| 9 | Versions and changes through `git cat-file --batch`: `/api/versions`, `/api/version`, `/api/changes` | 6 | read tests; value tests for diff hunks |
-| 10 | Search, read side: keyword and fuzzy over `search.v2.sqlite3`, `/api/search`, `/api/search/page`; semantic queries through the configured provider (LM Studio included) or the Python index worker | 6 | read tests; new top-k ranking tests recorded from Python first |
-| 11 | Shapes: `/api/shape` (term vectors, three-component SVD) | 10 | read test; value test on point counts and seeds |
-| 12 | TS process supervisor: process groups, `ulimit` wrapper, RSS polling, deadlines, bounded logs. This is #16 done once, in TypeScript | 2 | unit tests (orphaned grandchildren killed, limits enforced); nothing routed yet |
-| 13 | Host integrations, part 1: speech (AI-TTS socket), prose (Colorful), `/api/speak*`, `/api/prose` | 12 (Colorful runs under the supervisor) | refusal tests plus fake AI-TTS and fake Colorful success tests (the existing `tests/fake_*.py` servers, as external processes) |
-| 14 | Host integrations, part 2: companions, maintenance jobs and the service bridge | 12 | write/read tests; fake companion installers |
-| 15 | Local model: `/api/local-model`, queue worker, standfirst and keyterm caches | 12 | fake LM Studio and OpenAI-compatible servers (`tests/fake_lmstudio.py`, `tests/fake_openai_servers.py`) as external processes |
-| 16 | Chat: registry, chats store, voice runner, voice tasks (quizzes, prompts), SSE; takes over `supervisor.lock` | 12 (turns run under the supervisor), 6 | chat-stream, heartbeat and ownership tests; fake voice CLIs; turn recovery after a restart |
-| 17 | Inbox view and inbox runner (`reader inbox-run`, with `python -m reader_mcp.inbox_runner` kept as a shim for the Obsidian plugin for one release) | 12 | inbox tests with the fake Codex (`tests/fixtures/codex-exec-scripted.jsonl`) |
-| 18 | Art studio and writing | 16 (art producers are voices), 12 | art and writing tests; still-image validation |
-| 19 | MCP adapter in TS (`reader serve`) over the operations layer; the delivery (`ingest`, `status`) and curation operations, which no earlier PR owns, are ported here once | 5, 10 | mcp tests; MCP schema goldens with only incidental differences normalised (decision 7) |
-| 20 | CLI adapter in TS: annotate, curation, queue, browse, catalog, metadata, reading-copy, search/read over the existing operations; `index` (a TS indexer off the request thread, embeddings by the configured provider or `reader-embed`; a model or version change rebuilds the index), `demo` with `--today` | 19, 10 | cli and vault-files tests against the TS CLI; the fixture builder switches to `reader demo --today` |
-| 21 | Remove the Python child: the front becomes the server; packaging (compiled JS, npm `bin`, Homebrew); the LaunchAgent runs node directly; `reader service` ported | all of the above | contract suite with Python absent from `PATH`; the packed tarball installs on a clean machine; Node LTS status checked |
+| 5 | The operations layer and TS vault primitives (atomic replace with fsync and link-publish, symlink refusals, code-point offsets), plus the annotate, record-a-reading and bookmark operations with their stores: `POST /api/annotations`, `/api/seen`, `/api/bookmark`, `GET /api/discussion` | 2 | write tests; ok/refused/conflict cases with a stale basis; the flock coexistence test with a TS writer; the anchor cases (emoji, combining marks, repeated passages, transformed reading copies); conflict cases (two replacements of one comment, an edit racing a delete) surface a conflict; ports: lock (fake and contract suite for the 1b adapter), clock, ID generation, environment, vault files (atomic replace, symlink refusal); the ratchet check with its first allowlist |
+| 6 | Works and documents: coverage and catalog reading, frontmatter (YAML parity corpus), `/api/library`, `/api/document`, `/api/preview`, `/api/readers`, `/api/standfirst`, `/api/issue`, `/api/editions*` | 5 (bootstrap and readers report receipts and threads) | read tests; a frontmatter parity corpus run through both implementations; operation tests on the vault files and clock fakes; any port method added gets contract cases |
+| 7 | Queue, history and next (related works without vectors): `/api/queue`, `/api/history`, `/api/next` | 6 (rows are built from works) | read/write queue tests; value tests for the suggestion order; operation tests on the vault files, clock and lock fakes |
+| 8 | Link graph: `links.sqlite3` read and refresh, `/api/links`, `/api/link-counts`, `/api/resolve*`, `/api/embeds` | 6 (resolution uses the works inventory) | read tests; the transclusion corpus `tests/fixtures/transclusion/corpus.json`; port: the links SQLite store |
+| 9 | Versions and changes through `git cat-file --batch`: `/api/versions`, `/api/version`, `/api/changes` | 6 | read tests; value tests for diff hunks; port: git, its contract suite against a temporary repository |
+| 10 | Search, read side: keyword and fuzzy over `search.v2.sqlite3`, `/api/search`, `/api/search/page`; semantic queries through the configured provider (LM Studio included) or the Python index worker | 6 | read tests; new top-k ranking tests recorded from Python first; ports: the search and embedding-cache SQLite stores, model providers (embeddings; the Python index worker as an adapter) |
+| 11 | Shapes: `/api/shape` (term vectors, three-component SVD) | 10 | read test; value test on point counts and seeds; operation tests on the search store fake |
+| 12 | TS process supervisor: process groups, `ulimit` wrapper, RSS polling, deadlines, bounded logs. This is #16 done once, in TypeScript | 2 | unit tests (orphaned grandchildren killed, limits enforced); nothing routed yet; port: process supervisor, its contract suite over real children |
+| 13 | Host integrations, part 1: speech (AI-TTS socket), prose (Colorful), `/api/speak*`, `/api/prose` | 12 (Colorful runs under the supervisor) | refusal tests plus fake AI-TTS and fake Colorful success tests (the existing `tests/fake_*.py` servers, as external processes); port: speech, the real adapter tested against the fake AI-TTS server; Colorful through the supervisor fake |
+| 14 | Host integrations, part 2: companions, maintenance jobs and the service bridge | 12 | write/read tests; fake companion installers; operation tests on the supervisor and vault files fakes |
+| 15 | Local model: `/api/local-model`, queue worker, standfirst and keyterm caches | 12 | fake LM Studio and OpenAI-compatible servers (`tests/fake_lmstudio.py`, `tests/fake_openai_servers.py`) as external processes; model providers extended (completions, local-model server control); port: the local-model outputs SQLite store |
+| 16 | Chat: registry, chats store, voice runner, voice tasks (quizzes, prompts), SSE; takes over `supervisor.lock` | 12 (turns run under the supervisor), 6 | chat-stream, heartbeat and ownership tests; fake voice CLIs; turn recovery after a restart; operation tests on the supervisor, lock, clock and ID fakes |
+| 17 | Inbox view and inbox runner (`reader inbox-run`, with `python -m reader_mcp.inbox_runner` kept as a shim for the Obsidian plugin for one release) | 12 | inbox tests with the fake Codex (`tests/fixtures/codex-exec-scripted.jsonl`); operation tests on the supervisor and vault files fakes |
+| 18 | Art studio and writing | 16 (art producers are voices), 12 | art and writing tests; still-image validation; operation tests on the supervisor and vault files fakes |
+| 19 | MCP adapter in TS (`reader serve`) over the operations layer; the delivery (`ingest`, `status`) and curation operations, which no earlier PR owns, are ported here once | 5, 10 | mcp tests; MCP schema goldens with only incidental differences normalised (decision 7); port: the catalog SQLite store |
+| 20 | CLI adapter in TS: annotate, curation, queue, browse, catalog, metadata, reading-copy, search/read over the existing operations; `index` (a TS indexer off the request thread, embeddings by the configured provider or `reader-embed`; a model or version change rebuilds the index), `demo` with `--today` | 19, 10 | cli and vault-files tests against the TS CLI; the fixture builder switches to `reader demo --today`; the index worker's model-provider adapter removed |
+| 21 | Remove the Python child: the front becomes the server; packaging (compiled JS, npm `bin`, Homebrew); the LaunchAgent runs node directly; `reader service` ported | all of the above | contract suite with Python absent from `PATH`; the packed tarball installs on a clean machine; Node LTS status checked; the ratchet allowlist is empty |
 
 ### Held items mapped onto the plan
 
