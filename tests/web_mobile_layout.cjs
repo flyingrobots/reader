@@ -20,13 +20,13 @@ const {chromium}=require(process.env.READER_PLAYWRIGHT||'playwright-core');
   await page.evaluate(()=>scrollTo(0,500));await page.waitForFunction(()=>scrollY>100);
   // The existing alternate layout remains selectable and persists after reopening.
   await page.goto(url+'#admin/settings');await page.locator('#reading-mode').click();
-  await page.getByRole('option',{name:'Two pages',exact:true}).click();
+  await page.getByRole('option',{name:'Pages',exact:true}).click();
   await page.locator('#preferences-form button[type=submit]').click();
   await page.locator('[data-sonner-toast]').filter({hasText:'Preferences saved.'}).waitFor();
   await page.goto(article);await page.reload();await settled();
   assert.equal(await page.locator('body').evaluate(el=>el.classList.contains('two-page')),true,'mobile remembers an explicit Two pages choice');
   await page.goto(url+'#admin/settings');await page.locator('#reading-mode').click();
-  await page.getByRole('option',{name:'Continuous',exact:true}).click();
+  await page.getByRole('option',{name:'Scroll',exact:true}).click();
   await page.locator('#preferences-form button[type=submit]').click();
   await page.locator('[data-sonner-toast]').filter({hasText:'Preferences saved.'}).waitFor();
   await page.goto(article);await page.reload();await settled();

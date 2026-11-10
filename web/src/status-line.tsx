@@ -80,7 +80,7 @@ export function StatusLine({actions,progress,pages,outline,width,theme}:{actions
     <SpeechSlot/>
     {s.version?<Tip label={s.version.title}><Button id="status-version" data-status-priority="2" variant="ghost" size="xs" className={cn('status-button status-version',s.version.newer&&'newer',s.version.historical&&'historical')} aria-label={s.version.label} onClick={actions.versions}><GitBranchIcon data-icon="inline-start" aria-hidden/><span>{s.version.text}</span></Button></Tip>:null}
     {width?<div id="article-width-slot" data-status-priority="4">{width}</div>:null}
-    <Tip label="Reading layout"><Button id="layout-swap" data-status-priority="2" variant="ghost" size="xs" className="status-button" aria-label={spread?'Switch to continuous reading':'Switch to two-page reading'} onClick={actions.layoutSwap}>{spread?'Scroll':'2 pages'}</Button></Tip>
+    <Tip label="Reading layout"><Button id="layout-swap" data-status-priority="2" variant="ghost" size="xs" className="status-button" aria-label={spread?'Switch to Scroll layout':'Switch to Pages layout'} onClick={actions.layoutSwap}>{spread?'Scroll':'Pages'}</Button></Tip>
     <span id="theme-switch-slot" data-status-priority="1">{theme}</span>
     <Tip label="Behind the scenes: indexes and settings · Space p"><Button id="settings-open" data-status-priority="1" variant="ghost" size="xs" className="status-button" data-inbox={String(waiting)} aria-label={`Open Reader Admin${waiting?`; ${waiting} inbox arrival${waiting===1?'':'s'} waiting`:''}`} onClick={actions.backstage}><SettingsIcon data-icon="inline-start" aria-hidden/><span>{waiting?`Backstage · ${waiting}`:'Backstage'}</span></Button></Tip>
   </TooltipProvider>;
