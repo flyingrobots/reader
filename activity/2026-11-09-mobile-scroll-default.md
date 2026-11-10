@@ -24,3 +24,8 @@ The tests used a synthetic vault and local Chromium mobile emulation. Physical
 phone behavior and the deployed service were not tested. No controls bundle
 rebuild is required because the change is in the directly served application
 module. Publication and deployment remain separate steps.
+
+Review follow-up: a narrow desktop split pane initially selected the mobile
+preference. The expanded browser regression reproduced that failure. Embedded
+panes now select preferences using the outer window width, preserving desktop
+layout loading and saving while leaving responsive page rendering unchanged.

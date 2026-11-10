@@ -73,7 +73,8 @@ function passageFromHash(){
 }
 let reading,controls,links,outline,speech,versions,search,prose,queue,scratch,quiz,writingPrompts,keys,visual,registers,quickfix,marks,jumps,panels;
 // Choose the layout preference for this window when it opens. Resizing still reflows the current layout.
-const mobileLayout = matchMedia('(max-width: 899px)').matches;
+let mobileLayout = matchMedia('(max-width: 899px)').matches;
+if(EMBEDDED){try{mobileLayout=window.parent.matchMedia('(max-width: 899px)').matches;}catch{}}
 const layoutPreferences = prefs => ({...prefs,layout:(mobileLayout?prefs.mobileLayout:prefs.layout)||'scroll'});
 let saved = {};
 try { saved = JSON.parse(localStorage.getItem('reader.preferences.v1') || '{}'); } catch {}

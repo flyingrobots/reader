@@ -29,7 +29,7 @@ math is typeset by KaTeX. Obsidian callouts render as asides.
 
 ![A design proposal with a sequence diagram and the outline rail on the Sync protocol section](docs/images/diagram-outline.png)
 
-Choose **2 pages** for facing-page reading. Spreads turn with a Three.js page curl,
+Choose **Pages** for facing-page reading. Spreads turn with a Three.js page curl,
 which falls back to a slide without WebGL or with reduced motion. Your place is
 saved automatically in both layouts.
 

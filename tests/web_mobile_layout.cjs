@@ -33,6 +33,15 @@ const {chromium}=require(process.env.READER_PLAYWRIGHT||'playwright-core');
   assert.equal(await page.locator('body').evaluate(el=>el.classList.contains('two-page')),false,'mobile remembers an explicit Continuous choice');
   await page.setViewportSize({width:1440,height:1000});await page.reload();await settled();
   assert.equal(await page.locator('body').evaluate(el=>el.classList.contains('two-page')),true,'mobile choices preserve the desktop spread preference');
+  const layout={t:{d:'row',s:[.5,.5],c:['#read=library/thought.md','#read=library/other.md']},f:0};
+  await page.goto(url+'#split='+encodeURIComponent(JSON.stringify(layout)));
+  await page.locator('.split-pane iframe').first().waitFor();
+  const pane=await (await page.locator('.split-pane iframe').first().elementHandle()).contentFrame();
+  await pane.locator('#article').waitFor();await pane.waitForFunction(()=>!document.querySelector('.resume-pending'));
+  assert.equal(await pane.locator('body').evaluate(el=>el.classList.contains('two-page')),true,'a narrow desktop split pane uses the desktop layout');
+  await pane.locator('#layout-swap').evaluate(el=>el.click());
+  await page.waitForFunction(()=>JSON.parse(localStorage.getItem('reader.preferences.v1')).layout==='scroll');
+  assert.equal(await page.evaluate(()=>JSON.parse(localStorage.getItem('reader.preferences.v1')).mobileLayout),'scroll','saving a desktop pane preserves the mobile layout');
   assert.deepEqual(errors,[]);
   console.log('Mobile layout passed: scrolling default, native scrolling, selectable/persistent Two pages and Continuous, desktop preference preserved.');
  }finally{await browser?.close();if(fixture.exitCode===null&&fixture.signalCode===null){fixture.kill('SIGTERM');await new Promise(resolve=>fixture.once('exit',resolve));}}
