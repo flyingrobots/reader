@@ -7,7 +7,7 @@ import os
 from pathlib import Path
 import resource
 import shutil
-from . import arrival_choices
+from . import arrival_choices, process_table
 from .inbox_paths import PREFIX, inbox_dir, sweep
 from .resources import has_capacity, minimum_free_bytes
 import signal
@@ -115,8 +115,7 @@ class WorkerProcesses:
         self.stopped = False
 
     def measure(self):
-        output = subprocess.check_output(['ps', '-axo', 'pid=,ppid=,pgid=,rss='], text=True, timeout=5)
-        rows = [tuple(map(int, line.split())) for line in output.splitlines() if len(line.split()) == 4]
+        rows = process_table.rows()
         found = {pid for pid, parent, group, rss in rows if pid in self.pids or group in self.groups}
         while True:
             expanded = found | {pid for pid, parent, group, rss in rows if parent in found}
@@ -125,7 +124,7 @@ class WorkerProcesses:
             found = expanded
         self.pids = found
         self.groups.update(group for pid, parent, group, rss in rows if pid in found and group in found)
-        return sum(rss * 1024 for pid, parent, group, rss in rows if pid in found)
+        return sum(rss for pid, parent, group, rss in rows if pid in found)
 
     def stop(self):
         if self.stopped:
@@ -155,8 +154,7 @@ class WorkerProcesses:
             # macOS can report EPERM for a group that disappeared between TERM
             # and KILL. Only accept that error after proving no members remain;
             # an unreadable process table or a live group must still fail closed.
-            groups = subprocess.check_output(['ps', '-axo', 'pgid='], text=True, timeout=5)
-            if group in {int(value) for value in groups.split()}:
+            if process_table.group_alive(group):
                 raise
 
 

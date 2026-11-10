@@ -27,7 +27,7 @@ from .art import ART_ROOT, ART_TRAILER
 from .display import shown
 from .chats import Chats, MAX_BODY, chime_ins
 from .resources import has_capacity, minimum_free_bytes
-from . import llm_logs
+from . import llm_logs, process_table
 from . import voices as voice_tools
 
 MAX_OUTPUT = 16 * 1024**2
@@ -239,8 +239,7 @@ class StreamParser:
 
 
 def process_group_rss(pgid):
-    rows = subprocess.check_output(['ps', '-axo', 'pgid=,rss='], text=True, timeout=5)
-    return sum(int(parts[1]) * 1024 for line in rows.splitlines() if len(parts := line.split()) == 2 and int(parts[0]) == pgid)
+    return process_table.group_rss(pgid)
 
 
 def data_size(folder):

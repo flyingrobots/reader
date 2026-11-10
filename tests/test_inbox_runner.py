@@ -6,7 +6,7 @@ import time
 
 import pytest
 
-from reader_mcp import arrival_choices, uploads
+from reader_mcp import arrival_choices, process_table, uploads
 from reader_mcp.inbox_runner import inventory, run, sandbox_writable_paths
 from reader_mcp import intake
 from test_intake import vault, plan_for
@@ -165,8 +165,7 @@ time.sleep(60)
         (runtime / 'cancel').write_text('stop')
         assert process.wait(timeout=10) == 1
         assert json.loads((runtime / 'state.json').read_text())['status'] == 'stopped'
-        status = subprocess.run(['ps', '-p', child_file.read_text(), '-o', 'stat='], capture_output=True, text=True)
-        assert not status.stdout.strip() or status.stdout.strip().startswith('Z')
+        assert not process_table.running(int(child_file.read_text()))
         assert (vault / 'inbox/test.md').is_file()
     finally:
         if process.poll() is None:
@@ -214,14 +213,14 @@ def test_group_permission_error_requires_proof_that_group_is_gone(monkeypatch):
     def denied(*args):
         raise PermissionError('group disappeared or remains protected')
     monkeypatch.setattr(os, 'killpg', denied)
-    monkeypatch.setattr(subprocess, 'check_output', lambda *args, **kwargs: '111\n222\n')
+    monkeypatch.setattr(process_table, 'group_alive', lambda group: group in (111, 222))
     WorkerProcesses.signal_group(333, signal.SIGKILL)
     with pytest.raises(PermissionError):
         WorkerProcesses.signal_group(222, signal.SIGKILL)
-    def unreadable(*args, **kwargs):
-        raise subprocess.CalledProcessError(1, 'ps')
-    monkeypatch.setattr(subprocess, 'check_output', unreadable)
-    with pytest.raises(subprocess.CalledProcessError):
+    def unreadable(group):
+        raise OSError('process table unreadable')
+    monkeypatch.setattr(process_table, 'group_alive', unreadable)
+    with pytest.raises(OSError, match='unreadable'):
         WorkerProcesses.signal_group(333, signal.SIGKILL)
 
 

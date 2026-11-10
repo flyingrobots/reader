@@ -9,12 +9,15 @@ import resource
 import shutil
 import signal
 import subprocess
+import sys
 import time
 
 REVISION = 'c167101b32bbe37954429e9de5db33efcdc0a16c'
 REPOSITORY = 'https://github.com/flyingrobots/wide-md'
 from reader_paths import paths
 CODE, ROOT = paths()
+sys.path.insert(0, str(CODE / 'src'))
+from reader_mcp import process_table  # noqa: E402
 WORK = ROOT / '.reader/tooling'
 GIB = 1024 ** 3
 
@@ -64,9 +67,7 @@ def main():
                 try:
                     while worker.poll() is None:
                         measure()
-                        process_rows = subprocess.check_output(['ps','-axo','pgid=,rss='], text=True, timeout=5)
-                        rss = sum(int(parts[1])*1024 for line in process_rows.splitlines()
-                                  if len(parts := line.split()) == 2 and int(parts[0]) == worker.pid)
+                        rss = process_table.group_rss(worker.pid)
                         if rss > 4*GIB or time.monotonic() > deadline:
                             raise RuntimeError('wide-md setup memory/time limit reached')
                         time.sleep(1)

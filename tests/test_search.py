@@ -192,10 +192,9 @@ def test_guarded_cli_index_and_preflight_refusal(vault, monkeypatch):
 
 def test_guard_stops_worker_on_monitor_failure(vault, monkeypatch):
     import reader_mcp.search_guard as guard
-    original = guard.subprocess.check_output
     def fail(*args, **kwargs):
         raise OSError('simulated monitoring failure')
-    monkeypatch.setattr(guard.subprocess, 'check_output', fail)
+    monkeypatch.setattr(guard.process_table, 'group_rss', fail)
     with pytest.raises(OSError, match='monitoring failure'):
         guard.run_index(vault, semantic=False)
     contract = json.loads((vault / '.reader/search-runtime/launch.json').read_text())

@@ -7,6 +7,7 @@ from pathlib import Path
 import re
 import resource
 import shutil
+from . import process_table
 from .resources import has_capacity, minimum_free_bytes
 import signal
 import sqlite3
@@ -121,9 +122,7 @@ def _run(root, state, runtime, semantic):
             while True:
                 # A failed measurement raises and the finally block kills the whole group.
                 data_bytes = usage(state)
-                processes = subprocess.check_output(['ps', '-axo', 'pgid=,rss='], text=True, timeout=5)
-                rss = sum(int(line.split()[1]) * 1024 for line in processes.splitlines()
-                          if len(line.split()) == 2 and int(line.split()[0]) == worker.pid)
+                rss = process_table.group_rss(worker.pid)
                 if data_bytes >= 4 * GIB or log.stat().st_size + output.stat().st_size >= 16 * 1024 ** 2:
                     raise ValueError('Index stopped at data/log budget; inspect .reader/search-runtime')
                 if rss >= 4 * GIB or not has_capacity(root):
