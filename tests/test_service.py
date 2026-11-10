@@ -151,7 +151,8 @@ def world(tmp_path, monkeypatch):
     (repo / '.venv/bin/python').write_text(f'#!/bin/sh\nexec {sys.executable} "$@"\n')
     (repo / '.venv/bin/python').chmod(0o755)
     for key in list(os.environ):
-        if key.startswith('READER_'):
+        # The test sandbox's own variables stay: the smoke step proves it is inside that sandbox with them.
+        if key.startswith('READER_') and not key.startswith('READER_TEST_JAIL'):
             monkeypatch.delenv(key)
     env = {'HOME': str(home), 'FAKE_WORLD': str(file), 'READER_SERVICE_LAUNCHCTL': str(bin_dir / 'launchctl'),
            'READER_SERVICE_TAILSCALE': str(bin_dir / 'tailscale'), 'READER_SERVICE_GIT': str(bin_dir / 'git'),
@@ -230,7 +231,9 @@ def test_install_writes_agents_with_the_right_keys_and_backs_up_existing_ones(wo
         del os.environ['GIT_LOCKS_STORE'], os.environ['READER_COLORFUL']
     live = world.home / 'Library/Application Support/Reader/live'
     assert result['installed'] and result['healthy'] and result['live_created'] and result['commit'] == GOOD
-    assert [s['step'] for s in result['smoke']] == ['pytest', 'GET /', 'GET /api/library', 'GET /api/document']
+    assert [s['step'] for s in result['smoke']] == ['sandbox', 'pytest', 'GET /', 'GET /api/library', 'GET /api/document']
+    # The suite runs inside the test sandbox, which macOS cannot nest, so the smoke step relies on it.
+    assert result['smoke'][0] == {'step': 'sandbox', 'ok': True, 'detail': 'inside the test sandbox'}
     web = plistlib.loads((agents / 'com.flyingrobots.reader.web.plist').read_bytes())
     python = str(world.repo / '.venv/bin/python')
     assert web['ProgramArguments'] == [python, str(live / 'scripts/start_web.py'), '--port', str(world.port)]
@@ -320,7 +323,7 @@ def test_update_advances_only_after_the_smoke_test_passes(world):
     world.edit(branches={'origin/main': BROKEN})
     kicks = len(world.state['kicks'])
     result = world.run('update')
-    assert result['outcome'] == 'smoke-failed' and result['steps'][0] == {'step': 'pytest', 'ok': False, 'detail': result['steps'][0]['detail']}
+    assert result['outcome'] == 'smoke-failed' and result['steps'][1] == {'step': 'pytest', 'ok': False, 'detail': result['steps'][1]['detail']}
     assert world.state['heads'][str(world.home / 'Library/Application Support/Reader/live')] == GOOD and len(world.state['kicks']) == kicks
     assert world.run('update')['outcome'] == 'skipped', 'a failed commit is not retested every interval'
     world.edit(branches={'origin/main': NEWER})

@@ -4157,7 +4157,10 @@ again; it keeps the recorded paths and backups.
 2. Add a temporary detached worktree for that commit (under the repo `.git/`
    git-locks key) and, with a 120-second total budget, run `python -m pytest -q
    tests/test_web.py` there, then start `tests/web_fixture.py` (a synthetic vault)
-   and GET `/`, `/api/library` and the first listed document. The worktree is
+   and GET `/`, `/api/library` and the first listed document. Both run inside the
+   test sandbox, built from the updater's own `scripts/test_jail.py`, so the
+   candidate cannot read the live vault or reach the live server; the first smoke
+   step records it ([Running tests in the sandbox](testing.md)). The worktree is
    always removed.
 3. While `/api/health` reports busy work, wait (polling every 15 s) up to 30
    minutes; then record *deferred* and retry at the next interval.
@@ -4283,7 +4286,8 @@ rebuild from the lockfile; do not substitute a CDN script or loosen the CSP.
 ### Running the browser suites
 
 `tests/web_*.cjs` are the browser suites. Each starts its own fixture (a synthetic vault on a free port) and its own
-browser, so they run side by side:
+browser, so they run side by side. Run them inside the test sandbox ([Running tests in the sandbox](testing.md)); the
+commands below show the runner's arguments after `python3 scripts/test_jail.py --`:
 
 ```sh
 python3 scripts/run_browser_suites.py              # every suite, as many at a time as the machine has room for
@@ -4368,7 +4372,8 @@ directory see it too) and stops the run if `reader_mcp` still resolves elsewhere
 example from a shared virtual environment that is an editable install of another
 worktree.
 
-Synthetic checks, without opening the configured vault:
+Synthetic checks, without opening the configured vault. Run each inside the test sandbox, as
+`python3 scripts/test_jail.py -- <command>` ([Running tests in the sandbox](testing.md)):
 
 ```sh
 .venv/bin/python -m pytest -q tests/test_no_absolute_paths.py

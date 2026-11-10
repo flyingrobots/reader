@@ -105,7 +105,7 @@ See [web operation, privacy, limits and recovery](web.md).
 
 `scripts/reader_service.py` runs the web reader as a macOS LaunchAgent from a
 dedicated live worktree, restarted by launchd and advanced by a 10-minute updater
-only to commits that pass a smoke test, with rollback when the restarted server is
+only to commits that pass a sandboxed smoke test, with rollback when the restarted server is
 unhealthy and a wait while inbox runs or rebuilds are active. `tailscale on`
 publishes it on the user's own tailnet with `tailscale serve` (never Funnel); Reader
 still binds to loopback and admits proxied requests only for allow-listed

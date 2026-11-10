@@ -306,13 +306,14 @@ unless you choose `--scope library` for search and reading too. See
 
 Tests use synthetic fixtures and never open your vault or run a real model CLI;
 stand-ins such as `tests/fake_voice.py` and `tests/fake_lmstudio.py` take their
-place.
+place. Run them through `scripts/test_jail.py`, which enforces that with an
+operating-system sandbox ([Running tests in the sandbox](docs/testing.md)):
 
 ```sh
 uv sync --locked
-uv run --locked pytest -q
-node --test tests/*.test.mjs
-npm run test:server    # the TypeScript port package in server/
+python3 scripts/test_jail.py -- .venv/bin/python -m pytest -q
+python3 scripts/test_jail.py -- node --test tests/*.test.mjs
+python3 scripts/test_jail.py -- npm run test:server    # the TypeScript port package in server/
 ```
 
 The browser suites (`tests/web_*.cjs`) drive a disposable fixture server with

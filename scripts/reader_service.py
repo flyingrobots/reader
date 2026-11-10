@@ -384,8 +384,17 @@ def kill_group(process):
             process.wait()
 
 
+def test_jail():
+    """This checkout's sandbox runner. The updater uses its own copy, so even an older candidate commit is sandboxed."""
+    spec = importlib.util.spec_from_file_location('reader_test_jail', Path(__file__).resolve().parent / 'test_jail.py')
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
 def smoke(state, commit):
-    """Test COMMIT in a temporary detached worktree: tests/test_web.py, then a synthetic-vault server."""
+    """Test COMMIT in a temporary detached worktree: tests/test_web.py, then a synthetic-vault server. Both run inside
+    the test sandbox (scripts/test_jail.py), so the candidate's code cannot reach the live vault or service."""
     deadline = time.monotonic() + env_float('READER_SERVICE_SMOKE_TIMEOUT', 120)
     scratch = Path(tempfile.mkdtemp(prefix='reader-smoke-'))
     tree = scratch / 'tree'
@@ -396,9 +405,24 @@ def smoke(state, commit):
         added = True
         env = {k: v for k, v in os.environ.items() if not k.startswith('READER_')} | {
             'PYTHONPATH': str(tree / 'src'), 'TMPDIR': str(scratch), 'PYTHONDONTWRITEBYTECODE': '1'}
+        jail = test_jail()
+        if jail.already_sandboxed():
+            # Inside the test suite's own sandbox, which macOS cannot nest; that sandbox already contains this run.
+            jailed = lambda command: command
+            steps.append({'step': 'sandbox', 'ok': True, 'detail': 'inside the test sandbox'})
+        else:
+            try:
+                run, _, sandbox_env = jail.prepare(root=tree)
+            except jail.JailError as exc:
+                return False, steps + [{'step': 'sandbox', 'ok': False, 'detail': str(exc)[:300]}]
+            # Keep what the sandbox set (READER_TEST_*, READER_HOME); drop the service's own READER_ settings.
+            env = {k: v for k, v in sandbox_env.items() if not k.startswith('READER_') or k.startswith('READER_TEST_') or k == 'READER_HOME'} | {
+                'PYTHONPATH': str(tree / 'src'), 'PYTHONDONTWRITEBYTECODE': '1'}
+            jailed = lambda command: jail.command_for(run, command)
+            steps.append({'step': 'sandbox', 'ok': True, 'detail': 'sandbox-exec'})
         remaining = lambda: max(1.0, deadline - time.monotonic())
         try:
-            result = subprocess.run([state['python'], '-m', 'pytest', '-q', '-p', 'no:cacheprovider', 'tests/test_web.py'],
+            result = subprocess.run(jailed([state['python'], '-m', 'pytest', '-q', '-p', 'no:cacheprovider', 'tests/test_web.py']),
                                     cwd=tree, env=env, capture_output=True, text=True, timeout=remaining(),
                                     stdin=subprocess.DEVNULL, start_new_session=True)
         except subprocess.TimeoutExpired:
@@ -407,7 +431,7 @@ def smoke(state, commit):
         steps.append({'step': 'pytest', 'ok': result.returncode == 0, 'detail': tail[0][:300]})
         if result.returncode:
             return False, steps
-        fixture = subprocess.Popen([state['python'], 'tests/web_fixture.py'], cwd=tree, env=env, stdout=subprocess.PIPE,
+        fixture = subprocess.Popen(jailed([state['python'], 'tests/web_fixture.py']), cwd=tree, env=env, stdout=subprocess.PIPE,
                                    stderr=subprocess.DEVNULL, stdin=subprocess.DEVNULL, start_new_session=True)
         try:
             selector = selectors.DefaultSelector()

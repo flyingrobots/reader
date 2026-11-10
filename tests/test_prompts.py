@@ -30,7 +30,7 @@ def app(tmp_path):
         if voice.get('cli'):
             voice['argv'] += ['--writing-prompt-json', json.dumps(QUESTION)]
     (root / 'voices.json').write_text(json.dumps(registry))
-    app = WebLibrary(root, chat_options={'git_locks': False})
+    app = WebLibrary(root, chat_options={'git_locks': False}, writing_options={'git_locks': False})
     yield app
     app.close()
 
@@ -210,7 +210,7 @@ def test_completed_save_request_is_idempotent_across_restart_and_rejects_changes
                    prompt_id=prompt['id'], request_id=str(uuid4()))
     saved = app.writing.dispatch(request, 'You')
     app.close()
-    again = WebLibrary(app.root, chat_options={'git_locks': False})
+    again = WebLibrary(app.root, chat_options={'git_locks': False}, writing_options={'git_locks': False})
     try:
         assert again.writing.dispatch(request, 'You') == saved
         with pytest.raises(ValueError, match='different input'):
