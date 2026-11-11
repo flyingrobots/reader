@@ -4440,7 +4440,7 @@ node tests/web_local_model.cjs
 node tests/web_local_provider.cjs
 node tests/web_model_order.cjs
 node tests/web_publish.cjs
-node tests/web_private.cjs   # installs the pinned git-cas once, into a throwaway home
+node tests/web_private.cjs   # installs the pinned git-cas offline, from scripts/fetch_private_bridge.py's cache, into a throwaway home
 node tests/web_index_scale.cjs
 .venv/bin/python -m pytest -q tests/test_versions.py
 node tests/web_versions.cjs

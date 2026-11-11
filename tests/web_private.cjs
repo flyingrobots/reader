@@ -10,8 +10,10 @@ const {chromium}=require(process.env.READER_PLAYWRIGHT||'playwright-core');
 const MARKER='ZQXMARKER4471PLAINTEXT',TITLE='SECRETTITLE5582',PASSPHRASE='a long enough browser passphrase';
 const everything=dir=>{let all=Buffer.alloc(0);for(const e of readdirSync(dir,{withFileTypes:true})){const p=join(dir,e.name);if(e.isDirectory()){if(e.name!=='node_modules'&&e.name!=='tools')all=Buffer.concat([all,everything(p)]);}else if(e.isFile())all=Buffer.concat([all,readFileSync(p)]);}return all;};
 (async()=>{
+ // The install is the real `npm ci`, offline from the cache scripts/fetch_private_bridge.py fills outside the sandbox.
+ const cache=join(process.cwd(),'.reader/npm-cache');
  const home=mkdtempSync(join(tmpdir(),'reader-private-'));
- const fixture=spawn(process.env.READER_PYTHON||'.venv/bin/python',['tests/web_fixture.py','--inbox'],{stdio:['ignore','pipe','inherit'],env:{...process.env,READER_HOME:home}});let browser;
+ const fixture=spawn(process.env.READER_PYTHON||'.venv/bin/python',['tests/web_fixture.py','--inbox'],{stdio:['ignore','pipe','inherit'],env:{...process.env,READER_HOME:home,npm_config_cache:cache,npm_config_offline:'true'}});let browser;
  try{
   const {url,root}=await new Promise((resolve,reject)=>{createInterface({input:fixture.stdout}).once('line',line=>resolve(JSON.parse(line)));fixture.once('exit',code=>reject(new Error('fixture exited '+code)));});
   browser=await chromium.launch({headless:true,executablePath:process.env.READER_CHROME||'/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',args:['--disable-gpu']});
@@ -22,7 +24,8 @@ const everything=dir=>{let all=Buffer.alloc(0);for(const e of readdirSync(dir,{w
   const state=value=>page.locator(`[data-private-state=${value}]`).waitFor({timeout:60000});
   await page.locator('[data-private]').waitFor();
   await page.locator('#private-install').click();
-  await page.locator('#private-new').waitFor({timeout:120000});
+  await page.locator('#private-new, #private-error').first().waitFor({timeout:120000});
+  if(await page.locator('#private-error').count())throw new Error('Install failed (is .reader/npm-cache filled by scripts/fetch_private_bridge.py?): '+await page.locator('#private-error').textContent());
   // The warning stands between you and a passphrase you might lose.
   await page.locator('#private-new').fill(PASSPHRASE);await page.locator('#private-again').fill(PASSPHRASE);
   assert.equal(await page.locator('#private-setup').isDisabled(),true,'needs the acknowledgement');

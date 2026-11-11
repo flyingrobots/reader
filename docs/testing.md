@@ -14,8 +14,10 @@ python3 scripts/test_jail.py -- npm run test:contract
 python3 scripts/test_jail.py -- npm run test:server
 ```
 
-Run the installs (`uv sync`, `npm ci`, `npm run build` in `web/`) outside the sandbox first; they write caches in your
-home folder, which the sandbox refuses.
+Run the installs (`uv sync`, `npm ci`, `npm run build` in `web/`, and `python3 scripts/fetch_private_bridge.py`)
+outside the sandbox first; they write caches in your home folder or need the network, which the sandbox refuses. The
+last one downloads the private shelf's pinned packages into `.reader/npm-cache`, so `tests/web_private.cjs` installs
+the real encrypted storage with `npm ci` offline; npm checks each package against the bridge's lockfile.
 
 Tests refuse to run any other way. Every entry point loads a guard first (`tests/jail_guard.py` through
 `tests/conftest.py`, `tests/web_fixture.py` and `scripts/run_browser_suites.py`; `tests/jail_guard.cjs` at the top of
