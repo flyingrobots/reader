@@ -22,11 +22,23 @@ const {chromium}=require(process.env.READER_PLAYWRIGHT||'playwright-core');
   assert.deepEqual(readdirSync(join(root,'inbox')).filter(name=>name!=='README.md'&&name!=='.DS_Store'),[]);
   const stage=value=>page.locator(`#backstage-publish[data-publish-stage=${value}]`).waitFor({timeout:30000});
   const choose=(name,text)=>page.locator('#publish-files').setInputFiles({name,mimeType:'text/markdown',buffer:Buffer.from(text)});
-  // Nothing can be sent until a file is chosen. The title comes from its name, and the safe level is already selected.
+  const selected=level=>page.locator(`[data-publish-level=${level}] [data-slot=radio-group-item][aria-checked=true]`).waitFor();
+  const makeDefault=page.getByRole('button',{name:'Use this choice as the default'});
+  // Nothing can be sent until a file is chosen. The title comes from its name, and the configured default level
+  // (initially normal) is selected.
   assert.equal(await page.locator('#publish-submit').isDisabled(),true);
   await choose('a-private-memo.md','# A private memo\n');
   assert.equal(await page.locator('#publish-title').inputValue(),'a private memo');
-  assert.equal(await page.locator('[data-publish-level=no-cloud] [data-slot=radio-group-item]').getAttribute('aria-checked'),'true');
+  await selected('normal');
+  assert.equal(await makeDefault.isDisabled(),true,'the default is already the default');
+  // Making "no cloud models" the default is stored, and a fresh page preselects it.
+  await page.locator('[data-publish-level=no-cloud] [data-slot=radio-group-item]').click();
+  await makeDefault.click();
+  await page.locator('#backstage-publish button:disabled',{hasText:'Use this choice as the default'}).waitFor();
+  assert.deepEqual(JSON.parse(readFileSync(join(root,'.reader/uploads.json'),'utf8')),{default_privacy:'no-cloud'});
+  await page.reload();await page.locator('#backstage-publish').waitFor();
+  await choose('a-private-memo.md','# A private memo\n');
+  await selected('no-cloud');
   assert.equal(await page.locator('[data-publish-level=machine-only]').count(),1,'this browser is on the machine');
   assert.match(await page.locator('#publish-summary').textContent(),/1 file/);
   // No cloud models, with only a fake cloud model in the order: it stays in the inbox, and the page says why.
@@ -79,6 +91,6 @@ const {chromium}=require(process.env.READER_PLAYWRIGHT||'playwright-core');
   await row.getByRole('button',{name:'Revoke'}).click();await page.locator('[data-confirm]').click();
   await row.waitFor({state:'detached'});
   assert.deepEqual(errors,[]);
-  console.log('Publish passed: upload, safe default, refused level, no-cloud stays queued, others untouched, size refusal, token create and revoke.');
+  console.log('Publish passed: upload, configured default, refused level, no-cloud stays queued, others untouched, size refusal, token create and revoke.');
  }finally{await browser?.close();if(fixture.exitCode===null&&fixture.signalCode===null)fixture.kill('SIGTERM');}
 })().catch(error=>{console.error(error);process.exitCode=1;});

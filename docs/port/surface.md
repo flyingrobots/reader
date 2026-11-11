@@ -12,7 +12,7 @@ Contents: [HTTP routes](#http-routes) · [POST actions](#post-actions) · [reque
 
 ## HTTP routes
 
-83 method+path routes in `src/reader_mcp/web.py` (`WebHandler.handle_request` and its stream methods). `*` marks a prefix
+100 method+path routes in `src/reader_mcp/web.py` (`WebHandler.handle_request` and its stream methods). `*` marks a prefix
 route. **Pool** is the admission gate (`WebHandler.admission`). **Handler** is the WebLibrary attribute it calls, with the
 owning class. **Existing tests** counts browser suites (`tests/web_*.cjs`, `tests/*.test.mjs`) and pytest files naming the path;
 **Contract** names the `tests/contract/` files that call it.
@@ -21,20 +21,26 @@ owning class. **Existing tests** counts browser suites (`tests/web_*.cjs`, `test
 | - | - | - | - | - | - | - | - |
 | GET | `/api/chat/stream` | streams (4, refuse 429) | id (SSE: hello, state, started, delta, posted, done, commit, ping) | conversations.chats.read, conversations.runner.wait | 400, 403, 429 | 0 / 3 | chat-heartbeat, chat-stream |
 | GET | `/api/jobs/stream` | streams (4, refuse 429) | id, after (SSE: hello, event, ping, end) | jobs.detail, jobs.events, jobs.live.wait | 400, 403, 429 | 0 / 1 | read |
+| POST | `/api/inbox/deliveries` | expensive (8, refuse 429) | — | — | — | 0 / 3 | **gap** |
 | POST | `/api/annotations` | expensive (8, refuse 429) | — | annotations.dispatch (Annotations) | — | 4 / 1 | vault-files, write |
-| POST | `/api/seen` | expensive (8, refuse 429) | — | engagement.seen (Engagement) | — | 12 / 2 | security, write |
-| POST | `/api/bookmark` | expensive (8, refuse 429) | source_sha256, path | digest, bookmarks.save (Bookmarks) | — | 7 / 2 | write |
-| POST | `/api/themes` | expensive (8, refuse 429) | — | themes.dispatch (Themes) | — | 1 / 3 | write |
-| POST | `/api/speak` | expensive (8, refuse 429) | path, source_sha256, scope, start, end, page | speak | — | 0 / 2 | write |
+| POST | `/api/seen` | expensive (8, refuse 429) | — | engagement.seen (Engagement) | — | 11 / 2 | security, write |
+| POST | `/api/bookmark` | expensive (8, refuse 429) | source_sha256, path | digest, bookmarks.save (Bookmarks) | — | 8 / 2 | write |
+| POST | `/api/themes` | expensive (8, refuse 429) | — | themes.dispatch (Themes) | — | 2 / 4 | write |
+| POST | `/api/speech-voices` | expensive (8, refuse 429) | voice | speech.choose_voice (Speech) | — | 1 / 1 | **gap** |
+| POST | `/api/speak` | expensive (8, refuse 429) | path, source_sha256, scope, start, end, page, voice | speak | — | 0 / 2 | write |
 | POST | `/api/speak/*` | expensive (8, refuse 429) | action | speech.control (Speech) | — | 0 / 2 | write |
 | POST | `/api/chat` | expensive (8, refuse 429) | participant | conversations.dispatch (Conversations) | — | 2 / 5 | chat-heartbeat, chat-stream, vault-files |
 | POST | `/api/prose` | expensive (8, refuse 429) | — | colorize | — | 1 / 4 | write |
 | POST | `/api/queue` | expensive (8, refuse 429) | participant, action, path, index, request_id, added_by, reason, current | queue.change (ReadingQueue), queue_view | — | 3 / 3 | write |
 | POST | `/api/history` | expensive (8, refuse 429) | action, participant, path, sha256 | digest, queue.opened (ReadingQueue), queue.hide (ReadingQueue) | — | 2 / 3 | write |
-| POST | `/api/maintenance` | expensive (8, refuse 429) | action, kind | maintenance.start (Maintenance) | — | 1 / 2 | write |
+| POST | `/api/maintenance` | expensive (8, refuse 429) | action, kind | maintenance.start (Maintenance) | — | 5 / 2 | write |
 | POST | `/api/companions` | expensive (8, refuse 429) | — | companions.dispatch (Companions) | — | 1 / 3 | write |
-| POST | `/api/inbox` | expensive (8, refuse 429) | action, sandbox_mode | inbox.start (InboxView), inbox.stop (InboxView) | — | 3 / 4 | write |
+| POST | `/api/inbox` | expensive (8, refuse 429) | action, sandbox_mode, arrivals, arrival, choice | inbox.start (InboxView), inbox.stop (InboxView), inbox.choose (InboxView) | — | 5 / 5 | write |
 | POST | `/api/local-model` | expensive (8, refuse 429) | — | local_model.dispatch (LocalModel) | — | 1 / 3 | write |
+| POST | `/api/upload-settings` | expensive (8, refuse 429) | — | — | — | 0 / 0 | **gap** |
+| POST | `/api/model-chain` | expensive (8, refuse 429) | — | — | — | 1 / 1 | **gap** |
+| POST | `/api/private` | expensive (8, refuse 429) | — | — | — | 2 / 2 | **gap** |
+| POST | `/api/delivery-tokens` | expensive (8, refuse 429) | — | — | — | 0 / 1 | **gap** |
 | POST | `/api/art` | expensive (8, refuse 429) | participant | art.dispatch (Studio) | — | 5 / 2 | write |
 | POST | `/api/writing` | expensive (8, refuse 429) | participant | writing.dispatch (Writing) | — | 3 / 2 | write |
 | POST | `/api/jobs` | expensive (8, refuse 429) | — | jobs.dispatch (CodingJobs) | — | 1 / 2 | write |
@@ -42,20 +48,30 @@ owning class. **Existing tests** counts browser suites (`tests/web_*.cjs`, `test
 | POST | `/api/quiz` | expensive (8, refuse 429) | participant | quizzes.dispatch (Quizzes) | — | 1 / 2 | write |
 | POST | `/api/prompt` | expensive (8, refuse 429) | participant | prompts.dispatch (Prompts) | — | 0 / 1 | write |
 | POST | `/api/service` | expensive (8, refuse 429) | action | service.act (Service) | — | 0 / 2 | write |
-| GET | `/api/library` | reads (32, wait 5.0 s then 429) | participant | bootstrap | — | 12 / 4 | read, security |
+| GET | `/api/library` | reads (32, wait 5.0 s then 429) | participant | bootstrap | — | 16 / 4 | read, security |
 | GET | `/api/token` | reads (32, wait 5.0 s then 429) | — | — | — | 1 / 1 | security |
-| GET | `/api/document` | reads (32, wait 5.0 s then 429) | path, participant | document | — | 10 / 4 | read, security, vault-files, write |
-| GET | `/api/search` | expensive (8, refuse 429) | q, mode, path_prefix, participant | search, search_read_status | — | 4 / 2 | read |
+| GET | `/api/document` | reads (32, wait 5.0 s then 429) | — — when `parsed.path == '/api/document' and args.get('path', '').startswith('private/')` | — | — | 12 / 6 | read, security, vault-files, write |
+| GET | `/api/document` | reads (32, wait 5.0 s then 429) | path, participant | document | — | 12 / 6 | read, security, vault-files, write |
+| GET | `/api/search` | expensive (8, refuse 429) | q, mode, path_prefix, participant | search, search_read_status | — | 3 / 2 | read |
 | GET | `/api/search/page` | expensive (8, refuse 429) | project[], author[], type[], (other filter keys), q, mode, offset, limit, participant | search_page | — | 1 / 3 | read |
 | GET | `/api/discussion` | reads (32, wait 5.0 s then 429) | path, participant | annotations.list (Annotations), engagement.attention (Engagement) | — | 5 / 2 | read |
 | GET | `/api/resolve-batch` | reads (32, wait 5.0 s then 429) | from | resolve_many | — | 1 / 2 | read |
+| GET | `/api/portable-links` | reads (32, wait 5.0 s then 429) | path, sha256 | path, digest | — | 2 / 1 | **gap** |
 | GET | `/api/embeds` | reads (32, wait 5.0 s then 429) | depth, from, target[], ancestor[] | embeds | — | 1 / 3 | read |
-| GET | `/api/resolve` | reads (32, wait 5.0 s then 429) | from, target | resolve | — | 1 / 2 | read |
-| GET | `/api/themes` | reads (32, wait 5.0 s then 429) | — | themes.list (Themes) | — | 1 / 3 | read, write |
-| GET | `/api/maintenance` | reads (32, wait 5.0 s then 429) | — | maintenance.status (Maintenance), local_model.brief (LocalModel) | — | 1 / 2 | read, write |
+| GET | `/api/resolve` | reads (32, wait 5.0 s then 429) | from, target | resolve | — | 1 / 3 | read |
+| GET | `/api/themes` | reads (32, wait 5.0 s then 429) | — | themes.list (Themes) | — | 2 / 4 | read, write |
+| GET | `/api/maintenance` | reads (32, wait 5.0 s then 429) | — | maintenance.status (Maintenance), local_model.brief (LocalModel) | — | 5 / 2 | read, write |
 | GET | `/api/readers` | expensive (8, refuse 429) | path, participant | readers | — | 2 / 2 | read |
+| GET | `/api/speech-voices` | reads (32, wait 5.0 s then 429) | — | speech.voices (Speech) | — | 1 / 1 | **gap** |
 | GET | `/api/speak/*` | reads (32, wait 5.0 s then 429) | — | speech.get (Speech) | — | 0 / 2 | read |
-| GET | `/api/inbox` | reads (32, wait 5.0 s then 429) | — | inbox.status (InboxView) | — | 3 / 4 | read |
+| GET | `/api/inbox` | reads (32, wait 5.0 s then 429) | — | inbox.status (InboxView) | — | 5 / 5 | read |
+| GET | `/api/inbox/deliveries` | reads (32, wait 5.0 s then 429) | id | delivery_tokens.verify | 401 | 0 / 3 | **gap** |
+| GET | `/api/delivery-tokens` | reads (32, wait 5.0 s then 429) | — | delivery_tokens.list | 404 | 0 / 1 | **gap** |
+| GET | `/api/private` | reads (32, wait 5.0 s then 429) | — — when `parsed.path == '/api/private' or parsed.path == '/api/private/item' or parsed.path == '/api/private/file'` | — | — | 2 / 2 | **gap** |
+| GET | `/api/private/item` | reads (32, wait 5.0 s then 429) | — — when `parsed.path == '/api/private' or parsed.path == '/api/private/item' or parsed.path == '/api/private/file'` | — | — | 0 / 2 | **gap** |
+| GET | `/api/private/file` | reads (32, wait 5.0 s then 429) | — — when `parsed.path == '/api/private' or parsed.path == '/api/private/item' or parsed.path == '/api/private/file'` | — | — | 0 / 1 | **gap** |
+| GET | `/api/upload-settings` | reads (32, wait 5.0 s then 429) | — | — | — | 0 / 0 | **gap** |
+| GET | `/api/model-chain` | reads (32, wait 5.0 s then 429) | — | — | — | 1 / 1 | **gap** |
 | GET | `/api/links` | reads (32, wait 5.0 s then 429) | path | backlinks | — | 1 / 2 | read |
 | GET | `/api/preview` | reads (32, wait 5.0 s then 429) | path, fragment, participant | preview | — | 0 / 1 | read |
 | GET | `/api/link-counts` | reads (32, wait 5.0 s then 429) | — | link_counts | — | 0 / 1 | read |
@@ -90,7 +106,7 @@ owning class. **Existing tests** counts browser suites (`tests/web_*.cjs`, `test
 | GET | `/api/shape` | expensive (8, refuse 429) | path | shapes.shape (Shapes) | — | 0 / 1 | read |
 | GET | `/api/issue` | reads (32, wait 5.0 s then 429) | start, end | magazine.issue (Magazine) | — | 0 / 3 | read |
 | GET | `/api/editions` | reads (32, wait 5.0 s then 429) | path | family | — | 0 / 2 | read |
-| GET | `/api/versions` | reads (32, wait 5.0 s then 429) | path, participant, hashes | explore | — | 1 / 4 | read |
+| GET | `/api/versions` | reads (32, wait 5.0 s then 429) | path, participant, hashes | explore | — | 2 / 4 | read |
 | GET | `/api/version` | reads (32, wait 5.0 s then 429) | path, commit | version | — | 0 / 3 | read |
 | GET | `/api/changes?a&b` | reads (32, wait 5.0 s then 429) | a, b — when `parsed.path == '/api/changes' and ('a' in args or 'b' in args)` | compare_refs | — | 0 / 4 | read |
 | GET | `/api/changes` | reads (32, wait 5.0 s then 429) | path, participant, against, successor | changes | — | 0 / 4 | read |
@@ -99,9 +115,10 @@ owning class. **Existing tests** counts browser suites (`tests/web_*.cjs`, `test
 | GET | `/api/history` | reads (32, wait 5.0 s then 429) | participant, cursor, filter, tz | history_view | — | 2 / 3 | read |
 | GET | `/api/fonts` | reads (32, wait 5.0 s then 429) | q | themes.search (Themes) | — | 0 / 1 | read |
 | GET | `/fonts/*` | ungated | — — when `parsed.path.startswith('/fonts/') and parsed.path.count('/') == 3` | send_file, themes.font_file (Themes) | — | 1 / 2 | read, security |
-| GET | `/api/file` | reads (32, wait 5.0 s then 429) | path | path, send_file(raw) | — | 4 / 3 | read, security |
+| GET | `/api/file` | reads (32, wait 5.0 s then 429) | path, download | path, send_file(raw) | — | 4 / 4 | read, security |
+| GET | `/api/attachment/*` | reads (32, wait 5.0 s then 429) | — | path, send_file | — | 1 / 2 | **gap** |
 | GET | `/` | ungated | — — when `parsed.path == '/' or parsed.path.startswith('/assets/')` | send_file | 404 | (page shell) | read, security |
-| GET | `/assets/*` | ungated | — — when `parsed.path == '/' or parsed.path.startswith('/assets/')` | send_file | 404 | 13 / 2 | read, security, write |
+| GET | `/assets/*` | ungated | — — when `parsed.path == '/' or parsed.path.startswith('/assets/')` | send_file | 404 | 17 / 2 | read, security, write |
 
 ## POST actions
 
@@ -116,7 +133,7 @@ the action accepts beyond `action`, where the code lists them.
 | Conversations (`src/reader_mcp/voice_runner.py`) | `create`; `send`; `paste`; `cancel`; `retry`; `hand`; `settings`; `hush` |
 | LocalModel (`src/reader_mcp/local_model.py`) | `server-start`; `server-stop`; `load`: model; `unload`: model; `enqueue`: path, scope, task; `run`: task; `pause`: task; `cancel`: id; `clear`: task; `prune`: task; `settings`: settings |
 | Prompts (`src/reader_mcp/prompts.py`) | `generate` |
-| Quizzes (`src/reader_mcp/quizzes.py`) | `generate`: path, regenerate, request_id, voice; `review`: answer, edition, path, question_id, quiz_id, request_id, voice; `result`: answers, edition, expected_sha256, path, quiz_id, reviews |
+| Quizzes (`src/reader_mcp/quizzes.py`) | `generate`: difficulty, path, regenerate, request_id, voice; `review`: answer, edition, path, question_id, quiz_id, request_id, voice; `result`: answers, edition, expected_sha256, path, quiz_id, reviews |
 | Studio (`src/reader_mcp/art.py`) | `generate`: direction, path, producer; `commission`: paths, producer; `cancel`: job; `favorite`: edition, generation, path; `still`: edition, generation, image, path |
 | Themes (`src/reader_mcp/themes.py`) | `save`; `delete`; `install-font` |
 | Writing (`src/reader_mcp/writing.py`) | `save`; `revise` |
@@ -194,6 +211,15 @@ on stdout; errors print `Reader: <message>` on stderr and exit 1 (`browse --chec
 | annotate | `request` |  |
 | reading-copy | — | Create an unwrapped Markdown reading derivative using wide-md |
 | reading-copy | `path` |  |
+| repair-links | — | Plan or record source-preserving local URL repairs |
+| repair-links | `paths` | nargs='*' |
+| repair-links | `--all` | action='store_true' |
+| repair-links | `--apply` | action='store_true' |
+| repair-links | `--git-root` | type=Path |
+| repair-links | `--image-root` | type=Path; action='append'; default=[] |
+| inbox | — | Start, inspect or stop deterministic inbox processing |
+| inbox | `action` | choices=['start', 'status', 'stop', 'hold', 'release', 'allow-cloud… |
+| inbox | `arrival` | nargs='?' |
 | status | — | Inspect a receipt by UUID |
 | status | `request_id` |  |
 | serve | — | Run the local MCP server over stdio |
@@ -258,17 +284,23 @@ on stdout; errors print `Reader: <message>` on stderr and exit 1 (`browse --chec
 | File | Purpose (docstring) |
 | - | - |
 | `scripts/check_container.py` | Run bounded copy-isolated checks using existing Python and Node Docker images. |
+| `scripts/generate_circle_mark.py` | Outline Reader's bundled Newsreader r into a theme-aware circle mark. |
 | `scripts/install.py` | Bind this code checkout to a private vault and install its local Codex integrations. |
 | `scripts/install_wide_md.py` | Build a pinned wide-md locally with bounded, monitored output and no global install. |
 | `scripts/port_inventory.py` | Mechanically inventory the Python Reader surface for the TypeScript port (D1). |
 | `scripts/reader_paths.py` | Resolve the software checkout separately from the user's private vault. |
 | `scripts/reader_service.py` | Run Reader web as an always-on macOS LaunchAgent, kept current by a smoke-gated updater, |
+| `scripts/run_browser_suites.py` | Run the browser suites (tests/web_*.cjs) in parallel and report the result. |
 | `scripts/start_web.py` | Launch Reader web against the existing private-vault binding. |
+| `scripts/stray_work.py` | Report finished work that has not reached the base branch, and checkouts that can go. Reports only. |
+| `scripts/test_jail.py` | Run a test command inside an enforced sandbox that cannot reach a live Reader. |
+| `scripts/ui_debt.py` | Count what stands between the interface and plain shadcn: custom CSS tokens, hand-written CSS rules and hard-coded inline styles. |
 | `scripts/vendor_web.py` | Refresh explicitly pinned browser assets, without running npm install scripts. |
 | `scripts/verify_installation.py` | Exercise installed MCP and skill routes; remove only this run's verified fixture. |
 | `scripts/verify_search_installation.py` | Read-only acceptance of installed Reader search/read using the real index. |
 | `src/reader_mcp/cli.py` | CLI fallback and stdio server entry point. |
-| `src/reader_mcp/inbox_runner.py` | One explicitly requested Codex librarian run per vault; observable across UI reloads. |
+| `src/reader_mcp/inbox_runner.py` | Supervise one deterministic, model-assisted intake batch per vault. |
+| `src/reader_mcp/intake.py` | Deterministic inbox worker. The first available model in the chain supplies one validated editorial decision per bundle. |
 
 `scripts/reader_service.py` arguments:
 
@@ -309,8 +341,9 @@ on stdout; errors print `Reader: <message>` on stderr and exit 1 (`browse --chec
 | (top) | `--root` | required=True; type=Path |
 | (top) | `--codex` | default='codex' |
 | (top) | `--run-id` |  |
+| (top) | `--only` | action='append' |
 | (top) | `--workstation-lock-store` |  |
-| (top) | `--sandbox-mode` | choices=['workspace-write', 'danger-full-access']; default='workspace-write' |
+| (top) | `--sandbox-mode` | choices=['read-only', 'workspace-write', 'danger-full-access']; default='read-only' |
 
 `scripts/install.py` arguments:
 
@@ -365,9 +398,13 @@ The Obsidian plugin, skills and scripts invoke these CLI subcommands and modules
 | `skills/reader/scripts/remote.py` | serve |
 | `skills/reader/scripts/remote.py` | status |
 | `skills/reflective-reading/scripts/annotate_quote.py` | annotate |
+| `skills/reflective-reading/scripts/read_session.py` | read |
+| `skills/reflective-reading/scripts/read_session.py` | status |
 | `skills/upkeep/scripts/check.py` | annotate |
 | `skills/upkeep/scripts/check.py` | curation |
 | `skills/upkeep/scripts/check.py` | status |
+| `skills/you-got-mail/scripts/process.py` | module cli |
+| `skills/you-got-mail/scripts/process.py` | status |
 
 ## Vault files
 
@@ -378,30 +415,39 @@ String literals joined with `/` or shaped like vault paths. A starting point for
 | Module | Literals |
 | - | - |
 | `src/reader_mcp/annotations.py` | `*.json`, `.reader`, `annotations`, `annotations.lock`, `library/` |
+| `src/reader_mcp/arrival_choices.py` | `.reader/arrival-choices.json` |
 | `src/reader_mcp/art.py` | `.reader`, `/favorite.json`, `art`, `brief.md`, `favorite.json`, `jobs.json`, `jobs.next.json`, `library/`, `prompts`, `provenance.json`, `repair-errors.txt`, `run.lock`, `scene-errors.txt`, `scene.json`, `staging`, `still.png`, `tmp`, `work` |
 | `src/reader_mcp/art_scene.py` | `art-scene.v1.json` |
 | `src/reader_mcp/bookmarks.py` | `*.json`, `bookmarks`, `library/` |
 | `src/reader_mcp/browse.py` | `*.txt`, `.reader`, `README.md`, `browse.lock`, `catalog`, `catalog/metadata`, `coverage.json`, `index.md`, `indexes`, `intake-inspection.md`, `intake-record.md`, `library`, `originals/*.txt`, `preservation.md`, `reading-notes.md`, `reading-record.md`, `receipt.json`, `settings.json` |
 | `src/reader_mcp/catalog.py` | `.reader`, `.reader/catalog-migration-backup/`, `catalog`, `catalog.lock`, `catalog.sqlite3`, `catalog/`, `catalog/index.md`, `catalog/metadata`, `catalog/metadata/`, `index.md`, `library`, `library/`, `library/connections/`, `library/reactions/`, `library/reflections/`, `preservation.json`, `reading-record.md`, `receipt.json` |
 | `src/reader_mcp/chats.py` | `*.json`, `.reader`, `chat-commit.lock`, `chats`, `chats.lock`, `chats/`, `voice-runner` |
-| `src/reader_mcp/cli.py` | `catalog`, `curation`, `library/` |
+| `src/reader_mcp/cli.py` | `catalog`, `curation`, `inbox`, `library`, `library/` |
 | `src/reader_mcp/coding_jobs.py` | `.reader/coding-jobs`, `admit.lock`, `events.jsonl`, `events.jsonl.partial`, `git.log`, `last-message.md`, `meta.json`, `prompt.txt`, `request.json`, `result.json`, `stderr.log`, `stdout.jsonl`, `system.txt`, `verify.log` |
 | `src/reader_mcp/coding_publish.py` | `verify.log` |
 | `src/reader_mcp/coding_store.py` | `*.json`, `.reader/coding-jobs`, `events.jsonl`, `events.jsonl.gz`, `events.jsonl.partial`, `requests`, `runs` |
 | `src/reader_mcp/coding_workflow.py` | `git.log`, `last-message.md`, `stderr.log`, `stdin.txt`, `stdout.jsonl`, `system.txt` |
 | `src/reader_mcp/companions.py` | `.cargo/bin/cargo`, `.local/bin/ai-tts`, `.reader`, `.reader/companions.json`, `.reader/tooling`, `HEAD`, `Library/LaunchAgents`, `bin`, `bin/colorful`, `bin/wide-md`, `colorful-language`, `colorful-target`, `colorful.json`, `companions.json`, `companions.lock`, `git-locks`, `installed.json`, `logs`, `objects`, `release/colorful`, `scripts/install_wide_md.py`, `setup.lock` |
-| `src/reader_mcp/curation.py` | `*.json`, `.reader`, `curation`, `curation.lock`, `index.md`, `intake-inspection.json`, `intake-inspection.md`, `intake-record.md`, `library/`, `preservation.json`, `reading-copy-outcomes.json`, `reading-copy-results.json`, `reading-record.md`, `receipt.json` |
+| `src/reader_mcp/curation.py` | `*.json`, `.reader`, `catalog`, `curation`, `curation.lock`, `index.md`, `intake-inspection.json`, `intake-inspection.md`, `intake-record.md`, `library/`, `preservation.json`, `reading-copy-outcomes.json`, `reading-copy-results.json`, `reading-record.md`, `receipt.json` |
+| `src/reader_mcp/delivery_tokens.py` | `.reader/delivery-tokens.json` |
 | `src/reader_mcp/editions.py` | `catalog`, `catalog/metadata`, `catalog/metadata/`, `library`, `library/` |
 | `src/reader_mcp/engagement.py` | `*.json`, `engagement`, `library/`, `voices.json` |
-| `src/reader_mcp/inbox_runner.py` | `.git`, `.reader`, `.reader/inbox-runner`, `.reader/upkeep-claims.json`, `.reader/upkeep.lock`, `.reader/voice-runner/run.lock`, `HEAD`, `cancel`, `events.jsonl`, `inbox`, `inbox/README.md`, `last-message.md`, `objects`, `prompt.txt`, `run.lock`, `state.json`, `state.next.json`, `stderr.log`, `tmp` |
-| `src/reader_mcp/inbox_view.py` | `.cargo/bin/codex`, `.local/bin/codex`, `.reader`, `.reader/inbox-runner`, `.reader/upkeep-claims.json`, `/receipt.json`, `cancel`, `codex`, `events.jsonl`, `inbox`, `inbox/`, `last-message.md`, `receipt.json`, `state.json`, `stderr.log` |
+| `src/reader_mcp/inbox_paths.py` | `.reader/inbox`, `README.md`, `inbox`, `inbox/` |
+| `src/reader_mcp/inbox_runner.py` | `.git`, `.reader`, `.reader/inbox-runner`, `.reader/inbox-runner/`, `.reader/upkeep-claims.json`, `.reader/upkeep.lock`, `.reader/voice-runner/run.lock`, `HEAD`, `README.md`, `cancel`, `events.jsonl`, `inbox/`, `last-message.md`, `model-chain.json`, `objects`, `pending.json`, `progress.json`, `queue.json`, `result.json`, `run.lock`, `selection.json`, `state.json`, `state.next.json`, `stderr.log`, `tmp` |
+| `src/reader_mcp/inbox_view.py` | `.cargo/bin/codex`, `.local/bin/codex`, `.reader`, `.reader/inbox-runner`, `.reader/upkeep-claims.json`, `/receipt.json`, `cancel`, `codex`, `events.jsonl`, `inbox/`, `last-message.md`, `pending.json`, `queue.json`, `receipt.json`, `skills/reader/scripts/remote.py`, `state.json`, `stderr.log` |
+| `src/reader_mcp/intake.py` | `.reader/inbox-runner`, `/index.md`, `README.md`, `catalog`, `catalog/`, `context.txt`, `editorial`, `inbox/`, `inbox/README.md`, `indexes/`, `indexes/settings.json`, `last-message.md`, `library`, `library/`, `library/index.md`, `library/intake-preview/originals/`, `pending.json`, `prepared`, `progress.json`, `queue.json`, `receipt.json`, `result.json`, `selection.json`, `state.json` |
+| `src/reader_mcp/intake_journal.py` | `/index.md`, `README.md`, `catalog/index.md`, `catalog/metadata/`, `indexes/`, `library/`, `library/index.md`, `pending.json`, `prepared` |
 | `src/reader_mcp/learning.py` | `library/` |
 | `src/reader_mcp/links.py` | `.reader`, `coverage.json`, `indexes`, `library`, `library/`, `links.sqlite3` |
 | `src/reader_mcp/llm_logs.py` | `.meta.next`, `.reader`, `art`, `chat-commit.lock`, `inbox`, `logs/llm`, `logs/llm/(`, `meta.json`, `voice-runner` |
 | `src/reader_mcp/local_model.py` | `.git`, `.lmstudio/bin/lms`, `.reader`, `.reader/gpu.lock`, `.reader/local-model/api-key`, `.reader/local-model/settings.json`, `api-key`, `local-model`, `logs`, `outputs.sqlite3`, `queue.jsonl`, `request-template.json`, `settings.json` |
 | `src/reader_mcp/magazine.py` | `*.md`, `library/newsletters` |
-| `src/reader_mcp/maintenance.py` | `*.json`, `.reader`, `annotations`, `catalog`, `catalog.sqlite3`, `coverage.json`, `embedding-cache.sqlite3`, `engagement`, `inbox`, `inbox/README.md`, `indexes`, `library`, `search.lock`, `search.sqlite3`, `search.v2.sqlite3`, `settings.json` |
+| `src/reader_mcp/maintenance.py` | `*.json`, `.reader`, `README.md`, `annotations`, `catalog`, `catalog.sqlite3`, `coverage.json`, `embedding-cache.sqlite3`, `engagement`, `inbox`, `indexes`, `library`, `search.lock`, `search.sqlite3`, `search.v2.sqlite3`, `settings.json` |
 | `src/reader_mcp/metadata.py` | `catalog`, `index.md`, `library`, `library/`, `receipt.json` |
+| `src/reader_mcp/model_chain.py` | `.agents`, `.agents/hook.py`, `.agents/hooks.json`, `.lmstudio/bin`, `.reader/model-chain.json`, `agy`, `claude`, `decision.json`, `inbox`, `model-chain.json`, `output.json`, `prompt.txt`, `schema.json`, `steps.json` |
+| `src/reader_mcp/portable_links.py` | `.git`, `git`, `library`, `library/`, `receipt.json` |
+| `src/reader_mcp/private_store.py` | `bridge.mjs`, `hooks/pre-push`, `node_modules/@git-stunts/git-cas/index.js`, `package-lock.json`, `package.json`, `packed-refs`, `private.git`, `receipt.json`, `refs/cas/vault`, `tools/git-cas-bridge` |
+| `src/reader_mcp/process_table.py` | `stat` |
 | `src/reader_mcp/prompts.py` | `.reader`, `.reader/prompts.lock`, `prompts` |
 | `src/reader_mcp/prose.py` | `.cargo/bin/colorful`, `.colorful-language/bin/colorful` |
 | `src/reader_mcp/quizzes.py` | `.reader`, `quiz-reviews`, `quizzes`, `quizzes.lock` |
@@ -415,25 +461,30 @@ String literals joined with `/` or shaped like vault paths. A starting point for
 | `src/reader_mcp/service.py` | `.git`, `.reader/inbox-runner/run.lock`, `HEAD`, `commondir`, `inbox`, `packed-refs`, `pyproject.toml`, `reader_service.py`, `scripts` |
 | `src/reader_mcp/shape.py` | `.reader`, `annotations`, `search.v2.sqlite3` |
 | `src/reader_mcp/speech.py` | `ai-tts.sock` |
-| `src/reader_mcp/store.py` | `.reader`, `inbox`, `index.md`, `ingest.lock`, `library`, `receipt.json`, `report.md`, `staging` |
+| `src/reader_mcp/store.py` | `.reader`, `inbox`, `inbox/`, `index.md`, `ingest.lock`, `library`, `receipt.json`, `report.md`, `staging` |
 | `src/reader_mcp/themes.py` | `*.json`, `*/manifest.json`, `.catalog.json`, `.reader`, `LICENSE.txt`, `OFL.txt`, `UFL.txt`, `[a-z0-9-]{1,40}\.woff2\|font\.css\|LICENSE\.txt`, `famous-themes.json`, `font.css`, `fonts`, `manifest.json`, `theme-tokens.json`, `themes`, `themes.lock` |
+| `src/reader_mcp/uploads.py` | `.reader/upload-staging`, `.reader/uploads.json` |
 | `src/reader_mcp/versions.py` | `catalog`, `history` |
 | `src/reader_mcp/voice_runner.py` | `.reader`, `.reader/`, `cancel`, `chats`, `chats/`, `inbox-runner`, `last-message.md`, `listening.1.jsonl`, `listening.jsonl`, `meta.json`, `prompt.txt`, `prompt.txt.partial`, `run.lock`, `state.json`, `state.next.json`, `stderr.log`, `stdout.jsonl`, `supervisor.lock`, `system.txt`, `tmp`, `upkeep.lock`, `voice-runner` |
 | `src/reader_mcp/voice_tasks.py` | `*.json`, `.reader`, `chat-commit.lock`, `tasks.lock`, `voice-tasks` |
 | `src/reader_mcp/voices.py` | `AGENTS.md`, `voices.json` |
-| `src/reader_mcp/web.py` | `.reader/tooling/bin/colorful`, `annotations`, `draft.md`, `inbox/`, `indexes/coverage.json`, `library`, `library/`, `writing` |
+| `src/reader_mcp/web.py` | `.reader/speech.json`, `.reader/tooling/bin/colorful`, `annotations`, `draft.md`, `inbox/`, `indexes/coverage.json`, `library`, `library/`, `writing` |
 | `src/reader_mcp/web_access.py` | `.reader/web-config.json` |
 | `src/reader_mcp/writing.py` | `*.md`, `.reader`, `chat-commit.lock`, `chats/`, `library`, `library/notebook`, `notebook`, `writing-requests`, `writing.lock` |
 | `src/reader_mcp/demo/__init__.py` | `vault`, `voices.json` |
 | `src/reader_mcp/demo/build.py` | `*.json`, `*.jsonl`, `.gitignore`, `.reader/ .DS_Store `, `.reader/demo-staging`, `.reader/models`, `AGENTS.md`, `NOTICE.md`, `README.md`, `analytical-engine/babbage-analytical-engine.md`, `analytical-engine/lovelace-note-g.md`, `analytical-engine/lovelace-note-g.reading.md`, `analytical-engine/reading-note-g.md`, `annotations`, `art`, `assets/darwin-diagram.png`, `assets/lantern-0.9-field-report.pdf`, `bin/art.json`, `bin/demo-voice`, `bin/demo-voice.py`, `bin/replies.json`, `catalog`, `catalog/metadata`, `catch-up-benchmark.md`, `catch-up.csv`, `content`, `engagement`, `essayists/bacon/of-studies.md`, `essayists/bacon/of-truth.md`, `essayists/montaigne/of-books.md`, `essayists/montaigne/of-idleness.md`, `essayists/montaigne/of-solitude.md`, `essayists/woolf/modern-fiction.md`, `essayists/woolf/montaigne.md`, `essayists/woolf/the-common-reader.md`, `essayists/woolf/the-modern-essay.md`, `history`, `inbox`, `inbox/README.md`, `inbox/autumn-reading-list.md`, `indexes`, `indexes/settings.json`, `lantern/decisions/adr-007.md`, `lantern/design/sync-design.md`, `lantern/design/sync-design.v1a.md`, `lantern/design/sync-design.v2.md`, `lantern/guides/keyboard-reading.md`, `lantern/journal/week.md`, `lantern/logs/sync-dry-run.log`, `lantern/research/spaced-rereading.md`, `library`, `library/`, `library/analytical-engine/babbage-analytical-engine.md`, `library/analytical-engine/lovelace-note-g.md`, `library/analytical-engine/lovelace-note-g.reading.md`, `library/analytical-engine/reading-note-g.md`, `library/essayists/bacon/of-truth.md`, `library/essayists/montaigne/of-books.md`, `library/essayists/montaigne/of-idleness.md`, `library/essayists/montaigne/of-solitude.md`, `library/essayists/woolf/modern-fiction.md`, `library/essayists/woolf/montaigne.md`, `library/essayists/woolf/the-common-reader.md`, `library/essayists/woolf/the-modern-essay.md`, `library/lantern/decisions/adr-007.md`, `library/lantern/design/sync-design.md`, `library/lantern/design/sync-design.v2.md`, `library/lantern/guides/keyboard-reading.md`, `library/lantern/journal/week-`, `library/lantern/reports/lantern-0.9-field-report.pdf`, `library/lantern/research/spaced-rereading.md`, `library/natural-history/darwin/darwin-diagram.png`, `library/natural-history/darwin/recapitulation.md`, `library/natural-history/darwin/struggle-for-existence.md`, `library/natural-history/darwin/the-only-figure.md`, `library/reading-room/on-keeping-the-margins.md`, `library/reading-room/solitude-twice.md`, `library/reading-room/the-engine-and-the-essay.md`, `library/reading-room/what-note-g-costs.md`, `library/walden/emerson/circles.md`, `library/walden/emerson/self-reliance.md`, `library/walden/thoreau/reading.md`, `library/walden/thoreau/solitude.md`, `library/walden/thoreau/where-i-lived.md`, `natural-history/darwin/darwin-diagram.png`, `natural-history/darwin/recapitulation.md`, `natural-history/darwin/struggle-for-existence.md`, `natural-history/darwin/the-only-figure.md`, `natural-history/the-only-figure.md`, `newsletters/weekly.md`, `of-gardens.md`, `prompts`, `reading-room/on-keeping-the-margins.md`, `reading-room/solitude-twice.md`, `reading-room/the-engine-and-the-essay.md`, `reading-room/what-note-g-costs.md`, `texts`, `texts/bacon-of-gardens.md`, `voice/demo-voice.py`, `voice/replies.json`, `voices.json`, `walden/emerson/circles.md`, `walden/emerson/self-reliance.md`, `walden/thoreau/reading.md`, `walden/thoreau/solitude.md`, `walden/thoreau/where-i-lived.md` |
 | `src/reader_mcp/demo/static.py` | `.nojekyll`, `.reader`, `art`, `assets`, `bin`, `chat.json`, `chats`, `data`, `files`, `history`, `inbox`, `index.html`, `library`, `manifest.json`, `manifest.webmanifest`, `paths.json`, `r`, `replies.json`, `resolve.json`, `robots.txt`, `search.json`, `search.v2.sqlite3`, `web_ui` |
 | `scripts/check_container.py` | `.reader/review`, `.reader/tooling/bin/wide-md`, `.reader/tooling/installed.json`, `AGENTS.md`, `CHANGELOG.md`, `README.md`, `controls`, `controls.next`, `manifest.json`, `package-lock.json`, `package.json`, `plugins/reader/dist`, `src/reader_mcp/web_ui/controls`, `uv.lock`, `validation.lock` |
-| `scripts/install.py` | `.codex`, `.reader`, `.venv/bin/python`, `config.json`, `inbox`, `library`, `skills` |
-| `scripts/install_wide_md.py` | `.cargo`, `.reader`, `.reader/tooling`, `.venv`, `bin/wide-md`, `git`, `installed.json`, `launch.json`, `plugins/reader/node_modules`, `registry`, `release/wide-md`, `setup.lock`, `setup.log` |
-| `scripts/reader_paths.py` | `.reader/config.json`, `inbox`, `library` |
-| `scripts/reader_service.py` | `.local/bin`, `.local/bin/git-locks`, `.reader/config.json`, `.reader/web-config.json`, `.venv/bin/python`, `Library/LaunchAgents`, `Library/Logs/Reader`, `backups`, `git-locks`, `git.lock`, `inbox`, `library`, `live`, `scripts/reader_service.py`, `scripts/start_web.py`, `service.json`, `src`, `tree`, `update.lock`, `updater.log`, `updates.jsonl`, `web.log` |
+| `scripts/generate_circle_mark.py` | `src/reader_mcp/web_ui/mark-circle.svg`, `src/reader_mcp/web_ui/vendor/newsreader.woff2`, `web/src/circle-mark.tsx` |
+| `scripts/install.py` | `.codex`, `.reader`, `.venv/bin/python`, `config.json`, `library`, `skills`, `skills/reader/scripts/reader.py`, `skills/reader/scripts/remote.py` |
+| `scripts/install_wide_md.py` | `.cargo`, `.reader`, `.reader/tooling`, `.venv`, `bin/wide-md`, `git`, `installed.json`, `launch.json`, `plugins/reader/node_modules`, `registry`, `release/wide-md`, `setup.lock`, `setup.log`, `src` |
+| `scripts/reader_paths.py` | `.reader/config.json`, `library` |
+| `scripts/reader_service.py` | `.local/bin`, `.local/bin/git-locks`, `.reader/config.json`, `.reader/web-config.json`, `.venv/bin/python`, `Library/LaunchAgents`, `Library/Logs/Reader`, `backups`, `git-locks`, `git.lock`, `library`, `live`, `scripts/reader_service.py`, `scripts/start_web.py`, `service.json`, `skills/reader/scripts/remote.py`, `src`, `test_jail.py`, `tree`, `update.lock`, `updater.log`, `updates.jsonl`, `web.log` |
+| `scripts/run_browser_suites.py` | `.reader/web-dev/suites`, `.venv/bin/python`, `durations.json`, `tests` |
+| `scripts/test_jail.py` | `.agy`, `.cache`, `.claude`, `.claude.json`, `.codex`, `.config`, `.config/gh`, `.gemini`, `.lmstudio/bin`, `.local/bin`, `.local/share`, `.npm`, `.ssh`, `Library/Caches/ms-playwright`, `Library/Logs/Reader`, `home`, `probe`, `profile.sb`, `reader-home`, `tmp` |
+| `scripts/ui_debt.py` | `harvest.css`, `index.html`, `src/reader_mcp/web_ui`, `style.css`, `styles.css`, `web/src` |
 | `scripts/vendor_web.py` | `gsap-UPSTREAM-README.md`, `manifest.json`, `package/README.md`, `src/reader_mcp/web_ui/vendor` |
-| `scripts/verify_installation.py` | `.codex`, `.venv/bin/python`, `assets/sample.bin`, `inbox`, `report.md`, `sample.bin`, `scripts/reader.py`, `skills/reader`, `submission.json` |
+| `scripts/verify_installation.py` | `.codex`, `.reader/inbox`, `.venv/bin/python`, `assets/sample.bin`, `report.md`, `sample.bin`, `scripts/reader.py`, `skills/reader`, `submission.json` |
 | `scripts/verify_search_installation.py` | `.codex`, `.reader/search-runtime`, `.venv/bin/python`, `library`, `library/`, `medicine.txt`, `skills/reader/scripts/reader.py`, `storage.txt`, `weather.txt` |
 
 ### Files in a freshly built demo vault (empirical)
@@ -452,6 +503,10 @@ two levels). Counts and sizes describe the demo only.
 | `.reader/catalog.sqlite3` | 1 | SQLite (user_version 2, journal delete) |
 | `.reader/chats.lock` | 1 | lock |
 | `.reader/embedding-cache.sqlite3` | 1 | SQLite (user_version 0, journal delete) |
+| `.reader/inbox/<uuid>/catch-up-benchmark.md` | 1 | md |
+| `.reader/inbox/<uuid>/catch-up.csv` | 1 | csv |
+| `.reader/inbox/<uuid>/of-gardens.md` | 1 | md |
+| `.reader/inbox/<uuid>/receipt.json` | 2 | {document: string, files: [{bytes, path, sha256}], fingerprint: string, id: string, provenance: {author, project, report_date, source}, reader_receipt: number, received_at: string, title: string} |
 | `.reader/ingest.lock` | 1 | lock |
 | `.reader/links.sqlite3` | 1 | SQLite (user_version 0, journal wal) |
 | `.reader/search.lock` | 1 | lock |
@@ -475,10 +530,6 @@ two levels). Counts and sizes describe the demo only.
 | `chats/<uuid>.json` | 1 | {schema_version: number, id: string, document_path: string, document_sha256: string, title: string, started_by: string, created_at: string, revision: number, messages: [{id, author, body, mentions, reply_to, runtime, routing, created_at}]} |
 | `engagement/<hash>.json` | 7 | {schema_version: number, participant: string, items: {<path key>: {version, at}}} |
 | `history/<hash>.jsonl` | 1 | lines of {path: string, sha256: string, at: string} |
-| `inbox/<uuid>/catch-up-benchmark.md` | 1 | md |
-| `inbox/<uuid>/catch-up.csv` | 1 | csv |
-| `inbox/<uuid>/of-gardens.md` | 1 | md |
-| `inbox/<uuid>/receipt.json` | 2 | {document: string, files: [{bytes, path, sha256}], fingerprint: string, id: string, provenance: {author, project, report_date, source}, reader_receipt: number, received_at: string, title: string} |
 | `inbox/README.md` | 1 | md |
 | `inbox/autumn-reading-list.md` | 1 | md |
 | `indexes/**/*.svg` | 4 | svg |
@@ -553,12 +604,14 @@ Occurrences per module of each durability/concurrency mechanism (regex counts ov
 | Module | flock | os.replace | fsync | mkstemp/NamedTemporaryFile | O_EXCL/O_NOFOLLOW | symlink refusal | sqlite WAL | threading.Lock | git-locks |
 | - | - | - | - | - | - | - | - | - | - |
 | `src/reader_mcp/annotations.py` | 1 | 1 | 1 | 1 |  | 4 |  |  |  |
+| `src/reader_mcp/arrival_choices.py` | 1 | 1 |  |  |  | 2 |  |  |  |
 | `src/reader_mcp/art.py` | 4 |  |  |  |  | 12 |  | 2 | 5 |
 | `src/reader_mcp/bookmarks.py` |  | 1 | 1 | 1 |  | 2 |  |  |  |
 | `src/reader_mcp/browse.py` | 1 | 1 |  | 1 |  | 10 |  |  |  |
 | `src/reader_mcp/catalog.py` | 1 | 1 | 1 | 1 |  | 6 |  |  |  |
 | `src/reader_mcp/changes.py` |  |  |  |  |  |  |  | 2 |  |
 | `src/reader_mcp/chats.py` | 2 | 1 | 1 | 2 |  | 4 |  |  | 13 |
+| `src/reader_mcp/cli.py` |  |  |  |  |  | 1 |  |  |  |
 | `src/reader_mcp/clock.py` |  |  |  |  |  |  |  | 1 |  |
 | `src/reader_mcp/coding_agents.py` |  |  |  |  |  |  |  |  | 1 |
 | `src/reader_mcp/coding_jobs.py` | 1 |  |  |  |  |  |  | 1 | 12 |
@@ -567,11 +620,15 @@ Occurrences per module of each durability/concurrency mechanism (regex counts ov
 | `src/reader_mcp/coding_workflow.py` |  |  |  |  |  | 1 |  |  | 5 |
 | `src/reader_mcp/companions.py` | 2 | 2 |  | 1 |  | 7 |  | 1 | 39 |
 | `src/reader_mcp/curation.py` | 1 | 1 | 1 | 1 |  | 4 |  |  |  |
+| `src/reader_mcp/delivery_tokens.py` | 1 | 1 |  |  |  | 1 |  |  |  |
 | `src/reader_mcp/editions.py` |  |  |  |  |  | 1 |  | 1 |  |
 | `src/reader_mcp/embeds.py` |  |  |  |  |  |  |  | 1 |  |
 | `src/reader_mcp/engagement.py` |  | 1 | 1 | 1 |  | 4 |  |  |  |
-| `src/reader_mcp/inbox_runner.py` | 4 |  |  |  |  | 4 |  |  | 6 |
+| `src/reader_mcp/inbox_paths.py` |  |  |  |  |  | 4 |  |  |  |
+| `src/reader_mcp/inbox_runner.py` | 4 |  |  |  |  | 8 |  |  | 5 |
 | `src/reader_mcp/inbox_view.py` |  |  |  |  | 3 | 2 |  | 1 |  |
+| `src/reader_mcp/intake.py` |  |  |  |  |  | 7 |  |  | 3 |
+| `src/reader_mcp/intake_journal.py` |  |  | 2 | 2 |  | 4 |  |  |  |
 | `src/reader_mcp/links.py` |  |  |  |  | 1 | 3 | 1 | 1 |  |
 | `src/reader_mcp/llm_inventory.py` |  |  |  |  |  | 5 |  |  |  |
 | `src/reader_mcp/llm_logs.py` | 1 |  | 1 | 1 |  | 7 |  | 1 | 8 |
@@ -579,6 +636,9 @@ Occurrences per module of each durability/concurrency mechanism (regex counts ov
 | `src/reader_mcp/magazine.py` |  |  |  |  |  | 1 |  | 1 |  |
 | `src/reader_mcp/maintenance.py` | 1 |  |  |  |  | 6 |  | 1 |  |
 | `src/reader_mcp/metadata.py` |  |  |  |  |  | 2 |  |  |  |
+| `src/reader_mcp/model_chain.py` |  |  |  |  |  | 2 |  |  |  |
+| `src/reader_mcp/portable_links.py` |  |  | 2 | 2 |  | 9 |  |  |  |
+| `src/reader_mcp/private_store.py` |  |  |  |  |  |  |  | 1 |  |
 | `src/reader_mcp/prompts.py` | 1 |  | 1 | 1 |  | 7 |  |  |  |
 | `src/reader_mcp/prose.py` |  |  |  |  |  |  |  | 2 |  |
 | `src/reader_mcp/quizzes.py` | 1 |  | 2 | 2 |  | 7 |  |  |  |
@@ -590,14 +650,15 @@ Occurrences per module of each durability/concurrency mechanism (regex counts ov
 | `src/reader_mcp/search_guard.py` | 1 |  |  |  |  | 1 |  |  |  |
 | `src/reader_mcp/service.py` | 2 |  |  |  |  | 1 |  |  |  |
 | `src/reader_mcp/shape.py` |  |  |  |  |  | 2 |  | 1 |  |
-| `src/reader_mcp/speech.py` |  |  |  |  |  |  |  | 1 |  |
-| `src/reader_mcp/store.py` | 1 |  | 2 |  | 1 | 6 |  |  |  |
+| `src/reader_mcp/speech.py` | 1 | 1 |  | 1 |  | 3 |  | 1 |  |
+| `src/reader_mcp/store.py` | 1 |  | 2 |  | 1 | 7 |  |  |  |
 | `src/reader_mcp/themes.py` | 1 | 2 | 1 | 1 |  | 11 |  | 1 |  |
+| `src/reader_mcp/uploads.py` |  |  |  |  |  | 1 |  |  |  |
 | `src/reader_mcp/versions.py` |  |  |  |  |  |  |  | 2 |  |
 | `src/reader_mcp/voice_runner.py` | 9 |  |  |  | 3 | 4 |  | 4 | 7 |
 | `src/reader_mcp/voice_tasks.py` | 2 | 1 | 1 | 1 |  | 6 |  |  | 4 |
 | `src/reader_mcp/voices.py` |  |  |  |  |  | 2 |  |  |  |
-| `src/reader_mcp/web.py` |  |  |  |  |  | 4 |  | 4 |  |
+| `src/reader_mcp/web.py` |  |  |  |  |  | 4 |  | 5 |  |
 | `src/reader_mcp/web_access.py` |  |  |  |  |  | 2 |  | 1 |  |
 | `src/reader_mcp/writing.py` | 2 | 1 | 2 | 3 |  | 11 |  | 1 | 9 |
 | `src/reader_mcp/demo/__init__.py` |  |  |  | 1 |  |  |  |  |  |
@@ -607,6 +668,7 @@ Occurrences per module of each durability/concurrency mechanism (regex counts ov
 | `scripts/install.py` |  | 2 |  | 1 |  | 4 |  |  |  |
 | `scripts/install_wide_md.py` | 1 | 1 |  |  |  | 1 |  |  |  |
 | `scripts/reader_service.py` | 2 | 3 |  | 1 |  | 6 |  |  | 12 |
+| `scripts/test_jail.py` |  |  |  |  |  |  |  |  | 6 |
 | `scripts/verify_installation.py` |  |  |  | 1 |  |  |  |  |  |
 | `scripts/verify_search_installation.py` |  |  |  | 2 |  |  |  |  |  |
 
@@ -624,40 +686,48 @@ Lock file names: `.lock`, `.reader/gpu.lock`, `.reader/inbox-runner/run.lock`, `
 | `src/reader_mcp/chats.py:256` | run | `[git, 'log', '-1', '--format=%H', '--', relative, *logs]` | `10` |
 | `src/reader_mcp/chats.py:249` | run | `command` | `180` |
 | `src/reader_mcp/coding_agents.py:36` | run | `[path, '--version']` | `10` |
-| `src/reader_mcp/coding_workflow.py:126` | run | `command` | `GIT_TIMEOUT + 130` |
-| `src/reader_mcp/coding_workflow.py:322` | Popen | `command` | `—` |
-| `src/reader_mcp/coding_workflow.py:99` | run | `[self.git_exe, *args]` | `timeout` |
-| `src/reader_mcp/coding_workflow.py:51` | run | `['ps', '-o', 'lstart=', '-p', str(pid)]` | `5` |
-| `src/reader_mcp/coding_workflow.py:173` | run | `[self.git_exe, '--version']` | `10` |
+| `src/reader_mcp/coding_workflow.py:123` | run | `command` | `GIT_TIMEOUT + 130` |
+| `src/reader_mcp/coding_workflow.py:319` | Popen | `command` | `—` |
+| `src/reader_mcp/coding_workflow.py:96` | run | `[self.git_exe, *args]` | `timeout` |
+| `src/reader_mcp/coding_workflow.py:170` | run | `[self.git_exe, '--version']` | `10` |
 | `src/reader_mcp/companions.py:551` | Popen | `argv` | `—` |
 | `src/reader_mcp/companions.py:245` | run | `[path, *argv]` | `5` |
 | `src/reader_mcp/companions.py:611` | run | `[git, '-C', str(source), 'remote', 'get-url', 'origin']` | `10` |
 | `src/reader_mcp/companions.py:614` | run | `[git, '-C', str(source), 'status', '--porcelain']` | `30` |
 | `src/reader_mcp/companions.py:673` | run | `[self.launchctl, 'print', f'{domain}/{AI_TTS_LABEL}']` | `10` |
 | `src/reader_mcp/companions.py:619` | run | `[git, '-C', str(source), 'rev-parse', 'HEAD']` | `10` |
-| `src/reader_mcp/inbox_runner.py:74` | run | `[tool, 'store']` | `10` |
-| `src/reader_mcp/inbox_runner.py:64` | run | `[git, 'rev-parse', '--path-format=absolute', option]` | `10` |
-| `src/reader_mcp/inbox_runner.py:187` | Popen | `args` | `—` |
-| `src/reader_mcp/inbox_runner.py:207` | check_output | `['ps', '-axo', 'pgid=,rss=']` | `5` |
-| `src/reader_mcp/inbox_view.py:529` | self.spawn | `argv` | `—` |
-| `src/reader_mcp/inbox_view.py:426` | run | `[git, 'log', '-1', '--format=%H%x00%s', match.group(1) + '^{commit}',…` | `5` |
+| `src/reader_mcp/inbox_runner.py:73` | run | `[tool, 'store']` | `10` |
+| `src/reader_mcp/inbox_runner.py:63` | run | `[git, 'rev-parse', '--path-format=absolute', option]` | `10` |
+| `src/reader_mcp/inbox_runner.py:262` | Popen | `args` | `—` |
+| `src/reader_mcp/inbox_view.py:584` | self.spawn | `argv` | `—` |
+| `src/reader_mcp/inbox_view.py:459` | run | `[git, 'log', '-1', '--format=%H%x00%s', match.group(1) + '^{commit}',…` | `5` |
+| `src/reader_mcp/intake.py:308` | run | `['git', '--literal-pathspecs', *args]` | `120` |
+| `src/reader_mcp/intake.py:644` | run | `args` | `30` |
+| `src/reader_mcp/intake.py:658` | run | `[tool, 'release', '--job', job, '--acquisition', receipt['acquisition…` | `30` |
 | `src/reader_mcp/llm_logs.py:188` | run | `[git, 'rev-parse', '--show-toplevel']` | `10` |
 | `src/reader_mcp/llm_logs.py:215` | run | `[git, 'rev-parse', 'HEAD']` | `10` |
 | `src/reader_mcp/llm_logs.py:208` | run | `command` | `180` |
 | `src/reader_mcp/local_model.py:516` | run | `[self.executable, *args]` | `60` |
 | `src/reader_mcp/local_model.py:1007` | run | `['git', '-C', str(self.root), 'check-ignore', '-q', '.reader/local-mo…` | `10` |
+| `src/reader_mcp/model_chain.py:182` | Popen | `command` | `—` |
+| `src/reader_mcp/model_chain.py:391` | run | `[os.path.expanduser(local['command'][0]), *local['command'][1:]]` | `START_TIMEOUT` |
+| `src/reader_mcp/portable_links.py:86` | run | `['git', '-C', str(root), *args]` | `10` |
+| `src/reader_mcp/private_store.py:112` | run | `[node, str(BRIDGE / 'bridge.mjs'), str(self.repo), str(self.tool)]` | `CALL_TIMEOUT` |
+| `src/reader_mcp/private_store.py:129` | run | `['git', '--git-dir', str(self.repo), 'remote']` | `30` |
+| `src/reader_mcp/private_store.py:143` | run | `['git', '--git-dir', str(self.repo), 'gc', '--quiet', '--prune=now']` | `CALL_TIMEOUT` |
+| `src/reader_mcp/private_store.py:96` | run | `[npm, 'ci', '--ignore-scripts', '--no-audit', '--no-fund']` | `INSTALL_TIMEOUT` |
+| `src/reader_mcp/private_store.py:134` | run | `['git', '--git-dir', str(self.repo), 'config', name, value]` | `30` |
+| `src/reader_mcp/private_store.py:177` | run | `['git', 'init', '-q', '--bare', str(self.repo)]` | `30` |
 | `src/reader_mcp/prose.py:425` | Popen | `[binary, 'ir', '-']` | `—` |
 | `src/reader_mcp/prose.py:340` | run | `[str(path), '--version']` | `5` |
 | `src/reader_mcp/reading.py:46` | run | `[str(tool)]` | `15` |
 | `src/reader_mcp/repositories.py:57` | run | `[shutil.which('git') or 'git', *args]` | `timeout` |
-| `src/reader_mcp/search_guard.py:116` | Popen | `cmd` | `—` |
-| `src/reader_mcp/search_guard.py:124` | check_output | `['ps', '-axo', 'pgid=,rss=']` | `5` |
+| `src/reader_mcp/search_guard.py:117` | Popen | `cmd` | `—` |
 | `src/reader_mcp/service.py:82` | run | `[self.python, str(self.script), *argv]` | `timeout` |
 | `src/reader_mcp/versions.py:156` | Popen | `[self.changes.git, '-C', self.changes.root, 'cat-file', '--batch']` | `—` |
-| `src/reader_mcp/voice_runner.py:242` | check_output | `['ps', '-axo', 'pgid=,rss=']` | `5` |
-| `src/reader_mcp/voice_runner.py:277` | Popen | `command` | `—` |
-| `src/reader_mcp/voice_runner.py:797` | run | `[git, '--no-optional-locks', *args]` | `30` |
-| `src/reader_mcp/voice_runner.py:890` | run | `[executable, *voice['version_argv']]` | `10` |
+| `src/reader_mcp/voice_runner.py:276` | Popen | `command` | `—` |
+| `src/reader_mcp/voice_runner.py:796` | run | `[git, '--no-optional-locks', *args]` | `30` |
+| `src/reader_mcp/voice_runner.py:889` | run | `[executable, *voice['version_argv']]` | `10` |
 | `src/reader_mcp/voice_tasks.py:267` | run | `['git', 'rev-parse', '--show-toplevel']` | `10` |
 | `src/reader_mcp/voice_tasks.py:284` | run | `command` | `180` |
 | `src/reader_mcp/voice_tasks.py:287` | check_output | `['git', 'log', '-1', '--format=%H', '--', *paths]` | `10` |
@@ -668,21 +738,26 @@ Lock file names: `.lock`, `.reader/gpu.lock`, `.reader/inbox-runner/run.lock`, `
 | `src/reader_mcp/demo/build.py:225` | run | `['git', '-C', str(self.root), *args]` | `—` |
 | `scripts/check_container.py:47` | run | `['docker', *args]` | `—` |
 | `scripts/check_container.py:73` | run | `['docker', 'inspect', name]` | `—` |
-| `scripts/check_container.py:190` | run | `['docker', 'rm', '-f', name]` | `—` |
-| `scripts/check_container.py:136` | Popen | `['docker', 'exec', name, 'sh', '-c', cmd]` | `—` |
-| `scripts/install.py:39` | run | `[codex, 'mcp', 'get', 'reader', '--json']` | `—` |
-| `scripts/install.py:57` | run | `[codex, 'mcp', 'remove', 'reader']` | `—` |
-| `scripts/install.py:60` | run | `[codex, 'mcp', 'add', 'reader', '--', *command]` | `—` |
-| `scripts/install.py:63` | run | `[codex, 'mcp', 'add', 'reader', '--', *old]` | `—` |
-| `scripts/install_wide_md.py:59` | Popen | `args` | `—` |
-| `scripts/install_wide_md.py:85` | check_output | `['git', 'status', '--porcelain']` | `—` |
-| `scripts/install_wide_md.py:67` | check_output | `['ps', '-axo', 'pgid=,rss=']` | `5` |
-| `scripts/install_wide_md.py:83` | check_output | `['git', 'remote', 'get-url', 'origin']` | `—` |
-| `scripts/reader_service.py:155` | run | `[str(a) for a in argv]` | `timeout` |
-| `scripts/reader_service.py:398` | Popen | `[state['python'], 'tests/web_fixture.py']` | `—` |
-| `scripts/reader_service.py:520` | Popen | `[sys.executable, str(Path(__file__).resolve()), 'restart', '--delay',…` | `—` |
-| `scripts/reader_service.py:389` | run | `[state['python'], '-m', 'pytest', '-q', '-p', 'no:cacheprovider', 'te…` | `remaining()` |
-| `scripts/reader_service.py:671` | run | `[executable('git'), '-C', str(here), 'rev-parse', '--path-format=abso…` | `10` |
+| `scripts/check_container.py:192` | run | `['docker', 'rm', '-f', name]` | `—` |
+| `scripts/check_container.py:138` | Popen | `['docker', 'exec', name, 'sh', '-c', cmd]` | `—` |
+| `scripts/install.py:40` | run | `[codex, 'mcp', 'get', 'reader', '--json']` | `—` |
+| `scripts/install.py:58` | run | `[codex, 'mcp', 'remove', 'reader']` | `—` |
+| `scripts/install.py:61` | run | `[codex, 'mcp', 'add', 'reader', '--', *command]` | `—` |
+| `scripts/install.py:64` | run | `[codex, 'mcp', 'add', 'reader', '--', *old]` | `—` |
+| `scripts/install_wide_md.py:62` | Popen | `args` | `—` |
+| `scripts/install_wide_md.py:86` | check_output | `['git', 'status', '--porcelain']` | `—` |
+| `scripts/install_wide_md.py:84` | check_output | `['git', 'remote', 'get-url', 'origin']` | `—` |
+| `scripts/reader_service.py:156` | run | `[str(a) for a in argv]` | `timeout` |
+| `scripts/reader_service.py:434` | Popen | `jailed([state['python'], 'tests/web_fixture.py'])` | `—` |
+| `scripts/reader_service.py:559` | Popen | `[sys.executable, str(Path(__file__).resolve()), 'restart', '--delay',…` | `—` |
+| `scripts/reader_service.py:425` | run | `jailed([state['python'], '-m', 'pytest', '-q', '-p', 'no:cacheprovide…` | `remaining()` |
+| `scripts/reader_service.py:719` | run | `[executable('git'), '-C', str(here), 'rev-parse', '--path-format=abso…` | `10` |
+| `scripts/run_browser_suites.py:62` | Popen | `['node', f'tests/{name}.cjs']` | `—` |
+| `scripts/stray_work.py:26` | run | `['git', '-C', str(repo), *args]` | `—` |
+| `scripts/stray_work.py:81` | run | `['gh', 'pr', 'list', '--state', 'open', '--limit', '200', '--json', '…` | `—` |
+| `scripts/test_jail.py:238` | Popen | `command_for(run, command)` | `—` |
+| `scripts/test_jail.py:149` | run | `[mise, 'which', tool]` | `—` |
+| `scripts/test_jail.py:283` | call | `command` | `—` |
 | `scripts/verify_installation.py:23` | check_output | `['codex', 'mcp', 'get', 'reader', '--json']` | `—` |
 | `scripts/verify_installation.py:60` | check_output | `[sys.executable, str(helper), 'ingest', str(request_file)]` | `—` |
 | `scripts/verify_installation.py:63` | check_output | `[sys.executable, str(helper), 'status', request_id]` | `—` |
@@ -700,20 +775,23 @@ Programs named as string literals per module:
 | `src/reader_mcp/coding_api.py` | git |
 | `src/reader_mcp/coding_jobs.py` | git |
 | `src/reader_mcp/coding_publish.py` | git, open |
-| `src/reader_mcp/coding_workflow.py` | git, claude, ps |
+| `src/reader_mcp/coding_workflow.py` | git, claude |
 | `src/reader_mcp/companions.py` | git, git-locks, launchctl, tailscale, codex, claude, agy, wide-md, colorful, ai-tts, cargo |
-| `src/reader_mcp/inbox_runner.py` | git, codex, ps |
+| `src/reader_mcp/inbox_runner.py` | git, codex |
 | `src/reader_mcp/inbox_view.py` | git, codex |
+| `src/reader_mcp/intake.py` | git, codex |
 | `src/reader_mcp/llm_logs.py` | git |
 | `src/reader_mcp/local_model.py` | git, git-locks, lms, ollama, ps |
+| `src/reader_mcp/model_chain.py` | codex, claude, agy |
+| `src/reader_mcp/portable_links.py` | git |
+| `src/reader_mcp/private_store.py` | git, npm, node |
 | `src/reader_mcp/prompt_blocks.py` | open |
 | `src/reader_mcp/prose.py` | colorful, cargo |
 | `src/reader_mcp/reading.py` | wide-md |
 | `src/reader_mcp/repositories.py` | git, codex, claude, python3 |
-| `src/reader_mcp/search_guard.py` | ps |
 | `src/reader_mcp/speech.py` | ai-tts |
 | `src/reader_mcp/versions.py` | git |
-| `src/reader_mcp/voice_runner.py` | git, agy, ps |
+| `src/reader_mcp/voice_runner.py` | git, agy |
 | `src/reader_mcp/voice_tasks.py` | git, python3 |
 | `src/reader_mcp/voices.py` | codex, claude, agy |
 | `src/reader_mcp/web.py` | wide-md, colorful, ai-tts, open |
@@ -723,8 +801,11 @@ Programs named as string literals per module:
 | `src/reader_mcp/demo/static.py` | codex |
 | `scripts/check_container.py` | git, wide-md, node |
 | `scripts/install.py` | codex |
-| `scripts/install_wide_md.py` | git, wide-md, cargo, ps |
+| `scripts/install_wide_md.py` | git, wide-md, cargo |
 | `scripts/reader_service.py` | git, git-locks, launchctl, tailscale |
+| `scripts/run_browser_suites.py` | node |
+| `scripts/stray_work.py` | git, open |
+| `scripts/test_jail.py` | git-locks, lms, codex, claude, agy, ollama, ai-tts, npm, node, python3 |
 | `scripts/verify_installation.py` | codex |
 | `scripts/verify_search_installation.py` | codex |
 
@@ -739,6 +820,7 @@ Programs named as string literals per module:
 | `src/reader_mcp/companions.py` | `https://docs.anthropic.com/en/docs/claude-code`, `https://github.com/flyingrobots/AI-TTS`, `https://github.com/flyingrobots/AI-TTS.git`, `https://github.com/flyingrobots/colorful-language`, `https://github.com/flyingrobots/colorful-language.git`, `https://github.com/flyingrobots/wide-md`, `https://github.com/git-stunts/locks`, `https://github.com/git-stunts/locks.git`, `https://github.com/openai/codex`, `https://rustup.rs` |
 | `src/reader_mcp/github.py` | `https://github` |
 | `src/reader_mcp/local_model.py` | `HTTPConnection`, `HTTPSConnection`, `http://127.0.0.1:`, `http://127.0.0.1:11434/v1`, `http://127.0.0.1:1234/v1`, `http://127.0.0.1:8080/v1` |
+| `src/reader_mcp/portable_links.py` | `https://github`, `https://github.com/` |
 | `src/reader_mcp/speech.py` | `AF_UNIX` |
 | `src/reader_mcp/themes.py` | `https://fonts`, `https://fonts.google.com/metadata/fonts`, `https://fonts.googleapis.com/css2`, `https://raw.githubusercontent.com/google/fonts/main/`, `urlopen` |
 | `src/reader_mcp/web.py` | `http://127.0.0.1:` |
@@ -747,6 +829,7 @@ Programs named as string literals per module:
 | `src/reader_mcp/demo/build.py` | `https://commons.wikimedia.org/wiki/File`, `https://www.gutenberg.org/ebooks/` |
 | `src/reader_mcp/demo/static.py` | `http://127.0.0.1:`, `urlopen` |
 | `scripts/check_container.py` | `https://github.com/flyingrobots/wide-md` |
+| `scripts/generate_circle_mark.py` | `http://www.w3.org/2000/svg` |
 | `scripts/install_wide_md.py` | `https://github.com/flyingrobots/wide-md` |
 | `scripts/reader_service.py` | `HTTPConnection`, `http://127.0.0.1:` |
 | `scripts/vendor_web.py` | `https://registry.npmjs.org/`, `urlopen` |
@@ -756,7 +839,7 @@ Programs named as string literals per module:
 | Variable | Read or set in | Purpose |
 | - | - | - |
 | `AI_TTS_HOME` | speech.py | AI-TTS install folder (speech companion). |
-| `AI_TTS_SOCKET` | speech.py | AI-TTS daemon Unix socket. |
+| `AI_TTS_SOCKET` | speech.py, test_jail.py | AI-TTS daemon Unix socket. |
 | `CARGO_BUILD_JOBS` | install_wide_md.py | Companion builds: bounded cargo parallelism. |
 | `CARGO_HOME` | install_wide_md.py | install_wide_md.py: cargo install root. |
 | `CARGO_INCREMENTAL` | companions.py, install_wide_md.py | Companion builds: no incremental cache. |
@@ -771,10 +854,12 @@ Programs named as string literals per module:
 | `HF_HUB_DISABLE_TELEMETRY` | search_guard.py | Set by search_guard: no Hugging Face telemetry from the index worker. |
 | `HF_HUB_DISABLE_XET` | search_guard.py | Set by search_guard: plain HTTP downloads for the embedding model. |
 | `HF_HUB_OFFLINE` | demo/__init__.py, verify_search_installation.py | Set by the demo so fastembed never downloads unless asked. |
-| `HOME` | companions.py, prose.py, voices.py, writing.py | Resolves ~ for CLI folders, companions and service state. |
+| `HOME` | companions.py, prose.py, test_jail.py, voices.py, writing.py | Resolves ~ for CLI folders, companions and service state. |
 | `OMP_NUM_THREADS` | search_guard.py | Index worker thread cap (ONNX runtime). |
-| `PATH` | changes.py, companions.py, inbox_view.py, prose.py, reader_service.py, voices.py, writing.py | Executable lookup; narrowed for child processes. |
-| `PYTHONPATH` | inbox_view.py | Propagated to the inbox runner child. |
+| `PATH` | changes.py, companions.py, inbox_view.py, model_chain.py, private_store.py, prose.py, reader_service.py, test_jail.py, voices.py, writing.py | Executable lookup; narrowed for child processes. |
+| `PLAYWRIGHT_BROWSERS_PATH` | test_jail.py | undocumented |
+| `PYTHONPATH` | inbox_runner.py, inbox_view.py | Propagated to the inbox runner child. |
+| `READER_CHROME` | run_browser_suites.py | undocumented |
 | `READER_CLI_CANDIDATES` | voices.py | Folders searched for agent CLIs (claude/codex/agy) beyond PATH. |
 | `READER_CODEX` | inbox_view.py | Codex CLI used by the inbox runner (web Inbox page). |
 | `READER_COLORFUL` | prose.py | Colorful Language (prose colouring) binary. |
@@ -782,13 +867,17 @@ Programs named as string literals per module:
 | `READER_GIT_LOCKS` | companions.py | git-locks executable for companions/voice commits. |
 | `READER_GIT_LOCKS_CANDIDATES` | companions.py, reader_service.py | Folders searched for git-locks. |
 | `READER_GIT_LOCKS_STORE` | companions.py | git-locks store for companion installs. |
+| `READER_HOME` | private_store.py, reader_service.py, test_jail.py | undocumented |
+| `READER_INBOX` | inbox_paths.py | undocumented |
 | `READER_INDEX_DEADLINE` | search.py, search_guard.py | Deadline (epoch seconds) the index worker must finish by. |
 | `READER_INDEX_WORKER` | cli.py, search_guard.py | Set by search_guard for the bounded index child process. |
 | `READER_LAUNCHCTL` | companions.py | launchctl used to probe/start the AI-TTS agent. |
 | `READER_LLM_API_KEY` | local_model.py | API key for the configured local-model provider (else the git-ignored key file). |
 | `READER_LMS` | local_model.py | LM Studio `lms` CLI path. |
 | `READER_LMSTUDIO_URL` | local_model.py | Default OpenAI-compatible base URL for local models. |
-| `READER_ROOT` | cli.py, companions.py, reader_paths.py, reader_service.py | Vault path for the CLI and scripts (`--root` wins). |
+| `READER_MODEL_CHAIN` | model_chain.py | undocumented |
+| `READER_PYTHON` | run_browser_suites.py | undocumented |
+| `READER_ROOT` | cli.py, companions.py, reader_paths.py, reader_service.py, test_jail.py | Vault path for the CLI and scripts (`--root` wins). |
 | `READER_SERVICE_BUSY_POLL` | reader_service.py | reader_service.py: poll interval while waiting for a busy server. |
 | `READER_SERVICE_BUSY_WAIT` | reader_service.py | reader_service.py: how long an update waits for a busy server. |
 | `READER_SERVICE_GIT` | reader_service.py | reader_service.py: git path. |
@@ -798,6 +887,16 @@ Programs named as string literals per module:
 | `READER_SERVICE_SMOKE_TIMEOUT` | reader_service.py | reader_service.py: smoke-test timeout before an update lands. |
 | `READER_SERVICE_TAILSCALE` | reader_service.py | reader_service.py: tailscale path. |
 | `READER_TEST_CLOCK` | clock.py | Tests only: pins calendar time to an ISO instant (clock.py). |
+| `READER_TEST_JAIL` | check_container.py, test_jail.py | undocumented |
+| `READER_TEST_JAIL_PORTS` | test_jail.py | undocumented |
+| `READER_TEST_JAIL_PROBE` | test_jail.py | undocumented |
+| `READER_TEST_JAIL_PROGRAMS` | test_jail.py | undocumented |
+| `READER_TEST_JAIL_PROTECTED` | test_jail.py | undocumented |
+| `READER_TEST_JAIL_PROTECTED_EXISTING` | test_jail.py | undocumented |
+| `READER_TEST_JAIL_REAL_HOME` | test_jail.py | undocumented |
+| `READER_TEST_JAIL_SOCKET` | test_jail.py | undocumented |
+| `READER_TEST_SOCKET_ROOT` | test_jail.py | undocumented |
+| `READER_UNMARKED_PRIVACY` | arrival_choices.py | undocumented |
 | `READER_VERIFY_FUZZY_QUERY` | verify_search_installation.py | verify_search_installation.py: fuzzy query to try. |
 | `READER_VERIFY_QUERY` | verify_search_installation.py | verify_search_installation.py: query to try. |
 | `READER_WEB_ALLOWED_HOSTS` | web_access.py | Override web-config allowed_hosts (tailnet names). |
@@ -807,9 +906,11 @@ Programs named as string literals per module:
 | `READER_WEB_FRONT_TOKEN` | web_access.py | With the front secret, the write token the front hands out (32+ characters). |
 | `READER_WEB_TRUSTED_PROXY` | web_access.py | Override web-config trusted_proxy (`tailscale` or empty). |
 | `READER_WORKSTATION_LOCK_STORE` | inbox_view.py | git-locks store for shared host resources during inbox runs. |
-| `TMPDIR` | art.py, inbox_runner.py, install_wide_md.py, reader_service.py, search_guard.py, voice_runner.py | Set for children to an owned, bounded temp folder. |
+| `TMPDIR` | art.py, inbox_runner.py, install_wide_md.py, reader_service.py, search_guard.py, test_jail.py, voice_runner.py | Set for children to an owned, bounded temp folder. |
 | `TOKENIZERS_PARALLELISM` | search_guard.py | Disables tokenizer thread pools in the index worker. |
-| `XDG_CACHE_HOME` | search_guard.py | Set for bounded child processes to an owned runtime folder. |
+| `XDG_CACHE_HOME` | search_guard.py, test_jail.py | Set for bounded child processes to an owned runtime folder. |
+| `XDG_CONFIG_HOME` | test_jail.py | undocumented |
+| `XDG_DATA_HOME` | test_jail.py | undocumented |
 
 Config files: `<vault>/voices.json` (voice registry), `<vault>/.reader/web-config.json` (proxy/tailnet access),
 `<vault>/.reader/local-model/settings.json` and `api-key`, `<vault>/.reader/companions.json`-style companion settings (see
@@ -821,18 +922,20 @@ companions.py), `<vault>/indexes/settings.json` (browse), `<code>/.reader/config
 | Dependency | Declared | Imported by | Used for |
 | - | - | - | - |
 | `fastembed` | yes | search.py | ONNX text embeddings (BAAI/bge-small-en-v1.5) for semantic search, related works, shapes; optional at runtime. |
-| `fonttools` | yes | — | Declared, but no module imports it (theme fonts are served as downloaded woff2 files). |
+| `fontTools` | no (transitive) | generate_circle_mark.py | undocumented |
+| `fonttools` | yes | generate_circle_mark.py | Declared, but no module imports it (theme fonts are served as downloaded woff2 files). |
+| `jail_guard` | no (transitive) | run_browser_suites.py | undocumented |
 | `markdown-it-py` | yes | — | undocumented |
-| `markdown_it` | no (transitive) | prompt_blocks.py | undocumented |
+| `markdown_it` | no (transitive) | portable_links.py, prompt_blocks.py | undocumented |
 | `mcp` | yes | server.py, verify_installation.py, verify_search_installation.py | FastMCP stdio server (reader serve) and the install verifiers' MCP client. |
 | `numpy` | no (transitive) | magazine.py, related.py, search.py, shape.py, web.py | Imported directly but not declared (it arrives through fastembed). Vector maths over embeddings: float16 pack/unpack of stored vectors, cosine similarity, SVD/PCA for document shapes, mean vectors for related/magazine diversity. |
 | `PIL` | no (transitive) | art.py | Same as pillow (import name). |
 | `pillow` | yes | art.py | Art still images: decode/validate/re-encode data-URL PNG/JPEG/WebP. |
-| `pydantic` | yes | metadata.py, store.py | Validated models: ingest Submission, catalog metadata, frontmatter. |
+| `pydantic` | yes | metadata.py, store.py, uploads.py | Validated models: ingest Submission, catalog metadata, frontmatter. |
 | `pypdf` | yes | search.py, web.py | PDF text extraction per page (search index, read, speech, PDF reading). |
-| `pyyaml` | yes | catalog.py, metadata.py, reading.py, writing.py | YAML frontmatter parsing/writing. |
+| `pyyaml` | yes | catalog.py, intake.py, metadata.py, reading.py, writing.py | YAML frontmatter parsing/writing. |
 | `rapidfuzz` | yes | search.py, web.py | Fuzzy title/path matching (search fuzzy mode, link resolution suggestions). |
-| `yaml` | no (transitive) | catalog.py, metadata.py, reading.py, writing.py | Same as pyyaml (import name). |
+| `yaml` | no (transitive) | catalog.py, intake.py, metadata.py, reading.py, writing.py | Same as pyyaml (import name). |
 
 numpy appears only through vector maths on embeddings (see the table); with semantic search off it still runs for
 `/api/shape` (term vectors) and is imported at startup by web.py, related.py, magazine.py, shape.py and search.py.
@@ -845,84 +948,99 @@ exercise modules through HTTP, so see the route table for those.
 
 | Module | Lines | Code | Chars | Mean len | Max len | Stmts/line | Defs | Classes | Pytest files | Tests |
 | - | - | - | - | - | - | - | - | - | - | - |
-| `src/reader_mcp/annotations.py` | 160 | 142 | 9156 | 63 | 217 | 1.29 | 15 | 1 | 5 | 29 |
+| `src/reader_mcp/annotations.py` | 160 | 142 | 9156 | 63 | 217 | 1.29 | 15 | 1 | 5 | 33 |
+| `src/reader_mcp/arrival_choices.py` | 80 | 64 | 3385 | 50 | 240 | 0.94 | 6 | 0 | 2 | 44 |
 | `src/reader_mcp/art.py` | 964 | 865 | 54690 | 60 | 215 | 0.89 | 54 | 4 | 4 | 53 |
 | `src/reader_mcp/art_scene.py` | 351 | 294 | 14728 | 49 | 134 | 1.01 | 34 | 2 | 4 | 53 |
-| `src/reader_mcp/bookmarks.py` | 75 | 68 | 4229 | 61 | 163 | 0.97 | 5 | 1 | 1 | 49 |
-| `src/reader_mcp/browse.py` | 460 | 426 | 31971 | 73 | 545 | 1.03 | 22 | 1 | 2 | 16 |
-| `src/reader_mcp/catalog.py` | 392 | 354 | 20854 | 55 | 174 | 0.86 | 15 | 2 | 6 | 55 |
+| `src/reader_mcp/bookmarks.py` | 75 | 68 | 4229 | 61 | 163 | 0.97 | 5 | 1 | 1 | 50 |
+| `src/reader_mcp/browse.py` | 470 | 436 | 32507 | 72 | 545 | 1.03 | 23 | 1 | 3 | 52 |
+| `src/reader_mcp/catalog.py` | 392 | 354 | 20854 | 55 | 174 | 0.86 | 15 | 2 | 7 | 89 |
 | `src/reader_mcp/changes.py` | 292 | 261 | 13048 | 47 | 136 | 0.88 | 14 | 2 | 2 | 23 |
 | `src/reader_mcp/chats.py` | 257 | 225 | 12698 | 53 | 153 | 0.94 | 18 | 1 | 3 | 76 |
-| `src/reader_mcp/cli.py` | 169 | 163 | 9948 | 60 | 134 | 0.93 | 1 | 0 | 13 | 173 |
+| `src/reader_mcp/cli.py` | 207 | 201 | 12819 | 63 | 141 | 0.92 | 1 | 0 | 13 | 187 |
 | `src/reader_mcp/clock.py` | 31 | 27 | 1399 | 51 | 106 | 0.81 | 1 | 0 | 0 | 0 |
 | `src/reader_mcp/coding_agents.py` | 107 | 89 | 5925 | 65 | 299 | 0.70 | 5 | 0 | 0 | 0 |
 | `src/reader_mcp/coding_api.py` | 140 | 122 | 8330 | 65 | 151 | 0.86 | 10 | 1 | 0 | 0 |
 | `src/reader_mcp/coding_jobs.py` | 429 | 385 | 24576 | 60 | 160 | 0.84 | 18 | 3 | 2 | 36 |
 | `src/reader_mcp/coding_publish.py` | 234 | 212 | 14075 | 64 | 181 | 0.87 | 13 | 1 | 1 | 30 |
 | `src/reader_mcp/coding_store.py` | 279 | 238 | 11419 | 46 | 151 | 0.92 | 27 | 4 | 3 | 61 |
-| `src/reader_mcp/coding_workflow.py` | 394 | 360 | 22457 | 60 | 149 | 0.92 | 21 | 2 | 1 | 28 |
-| `src/reader_mcp/companions.py` | 697 | 610 | 39499 | 62 | 222 | 0.82 | 43 | 1 | 2 | 27 |
-| `src/reader_mcp/curation.py` | 331 | 305 | 19068 | 60 | 130 | 0.83 | 10 | 1 | 1 | 16 |
+| `src/reader_mcp/coding_workflow.py` | 391 | 357 | 22295 | 60 | 149 | 0.92 | 21 | 2 | 1 | 28 |
+| `src/reader_mcp/companions.py` | 697 | 610 | 39499 | 62 | 222 | 0.82 | 43 | 1 | 3 | 61 |
+| `src/reader_mcp/curation.py` | 334 | 308 | 19256 | 60 | 130 | 0.83 | 10 | 1 | 2 | 50 |
+| `src/reader_mcp/delivery_tokens.py` | 139 | 119 | 6379 | 52 | 155 | 0.96 | 14 | 2 | 1 | 15 |
 | `src/reader_mcp/display.py` | 56 | 45 | 2199 | 46 | 104 | 0.87 | 5 | 0 | 1 | 4 |
-| `src/reader_mcp/editions.py` | 359 | 325 | 16852 | 49 | 174 | 0.92 | 17 | 1 | 2 | 57 |
+| `src/reader_mcp/editions.py` | 359 | 325 | 16852 | 49 | 174 | 0.92 | 17 | 1 | 2 | 58 |
 | `src/reader_mcp/embeds.py` | 324 | 274 | 14375 | 50 | 133 | 0.89 | 19 | 1 | 1 | 9 |
 | `src/reader_mcp/engagement.py` | 159 | 137 | 8851 | 63 | 198 | 1.12 | 16 | 1 | 4 | 47 |
 | `src/reader_mcp/github.py` | 149 | 119 | 7615 | 63 | 143 | 0.93 | 24 | 4 | 2 | 31 |
-| `src/reader_mcp/inbox_runner.py` | 252 | 232 | 15348 | 64 | 536 | 0.98 | 11 | 0 | 6 | 113 |
-| `src/reader_mcp/inbox_view.py` | 560 | 506 | 28351 | 53 | 162 | 0.87 | 27 | 2 | 1 | 21 |
+| `src/reader_mcp/inbox_paths.py` | 45 | 37 | 1817 | 48 | 135 | 0.89 | 3 | 0 | 1 | 6 |
+| `src/reader_mcp/inbox_runner.py` | 365 | 335 | 20028 | 57 | 268 | 0.98 | 16 | 1 | 7 | 138 |
+| `src/reader_mcp/inbox_view.py` | 615 | 555 | 31682 | 54 | 162 | 0.87 | 31 | 2 | 2 | 27 |
+| `src/reader_mcp/intake.py` | 826 | 726 | 44347 | 57 | 188 | 0.91 | 36 | 1 | 2 | 61 |
+| `src/reader_mcp/intake_journal.py` | 162 | 144 | 6693 | 45 | 118 | 0.95 | 11 | 1 | 1 | 34 |
 | `src/reader_mcp/junk.py` | 13 | 9 | 581 | 63 | 106 | 0.56 | 1 | 0 | 1 | 3 |
 | `src/reader_mcp/learning.py` | 39 | 31 | 2105 | 61 | 127 | 0.87 | 2 | 0 | 1 | 14 |
 | `src/reader_mcp/links.py` | 609 | 536 | 30975 | 55 | 173 | 0.88 | 31 | 3 | 2 | 20 |
 | `src/reader_mcp/llm_inventory.py` | 106 | 89 | 5522 | 58 | 138 | 0.85 | 6 | 0 | 2 | 34 |
-| `src/reader_mcp/llm_logs.py` | 278 | 240 | 12497 | 50 | 136 | 0.95 | 18 | 1 | 10 | 167 |
+| `src/reader_mcp/llm_logs.py` | 278 | 240 | 12497 | 50 | 136 | 0.95 | 18 | 1 | 10 | 170 |
 | `src/reader_mcp/local_model.py` | 1793 | 1573 | 90684 | 55 | 187 | 0.87 | 115 | 13 | 4 | 55 |
 | `src/reader_mcp/magazine.py` | 202 | 175 | 9086 | 49 | 138 | 0.94 | 10 | 1 | 0 | 0 |
-| `src/reader_mcp/maintenance.py` | 336 | 300 | 17937 | 57 | 170 | 0.77 | 20 | 1 | 4 | 32 |
+| `src/reader_mcp/maintenance.py` | 347 | 310 | 18743 | 57 | 170 | 0.77 | 20 | 1 | 4 | 36 |
 | `src/reader_mcp/metadata.py` | 384 | 329 | 16405 | 48 | 127 | 0.88 | 24 | 6 | 4 | 48 |
+| `src/reader_mcp/model_chain.py` | 518 | 438 | 26309 | 57 | 146 | 0.89 | 37 | 3 | 1 | 26 |
+| `src/reader_mcp/portable_links.py` | 407 | 368 | 20823 | 54 | 163 | 0.91 | 20 | 1 | 3 | 100 |
+| `src/reader_mcp/private_store.py` | 314 | 270 | 15790 | 55 | 168 | 0.92 | 25 | 2 | 1 | 20 |
+| `src/reader_mcp/process_table.py` | 154 | 122 | 6741 | 53 | 130 | 0.83 | 11 | 2 | 5 | 114 |
 | `src/reader_mcp/prompt_blocks.py` | 265 | 229 | 11760 | 49 | 134 | 0.87 | 11 | 0 | 1 | 6 |
 | `src/reader_mcp/prompts.py` | 165 | 151 | 8521 | 55 | 183 | 0.92 | 10 | 1 | 0 | 0 |
 | `src/reader_mcp/prose.py` | 479 | 433 | 23571 | 52 | 160 | 0.93 | 20 | 3 | 2 | 32 |
-| `src/reader_mcp/quizzes.py` | 326 | 302 | 18613 | 60 | 172 | 0.90 | 16 | 2 | 1 | 14 |
-| `src/reader_mcp/reading.py` | 144 | 133 | 7849 | 57 | 144 | 0.93 | 4 | 0 | 2 | 29 |
+| `src/reader_mcp/quizzes.py` | 351 | 321 | 20288 | 61 | 172 | 0.88 | 17 | 2 | 1 | 14 |
+| `src/reader_mcp/reading.py` | 147 | 136 | 8005 | 56 | 144 | 0.93 | 4 | 0 | 2 | 29 |
 | `src/reader_mcp/reading_queue.py` | 225 | 208 | 11301 | 52 | 158 | 0.94 | 11 | 1 | 1 | 11 |
-| `src/reader_mcp/related.py` | 154 | 137 | 7858 | 56 | 137 | 0.87 | 6 | 1 | 2 | 16 |
+| `src/reader_mcp/related.py` | 170 | 150 | 8533 | 55 | 137 | 0.88 | 7 | 1 | 2 | 18 |
 | `src/reader_mcp/repositories.py` | 259 | 229 | 14749 | 63 | 170 | 0.86 | 16 | 2 | 1 | 4 |
 | `src/reader_mcp/resources.py` | 28 | 22 | 1065 | 43 | 97 | 1.00 | 2 | 0 | 0 | 0 |
-| `src/reader_mcp/search.py` | 1076 | 983 | 60068 | 58 | 242 | 0.84 | 46 | 2 | 12 | 124 |
-| `src/reader_mcp/search_guard.py` | 158 | 141 | 7571 | 50 | 123 | 0.82 | 6 | 0 | 3 | 34 |
+| `src/reader_mcp/search.py` | 1076 | 983 | 60068 | 58 | 242 | 0.84 | 46 | 2 | 12 | 130 |
+| `src/reader_mcp/search_guard.py` | 157 | 140 | 7372 | 49 | 123 | 0.83 | 6 | 0 | 3 | 34 |
 | `src/reader_mcp/server.py` | 140 | 111 | 8446 | 75 | 145 | 0.51 | 14 | 0 | 0 | 0 |
 | `src/reader_mcp/service.py` | 121 | 108 | 4875 | 44 | 118 | 0.87 | 7 | 1 | 0 | 0 |
 | `src/reader_mcp/shape.py` | 410 | 361 | 21084 | 55 | 158 | 0.87 | 21 | 1 | 1 | 11 |
-| `src/reader_mcp/speech.py` | 150 | 135 | 7983 | 58 | 140 | 0.87 | 9 | 2 | 2 | 30 |
-| `src/reader_mcp/store.py` | 225 | 197 | 10529 | 51 | 111 | 0.90 | 11 | 4 | 4 | 45 |
-| `src/reader_mcp/themes.py` | 338 | 307 | 17684 | 56 | 163 | 0.92 | 19 | 1 | 2 | 55 |
+| `src/reader_mcp/speech.py` | 209 | 189 | 11039 | 56 | 140 | 0.90 | 12 | 2 | 2 | 31 |
+| `src/reader_mcp/store.py` | 233 | 204 | 11089 | 52 | 144 | 0.91 | 11 | 4 | 7 | 91 |
+| `src/reader_mcp/themes.py` | 342 | 310 | 17985 | 56 | 163 | 0.92 | 19 | 1 | 2 | 57 |
+| `src/reader_mcp/uploads.py` | 179 | 160 | 9484 | 58 | 136 | 0.91 | 7 | 0 | 5 | 85 |
 | `src/reader_mcp/versions.py` | 307 | 284 | 14746 | 50 | 131 | 0.88 | 13 | 1 | 1 | 10 |
-| `src/reader_mcp/voice_runner.py` | 1526 | 1378 | 79782 | 54 | 181 | 0.90 | 86 | 5 | 4 | 107 |
-| `src/reader_mcp/voice_tasks.py` | 288 | 263 | 15125 | 55 | 201 | 0.89 | 17 | 1 | 1 | 17 |
+| `src/reader_mcp/voice_runner.py` | 1525 | 1377 | 79623 | 54 | 181 | 0.90 | 86 | 5 | 4 | 107 |
+| `src/reader_mcp/voice_tasks.py` | 288 | 263 | 15125 | 55 | 201 | 0.89 | 17 | 1 | 1 | 20 |
 | `src/reader_mcp/voices.py` | 364 | 308 | 19248 | 60 | 143 | 0.88 | 21 | 1 | 1 | 47 |
-| `src/reader_mcp/web.py` | 1763 | 1637 | 102331 | 60 | 258 | 0.90 | 85 | 5 | 23 | 353 |
+| `src/reader_mcp/web.py` | 1959 | 1820 | 114649 | 60 | 258 | 0.91 | 90 | 5 | 27 | 416 |
 | `src/reader_mcp/web_access.py` | 211 | 186 | 11085 | 57 | 129 | 0.82 | 10 | 1 | 0 | 0 |
 | `src/reader_mcp/writing.py` | 369 | 342 | 21207 | 60 | 237 | 0.91 | 18 | 2 | 1 | 7 |
 | `src/reader_mcp/demo/__init__.py` | 137 | 116 | 6014 | 50 | 149 | 0.89 | 9 | 0 | 0 | 0 |
 | `src/reader_mcp/demo/build.py` | 718 | 625 | 49845 | 77 | 170 | 0.64 | 29 | 1 | 0 | 0 |
 | `src/reader_mcp/demo/static.py` | 379 | 335 | 20169 | 58 | 177 | 0.90 | 19 | 1 | 0 | 0 |
-| `scripts/check_container.py` | 193 | 172 | 12359 | 66 | 292 | 0.94 | 4 | 0 | 0 | 0 |
-| `scripts/install.py` | 78 | 73 | 3807 | 51 | 124 | 0.99 | 1 | 0 | 0 | 0 |
-| `scripts/install_wide_md.py` | 100 | 92 | 5327 | 57 | 140 | 0.91 | 5 | 0 | 0 | 0 |
-| `scripts/reader_paths.py` | 23 | 19 | 924 | 47 | 112 | 1.00 | 1 | 0 | 0 | 0 |
-| `scripts/reader_service.py` | 893 | 747 | 39990 | 51 | 162 | 0.89 | 62 | 1 | 0 | 0 |
+| `scripts/check_container.py` | 195 | 172 | 12689 | 68 | 317 | 0.94 | 4 | 0 | 0 | 0 |
+| `scripts/generate_circle_mark.py` | 60 | 51 | 2961 | 53 | 166 | 0.71 | 1 | 0 | 0 | 0 |
+| `scripts/install.py` | 88 | 82 | 4365 | 51 | 124 | 0.98 | 1 | 0 | 0 | 0 |
+| `scripts/install_wide_md.py` | 101 | 93 | 5187 | 54 | 140 | 0.92 | 5 | 0 | 0 | 0 |
+| `scripts/reader_paths.py` | 23 | 19 | 879 | 45 | 112 | 1.00 | 1 | 0 | 0 | 0 |
+| `scripts/reader_service.py` | 941 | 787 | 43026 | 52 | 188 | 0.89 | 65 | 1 | 0 | 0 |
+| `scripts/run_browser_suites.py` | 124 | 102 | 6078 | 55 | 179 | 0.81 | 6 | 0 | 0 | 0 |
 | `scripts/start_web.py` | 18 | 13 | 509 | 36 | 67 | 1.00 | 1 | 0 | 0 | 0 |
+| `scripts/stray_work.py` | 193 | 163 | 9630 | 58 | 137 | 0.91 | 10 | 0 | 0 | 0 |
+| `scripts/test_jail.py` | 299 | 249 | 14226 | 53 | 137 | 0.83 | 16 | 1 | 0 | 0 |
+| `scripts/ui_debt.py` | 93 | 80 | 5229 | 63 | 259 | 0.85 | 3 | 0 | 0 | 0 |
 | `scripts/vendor_web.py` | 77 | 68 | 4132 | 58 | 186 | 0.88 | 2 | 0 | 0 | 0 |
-| `scripts/verify_installation.py` | 80 | 72 | 4428 | 60 | 264 | 0.92 | 1 | 0 | 0 | 0 |
+| `scripts/verify_installation.py` | 80 | 72 | 4436 | 60 | 264 | 0.92 | 1 | 0 | 0 | 0 |
 | `scripts/verify_search_installation.py` | 74 | 66 | 4190 | 59 | 138 | 0.82 | 1 | 0 | 0 | 0 |
-| **total** | 23642 | 21049 | 1256198 | | | | | | | |
+| **total** | 27832 | 24682 | 1470470 | | | | | | | |
 
-Language-neutral code that a port keeps as is: `src/reader_mcp/web_ui/` (42 hand-written JS/CSS/HTML files, 8383 lines, excluding vendor/) plus the built `web_ui/controls/` bundle from `web/`.
-Tests: 64 pytest files, 715 test functions; 76 browser suites; 18 node unit files.
+Language-neutral code that a port keeps as is: `src/reader_mcp/web_ui/` (46 hand-written JS/CSS/HTML files, 8129 lines, excluding vendor/) plus the built `web_ui/controls/` bundle from `web/`.
+Tests: 82 pytest files, 943 test functions; 100 browser suites; 21 node unit files.
 
 ## Contract coverage
 
-**83 of 83 routes** have at least one test in `tests/contract/`.
+**84 of 100 routes** have at least one test in `tests/contract/`.
 
 A route counts as covered when at least one contract test requests it. Where success needs a real companion or would act
 on the host (speech, prose colouring, an inbox run, service actions, companion installs, local-model server control), the
@@ -936,9 +1054,9 @@ suite checks validation and refusals only; `docs/port/plan.md` lists what each p
 | coding jobs | 7/7 | 2/2 |
 | companions | 2/2 | 1/1 |
 | engagement | 1/1 | 1/1 |
-| inbox | 2/2 | 1/1 |
-| library | 3/3 | 1/1 |
-| links | 6/6 | — |
+| inbox | 2/9 | 1/6 |
+| library | 4/5 | 1/1 |
+| links | 6/7 | — |
 | llm logs | 3/3 | — |
 | local model | 1/1 | 1/1 |
 | magazine | 2/2 | — |
@@ -950,13 +1068,13 @@ suite checks validation and refusals only; `docs/port/plan.md` lists what each p
 | search | 2/2 | — |
 | service | 3/3 | 1/1 |
 | shape | 1/1 | — |
-| speech | 1/1 | 2/2 |
+| speech | 1/2 | 2/3 |
 | static | 2/2 | — |
 | themes | 3/3 | 1/1 |
 | versions | 6/6 | — |
 | writing | 1/1 | 1/1 |
 
-CLI subcommands with a contract test: 16 of 16 (annotate, browse, catalog, curation, demo, index, ingest, metadata-schema, queue, read, reading-copy, search, serve, status, validate-metadata, web). MCP tools named in contract tests: 13 of 13.
+CLI subcommands with a contract test: 16 of 18 (annotate, browse, catalog, curation, demo, index, ingest, metadata-schema, queue, read, reading-copy, search, serve, status, validate-metadata, web). MCP tools named in contract tests: 13 of 13.
 
 POST actions named anywhere in contract tests (a route can be covered while some of its actions are not):
 
@@ -972,3 +1090,22 @@ POST actions named anywhere in contract tests (a route can be covered while some
 | Studio | 3/5 | `commission`, `still` |
 | Themes | 2/3 | `install-font` |
 | Writing | 1/2 | `revise` |
+
+Routes without a contract test (gaps):
+
+- `POST /api/inbox/deliveries` (inbox)
+- `POST /api/speech-voices` (speech)
+- `POST /api/upload-settings` (inbox)
+- `POST /api/model-chain` (inbox)
+- `POST /api/private` (inbox)
+- `POST /api/delivery-tokens` (inbox)
+- `GET /api/portable-links` (links)
+- `GET /api/speech-voices` (speech)
+- `GET /api/inbox/deliveries` (inbox)
+- `GET /api/delivery-tokens` (inbox)
+- `GET /api/private` (inbox)
+- `GET /api/private/item` (inbox)
+- `GET /api/private/file` (inbox)
+- `GET /api/upload-settings` (inbox)
+- `GET /api/model-chain` (inbox)
+- `GET /api/attachment/*` (library)

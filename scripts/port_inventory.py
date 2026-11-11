@@ -662,20 +662,23 @@ def contract_inventory():
 
 def area(path):
     path = path.rstrip('*')
-    table = [('/api/chat', 'chat'), ('/api/art', 'art'), ('/api/search', 'search'), ('/api/speak', 'speech'),
-             ('/api/inbox', 'inbox'), ('/api/companions', 'companions'), ('/api/local-model', 'local model'), ('/api/model-chain', 'inbox'), ('/api/private', 'inbox'), ('/api/delivery-tokens', 'inbox'),
+    table = [('/api/chat', 'chat'), ('/api/art', 'art'), ('/api/search', 'search'), ('/api/speak', 'speech'), ('/api/speech-voices', 'speech'),
+             ('/api/inbox', 'inbox'), ('/api/companions', 'companions'), ('/api/local-model', 'local model'), ('/api/model-chain', 'inbox'), ('/api/private', 'inbox'), ('/api/delivery-tokens', 'inbox'), ('/api/upload-settings', 'inbox'),
              ('/api/editions', 'versions'), ('/api/version', 'versions'), ('/api/changes', 'versions'),
              ('/api/annotations', 'annotations'), ('/api/discussion', 'annotations'), ('/api/seen', 'engagement'), ('/api/readers', 'engagement'),
              ('/api/queue', 'queue'), ('/api/history', 'queue'), ('/api/next', 'queue'),
              ('/api/themes', 'themes'), ('/api/fonts', 'themes'), ('/fonts/', 'themes'),
-             ('/api/resolve', 'links'), ('/api/links', 'links'), ('/api/link-counts', 'links'), ('/api/preview', 'links'), ('/api/embeds', 'links'),
+             ('/api/resolve', 'links'), ('/api/links', 'links'), ('/api/link-counts', 'links'), ('/api/preview', 'links'), ('/api/embeds', 'links'), ('/api/portable-links', 'links'),
              ('/api/standfirst', 'magazine'), ('/api/issue', 'magazine'), ('/api/shape', 'shape'), ('/api/prose', 'prose'),
              ('/api/quiz', 'quizzes'), ('/api/prompt', 'prompts'), ('/api/writing', 'writing'),
              ('/api/jobs', 'coding jobs'), ('/api/repositories', 'coding jobs'), ('/api/logs', 'llm logs'),
              ('/api/service', 'service'), ('/api/health', 'service'), ('/api/token', 'service'), ('/api/maintenance', 'maintenance'),
-             ('/api/library', 'library'), ('/api/document', 'library'), ('/api/file', 'library'), ('/api/bookmark', 'library'),
+             ('/api/library', 'library'), ('/api/document', 'library'), ('/api/file', 'library'), ('/api/bookmark', 'library'), ('/api/attachment/', 'library'),
              ('/assets/', 'static'), ('/', 'static')]
-    return next(a for prefix, a in table if path == prefix or (prefix != '/' and path.startswith(prefix)))
+    found = next((a for prefix, a in table if path == prefix or (prefix != '/' and path.startswith(prefix))), None)
+    if found is None:
+        raise ValueError(f'No area for route {path}; add it to the table in area()')
+    return found
 
 
 # ----------------------------------------------------------------------------- render
