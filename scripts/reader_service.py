@@ -410,6 +410,11 @@ def smoke(state, commit):
             # Inside the test suite's own sandbox, which macOS cannot nest; that sandbox already contains this run.
             jailed = lambda command: command
             steps.append({'step': 'sandbox', 'ok': True, 'detail': 'inside the test sandbox'})
+        elif jail.in_container():
+            # A marked Linux test container (CI) is the isolation; the candidate's test guard needs its marker.
+            jailed = lambda command: command
+            env |= {'READER_TEST_JAIL': 'container'}
+            steps.append({'step': 'sandbox', 'ok': True, 'detail': 'inside the test container'})
         else:
             try:
                 run, _, sandbox_env = jail.prepare(root=tree)

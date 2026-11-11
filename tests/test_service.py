@@ -232,8 +232,9 @@ def test_install_writes_agents_with_the_right_keys_and_backs_up_existing_ones(wo
     live = world.home / 'Library/Application Support/Reader/live'
     assert result['installed'] and result['healthy'] and result['live_created'] and result['commit'] == GOOD
     assert [s['step'] for s in result['smoke']] == ['sandbox', 'pytest', 'GET /', 'GET /api/library', 'GET /api/document']
-    # The suite runs inside the test sandbox, which macOS cannot nest, so the smoke step relies on it.
-    assert result['smoke'][0] == {'step': 'sandbox', 'ok': True, 'detail': 'inside the test sandbox'}
+    # The suite runs inside the test sandbox (which macOS cannot nest) or CI's marked container; the smoke step relies on it.
+    where = 'inside the test container' if os.environ.get('READER_TEST_JAIL') == 'container' else 'inside the test sandbox'
+    assert result['smoke'][0] == {'step': 'sandbox', 'ok': True, 'detail': where}
     web = plistlib.loads((agents / 'com.flyingrobots.reader.web.plist').read_bytes())
     python = str(world.repo / '.venv/bin/python')
     assert web['ProgramArguments'] == [python, str(live / 'scripts/start_web.py'), '--port', str(world.port)]

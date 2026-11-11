@@ -56,7 +56,8 @@ def test_a_killed_group_is_gone_and_a_reaped_child_is_not_running(group):
 
 def test_start_time_uses_the_ps_lstart_format_and_is_stable(group):
     started = process_table.started(group.pid)
-    parsed = time.strptime(started, process_table.LSTART)
+    # strptime has no %e before Python 3.13; its %d also reads the space-padded day that %e writes.
+    parsed = time.strptime(started, process_table.LSTART.replace('%e', '%d'))
     assert abs(time.mktime(parsed) - time.time()) < 60
     assert process_table.started(group.pid) == started
     assert process_table.running(group.pid)

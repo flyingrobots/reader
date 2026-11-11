@@ -72,9 +72,10 @@ def main():
         name = worker_name(kind)
         image = {'python':'python:3.12-bookworm','node':'node:24.18.0','contract':'python:3.12-bookworm','formatter':'rust:1.96.0','web':'node:24.18.0'}[kind]
         docker('image', 'inspect', image, stdout=subprocess.DEVNULL)
-        if kind == 'contract':
+        if kind in ('python', 'contract'):
             docker('image', 'inspect', NODE_IMAGE, stdout=subprocess.DEVNULL)
-            # Both images are Debian bookworm, so the Node image's binary runs in the Python worker.
+            # Both images are Debian bookworm, so the Node image's binary runs in the Python worker (the Python suite
+            # starts the Node test guard; the contract suite is Node).
             node = docker('run', '--rm', '--network', 'none', '--entrypoint', 'cat', NODE_IMAGE, '/usr/local/bin/node', capture_output=True).stdout
             if len(node) > 256 * 1024**2:
                 raise RuntimeError('Unexpectedly large node binary')
@@ -118,8 +119,9 @@ def main():
                 raise RuntimeError('Docker VM free space below 50 GiB')
             (RUNTIME/(kind+'-contract.json')).write_text(json.dumps(contract, indent=2))
             docker('exec','-i',name,'tar','xf','-','-C','/work',input=stream.getvalue())
-            if kind == 'contract':
+            if kind in ('python', 'contract'):
                 docker('exec','-i',name,'sh','-c','mkdir -p /work/node/bin && cat > /work/node/bin/node && chmod 755 /work/node/bin/node',input=node)
+            if kind == 'contract':
                 # Reader runs from a checkout, and /api/health reports its commit: give the copy one of its own.
                 docker('exec',name,'sh','-c','git init -q -b snapshot /work && git -C /work add -A -- . ":(exclude)node" && '
                        'git -C /work -c user.name=checks -c user.email=checks@invalid commit -q -m snapshot')
@@ -127,10 +129,10 @@ def main():
                 # Source-policy tests inspect tracked source names. Give the isolated
                 # copy its own index; no host repository metadata or history is copied.
                 docker('exec',name,'git','init','-q','-b','snapshot','/work')
-                docker('exec',name,'git','-C','/work','add','-A','--','.', ':(exclude).reader/')
+                docker('exec',name,'git','-C','/work','add','-A','--','.', ':(exclude).reader/', ':(exclude)node/')
             cmd = ('python -m pip install --disable-pip-version-check --no-cache-dir --target /work/tools uv && '
                    'PYTHONPATH=/work/tools UV_CACHE_DIR=/work/cache python -m uv sync --locked && '
-                   '.venv/bin/python -m pytest -q' + ''.join(' ' + shlex.quote(a) for a in args.pytest_args)) if kind == 'python' else (
+                   'PATH=/work/node/bin:$PATH .venv/bin/python -m pytest -q' + ''.join(' ' + shlex.quote(a) for a in args.pytest_args)) if kind == 'python' else (
                    'npm --prefix plugins/reader ci --cache /work/npm-cache && '
                    'npm --prefix plugins/reader run check && npm --prefix plugins/reader test && '
                    'npm --prefix plugins/reader run build && '

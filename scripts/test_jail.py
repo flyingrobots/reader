@@ -213,6 +213,12 @@ def process_sandboxed():
     return library.sandbox_check(os.getpid(), None, 0) == 1
 
 
+def in_container():
+    """True in a Linux container marked for tests (READER_TEST_JAIL=container), which is the isolation there."""
+    marked = Path('/.dockerenv').exists() or Path('/run/.containerenv').exists()
+    return sys.platform != 'darwin' and os.environ.get('READER_TEST_JAIL') == 'container' and marked
+
+
 def already_sandboxed():
     """True inside a running test sandbox; macOS cannot nest sandboxes. Both must hold: the process is sandboxed, and
     the test sandbox's probe refuses a write. Some other, more permissive sandbox does not count."""
@@ -278,8 +284,7 @@ def main(argv=None):
     command = args.command[1:] if args.command[:1] == ['--'] else args.command
     try:
         if sys.platform != 'darwin':
-            container = Path('/.dockerenv').exists() or Path('/run/.containerenv').exists()
-            if os.environ.get('READER_TEST_JAIL') == 'container' and container:
+            if in_container():
                 return subprocess.call(command) if command else 0
             raise JailError('Only macOS sandbox-exec is supported here; on Linux run inside a container with READER_TEST_JAIL=container')
         if args.print_profile:

@@ -117,14 +117,17 @@ def group_rss(pgid):
 
 
 def group_alive(pgid):
-    """Whether any process is still in the group, including members this user cannot inspect."""
+    """Whether any process is still in the group, including members this user cannot inspect. On Linux, members that
+    have exited and wait as zombies do not count."""
     if sys.platform == 'darwin':
         buffer = (ctypes.c_int * 4096)()
         found = libproc().proc_listpgrppids(pgid, buffer, ctypes.sizeof(buffer))
         if found < 0:
             raise OSError(ctypes.get_errno(), 'Cannot list the process group')
         return found > 0
-    return any(group == pgid for pid, parent, group, rss in rows())
+    # A zombie member has exited; where nothing reaps orphans (a container whose first process is not an init),
+    # killed members stay zombies indefinitely.
+    return any(group == pgid and running(pid) for pid, parent, group, rss in rows())
 
 
 def running(pid):
