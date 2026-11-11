@@ -56,6 +56,22 @@ def test_one_job_at_a_time_and_failures_are_recorded(vault):
         m.start('nonsense')
 
 
+def test_start_answers_with_the_job_as_it_started(vault, monkeypatch):
+    # The worst schedule: the job's thread runs to completion before start() returns.
+    class Inline:
+        def __init__(self, target, args, **kwargs):
+            self.run = lambda: target(*args)
+
+        def start(self):
+            self.run()
+
+    m = Maintenance(vault, {'check': lambda: m.progress('Checking search') or {}})
+    monkeypatch.setattr('reader_mcp.maintenance.threading.Thread', Inline)
+    job = m.start('check')
+    assert (job['state'], job['progress'], job['finished_at']) == ('running', None, None)
+    assert m.status()['jobs'][0]['progress'] == 'Checking search'
+
+
 def test_real_keyword_index_then_check_reports_partial_then_stale(vault):
     m = Maintenance(vault)
     m.start('search-keyword')

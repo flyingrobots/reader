@@ -104,8 +104,9 @@ class Maintenance:
                    'started_at': stamp(), 'finished_at': None, 'elapsed_seconds': None, 'result': None, 'error': None,
                    'quiet': bool(quiet), 'progress': None}
             self.running = job
+            started = dict(job)  # Copied before the thread can report progress, so a start always answers the same.
         threading.Thread(target=self._run, args=(job,), name='reader-maintenance', daemon=True).start()
-        return dict(job)
+        return started
 
     def progress(self, text):
         """A running job's latest step, shown beside it (companion installs report one per step)."""
