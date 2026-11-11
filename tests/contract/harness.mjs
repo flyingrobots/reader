@@ -19,6 +19,11 @@
 // never be pointed at a real library. Children get a scrubbed environment: a temporary HOME, a
 // minimal PATH, no READER_ROOT or GIT_LOCKS_STORE, dead model/speech endpoints, no agent CLI
 // search folders and git-locks disabled. Only the demo's scripted voices (no AI) ever run.
+//
+// Arrivals keep the logical name `inbox/<id>` everywhere in the API, but physically wait in the
+// vault-relative folder READER_INBOX names (INBOX below). Every child is given it, so an
+// implementation must honour it; tests find arrivals with inboxPath(). The old `inbox/` folder
+// stays a drop box: what is left there moves into READER_INBOX the next time arrivals are read.
 import '../jail_guard.cjs';
 import {spawn, spawnSync} from 'node:child_process';
 import {existsSync, mkdtempSync, mkdirSync, readFileSync, realpathSync, rmSync, writeFileSync, readdirSync, statSync} from 'node:fs';
@@ -33,6 +38,7 @@ export const REPO = resolve(HERE, '../..');
 export const CLOCK = '2026-10-21T12:00:00Z';
 export const TODAY = '2026-10-21';
 export const PARTICIPANT = 'You';
+export const INBOX = '.reader/inbox';
 const MARKER = '.reader-contract-vault';
 const GOLDEN = join(HERE, 'golden');
 
@@ -94,7 +100,7 @@ export function sandbox(box, extra = {}) {
   const dead = join(box, 'nothing-here');
   return {
     HOME: join(box, 'home'), TMPDIR: join(box, 'tmp'), PATH: '/usr/bin:/bin', LANG: 'en_US.UTF-8', PYTHONUTF8: '1',
-    PYTHONDONTWRITEBYTECODE: '1', HF_HUB_OFFLINE: '1', READER_TEST_CLOCK: CLOCK,
+    PYTHONDONTWRITEBYTECODE: '1', HF_HUB_OFFLINE: '1', READER_TEST_CLOCK: CLOCK, READER_INBOX: INBOX,
     READER_CLI_CANDIDATES: '', READER_GIT_LOCKS: 'none', READER_GIT_LOCKS_CANDIDATES: '',
     READER_LMS: join(dead, 'lms'), READER_LMSTUDIO_URL: 'http://127.0.0.1:9/v1', READER_CODEX: join(dead, 'codex'),
     READER_COLORFUL: join(dead, 'colorful'), AI_TTS_HOME: join(dead, 'ai-tts'), AI_TTS_SOCKET: join(dead, 'ai-tts.sock'),
@@ -416,6 +422,11 @@ export function snapshot(root) {
     const s = statSync(join(root, p));
     return [p, `${s.size}:${s.mtimeMs}`];
   }));
+}
+
+/** Where the arrival `inbox/<parts>` physically is in this vault. */
+export function inboxPath(root, ...parts) {
+  return join(root, INBOX, ...parts);
 }
 
 export function readJson(root, path) {

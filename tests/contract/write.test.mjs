@@ -189,9 +189,24 @@ describe('local model, companions, maintenance, inbox and service', () => {
     await refused('/api/maintenance', {action: 'start', kind: 'install-wide-md'});
     await refused('/api/maintenance', {action: 'stop'});
   });
-  test('POST /api/inbox refuses to start without Codex and to stop when idle', async () => {
-    const start = await refused('/api/inbox', {action: 'start'});
-    assert.match(start.error, /Codex/);
+  test('POST /api/inbox start is accepted without Codex, files nothing with every model dead, and stop is refused when idle', async () => {
+    // Since fee31e9 a missing Codex is not a refusal: the model chain records it and tries the next provider.
+    const waiting = (await server.get('/api/inbox')).json.arrivals.map(a => a.id).sort();
+    assert.ok(waiting.length, 'the fixture has arrivals waiting');
+    const start = await server.post('/api/inbox', {action: 'start'});
+    assert.equal(start.status, 200, start.text.slice(0, 300));
+    assert.equal(typeof start.json.run_id, 'string');
+    const done = await until(async () => {
+      const runner = (await server.get('/api/inbox')).json.runner;
+      return runner?.run_id === start.json.run_id && !['starting', 'running', 'stopping'].includes(runner.status) && runner;
+    }, 60000);
+    // Every provider is dead here, so the chain gives up and the run fails with its checkpoint kept.
+    assert.equal(done.status, 'failed');
+    assert.equal(done.commit, null);
+    const events = (await server.get('/api/inbox/events', {after: 0})).json;
+    assert.deepEqual([...events.remaining].sort(), [...events.arrivals].sort(), 'nothing was filed');
+    assert.match(events.events.at(-1).item.text, /No model could classify this arrival.*stays safely in the inbox/s);
+    assert.deepEqual((await server.get('/api/inbox')).json.arrivals.map(a => a.id).sort(), waiting, 'every arrival still waits');
     await refused('/api/inbox', {action: 'stop'});
     await refused('/api/inbox', {action: 'start', extra: 1});
   });

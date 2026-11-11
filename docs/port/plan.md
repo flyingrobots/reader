@@ -58,12 +58,15 @@ Mac (18 cores, 64 GiB) on 2026-10-26; they are indicative, not a benchmark suite
 - **Fixture:** the public-domain demo vault, pinned to Wednesday 2026-10-21 12:00 UTC by
   `tests/contract/fixtures/build_vault.py`. The server under test runs with `READER_TEST_CLOCK` at the same
   instant, a scrubbed environment (temporary `HOME`, minimal `PATH`), dead model and speech endpoints and
-  git-locks off. The fixture builder is the suite's only Python touchpoint and is replaceable through
+  git-locks off. It is told `READER_INBOX=.reader/inbox`, where arrivals physically wait (their API name stays
+  `inbox/<id>`), and must honour it; the old `inbox/` folder stays a drop box that reading arrivals sweeps in, the
+  one write a read is allowed. The fixture builder is the suite's only Python touchpoint and is replaceable through
   `READER_FIXTURE_CMD`. Once `demo` is ported, it can take `--today`.
 - **Golden shapes:** JSON-schema-like snapshots in `tests/contract/golden/`, recorded from Python. They keep types,
   string formats (datetime, date, sha256, uuid, sha1), optional keys and maps keyed by data. They never keep
   values, so timestamps, ids and ordering are normalized away. Record new ones with `READER_CONTRACT_UPDATE=1`
-  against the reference server, and review each diff.
+  against the reference server, and review each diff. CI runs the suite against Python on every push
+  (`scripts/check_container.py contract`), so drift fails a build instead of waiting for the port.
 - **Coverage:** all 70 method+path routes (51 GET, 19 POST), all 16 CLI subcommands, all 13 MCP tools listed
   with their input schemas, and 6 of those tools called. 23 of 44 named POST actions are exercised; `surface.md`
   lists the rest. Every stored format has a check: exact SQLite schemas for `search.v2`, `links`, `catalog` and

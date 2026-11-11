@@ -64,7 +64,7 @@ owning class. **Existing tests** counts browser suites (`tests/web_*.cjs`, `test
 | GET | `/api/readers` | expensive (8, refuse 429) | path, participant | readers | — | 2 / 2 | read |
 | GET | `/api/speech-voices` | reads (32, wait 5.0 s then 429) | — | speech.voices (Speech) | — | 1 / 1 | **gap** |
 | GET | `/api/speak/*` | reads (32, wait 5.0 s then 429) | — | speech.get (Speech) | — | 0 / 2 | read |
-| GET | `/api/inbox` | reads (32, wait 5.0 s then 429) | — | inbox.status (InboxView) | — | 5 / 5 | read |
+| GET | `/api/inbox` | reads (32, wait 5.0 s then 429) | — | inbox.status (InboxView) | — | 5 / 5 | read, write |
 | GET | `/api/inbox/deliveries` | reads (32, wait 5.0 s then 429) | id | delivery_tokens.verify | 401 | 0 / 3 | **gap** |
 | GET | `/api/delivery-tokens` | reads (32, wait 5.0 s then 429) | — | delivery_tokens.list | 404 | 0 / 1 | **gap** |
 | GET | `/api/private` | reads (32, wait 5.0 s then 429) | — — when `parsed.path == '/api/private' or parsed.path == '/api/private/item' or parsed.path == '/api/private/file'` | — | — | 2 / 2 | **gap** |
@@ -81,7 +81,7 @@ owning class. **Existing tests** counts browser suites (`tests/web_*.cjs`, `test
 | GET | `/api/prompt` | expensive (8, refuse 429) | participant, path, voice, task | prompt | — | 0 / 1 | read |
 | GET | `/api/writing` | expensive (8, refuse 429) | participant, responds_to | writing.list (Writing) | — | 3 / 2 | read, write |
 | GET | `/api/local-model` | reads (32, wait 5.0 s then 429) | — | local_model.status (LocalModel) | — | 1 / 3 | read |
-| GET | `/api/inbox/events` | reads (32, wait 5.0 s then 429) | after | inbox.events (InboxView) | — | 1 / 3 | read |
+| GET | `/api/inbox/events` | reads (32, wait 5.0 s then 429) | after | inbox.events (InboxView) | — | 1 / 3 | read, write |
 | GET | `/api/chat/raw` | expensive (8, refuse 429) | id, turn | conversations.raw (Conversations) | — | 0 / 3 | read |
 | GET | `/api/prose` | expensive (8, refuse 429) | — | prose.status (Prose) | — | 1 / 4 | read |
 | GET | `/api/companions` | reads (32, wait 5.0 s then 429) | name | companions.status (Companions) | — | 1 / 3 | read |
@@ -284,6 +284,7 @@ on stdout; errors print `Reader: <message>` on stderr and exit 1 (`browse --chec
 | File | Purpose (docstring) |
 | - | - |
 | `scripts/check_container.py` | Run bounded copy-isolated checks using existing Python and Node Docker images. |
+| `scripts/fetch_private_bridge.py` | Download the private shelf's pinned packages into .reader/npm-cache, so tests/web_private.cjs installs them offline. |
 | `scripts/generate_circle_mark.py` | Outline Reader's bundled Newsreader r into a theme-aware circle mark. |
 | `scripts/install.py` | Bind this code checkout to a private vault and install its local Codex integrations. |
 | `scripts/install_wide_md.py` | Build a pinned wide-md locally with bounded, monitored output and no global install. |
@@ -363,7 +364,7 @@ on stdout; errors print `Reader: <message>` on stderr and exit 1 (`browse --chec
 
 | Command | Option | Details |
 | - | - | - |
-| (top) | `kind` | choices=['python', 'node', 'formatter', 'web'] |
+| (top) | `kind` | choices=['python', 'node', 'contract', 'formatter', 'web'] |
 | (top) | `pytest_args` | nargs='*' |
 | (top) | `-k` |  |
 
@@ -475,6 +476,7 @@ String literals joined with `/` or shaped like vault paths. A starting point for
 | `src/reader_mcp/demo/build.py` | `*.json`, `*.jsonl`, `.gitignore`, `.reader/ .DS_Store `, `.reader/demo-staging`, `.reader/models`, `AGENTS.md`, `NOTICE.md`, `README.md`, `analytical-engine/babbage-analytical-engine.md`, `analytical-engine/lovelace-note-g.md`, `analytical-engine/lovelace-note-g.reading.md`, `analytical-engine/reading-note-g.md`, `annotations`, `art`, `assets/darwin-diagram.png`, `assets/lantern-0.9-field-report.pdf`, `bin/art.json`, `bin/demo-voice`, `bin/demo-voice.py`, `bin/replies.json`, `catalog`, `catalog/metadata`, `catch-up-benchmark.md`, `catch-up.csv`, `content`, `engagement`, `essayists/bacon/of-studies.md`, `essayists/bacon/of-truth.md`, `essayists/montaigne/of-books.md`, `essayists/montaigne/of-idleness.md`, `essayists/montaigne/of-solitude.md`, `essayists/woolf/modern-fiction.md`, `essayists/woolf/montaigne.md`, `essayists/woolf/the-common-reader.md`, `essayists/woolf/the-modern-essay.md`, `history`, `inbox`, `inbox/README.md`, `inbox/autumn-reading-list.md`, `indexes`, `indexes/settings.json`, `lantern/decisions/adr-007.md`, `lantern/design/sync-design.md`, `lantern/design/sync-design.v1a.md`, `lantern/design/sync-design.v2.md`, `lantern/guides/keyboard-reading.md`, `lantern/journal/week.md`, `lantern/logs/sync-dry-run.log`, `lantern/research/spaced-rereading.md`, `library`, `library/`, `library/analytical-engine/babbage-analytical-engine.md`, `library/analytical-engine/lovelace-note-g.md`, `library/analytical-engine/lovelace-note-g.reading.md`, `library/analytical-engine/reading-note-g.md`, `library/essayists/bacon/of-truth.md`, `library/essayists/montaigne/of-books.md`, `library/essayists/montaigne/of-idleness.md`, `library/essayists/montaigne/of-solitude.md`, `library/essayists/woolf/modern-fiction.md`, `library/essayists/woolf/montaigne.md`, `library/essayists/woolf/the-common-reader.md`, `library/essayists/woolf/the-modern-essay.md`, `library/lantern/decisions/adr-007.md`, `library/lantern/design/sync-design.md`, `library/lantern/design/sync-design.v2.md`, `library/lantern/guides/keyboard-reading.md`, `library/lantern/journal/week-`, `library/lantern/reports/lantern-0.9-field-report.pdf`, `library/lantern/research/spaced-rereading.md`, `library/natural-history/darwin/darwin-diagram.png`, `library/natural-history/darwin/recapitulation.md`, `library/natural-history/darwin/struggle-for-existence.md`, `library/natural-history/darwin/the-only-figure.md`, `library/reading-room/on-keeping-the-margins.md`, `library/reading-room/solitude-twice.md`, `library/reading-room/the-engine-and-the-essay.md`, `library/reading-room/what-note-g-costs.md`, `library/walden/emerson/circles.md`, `library/walden/emerson/self-reliance.md`, `library/walden/thoreau/reading.md`, `library/walden/thoreau/solitude.md`, `library/walden/thoreau/where-i-lived.md`, `natural-history/darwin/darwin-diagram.png`, `natural-history/darwin/recapitulation.md`, `natural-history/darwin/struggle-for-existence.md`, `natural-history/darwin/the-only-figure.md`, `natural-history/the-only-figure.md`, `newsletters/weekly.md`, `of-gardens.md`, `prompts`, `reading-room/on-keeping-the-margins.md`, `reading-room/solitude-twice.md`, `reading-room/the-engine-and-the-essay.md`, `reading-room/what-note-g-costs.md`, `texts`, `texts/bacon-of-gardens.md`, `voice/demo-voice.py`, `voice/replies.json`, `voices.json`, `walden/emerson/circles.md`, `walden/emerson/self-reliance.md`, `walden/thoreau/reading.md`, `walden/thoreau/solitude.md`, `walden/thoreau/where-i-lived.md` |
 | `src/reader_mcp/demo/static.py` | `.nojekyll`, `.reader`, `art`, `assets`, `bin`, `chat.json`, `chats`, `data`, `files`, `history`, `inbox`, `index.html`, `library`, `manifest.json`, `manifest.webmanifest`, `paths.json`, `r`, `replies.json`, `resolve.json`, `robots.txt`, `search.json`, `search.v2.sqlite3`, `web_ui` |
 | `scripts/check_container.py` | `.reader/review`, `.reader/tooling/bin/wide-md`, `.reader/tooling/installed.json`, `AGENTS.md`, `CHANGELOG.md`, `README.md`, `controls`, `controls.next`, `manifest.json`, `package-lock.json`, `package.json`, `plugins/reader/dist`, `src/reader_mcp/web_ui/controls`, `uv.lock`, `validation.lock` |
+| `scripts/fetch_private_bridge.py` | `.reader/npm-cache`, `src/reader_mcp/private_bridge/package-lock.json` |
 | `scripts/generate_circle_mark.py` | `src/reader_mcp/web_ui/mark-circle.svg`, `src/reader_mcp/web_ui/vendor/newsreader.woff2`, `web/src/circle-mark.tsx` |
 | `scripts/install.py` | `.codex`, `.reader`, `.venv/bin/python`, `config.json`, `library`, `skills`, `skills/reader/scripts/reader.py`, `skills/reader/scripts/remote.py` |
 | `scripts/install_wide_md.py` | `.cargo`, `.reader`, `.reader/tooling`, `.venv`, `bin/wide-md`, `git`, `installed.json`, `launch.json`, `plugins/reader/node_modules`, `registry`, `release/wide-md`, `setup.lock`, `setup.log`, `src` |
@@ -736,10 +738,11 @@ Lock file names: `.lock`, `.reader/gpu.lock`, `.reader/inbox-runner/run.lock`, `
 | `src/reader_mcp/writing.py:361` | run | `command` | `180` |
 | `src/reader_mcp/writing.py:313` | run | `[git, 'config', 'user.name']` | `10` |
 | `src/reader_mcp/demo/build.py:225` | run | `['git', '-C', str(self.root), *args]` | `—` |
-| `scripts/check_container.py:47` | run | `['docker', *args]` | `—` |
-| `scripts/check_container.py:73` | run | `['docker', 'inspect', name]` | `—` |
-| `scripts/check_container.py:192` | run | `['docker', 'rm', '-f', name]` | `—` |
-| `scripts/check_container.py:138` | Popen | `['docker', 'exec', name, 'sh', '-c', cmd]` | `—` |
+| `scripts/check_container.py:49` | run | `['docker', *args]` | `—` |
+| `scripts/check_container.py:81` | run | `['docker', 'inspect', name]` | `—` |
+| `scripts/check_container.py:209` | run | `['docker', 'rm', '-f', name]` | `—` |
+| `scripts/check_container.py:155` | Popen | `['docker', 'exec', name, 'sh', '-c', cmd]` | `—` |
+| `scripts/fetch_private_bridge.py:29` | run | `[npm, 'cache', 'add', '--cache', str(CACHE), *wanted]` | `—` |
 | `scripts/install.py:40` | run | `[codex, 'mcp', 'get', 'reader', '--json']` | `—` |
 | `scripts/install.py:58` | run | `[codex, 'mcp', 'remove', 'reader']` | `—` |
 | `scripts/install.py:61` | run | `[codex, 'mcp', 'add', 'reader', '--', *command]` | `—` |
@@ -800,6 +803,7 @@ Programs named as string literals per module:
 | `src/reader_mcp/demo/build.py` | git, codex, claude |
 | `src/reader_mcp/demo/static.py` | codex |
 | `scripts/check_container.py` | git, wide-md, node |
+| `scripts/fetch_private_bridge.py` | npm |
 | `scripts/install.py` | codex |
 | `scripts/install_wide_md.py` | git, wide-md, cargo |
 | `scripts/reader_service.py` | git, git-locks, launchctl, tailscale |
@@ -924,7 +928,6 @@ companions.py), `<vault>/indexes/settings.json` (browse), `<code>/.reader/config
 | `fastembed` | yes | search.py | ONNX text embeddings (BAAI/bge-small-en-v1.5) for semantic search, related works, shapes; optional at runtime. |
 | `fontTools` | no (transitive) | generate_circle_mark.py | undocumented |
 | `fonttools` | yes | generate_circle_mark.py | Declared, but no module imports it (theme fonts are served as downloaded woff2 files). |
-| `jail_guard` | no (transitive) | run_browser_suites.py | undocumented |
 | `markdown-it-py` | yes | — | undocumented |
 | `markdown_it` | no (transitive) | portable_links.py, prompt_blocks.py | undocumented |
 | `mcp` | yes | server.py, verify_installation.py, verify_search_installation.py | FastMCP stdio server (reader serve) and the install verifiers' MCP client. |
@@ -948,7 +951,7 @@ exercise modules through HTTP, so see the route table for those.
 
 | Module | Lines | Code | Chars | Mean len | Max len | Stmts/line | Defs | Classes | Pytest files | Tests |
 | - | - | - | - | - | - | - | - | - | - | - |
-| `src/reader_mcp/annotations.py` | 160 | 142 | 9156 | 63 | 217 | 1.29 | 15 | 1 | 5 | 33 |
+| `src/reader_mcp/annotations.py` | 160 | 142 | 9156 | 63 | 217 | 1.29 | 15 | 1 | 5 | 34 |
 | `src/reader_mcp/arrival_choices.py` | 80 | 64 | 3385 | 50 | 240 | 0.94 | 6 | 0 | 2 | 44 |
 | `src/reader_mcp/art.py` | 964 | 865 | 54690 | 60 | 215 | 0.89 | 54 | 4 | 4 | 53 |
 | `src/reader_mcp/art_scene.py` | 351 | 294 | 14728 | 49 | 134 | 1.01 | 34 | 2 | 4 | 53 |
@@ -985,7 +988,7 @@ exercise modules through HTTP, so see the route table for those.
 | `src/reader_mcp/llm_logs.py` | 278 | 240 | 12497 | 50 | 136 | 0.95 | 18 | 1 | 10 | 170 |
 | `src/reader_mcp/local_model.py` | 1793 | 1573 | 90684 | 55 | 187 | 0.87 | 115 | 13 | 4 | 55 |
 | `src/reader_mcp/magazine.py` | 202 | 175 | 9086 | 49 | 138 | 0.94 | 10 | 1 | 0 | 0 |
-| `src/reader_mcp/maintenance.py` | 347 | 310 | 18743 | 57 | 170 | 0.77 | 20 | 1 | 4 | 36 |
+| `src/reader_mcp/maintenance.py` | 348 | 311 | 18858 | 57 | 170 | 0.77 | 20 | 1 | 4 | 37 |
 | `src/reader_mcp/metadata.py` | 384 | 329 | 16405 | 48 | 127 | 0.88 | 24 | 6 | 4 | 48 |
 | `src/reader_mcp/model_chain.py` | 518 | 438 | 26309 | 57 | 146 | 0.89 | 37 | 3 | 1 | 26 |
 | `src/reader_mcp/portable_links.py` | 407 | 368 | 20823 | 54 | 163 | 0.91 | 20 | 1 | 3 | 100 |
@@ -1000,7 +1003,7 @@ exercise modules through HTTP, so see the route table for those.
 | `src/reader_mcp/related.py` | 170 | 150 | 8533 | 55 | 137 | 0.88 | 7 | 1 | 2 | 18 |
 | `src/reader_mcp/repositories.py` | 259 | 229 | 14749 | 63 | 170 | 0.86 | 16 | 2 | 1 | 4 |
 | `src/reader_mcp/resources.py` | 28 | 22 | 1065 | 43 | 97 | 1.00 | 2 | 0 | 0 | 0 |
-| `src/reader_mcp/search.py` | 1076 | 983 | 60068 | 58 | 242 | 0.84 | 46 | 2 | 12 | 130 |
+| `src/reader_mcp/search.py` | 1076 | 983 | 60068 | 58 | 242 | 0.84 | 46 | 2 | 12 | 131 |
 | `src/reader_mcp/search_guard.py` | 157 | 140 | 7372 | 49 | 123 | 0.83 | 6 | 0 | 3 | 34 |
 | `src/reader_mcp/server.py` | 140 | 111 | 8446 | 75 | 145 | 0.51 | 14 | 0 | 0 | 0 |
 | `src/reader_mcp/service.py` | 121 | 108 | 4875 | 44 | 118 | 0.87 | 7 | 1 | 0 | 0 |
@@ -1019,7 +1022,8 @@ exercise modules through HTTP, so see the route table for those.
 | `src/reader_mcp/demo/__init__.py` | 137 | 116 | 6014 | 50 | 149 | 0.89 | 9 | 0 | 0 | 0 |
 | `src/reader_mcp/demo/build.py` | 718 | 625 | 49845 | 77 | 170 | 0.64 | 29 | 1 | 0 | 0 |
 | `src/reader_mcp/demo/static.py` | 379 | 335 | 20169 | 58 | 177 | 0.90 | 19 | 1 | 0 | 0 |
-| `scripts/check_container.py` | 195 | 172 | 12689 | 68 | 317 | 0.94 | 4 | 0 | 0 | 0 |
+| `scripts/check_container.py` | 212 | 187 | 14267 | 69 | 317 | 0.92 | 4 | 0 | 0 | 0 |
+| `scripts/fetch_private_bridge.py` | 34 | 25 | 1154 | 44 | 119 | 0.88 | 2 | 0 | 0 | 0 |
 | `scripts/generate_circle_mark.py` | 60 | 51 | 2961 | 53 | 166 | 0.71 | 1 | 0 | 0 | 0 |
 | `scripts/install.py` | 88 | 82 | 4365 | 51 | 124 | 0.98 | 1 | 0 | 0 | 0 |
 | `scripts/install_wide_md.py` | 101 | 93 | 5187 | 54 | 140 | 0.92 | 5 | 0 | 0 | 0 |
@@ -1033,10 +1037,10 @@ exercise modules through HTTP, so see the route table for those.
 | `scripts/vendor_web.py` | 77 | 68 | 4132 | 58 | 186 | 0.88 | 2 | 0 | 0 | 0 |
 | `scripts/verify_installation.py` | 80 | 72 | 4436 | 60 | 264 | 0.92 | 1 | 0 | 0 | 0 |
 | `scripts/verify_search_installation.py` | 74 | 66 | 4190 | 59 | 138 | 0.82 | 1 | 0 | 0 | 0 |
-| **total** | 27832 | 24682 | 1470470 | | | | | | | |
+| **total** | 27884 | 24723 | 1473317 | | | | | | | |
 
 Language-neutral code that a port keeps as is: `src/reader_mcp/web_ui/` (46 hand-written JS/CSS/HTML files, 8129 lines, excluding vendor/) plus the built `web_ui/controls/` bundle from `web/`.
-Tests: 82 pytest files, 943 test functions; 100 browser suites; 21 node unit files.
+Tests: 82 pytest files, 944 test functions; 100 browser suites; 21 node unit files.
 
 ## Contract coverage
 

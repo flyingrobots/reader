@@ -11,6 +11,7 @@
      },
      "bundle": "boolean",
      "bytes": "number",
+     "choice": "null",
      "document": "string",
      "files": "number",
      "id": "string",
@@ -20,6 +21,7 @@
        "string"
       ]
      },
+     "local_only": "boolean",
      "path": "string",
      "project": {
       "anyOf": [
@@ -28,7 +30,12 @@
       ]
      },
      "receipt_error": "null",
-     "received_at": "string:datetime",
+     "received_at": {
+      "anyOf": [
+       "null",
+       "string:datetime"
+      ]
+     },
      "report_date": {
       "anyOf": [
        "null",
@@ -51,12 +58,8 @@
     }
    }
   },
-  "blocked": {
-   "object": {
-    "message": "string",
-    "reason": "string"
-   }
-  },
+  "blocked": "null",
+  "broken_delivery_keys": "number",
   "chat_turn": "boolean",
   "claims_held": {
    "array": "empty"
@@ -70,6 +73,11 @@
   "errors": {
    "array": "empty"
   },
+  "model_chain": "null",
+  "model_providers": {
+   "array": "string"
+  },
+  "pending": "boolean",
   "runner": "null",
   "sandbox_modes": {
    "array": "string"

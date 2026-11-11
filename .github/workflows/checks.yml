@@ -22,5 +22,7 @@ jobs:
         run: python3 scripts/check_container.py python
       - name: Plugin checks in bounded Docker worker
         run: python3 scripts/check_container.py node
+      - name: Contract suite against the Python server in bounded Docker worker
+        run: python3 scripts/check_container.py contract
       - name: Frontend checks and canonical documentation build in bounded Docker worker
         run: python3 scripts/check_container.py web

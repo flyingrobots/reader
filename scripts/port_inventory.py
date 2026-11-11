@@ -974,11 +974,11 @@ def render(demo=True):
             elif isinstance(node, ast.ImportFrom) and node.level == 0 and node.module:
                 names = [node.module.split('.')[0]]
             for n in names:
-                if n not in STDLIB and n != 'reader_mcp' and not (REPO / 'scripts' / (n + '.py')).exists():
+                if n not in STDLIB and n != 'reader_mcp' and not any((REPO / local / (n + '.py')).exists() for local in ('scripts', 'tests')):
                     users[n].add(short(file))
     w('| Dependency | Declared | Imported by | Used for |')
     w('| - | - | - | - |')
-    for name in sorted(set(declared) | set(users), key=str.lower):
+    for name in sorted(set(declared) | set(users), key=lambda n: (n.lower(), n)):  # fonttools and fontTools differ only in case
         imported = users.get(name) or users.get({'pillow': 'PIL', 'fonttools': 'fontTools', 'pyyaml': 'yaml'}.get(name, ''), set())
         w(f"| `{name}` | {'yes' if name in declared else 'no (transitive)'} | {', '.join(sorted(imported)) or '—'} | {md(DEP_PURPOSE.get(name, 'undocumented'))} |")
     w('')

@@ -14,16 +14,10 @@
     "chart-6": "string",
     "chart-7": "string",
     "chart-8": "string",
-    "chart-stroke": "string",
-    "faint": "string",
     "ink": "string",
     "line": "string",
     "muted": "string",
-    "other": "string",
-    "own": "string",
     "raised": "string",
-    "rust": "string",
-    "selection": "string",
     "surface": "string",
     "warning": "string"
    }
@@ -89,16 +83,10 @@
     "chart-6": "string",
     "chart-7": "string",
     "chart-8": "string",
-    "chart-stroke": "string",
-    "faint": "string",
     "ink": "string",
     "line": "string",
     "muted": "string",
-    "other": "string",
-    "own": "string",
     "raised": "string",
-    "rust": "string",
-    "selection": "string",
     "surface": "string",
     "warning": "string"
    }

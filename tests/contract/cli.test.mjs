@@ -5,7 +5,7 @@ import assert from 'node:assert/strict';
 import {createHash, randomUUID} from 'node:crypto';
 import {chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync} from 'node:fs';
 import {join} from 'node:path';
-import {assertShape, cli, makeVault, readJson} from './harness.mjs';
+import {assertShape, cli, inboxPath, makeVault} from './harness.mjs';
 
 const SOLITUDE = 'library/walden/thoreau/solitude.md';
 const WIDE_MD_REVISION = 'c167101b32bbe37954429e9de5db33efcdc0a16c';  // the wide-md revision the receipt must name
@@ -35,9 +35,9 @@ describe('delivery', () => {
     const submission = {request_id, title: 'A contract delivery', filename: 'note.md', markdown: '# A contract delivery\n\nSynthetic.\n',
       provenance: {project: 'Contract', source: 'tests/contract', author: 'A tester', report_date: '2026-10-21'}};
     const result = ok('cli-ingest', ['ingest', '-'], {input: JSON.stringify(submission)});
-    const receipt = readJson(vault.root, `inbox/${request_id}/receipt.json`);
+    const receipt = JSON.parse(readFileSync(inboxPath(vault.root, request_id, 'receipt.json'), 'utf8'));
     assert.equal(receipt.id, request_id);
-    const bytes = readFileSync(join(vault.root, `inbox/${request_id}/note.md`));
+    const bytes = readFileSync(inboxPath(vault.root, request_id, 'note.md'));
     assert.equal(receipt.files[0].sha256, createHash('sha256').update(bytes).digest('hex'));
     assertShape('file-receipt', receipt);
     const again = ok(null, ['ingest', '-'], {input: JSON.stringify(submission)});

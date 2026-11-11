@@ -2,8 +2,9 @@
 """Run bounded copy-isolated checks using existing Python and Node Docker images.
 
 Kinds: `formatter` (pinned wide-md build), `python` (pytest; optional test paths or -k expressions after the
-kind run a focused subset), `node` (the Obsidian plugin) and `web` (tests/*.test.mjs, then the web controls
-type check and build from web/package-lock.json; the built web_ui/controls are copied back to the checkout)."""
+kind run a focused subset), `node` (the Obsidian plugin), `contract` (tests/contract against the Python server, with
+the node binary of the pinned Node image copied into the Python worker) and `web` (tests/*.test.mjs, then the web
+controls type check and build from web/package-lock.json; the built web_ui/controls are copied back to the checkout)."""
 import argparse
 import re
 import shlex
@@ -21,6 +22,7 @@ import time
 ROOT = Path(__file__).resolve().parents[1]
 RUNTIME = ROOT / '.reader/review'
 GIB = 1024**3
+NODE_IMAGE = 'node:24.18.0'
 
 
 def worker_name(kind, root=ROOT):
@@ -49,7 +51,7 @@ def docker(*args, **kwargs):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('kind', choices=['python', 'node', 'formatter', 'web'])
+    parser.add_argument('kind', choices=['python', 'node', 'contract', 'formatter', 'web'])
     parser.add_argument('pytest_args', nargs='*', help='python only: test paths or node IDs')
     parser.add_argument('-k', dest='expression', help='python only: select tests by a pytest -k expression')
     args = parser.parse_args()
@@ -68,8 +70,14 @@ def main():
             raise RuntimeError('Host free space below 50 GiB')
         kind = args.kind
         name = worker_name(kind)
-        image = {'python':'python:3.12-bookworm','node':'node:24.18.0','formatter':'rust:1.96.0','web':'node:24.18.0'}[kind]
+        image = {'python':'python:3.12-bookworm','node':'node:24.18.0','contract':'python:3.12-bookworm','formatter':'rust:1.96.0','web':'node:24.18.0'}[kind]
         docker('image', 'inspect', image, stdout=subprocess.DEVNULL)
+        if kind == 'contract':
+            docker('image', 'inspect', NODE_IMAGE, stdout=subprocess.DEVNULL)
+            # Both images are Debian bookworm, so the Node image's binary runs in the Python worker.
+            node = docker('run', '--rm', '--network', 'none', '--entrypoint', 'cat', NODE_IMAGE, '/usr/local/bin/node', capture_output=True).stdout
+            if len(node) > 256 * 1024**2:
+                raise RuntimeError('Unexpectedly large node binary')
         prior = subprocess.run(['docker', 'inspect', name], capture_output=True, text=True)
         if prior.returncode == 0:
             raise RuntimeError('Owned worker still exists; inspect it before reusing its name: ' + name)
@@ -110,6 +118,11 @@ def main():
                 raise RuntimeError('Docker VM free space below 50 GiB')
             (RUNTIME/(kind+'-contract.json')).write_text(json.dumps(contract, indent=2))
             docker('exec','-i',name,'tar','xf','-','-C','/work',input=stream.getvalue())
+            if kind == 'contract':
+                docker('exec','-i',name,'sh','-c','mkdir -p /work/node/bin && cat > /work/node/bin/node && chmod 755 /work/node/bin/node',input=node)
+                # Reader runs from a checkout, and /api/health reports its commit: give the copy one of its own.
+                docker('exec',name,'sh','-c','git init -q -b snapshot /work && git -C /work add -A -- . ":(exclude)node" && '
+                       'git -C /work -c user.name=checks -c user.email=checks@invalid commit -q -m snapshot')
             if kind == 'python':
                 # Source-policy tests inspect tracked source names. Give the isolated
                 # copy its own index; no host repository metadata or history is copied.
@@ -124,6 +137,10 @@ def main():
                    'node --test tests/quiz_controller.cjs tests/request_token.cjs && '
                    'npm --prefix server ci --cache /work/npm-cache && '
                    'npm --prefix server run check && npm --prefix server test')
+            if kind=='contract':
+                cmd = ('python -m pip install --disable-pip-version-check --no-cache-dir --target /work/tools uv && '
+                       'PYTHONPATH=/work/tools UV_CACHE_DIR=/work/cache python -m uv sync --locked && '
+                       'PATH=/work/node/bin:$PATH node --test --test-timeout=120000 "tests/contract/*.test.mjs"')
             if kind=='web':
                 cmd = ('node --test tests/*.test.mjs && cd web && npm ci --cache /work/npm-cache --no-audit --no-fund && '
                        'npm run check && npm run build')
