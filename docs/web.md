@@ -542,7 +542,10 @@ Reader chooses which preference to use when the window opens; resizing reflows
 the current layout without switching it.
 
 Choose **Pages** in the footer or settings; choose **Scroll** to return to continuous
-scrolling. Text flows through
+scrolling. On a touch screen, a swipe turns exactly one page: the page follows the
+finger, and releasing after a fifth of a page or a quick flick turns to the
+neighbouring page; anything less springs back. Browser fling momentum does not
+carry a swipe across several pages. Text flows through
 two facing columns at a fixed viewport height, continuing across successive
 spreads. The document title flows as a full-size heading at the start of the
 text, rather than repeating above each spread. Existing Markdown title headings

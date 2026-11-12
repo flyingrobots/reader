@@ -188,7 +188,23 @@ export function installReading({scratchStatus, statusOverride, onStatus, mayCurl
       const article=$('#article'),viewport=document.createElement('div'),tail=document.createElement('span');viewport.className='book-viewport';viewport.tabIndex=-1;tail.className='book-tail';article.before(viewport);viewport.append(article,tail);
       book={article,viewport,tail,stride:1,spreads:1,animating:false,lastTurn:0,accumulated:0};
       viewport.addEventListener('wheel',event=>{if(event.ctrlKey)return;event.preventDefault();book.accumulated+=Math.abs(event.deltaX)>Math.abs(event.deltaY)?event.deltaX:event.deltaY;if(Math.abs(book.accumulated)<25||Date.now()-book.lastTurn<500)return;const delta=Math.sign(book.accumulated);book.accumulated=0;book.lastTurn=Date.now();turn(delta);},{passive:false});
-      viewport.addEventListener('scroll',()=>{update();scheduleSave();if(!book.animating){clearTimeout(viewport.snapTimer);viewport.snapTimer=setTimeout(()=>{if(book?.viewport===viewport)seekSpread(Math.round(viewport.scrollLeft/book.stride));},150);}});
+      // A touch swipe turns one page: the page follows the finger, then settles on its neighbour. Native fling momentum carried a flick across several pages.
+      const SWIPE_FRACTION=.2,FLICK_SPEED=.3;
+      viewport.addEventListener('pointerdown',event=>{
+        if(event.pointerType!=='touch'||!event.isPrimary||book.drag)return;
+        turner?.finish();gsap.killTweensOf(viewport);book.animating=false;
+        book.drag={id:event.pointerId,x:event.clientX,left:viewport.scrollLeft,from:Math.round(viewport.scrollLeft/book.stride),at:event.timeStamp};
+      });
+      viewport.addEventListener('pointermove',event=>{const drag=book.drag;if(drag?.id===event.pointerId)viewport.scrollLeft=drag.left-(event.clientX-drag.x);});
+      const release=event=>{
+        const drag=book.drag;if(drag?.id!==event.pointerId)return;book.drag=null;
+        const dx=event.type==='pointerup'?event.clientX-drag.x:0,speed=Math.abs(dx)/Math.max(1,event.timeStamp-drag.at);
+        const delta=Math.abs(dx)>book.stride*SWIPE_FRACTION||(Math.abs(dx)>10&&speed>FLICK_SPEED)?-Math.sign(dx):0;
+        if(delta&&curl())viewport.scrollLeft=drag.left;
+        seekSpread(drag.from+delta);
+      };
+      viewport.addEventListener('pointerup',release);viewport.addEventListener('pointercancel',release);
+      viewport.addEventListener('scroll',()=>{update();scheduleSave();if(!book.animating&&!book.drag){clearTimeout(viewport.snapTimer);viewport.snapTimer=setTimeout(()=>{if(book?.viewport===viewport)seekSpread(Math.round(viewport.scrollLeft/book.stride));},150);}});
       measureBook();if(!mayCurl||mayCurl())loadTurner().then(()=>turnerModule?.scheduleWarm(0));
     }
     notify('prepare');updateStatus();

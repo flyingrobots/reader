@@ -97,7 +97,7 @@ const {chromium}=require(process.env.READER_PLAYWRIGHT || 'playwright-core');
   await context.close();
   // A real touch gesture must pan and snap the narrow-screen paged viewport.
   const touchContext=await browser.newContext({viewport:{width:390,height:844},isMobile:true,hasTouch:true,reducedMotion:'reduce'});
-  await touchContext.addInitScript(()=>localStorage.setItem('reader.preferences.v1',JSON.stringify({layout:'spread',participant:'Touch tester'})));
+  await touchContext.addInitScript(()=>localStorage.setItem('reader.preferences.v1',JSON.stringify({layout:'spread',mobileLayout:'spread',participant:'Touch tester'})));
   const touchPage=await touchContext.newPage();touchPage.on('pageerror',e=>errors.push(e.message));
   await touchPage.goto(url+'/#read='+encodeURIComponent('library/thought.md'));await touchPage.locator('.book-viewport').waitFor();await touchPage.waitForTimeout(700);
   const cdp=await touchContext.newCDPSession(touchPage);

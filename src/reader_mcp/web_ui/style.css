@@ -48,7 +48,7 @@ body.two-page{overflow:hidden}body.two-page #smooth-wrapper{position:fixed!impor
 body.two-page .document-shell{max-width:1500px;width:100%;height:100%;padding:25px 52px 25px;display:flex;flex-direction:column}
 body.two-page .document-kicker,body.two-page .document-footer{display:none}body.two-page .document-meta>:not(.article-speech,.version-line){display:none!important}body.two-page .document-meta{margin:0 0 .6em}
 .article .document-title{font-family:var(--font-serif);font-size:clamp(36px,4.8vw,68px);line-height:1.08;letter-spacing:-.018em;max-width:22ch;margin:0 0 .65em;color:var(--foreground);white-space:normal;overflow-wrap:anywhere;break-inside:avoid;break-after:avoid;hyphens:none}.article .document-meta{font-family:var(--font-sans)}
-.book-viewport{position:relative;flex:1;min-height:0;overflow-x:auto;overflow-y:hidden;scrollbar-width:none;overscroll-behavior-x:contain}
+.book-viewport{position:relative;flex:1;min-height:0;overflow-x:auto;overflow-y:hidden;scrollbar-width:none;overscroll-behavior-x:contain;touch-action:pan-y pinch-zoom}
 .book-tail{position:absolute;top:0;width:1px;height:1px;pointer-events:none}
 body.two-page .article{width:100%;max-width:none;height:100%;margin:0;columns:2;column-gap:76px;column-fill:auto;position:relative;font-size:20px;line-height:1.4;overflow:visible}
 body.two-page .article>*{max-width:100%;overflow-wrap:anywhere}body.two-page .article h2,body.two-page .article h3{break-after:avoid}body.two-page .article pre,body.two-page .article table{break-inside:avoid;max-height:100%;overflow:auto}
