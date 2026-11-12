@@ -144,7 +144,7 @@
     "src/plural.ts": "4c0d0698a171b39d5683548f00e2e9a8a7c5ea1af28e4067aaa63612476b5fa2",
     "src/queue-panel.tsx": "7c810f3fae293926bf6bf5e316b3eff239e364ec88f94734c071e716f25d9c59",
     "src/quiz.tsx": "da429b5617a6c905d376cea263c1901325c2e1d43890957e294114492a852cb2",
-    "src/reader-controls.tsx": "4027c5e55a27526d708893c4740c7fc4cd1149e201d25c6976bef55c22011c1e",
+    "src/reader-controls.tsx": "d592fd910fe2c545f51eaa7f270478416f234bf0c063f35fa63e976a88e129b6",
     "src/reading-lists.tsx": "863fb9c2b03cd656f7357c84534c417e8e8c1c825223fe23e5a919022c83a662",
     "src/reading-log.tsx": "14444c03ca35dfec913c98f56c4b1a83d5973185ae0480523de6838c89c9b8ed",
     "src/scratch-question.tsx": "ae90d508a8ca52994fb567380d60bef8644475691754a97fd697b323dcb7e7e3",
@@ -155,7 +155,7 @@
     "src/speech-control.tsx": "3ab7fb19196b95ee7d5a5b38376d57fa325e5ec6965438171dbd91e0c32f7b27",
     "src/speech-voice.tsx": "c27921734b930c25d9864f86b81b29c667f4cd883f6d8881055fc00b1d283134",
     "src/static-demo.ts": "036a0b4413452d2ec8f7a51248157340082f3c030fc51d3237275021340e8810",
-    "src/status-line.tsx": "59891a742d0324216c800041fa24c7e2b6cd70217deef06fb108243d62f68a9d",
+    "src/status-line.tsx": "b73d8c9a492cc2d3cca7f6dd4e48d3535115865e04b289685408cffdb53e5774",
     "src/styles.css": "77ad712a6d042936797d91a96a897095c0479d0b2092beb192fe3c7af308cd8d",
     "src/theme/atoms/run-state-icon.tsx": "7898209e6e1893b71c6c38a94dde6c3a83e1ffd19344382e48dca151cf361b06",
     "src/theme/atoms/section-heading.tsx": "47390df21cea8262baad84426e0af328b55e8f88673edd1833078e9f842b5790",
@@ -1002,8 +1002,8 @@
       "sha256": "ee4fbe9bd2135bea5b40542203f97e6fe1d2ad6cc9d8e8121230e3644313f6be"
     },
     "reader-controls.js": {
-      "bytes": 1408450,
-      "sha256": "1daa54f512200fda6e753b7389784e4e09b515f2631ec5baadde45fd0ce5ab46"
+      "bytes": 1408434,
+      "sha256": "ec36653fbbda8301a4ebfcb1a23b8e22d3a9be8ada25c50f6594e42971509bef"
     },
     "reader-controls.js.LEGAL.txt": {
       "bytes": 6614,
