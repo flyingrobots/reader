@@ -382,3 +382,171 @@ def validate_paths(root: Path, paths=(), *, allow_legacy=False, profile='auto') 
                             'metadata_diagnostics': [{'field': '$', 'code': 'unreadable', 'message': str(exc)}]})
     return {'valid': all(e['valid'] for e in entries), 'examined': len(entries),
             'invalid': sum(not e['valid'] for e in entries), 'documents': entries}
+
+
+def is_intake_role(name: str) -> bool:
+    """True when an author label names the librarian or intake automation role rather than a source writer."""
+    return name.startswith('Reader librarian') or name == 'Reader intake'
+
+
+_BYLINE_PLACEHOLDERS = {
+    'unknown', 'unspecified', 'unspecified author', 'anonymous', 'anon',
+    'none', 'n/a', 'na', 'tbd', 'todo', 'author', 'authors', 'your name',
+    'someone', 'self', 'me', 'hand', 'a human',
+}
+_BYLINE_LOWER_STOPWORDS = {
+    'a', 'an', 'the', 'this', 'that', 'these', 'those', 'my', 'our', 'your',
+    'his', 'her', 'their', 'some', 'many', 'several', 'most', 'all', 'no', 'any',
+    'default', 'design', 'contrast', 'comparison', 'extension', 'inspection',
+    'definition', 'convention', 'way', 'now', 'then', 'chance', 'mistake',
+    'accident', 'example', 'examples', 'far', 'hand', 'scripts', 'automation',
+    'humans', 'machines', 'anyone', 'everyone', 'everybody',
+}
+_BARE_BY_PROSE_WORDS = {
+    'is', 'are', 'was', 'were', 'be', 'been', 'being', 'have', 'has', 'had',
+    'can', 'will', 'shall', 'should', 'could', 'would', 'may', 'might', 'must',
+    'do', 'does', 'did', 'make', 'makes', 'made', 'use', 'uses', 'used', 'using',
+    'check', 'checks', 'checking', 'checked', 'run', 'runs', 'running',
+    'we', 'they', 'you', 'it', 'that', 'this', 'these', 'those',
+}
+_MONTH_OR_DAY = (
+    r'(?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|'
+    r'Aug(?:ust)?|Sep(?:t(?:ember)?)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?|'
+    r'Mon(?:day)?|Tue(?:sday)?|Wed(?:nesday)?|Thu(?:rsday)?|Fri(?:day)?|Sat(?:urday)?|Sun(?:day)?)'
+)
+_TRAILING_ABBREVS = re.compile(r'(?:\b(?:[A-Za-z]|Jr|Sr|Dr|Mr|Ms|Mrs|Prof|Inc|Ltd|St)|\.\.)\.$')
+
+
+def _strip_outer_emphasis(text):
+    """Unwrap balanced Markdown emphasis/quotes and report whether the span was emphasized."""
+    s = text.strip()
+    emphasized = False
+    while len(s) >= 2:
+        for fence in ('**', '__', '*', '_', '`', '"', "'"):
+            if s.startswith(fence) and s.endswith(fence) and len(s) > 2 * len(fence):
+                inner = s[len(fence):-len(fence)].strip()
+                if fence not in inner or (len(fence) == 1 and fence in ('*', '_') and inner.count(fence) % 2 == 0):
+                    if fence in ('**', '__', '*', '_'):
+                        emphasized = True
+                    s = inner
+                    break
+        else:
+            break
+    return s, emphasized
+
+
+def _clean_byline_candidate(raw, *, bare_by=False):
+    s = re.sub(r'\[([^\]\r\n]+)\]\([^)\r\n]+\)', r'\1', raw).strip()
+    s, _ = _strip_outer_emphasis(s)
+    if bare_by:
+        pre_delim = re.split(r'\s+(?:\||·|—|--)\s+', s, maxsplit=1)[0]
+        if ',' in pre_delim:
+            return None
+    s = re.split(r'\s+(?:\||·|—|--)\s+', s, maxsplit=1)[0].strip()
+    s = re.sub(rf'\s+-\s+(?:\d{{4}}\b|{_MONTH_OR_DAY}\b).*$', '', s, flags=re.IGNORECASE).strip()
+    s = re.sub(
+        rf'\s+(?:on|dated)\s+(?:\d{{4}}(?:-\d{{2}}(?:-\d{{2}})?)?|{_MONTH_OR_DAY}\b|\d{{1,2}}/\d{{1,2}}).*$',
+        '', s, flags=re.IGNORECASE).strip()
+    s = re.sub(rf',\s+(?:\d{{4}}\b|{_MONTH_OR_DAY}\b).*$', '', s, flags=re.IGNORECASE).strip()
+    s = re.sub(rf'\s*\((?:\d{{4}}[^)]*|{_MONTH_OR_DAY}\b[^)]*)\)\s*$', '', s, flags=re.IGNORECASE).strip()
+    s, _ = _strip_outer_emphasis(s)
+    s = re.sub(r'\s+', ' ', s).strip()
+    if s.endswith('.') and not _TRAILING_ABBREVS.search(s):
+        s = s[:-1].rstrip()
+    if not (2 <= len(s) <= 120) or any(ch in s for ch in '\r\n\t[]<>;!?#={}`|'):
+        return None
+    if s[0] in ',:-' or s[-1] in ',:-':
+        return None
+    if '@' not in s and re.search(r'\.\s+[a-z]', s):
+        return None
+    words = s.split()
+    if not (1 <= len(words) <= 8):
+        return None
+    first = words[0].rstrip('.,').casefold()
+    if s.casefold() in _BYLINE_PLACEHOLDERS or first in _BYLINE_PLACEHOLDERS:
+        return None
+    if words[0].islower() and first in _BYLINE_LOWER_STOPWORDS and '@' not in s:
+        return None
+    if bare_by:
+        if words[0][0].isdigit() or first in _BYLINE_LOWER_STOPWORDS:
+            return None
+        if words[0].islower() and '@' not in s:
+            return None
+        if len(words) == 1 and '@' not in s:
+            return None
+        if '@' not in s:
+            capitalized = sum(1 for w in words if w[0].isupper())
+            if capitalized < 2 or any(w.rstrip('.,').casefold() in _BARE_BY_PROSE_WORDS for w in words):
+                return None
+    return s
+
+
+def _match_byline_line(line):
+    inner = re.sub(r'^\s*(?:>\s*)+', '', line).strip()
+    if re.match(r'^[-*+]\s+', inner):
+        inner = re.sub(r'^[-*+]\s+', '', inner).strip()
+    unwrapped, emphasized = _strip_outer_emphasis(inner)
+    for pattern, bare in (
+        (r'^(?:(?:\*\*|__)?(?:written\s+by|authored\s+by|authors?)\s*:(?:\*\*|__)?|(?:\*\*|__)(?:written\s+by|authored\s+by|authors?)(?:\*\*|__)\s*:)\s*(.+)$', False),
+        (r'^(?:\*\*|__)?(?:written|authored)\s+by(?:\*\*|__)?\s+(.+)$', False),
+        (r'^(?:\*\*|__)?by(?:\*\*|__)?\s+(.+)$', True),
+    ):
+        m = re.match(pattern, unwrapped, flags=re.IGNORECASE)
+        if m:
+            emph_prefix = bool(re.match(r'^(?:\*\*|__)', unwrapped))
+            return _clean_byline_candidate(m.group(1), bare_by=bare and not (emphasized or emph_prefix))
+    if emphasized and len(unwrapped) <= 140:
+        m = re.match(r'^.{1,100}?,\s*(?:written|authored)\s+by\s+(.+)$', unwrapped, flags=re.IGNORECASE)
+        if m:
+            return _clean_byline_candidate(m.group(1), bare_by=False)
+    if re.match(r'^(?:\*\*|__)?(?:(?:report\s+)?date|created|updated|project|status)(?:\*\*|__)?\s*:', unwrapped, flags=re.IGNORECASE):
+        m = re.search(r'(?:[.|·;])\s*(?:\*\*|__)?(?:authors?|written\s+by|authored\s+by)(?:\*\*|__)?\s*:\s*([^.|·;\r\n]+)', unwrapped, flags=re.IGNORECASE)
+        if m:
+            return _clean_byline_candidate(m.group(1), bare_by=False)
+    return None
+
+
+def opening_byline(data: bytes | str) -> str | None:
+    """Extract an explicit author from the opening header block when headers omit it."""
+    text = bytes(data[:4096]).decode('utf-8', 'replace') if isinstance(data, (bytes, bytearray)) else data[:4096]
+    non_empty = 0
+    unformatted_lines = 0
+    in_comment = False
+    for raw_line in text.splitlines()[:40]:
+        s = raw_line.strip()
+        if in_comment:
+            if '-->' in s:
+                in_comment = False
+            continue
+        if not s:
+            continue
+        if s.startswith('<!--'):
+            if '-->' not in s:
+                in_comment = True
+            continue
+        if s.startswith(('```', '~~~')):
+            break
+        if re.fullmatch(r'[-*_]{3,}|={3,}', s):
+            if unformatted_lines > 1:
+                break
+            continue
+        non_empty += 1
+        if non_empty > 12:
+            break
+        if found := _match_byline_line(s):
+            return found
+        if s.startswith('#'):
+            if re.match(r'^#{2,}\s', s) and non_empty > 2:
+                break
+            continue
+        if s.startswith(('![', '[!')):
+            continue
+        if re.match(r'^(?:>\s*|[-*+]\s+)?(?:\*\*|__)?[A-Za-z][A-Za-z0-9 _/-]{1,24}:(?:\*\*|__)?\s+\S', s):
+            continue
+        _, emphasized = _strip_outer_emphasis(s)
+        if emphasized and len(s) <= 120:
+            continue
+        unformatted_lines += 1
+        if unformatted_lines >= 2 or len(s) >= 100 or s.endswith(('.', '!', '?', ':')):
+            break
+    return None

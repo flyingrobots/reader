@@ -663,3 +663,36 @@ def test_a_model_step_checkpoint_keeps_the_last_arrival_counts(vault):
     intake.progress(runtime, 'editorial')
     checkpoint = json.loads((runtime / 'progress.json').read_text())
     assert (checkpoint['phase'], checkpoint['done'], checkpoint['total']) == ('editorial', 2, 5)
+
+
+def test_apply_plan_uses_opening_byline_fallback_and_ignores_unknown_placeholders(vault):
+    from reader_mcp.browse import Browse
+    from reader_mcp.metadata import source_frontmatter
+
+    receipt = Store(vault).ingest(Submission(
+        request_id=uuid4(), title='Byline report', filename='report.md',
+        markdown='Written by Ada Lovelace\n\nFirst body paragraph.\n',
+    ))
+    entry = intake.snapshot(vault, receipt['bundle_path'])
+    entry['decision'] = {**decision(entry), 'slug': 'byline-report', 'title': 'Byline report', 'author': 'Unknown'}
+    entry['destination'] = intake.destination(entry)
+
+    prose = Store(vault).ingest(Submission(
+        request_id=uuid4(), title='Prose report', filename='prose.md',
+        markdown='# Prose report\n\nBy inspection all hashes match.\n',
+    ))
+    entry2 = intake.snapshot(vault, prose['bundle_path'])
+    entry2['decision'] = {**decision(entry2), 'slug': 'prose-report', 'title': 'Prose report', 'author': ''}
+    entry2['destination'] = intake.destination(entry2)
+
+    plan = {'schema_version': 1, 'batch_id': str(uuid4()), 'created_at': intake.stamp(), 'entries': [entry, entry2]}
+    save(vault / '.reader/inbox-runner', plan)
+    intake.apply_plan(vault, vault / '.reader/inbox-runner', plan)
+
+    first_meta, _ = source_frontmatter((vault / entry['destination'] / 'index.md').read_bytes())
+    second_meta, _ = source_frontmatter((vault / entry2['destination'] / 'index.md').read_bytes())
+    assert first_meta['author'] == 'Ada Lovelace'
+    assert second_meta['author'] is None
+
+    works = {w['title']: w['authors'] for w in Browse(vault).inventory({})}
+    assert works == {'Byline report': ['Ada Lovelace'], 'Prose report': ['Unspecified author']}

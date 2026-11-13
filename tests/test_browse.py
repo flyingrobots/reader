@@ -256,3 +256,36 @@ def test_navigation_author_comes_from_settings_and_defaults_unchanged(vault):
     (vault/'indexes/settings.json').write_text(json.dumps({'navigation_author':'two\nlines'}))
     with pytest.raises(ValueError,match='navigation_author'):
         Browse(vault).run(today=TODAY)
+
+
+def test_receipt_wrapper_and_opening_byline_attribution_fallbacks(vault):
+    r1=Store(vault).ingest(Submission(request_id=uuid4(),title='Wrapper attributed',markdown='Body without header.'))
+    f1=vault/'library/reports/wrapped';f1.parent.mkdir(parents=True);(vault/r1['bundle_path']).rename(f1)
+    note(vault,'library/reports/wrapped/index.md','title: Wrapper\ntype: report\nkind: catalog\nauthor: External Writer')
+
+    r2=Store(vault).ingest(Submission(request_id=uuid4(),title='Role withheld',markdown='Plain opening body.'))
+    f2=vault/'library/reports/role-only';(vault/r2['bundle_path']).rename(f2)
+    note(vault,'library/reports/role-only/index.md','title: Wrapper\ntype: report\nkind: catalog\nauthor: Reader intake')
+
+    r2b=Store(vault).ingest(Submission(request_id=uuid4(),title='Legacy wrapper role withheld',markdown='Plain opening body.'))
+    f2b=vault/'library/reports/legacy-role';(vault/r2b['bundle_path']).rename(f2b)
+    note(vault,'library/reports/legacy-role/index.md','title: Legacy wrapper\ntype: report\nauthor: Reader librarian (worker)')
+
+    r3=Store(vault).ingest(Submission(request_id=uuid4(),title='Byline inside receipt',
+                                      markdown='---\ntitle: Inner\n---\n\nWritten by Ada Lovelace\n\nMain body.'))
+    f3=vault/'library/reports/byline-receipt';(vault/r3['bundle_path']).rename(f3)
+    note(vault,'library/reports/byline-receipt/index.md','title: Wrapper\ntype: report\nkind: catalog\nauthor: Reader librarian')
+
+    (vault/'library/essays').mkdir(parents=True)
+    (vault/'library/essays/no-frontmatter.md').write_text('Written by Grace Hopper\n\nDetails follow.\n')
+    note(vault,'library/essays/prose-by.md','title: Prose By\nadded: 2026-10-22','By default, the build skips caches.')
+    note(vault,'library/essays/reading-notes.md','title: My Reading Notes\nauthor: Reader librarian\nsource_author: Original Author\nwriting_type: Reading notes\nadded: 2026-10-22','Notes on the text.')
+
+    units={u['title']:u['authors'] for u in Browse(vault).inventory({})}
+    assert units['Wrapper attributed']==['External Writer']
+    assert units['Role withheld']==['Unspecified author']
+    assert units['Legacy wrapper role withheld']==['Unspecified author']
+    assert units['Byline inside receipt']==['Ada Lovelace']
+    assert units['no-frontmatter']==['Grace Hopper']
+    assert units['Prose By']==['Unspecified author']
+    assert units['My Reading Notes']==['Reader librarian']
