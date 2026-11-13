@@ -95,3 +95,22 @@ test('case variants of one section count once across features, contents and sect
   assert.deepEqual(links.filter(item=>item.label.toLowerCase()==='luma'),[{label:'Luma',count:3,href:'#section=Luma'}]);
   assert.equal(sectionArticles(works,'Luma').length,3);
 });
+test('issue makeup groups overlapping topics with section children, forms and folded tails',()=>{
+  const empty=selectIssue([],{window:W43,today:'2026-10-24'});
+  assert.deepEqual(empty.makeup,{total:0,unread:0,read:0,topicCount:0,topics:[],forms:[]});
+  const works=[
+    ...Array.from({length:9},(_,i)=>work({primary:`library/reports/t${i}.md`,title:`Topic ${i}`,projects:['Luma'],types:['Report'],topics:[`Topic ${i}`],read:i%2===1})),
+    work({primary:'library/reports/shared.md',title:'Shared topic piece',projects:['luma'],types:['Essay'],topics:['Topic 0','Topic 1','Topic 8'],read:false}),
+    work({primary:'library/reports/untagged.md',title:'Untagged piece',projects:['Echo'],types:[],topics:[],read:true}),
+  ];
+  const issue=selectIssue(works,{window:W43,today:'2026-10-24'});
+  assert.equal(issue.makeup.total,works.length);
+  assert.equal(issue.makeup.unread,6);
+  assert.equal(issue.makeup.read,5);
+  assert.equal(issue.makeup.topicCount,10);
+  assert.equal(issue.makeup.topics.length,8,'top 7 topics plus folded Other topics tail');
+  assert.equal(issue.makeup.topics[7].name,'Other topics');
+  assert.equal(issue.makeup.topics[0].children[0].name,'Luma','child sections stay canonical');
+  assert.ok(issue.makeup.topics[0].pieces[0].read===false,'unread pieces lead topic inspector tray');
+  assert.deepEqual(issue.makeup.forms.map(f=>f.name),['Report','Essay','Untyped']);
+});

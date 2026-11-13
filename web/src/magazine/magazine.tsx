@@ -14,12 +14,13 @@ import {Popover,PopoverContent,PopoverTrigger} from '@/components/ui/popover';
 import {Separator} from '@/components/ui/separator';
 import {SectionItems,type SectionLink} from '../library-sections';
 import {needsReader,NEEDS_READER} from '../static-demo';
+import {IssueMakeup,type IssueMakeupModel} from './issue-makeup';
 
 type Piece={path:string;title:string;href:string;read:boolean;kicker:string;author:string;date:string;time:string|null;art:boolean};
 type Row={path:string;title:string;href:string;read:boolean;meta:string};
 export type IssueModel={week:string;number:number;year:string;dates:string;window:string;note:string;older:string|null;newer:string|null;
   past:{id:string;label:string;count:number;current:boolean}[];cover:Piece|null;features:Piece[];counts:{label:string;value:number}[];
-  letter:{path:string;title:string;href:string}|null;sections:SectionLink[];contents:{id:string;label:string;count:number;items:Row[];more:Row[]}[];artMake:boolean};
+  letter:{path:string;title:string;href:string}|null;sections:SectionLink[];makeup?:IssueMakeupModel;contents:{id:string;label:string;count:number;items:Row[];more:Row[]}[];artMake:boolean};
 export type WritingPiece={path:string;title:string;date:string};
 export type IssueActions={api:(url:string)=>Promise<{standfirst?:string;source?:string;model?:string}>;openIssue:(week:string)=>void;queue:(path:string)=>void;makeArt:(path:string)=>void;admin:()=>void;
   wire:(element:HTMLElement)=>void;writing:(()=>Promise<WritingPiece[]>)|null};
@@ -133,7 +134,7 @@ function Feature({piece,entry,index,rest,queue}:{piece:Piece;entry:Standfirst|un
 }
 
 function Summary({model}:{model:IssueModel}){
-  return <Card role="complementary" aria-label="This issue" className="issue-summary mb-10 min-w-0 self-start @min-[641px]/issue:mb-13 @min-[1001px]/issue:col-start-2 @min-[1001px]/issue:row-start-1 @min-[1001px]/issue:my-16 @min-[1001px]/issue:mb-18 @min-[1001px]/issue:self-end @min-[1360px]/issue:sticky @min-[1360px]/issue:top-7 @min-[1360px]/issue:col-start-13 @min-[1360px]/issue:row-[1/span_3] @min-[1360px]/issue:mb-14 @min-[1360px]/issue:max-h-[calc(100vh-92px)] @min-[1360px]/issue:self-start @min-[1360px]/issue:overflow-y-auto @min-[1360px]/issue:overscroll-contain">
+  return <Card role="complementary" aria-label="This issue" className="issue-summary mb-10 min-w-0 self-start @min-[641px]/issue:mb-13 @min-[1001px]/issue:col-start-2 @min-[1001px]/issue:row-start-1 @min-[1001px]/issue:my-16 @min-[1001px]/issue:mb-18 @min-[1001px]/issue:self-end @min-[1360px]/issue:sticky @min-[1360px]/issue:top-7 @min-[1360px]/issue:col-start-13 @min-[1360px]/issue:row-[1/span_4] @min-[1360px]/issue:mb-14 @min-[1360px]/issue:max-h-[calc(100vh-92px)] @min-[1360px]/issue:self-start @min-[1360px]/issue:overflow-y-auto @min-[1360px]/issue:overscroll-contain">
     <CardContent className="flex flex-col gap-5 @min-[641px]/issue:flex-row @min-[641px]/issue:items-start @min-[641px]/issue:gap-10 @min-[1001px]/issue:flex-col @min-[1001px]/issue:items-stretch @min-[1001px]/issue:gap-5">
       <ItemGroup className="w-auto flex-row flex-wrap gap-x-7 gap-y-3 @min-[1001px]/issue:flex-col @min-[1360px]/issue:flex-row">{model.counts.map(count=><Item key={count.label} role="listitem" data-issue-stat="" className="w-auto flex-1 basis-18 rounded-none border-0 p-0 @min-[641px]/issue:flex-none @min-[641px]/issue:basis-auto">
         <ItemContent className="gap-0.5"><ItemDescription className="text-[10px] tracking-[.12em] uppercase">{count.label}</ItemDescription><ItemTitle className="line-clamp-none font-serif text-[34px] leading-none font-normal tabular-nums lining-nums @min-[641px]/issue:text-[44px] @min-[1360px]/issue:text-[length:clamp(36px,2vw,52px)]">{count.value}</ItemTitle></ItemContent>
@@ -198,6 +199,7 @@ export function Magazine({model,actions}:{model:IssueModel;actions:IssueActions}
         {cover?<><Cover piece={cover} entry={standfirsts[cover.path]} solo={!features.length} artMake={model.artMake} actions={actions}/><Summary model={model}/></>
           :<Empty className="issue-empty col-span-full max-w-[46ch] items-start px-0 py-20 text-left"><EmptyHeader className="max-w-none items-start gap-4"><EmptyTitle role="heading" aria-level={2} className="font-serif text-[40px] leading-[1.15] font-[420]">Nothing has arrived yet.</EmptyTitle><EmptyDescription className="text-base leading-[1.6]">When works are filed with a date, the newest become this week’s issue. Reader Admin keeps the library statistics.</EmptyDescription></EmptyHeader></Empty>}
         {features.length?<section className="issue-features col-span-full grid grid-cols-[minmax(0,1fr)] border-y border-border pt-2 pb-6 @min-[641px]/issue:grid-cols-2 @min-[641px]/issue:gap-y-10 @min-[641px]/issue:pt-11 @min-[641px]/issue:pb-14 @min-[1001px]/issue:grid-cols-[repeat(auto-fit,minmax(min(100%,230px),1fr))] @min-[1001px]/issue:gap-y-0 @min-[1360px]/issue:contents" aria-label="Features">{features.map((piece,index)=><Feature key={piece.path} piece={piece} entry={standfirsts[piece.path]} index={index} rest={rest} queue={actions.queue}/>)}</section>:null}
+        {model.makeup?.total?<IssueMakeup makeup={model.makeup} hasCover={!!cover} wire={actions.wire}/>:null}
         {contents.length?<section className={cn('issue-contents col-span-full pt-12 @min-[1360px]/issue:border-t @min-[1360px]/issue:border-border',cover&&'@min-[1360px]/issue:col-[1/13]')} aria-labelledby="contents-title">
           <h2 className="issue-section-title mb-7 font-serif text-3xl font-[450] tracking-[-.01em]" id="contents-title">In this issue</h2>
           <div className="contents-columns columns-[260px] gap-x-14 @min-[1360px]/issue:columns-[280px] @min-[1360px]/issue:gap-x-[clamp(40px,2.6vw,64px)]">{contents.map(group=><ContentsGroup key={group.id} group={group}/>)}</div>

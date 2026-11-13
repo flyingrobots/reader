@@ -628,6 +628,7 @@ current one.
 - **Features:** up to four more pieces, each from a different project.
 - **Summary:** counts of new and unread pieces and sections, and a link to the
   week's newsletter when one exists.
+- **Topics & makeup:** above **In this issue**, an interactive D3 view (`web/src/magazine/issue-makeup.tsx`) of the window's topic-by-section hierarchy, unread/read balance, and document forms; selecting a topic tile or form bar lists up to ten matching unread-first pieces and opens any selection in the reader.
 - **In this issue:** the rest of the window grouped by section, unread first; read
   pieces are dimmed. Six pieces per group show, and the rest expand. When there are
   more than six sections, one-piece sections share an **Elsewhere** group.
@@ -651,8 +652,8 @@ Elsewhere aggregate. Section pages filter title/author/path metadata and paginat
 browser Back returns to the section route. Inbox completion refreshes its article
 inventory while preserving the active filter, page and input focus.
 
-**Layout by column width.** The issue is a React island (`web/src/magazine/magazine.tsx`,
-drawing the model from `issueModel` in `web_ui/magazine.mjs`) built from shadcn Card,
+**Layout by column width.** The issue is a React island (`web/src/magazine/magazine.tsx` and `web/src/magazine/issue-makeup.tsx`,
+drawing the model from `issueModel` and `issueMakeup` in `web_ui/magazine.mjs`) built from shadcn Card,
 Item, Badge, Separator, Popover, Collapsible and Empty, with Tailwind container queries
 on the issue's own column: the File Explorer narrows it at any window width, and every
 layout below follows the column, not the window. With nothing docked the column is the
