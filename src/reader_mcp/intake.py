@@ -31,7 +31,8 @@ MAX_BYTES = 512 * 1024**2
 MAX_CONTEXT = 96 * 1024
 SLUG = re.compile(r'^[a-z0-9][a-z0-9-]{0,79}$')
 RESERVED = {'perspectives', 'asides', 'reactions', 'reflections', 'connections'} | BROWSE_SKIP
-DECISION_FIELDS = {'source', 'snapshot_sha256', 'disposition', 'collection', 'slug', 'title', 'author', 'summary', 'reason'}
+DECISION_FIELDS = {'source', 'snapshot_sha256', 'disposition', 'collection', 'slug', 'title', 'author', 'project', 'summary', 'reason'}
+PLACEHOLDER_LABELS = {'unknown', 'unspecified', 'unspecified author', 'unspecified project', 'none', 'n/a', 'na', 'tbd'}
 
 
 def stamp():
@@ -141,16 +142,17 @@ def snapshot(root, source):
     return result
 
 
-def validate_decision(value, entry):
-    if not isinstance(value, dict) or set(value) != DECISION_FIELDS or any(not isinstance(v, str) for v in value.values()):
+def validate_decision(value, entry, *, allow_legacy=False):
+    fields = DECISION_FIELDS if not allow_legacy or (isinstance(value, dict) and 'project' in value) else DECISION_FIELDS - {'project'}
+    if not isinstance(value, dict) or set(value) != fields or any(not isinstance(v, str) for v in value.values()):
         raise ValueError('Editorial decision does not match its schema')
     if value['source'] != entry['source'] or value['snapshot_sha256'] != entry['snapshot_sha256']:
         raise ValueError('Editorial decision does not match the selected source snapshot')
     if value['disposition'] not in ('file', 'defer'):
         raise ValueError('Unknown editorial disposition')
-    if any(any(ord(c) < 32 for c in value[k]) for k in ('title', 'author', 'collection', 'slug')):
+    if any(any(ord(c) < 32 for c in value[k]) for k in ('title', 'author', 'collection', 'slug') if k in value) or any(ord(c) < 32 for c in value.get('project', '')):
         raise ValueError('Editorial labels must be single-line text')
-    if any(len(value[k]) > n for k, n in [('title', 500), ('summary', 4000), ('author', 200), ('reason', 2000)]):
+    if any(len(value.get(k, '')) > n for k, n in [('title', 500), ('summary', 4000), ('author', 200), ('project', 200), ('reason', 2000)]):
         raise ValueError('Editorial decision exceeds its text bounds')
     if value['disposition'] == 'file':
         if not SLUG.fullmatch(value['collection']) or value['collection'] in RESERVED or not SLUG.fullmatch(value['slug']):
@@ -179,9 +181,28 @@ def model_context(root, entry):
         texts.append({'path': row['path'], 'excerpt': data.decode('utf-8', 'replace'), 'complete': len(data) == row['bytes']})
         size += len(data)
     collections = [p.name for p in sorted((root / 'library').iterdir()) if p.is_dir() and not p.name.startswith('.') and p.name not in RESERVED]
+    projects = _configured_projects(root)
     return {'source': entry['source'], 'snapshot_sha256': entry['snapshot_sha256'], 'files': entry['files'],
             'provenance': entry.get('receipt', {}).get('provenance', {}), 'existing_collections': collections,
+            'existing_projects': projects,
             'reading': texts, 'reading_scope': 'Only these bounded excerpts have been supplied; do not claim full reading of truncated or binary files.'}
+
+
+def _configured_projects(root):
+    settings_path = root / 'indexes/settings.json'
+    if not settings_path.is_file() or settings_path.is_symlink():
+        return []
+    try:
+        if settings_path.stat().st_size > 128 * 1024:
+            return []
+        data = json.loads(settings_path.read_text())
+    except (OSError, ValueError, UnicodeError):
+        return []
+    if not isinstance(data, dict):
+        return []
+    names = {r['name'].strip() for r in data.get('projects', []) if isinstance(r, dict) and isinstance(r.get('name'), str) and r['name'].strip()}
+    names.update(v.strip() for v in (data.get('project_aliases') or {}).values() if isinstance(v, str) and v.strip())
+    return sorted(names, key=str.casefold)
 
 
 CHAINS = {}
@@ -202,7 +223,8 @@ def model_call(root, runtime, entry, codex, context):
     work.mkdir(exist_ok=True)
     prompt = ('Classify this one Reader arrival. Return only the required JSON editorial decision. '
               'The source and snapshot_sha256 must match exactly. Select a collection and short lowercase hyphenated slug, '
-              'a descriptive title, source-stated author (from provenance, source metadata, or an explicit opening byline like "Written by ..."; empty if unknown), and a concise description grounded in the supplied reading. '
+              'a descriptive title, source-stated author (from provenance, source metadata, or an explicit opening byline like "Written by ..."; empty if unknown), '
+              'canonical project name (matching existing_projects when supported by provenance or source metadata; empty if unknown), and a concise description grounded in the supplied reading. '
               'Use disposition defer with a reason when the evidence is insufficient. Do not fabricate authorship, dates, verification or reading coverage. '
               'Reserved original-writing or browse-excluded collections are: ' + ', '.join(sorted(RESERVED)) + '. '
               'A context may be one part of an arrival, or bounded observations from earlier parts. '
@@ -260,7 +282,7 @@ def classify(root, runtime, entry, codex, checkpoint=lambda: None):
     # reduced through the same bounded, snapshot-bound schema before any filing.
     reading = {r['path']: r for r in context['reading']}
     common = {k: context[k] for k in ('source', 'snapshot_sha256', 'reading_scope')}
-    metadata = {k: context[k] for k in ('provenance', 'existing_collections')}
+    metadata = {k: context[k] for k in ('provenance', 'existing_collections', 'existing_projects') if k in context}
     observations = []
     encoded = json.dumps(metadata, ensure_ascii=False)
     if len(encoded.encode()) <= 32 * 1024:
@@ -286,12 +308,12 @@ def classify(root, runtime, entry, codex, checkpoint=lambda: None):
 
 
 
-def _clean_source_author(value):
+def _clean_source_value(value, *, reject_intake_role=False):
     def ok(text):
         s = text.strip()
-        if not s or '\n' in s or '\r' in s or len(s) > 200 or is_intake_role(s):
+        if not s or '\n' in s or '\r' in s or len(s) > 200 or (reject_intake_role and is_intake_role(s)):
             return None
-        return None if s.casefold() in {'unknown', 'unspecified', 'unspecified author', 'none', 'n/a', 'na', 'tbd'} else s
+        return None if s.casefold() in PLACEHOLDER_LABELS else s
     if isinstance(value, str):
         return ok(value)
     if isinstance(value, list) and value and all(isinstance(v, str) for v in value):
@@ -300,33 +322,51 @@ def _clean_source_author(value):
     return None
 
 
-def fallback_author(entry, primary_path):
-    """Deterministic source author fallback from receipt provenance, source frontmatter, or opening byline."""
-    if found := _clean_source_author((entry.get('receipt', {}).get('provenance') or {}).get('author')):
-        return found
+def _clean_source_author(value):
+    return _clean_source_value(value, reject_intake_role=True)
+
+
+def _primary_frontmatter(primary_path):
     if primary_path.suffix.lower() not in ('.md', '.markdown', '.txt') or primary_path.is_symlink() or not primary_path.is_file():
-        return None
+        return {}, b''
     try:
         with primary_path.open('rb') as stream:
             data = stream.read(MAX_HEADER + 2048)
     except OSError:
-        return None
-    body = data
-    if primary_path.suffix.lower() in ('.md', '.markdown'):
-        try:
-            sm, body = source_frontmatter(data)
-        except ValueError:
-            sm, body = {}, data
-        if found := (_clean_source_author(sm.get('source_author')) or _clean_source_author(sm.get('author'))):
-            return found
-    return _clean_source_author(opening_byline(body))
+        return {}, b''
+    if primary_path.suffix.lower() not in ('.md', '.markdown'):
+        return {}, data
+    try:
+        return source_frontmatter(data)
+    except ValueError:
+        return {}, data
 
 
-def markdown(relative, title, body, author='Reader intake'):
+def fallback_author(entry, primary_path):
+    """Deterministic source author fallback from receipt provenance, source frontmatter, or opening byline."""
+    if found := _clean_source_author((entry.get('receipt', {}).get('provenance') or {}).get('author')):
+        return found
+    sm, body = _primary_frontmatter(primary_path)
+    if found := (_clean_source_author(sm.get('source_author')) or _clean_source_author(sm.get('author'))):
+        return found
+    return _clean_source_author(opening_byline(body)) if body else None
+
+
+def fallback_project(entry, primary_path):
+    """Deterministic project fallback from receipt provenance or source frontmatter."""
+    if found := _clean_source_value((entry.get('receipt', {}).get('provenance') or {}).get('project')):
+        return found
+    sm, _ = _primary_frontmatter(primary_path)
+    return _clean_source_value(sm.get('project'))
+
+
+def markdown(relative, title, body, author='Reader intake', project=None):
     today = datetime.now(timezone.utc).date().isoformat()
     fields = dict(frontmatter_schema_version=1, document_revision=1, document_id=str(uuid4()),
                   document_path=relative, metadata_created=today, title=title, type='note', added=today,
                   author=author, kind='catalog', tags=[])
+    if project:
+        fields['project'] = project
     return ('---\n' + yaml.safe_dump(fields, allow_unicode=True, sort_keys=False) + '---\n\n' + body).encode()
 
 
@@ -392,7 +432,7 @@ def validate_plan(root, plan):
         if 'receipt' in entry:
             receipt_identity(entry['receipt'])
         if 'decision' in entry:
-            validate_decision(entry['decision'], entry)
+            validate_decision(entry['decision'], entry, allow_legacy=True)
             if entry['decision']['disposition'] == 'file':
                 if entry.get('destination') != destination(entry):
                     raise ValueError('Journal destination differs from its validated decision')
@@ -611,7 +651,8 @@ def apply_plan(root, runtime, plan):
             if entry.get('receipt'):
                 body += '\n[Unchanged delivery receipt](originals/receipt.json).\n'
             author = _clean_source_author(decision['author']) or fallback_author(entry, original / primary)
-            journal.write(index, markdown(index, decision['title'], body, author or None))
+            project = _clean_source_value(decision.get('project')) or fallback_project(entry, original / primary)
+            journal.write(index, markdown(index, decision['title'], body, author or None, project=project))
         collection = decision['collection']
         label = decision['title'].replace('\\', '\\\\').replace('[', '\\[').replace(']', '\\]')
         append_once(journal, 'library/' + collection + '/index.md', '- [' + label + '](' + Path(dest).name + '/index.md)', collection.replace('-', ' ').title())

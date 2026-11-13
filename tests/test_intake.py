@@ -32,7 +32,7 @@ def vault(tmp_path, monkeypatch):
 
 def decision(entry, **overrides):
     return dict(source=entry['source'], snapshot_sha256=entry['snapshot_sha256'], disposition='file',
-                collection='reports', slug='example', title='An example', author='',
+                collection='reports', slug='example', title='An example', author='', project='',
                 summary='A source description based on the supplied excerpt.', reason='', **overrides)
 
 
@@ -564,7 +564,7 @@ def test_oversized_provenance_is_partitioned_without_dropping_metadata(vault, mo
     monkeypatch.setattr(intake, 'model_call', model)
     assert intake.classify(vault, vault / '.reader/inbox-runner', entry, 'fixture') == decision(entry)
     metadata = json.loads(''.join(c['metadata_fragment'] for c in calls if 'metadata_fragment' in c))
-    assert metadata == {k: context[k] for k in ('provenance', 'existing_collections')}
+    assert metadata == {k: context[k] for k in ('provenance', 'existing_collections', 'existing_projects')}
     assert [r for c in calls for r in c.get('files', [])] == entry['files']
     assert 'observations' in calls[-1]
 
@@ -721,3 +721,45 @@ def test_apply_plan_uses_opening_byline_fallback_and_ignores_unknown_placeholder
         'Placeholder source_author': ['Grace Hopper'],
         'Role byline': ['Unspecified author'],
     }
+
+
+def test_intake_context_reads_projects_and_curates_project_metadata(vault):
+    from reader_mcp.browse import Browse
+    from reader_mcp.metadata import source_frontmatter
+
+    (vault / 'indexes').mkdir()
+    (vault / 'indexes/settings.json').write_text(json.dumps({
+        'projects': [{'name': 'Taskalisk', 'terms': ['taskalisk']}, {'name': 'Luma', 'terms': ['luma']}],
+        'project_aliases': {'flyingrobots/taskalisk': 'Taskalisk'},
+    }))
+    intake.run_git(vault, 'add', 'indexes/settings.json')
+    intake.run_git(vault, 'commit', '-qm', 'Configure project settings')
+    receipt = Store(vault).ingest(Submission(
+        request_id=uuid4(), title='Taskalisk DAG report', filename='dag.md',
+        markdown='Report text.', provenance={'author': 'Ada', 'project': 'flyingrobots/taskalisk'},
+    ))
+    entry = intake.snapshot(vault, receipt['bundle_path'])
+    assert intake.model_context(vault, entry)['existing_projects'] == ['Luma', 'Taskalisk']
+    entry['decision'] = {**decision(entry), 'slug': 'taskalisk-dag', 'title': 'Taskalisk DAG report',
+                         'author': 'Ada', 'project': 'Taskalisk'}
+    entry['destination'] = intake.destination(entry)
+
+    raw_provenance = Store(vault).ingest(Submission(
+        request_id=uuid4(), title='Provenance project fallback', filename='raw.md',
+        markdown='Body text.', provenance={'author': 'Bo', 'project': 'Luma'},
+    ))
+    entry2 = intake.snapshot(vault, raw_provenance['bundle_path'])
+    entry2['decision'] = {**decision(entry2), 'slug': 'prov-fallback', 'title': 'Provenance project fallback',
+                          'author': 'Bo', 'project': 'Unknown'}
+    entry2['destination'] = intake.destination(entry2)
+
+    plan = {'schema_version': 1, 'batch_id': str(uuid4()), 'created_at': intake.stamp(), 'entries': [entry, entry2]}
+    save(vault / '.reader/inbox-runner', plan)
+    intake.apply_plan(vault, vault / '.reader/inbox-runner', plan)
+
+    first_meta, _ = source_frontmatter((vault / entry['destination'] / 'index.md').read_bytes())
+    second_meta, _ = source_frontmatter((vault / entry2['destination'] / 'index.md').read_bytes())
+    assert first_meta['project'] == 'Taskalisk'
+    assert second_meta['project'] == 'Luma'
+    works = {w['title']: w['projects'] for w in Browse(vault).inventory({})}
+    assert works == {'Taskalisk DAG report': ['Taskalisk'], 'Provenance project fallback': ['Luma']}

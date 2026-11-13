@@ -117,7 +117,7 @@ import sys, json, pathlib
 args = sys.argv
 context = json.loads(sys.stdin.read().rsplit("\\n\\n", 1)[1])
 value = dict(source=context["source"], snapshot_sha256=context["snapshot_sha256"], disposition="file", collection="reports", slug="example",
-             title="Example", author="", summary="A summary.", reason="")
+             title="Example", author="", project="", summary="A summary.", reason="")
 pathlib.Path(args[args.index("--output-last-message") + 1]).write_text(json.dumps(value))
 ''')
     fake.chmod(0o755)

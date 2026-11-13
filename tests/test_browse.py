@@ -291,3 +291,36 @@ def test_receipt_wrapper_and_opening_byline_attribution_fallbacks(vault):
     assert units['no-frontmatter']==['Grace Hopper']
     assert units['Prose By']==['Unspecified author']
     assert units['My Reading Notes']==['Reader librarian']
+
+
+def test_project_normalization_aliases_compound_labels_and_receipt_wrappers(vault):
+    note(vault,'library/reports/custom.md','title: Echo notes\nproject: Custom Studio\nadded: 2026-10-22')
+    note(vault,'library/reports/slash.md','title: Cap inventory\nproject: Jim / Jedit iterative capability inventory\nadded: 2026-10-22')
+    note(vault,'library/reports/repo.md','title: Dispatcher\nproject: flyingrobots/taskalisk\nadded: 2026-10-22')
+    note(vault,'library/reports/workcell.md','title: Workcell note\nproject: luma workcell (example-org/luma), main\nadded: 2026-10-22')
+    note(vault,'library/reports/hyphenated.md','title: Repo tooling\nproject: reader-code\nadded: 2026-10-22')
+    note(vault,'library/reports/placeholder.md','title: Taskalisk backlog\nproject: Unknown\nadded: 2026-10-22')
+
+    r_curated=Store(vault).ingest(Submission(request_id=uuid4(),title='Curated wrapper receipt',
+        markdown='Body.',provenance={'project':'luma workcell (example-org/luma), main'}))
+    f_curated=vault/'library/reports/curated-receipt';(vault/r_curated['bundle_path']).rename(f_curated)
+    note(vault,'library/reports/curated-receipt/index.md','title: Wrapper\ntype: report\nkind: catalog\nproject: Luma')
+
+    settings={
+        'projects':[
+            {'name':'Jedit','terms':['Jedit']},
+            {'name':'Taskalisk','terms':['Taskalisk']},
+            {'name':'Luma','terms':['Luma']},
+            {'name':'Reader','terms':['Reader']},
+            {'name':'Echo','terms':['Echo']},
+        ],
+        'project_aliases':{'git-stunts/git-warp':'git-warp'},
+    }
+    units={u['title']:u['projects'] for u in Browse(vault).inventory(settings)}
+    assert units['Echo notes']==['Custom Studio']
+    assert units['Cap inventory']==['Jedit']
+    assert units['Dispatcher']==['Taskalisk']
+    assert units['Workcell note']==['Luma']
+    assert units['Repo tooling']==['reader-code']
+    assert units['Taskalisk backlog']==['Taskalisk']
+    assert units['Curated wrapper receipt']==['Luma']

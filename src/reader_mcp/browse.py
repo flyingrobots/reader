@@ -61,11 +61,47 @@ def catalog_author(m, *, catalog=False):
     return author
 
 
-def first_author(*candidates):
+PROJECT_PLACEHOLDERS = {'unknown', 'unspecified', 'unspecified project', 'none', 'n/a', 'na', 'tbd'}
+
+
+def first_text(*candidates):
     for value in candidates:
         if strings(value):
             return value
     return None
+
+
+first_author = first_text
+
+
+def _matching_rule_names(text_cf, rules, aliases, *, hyphen_boundary=False):
+    edge = r'[\w-]' if hyphen_boundary else r'\w'
+    matched = []
+    for r in rules:
+        if any(re.search(rf'(?<!{edge}){re.escape(t.casefold())}(?!{edge})', text_cf) for t in r['terms']):
+            name = r['name']
+            matched.append(aliases.get(name.casefold(), name))
+    return matched
+
+
+def normalize_projects(project, corpus, settings):
+    """Resolve declared project metadata against configured aliases/rules before corpus inference."""
+    rules = settings.get('projects', [])
+    aliases = {k.casefold(): v for k, v in settings.get('project_aliases', {}).items()}
+    declared = [p for p in strings(project) if p.casefold() not in PROJECT_PLACEHOLDERS]
+    if declared:
+        resolved = []
+        for raw in declared:
+            cf = raw.casefold()
+            if cf in aliases:
+                resolved.append(aliases[cf])
+            elif matched := _matching_rule_names(cf, rules, aliases, hyphen_boundary=True):
+                resolved.extend(matched)
+            else:
+                resolved.append(raw)
+    else:
+        resolved = _matching_rule_names(corpus, rules, aliases, hyphen_boundary=False)
+    return sorted(set(resolved), key=str.casefold) or ['Unspecified project']
 
 
 def calendar_day(value):
@@ -196,11 +232,7 @@ class Browse:
             corpus = ' '.join([title, path.relative_to(self.library).as_posix(), *strings(m.get('tags')), *strings(m.get('topics'))]).casefold()
             topic_names = [r['name'] for r in settings.get('topics', []) if any(re.search(r'(?<!\w)' + re.escape(t.casefold()) + r'(?!\w)', corpus) for t in r['terms'])]
             topics = sorted(set(strings(m.get('topics')) + topic_names), key=str.casefold) or ['Unclassified topic']
-            projects = strings(project)
-            if not projects:
-                projects = [r['name'] for r in settings.get('projects', []) if any(re.search(r'(?<!\w)' + re.escape(t.casefold()) + r'(?!\w)', corpus) for t in r['terms'])]
-            aliases = settings.get('project_aliases', {})
-            projects = sorted({aliases.get(p.casefold(), p) for p in projects}, key=str.casefold) or ['Unspecified project']
+            projects = normalize_projects(project, corpus, settings)
             genre = kind or m.get('writing_type') or m.get('type') or 'Unspecified type'
             genre = str(genre)
             if 'development-journal' in strings(m.get('tags')) and genre.casefold() in {'report', 'document', 'unspecified type'}:
@@ -249,9 +281,9 @@ class Browse:
             if sm.get('type') and wm.get('kind') == 'catalog':
                 merged['type'] = sm['type']
             make(wrapper if wrapper.is_file() else primary, merged, title=r.get('title'),
-                 author=first_author(provenance.get('author'), catalog_author(wm, catalog=True), sm.get('source_author'), sm.get('author')),
+                 author=first_text(provenance.get('author'), catalog_author(wm, catalog=True), sm.get('source_author'), sm.get('author')),
                  arrival=r.get('received_at'), basis='receipt received_at (UTC)',
-                 project=provenance.get('project') or sm.get('project'), identity='receipt:'+identity,
+                 project=first_text(wm.get('project'), provenance.get('project'), sm.get('project')), identity='receipt:'+identity,
                  primary=primary)
             group_roots.add(wrapper.parent if wrapper.is_file() else p.parent)
             receipt_ancestors.update(p.parents)
@@ -482,7 +514,7 @@ class Browse:
             else:
                 anchor='## What is Reader?'
                 block=self.dashboard(units,groups,today)+'\n\n'
-                new_readme=original.replace(anchor,block+anchor,1) if anchor in original else original.rstrip()+'\n\n'+block
+                new_readme=original.replace(anchor,block+anchor,1) if anchor in original else original.rstrip()+'\n\n'+self.dashboard(units,groups,today)+'\n'
             writes={self.output/name:text.encode() for name,text in outputs.items()};writes[readme]=new_readme.encode()
             if sum(len(v) for v in writes.values())>MAX_OUTPUT_BYTES:raise ValueError('Browse output exceeds 16 MiB; no publication')
             # Refuse overwriting an unrelated file or traversing a symlinked output parent.

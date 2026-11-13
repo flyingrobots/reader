@@ -50,7 +50,7 @@ base=pathlib.Path(__file__).parent
 prompt=sys.stdin.read()
 context=json.loads(prompt.rsplit("\\n\\n",1)[1])
 (base/'arguments.json').write_text(json.dumps(args))
-''' + before + '\n' + '''value=dict(source=context['source'],snapshot_sha256=context['snapshot_sha256'],disposition='file',collection='reports',slug='example',title='Example',author='',summary='A bounded source description.',reason='')
+''' + before + '\n' + '''value=dict(source=context['source'],snapshot_sha256=context['snapshot_sha256'],disposition='file',collection='reports',slug='example',title='Example',author='',project='',summary='A bounded source description.',reason='')
 pathlib.Path(args[args.index('--output-last-message')+1]).write_text(''' + (repr(output) if output is not None else 'json.dumps(value)') + ')\n')
         fake.chmod(0o755)
         return fake
