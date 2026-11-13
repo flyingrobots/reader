@@ -38,6 +38,8 @@ const named=values=>(values||[]).filter(value=>typeof value==='string'&&value&&!
 function folderLabel(path){const folder=path.split('/')[1]||'Library';return path.split('/').length>2?folder.replace(/[-_]+/g,' ').replace(/^\w/,c=>c.toUpperCase()):'Library';}
 /** Pieces in one issue should come from different places: the first named project, else the top folder. */
 export function section(work){return named(work.projects)[0]||folderLabel(work.primary);}
+export const sectionKey=work=>section(work).toLocaleLowerCase();
+export const pickSectionLabel=(current,candidate)=>!current||(current===current.toLocaleLowerCase()&&candidate!==candidate.toLocaleLowerCase())?candidate:current;
 export function baseTitle(title){return (title||'').toLocaleLowerCase().replace(/\s*\([^)]*\)?\s*$/,'').trim();}
 export function words(work){return TEXT.has((work.primary_format||'').toLowerCase())&&Number.isFinite(work.primary_bytes)?Math.round(work.primary_bytes/6):null;}
 export function minutes(work,pace=220){const count=words(work);return count===null?null:Math.max(1,Math.round(count/(pace||220)));}
@@ -102,18 +104,20 @@ export function selectIssue(works,{window,today,exclude,picks=[],near=[],feature
     for(const entry of pool){
       if(chosen.length>features||(!strict&&chosen.length>MIN_FEATURES))break;
       if(chosen.includes(entry)||close(entry))continue;
-      if(strict&&chosen.some(other=>section(other.work)===section(entry.work)))continue;
+      if(strict&&chosen.some(other=>sectionKey(other.work)===sectionKey(entry.work)))continue;
       chosen.push(entry);
     }
   }
+  const sectionLabels=new Map();
+  for(const entry of pool){const raw=section(entry.work),key=raw.toLocaleLowerCase();sectionLabels.set(key,pickSectionLabel(sectionLabels.get(key),raw));}
   const rest=pool.filter(entry=>!chosen.includes(entry)),groups=new Map();
-  for(const entry of rest){const key=section(entry.work);if(!groups.has(key))groups.set(key,[]);groups.get(key).push(entry);}
+  for(const entry of rest){const key=sectionKey(entry.work);if(!groups.has(key))groups.set(key,[]);groups.get(key).push(entry);}
   for(const items of groups.values())items.sort((a,b)=>Number(a.work.read)-Number(b.work.read)||order(a,b));
-  let contents=[...groups].map(([label,items])=>({label,items})).sort((a,b)=>b.items.filter(e=>!e.work.read).length-a.items.filter(e=>!e.work.read).length||b.items.length-a.items.length||a.label.localeCompare(b.label));
+  let contents=[...groups].map(([key,items])=>({label:sectionLabels.get(key)||key,items})).sort((a,b)=>b.items.filter(e=>!e.work.read).length-a.items.filter(e=>!e.work.read).length||b.items.length-a.items.length||a.label.localeCompare(b.label));
   // Many one-piece sections read as noise; past six sections they share one 'Elsewhere' group.
   const single=contents.filter(group=>group.items.length===1);
   if(contents.length>6&&single.length>1)contents=[...contents.filter(group=>group.items.length>1),{label:'Elsewhere',elsewhere:true,items:single.map(group=>group.items[0]).sort((a,b)=>Number(a.work.read)-Number(b.work.read)||order(a,b))}];
-  return {...window,cover,features:chosen.slice(1),contents,count:pool.length,unread:pool.filter(entry=>!entry.work.read).length,sections:new Set(pool.map(entry=>section(entry.work))).size};
+  return {...window,cover,features:chosen.slice(1),contents,count:pool.length,unread:pool.filter(entry=>!entry.work.read).length,sections:sectionLabels.size,sectionLabels:Object.fromEntries(sectionLabels)};
 }
 
 // The model the React issue draws (web/src/magazine/magazine.tsx).
@@ -121,14 +125,15 @@ const range=(start,end)=>{const a=day(start),b=day(end),month=d=>d.toLocaleDateS
   return a.getUTCMonth()===b.getUTCMonth()?`${month(a)} ${a.getUTCDate()}–${b.getUTCDate()}, ${b.getUTCFullYear()}`:`${month(a)} ${a.getUTCDate()} – ${month(b)} ${b.getUTCDate()}, ${b.getUTCFullYear()}`;};
 const short=(start,end)=>{const a=formatDate(start),b=formatDate(end);return a.split(' ')[0]===b.split(' ')[0]?`${a}–${b.split(' ')[1]}`:`${a} – ${b}`;};
 const href=work=>'#read='+encodeURIComponent(work.primary);
-const kicker=(work,label)=>[label,section(work),named(work.types)[0]].filter(Boolean).join(' · ');
+const sectionLabel=(work,labels={})=>labels[sectionKey(work)]||section(work);
+const kicker=(work,label,labels)=>[label,sectionLabel(work,labels),named(work.types)[0]].filter(Boolean).join(' · ');
 
 /** What an issue shows, as plain values: the pieces, their lines of type and the neighbouring issues. */
 export function issueModel({issue,weeks,signals,prefs,art={},artMake=false,sections=[]}){
-  const letter=signals?.newsletters?.[0],span=weekRange(issue.week);
+  const letter=signals?.newsletters?.[0],span=weekRange(issue.week),labels=issue.sectionLabels||{};
   const index=weeks.findIndex(w=>w.id===issue.week),older=weeks[index+1]||(index<0?weeks.find(w=>w.id<issue.week):null),newer=index>0?weeks[index-1]:index<0?[...weeks].reverse().find(w=>w.id>issue.week):null;
-  const piece=({work},label)=>{const time=minutes(work,prefs.pace);return {path:work.primary,title:work.title,href:href(work),read:!!work.read,kicker:kicker(work,label),author:work.authors?.length?work.authors.join(' · '):'Unspecified author',date:formatDate(work.date),time:time?`≈ ${time} min`:null,art:!!art[work.primary]};};
-  const row=(entry,elsewhere)=>{const {work}=entry;return {path:work.primary,title:work.title,href:href(work),read:!!work.read,meta:[elsewhere?section(work):null,named(work.types)[0],formatDate(work.date)].filter(Boolean).join(' · ')};};
+  const piece=({work},label)=>{const time=minutes(work,prefs.pace);return {path:work.primary,title:work.title,href:href(work),read:!!work.read,kicker:kicker(work,label,labels),author:work.authors?.length?work.authors.join(' · '):'Unspecified author',date:formatDate(work.date),time:time?`≈ ${time} min`:null,art:!!art[work.primary]};};
+  const row=(entry,elsewhere)=>{const {work}=entry;return {path:work.primary,title:work.title,href:href(work),read:!!work.read,meta:[elsewhere?sectionLabel(work,labels):null,named(work.types)[0],formatDate(work.date)].filter(Boolean).join(' · ')};};
   return {week:issue.week,number:+issue.week.slice(6),year:issue.week.slice(0,4),dates:range(span.start,span.end),window:short(issue.start,issue.end),
     note:issue.fallback?`Nothing new has arrived in the last two weeks. This is the latest issue, ${short(issue.start,issue.end)}.`:issue.quiet?`A quiet week: covering ${short(issue.start,issue.end)}.`:'',
     older:older?.id||null,newer:newer?.id||null,past:weeks.slice(0,12).map(w=>({id:w.id,label:short(w.start,w.end),count:w.count,current:w.id===issue.week})),

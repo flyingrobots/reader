@@ -70,7 +70,7 @@ if not marker.exists():
                 time.sleep(.1)
 value=dict(source=context['source'],snapshot_sha256=context['snapshot_sha256'],disposition='file',
            collection='filed',slug=re.sub('[^a-z0-9-]','-',context['source'].split('/')[-1].lower()),
-           title='Synthetic mail',author='',summary='A synthetic fixture arrival.',reason='')
+           title='Synthetic mail',author='',project='',summary='A synthetic fixture arrival.',reason='')
 pathlib.Path(args[args.index('--output-last-message')+1]).write_text(json.dumps(value))
 """
 

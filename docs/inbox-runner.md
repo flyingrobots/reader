@@ -136,11 +136,12 @@ chunk sizes. Completed model responses are cached by context hash in the journal
 so an interrupted classification can resume without repeating those calls.
 
 Context contains receipt provenance, the file inventory, existing collections,
+configured `existing_projects` from `indexes/settings.json` when present,
 and at most 96 KiB of textual excerpts, with at most 16 KiB from one file. Coverage
 is explicit; a filename or truncated excerpt is not full reading. A model returns
 the source key and snapshot hash, a file/defer decision, collection, slug, title,
-source-stated author, bounded description and defer reason. Unknown authorship
-stays empty. Invalid output or stale identity cannot authorize filing. Original
+source-stated author, canonical project (or empty), bounded description and defer reason. Unknown authorship
+and project stay empty. Invalid output or stale identity cannot authorize filing. Original
 writing namespaces belonging to Reader librarian, Agy and Claude are reserved,
 as are directory names excluded by Browse, such as `assets`, `reading` and `evidence`.
 

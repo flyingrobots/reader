@@ -2,6 +2,7 @@ import './jail_guard.cjs';
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {isoWeek,weekRange,issueWindow,currentIssue,issueWeeks,selectIssue,interest,candidates,minutes,section,parseExcluded,DEFAULT_EXCLUDED_TYPES} from '../src/reader_mcp/web_ui/magazine.mjs';
+import {sectionsForIssue,sectionArticles} from '../src/reader_mcp/web_ui/section-groups.mjs';
 
 let n=0;
 const work=(fields)=>({primary:`library/p/${++n}.md`,title:'Work '+n,authors:['Ada'],projects:['P'+n],types:['Essay'],date:'2026-10-21',primary_format:'.md',primary_bytes:6000,read:false,...fields});
@@ -74,4 +75,23 @@ test('contents group by section, unread first, with one-piece sections gathered 
   assert.deepEqual(issue.contents.map(g=>g.label),['Echo','Elsewhere']);
   assert.deepEqual(issue.contents[0].items.map(e=>e.work.title),['Echo unread','Echo read']);
   assert.equal(issue.contents[1].items.length,works.length-1-issue.features.length-2);
+});
+test('case variants of one section count once across features, contents and section routes',()=>{
+  const works=[
+    work({projects:['Luma'],title:'Luma cover'}),
+    work({projects:['luma'],title:'Lowercase feature candidate',types:['Note']}),
+    work({projects:['luma'],title:'Lowercase second piece',types:['Note']}),
+    work({projects:['Echo'],title:'Echo feat'}),
+    work({projects:['Bijou'],title:'Bijou feat'}),
+    work({projects:['Edict'],title:'Edict feat'}),
+    work({projects:['Keep'],title:'Keep feat'}),
+  ];
+  const issue=selectIssue(works,{window:W43,today:'2026-10-24'});
+  assert.equal(issue.sections,5,'case-only Luma/luma counts as one section');
+  assert.ok(!issue.features.some(e=>e.work.title.startsWith('Lowercase')),'cover section not repeated in features');
+  assert.equal(issue.contents[0].label,'Luma');
+  assert.equal(issue.contents[0].items.length,2);
+  const links=sectionsForIssue(issue,works);
+  assert.deepEqual(links.filter(item=>item.label.toLowerCase()==='luma'),[{label:'Luma',count:3,href:'#section=Luma'}]);
+  assert.equal(sectionArticles(works,'Luma').length,3);
 });
