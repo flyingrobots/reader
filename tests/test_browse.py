@@ -280,8 +280,10 @@ def test_receipt_wrapper_and_opening_byline_attribution_fallbacks(vault):
     (vault/'library/essays/no-frontmatter.md').write_text('Written by Grace Hopper\n\nDetails follow.\n')
     note(vault,'library/essays/prose-by.md','title: Prose By\nadded: 2026-10-22','By default, the build skips caches.')
     note(vault,'library/essays/reading-notes.md','title: My Reading Notes\nauthor: Reader librarian\nsource_author: Original Author\nwriting_type: Reading notes\nadded: 2026-10-22','Notes on the text.')
+    note(vault,'library/reports/blank-source-author/index.md','title: Blank Source Author\ntype: report\nkind: catalog\nsource_author: "   "\nauthor: Ada Lovelace\nadded: 2026-10-22')
 
     units={u['title']:u['authors'] for u in Browse(vault).inventory({})}
+    assert units['Blank Source Author']==['Ada Lovelace']
     assert units['Wrapper attributed']==['External Writer']
     assert units['Role withheld']==['Unspecified author']
     assert units['Legacy wrapper role withheld']==['Unspecified author']

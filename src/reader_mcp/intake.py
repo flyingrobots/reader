@@ -317,9 +317,9 @@ def fallback_author(entry, primary_path):
             sm, body = source_frontmatter(data)
         except ValueError:
             sm, body = {}, data
-        if found := _clean_source_author(sm.get('source_author') or sm.get('author')):
+        if found := (_clean_source_author(sm.get('source_author')) or _clean_source_author(sm.get('author'))):
             return found
-    return opening_byline(body)
+    return _clean_source_author(opening_byline(body))
 
 
 def markdown(relative, title, body, author='Reader intake'):

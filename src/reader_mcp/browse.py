@@ -52,9 +52,11 @@ def strings(value):
 
 def catalog_author(m, *, catalog=False):
     """Explicit source author, or catalog author unless it only credits Reader intake/librarian."""
-    author = m.get('source_author') or m.get('author')
-    if (catalog or m.get('kind') == 'catalog') and not m.get('source_author') and any(
-            is_intake_role(a) for a in strings(author)):
+    source = m.get('source_author')
+    if strings(source):
+        return source
+    author = m.get('author')
+    if (catalog or m.get('kind') == 'catalog') and any(is_intake_role(a) for a in strings(author)):
         return None
     return author
 

@@ -463,7 +463,7 @@ def _clean_byline_candidate(raw, *, bare_by=False):
     if not (1 <= len(words) <= 8):
         return None
     first = words[0].rstrip('.,').casefold()
-    if s.casefold() in _BYLINE_PLACEHOLDERS or first in _BYLINE_PLACEHOLDERS:
+    if s.casefold() in _BYLINE_PLACEHOLDERS or first in _BYLINE_PLACEHOLDERS or is_intake_role(s):
         return None
     if words[0].islower() and first in _BYLINE_LOWER_STOPWORDS and '@' not in s:
         return None
@@ -476,7 +476,10 @@ def _clean_byline_candidate(raw, *, bare_by=False):
             return None
         if '@' not in s:
             capitalized = sum(1 for w in words if w[0].isupper())
-            if capitalized < 2 or any(w.rstrip('.,').casefold() in _BARE_BY_PROSE_WORDS for w in words):
+            if capitalized < 2 or any(
+                    w.rstrip('.,').casefold() in _BARE_BY_PROSE_WORDS
+                    and not (w[0].isupper() and w.rstrip('.,').casefold() in {'will', 'may'})
+                    for w in words):
                 return None
     return s
 
@@ -500,7 +503,9 @@ def _match_byline_line(line):
         if m:
             return _clean_byline_candidate(m.group(1), bare_by=False)
     if re.match(r'^(?:\*\*|__)?(?:(?:report\s+)?date|created|updated|project|status)(?:\*\*|__)?\s*:', unwrapped, flags=re.IGNORECASE):
-        m = re.search(r'(?:[.|·;])\s*(?:\*\*|__)?(?:authors?|written\s+by|authored\s+by)(?:\*\*|__)?\s*:\s*([^.|·;\r\n]+)', unwrapped, flags=re.IGNORECASE)
+        m = re.search(
+            r'(?:[.|·;])\s*(?:\*\*|__)?(?:authors?|written\s+by|authored\s+by)(?:\*\*|__)?\s*:\s*(.+?)(?=\.\s+[A-Za-z][A-Za-z ]{0,24}:|[|·;\r\n]|$)',
+            unwrapped, flags=re.IGNORECASE)
         if m:
             return _clean_byline_candidate(m.group(1), bare_by=False)
     return None

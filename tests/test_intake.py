@@ -685,14 +685,39 @@ def test_apply_plan_uses_opening_byline_fallback_and_ignores_unknown_placeholder
     entry2['decision'] = {**decision(entry2), 'slug': 'prose-report', 'title': 'Prose report', 'author': ''}
     entry2['destination'] = intake.destination(entry2)
 
-    plan = {'schema_version': 1, 'batch_id': str(uuid4()), 'created_at': intake.stamp(), 'entries': [entry, entry2]}
+    placeholder_fm = Store(vault).ingest(Submission(
+        request_id=uuid4(), title='Placeholder source_author', filename='fm.md',
+        markdown='---\nsource_author: Unknown\nauthor: Grace Hopper\n---\n\nBody.\n',
+    ))
+    entry3 = intake.snapshot(vault, placeholder_fm['bundle_path'])
+    entry3['decision'] = {**decision(entry3), 'slug': 'placeholder-fm', 'title': 'Placeholder source_author', 'author': ''}
+    entry3['destination'] = intake.destination(entry3)
+
+    role_byline = Store(vault).ingest(Submission(
+        request_id=uuid4(), title='Role byline', filename='role.md',
+        markdown='Written by Reader intake\n\nBody.\n',
+    ))
+    entry4 = intake.snapshot(vault, role_byline['bundle_path'])
+    entry4['decision'] = {**decision(entry4), 'slug': 'role-byline', 'title': 'Role byline', 'author': ''}
+    entry4['destination'] = intake.destination(entry4)
+
+    plan = {'schema_version': 1, 'batch_id': str(uuid4()), 'created_at': intake.stamp(), 'entries': [entry, entry2, entry3, entry4]}
     save(vault / '.reader/inbox-runner', plan)
     intake.apply_plan(vault, vault / '.reader/inbox-runner', plan)
 
     first_meta, _ = source_frontmatter((vault / entry['destination'] / 'index.md').read_bytes())
     second_meta, _ = source_frontmatter((vault / entry2['destination'] / 'index.md').read_bytes())
+    third_meta, _ = source_frontmatter((vault / entry3['destination'] / 'index.md').read_bytes())
+    fourth_meta, _ = source_frontmatter((vault / entry4['destination'] / 'index.md').read_bytes())
     assert first_meta['author'] == 'Ada Lovelace'
     assert second_meta['author'] is None
+    assert third_meta['author'] == 'Grace Hopper'
+    assert fourth_meta['author'] is None
 
     works = {w['title']: w['authors'] for w in Browse(vault).inventory({})}
-    assert works == {'Byline report': ['Ada Lovelace'], 'Prose report': ['Unspecified author']}
+    assert works == {
+        'Byline report': ['Ada Lovelace'],
+        'Prose report': ['Unspecified author'],
+        'Placeholder source_author': ['Grace Hopper'],
+        'Role byline': ['Unspecified author'],
+    }
