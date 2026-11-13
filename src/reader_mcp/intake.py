@@ -615,7 +615,9 @@ def apply_plan(root, runtime, plan):
     paths = sorted(owned)
     # Exact files only: never sweep an unrelated attachment or another participant's staging into this commit.
     run_git(root, 'add', '-A', '-f', '--pathspec-from-file=-', '--pathspec-file-nul', input='\0'.join(sorted(add_paths)) + '\0')
-    for _ in git_path_outputs(root, ['-c', 'core.whitespace=-blank-at-eol', 'diff', '--cached', '--check'], sorted(journal.writes)):
+    # Reader's own notes and indexes must be clean. Reading copies are derived text and keep their source's whitespace.
+    authored = sorted(p for p in journal.writes if not p.endswith('.reading.md'))
+    for _ in git_path_outputs(root, ['-c', 'core.whitespace=-blank-at-eol', 'diff', '--cached', '--check'], authored):
         pass
     message = 'File verified Reader inbox batch ' + plan['batch_id']
     if any(git_path_outputs(root, ['diff', '--cached', '--name-only'], paths)):

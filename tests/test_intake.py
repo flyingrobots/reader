@@ -86,6 +86,19 @@ def test_source_whitespace_is_preserved_without_blocking_commit(vault):
     assert (vault / plan['entries'][0]['destination'] / 'originals/report.md').read_text() == data
 
 
+def test_a_reading_copy_keeps_its_source_whitespace_without_blocking_commit(vault, monkeypatch):
+    # wide-md keeps a source's trailing blank line; a derived copy must not fail the whitespace gate for Reader's own notes.
+    def reading_copy(root, relative, writer):
+        copy = relative.removesuffix('.md') + '.reading.md'
+        writer(copy, intake.markdown(copy, 'A reading copy', 'A fenced example:\n\n```\nconsole.log\n```\n\n'))
+        return {'reading_copy': copy}
+    monkeypatch.setattr('reader_mcp.reading.reading_copy', reading_copy)
+    (vault / 'inbox/report.md').write_text('A fenced example:\n\n```\nconsole.log\n```\n\n')
+    plan = plan_for(vault)
+    assert intake.apply_plan(vault, vault / '.reader/inbox-runner', plan)['commit']
+    assert (vault / plan['entries'][0]['destination'] / 'originals/report.reading.md').read_bytes().endswith(b'```\n\n')
+
+
 def test_large_owned_path_set_does_not_depend_on_os_argument_capacity(vault, monkeypatch):
     folder = vault / 'inbox/packet'
     folder.mkdir()
