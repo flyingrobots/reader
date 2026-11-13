@@ -117,6 +117,23 @@ const THEMES=['ink','paper','orchid','orchid-dark','harvest','harvest-dark',...r
     assert.ok(m.columns>=(width>=2560?5:4),`contents columns at ${width}: ${m.columns}`);
     await page.screenshot({path:`.reader/web-dev/magazine-${width}.png`,fullPage:true});
   }
+  const makeupOk=await page.evaluate(()=>{
+    const m=document.querySelector('.issue-makeup')?.getBoundingClientRect(),c=document.querySelector('.issue-contents')?.getBoundingClientRect();
+    return Boolean(m&&c&&m.height>120&&m.bottom<=c.top+1);
+  });
+  assert.ok(makeupOk,'topic and makeup visualization sits cleanly above In this issue');
+  assert.ok((await page.locator('svg[data-makeup-treemap] [data-topic-tile]').count())>=1,'treemap renders topic tiles');
+  assert.equal(await page.locator('svg[data-makeup-balance]').count(),1,'reading balance bar renders');
+  assert.ok((await page.locator('svg[data-makeup-forms] [data-form-bar]').count())>=1,'forms chart renders');
+  await page.locator('svg[data-makeup-treemap] [data-topic-tile]').first().click();
+  await page.locator('[data-makeup-tray]').waitFor();
+  assert.equal(await page.locator('svg[data-makeup-treemap] [data-topic-tile]').first().getAttribute('aria-pressed'),'true');
+  assert.ok((await page.locator('[data-makeup-tray] a[href^="#read="]').count())>=1);
+  await page.locator('[data-makeup-tray] button[aria-label="Clear selection"]').click();
+  assert.equal(await page.locator('[data-makeup-tray]').count(),0);
+  await page.locator('svg[data-makeup-forms] [data-form-bar]').first().click();
+  await page.locator('[data-makeup-tray]').waitFor();
+  await page.locator('[data-makeup-tray] button[aria-label="Clear selection"]').click();
   await page.setViewportSize({width:1280,height:900});await page.waitForTimeout(250);
   assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1&&!document.querySelector('.issue-index').checkVisibility()),'1280: no scroll, the index rail is a wide-window feature');
   console.log(JSON.stringify(wide));

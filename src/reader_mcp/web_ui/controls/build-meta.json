@@ -131,7 +131,8 @@
     "src/link-preview.tsx": "88af44ccac760a52abc419a82f9f3828c60b8cb15c641891c9632db8d5ec61f9",
     "src/local-model.tsx": "7c97eff7a41f10b55d26f6606e9eb30dd32c001199701650983c65ca4f4a208d",
     "src/log-block.tsx": "514b773a5291e22a958b25a92ffc0e81f48d3caae3507cefefeda57bc0cd3b9a",
-    "src/magazine/magazine.tsx": "ccfbacc4230aaece25656c0f627442ea9cfbb47c9303161447d9a69b033b498d",
+    "src/magazine/issue-makeup.tsx": "72d9193dc354c08abe23e9333856134336bd12dcd6279f2452561027063ace3c",
+    "src/magazine/magazine.tsx": "761c79056e9f0fa86eed5d43a18b433ed43b84363429cb9c279d6654b02998ce",
     "src/markdown-editor.ts": "84f6a2f85a3ba2e7b5c387ff6e86378ccf5753672eb0b558151e352653142a20",
     "src/math.ts": "f4ebd1d4e82c2cb58a1e1ff0cc119f39951e422bbb7057abaf51903d92334e21",
     "src/model-order.tsx": "736ae335d3683faccc1fa8a1a0202aff1c2fe49d726257c4194f503a69c02697",
@@ -998,12 +999,12 @@
       "sha256": "81af208706838cea41272dc94c876c36a4680e3b692562cb0be12711f5c88dec"
     },
     "reader-controls.css": {
-      "bytes": 203034,
-      "sha256": "ee4fbe9bd2135bea5b40542203f97e6fe1d2ad6cc9d8e8121230e3644313f6be"
+      "bytes": 203725,
+      "sha256": "a6ad7c68d39d3b319c9729c7852a6cf4a2c9d58a72b9baad699184ab602363de"
     },
     "reader-controls.js": {
-      "bytes": 1408434,
-      "sha256": "ec36653fbbda8301a4ebfcb1a23b8e22d3a9be8ada25c50f6594e42971509bef"
+      "bytes": 1420569,
+      "sha256": "b62ad5b9c87bfd9526fef9016929fde34fa697f105dfa5e42ccf24eb83cff131"
     },
     "reader-controls.js.LEGAL.txt": {
       "bytes": 6614,
