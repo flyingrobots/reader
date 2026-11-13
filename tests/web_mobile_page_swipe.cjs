@@ -1,4 +1,5 @@
 /* Medium: synthetic vault and loopback browser; a phone swipe in the Pages layout turns exactly one page. */
+require('./jail_guard.cjs');
 const assert=require('node:assert/strict');
 const {spawn}=require('node:child_process');
 const {createInterface}=require('node:readline');
