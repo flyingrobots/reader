@@ -30,6 +30,8 @@ LITERAL = re.compile(r'''(['"`])([^'"`\\\n]{1,100})\1''')
 ALLOWED = {
     ('src/reader_mcp/browse.py', '5de8b9f1bb9725d57075388debcdebd324de414efd013c5066e9685865b21e2b'):
         "browse navigation_author default and catalog-wrapper heuristic; a separate configuration question, not voice classification (#139)",
+    ('src/reader_mcp/metadata.py', '5de8b9f1bb9725d57075388debcdebd324de414efd013c5066e9685865b21e2b'):
+        "catalog-wrapper and intake-role author heuristic shared between browse and intake (#139)",
 }
 
 

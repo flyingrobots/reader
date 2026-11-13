@@ -13,7 +13,7 @@ import re
 import tempfile
 from urllib.parse import quote
 
-from .metadata import MAX_HEADER, source_frontmatter
+from .metadata import MAX_HEADER, is_intake_role, opening_byline, source_frontmatter
 from .store import relative_path
 from .junk import os_junk
 
@@ -48,6 +48,24 @@ def strings(value):
     if isinstance(value, list):
         return sorted({v.strip() for v in value if isinstance(v, str) and v.strip()}, key=str.casefold)
     return []
+
+
+def catalog_author(m, *, catalog=False):
+    """Explicit source author, or catalog author unless it only credits Reader intake/librarian."""
+    source = m.get('source_author')
+    if strings(source):
+        return source
+    author = m.get('author')
+    if (catalog or m.get('kind') == 'catalog') and any(is_intake_role(a) for a in strings(author)):
+        return None
+    return author
+
+
+def first_author(*candidates):
+    for value in candidates:
+        if strings(value):
+            return value
+    return None
 
 
 def calendar_day(value):
@@ -94,15 +112,19 @@ class Browse:
             raise ValueError('Browse metadata exceeds 32 MiB; no publication')
         return data
 
-    def header(self, path):
+    def _header_and_byline(self, path):
         if not path.is_file():
-            return {}
+            return {}, None
         data = self.read(path, MAX_HEADER + 1)
         try:
-            return source_frontmatter(data)[0]
+            meta, body = source_frontmatter(data)
         except ValueError as exc:
             self.diagnostics.append({'path':path.relative_to(self.root).as_posix(), 'issue':str(exc)[:300]})
-            return {}
+            return {}, None
+        return meta, opening_byline(body)
+
+    def header(self, path):
+        return self._header_and_byline(path)[0]
 
     def scan(self):
         result = {}
@@ -132,11 +154,26 @@ class Browse:
         self.diagnostics = []
         snapshot = self.scan()
         meta = {}
+        bylines = {}
         def metadata(path):
             rel = path.relative_to(self.root).as_posix()
             if rel not in meta:
-                meta[rel] = self.header(path)
+                meta[rel], bylines[rel] = self._header_and_byline(path)
             return meta[rel]
+        def fallback_author(primary):
+            if primary.name == 'index.md' and metadata(primary).get('kind') == 'catalog':
+                return None
+            rel = primary.relative_to(self.root).as_posix()
+            suffix = primary.suffix.lower()
+            if suffix in {'.md', '.markdown'}:
+                if rel not in bylines:
+                    metadata(primary)
+                return bylines.get(rel)
+            if suffix == '.txt' and primary.is_file():
+                if rel not in bylines:
+                    bylines[rel] = opening_byline(self.read(primary, 2048))
+                return bylines[rel]
+            return None
         units = []
         receipt_ids = set()
         group_roots = set()
@@ -147,6 +184,8 @@ class Browse:
         def make(path, m, *, title=None, author=None, arrival=None, basis=None,
                  project=None, kind=None, identity=None, primary=None):
             primary = primary or path
+            if not strings(author) and primary is not None:
+                author = fallback_author(primary)
             source_authors = strings(author) or ['Unspecified author']
             author_aliases = settings.get('author_aliases', {})
             authors = sorted({name for raw in source_authors for name in (strings(author_aliases.get(raw.casefold(), raw)) or [raw])}, key=str.casefold)
@@ -210,7 +249,7 @@ class Browse:
             if sm.get('type') and wm.get('kind') == 'catalog':
                 merged['type'] = sm['type']
             make(wrapper if wrapper.is_file() else primary, merged, title=r.get('title'),
-                 author=provenance.get('author') or wm.get('source_author') or sm.get('author'),
+                 author=first_author(provenance.get('author'), catalog_author(wm, catalog=True), sm.get('source_author'), sm.get('author')),
                  arrival=r.get('received_at'), basis='receipt received_at (UTC)',
                  project=provenance.get('project') or sm.get('project'), identity='receipt:'+identity,
                  primary=primary)
@@ -226,12 +265,9 @@ class Browse:
             if p.parent in receipt_ancestors:
                 continue  # This is navigation over delivered works.
             m = metadata(p)
-            package_author = m.get('source_author') or m.get('author')
-            if m.get('kind') == 'catalog' and not m.get('source_author') and any(a.startswith('Reader librarian') for a in strings(package_author)):
-                package_author = None
             originals = [f for pattern in ('*.pdf', '*.txt', 'originals/*.pdf', 'originals/*.txt') for f in p.parent.glob(pattern) if f.is_file() and not f.is_symlink()]
             primary = max(originals, key=lambda f:f.stat().st_size) if originals else p
-            make(p, m, author=package_author, primary=primary,
+            make(p, m, author=catalog_author(m), primary=primary,
                  arrival=m.get('added') or m.get('metadata_created'), basis='catalog filing date',
                  kind='Book' if p.relative_to(self.library).parts[0]=='books' else None,
                  project=m.get('project'))
@@ -254,7 +290,7 @@ class Browse:
                 continue
             if p.name in AUX and not writing:
                 continue
-            make(p, m, author=m.get('author'), arrival=m.get('added') or m.get('metadata_created'),
+            make(p, m, author=first_author(m.get('author'), m.get('source_author')), arrival=m.get('added') or m.get('metadata_created'),
                  basis='document filing date', project=m.get('project'))
         if self.scan() != snapshot:
             raise ValueError('Browse inputs changed during discovery; retry after filing')

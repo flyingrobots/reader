@@ -84,7 +84,7 @@ Prefer the `reader_ingest` MCP tool when available. Its input is a `submission` 
   "attachments": [
     {"source_path": "/absolute/path/to/diagram.png", "path": "assets/diagram.png"}
   ],
-  "provenance": {"project": "project-name", "source": "known source reference"}
+  "provenance": {"author": "Author or agent name", "project": "project-name", "source": "known source reference"}
 }
 ```
 

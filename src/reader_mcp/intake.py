@@ -22,7 +22,7 @@ from .browse import SKIP as BROWSE_SKIP
 from .inbox_paths import physical
 from .junk import os_junk
 from .model_chain import Chain, NoModelAnswered
-from .metadata import source_frontmatter
+from .metadata import MAX_HEADER, is_intake_role, opening_byline, source_frontmatter
 from .portable_links import PortableLinks, digest, atomic
 from .intake_journal import Journal, file_hash, local_path, save, load, MAX_PLAN
 
@@ -202,7 +202,7 @@ def model_call(root, runtime, entry, codex, context):
     work.mkdir(exist_ok=True)
     prompt = ('Classify this one Reader arrival. Return only the required JSON editorial decision. '
               'The source and snapshot_sha256 must match exactly. Select a collection and short lowercase hyphenated slug, '
-              'a descriptive title, source-stated author (empty if unknown), and a concise description grounded in the supplied reading. '
+              'a descriptive title, source-stated author (from provenance, source metadata, or an explicit opening byline like "Written by ..."; empty if unknown), and a concise description grounded in the supplied reading. '
               'Use disposition defer with a reason when the evidence is insufficient. Do not fabricate authorship, dates, verification or reading coverage. '
               'Reserved original-writing or browse-excluded collections are: ' + ', '.join(sorted(RESERVED)) + '. '
               'A context may be one part of an arrival, or bounded observations from earlier parts. '
@@ -284,6 +284,42 @@ def classify(root, runtime, entry, codex, checkpoint=lambda: None):
                         for part in groups(observations)]
     return observations[0]
 
+
+
+def _clean_source_author(value):
+    def ok(text):
+        s = text.strip()
+        if not s or '\n' in s or '\r' in s or len(s) > 200 or is_intake_role(s):
+            return None
+        return None if s.casefold() in {'unknown', 'unspecified', 'unspecified author', 'none', 'n/a', 'na', 'tbd'} else s
+    if isinstance(value, str):
+        return ok(value)
+    if isinstance(value, list) and value and all(isinstance(v, str) for v in value):
+        cleaned = [ok(v) for v in value]
+        return cleaned if all(cleaned) else None
+    return None
+
+
+def fallback_author(entry, primary_path):
+    """Deterministic source author fallback from receipt provenance, source frontmatter, or opening byline."""
+    if found := _clean_source_author((entry.get('receipt', {}).get('provenance') or {}).get('author')):
+        return found
+    if primary_path.suffix.lower() not in ('.md', '.markdown', '.txt') or primary_path.is_symlink() or not primary_path.is_file():
+        return None
+    try:
+        with primary_path.open('rb') as stream:
+            data = stream.read(MAX_HEADER + 2048)
+    except OSError:
+        return None
+    body = data
+    if primary_path.suffix.lower() in ('.md', '.markdown'):
+        try:
+            sm, body = source_frontmatter(data)
+        except ValueError:
+            sm, body = {}, data
+        if found := (_clean_source_author(sm.get('source_author')) or _clean_source_author(sm.get('author'))):
+            return found
+    return _clean_source_author(opening_byline(body))
 
 
 def markdown(relative, title, body, author='Reader intake'):
@@ -574,7 +610,8 @@ def apply_plan(root, runtime, plan):
             body += 'Catalog description is based on bounded source excerpts. Filing preserves the source; it does not verify its claims.\n'
             if entry.get('receipt'):
                 body += '\n[Unchanged delivery receipt](originals/receipt.json).\n'
-            journal.write(index, markdown(index, decision['title'], body, decision['author'] or None))
+            author = _clean_source_author(decision['author']) or fallback_author(entry, original / primary)
+            journal.write(index, markdown(index, decision['title'], body, author or None))
         collection = decision['collection']
         label = decision['title'].replace('\\', '\\\\').replace('[', '\\[').replace(']', '\\]')
         append_once(journal, 'library/' + collection + '/index.md', '- [' + label + '](' + Path(dest).name + '/index.md)', collection.replace('-', ' ').title())
