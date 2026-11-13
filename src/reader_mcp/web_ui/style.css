@@ -93,13 +93,13 @@ body.two-page .pdf-page{height:100%;margin:0;aspect-ratio:auto!important;break-a
 .next-read-title{font:600 15px/1.35 var(--font-serif);overflow-wrap:anywhere}
 .next-read-byline{font-size:11px;color:var(--muted-foreground)}
 .next-read-reasons{display:flex;flex-wrap:wrap;gap:5px}
-.next-read-reasons span{font-size:10px;line-height:1.5;padding:0 7px;border:1px solid var(--border);border-radius:999px;color:var(--muted-foreground)}.document-meta{align-items:center}.document-meta .document-source{text-decoration:none;color:var(--foreground)}
+.next-read-reasons span{font-size:10px;line-height:1.5;padding:0 7px;border:1px solid var(--border);border-radius:999px;color:var(--muted-foreground)}.document-meta{align-items:center}.document-meta .document-source{text-decoration:none;color:var(--foreground)}#main .document-meta .document-copy{width:26px;padding:0}
 /* Reading log under the document meta. Its slot reserves one line before /api/readers answers; web/src/reading-log.tsx styles the log itself. */
 /* The title's one row: byline and date, then its controls at one height and in the interface's type. */
 .document-meta{gap:6px 10px}.document-meta:has(+.reading-log){margin-bottom:10px}
 .article .document-title+.document-meta{margin-top:-.2em}
 .document-meta .by+span{margin-right:6px}
-#main .document-meta :is(.document-source,#speak-article,.version-chip){height:26px;min-height:26px;padding:0 9px;border-radius:6px;font:500 12px/1 var(--font-sans);letter-spacing:0;gap:6px;color:var(--foreground)}
+#main .document-meta :is(.document-source,.document-copy,#speak-article,.version-chip){height:26px;min-height:26px;padding:0 9px;border-radius:6px;font:500 12px/1 var(--font-sans);letter-spacing:0;gap:6px;color:var(--foreground)}
 .document-meta #speak-article svg{width:13px;height:13px}
 .reading-log{font:11px/1.5 var(--font-sans);color:var(--muted-foreground);margin:0 0 44px;min-height:1.5em;max-width:100%;break-inside:avoid}
 .article .reading-log{font-family:var(--font-sans);font-size:11px;line-height:1.5}

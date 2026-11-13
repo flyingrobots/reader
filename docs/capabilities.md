@@ -183,6 +183,10 @@ opens the exact file bytes, front matter included, in a new tab: text as `text/p
 PDFs and images with their own type. It covers filed documents and inbox previews; a
 historical version has no raw route, so it shows no Source button.
 
+**Copy** (the clipboard icon beside Source) puts the same exact bytes, front matter
+included, on the clipboard as plain text. It appears only for text documents, not PDFs,
+images or historical versions.
+
 **Send to AI-TTS** (Space s, the document footer or the selection toolbar's Speak)
 queues the whole article, the text from the reading position, or a selected passage
 with the local AI-TTS daemon, which owns playback, holds and voice assignment.

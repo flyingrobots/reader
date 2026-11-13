@@ -32,8 +32,13 @@ const essay='library/essays/tidal/';
    assert.equal((await line.locator('[data-version-chip]').textContent()).trim(),'v2 of 3');
    assert.ok(await page.evaluate(()=>document.querySelector('#article > .document-meta > .version-line')!==null&&document.querySelector('#article > .document-meta + .reading-log')!==null),'the chip sits in the title row, above the reading log');
    assert.match(await line.textContent(),/Newer v3 available Open v3/);
-   const controls=await page.evaluate(()=>['#speak-article','.document-source','[data-version-chip]'].map(s=>{const el=document.querySelector(s),r=el.getBoundingClientRect(),c=getComputedStyle(el);return {top:Math.round(r.top),height:Math.round(r.height),font:c.fontFamily,size:c.fontSize,color:c.color};}));
-   for(const c of controls)assert.deepEqual(c,controls[0],'Read aloud, Source and the chip are one row of one kind of control');
+   const controls=await page.evaluate(()=>['#speak-article','.document-source','.document-copy','[data-version-chip]'].map(s=>{const el=document.querySelector(s),r=el.getBoundingClientRect(),c=getComputedStyle(el);return {top:Math.round(r.top),left:Math.round(r.left),height:Math.round(r.height),font:c.fontFamily,size:c.fontSize,color:c.color};}));
+   const same=({top,left,...rest})=>rest;
+   for(const c of controls)assert.deepEqual(same(c),same(controls[0]),'Read aloud, Source, Copy and the chip are one kind of control');
+   for(const c of controls.slice(0,3))assert.equal(c.top,controls[0].top,'Read aloud, Source and Copy share the title row');
+   // A long version line wraps whole: the chip is on the title row or starts the next row at the left edge.
+   const chip=controls[3],by=await page.locator('#article > .document-meta').evaluate(el=>Math.round(el.getBoundingClientRect().left));
+   assert.ok(chip.top===controls[0].top||chip.left===by,'the version line wraps as a unit: '+JSON.stringify(chip));
    await page.screenshot({path:'.reader/web-dev/editions-line.png'});
    // Find skips the decoration.
    await page.locator('#main').focus();await page.keyboard.press('/');await page.locator('#find-query').fill('Newer v3');await page.waitForTimeout(150);

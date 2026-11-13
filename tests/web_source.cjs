@@ -15,7 +15,7 @@ const {chromium}=require(process.env.READER_PLAYWRIGHT||'playwright-core');
   const preview='inbox/22222222-2222-4222-8222-222222222222/RW-91.md',previewBytes=readFileSync(join(root,preview),'utf8');
   browser=await chromium.launch({headless:true,executablePath:process.env.READER_CHROME||'/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',args:['--disable-gpu','--disable-background-networking','--disable-breakpad','--disable-crash-reporter','--disk-cache-size=10485760']});
   mkdirSync('.reader/web-dev',{recursive:true});const errors=[];
-  const context=await browser.newContext({viewport:{width:1300,height:900},reducedMotion:'reduce'});
+  const context=await browser.newContext({viewport:{width:1300,height:900},reducedMotion:'reduce',permissions:['clipboard-read','clipboard-write']});
   await context.addInitScript(()=>{try{if(!localStorage.getItem('reader.preferences.v1'))localStorage.setItem('reader.preferences.v1',JSON.stringify({smooth:false}));}catch{}});
   const page=await context.newPage();page.on('pageerror',e=>errors.push(e.message));
   async function check(path,bytes,label){
@@ -33,6 +33,15 @@ const {chromium}=require(process.env.READER_PLAYWRIGHT||'playwright-core');
     await page.locator('#main').focus();const popup=context.waitForEvent('page');await page.keyboard.press('Space');await page.keyboard.press('u');
     const tab=await popup;await tab.waitForLoadState();assert.equal(tab.url(),new URL(doc.file_url,url).href,label+': Space u opens the raw file');
     assert.equal(await tab.evaluate(()=>document.body.innerText),bytes,label+': the tab shows the raw text');await tab.close();
+    // Clicking Source opens the same tab; the article's link handler must not resolve it as a library link.
+    const resolves=[],watch=r=>{if(r.url().includes('/api/resolve'))resolves.push(r.url());};page.on('request',watch);
+    const clicked=context.waitForEvent('page');await link.click();const opened=await clicked;await opened.waitForLoadState();page.off('request',watch);
+    assert.equal(opened.url(),new URL(doc.file_url,url).href,label+': the Source click opens the raw file');await opened.close();
+    assert.deepEqual(resolves,[],label+': the Source click is not resolved as a document link');
+    // Copy puts the exact bytes on the clipboard.
+    await page.evaluate(()=>navigator.clipboard.writeText(''));await page.locator('.document-meta .document-copy').click();
+    await page.waitForFunction(()=>navigator.clipboard.readText().then(t=>t.length>0));
+    assert.equal(await page.evaluate(()=>navigator.clipboard.readText()),bytes,label+': Copy copies the raw bytes');
   }
   await check(filed,filedBytes,'filed');
   await check(preview,previewBytes,'inbox preview');

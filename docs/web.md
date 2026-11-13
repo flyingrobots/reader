@@ -89,6 +89,7 @@ HTML isolation, text companions, binary downloads and rejected path escapes.
 | Space Shift+T; `:themes` | Quick theme picker in the footer; choose a theme to apply and save it immediately |
 | Space s, then a / f / s | Send to AI-TTS: whole article, from here, or the selection |
 | Space u; header Source | Open the raw source file (`/api/file`, front matter included) in a new tab; filed documents and inbox previews, not historical versions |
+| Header Copy (clipboard icon) | Copy the raw source bytes of a text document to the clipboard |
 | Space m | Chat with the voices about the open document |
 | Space x | Take a source-anchored quiz on the open article |
 | Space a | Write about the article from a voice's question |
