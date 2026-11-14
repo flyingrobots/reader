@@ -128,6 +128,46 @@ def test_claude_runs_with_no_tools_or_operator_configuration(setup):
     assert not {'--dangerously-skip-permissions', '--allowedTools', '--add-dir'} & set(args)
 
 
+def test_claude_is_always_named_a_model_so_the_operators_default_cannot_break_intake(setup):
+    root, runtime, bin_dir, make = setup
+    write_config(root, {'order': ['claude']})
+    json_result(bin_dir / 'claude', 'pathlib.Path(' + repr(str(bin_dir / 'args.json')) + ').write_text(json.dumps(args))')
+    decide(make(), runtime)
+    args = json.loads((bin_dir / 'args.json').read_text())
+    assert args[args.index('--model') + 1] == model_chain.CLAUDE_DEFAULT_MODEL == 'opus'
+
+
+def test_an_unrecognized_claude_model_retries_once_with_the_default_alias(setup):
+    root, runtime, bin_dir, make = setup
+    write_config(root, {'order': ['claude'], 'claude': {'model': 'claude-fable-5-2'}})
+    seen = bin_dir / 'models.txt'
+    cli(bin_dir / 'claude', 'sys.stdin.read()\nmodel = args[args.index("--model") + 1]\n'
+        'open(' + repr(str(seen)) + ', "a").write(model + "\\n")\n'
+        'if model != "opus":\n'
+        '    print("[claude-code:unrecognized_model] " + json.dumps({"model": model}), file=sys.stderr)\n'
+        '    print(json.dumps({"is_error": True, "result": "There is an issue with the selected model (" + model + "). It may not exist."}))\n'
+        '    sys.exit(1)\n'
+        'print(' + repr(json.dumps({'status': 'SUCCESS', 'structured_output': ANSWER})) + ')\n')
+    assert decide(make(), runtime) == (ANSWER, 'claude')
+    assert seen.read_text().split() == ['claude-fable-5-2', 'opus']
+    assert ('claude', 'model-fallback') in states(runtime)
+
+
+@pytest.mark.parametrize('model', ['', 'has space', 'x' * 101, '--dangerously-skip-permissions', 7])
+def test_the_claude_model_is_a_plain_model_name(model):
+    with pytest.raises(ValueError):
+        checked_config({'claude': {'model': model}})
+
+
+def test_settings_saved_without_a_claude_model_keep_the_saved_one(tmp_path, monkeypatch):
+    monkeypatch.delenv('READER_MODEL_CHAIN', raising=False)
+    (tmp_path / '.reader').mkdir()
+    assert read_config(tmp_path)['claude']['model'] == 'opus'
+    model_chain.configure(tmp_path, {'claude': {'model': 'sonnet'}})
+    model_chain.configure(tmp_path, {'order': ['claude', 'local']})
+    assert read_config(tmp_path)['claude']['model'] == 'sonnet'
+
+
 def test_agy_runs_in_an_empty_workspace_that_denies_every_tool(setup):
     root, runtime, bin_dir, make = setup
     write_config(root, {'order': ['agy']})

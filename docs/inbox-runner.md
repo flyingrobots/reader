@@ -71,8 +71,16 @@ Reader Admin's Models page (*Filing models*), and served by `GET` and
 
 ```json
 {"order": ["codex", "claude", "agy", "local"],
- "local": {"start": "lmstudio", "command": [], "model": ""}}
+ "local": {"start": "lmstudio", "command": [], "model": ""},
+ "claude": {"model": "opus"}}
 ```
+
+`claude.model` is always passed to Claude Code as `--model`, so the CLI's own
+interactive default never decides whether filing works. It defaults to the `opus`
+alias, which the CLI resolves to its current Opus. If the CLI says it does not
+recognize a configured name, the call is retried once with `opus`, and the
+transcript records a `model-fallback` step naming the rejected model. Saving the
+settings without a `claude` field keeps the saved model.
 
 `local.start` says what to do when the local model is not ready: `off` fails over
 with that reason; `lmstudio` (the default) runs `lms server start` and loads

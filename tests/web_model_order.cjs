@@ -34,7 +34,17 @@ const {chromium}=require(process.env.READER_PLAYWRIGHT||'playwright-core');
   const local=(await saved()).config.local;
   assert.deepEqual(local,{start:'command',command:['/usr/local/bin/start-model','qwen'],model:'some/model'});
   assert.equal(await page.locator('#model-order-error').count(),0);
+  // Claude Code is always given a model; a flag-shaped name is refused and the saved one stays.
+  assert.equal(await page.locator('#model-order-claude-model').inputValue(),'opus');
+  await page.locator('#model-order-claude-model').fill('--bad');
+  await page.locator('#model-order-save:not([disabled])').click();
+  await page.locator('#model-order-error').filter({hasText:'Claude model'}).waitFor();
+  assert.equal((await saved()).config.claude.model,'opus');
+  await page.locator('#model-order-claude-model').fill('sonnet');
+  await page.locator('#model-order-save:not([disabled])').click();
+  await page.waitForFunction(()=>document.querySelector('#model-order-save').disabled);
+  assert.equal((await saved()).config.claude.model,'sonnet');
   assert.deepEqual(errors,[]);
-  console.log('Model order passed: prescribed order, provider switch, start modes, command refusal and argv save.');
+  console.log('Model order passed: prescribed order, provider switch, start modes, command refusal, argv save and Claude model.');
  }finally{await browser?.close();if(fixture.exitCode===null&&fixture.signalCode===null){fixture.kill('SIGTERM');}}
 })().catch(error=>{console.error(error);process.exitCode=1;});

@@ -46,10 +46,11 @@ FAILURES = {
     'missing': 'is not installed', 'quota': 'is out of usage', 'auth': 'is not signed in',
     'timeout': 'did not answer in time', 'invalid': 'gave an answer that could not be accepted',
     'unavailable': 'could not be reached', 'off': 'is not running and starting it is turned off',
-    'too-large': 'cannot fit this document', 'failed': 'failed'}
+    'too-large': 'cannot fit this document', 'model': 'does not recognize its chosen model', 'failed': 'failed'}
 # Worth no second try this run: repeating them only delays the next provider, once per document.
 STICKY = ('missing', 'quota', 'auth', 'off')
 QUOTA = re.compile(r'usage.?limit|rate.?limit|quota|exhausted|credit balance|too many requests|\b429\b|limit reached|hit your .{0,40}limit', re.I)
+MODEL = re.compile(r'unrecognized_model|(invalid|unknown|unrecognized) model|issue with the selected model|model\W.{0,80}(not found|does not exist|may not exist|not available)', re.I)
 AUTH = re.compile(r'not logged in|please log ?in|codex login|claude (/)?login|unauthori[sz]ed|authenticat|\b401\b|oauth', re.I)
 DENY_HOOK = '''import json, sys
 name = json.load(sys.stdin).get("toolCall", {}).get("name")
@@ -59,6 +60,10 @@ LIBRARIAN = 'codex'
 STAND_IN = ('Codex, the Reader librarian, is out of office, so you are working as a stand-in for this one bounded task. '
             'You are not the librarian: do not adopt their persona, voice or name, and do not claim their past work or judgment. '
             'Do this task on its own terms.\n\n')
+# An alias the Claude CLI resolves to its current Opus. Reader always names a model, so an interactive default it
+# cannot resolve (a retired or mistyped name) never decides whether intake works.
+CLAUDE_DEFAULT_MODEL = 'opus'
+CLAUDE_MODEL = re.compile(r'[A-Za-z0-9][A-Za-z0-9._\[\]-]{0,99}')
 DIRECTORIES = ('~/.local/bin', '~/.cargo/bin', '/opt/homebrew/bin', '/usr/local/bin')
 
 
@@ -73,13 +78,13 @@ class ModelFailure(Exception):
 
 
 def default_config():
-    return {'order': list(ORDER), 'local': {'start': 'lmstudio', 'command': [], 'model': ''}}
+    return {'order': list(ORDER), 'local': {'start': 'lmstudio', 'command': [], 'model': ''}, 'claude': {'model': CLAUDE_DEFAULT_MODEL}}
 
 
 def checked_config(value):
     """A complete configuration, or ValueError. The command is argv: it is never given to a shell."""
-    if not isinstance(value, dict) or set(value) - {'order', 'local'}:
-        raise ValueError('Expected order and local')
+    if not isinstance(value, dict) or set(value) - {'order', 'local', 'claude'}:
+        raise ValueError('Expected order, local and claude')
     result = default_config()
     order = value.get('order', result['order'])
     if not isinstance(order, list) or not order or set(order) - set(ORDER) or len(set(order)) != len(order):
@@ -101,6 +106,12 @@ def checked_config(value):
         raise ValueError('Choose a start command, or another way to start the local model')
     if not isinstance(model, str) or len(model) > 200:
         raise ValueError('The local model is a model name')
+    claude = value.get('claude', {})
+    if not isinstance(claude, dict) or set(claude) - {'model'}:
+        raise ValueError('Claude settings are model')
+    result['claude'].update(claude)
+    if not isinstance(result['claude']['model'], str) or not CLAUDE_MODEL.fullmatch(result['claude']['model']):
+        raise ValueError('The Claude model is a model name or alias, such as opus')
     return result
 
 
@@ -146,7 +157,9 @@ def settings_view(root, identity=None, environ=None):
 def configure(root, value, identity=None, environ=None):
     """Save settings. A tailnet browser may choose among modes but can never name a program to run on this Mac."""
     if not isinstance(value, dict):
-        raise ValueError('Expected order and local')
+        raise ValueError('Expected order, local and claude')
+    # A form that does not show the Claude model must not reset it.
+    value = {'claude': saved_config(root)['claude'], **value}
     if identity is not None and identity.get('via') != 'local':
         local = value.get('local')
         if isinstance(local, dict) and 'command' in local:
@@ -173,7 +186,7 @@ def available(root, environ=None):
 
 
 def classify_failure(text):
-    return 'quota' if QUOTA.search(text) else 'auth' if AUTH.search(text) else 'failed'
+    return 'model' if MODEL.search(text) else 'quota' if QUOTA.search(text) else 'auth' if AUTH.search(text) else 'failed'
 
 
 def run_cli(command, *, stdin_text, cwd, forward=False, timeout=CALL_TIMEOUT):
@@ -270,10 +283,10 @@ def call_codex(executable, work, schema, prompt):
     return parse_json_object(output.read_text())
 
 
-def call_claude(executable, work, schema, prompt):
+def call_claude(executable, work, schema, prompt, model=CLAUDE_DEFAULT_MODEL):
     place = work / 'claude'
     place.mkdir(exist_ok=True)
-    command = [executable, '-p', '--tools', '', '--setting-sources', '', '--strict-mcp-config', '--mcp-config', '{"mcpServers":{}}',
+    command = [executable, '-p', '--model', model, '--tools', '', '--setting-sources', '', '--strict-mcp-config', '--mcp-config', '{"mcpServers":{}}',
                '--disable-slash-commands', '--no-session-persistence', '--output-format', 'json', '--json-schema', json.dumps(schema)]
     status, stdout, stderr = run_cli(command, stdin_text=prompt, cwd=place)
     checked_exit(status, stdout, stderr)
@@ -349,7 +362,21 @@ class Chain:
         executable = find_cli(name, self.environ, self.codex if name == 'codex' else None)
         if not executable:
             raise ModelFailure('missing')
-        return {'codex': call_codex, 'claude': call_claude, 'agy': call_agy}[name](executable, work, schema, prompt)
+        if name == 'claude':
+            return self.call_claude(executable, work, schema, prompt)
+        return {'codex': call_codex, 'agy': call_agy}[name](executable, work, schema, prompt)
+
+    def call_claude(self, executable, work, schema, prompt):
+        """The configured model, falling back once to the default alias when the CLI does not recognize it."""
+        model = read_config(self.root)['claude']['model']
+        try:
+            return call_claude(executable, work, schema, prompt, model)
+        except ModelFailure as exc:
+            if exc.reason != 'model' or model == CLAUDE_DEFAULT_MODEL:
+                raise
+        self.say(f'Claude Code does not recognize the model {model}. Trying {CLAUDE_DEFAULT_MODEL} instead.',
+                 provider='claude', state='model-fallback', model=model)
+        return call_claude(executable, work, schema, prompt, CLAUDE_DEFAULT_MODEL)
 
     def local_client(self):
         if self.client:

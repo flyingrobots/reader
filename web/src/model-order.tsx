@@ -15,13 +15,13 @@ import {StatusCard} from './theme/organisms/status-card';
 
 type Api=(path:string,payload?:unknown)=>Promise<any>;
 type Provider={name:string;label:string;installed:boolean};
-type Config={order:string[];local:{start:string;command?:string[];model:string}};
+type Config={order:string[];local:{start:string;command?:string[];model:string};claude?:{model:string}};
 type View={config:Config;can_edit_command:boolean;providers:Provider[]};
-type Draft={order:string[];start:string;command:string;model:string};
+type Draft={order:string[];start:string;command:string;model:string;claude:string};
 
 const START=[{value:'lmstudio',label:'Start LM Studio with lms'},{value:'command',label:'Run a command'},{value:'off',label:'Don’t start it'}];
 const mono='font-mono text-xs';
-const draftOf=(view:View):Draft=>({order:view.config.order,start:view.config.local.start,command:(view.config.local.command||[]).join(' '),model:view.config.local.model});
+const draftOf=(view:View):Draft=>({order:view.config.order,start:view.config.local.start,command:(view.config.local.command||[]).join(' '),model:view.config.local.model,claude:view.config.claude?.model||'opus'});
 
 export function ModelOrderCard({api}:{api:Api}){
   const [view,setView]=useState<View|null>(null),[draft,setDraft]=useState<Draft|null>(null),[busy,setBusy]=useState(false),[error,setError]=useState<string|null>(null);
@@ -31,7 +31,7 @@ export function ModelOrderCard({api}:{api:Api}){
   const save=async()=>{if(!draft||!view)return;setBusy(true);
     const local:Record<string,unknown>={start:draft.start,model:draft.model.trim()};
     if(view.can_edit_command)local.command=draft.command.trim().split(/\s+/).filter(Boolean);
-    try{accept(await api('/api/model-chain',{order:draft.order,local}));}catch(e){setError((e as Error).message);}finally{setBusy(false);}};
+    try{accept(await api('/api/model-chain',{order:draft.order,local,claude:{model:draft.claude.trim()}}));}catch(e){setError((e as Error).message);}finally{setBusy(false);}};
   return <form id="model-order-form" className="contents" onSubmit={e=>{e.preventDefault();save();}}>
     <StatusCard data-lm="model-order" title="Filing models" description="Filing asks each model in turn and moves on when one can’t answer. Codex is the librarian; any other model is told it is standing in. The first three send excerpts to their vendors."
       footer={<Button type="submit" size="sm" id="model-order-save" disabled={busy||!changed}>{busy?<Spinner data-icon="inline-start" aria-hidden/>:null}{busy?'Saving…':'Save filing models'}</Button>}>
@@ -47,6 +47,9 @@ export function ModelOrderCard({api}:{api:Api}){
               <SelectContent><SelectGroup>{START.map(option=><SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>)}</SelectGroup></SelectContent></Select></Field>
           <Field><FieldLabel htmlFor="model-order-model">Local model for filing</FieldLabel>
             <Input id="model-order-model" value={draft.model} spellCheck={false} autoComplete="off" placeholder="First text model listed" onChange={e=>setDraft({...draft,model:e.target.value})}/></Field>
+          <Field><FieldLabel htmlFor="model-order-claude-model">Claude Code model</FieldLabel>
+            <Input id="model-order-claude-model" className={mono} value={draft.claude} spellCheck={false} autoComplete="off" placeholder="opus" onChange={e=>setDraft({...draft,claude:e.target.value})}/>
+            <FieldDescription>Always passed as --model. If Claude Code doesn’t recognize it, filing retries once with opus.</FieldDescription></Field>
         </div>
         {draft.start==='command'?<Field><FieldLabel htmlFor="model-order-command">Start command</FieldLabel>
           <Input id="model-order-command" className={mono} value={draft.command} disabled={!view.can_edit_command} spellCheck={false} autoComplete="off" placeholder="/absolute/path/to/script argument" onChange={e=>setDraft({...draft,command:e.target.value})}/>

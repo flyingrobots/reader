@@ -135,7 +135,7 @@
     "src/magazine/magazine.tsx": "761c79056e9f0fa86eed5d43a18b433ed43b84363429cb9c279d6654b02998ce",
     "src/markdown-editor.ts": "84f6a2f85a3ba2e7b5c387ff6e86378ccf5753672eb0b558151e352653142a20",
     "src/math.ts": "f4ebd1d4e82c2cb58a1e1ff0cc119f39951e422bbb7057abaf51903d92334e21",
-    "src/model-order.tsx": "736ae335d3683faccc1fa8a1a0202aff1c2fe49d726257c4194f503a69c02697",
+    "src/model-order.tsx": "7f1066560410a2c2989edfbd6b1b10834e07d0d95c3ef287c8dce8dd39dd5b67",
     "src/notify.ts": "792ebb9eb5e43bae5327e5b3c40814e3122d776dd5ac2934f10784dac8cacb2f",
     "src/outline.tsx": "24bec26b51b1b5e487d6604983cb4eb75bc30a9f68b097717165c51cdfcfd5ac",
     "src/page-turn/page-turn.ts": "8ef6979ba4cc6f6a944994326d47abcbd97688ee549eda5b947ba157e3ae0a6e",
@@ -1003,8 +1003,8 @@
       "sha256": "a6ad7c68d39d3b319c9729c7852a6cf4a2c9d58a72b9baad699184ab602363de"
     },
     "reader-controls.js": {
-      "bytes": 1420569,
-      "sha256": "b62ad5b9c87bfd9526fef9016929fde34fa697f105dfa5e42ccf24eb83cff131"
+      "bytes": 1421046,
+      "sha256": "af5f11258e32bff9bf8dcf026cca1befbf0c63d80dd5428de216257afd3b03fb"
     },
     "reader-controls.js.LEGAL.txt": {
       "bytes": 6614,
