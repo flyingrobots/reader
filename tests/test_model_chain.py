@@ -139,7 +139,7 @@ def test_claude_is_always_named_a_model_so_the_operators_default_cannot_break_in
 
 def test_an_unrecognized_claude_model_retries_once_with_the_default_alias(setup):
     root, runtime, bin_dir, make = setup
-    write_config(root, {'order': ['claude'], 'claude': {'model': 'claude-fable-5-2'}})
+    write_config(root, {'order': ['claude'], 'claude': {'model': 'claude-retired-model-1'}})
     seen = bin_dir / 'models.txt'
     cli(bin_dir / 'claude', 'sys.stdin.read()\nmodel = args[args.index("--model") + 1]\n'
         'open(' + repr(str(seen)) + ', "a").write(model + "\\n")\n'
@@ -149,7 +149,7 @@ def test_an_unrecognized_claude_model_retries_once_with_the_default_alias(setup)
         '    sys.exit(1)\n'
         'print(' + repr(json.dumps({'status': 'SUCCESS', 'structured_output': ANSWER})) + ')\n')
     assert decide(make(), runtime) == (ANSWER, 'claude')
-    assert seen.read_text().split() == ['claude-fable-5-2', 'opus']
+    assert seen.read_text().split() == ['claude-retired-model-1', 'opus']
     assert ('claude', 'model-fallback') in states(runtime)
 
 

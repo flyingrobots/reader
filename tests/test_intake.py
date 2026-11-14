@@ -570,23 +570,23 @@ def test_oversized_provenance_is_partitioned_without_dropping_metadata(vault, mo
 
 
 def test_uncommitted_library_work_is_committed_on_its_own_before_the_batch(vault):
-    (vault / 'library/perspectives').mkdir()
-    essay = vault / 'library/perspectives/essay.md'
+    (vault / 'library/essays').mkdir()
+    essay = vault / 'library/essays/essay.md'
     essay.write_text('An essay another voice has not committed yet\n')
     (vault / 'writings').mkdir()
-    (vault / 'writings/agy.md').write_text('- [Essay](../library/perspectives/essay.md)\n')
+    (vault / 'writings/voice.md').write_text('- [Essay](../library/essays/essay.md)\n')
     (vault / 'annotations').mkdir()
     (vault / 'annotations/app-state.json').write_text('{}')
     (vault / 'inbox/report.md').write_text('An arrival')
     plan = plan_for(vault)
     result = intake.apply_plan(vault, vault / '.reader/inbox-runner', plan)
     swept = result['swept']
-    assert swept['paths'] == ['library/perspectives/essay.md', 'writings/agy.md']
+    assert swept['paths'] == ['library/essays/essay.md', 'writings/voice.md']
     assert intake.run_git(vault, 'show', '--format=', '--name-only', swept['commit']).split() == swept['paths']
     assert intake.run_git(vault, 'rev-parse', result['commit'] + '^') == swept['commit']
     batch = intake.run_git(vault, 'show', '--format=', '--name-only', result['commit']).split()
     # The swept essay is cataloged by sidecar with the batch; its own bytes are never rewritten.
-    assert 'catalog/metadata/perspectives/essay.md.md' in batch and 'library/perspectives/essay.md' not in batch
+    assert 'catalog/metadata/essays/essay.md.md' in batch and 'library/essays/essay.md' not in batch
     assert essay.read_text() == 'An essay another voice has not committed yet\n'
     assert intake.run_git(vault, 'status', '--porcelain', '--', 'annotations') == '?? annotations/'
     assert intake.run_git(vault, 'status', '--porcelain', '--', 'library', 'writings', 'catalog') == ''
@@ -800,5 +800,5 @@ def test_intake_context_reads_projects_and_curates_project_metadata(vault):
 
 def test_the_report_names_the_pending_work_intake_committed():
     text = intake.report({'filed': [], 'deferred': [], 'warnings': [], 'commits': ['b' * 40],
-                          'swept': [{'commit': 'a' * 40, 'paths': ['library/perspectives/essay.md']}]})
+                          'swept': [{'commit': 'a' * 40, 'paths': ['library/essays/essay.md']}]})
     assert '## Committed pending library work' in text and 'a' * 40 in text and 'essay\\.md' in text

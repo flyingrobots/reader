@@ -527,7 +527,7 @@ def git_vault(vault):
     for name in ('catalog', 'writings'):
         (vault / name).mkdir()
     (vault / 'catalog/index.md').write_text('# Catalog\n')
-    (vault / 'writings/agy.md').write_text('# Agy\n')
+    (vault / 'writings/voice.md').write_text('# Voice\n')
     (vault / '.gitignore').write_text('.reader/\n')
     for args in (['init', '-q'], ['add', '.'], ['commit', '-qm', 'initial']):
         subprocess.run(['git', *args], cwd=vault, env=env, check=True)
@@ -535,15 +535,15 @@ def git_vault(vault):
 
 def test_status_lists_work_intake_will_commit_and_outputs_that_stop_it(vault):
     git_vault(vault)
-    (vault / 'library/perspectives').mkdir()
-    (vault / 'library/perspectives/essay.md').write_text('# Essay\n')
-    (vault / 'writings/agy.md').write_text('# Agy\n- essay\n')
+    (vault / 'library/essays').mkdir()
+    (vault / 'library/essays/essay.md').write_text('# Essay\n')
+    (vault / 'writings/voice.md').write_text('# Voice\n- essay\n')
     (vault / 'annotations').mkdir()
     (vault / 'annotations/x.json').write_text('{}')
     deliver(vault, '77777777-7777-4777-8777-777777777777', 'spec.md', '# Spec\n')
     view = InboxView(vault, environ={'PATH': '/nonexistent'})
     status = view.status()
-    assert status['pending_work'] == {'paths': ['library/perspectives/essay.md', 'writings/agy.md'], 'count': 2}
+    assert status['pending_work'] == {'paths': ['library/essays/essay.md', 'writings/voice.md'], 'count': 2}
     assert status['output_conflicts'] == []
     (vault / 'catalog/index.md').write_text('# Hand edited\n')
     status = view.status()
@@ -555,18 +555,18 @@ def test_a_retained_batch_is_listed_and_new_arrivals_wait_for_it(vault):
     git_vault(vault)
     runtime = vault / '.reader/inbox-runner'
     runtime.mkdir(parents=True)
-    destination = 'library/bijou/grid-a0f4'
+    destination = 'library/reports/retained-a0f4'
     (vault / destination).mkdir(parents=True)
-    (vault / destination / 'index.md').write_text('# Grid\n')
-    (vault / 'library/bijou/index.md').write_text('- [Grid](grid-a0f4/index.md)\n')
+    (vault / destination / 'index.md').write_text('# Report\n')
+    (vault / 'library/reports/index.md').write_text('- [Report](retained-a0f4/index.md)\n')
     plan = {'schema_version': 1, 'batch_id': 'b1', 'applying': True,
-            'writes': {'library/bijou/index.md': {'before': None, 'after': 'a' * 64}},
+            'writes': {'library/reports/index.md': {'before': None, 'after': 'a' * 64}},
             'entries': [{'source': 'inbox/old', 'destination': destination, 'filed': True,
-                         'decision': {'disposition': 'file', 'title': 'The Grammar of the Grid'}}]}
+                         'decision': {'disposition': 'file', 'title': 'A synthetic retained report'}}]}
     (runtime / 'pending.json').write_text(json.dumps(plan))
     deliver(vault, '88888888-8888-4888-8888-888888888888', 'spec.md', '# Spec\n')
     status = InboxView(vault, environ={'PATH': '/nonexistent'}).status()
-    assert status['retained'] == [{'source': 'inbox/old', 'title': 'The Grammar of the Grid', 'destination': destination, 'state': 'moved'}]
+    assert status['retained'] == [{'source': 'inbox/old', 'title': 'A synthetic retained report', 'destination': destination, 'state': 'moved'}]
     assert eligibility(status)['88888888-8888-4888-8888-888888888888'][0] == 'waits'
     # An arrival still in the frozen queue is resumed by the retry, so it is eligible and listed.
     (runtime / 'queue.json').write_text(json.dumps({'entries': [{'source': 'inbox/88888888-8888-4888-8888-888888888888'}]}))
