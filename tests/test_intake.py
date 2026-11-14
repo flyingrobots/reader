@@ -569,13 +569,46 @@ def test_oversized_provenance_is_partitioned_without_dropping_metadata(vault, mo
     assert 'observations' in calls[-1]
 
 
-def test_uncataloged_existing_source_refuses_before_moving_arrivals(vault):
-    (vault / 'library/existing.md').write_text('An older source without catalog metadata')
+def test_uncommitted_library_work_is_committed_on_its_own_before_the_batch(vault):
+    (vault / 'library/perspectives').mkdir()
+    essay = vault / 'library/perspectives/essay.md'
+    essay.write_text('An essay another voice has not committed yet\n')
+    (vault / 'writings').mkdir()
+    (vault / 'writings/agy.md').write_text('- [Essay](../library/perspectives/essay.md)\n')
+    (vault / 'annotations').mkdir()
+    (vault / 'annotations/app-state.json').write_text('{}')
     (vault / 'inbox/report.md').write_text('An arrival')
     plan = plan_for(vault)
-    with pytest.raises(ValueError, match='Existing library requires catalog migration'):
-        intake.apply_plan(vault, vault / '.reader/inbox-runner', plan)
+    result = intake.apply_plan(vault, vault / '.reader/inbox-runner', plan)
+    swept = result['swept']
+    assert swept['paths'] == ['library/perspectives/essay.md', 'writings/agy.md']
+    assert intake.run_git(vault, 'show', '--format=', '--name-only', swept['commit']).split() == swept['paths']
+    assert intake.run_git(vault, 'rev-parse', result['commit'] + '^') == swept['commit']
+    batch = intake.run_git(vault, 'show', '--format=', '--name-only', result['commit']).split()
+    # The swept essay is cataloged by sidecar with the batch; its own bytes are never rewritten.
+    assert 'catalog/metadata/perspectives/essay.md.md' in batch and 'library/perspectives/essay.md' not in batch
+    assert essay.read_text() == 'An essay another voice has not committed yet\n'
+    assert intake.run_git(vault, 'status', '--porcelain', '--', 'annotations') == '?? annotations/'
+    assert intake.run_git(vault, 'status', '--porcelain', '--', 'library', 'writings', 'catalog') == ''
+
+
+def test_a_clean_library_sweeps_nothing(vault):
+    (vault / 'inbox/report.md').write_text('An arrival')
+    result = intake.apply_plan(vault, vault / '.reader/inbox-runner', plan_for(vault))
+    assert 'swept' not in result
+    assert intake.run_git(vault, 'rev-list', '--count', 'HEAD') == '2'
+
+
+def test_a_hook_refusing_the_sweep_leaves_the_arrival_and_the_work_in_place(vault):
+    (vault / 'library/draft.md').write_text('An uncommitted draft\n')
+    hook = vault / '.git/hooks/pre-commit'
+    hook.write_text('#!/bin/sh\necho draft refused >&2\nexit 1\n')
+    hook.chmod(0o755)
+    (vault / 'inbox/report.md').write_text('An arrival')
+    with pytest.raises(ValueError, match='draft refused'):
+        intake.apply_plan(vault, vault / '.reader/inbox-runner', plan_for(vault))
     assert (vault / 'inbox/report.md').read_text() == 'An arrival'
+    assert (vault / 'library/draft.md').read_text() == 'An uncommitted draft\n'
     assert not (vault / 'library/reports').exists()
 
 
@@ -763,3 +796,9 @@ def test_intake_context_reads_projects_and_curates_project_metadata(vault):
     assert second_meta['project'] == 'Luma'
     works = {w['title']: w['projects'] for w in Browse(vault).inventory({})}
     assert works == {'Taskalisk DAG report': ['Taskalisk'], 'Provenance project fallback': ['Luma']}
+
+
+def test_the_report_names_the_pending_work_intake_committed():
+    text = intake.report({'filed': [], 'deferred': [], 'warnings': [], 'commits': ['b' * 40],
+                          'swept': [{'commit': 'a' * 40, 'paths': ['library/perspectives/essay.md']}]})
+    assert '## Committed pending library work' in text and 'a' * 40 in text and 'essay\\.md' in text

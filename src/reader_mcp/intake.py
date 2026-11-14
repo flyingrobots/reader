@@ -409,6 +409,31 @@ def dirty_paths(root, paths):
     return result
 
 
+# Authored areas whose uncommitted work intake commits for its owner rather than refusing to file around it.
+SWEPT = ('library/', 'writings/')
+
+
+def commit_pending_work(root, runtime, plan, entries):
+    """Commit uncommitted work under SWEPT that is not this batch's, in its own commit before any arrival moves.
+
+    Hooks run normally; a refusal stops the batch with the arrivals still in the inbox. App state elsewhere
+    (annotations, engagement, bookmarks) is never swept, and nobody's bytes are changed."""
+    if plan.get('swept'):
+        return
+    owned = set(plan.get('writes', {}))
+    destinations = tuple(e['destination'] + '/' for e in entries)
+    paths = sorted(p for p in dirty_paths(root, list(SWEPT)) if p not in owned and not p.startswith(destinations))
+    if not paths:
+        return
+    message = 'Commit pending library work before Reader inbox batch ' + plan['batch_id']
+    listing = '\0'.join(paths) + '\0'
+    run_git(root, 'add', '-A', '--pathspec-from-file=-', '--pathspec-file-nul', input=listing)
+    run_git(root, 'commit', '--only', '-m', message, '-m', 'Uncommitted work found when filing began:\n' + '\n'.join(paths),
+            '--pathspec-from-file=-', '--pathspec-file-nul', input=listing)
+    plan['swept'] = {'commit': run_git(root, 'rev-parse', 'HEAD'), 'paths': paths}
+    save(runtime, plan)
+
+
 def validate_plan(root, plan):
     from uuid import UUID
     if str(UUID(plan['batch_id'])) != plan['batch_id'] or not isinstance(plan.get('entries'), list) or len(plan['entries']) > 100:
@@ -531,6 +556,7 @@ def apply_plan(root, runtime, plan):
         return plan
     if len({e['destination'] for e in entries}) != len(entries):
         raise ValueError('Distinct arrivals must have distinct filing destinations')
+    commit_pending_work(root, runtime, plan, entries)
     shared = ['library/index.md', 'catalog/', 'indexes/', 'README.md', 'link-repairs/'] + sorted({
         'library/' + e['decision']['collection'] + '/index.md' for e in entries})
     dirty = dirty_paths(root, shared)
@@ -540,6 +566,8 @@ def apply_plan(root, runtime, plan):
     journal = Journal(root, runtime, plan)
     if not plan.get('applying'):
         _, migration, _ = Catalog(root).prepare(migrate=True)
+        # A sidecar catalogs a document without touching it; rewriting someone's own frontmatter is still refused.
+        migration = [p for p in migration if not p.startswith('catalog/metadata/')]
         if migration:
             raise ValueError('Existing library requires catalog migration before intake: ' + ', '.join(sorted(migration))[:1500])
     # Check the whole batch before the first move or replayed write. A changed
@@ -672,7 +700,7 @@ def apply_plan(root, runtime, plan):
             raise ValueError('Browse navigation is stale')
     plan.setdefault('verified_at', stamp())
     report = 'activity/intake/' + plan['batch_id'] + '.json'
-    report_value = {k: plan[k] for k in ('schema_version', 'batch_id', 'created_at', 'verified_at', 'entries', 'warnings')}
+    report_value = {k: plan[k] for k in ('schema_version', 'batch_id', 'created_at', 'verified_at', 'entries', 'warnings', 'swept') if k in plan}
     journal.write(report, (json.dumps(report_value, ensure_ascii=False, indent=2) + '\n').encode())
     journal.verify()
     for entry in entries:
@@ -720,7 +748,7 @@ def locked_apply(root, runtime, plan):
     env = repo_env()
     args = [tool, 'claim', '--job', job, '--holder', 'reader-intake', '--ttl', '2400', '--note',
             'Deterministic Reader filing', '.git/', 'inbox/', 'library/', 'catalog/', 'indexes/',
-            'README.md', 'activity/intake/', 'link-repairs/']
+            'README.md', 'activity/intake/', 'link-repairs/', 'writings/']
     claimed = subprocess.run(args, cwd=root, env=env, capture_output=True, text=True, timeout=30)
     if claimed.returncode:
         raise ValueError('Intake lock admission failed: ' + (claimed.stderr or claimed.stdout)[-1500:])
@@ -767,6 +795,11 @@ def report(result):
     if result['deferred']:
         lines += ['', '## Deferred', '']
         lines += ['- ' + literal(item['source']) + ': ' + literal(item['reason']) for item in result['deferred']]
+    if result.get('swept'):
+        lines += ['', '## Committed pending library work', '']
+        for sweep in result['swept']:
+            lines += ['Commit `' + sweep['commit'] + '`, before filing:', '']
+            lines += ['- ' + literal(path) for path in sweep['paths']]
     if result['warnings']:
         lines += ['', '## Warnings', '']
         lines += ['- ' + literal(warning) for warning in result['warnings']]
@@ -865,7 +898,7 @@ def worker(root, codex, run_id):
         batch = {'batch_id': plan['batch_id'], 'commit': plan.get('commit'),
                  'filed': [e['destination'] for e in plan['entries'] if e.get('filed')],
                  'deferred': [{'source': e['source'], 'reason': e['decision']['reason']} for e in plan['entries'] if e['decision']['disposition'] == 'defer'],
-                 'warnings': plan.get('warnings', [])}
+                 'warnings': plan.get('warnings', []), 'swept': [plan['swept']] if plan.get('swept') else []}
         queue['results'].append(batch)
         queue['entries'] = queue['entries'][len(plan['entries']):]
         atomic(queue_path, queue, limit=MAX_PLAN)
@@ -875,7 +908,7 @@ def worker(root, codex, run_id):
     commits = [r['commit'] for r in queue['results'] if r['commit']]
     result = {'status': 'verified', 'run_id': run_id, 'batch_id': queue['queue_id'],
               'commit': commits[-1] if commits else None, 'commits': commits,
-              **{k: [item for r in queue['results'] for item in r[k]] for k in ('filed', 'deferred', 'warnings')}}
+              **{k: [item for r in queue['results'] for item in r.get(k, [])] for k in ('filed', 'deferred', 'warnings', 'swept')}}
     atomic(runtime / 'result.json', result, limit=MAX_PLAN)
     (runtime / 'last-message.md').write_text(report(result))
     queue_path.unlink()

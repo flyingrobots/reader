@@ -70,9 +70,16 @@ class Journal:
         if not (path in {'library/index.md', 'catalog/index.md', 'README.md',
                          'activity/intake/' + self.plan['batch_id'] + '.json'} | collections
                 or path.startswith(tuple(destinations + sidecars))
-                or path.startswith(('indexes/', 'link-repairs/'))):
+                or path.startswith(('indexes/', 'link-repairs/'))
+                or self.catalogs_existing(path)):
             raise ValueError('Write is outside this intake batch: ' + path)
         return local_path(self.root, path)
+
+    def catalogs_existing(self, path):
+        """A metadata sidecar for a document already in the library, such as work committed just before this batch."""
+        if not path.startswith('catalog/metadata/') or not path.endswith('.md'):
+            return False
+        return local_path(self.root, 'library/' + path.removeprefix('catalog/metadata/').removesuffix('.md')).is_file()
 
     def verify(self):
         for relative, record in self.writes.items():

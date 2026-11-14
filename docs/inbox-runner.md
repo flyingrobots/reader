@@ -175,6 +175,18 @@ state. It verifies payload hashes, receipt integrity, catalog SQL consistency an
 opted-in browse navigation, then commits exact owned files with normal Git hooks.
 Another participant's staged files and later arrivals are excluded.
 
+Uncommitted work under `library/` and `writings/` does not block filing. Before
+any arrival moves, intake commits every such change that is not the batch's own
+(for example, a voice's new essay and its index link) in a separate commit,
+*Commit pending library work before Reader inbox batch …*, whose body lists the
+paths. Hooks run normally: a refusal stops the batch with its arrivals still in
+the inbox and the work unchanged. Documents that the catalog can only describe
+by a sidecar under `catalog/metadata/` are then cataloged in the batch commit;
+intake never rewrites another document's own bytes or frontmatter, and still
+refuses a library that needs that. Other app state, such as `annotations/`,
+`engagement/` and `bookmarks/`, is never swept. The batch record and run report
+name the sweep commit and its paths under `swept`.
+
 Canonical batch evidence lives in `activity/intake/<batch-id>.json`. Mechanical
 filing does not mark independent reading, advance curation receipts or generate
 quota-driven reaction essays. Search indexing remains a separate explicit action.
