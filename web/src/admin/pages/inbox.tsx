@@ -16,12 +16,15 @@ import {EmptyState, LoadingState, Unavailable} from '@/theme/molecules/states';
 import {StatusCard} from '@/theme/organisms/status-card';
 import {ConfirmAction} from '@/theme/organisms/confirm-action';
 import {ActivityTranscript} from '../../activity/transcript';
-import type {Arrival, InboxRun, InboxStatus} from '../../backstage';
+import type {Arrival, InboxRun, InboxStatus, RetainedArrival} from '../../backstage';
 import type {ActivityModel} from '../../reader-controls';
 import {plural} from '../../plural';
 import {localOnly, needsReader} from '../../static-demo';
 
 const ACTIVE_RUN=['starting','running'];
+const RETAINED:Record<string,string>={moved:'moved, not yet committed',decided:'decided, not yet moved',deferred:'deferred',queued:'not yet classified'};
+const ELIGIBILITY:Record<string,{label:string;tone:Tone}>={
+  eligible:{label:'Eligible',tone:'ok'},waits:{label:'Waits',tone:'neutral'},blocked:{label:'Not eligible',tone:'error'},held:{label:'On hold',tone:'neutral'}};
 const RUN_STATES:Record<string,{label:string;tone:Tone}>={
   starting:{label:'Starting…',tone:'active'},running:{label:'Processing',tone:'active'},finished:{label:'Completed',tone:'ok'},
   empty:{label:'Nothing to file',tone:'neutral'},stopped:{label:'Stopped',tone:'neutral'},failed:{label:'Failed',tone:'error'},interrupted:{label:'Interrupted',tone:'error'}};
@@ -59,6 +62,27 @@ function Report({markdown,html,onOpen}:{markdown:string;html:(text:string)=>stri
   return <div id="inbox-report" className="inbox-report" data-reader-decoration="" onClick={click} dangerouslySetInnerHTML={{__html:html(markdown)}}/>;
 }
 
+/** What the next run does before and besides the arrivals: resume a retained batch, then commit others' pending library work. */
+function BeforeFiling({retained,work}:{retained:RetainedArrival[];work:{paths:string[];count:number}|null|undefined}){
+  const paths=work?.paths||[];
+  if(!retained.length&&!paths.length)return null;
+  return <StatusCard id="inbox-before-filing" title="Before new arrivals" description="What the next You got mail run does first.">
+    <div className="flex min-w-0 flex-col gap-4 text-sm">
+      {retained.length?<section data-retained="" className="flex flex-col gap-1">
+        <h3 className="font-medium">Retained batch · resumes on retry</h3>
+        <ul className="flex flex-col gap-1">{retained.map(entry=><li key={entry.source} data-retained-source={entry.source} className="[overflow-wrap:anywhere]">
+          {entry.title||entry.source}{entry.destination?<span className="text-muted-foreground"> → <code className="font-mono text-xs">{entry.destination}</code></span>:null}<span className="text-muted-foreground" data-retained-state={entry.state}> ({RETAINED[entry.state]})</span></li>)}</ul>
+      </section>:null}
+      {paths.length?<section data-pending-work={work?.count} className="flex flex-col gap-1">
+        <h3 className="font-medium">Uncommitted library work · committed first, in its own commit</h3>
+        <p className="text-muted-foreground">These changes under library/ and writings/ aren’t part of any arrival. Filing commits them as they are, with normal hooks, then catalogs them.</p>
+        <ul className="flex flex-col gap-0.5 font-mono text-xs">{paths.map(path=><li key={path} className="[overflow-wrap:anywhere]">{path}</li>)}</ul>
+        {work&&work.count>paths.length?<p className="text-muted-foreground">and {plural(work.count-paths.length,'more path')}</p>:null}
+      </section>:null}
+    </div>
+  </StatusCard>;
+}
+
 /** One arrival: a button-rendered shadcn Item. Its receipt status is the badge; files, size and arrival time follow. */
 function ArrivalItem({arrival,onOpen,onChoose}:{arrival:Arrival;onOpen:(path:string)=>void;onChoose:(arrival:string,choice:'hold'|'cloud'|null)=>void}){
   const meta=[arrival.author,arrival.project,arrival.report_date].filter(Boolean).join(' · ');
@@ -70,11 +94,13 @@ function ArrivalItem({arrival,onOpen,onChoose}:{arrival:Arrival;onOpen:(path:str
       <ItemDescription className="text-xs tabular-nums">{plural(arrival.files,'file')} · {size(arrival.bytes)}{arrival.received_at?<> · <RelativeTime value={arrival.received_at}/></>:null}</ItemDescription>
     </ItemContent>
     <ItemActions className="max-sm:basis-full">
+      {arrival.eligibility?<StatusBadge tone={ELIGIBILITY[arrival.eligibility.state].tone} data-eligibility={arrival.eligibility.state}>{ELIGIBILITY[arrival.eligibility.state].label}</StatusBadge>:null}
       {arrival.integrity?<StatusBadge tone={arrival.integrity==='intact'?'ok':'error'} data-integrity={arrival.integrity}>{arrival.integrity==='intact'?'Receipt intact':'Changed since delivery'}</StatusBadge>
         :<StatusBadge tone="neutral" data-integrity="none" title={arrival.receipt_error||undefined}>{arrival.receipt_error?'Unreadable receipt':'No receipt'}</StatusBadge>}
       <ChevronRightIcon aria-hidden className="size-4 text-muted-foreground max-sm:hidden"/>
     </ItemActions>
   </Item>
+  {arrival.eligibility?.reason&&!held?<p className="px-3 pb-1 text-xs text-muted-foreground [overflow-wrap:anywhere]" data-arrival-eligibility-reason="">{arrival.eligibility.reason}</p>:null}
   <div className="flex flex-wrap items-center gap-2 px-3 pb-2 text-xs text-muted-foreground" data-arrival-choice={arrival.choice||'none'} {...localOnly()}>
     <span data-arrival-level="" className="min-w-0 flex-1">{held?'On hold: filing skips this until you release it.':arrival.local_only?'Local model only. If it can’t answer, this keeps waiting.':'Cloud models may read this when it’s filed.'}</span>
     {held?<Button size="xs" variant="ghost" data-arrival-release="" onClick={()=>onChoose(arrival.id,null)}>Release</Button>:<>
@@ -119,6 +145,7 @@ export function InboxPage({status,error=null,starting,onMail,onStop,onChoose,onO
         {transcript}
       </div>:null}
     </StatusCard>
+    {status?<BeforeFiling retained={status.retained||[]} work={status.pending_work}/>:null}
     <StatusCard title="Waiting to be filed" description={status&&arrivals.length?'Opening one previews it; it is not marked read.':undefined}
       badge={status?<StatusBadge tone={arrivals.length?'active':'ok'} data-arrivals={arrivals.length}>{arrivals.length?plural(arrivals.length,'arrival'):'Empty'}</StatusBadge>:null}>
       {!status?(error?null:<LoadingState/>)

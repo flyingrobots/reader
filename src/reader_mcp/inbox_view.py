@@ -262,6 +262,61 @@ class InboxView:
             raise ValueError('Invalid inbox filing reservations')
         return sorted(value)
 
+    def claim_holders(self):
+        read = read_bounded(self.root / '.reader/upkeep-claims.json', MAX_CLAIMS)
+        value = json.loads(read[0]) if read and not read[1] else {}
+        return value if isinstance(value, dict) else {}
+
+    def retained(self):
+        """(retained batch rows, frozen sources, journal) from a failed or paused run; a retry resumes exactly these."""
+        from .intake_journal import MAX_PLAN
+        runtime, plan, sources = self.safe_runtime(), None, set()
+        read = read_bounded(runtime / 'pending.json', MAX_PLAN)
+        if read and not read[1]:
+            plan = json.loads(read[0])
+        rows = []
+        for entry in (plan or {}).get('entries', []):
+            decision = entry.get('decision') or {}
+            sources.add(entry.get('source'))
+            state = ('moved' if entry.get('filed') else 'decided') if decision.get('disposition') == 'file' \
+                else 'deferred' if decision.get('disposition') == 'defer' else 'queued'
+            rows.append({'source': entry.get('source'), 'title': decision.get('title') or None,
+                         'destination': entry.get('destination') if decision.get('disposition') == 'file' else None, 'state': state})
+        queue = read_bounded(runtime / 'queue.json', MAX_PLAN)
+        if queue and not queue[1]:
+            for entry in json.loads(queue[0]).get('entries', []):
+                if isinstance(entry, dict) and entry.get('source') not in sources:
+                    sources.add(entry.get('source'))
+                    rows.append({'source': entry.get('source'), 'title': None, 'destination': None, 'state': 'queued'})
+        return rows[:200], sources, plan
+
+    def working_tree(self, plan):
+        """(pending work, conflicting outputs), or None when the vault is not a Git checkout."""
+        from . import intake
+        if not (self.root / '.git').exists():
+            return None
+        paths = intake.pending_work(self.root, plan)
+        return {'paths': paths[:500], 'count': len(paths)}, intake.output_conflicts(self.root, plan)[:500]
+
+    def eligibility(self, arrival, status, holders, frozen):
+        """Whether the next You got mail run will file this arrival, and if not, why. Mirrors the runner's own checks."""
+        def verdict(state, reason=None):
+            return {'state': state, 'reason': reason}
+        name = arrival['path']
+        if arrival['choice'] == 'hold':
+            return verdict('held', 'On hold: filing skips this until you release it.')
+        if arrival['receipt_error']:
+            return verdict('blocked', 'Its receipt can’t be used: ' + arrival['receipt_error'] + '. Redeliver it.')
+        if arrival['integrity'] == 'changed':
+            return verdict('blocked', 'Its files changed since delivery, so they no longer match the receipt. Redeliver it.')
+        if name in holders:
+            return verdict('waits', 'Assigned to ' + str(holders[name])[:200] + ' through an Upkeep claim; filing waits until it is released.')
+        if frozen and name not in frozen:
+            return verdict('waits', 'A retained batch from an earlier run files first; this one is filed by the run after it.')
+        if arrival['local_only'] and 'local' not in status['model_providers']:
+            return verdict('waits', 'Only the local model may read it, and the local model is not in the filing order.')
+        return verdict('eligible')
+
     def state(self):
         """Runner state as the supervisor wrote it, plus the plugin's liveness check (never written back)."""
         read = read_bounded(self.safe_runtime() / 'state.json', MAX_STATE)
@@ -520,6 +575,21 @@ class InboxView:
         except OSError as exc:
             result['chat_turn'] = False
             result['errors'].append(f'Cannot check the voice chat lock: {exc}')
+        result['retained'], frozen, plan = [], set(), None
+        result['pending_work'], result['output_conflicts'] = None, []
+        try:
+            result['retained'], frozen, plan = self.retained()
+            tree = self.working_tree(plan)
+            if tree:
+                result['pending_work'], result['output_conflicts'] = tree
+        except (ValueError, OSError, KeyError, TypeError, AttributeError) as exc:
+            result['errors'].append(f'Cannot check what filing would commit: {exc}'[:2000])
+        try:
+            holders = self.claim_holders()
+        except (ValueError, OSError):
+            holders = {}
+        for arrival in result['arrivals']:
+            arrival['eligibility'] = self.eligibility(arrival, result, holders, frozen)
         result['blocked'] = self.blocked(result)
         return result
 
@@ -540,6 +610,10 @@ class InboxView:
         if status.get('chat_turn'):
             # The supervisor refuses too (inbox_runner.chat_turn_running); say so before spawning it.
             return {'reason': 'chat', 'message': 'A voice chat turn is running in this vault. You got mail can start when it finishes.'}
+        if status.get('output_conflicts'):
+            return {'reason': 'outputs', 'message': 'Filing rewrites generated catalog and navigation files, and these have '
+                    'uncommitted changes it did not make: ' + ', '.join(status['output_conflicts'][:20])
+                    + '. Commit or discard them, then file.'}
         if not status['arrivals'] and not status.get('pending'):
             return {'reason': 'empty', 'message': 'The inbox is empty.'}
         if not status.get('model_providers'):

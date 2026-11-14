@@ -411,6 +411,21 @@ def dirty_paths(root, paths):
 
 # Authored areas whose uncommitted work intake commits for its owner rather than refusing to file around it.
 SWEPT = ('library/', 'writings/')
+# Generated outputs intake rewrites by hash; someone else's uncommitted change to one stops filing.
+GENERATED = ('catalog/', 'indexes/', 'README.md', 'link-repairs/')
+
+
+def pending_work(root, plan=None):
+    """Uncommitted paths under SWEPT that are not a batch's own output: what the next filing commits first."""
+    plan = plan or {}
+    owned = set(plan.get('writes', {}))
+    destinations = tuple(e['destination'] + '/' for e in plan.get('entries', []) if e.get('destination'))
+    return sorted(p for p in dirty_paths(root, list(SWEPT)) if p not in owned and not p.startswith(destinations))
+
+
+def output_conflicts(root, plan=None):
+    """Generated outputs with uncommitted changes a batch did not make. Filing refuses these."""
+    return sorted(dirty_paths(root, list(GENERATED)) - set((plan or {}).get('writes', {})))
 
 
 def commit_pending_work(root, runtime, plan, entries):
@@ -420,9 +435,7 @@ def commit_pending_work(root, runtime, plan, entries):
     (annotations, engagement, bookmarks) is never swept, and nobody's bytes are changed."""
     if plan.get('swept'):
         return
-    owned = set(plan.get('writes', {}))
-    destinations = tuple(e['destination'] + '/' for e in entries)
-    paths = sorted(p for p in dirty_paths(root, list(SWEPT)) if p not in owned and not p.startswith(destinations))
+    paths = pending_work(root, {'writes': plan.get('writes', {}), 'entries': entries})
     if not paths:
         return
     message = 'Commit pending library work before Reader inbox batch ' + plan['batch_id']
@@ -557,7 +570,7 @@ def apply_plan(root, runtime, plan):
     if len({e['destination'] for e in entries}) != len(entries):
         raise ValueError('Distinct arrivals must have distinct filing destinations')
     commit_pending_work(root, runtime, plan, entries)
-    shared = ['library/index.md', 'catalog/', 'indexes/', 'README.md', 'link-repairs/'] + sorted({
+    shared = ['library/index.md', *GENERATED] + sorted({
         'library/' + e['decision']['collection'] + '/index.md' for e in entries})
     dirty = dirty_paths(root, shared)
     known = set(plan.get('writes', {}))

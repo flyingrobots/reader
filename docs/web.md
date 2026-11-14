@@ -1371,7 +1371,19 @@ and empty folders. Each row shows:
 - receipt integrity: **Receipt intact** when every recorded file matches its size and
   SHA-256, **Changed since delivery** otherwise, or **No receipt** / **Unreadable receipt**
   (over 256 KiB, not JSON, or not a Reader receipt);
-- the file count, total size and when it arrived (`received_at`, else the newest file time).
+- the file count, total size and when it arrived (`received_at`, else the newest file time);
+- eligibility for the next run, `eligibility: {state, reason}`: `eligible`, `waits`
+  (an Upkeep claim, a retained batch that files first, or local-only with no local
+  model in the order), `blocked` (unreadable receipt, or files changed since
+  delivery) or `held`. These mirror the runner's own admission checks.
+
+`GET /api/inbox` also returns `retained` (a failed or stopped run's batch, which a
+retry resumes, with each entry's source, title, destination and `state`: `moved`,
+`decided`, `deferred`, or `queued` when the frozen queue has not classified it yet), `pending_work` (`{paths, count}`, the uncommitted `library/` and `writings/`
+changes the next run commits first in their own commit; `null` outside Git) and
+`output_conflicts` (generated `catalog/`, `indexes/`, `README.md` or `link-repairs/`
+paths with changes no batch made). Conflicts block You got mail with reason
+`outputs`. The page shows the first two on a *Before new arrivals* card.
 
 Opening a row previews its document (the receipt's `document`, else the first
 `.md`, `.txt` or `.pdf`) at `#read=inbox/…`. A preview is plain reading: the kicker

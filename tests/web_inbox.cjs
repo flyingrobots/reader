@@ -49,6 +49,7 @@ const {chromium}=require(process.env.READER_PLAYWRIGHT||'playwright-core');
   await row.locator('[data-arrival-release]').click();
   await row.locator('[data-arrival-choice=none]').waitFor();
   assert.match(await page.locator('#inbox-mail-note').textContent(),/File 3 arrivals/);
+  assert.deepEqual(await page.locator('#inbox [data-eligibility]').evaluateAll(b=>b.map(e=>e.dataset.eligibility)),['eligible','eligible','eligible']);
   const levels=await page.evaluate(()=>fetch('/api/inbox').then(r=>r.json()).then(s=>s.arrivals.map(a=>a.local_only)));
   assert.deepEqual(levels,[false,false,false],'this fixture treats unmarked arrivals as normal');
   // You got mail: loading toast, a live activity transcript from scripted Codex events, success toast, report.
@@ -208,7 +209,19 @@ const {chromium}=require(process.env.READER_PLAYWRIGHT||'playwright-core');
   writeFileSync(join(root,'.reader/upkeep-claims.json'),JSON.stringify({'inbox/33333333-3333-4333-8333-333333333333':'agent-test'}));
   await page.reload();await page.locator('#inbox-blocked[data-reason=claims]').waitFor();
   assert.ok(await page.locator('#inbox-mail').isDisabled());assert.match(await page.locator('#inbox-blocked').textContent(),/Filing already assigned/);
+  const claimed=page.locator('[data-arrival-row="33333333-3333-4333-8333-333333333333"]');
+  assert.equal(await claimed.locator('[data-eligibility]').getAttribute('data-eligibility'),'waits');
+  assert.match(await claimed.locator('[data-arrival-eligibility-reason]').textContent(),/agent-test/);
   rmSync(join(root,'.reader/upkeep-claims.json'));
+  // A retained batch is listed before new arrivals, and the arrivals outside it wait for it.
+  const pending=join(root,'.reader/inbox-runner/pending.json'),kept=existsSync(pending)?readFileSync(pending):null;
+  writeFileSync(pending,JSON.stringify({schema_version:1,batch_id:'b1',entries:[{source:'inbox/retained-one',destination:'library/reports/retained-one',filed:true,decision:{disposition:'file',title:'A retained synthetic report'}}]}));
+  await page.reload();const beforeCard=page.locator('#inbox-before-filing');await beforeCard.waitFor();
+  assert.match(await beforeCard.locator('[data-retained-source="inbox/retained-one"]').textContent(),/A retained synthetic report.*moved, not yet committed/);
+  // This arrival is still in the failed run's frozen queue, so the retry files it.
+  assert.equal(await claimed.locator('[data-eligibility]').getAttribute('data-eligibility'),'eligible');
+  assert.equal(await beforeCard.locator('[data-retained-source="inbox/33333333-3333-4333-8333-333333333333"] [data-retained-state]').getAttribute('data-retained-state'),'queued');
+  if(kept)writeFileSync(pending,kept);else rmSync(pending);
   // The mechanical worker owns writes; no model host-access setting is offered.
   await page.locator('[data-admin-nav=settings]').click();await page.locator('#preferences-form').waitFor();
   assert.equal(await page.locator('#inbox-sandbox').count(),0);

@@ -492,3 +492,86 @@ def test_a_second_start_while_a_run_is_active_is_a_409_conflict(vault):
         wait_for(library.inbox, ('stopped', 'failed'))
     finally:
         server.shutdown(); server.server_close()
+
+
+def eligibility(status):
+    return {a['id']: (a['eligibility']['state'], a['eligibility']['reason']) for a in status['arrivals']}
+
+
+def test_each_arrival_says_whether_the_next_run_will_file_it_and_why(vault, monkeypatch):
+    monkeypatch.setenv('READER_UNMARKED_PRIVACY', 'normal')
+    ok, changed, claimed, held, private = ('%d' % n * 8 + '-1111-4111-8111-111111111111' for n in range(1, 6))
+    for name in (ok, changed, claimed, held):
+        deliver(vault, name, 'spec.md', '# Spec\n')
+    (vault / 'inbox' / changed / 'spec.md').write_text('# Edited after delivery\n')
+    deliver(vault, private, 'spec.md', '# Spec\n', privacy='no-cloud')
+    (vault / 'inbox/notes-broken').mkdir()
+    (vault / 'inbox/notes-broken/receipt.json').write_text('{not json')
+    (vault / 'inbox/notes-broken/notes.md').write_text('# Notes\n')
+    (vault / '.reader').mkdir()
+    (vault / '.reader/upkeep-claims.json').write_text(json.dumps({'inbox/' + claimed: 'agent-1'}))
+    (vault / '.reader/model-chain.json').write_text(json.dumps({'order': ['codex']}))
+    from reader_mcp import arrival_choices
+    arrival_choices.choose(vault, held, 'hold')
+    seen = eligibility(InboxView(vault, environ={'PATH': '/nonexistent'}).status())
+    assert seen[ok] == ('eligible', None)
+    assert seen[changed][0] == 'blocked' and 'changed since delivery' in seen[changed][1]
+    assert seen['notes-broken'][0] == 'blocked' and 'not valid JSON' in seen['notes-broken'][1]
+    assert seen[claimed][0] == 'waits' and 'agent-1' in seen[claimed][1]
+    assert seen[held][0] == 'held'
+    assert seen[private][0] == 'waits' and 'local model' in seen[private][1]
+
+
+def git_vault(vault):
+    env = {**os.environ, 'GIT_AUTHOR_NAME': 'F', 'GIT_AUTHOR_EMAIL': 'f@example.invalid', 'GIT_COMMITTER_NAME': 'F', 'GIT_COMMITTER_EMAIL': 'f@example.invalid'}
+    for name in ('catalog', 'writings'):
+        (vault / name).mkdir()
+    (vault / 'catalog/index.md').write_text('# Catalog\n')
+    (vault / 'writings/agy.md').write_text('# Agy\n')
+    (vault / '.gitignore').write_text('.reader/\n')
+    for args in (['init', '-q'], ['add', '.'], ['commit', '-qm', 'initial']):
+        subprocess.run(['git', *args], cwd=vault, env=env, check=True)
+
+
+def test_status_lists_work_intake_will_commit_and_outputs_that_stop_it(vault):
+    git_vault(vault)
+    (vault / 'library/perspectives').mkdir()
+    (vault / 'library/perspectives/essay.md').write_text('# Essay\n')
+    (vault / 'writings/agy.md').write_text('# Agy\n- essay\n')
+    (vault / 'annotations').mkdir()
+    (vault / 'annotations/x.json').write_text('{}')
+    deliver(vault, '77777777-7777-4777-8777-777777777777', 'spec.md', '# Spec\n')
+    view = InboxView(vault, environ={'PATH': '/nonexistent'})
+    status = view.status()
+    assert status['pending_work'] == {'paths': ['library/perspectives/essay.md', 'writings/agy.md'], 'count': 2}
+    assert status['output_conflicts'] == []
+    (vault / 'catalog/index.md').write_text('# Hand edited\n')
+    status = view.status()
+    assert status['output_conflicts'] == ['catalog/index.md']
+    assert status['blocked']['reason'] == 'outputs' and 'catalog/index.md' in status['blocked']['message']
+
+
+def test_a_retained_batch_is_listed_and_new_arrivals_wait_for_it(vault):
+    git_vault(vault)
+    runtime = vault / '.reader/inbox-runner'
+    runtime.mkdir(parents=True)
+    destination = 'library/bijou/grid-a0f4'
+    (vault / destination).mkdir(parents=True)
+    (vault / destination / 'index.md').write_text('# Grid\n')
+    (vault / 'library/bijou/index.md').write_text('- [Grid](grid-a0f4/index.md)\n')
+    plan = {'schema_version': 1, 'batch_id': 'b1', 'applying': True,
+            'writes': {'library/bijou/index.md': {'before': None, 'after': 'a' * 64}},
+            'entries': [{'source': 'inbox/old', 'destination': destination, 'filed': True,
+                         'decision': {'disposition': 'file', 'title': 'The Grammar of the Grid'}}]}
+    (runtime / 'pending.json').write_text(json.dumps(plan))
+    deliver(vault, '88888888-8888-4888-8888-888888888888', 'spec.md', '# Spec\n')
+    status = InboxView(vault, environ={'PATH': '/nonexistent'}).status()
+    assert status['retained'] == [{'source': 'inbox/old', 'title': 'The Grammar of the Grid', 'destination': destination, 'state': 'moved'}]
+    assert eligibility(status)['88888888-8888-4888-8888-888888888888'][0] == 'waits'
+    # An arrival still in the frozen queue is resumed by the retry, so it is eligible and listed.
+    (runtime / 'queue.json').write_text(json.dumps({'entries': [{'source': 'inbox/88888888-8888-4888-8888-888888888888'}]}))
+    status = InboxView(vault, environ={'PATH': '/nonexistent'}).status()
+    assert eligibility(status)['88888888-8888-4888-8888-888888888888'][0] == 'eligible'
+    assert status['retained'][1] == {'source': 'inbox/88888888-8888-4888-8888-888888888888', 'title': None, 'destination': None, 'state': 'queued'}
+    # The batch's own partial output is not someone else's pending work.
+    assert status['pending_work'] == {'paths': [], 'count': 0}

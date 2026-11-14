@@ -19,7 +19,8 @@ Previewing an arrival is reading, not filing. It writes no receipt, bookmark or 
 flowchart TB
   page[AdminPage template: visually hidden h1 and lede]
   page --> run[StatusCard “Librarian run”<br/>badge: run state · body: Notice / transcript / report · footer: You got mail or Stop]
-  page --> list[StatusCard “Waiting to be filed”<br/>badge: count · body: arrival Items or EmptyState]
+  page --> before[StatusCard “Before new arrivals”, only when needed<br/>body: retained batch · uncommitted library work]
+  page --> list[StatusCard “Waiting to be filed”<br/>badge: count · body: arrival Items with eligibility, or EmptyState]
 ```
 
 The run card comes first because it holds the page's one primary action. On a phone both cards span the full width. The arrival list keeps to one column at every width, so titles are never cut off.
