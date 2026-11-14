@@ -6,6 +6,7 @@ vault on another machine over SSH instead.
 """
 
 import importlib.util
+import os
 from pathlib import Path
 import runpy
 import subprocess
@@ -20,10 +21,10 @@ def load_remote():
 
 
 def local():
-    code, root = runpy.run_path(str(Path(__file__).resolve().parents[3] / 'scripts/reader_paths.py'))['paths']()
-    python = code / ".venv" / "bin" / "python"
+    code, root, python, env = runpy.run_path(str(Path(__file__).resolve().parents[3] / 'scripts/reader_paths.py'))['runtime']()
     if not python.is_file():
         sys.exit("Reader environment missing: run uv sync --locked in the Reader checkout.")
+    os.environ["PYTHONPATH"] = env["PYTHONPATH"]
     return root, [str(python), "-m", "reader_mcp.cli", "--root", str(root)]
 
 

@@ -80,11 +80,12 @@ def parse_args(argv=None):
 
 def main(argv=None):
     args=parse_args(argv)
-    code,root=runpy.run_path(str(Path(__file__).resolve().parents[3] / 'scripts/reader_paths.py'))['paths']()
+    code,root,python,env=runpy.run_path(str(Path(__file__).resolve().parents[3] / 'scripts/reader_paths.py'))['runtime']()
+    reader=[str(python),'-m','reader_mcp.cli']
     owners=claims(root,args.claim,args.release,args.paths,role=args.role)
     inbox=arrivals(root)
     for item in inbox:item['claimed_by']=owners.get(item['path'])
-    result=subprocess.run([str(code/'.venv/bin/reader'),'--root',str(root),'annotate','-'],input=json.dumps(dict(operation='attention',participant=args.participant)),capture_output=True,text=True,timeout=30)
+    result=subprocess.run([*reader,'--root',str(root),'annotate','-'],input=json.dumps(dict(operation='attention',participant=args.participant)),capture_output=True,text=True,timeout=30,env=env)
     if result.returncode:raise RuntimeError(result.stderr or result.stdout)
     state=root/'.reader/inbox-runner/state.json'
     runner=json.loads(state.read_text()) if state.exists() else None
@@ -93,14 +94,14 @@ def main(argv=None):
     intake_allowed=args.role=='librarian'
     curation=None
     if intake_allowed:
-        curation_command=[str(code/'.venv/bin/reader'),'--root',str(root),
+        curation_command=[*reader,'--root',str(root),
                           'curation','list','--participant',args.participant,
                           '--offset',str(args.curation_offset),'--limit',str(args.curation_limit)]
         if args.curation_snapshot:
             curation_command.extend(['--expected-snapshot',args.curation_snapshot])
         try:
             queued=subprocess.run(curation_command,
-                                  capture_output=True,text=True,timeout=30)
+                                  capture_output=True,text=True,timeout=30,env=env)
             curation=(json.loads(queued.stdout) if not queued.returncode else
                       dict(status='unavailable',error=(queued.stderr or queued.stdout)[-4000:]))
         except subprocess.TimeoutExpired:

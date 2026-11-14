@@ -71,7 +71,7 @@ def test_cli_rejects_observer_mutation_before_resolving_the_vault(monkeypatch, o
 def test_ready_inbox_is_discovered_without_promoting_observer_to_intake(tmp_path, monkeypatch, capsys, role, workers):
     code=tmp_path/'code';vault=tmp_path/'vault';(vault/'inbox/a').mkdir(parents=True)
     (vault/'inbox/a/document.md').write_text('preserved arrival')
-    monkeypatch.setattr(upkeep.runpy,'run_path',lambda _: {'paths':lambda: (code,vault)})
+    monkeypatch.setattr(upkeep.runpy,'run_path',lambda _: {'runtime':lambda:(code,vault,code/'.venv/bin/python',{})})
     def attention(*args, **kwargs):
         if 'curation' in args[0]:
             assert role=='librarian'
@@ -95,7 +95,7 @@ def test_ready_inbox_is_discovered_without_promoting_observer_to_intake(tmp_path
 
 def test_unavailable_curation_is_explicit_and_does_not_hide_inbox(tmp_path, monkeypatch, capsys):
     code=tmp_path/'code';vault=tmp_path/'vault';(vault/'inbox/a').mkdir(parents=True)
-    monkeypatch.setattr(upkeep.runpy,'run_path',lambda _: {'paths':lambda:(code,vault)})
+    monkeypatch.setattr(upkeep.runpy,'run_path',lambda _: {'runtime':lambda:(code,vault,code/'.venv/bin/python',{})})
     def response(args,**kwargs):
         if 'curation' in args:return SimpleNamespace(returncode=1,stderr='Missing versioned frontmatter; finish filing',stdout='')
         return SimpleNamespace(returncode=0,stderr='',stdout='{"pending":[],"total":0,"next_offset":null}')
@@ -109,7 +109,7 @@ def test_unavailable_curation_is_explicit_and_does_not_hide_inbox(tmp_path, monk
 
 def test_curation_timeout_preserves_discovery_report(tmp_path,monkeypatch,capsys):
     code=tmp_path/'code';vault=tmp_path/'vault';(vault/'inbox/a').mkdir(parents=True)
-    monkeypatch.setattr(upkeep.runpy,'run_path',lambda _: {'paths':lambda:(code,vault)})
+    monkeypatch.setattr(upkeep.runpy,'run_path',lambda _: {'runtime':lambda:(code,vault,code/'.venv/bin/python',{})})
     def response(args,**kwargs):
         if 'curation' in args:raise upkeep.subprocess.TimeoutExpired(args,30)
         return SimpleNamespace(returncode=0,stderr='',stdout='{"pending":[],"total":0,"next_offset":null}')
@@ -125,7 +125,7 @@ def run_with_bundles(tmp_path, monkeypatch, capsys, count, role='librarian', cla
     for n in range(count):(vault/f'inbox/b{n:02}').mkdir()
     if claimed:upkeep.claims(vault,claim=str(uuid4()),paths=[f'inbox/b{n:02}' for n in range(claimed)],role='librarian')
     if runner:(vault/'.reader/inbox-runner').mkdir(parents=True,exist_ok=True);(vault/'.reader/inbox-runner/state.json').write_text(json.dumps({'status':runner}))
-    monkeypatch.setattr(upkeep.runpy,'run_path',lambda _: {'paths':lambda:(code,vault)})
+    monkeypatch.setattr(upkeep.runpy,'run_path',lambda _: {'runtime':lambda:(code,vault,code/'.venv/bin/python',{})})
     monkeypatch.setattr(upkeep.subprocess,'run',lambda *a,**k: SimpleNamespace(returncode=0,stderr='',stdout='{"pending":[],"total":0,"next_offset":null}'))
     upkeep.main(['--participant','Curator']+(['--role',role] if role=='librarian' else []))
     return json.loads(capsys.readouterr().out)

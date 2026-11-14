@@ -12,11 +12,10 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('action', choices=['start', 'status', 'stop'])
     args = parser.parse_args()
-    code, vault = runpy.run_path(str(Path(__file__).resolve().parents[3] / 'scripts/reader_paths.py'))['paths']()
-    python = code / '.venv/bin/python'
+    # The installed service's live checkout when there is one, never whatever branch this skill's checkout is on.
+    code, vault, python, env = runpy.run_path(str(Path(__file__).resolve().parents[3] / 'scripts/reader_paths.py'))['runtime']()
     if not python.is_file():
         sys.exit('Reader environment missing; use the existing code-checkout installation procedure.')
-    env = dict(os.environ, PYTHONPATH=str(code / 'src'))
     raise SystemExit(subprocess.call([str(python), '-m', 'reader_mcp.cli', '--root', str(vault), 'inbox', args.action], env=env))
 
 

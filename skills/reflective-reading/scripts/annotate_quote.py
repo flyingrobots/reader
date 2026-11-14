@@ -34,9 +34,9 @@ def main():
     parser.add_argument('--owner',default='Reader librarian')
     parser.add_argument('--expected-sha256',required=True)
     parser.add_argument('--request-id',required=True)
-    args=parser.parse_args();code,root=runpy.run_path(str(Path(__file__).resolve().parents[3] / 'scripts/reader_paths.py'))['paths']()
+    args=parser.parse_args();code,root,python,env=runpy.run_path(str(Path(__file__).resolve().parents[3] / 'scripts/reader_paths.py'))['runtime']()
     request=prepare(root,args.path,args.quote_file.read_text(),args.comment_file.read_text(),args.kind,args.owner,args.expected_sha256,args.request_id)
-    result=subprocess.run([str(code/'.venv/bin/reader'),'--root',str(root),'annotate','-'],input=json.dumps(request),text=True,timeout=30)
+    result=subprocess.run([str(python),'-m','reader_mcp.cli','--root',str(root),'annotate','-'],input=json.dumps(request),text=True,timeout=30,env=env)
     raise SystemExit(result.returncode)
 
 if __name__=='__main__':main()
