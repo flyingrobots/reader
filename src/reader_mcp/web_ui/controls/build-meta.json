@@ -7,7 +7,7 @@
   },
   "sources": {
     "../docs/topics/artwork.md": "6fbe4ca291650e79053b7a1224a38c32f2f4e38f44d2e254a31b032dfdb7f8f4",
-    "../docs/topics/inbox.md": "d44cabef3f642414277d2f30e87ac9285dacf95ee7c0a1f238bce3869399352e",
+    "../docs/topics/inbox.md": "7dd3631a03173c10fcdec124cce40877f246dfe08c122b85cd2b523401ca075f",
     "../docs/topics/indexes.md": "a1412370697e5f1671058ff2929e7a6df0519826cc264f9bd755d4d66c72e358",
     "../docs/topics/jobs.md": "cd44c7167fdef58836399ca0d6a3f5d585de6df80fe89ec2c0c87fed7ab0cfd8",
     "../docs/topics/library.md": "81ed9fe8db0587b087376b3ed78dd4c45ca9e62cf3f204d2d56dcc594db15b59",
@@ -35,7 +35,7 @@
     "src/admin/overview.tsx": "9d374ccf81b59c979459f03a0a6eefe54475d7395ca1933bb3c474922bcf435d",
     "src/admin/pages/delivery-tokens.tsx": "bdf4df54f8f6c9bec70b2912b4f9b10c140929454ccdae716d4e30542bd58b43",
     "src/admin/pages/gallery-model.ts": "9682e5a75aeaa7fb3400a5f6489b28775560f10136580488e246c9ecddd5fbd7",
-    "src/admin/pages/inbox.tsx": "a15e5713b1c49352ee3025ab35e015e6515c282c420b6ca997aedbedff6c9bd4",
+    "src/admin/pages/inbox.tsx": "6e4aacfb5d15d109b9a9decf0764ed8b2588518cad4498b3308a634a1f432458",
     "src/admin/pages/index-charts.tsx": "25190b694c17d07200e8f54e2e6d10a844df21e6f01e4b030c64f20197cd1623",
     "src/admin/pages/indexes.tsx": "97731ffa6d463f30306ecdae68dd49539482158a0c305d36db96b64eaa02e56c",
     "src/admin/pages/jobs.tsx": "4f149ab3445d1eb9770059937a34458750f792508be888b24cadd8ba86c0ce17",
@@ -55,7 +55,7 @@
     "src/art-studio.tsx": "b907a89419ee96cb50620815be4aa207d8fa688060ddd39b3270d9a3326dd302",
     "src/art/art.ts": "7c09984df78f3954fd8a7ebb6f096efdde5d732a9c5cfe971a912bf7d9111ca3",
     "src/article-width.tsx": "d74b40558ec6ec65e1810757e138a293135005dbbf993c74d19c54d8c8a97e66",
-    "src/backstage.tsx": "cb4c4c9cc1951c7ad6c5f04fad050d176b87e0357f81fa62924f243444435488",
+    "src/backstage.tsx": "afdaf54e3d685e47d0714127f066c2d597d9f2730afb05a710ab1aea1af72850",
     "src/callouts.tsx": "fccf6b854b5c95a48ef40d206edfe927718f2ad9e8b59f3b5005548819172584",
     "src/changes-panel.tsx": "3861ff1d7c6e3dc8a3cfab1cc0eea501399b518d0f33a3b4b0bb01d44ed4b613",
     "src/chat/chat-panel.tsx": "8b1aae81e57fc8512023b11ab544de0ad4c56f52b447bfbeb27a40812c520e4c",
@@ -1003,8 +1003,8 @@
       "sha256": "a6ad7c68d39d3b319c9729c7852a6cf4a2c9d58a72b9baad699184ab602363de"
     },
     "reader-controls.js": {
-      "bytes": 1424804,
-      "sha256": "f7a047862b1587a3bed9257de78324a8b51ec757035edaa88f697072114afb48"
+      "bytes": 1424849,
+      "sha256": "f6e2788f7939f37062289353335d1cd10bf8c2653a8e2699258dfe3f376199d9"
     },
     "reader-controls.js.LEGAL.txt": {
       "bytes": 6614,

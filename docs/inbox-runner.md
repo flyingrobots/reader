@@ -175,8 +175,9 @@ state. It verifies payload hashes, receipt integrity, catalog SQL consistency an
 opted-in browse navigation, then commits exact owned files with normal Git hooks.
 Another participant's staged files and later arrivals are excluded.
 
-Uncommitted work under `library/` and `writings/` does not block filing. Before
-any arrival moves, intake commits every such change that is not the batch's own
+Uncommitted work under `library/` and `writings/`, or in the generated `catalog/`,
+`indexes/`, `README.md` and `link-repairs/` that filing rewrites, does not block
+filing. Before any arrival moves, intake commits every such change that is not the batch's own
 (for example, a voice's new essay and its index link) in a separate commit,
 *Commit pending library work before Reader inbox batch …*, whose body lists the
 paths. Hooks run normally: a refusal stops the batch with its arrivals still in

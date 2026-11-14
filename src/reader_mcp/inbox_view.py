@@ -291,12 +291,12 @@ class InboxView:
         return rows[:200], sources, plan
 
     def working_tree(self, plan):
-        """(pending work, conflicting outputs), or None when the vault is not a Git checkout."""
+        """The pending work the next run commits first, or None when the vault is not a Git checkout."""
         from . import intake
         if not (self.root / '.git').exists():
             return None
         paths = intake.pending_work(self.root, plan)
-        return {'paths': paths[:500], 'count': len(paths)}, intake.output_conflicts(self.root, plan)[:500]
+        return {'paths': paths[:500], 'count': len(paths)}
 
     def eligibility(self, arrival, status, holders, frozen):
         """Whether the next You got mail run will file this arrival, and if not, why. Mirrors the runner's own checks."""
@@ -576,12 +576,10 @@ class InboxView:
             result['chat_turn'] = False
             result['errors'].append(f'Cannot check the voice chat lock: {exc}')
         result['retained'], frozen, plan = [], set(), None
-        result['pending_work'], result['output_conflicts'] = None, []
+        result['pending_work'] = None
         try:
             result['retained'], frozen, plan = self.retained()
-            tree = self.working_tree(plan)
-            if tree:
-                result['pending_work'], result['output_conflicts'] = tree
+            result['pending_work'] = self.working_tree(plan)
         except (ValueError, OSError, KeyError, TypeError, AttributeError) as exc:
             result['errors'].append(f'Cannot check what filing would commit: {exc}'[:2000])
         try:
@@ -610,10 +608,6 @@ class InboxView:
         if status.get('chat_turn'):
             # The supervisor refuses too (inbox_runner.chat_turn_running); say so before spawning it.
             return {'reason': 'chat', 'message': 'A voice chat turn is running in this vault. You got mail can start when it finishes.'}
-        if status.get('output_conflicts'):
-            return {'reason': 'outputs', 'message': 'Filing rewrites generated catalog and navigation files, and these have '
-                    'uncommitted changes it did not make: ' + ', '.join(status['output_conflicts'][:20])
-                    + '. Commit or discard them, then file.'}
         if not status['arrivals'] and not status.get('pending'):
             return {'reason': 'empty', 'message': 'The inbox is empty.'}
         if not status.get('model_providers'):

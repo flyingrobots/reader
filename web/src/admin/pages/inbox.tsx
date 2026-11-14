@@ -74,8 +74,8 @@ function BeforeFiling({retained,work}:{retained:RetainedArrival[];work:{paths:st
           {entry.title||entry.source}{entry.destination?<span className="text-muted-foreground"> → <code className="font-mono text-xs">{entry.destination}</code></span>:null}<span className="text-muted-foreground" data-retained-state={entry.state}> ({RETAINED[entry.state]})</span></li>)}</ul>
       </section>:null}
       {paths.length?<section data-pending-work={work?.count} className="flex flex-col gap-1">
-        <h3 className="font-medium">Uncommitted library work · committed first, in its own commit</h3>
-        <p className="text-muted-foreground">These changes under library/ and writings/ aren’t part of any arrival. Filing commits them as they are, with normal hooks, then catalogs them.</p>
+        <h3 className="font-medium">Uncommitted work · committed first, in its own commit</h3>
+        <p className="text-muted-foreground">These changes belong to no arrival. Filing commits them as they are, with normal hooks, then catalogs new documents and regenerates the indexes.</p>
         <ul className="flex flex-col gap-0.5 font-mono text-xs">{paths.map(path=><li key={path} className="[overflow-wrap:anywhere]">{path}</li>)}</ul>
         {work&&work.count>paths.length?<p className="text-muted-foreground">and {plural(work.count-paths.length,'more path')}</p>:null}
       </section>:null}

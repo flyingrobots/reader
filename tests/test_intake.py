@@ -592,6 +592,15 @@ def test_uncommitted_library_work_is_committed_on_its_own_before_the_batch(vault
     assert intake.run_git(vault, 'status', '--porcelain', '--', 'library', 'writings', 'catalog') == ''
 
 
+def test_a_refreshed_generated_output_is_committed_as_it_was_then_regenerated(vault):
+    (vault / 'README.md').write_text('# Synthetic vault\n\nA count another refresh wrote.\n')
+    (vault / 'inbox/report.md').write_text('An arrival')
+    result = intake.apply_plan(vault, vault / '.reader/inbox-runner', plan_for(vault))
+    assert result['swept']['paths'] == ['README.md']
+    assert intake.run_git(vault, 'show', result['swept']['commit'] + ':README.md').endswith('A count another refresh wrote.')
+    assert intake.run_git(vault, 'status', '--porcelain', '--', 'README.md') == ''
+
+
 def test_a_clean_library_sweeps_nothing(vault):
     (vault / 'inbox/report.md').write_text('An arrival')
     result = intake.apply_plan(vault, vault / '.reader/inbox-runner', plan_for(vault))

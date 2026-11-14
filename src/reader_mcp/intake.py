@@ -409,10 +409,11 @@ def dirty_paths(root, paths):
     return result
 
 
-# Authored areas whose uncommitted work intake commits for its owner rather than refusing to file around it.
-SWEPT = ('library/', 'writings/')
-# Generated outputs intake rewrites by hash; someone else's uncommitted change to one stops filing.
+# Generated outputs intake rewrites by hash.
 GENERATED = ('catalog/', 'indexes/', 'README.md', 'link-repairs/')
+# Where intake commits uncommitted work as it is, rather than refusing to file around it: authored areas, and the
+# generated outputs it is about to rewrite, so a hand edit or another refresh is kept in history instead of blocking.
+SWEPT = ('library/', 'writings/', *GENERATED)
 
 
 def pending_work(root, plan=None):
@@ -421,11 +422,6 @@ def pending_work(root, plan=None):
     owned = set(plan.get('writes', {}))
     destinations = tuple(e['destination'] + '/' for e in plan.get('entries', []) if e.get('destination'))
     return sorted(p for p in dirty_paths(root, list(SWEPT)) if p not in owned and not p.startswith(destinations))
-
-
-def output_conflicts(root, plan=None):
-    """Generated outputs with uncommitted changes a batch did not make. Filing refuses these."""
-    return sorted(dirty_paths(root, list(GENERATED)) - set((plan or {}).get('writes', {})))
 
 
 def commit_pending_work(root, runtime, plan, entries):

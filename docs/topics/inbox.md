@@ -17,7 +17,7 @@ Each arrival says whether the next You got mail run will file it:
 - **Not eligible**: its receipt can't be read, or its files changed since delivery. Redeliver it; don't edit the receipt to make it match.
 - **On hold**: you held it.
 
-The reason appears under the row. A blocked notice on the run card (for example, uncommitted changes to generated catalog or navigation files) stops every arrival, not just one.
+The reason appears under the row. A blocked notice on the run card (for example, another agent's Upkeep claims) stops every arrival, not just one.
 
 Selecting an arrival opens a preview. Previews are read-only discovery surfaces: they do not file the content or create normal library read receipts, bookmarks or discussion state. Previewing does not prove that every attachment has been read.
 
@@ -26,7 +26,7 @@ Selecting an arrival opens a preview. Previews are read-only discovery surfaces:
 This card appears when the next run has work to do before any new arrival:
 
 - **Retained batch**: a failed or stopped run's batch, which a retry resumes exactly. Each entry says how far it got: *moved, not yet committed* (already at its destination), *decided*, *deferred* or *not yet classified*. Arrivals in it are eligible; other arrivals wait for it.
-- **Uncommitted library work**: changes under `library/` and `writings/` that belong to no arrival, such as a voice's new essay. Filing commits them first, as they are, in their own commit with normal hooks, then catalogs them by sidecar. Nothing else, such as annotations or engagement, is committed.
+- **Uncommitted work**: changes that belong to no arrival, such as a voice's new essay under `library/` or `writings/`, or an earlier refresh of the generated indexes and README. Filing commits them first, as they are, in their own commit with normal hooks, then catalogs new documents by sidecar and regenerates the indexes. Nothing else, such as annotations or engagement, is committed.
 
 ## Who can read an arrival
 

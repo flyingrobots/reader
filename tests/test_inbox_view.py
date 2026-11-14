@@ -533,7 +533,7 @@ def git_vault(vault):
         subprocess.run(['git', *args], cwd=vault, env=env, check=True)
 
 
-def test_status_lists_work_intake_will_commit_and_outputs_that_stop_it(vault):
+def test_status_lists_the_work_intake_will_commit_first(vault):
     git_vault(vault)
     (vault / 'library/essays').mkdir()
     (vault / 'library/essays/essay.md').write_text('# Essay\n')
@@ -544,11 +544,10 @@ def test_status_lists_work_intake_will_commit_and_outputs_that_stop_it(vault):
     view = InboxView(vault, environ={'PATH': '/nonexistent'})
     status = view.status()
     assert status['pending_work'] == {'paths': ['library/essays/essay.md', 'writings/voice.md'], 'count': 2}
-    assert status['output_conflicts'] == []
+    # A hand edit to a generated output is committed first too, not a reason to refuse filing.
     (vault / 'catalog/index.md').write_text('# Hand edited\n')
     status = view.status()
-    assert status['output_conflicts'] == ['catalog/index.md']
-    assert status['blocked']['reason'] == 'outputs' and 'catalog/index.md' in status['blocked']['message']
+    assert status['pending_work']['paths'][0] == 'catalog/index.md' and status['blocked']['reason'] == 'model'
 
 
 def test_a_retained_batch_is_listed_and_new_arrivals_wait_for_it(vault):
