@@ -3,6 +3,7 @@
 import argparse
 import hashlib
 import json
+import os
 from pathlib import Path
 import runpy
 import subprocess
@@ -25,16 +26,23 @@ def prepare(root,path,quote,comment,kind,owner,expected_sha256,request_id):
     return dict(operation='create',path=path,start=start,end=start+len(quote),owner=owner,comment=comment,kind=kind,expected_sha256=expected_sha256,request_id=str(UUID(request_id)))
 
 
-def main():
+def parse_args(argv=None):
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('path')
     parser.add_argument('--quote-file',required=True,type=Path)
     parser.add_argument('--comment-file',required=True,type=Path)
     parser.add_argument('--kind',choices=['highlight','warning'],default='highlight')
-    parser.add_argument('--owner',default='Reader librarian')
+    parser.add_argument('--owner',default=os.environ.get('AGENT_SESSION_ID'),
+                        help='Your own stable participant label (default: AGENT_SESSION_ID); Reader librarian is the curator\'s')
     parser.add_argument('--expected-sha256',required=True)
     parser.add_argument('--request-id',required=True)
-    args=parser.parse_args();code,root,python,env=runpy.run_path(str(Path(__file__).resolve().parents[3] / 'scripts/reader_paths.py'))['runtime']()
+    args=parser.parse_args(argv)
+    if not args.owner:parser.error('--owner <your-stable-agent-label> is required when AGENT_SESSION_ID is not set')
+    return args
+
+
+def main(argv=None):
+    args=parse_args(argv);code,root,python,env=runpy.run_path(str(Path(__file__).resolve().parents[3] / 'scripts/reader_paths.py'))['runtime']()
     request=prepare(root,args.path,args.quote_file.read_text(),args.comment_file.read_text(),args.kind,args.owner,args.expected_sha256,args.request_id)
     result=subprocess.run([str(python),'-m','reader_mcp.cli','--root',str(root),'annotate','-'],input=json.dumps(request),text=True,timeout=30,env=env)
     raise SystemExit(result.returncode)

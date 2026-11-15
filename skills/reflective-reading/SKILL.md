@@ -5,7 +5,7 @@ description: Read Reader documents in thoughtful sections, pause to reflect, lea
 
 # Reflective Reading
 
-Resolve Reader from this installed skill's real path (the parent of `skills/`). Follow its `AGENTS.md`, `docs/operations.md`, and `docs/annotations.md`. The user authorizes local annotations, discussion, and librarian-authored writing during reading. Source text remains unchanged. The companion Reader skill supplies retrieval and exact source reading; Upkeep handles turn-boundary intake and pending discussion. Do not recursively start upkeep workers from this skill.
+Resolve Reader from this installed skill's real path (the parent of `skills/`). Follow its `AGENTS.md`, `docs/operations.md`, and `docs/annotations.md`. Source text remains unchanged. The companion Reader skill supplies retrieval and exact source reading; Upkeep handles turn-boundary intake and pending discussion. Do not recursively start upkeep workers from this skill.
 
 ## Begin with a question, leave room for surprise
 
@@ -34,7 +34,7 @@ Keep concise reading notes with exact locations and your current reasoning. Pres
 
 ## Annotate when there is something to say
 
-Use `reader_threads(path)` first to avoid duplicate comments or to continue a relevant existing thread. Do not manufacture an annotation quota. A passage worth returning to deserves a **highlight with a comment** that explains why, asks a useful question, or sketches a possible connection. Attribute it to your stable identity, normally **Reader librarian**.
+Use `reader_threads(path)` first to avoid duplicate comments or to continue a relevant existing thread. Do not manufacture an annotation quota. A passage worth returning to deserves a **highlight with a comment** that explains why, asks a useful question, or sketches a possible connection. Attribute it to your own stable participant label, such as your session label. **Reader librarian** belongs to the curator's authorized librarian session; other agents never use it.
 
 Use `reader_highlight(path,start,end,owner,comment,expected_sha256,request_id)` for interesting or inspiring passages. Use **`reader_warning`** with the same arguments and a required comment for a concern, suspected error, unsupported claim, or consequential ambiguity. Warnings render as red wavy underlines with a warning icon and label, and have ordinary discussion/reply/read-receipt behavior.
 
@@ -50,7 +50,7 @@ python3 <this-skill>/scripts/annotate_quote.py library/path.md \
   --kind highlight --expected-sha256 <source-hash> --request-id <uuid>
 ```
 
-Use `--kind warning` for a warning. The default owner is `Reader librarian`; `--owner` selects your own stable identity. It checks the hash and unique verbatim quote, then calls Reader's annotation CLI. It refuses ambiguous passages instead of guessing. Preparing a source anchor does not itself establish that the agent read the document.
+Use `--kind warning` for a warning. `--owner` is your own stable participant label and defaults to `AGENT_SESSION_ID`; without either, the helper refuses rather than borrowing `Reader librarian`. It checks the hash and unique verbatim quote, then calls Reader's annotation CLI. It refuses ambiguous passages instead of guessing. Preparing a source anchor does not itself establish that the agent read the document.
 
 Inline annotations currently support Markdown only. For PDFs or other formats, use an existing labelled Markdown reading edition when suitable and identify that edition. Otherwise preserve page-linked observations in a reading note; do not promise a red underline on an unsupported format or silently alter the original. Formatted/multi-section passages may require editor view for exact inline display.
 
@@ -62,7 +62,7 @@ Ask whether an old idea deserves a fresh look, whether two pieces suggest a new 
 
 When a judgment changes, add a dated follow-up to the earlier thread or writing, linking the new evidence. Preserve the earlier position so the reader can see what changed. Resolve a warning only when the discussion supports that disposition, with an explanation; keep the thread and original concern. Do not silently rewrite the source or history.
 
-An essay, reaction, guide, thought experiment, story, or connection note is welcome when there is a real idea worth developing. There is no required genre or output count. Distinguish source claims, your interpretation, and invention. Give original writing clear authorship and source links, put it in the appropriate library collection, and update catalogs/metadata/activity according to the librarian procedure. Do not produce an essay merely to prove the skill ran.
+An essay, reaction, guide, thought experiment, story, or connection note is welcome when there is a real idea worth developing. There is no required genre or output count. Distinguish source claims, your interpretation, and invention. Give original writing clear authorship and source links. A reading-only (observer) session saves it as a note for later librarian promotion and does not add it to a library collection or update catalogs, metadata or activity. Only an authorized librarian session promotes it into the appropriate collection and updates those records under the librarian procedure. Do not produce an essay merely to prove the skill ran.
 
 ## Finish with honest coverage
 
