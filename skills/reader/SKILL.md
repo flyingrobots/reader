@@ -1,6 +1,6 @@
 ---
 name: reader
-description: Search the user's Reader library by file path, contents, fuzzy spelling, or semantic similarity, and read matching source passages. Read and contribute to shared passage highlights and comment threads when requested. Also deliver documents and attachments when asked to add or send material to Reader. Use from any project for Reader library retrieval or delivery; inbox filing remains a librarian workflow.
+description: Search the user's Reader library by path, contents, fuzzy spelling or meaning, and read the matching passages; add to shared highlights and comment threads on request; deliver documents and attachments to Reader. Use from any project for Reader retrieval or delivery. Not for inbox filing (you-got-mail).
 ---
 
 # Search and deliver to Reader
