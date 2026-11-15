@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Upkeep skips other projects unless they opt in. Before reading the vault, its check exits with one line, `Reader upkeep skipped: <reason>`, when the caller's repository has a `.no-reader` marker, or has no `.reader-opt-in` marker and is not Reader's own code or vault (or a worktree of either). Observers must name their own participant, or set `AGENT_SESSION_ID`, instead of acknowledging as `Reader librarian`.
+
 - Settings has an Article width for continuous reading: Narrow, Standard, Wide, Wider or Full window. Standard is the width Reader has always used, and two-page reading is unchanged.
 
 - While reading an article in continuous reading, a slider in the footer sets the article width. The article rewraps as you drag and keeps your line. It doesn't appear on phones or in two-page reading.
