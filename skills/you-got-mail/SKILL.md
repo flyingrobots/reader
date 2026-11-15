@@ -40,7 +40,9 @@ stopped run retains its journal. Read its report, resolve the stated cause,
 then explicitly retry `start`; the journal resumes the original batch even if
 its sources have already left the inbox. Later arrivals belong to a later run.
 An interrupted supervisor requires verifying its recorded processes before
-clearing stale state; follow [runner recovery](../../docs/inbox-runner.md).
+clearing stale state; follow runner recovery in `docs/inbox-runner.md` of the
+Reader code checkout (the repository containing this skill's real path, not
+the installed symlink's directory).
 Never remove the pending journal merely to make a retry start.
 
 Completion requires a verified result and, for filed material, a local commit.

@@ -39,13 +39,15 @@ Coverage is indexed `library/` files, including extractable PDF text; inbox and 
 
 If the index is missing or stale, refresh with the helper's `index` command. This uses the existing bounded index worker and changes only the disposable index/cache. First semantic setup downloads a model; subsequent embeddings run locally. Use `index --no-semantic` and keyword/fuzzy search when a model download is unwanted. Report incomplete coverage and setup/resource errors; do not treat empty search results as proof that material does not exist. A hash mismatch means the source changed: refresh and search again before citing it. Further configuration and recovery details are in the checkout's `docs/search.md`, located relative to the resolved helper's repository root.
 
-## Browse maintained Markdown indexes
+## Navigation, curation and setup
 
-If the vault has `indexes/index.md`, it links views by topic, author, arrival week, project and document type. The README dashboard uses those records. These are navigation aids, not read receipts or independent source verification. `python3 /path/to/this/skill/scripts/reader.py browse --check` checks freshness. An authorized librarian can refresh with `browse`; delivery couriers remain observer-only. See [counting and refresh rules](../../docs/browsing.md).
+If the vault has `indexes/index.md`, it links views by topic, author, arrival week, project and document type; they are navigation aids, not read receipts or source verification. `python3 /path/to/this/skill/scripts/reader.py browse --check` checks their freshness. Refreshing navigation and curator discovery (`reader_curation`, `reader_curate`) belong to an authorized Reader librarian session: read [the librarian reference](references/librarian.md) only in that role.
+
+When this machine has no configured vault, `~/.config/reader/remote.json` exists, or the helper reports a missing vault or SSH failure, read [setup and remote delivery](references/setup.md) before retrying or offering setup.
 
 ## Shared highlights and comment threads
 
-Use `reader_threads(path)` to inspect a Markdown document's highlights and attributed discussion. Read the source before replying. `reader_reply(thread_id, author, body, reply_to, request_id)` adds a reply; use your own name (for example `Reader librarian`), never impersonate the user. `reply_to` identifies an existing parent comment. Reuse a UUID request ID after an uncertain response to avoid duplicate replies.
+Use `reader_threads(path)` to inspect a Markdown document's highlights and attributed discussion. Read the source before replying. `reader_reply(thread_id, author, body, reply_to, request_id)` adds a reply; use your own stable participant label, such as your session label (`AGENT_SESSION_ID`), never the user's. `Reader librarian` belongs to the curator's authorized librarian session. `reply_to` identifies an existing parent comment. Reuse a UUID request ID after an uncertain response to avoid duplicate replies.
 
 When asked to highlight a passage, use `reader_highlight(path, start, end, owner, comment, expected_sha256, request_id)`. Offsets are Unicode code points in the full raw UTF-8 Markdown, including frontmatter; end is exclusive. Obtain exact source text and SHA-256, not a truncated search excerpt. Do not guess offsets from PDF coordinates or rendered text. Source bytes remain unchanged; durable JSON threads live in `annotations/`.
 
@@ -57,13 +59,9 @@ If MCP is unavailable, the helper accepts `annotate request.json` (or `annotate 
 
 ## Shared read and seen state
 
-`reader_attention(participant, path)` returns versioned document/highlight/comment/thread items and `seen_by` receipts. Without path, it returns paginated unread discussion summaries; follow `next_offset`. Retrieval never marks read. After actually reading an item, call `reader_mark_seen(participant, items)` with its exact `{key, version}`. Use your own stable label, usually `Reader librarian`; never mark as the user. Mark a whole thread only after reading all its current content; a whole-document receipt requires full reading, not excerpts. New content invalidates the corresponding receipt. `read=false` clears only this participant's receipt. CLI operations through `annotate` are `attention` and `seen`.
+`reader_attention(participant, path)` returns versioned document/highlight/comment/thread items and `seen_by` receipts. Without path, it returns paginated unread discussion summaries; follow `next_offset`. Retrieval never marks read. After actually reading an item, call `reader_mark_seen(participant, items)` with its exact `{key, version}`. Use your own stable label, such as your session label; only the curator uses `Reader librarian`, and nobody marks as the user. Mark a whole thread only after reading all its current content; a whole-document receipt requires full reading, not excerpts. New content invalidates the corresponding receipt. `read=false` clears only this participant's receipt. CLI operations through `annotate` are `attention` and `seen`.
 
 For turn-boundary discussion checks and relevant connections, apply the companion Upkeep skill at `skills/upkeep/SKILL.md` in this checkout. Ordinary project agents and couriers use observer mode; only an authorized Reader librarian session claims or delegates intake. The global turn-boundary instruction does not turn a delivery request into an ingestion assignment. Delegated workers do not recursively run upkeep.
-
-## Curator discovery
-
-`reader_curation(participant, key?, offset?, limit?, since?, expected_snapshot?)` discovers filed works awaiting this curator, or returns one work's exact member hashes. Pass the returned `snapshot_version` on later pages; a changed queue requires restarting at offset zero. `reader_curate(participant, key, expected_version, status, coverage, note?)` records explicit `scanned`/`studied` coverage or reopens `unscanned`. Coverage entries contain `path`, `sha256`, `scope`, and `full`. These are curator-owned assertions, not document-read flags, source verification, or permission for a courier to become its librarian. A changed version requires fresh inspection. The CLI helper accepts `curation list --participant LABEL` and `curation mark request.json` (or `-`). See the code checkout's `docs/curation.md`; the installed Upkeep skill uses this queue only in librarian mode.
 
 ## Deliver to Reader
 
@@ -99,24 +97,6 @@ python3 /path/to/this/skill/scripts/reader.py status RECEIPT_UUID
 
 The JSON file is the submission object itself, without the MCP `submission` wrapper. Create it through a file-writing tool or a JSON serializer; do not interpolate document content into shell commands. The helper resolves its installed symlink to the Reader checkout; it works independently of the project's working directory. If Reader's environment is missing, report the setup error rather than installing elsewhere or guessing a vault location.
 
-Success requires `status: awaiting_filing` (or `filed` on a retry) and `integrity: intact`. Return a clickable link using the receipt's `document_path` and the receipt ID. Say "delivered to Reader's inbox", not "cataloged". The user can tell the librarian "you got mail" to request filing through the [deterministic inbox script](../../docs/inbox-runner.md); the conversational skill is optional.
+Success requires `status: awaiting_filing` (or `filed` on a retry) and `integrity: intact`. Return a clickable link using the receipt's `document_path` and the receipt ID. Say "delivered to Reader's inbox", not "cataloged". The user can tell the librarian "you got mail" to request filing through the deterministic inbox script described in the code checkout's `docs/inbox-runner.md` (the Reader repository containing this skill's real path); the conversational skill is optional.
 
 On an uncertain response, query `reader_status` with the same UUID before retrying. Retry with the same UUID and identical content and provenance; never generate a fresh UUID merely to bypass an error. A reused ID with different content is a conflict. If integrity needs attention, stop and report the receipt details instead of overwriting the delivery.
-
-## Deliver from another machine
-
-Remote delivery is optional; never set it up unasked. If this machine has no Reader vault, the helper can deliver to the user's vault on another computer over SSH. When `~/.config/reader/remote.json` exists, the helper commands above (`ingest`, `status`, and with the `library` key scope also `search`, `read`, `annotate`) run on that computer automatically. Use the helper, not MCP; local paths in the request are read on this machine and their bytes are sent. The returned `document_path` is on the vault computer, so report it as a path there.
-
-If delivery is requested and neither a local vault nor `remote.json` exists, or the helper reports an SSH failure, offer remote setup. It needs the vault computer's SSH address and, once, the user's login there, so ask the user to run it in their own terminal (in Claude Code, `! python3 /path/to/this/skill/scripts/reader.py remote-setup user@vault-host`):
-
-```sh
-python3 /path/to/this/skill/scripts/reader.py remote-setup user@vault-host
-```
-
-With `"url"` in `remote.json`, the helper delivers over HTTPS with a delivery token instead (`remote-token-setup`, also run by the user in their own terminal), and only `ingest` and `status` work. The optional `privacy` request field is `no-cloud` (its default) or `normal`.
-
-It reuses an existing working setup, otherwise creates a dedicated Reader key and authorizes it on the vault computer for delivery only. Do not create or change SSH keys, `authorized_keys` or SSH configuration yourself. Suggest `--scope library` only when the user wants search and reading from this machine too. Details are in the checkout's `docs/delivery.md`.
-
-## Separate private vault
-
-Code and library have separate roots. Helpers resolve the vault from `READER_ROOT`, otherwise the ignored code-checkout `.reader/config.json`. With the Reader service installed, helpers run its live checkout (main), not this checkout's branch; `READER_CODE` overrides. See docs/separate-vault.md. Run `python3 scripts/reader_paths.py` from the code checkout to locate it. Read library documents, AGENTS.md, activity, and inbox only from that configured vault. Use code-checkout helpers; do not infer a vault from the current project. If no vault is configured, report the missing setup instead of creating one in the code repository.
