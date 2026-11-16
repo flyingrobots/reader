@@ -71,6 +71,17 @@ describe('MCP over stdio', () => {
     const status = content(await client.tool('reader_status', {request_id}));
     assertShape('mcp-status', status);
   });
+  // Medium contract regression; oracle: #255 reserves uploader identity for the server.
+  for (const [label, uploaded_by] of [['named', 'someone-else@example.com'], ['empty', ''], ['null', null]]) {
+    test(`reader_ingest rejects a caller-chosen uploader (${label}) before publishing a receipt`, async () => {
+      const request_id = randomUUID();
+      const result = await client.tool('reader_ingest', {submission: {
+        request_id, title: 'A forged uploader', markdown: '# Synthetic delivery\n', provenance: {uploaded_by},
+      }});
+      assert.deepEqual({refused: result.isError === true, receipt: existsSync(inboxPath(vault.root, request_id, 'receipt.json'))},
+        {refused: true, receipt: false}, 'caller-supplied uploader must be refused without publishing a receipt');
+    });
+  }
   test('--inline-only refuses a submission that names a local file', async () => {
     const inline = await mcp(vault, ['--inline-only']);
     try {

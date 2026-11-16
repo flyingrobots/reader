@@ -43,9 +43,11 @@ For clients other than Codex, configure a stdio server whose executable is the R
 | `document_path` | Absolute path to an existing regular local file; copies its bytes |
 | `markdown` | Inline Markdown alternative; encoded as UTF-8 |
 | `attachments` | Optional list of `{source_path, path}`; source is absolute, destination is bundle-relative |
-| `provenance` | Optional known `project`, `source`, `author`, `report_date`, and `commit` strings |
+| `provenance` | Optional known `project`, `source`, `author`, `report_date`, and `commit` strings; an explicit `privacy` filing limit is also supported |
 
 Provide exactly one of `document_path` or `markdown`. Use an appropriate filename and extension for PDFs and other binary originals. Source dates are distinct from the server's UTC receipt timestamp. Unknown provenance is omitted rather than inferred. The service does not extract metadata from document contents or fetch source URLs.
+
+MCP and CLI callers may set `provenance.privacy` to `normal` or `no-cloud`; `no-cloud` limits filing to local models. Omitting it uses the vault's configured default. `uploaded_by` is not a caller provenance field: MCP and CLI requests containing it are refused before a receipt is published, including when its value is empty or null. Only the authenticated web-upload handler supplies this identity, which remains part of the receipt and its retry fingerprint. Existing receipts are not rewritten.
 
 Example submission JSON (replace the example UUID for a new delivery and use actual source paths):
 
