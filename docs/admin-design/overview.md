@@ -18,31 +18,33 @@ The page answers these questions in reading order:
 ```mermaid
 flowchart TB
   page[AdminPage template]
-  page --> grid[CardGrid]
-  grid --> att[StatusCard Attention needed<br/>Item links to the page that fixes each]
-  grid --> act[StatusCard Active work<br/>Items with Spinner media]
-  grid --> inb[StatusCard Inbox<br/>count + last run]
-  grid --> idx[StatusCard Index health<br/>Item per index with StatusBadge]
+  page --> row[Summary row<br/>four Cards: Needs attention, Running now, Inbox arrivals, Index checks passing]
+  page --> main[Two-thirds column]
+  page --> side[One-third column]
+  main --> att[StatusCard Attention needed<br/>Table with a link to the page that fixes each]
+  main --> idx[StatusCard Index health<br/>Table with a StatusBadge per index]
+  side --> act[StatusCard Active work<br/>Items with Spinner media, or Empty]
+  side --> inb[StatusCard Inbox<br/>Items for arrivals and last run]
   page --> notes[Notice when a refresh failed · muted pointer to Library]
 ```
 
-Attention comes first because it is the reason to open the page. Each tile's footer holds one ghost `Button` link (*Open the inbox →*). Primary actions are never placed on the Overview.
+The summary answers "is anything wrong?" at a glance, and attention comes first below it because it is the reason to open the page. Below `xl` the columns stack; on phones attention details move under each item so Status and Open stay on screen. Index health, Active work and Inbox each offer one link to their owning page. Primary actions are never placed on the Overview.
 
 ## Atomic composition
 
 | Tier | Parts |
 | --- | --- |
-| Atoms (shadcn) | `Button` (ghost, rendered as a link), `Spinner`, `Badge` |
+| Atoms (shadcn) | `Button` (ghost or outline, rendered as a link), `Spinner`, `Badge`, `Skeleton` |
 | Atoms (theme) | `StatusBadge`, `RelativeTime` |
-| Molecules | shadcn `Item` rows (active work, attention links, index health), `LoadingState`, `Unavailable`, `Notice`, `EmptyState`-style quiet lines for *Nothing is running* and *Nothing needs attention* |
-| Organisms | `StatusCard` tile ×4 |
-| Template | `AdminPage`, `CardGrid` |
+| Molecules | shadcn `Item` rows (active work, inbox), `Table` rows (attention, index health), `LoadingState`, `Unavailable`, `Notice`, `EmptyState` for *Nothing is running*, a quiet line for *Nothing needs attention* |
+| Organisms | `Card` summary ×4, `StatusCard` tile ×4 |
+| Template | `AdminPage` |
 | Page | `Overview` binds `context.maintenance`, `context.inbox`, and the coding-jobs poll |
 
 ## States
 
-Each tile is `loading`, `unavailable` (a destructive Alert with the reason) or `ready`. A status that could not be read is never shown as zero or as healthy. *Nothing is running* and *Nothing needs attention* appear only when every source has answered.
+Each tile is `loading`, `unavailable` (a destructive Alert with the reason) or `ready`. A summary card shows a Skeleton while reading and a dash with the reason when its status could not be read. A status that could not be read is never shown as zero or as healthy. *Nothing is running* and *Nothing needs attention* appear only when every source has answered.
 
 ## Test hooks
 
-`#admin-overview`, `[data-overview=active|inbox|attention|indexes][data-state]`, `[data-arrivals]`, `[data-check=<key>][data-state]`, `[data-unchecked]`, `[data-unavailable]`, `#admin-stale`.
+`#admin-overview`, `[data-overview-summary=attention|running|inbox|indexes]`, `[data-overview=active|inbox|attention|indexes][data-state]`, `[data-attention=<key>]`, `[data-attention-subject]`, `[data-arrivals]`, `[data-check=<key>][data-state]`, `[data-unchecked]`, `[data-unavailable]`, `#admin-stale`.

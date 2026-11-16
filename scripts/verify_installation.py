@@ -68,7 +68,7 @@ async def main():
     finally:
         result = store.status(request_id)
         if result["status"] != "not_found":
-            expected = root / "inbox" / request_id
+            expected = root / ".reader/inbox" / request_id
             assert result["bundle_path"] == str(expected.relative_to(root))
             assert result["provenance"] == {"project": "reader-installation-verification"}
             assert result["integrity"] == "intact", "Fixture changed; preserve it for inspection"

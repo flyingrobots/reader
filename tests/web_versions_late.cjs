@@ -1,6 +1,7 @@
 /* A slow version timeline never holds back the text: with /api/versions delayed by 2 s the article is shown first,
  * the chip arrives afterwards, the reading position stays on the same block (scroll and two pages), and deep links
  * to an edition or a historical commit still open that edition. */
+require('./jail_guard.cjs');
 const assert=require('node:assert/strict');
 const {spawn}=require('node:child_process');
 const {createInterface}=require('node:readline');
@@ -36,7 +37,7 @@ const DELAY=2000;
     assert.equal(m.chipAtVisible,false);
     assert.ok(m.visible-m.versionsAsked<600,`first text waited ${Math.round(m.visible-m.versionsAsked)} ms after /api/versions was requested (the old 600 ms race)`);
     return m;};
-  const chipArrives=async(page,label)=>{const line=page.locator('#article > .version-line');await line.waitFor({timeout:DELAY+5000});
+  const chipArrives=async(page,label)=>{const line=page.locator('#article > .document-meta > .version-line');await line.waitFor({timeout:DELAY+5000});
     assert.equal((await line.locator('[data-version-chip]').textContent()).trim(),label);
     const m=await marks(page);assert.ok(m.versionsAnswered>m.visible,'the chip follows the text');
     assert.equal(await page.locator('.version-line').count(),1,'one chip');
@@ -45,12 +46,12 @@ const DELAY=2000;
   let expected;
   // A saved place: Paragraph 20 near the top of a short window, in continuous reading.
   {const {page,context}=await open({layout:'scroll'});
-   await page.goto(url+'#read='+encodeURIComponent(essay+'tidal.md'));await ready(page);await page.locator('#article > .version-line').waitFor();
+   await page.goto(url+'#read='+encodeURIComponent(essay+'tidal.md'));await ready(page);await page.locator('#article > .document-meta > .version-line').waitFor();
    const saved=page.waitForResponse(r=>r.url().includes('/api/bookmark')&&r.request().method()==='POST',{timeout:5000});
    await page.evaluate(code=>{const p=eval(code);scrollTo(0,p.getBoundingClientRect().top+scrollY-innerHeight*.22);},paragraph(20));
    await saved;
    // With a quick timeline (chip in the first layout), reopening lands Paragraph 20 here.
-   await page.reload();await ready(page);await page.locator('#article > .version-line').waitFor();expected=(await where(page,20)).top;
+   await page.reload();await ready(page);await page.locator('#article > .document-meta > .version-line').waitFor();expected=(await where(page,20)).top;
    await context.close();}
 
   // Continuous reading: text first, chip after, and the restored paragraph does not move.
@@ -58,7 +59,7 @@ const DELAY=2000;
    await page.goto(url+'#read='+encodeURIComponent(essay+'tidal.md'));await ready(page);await firstText(page);
    const before=await where(page,20);assert.ok(Math.abs(before.top-expected)<=4,`the bookmark restores Paragraph 20 where a quick timeline does: ${before.top} vs ${expected}`);
    await chipArrives(page,'v1 of 3');
-   assert.match(await page.locator('#article > .version-line').textContent(),/Newer v3 available/);
+   assert.match(await page.locator('#article > .document-meta > .version-line').textContent(),/Newer v3 available/);
    assert.equal(await page.locator('#status-version span').textContent(),'v1/3','the status twin fills in too');
    const after=await where(page,20);assert.ok(Math.abs(after.top-before.top)<=2,`Paragraph 20 stays put when the chip arrives: ${before.top} → ${after.top}`);
    await context.close();}
@@ -91,8 +92,29 @@ const DELAY=2000;
 
   // A quick timeline still lands in the first layout.
   {const {page,context}=await open({layout:'scroll'});
-   await page.goto(url+'#read='+encodeURIComponent(essay+'tidal.md'));await ready(page);await page.locator('#article > .version-line').waitFor();
+   await page.goto(url+'#read='+encodeURIComponent(essay+'tidal.md'));await ready(page);await page.locator('#article > .document-meta > .version-line').waitFor();
    assert.equal(await page.locator('.version-line').count(),1);await context.close();}
+  // A reader at the top stays at the top: no block is kept yet, whatever sits on the save line.
+  {const {page,context}=await open({layout:'scroll'});
+   await page.goto(url+'#read='+encodeURIComponent(essay+'tidal.v3.md'));await ready(page);await page.waitForTimeout(150);
+   const saved=page.waitForResponse(r=>r.url().includes('/api/bookmark')&&r.request().method()==='POST',{timeout:5000});
+   await page.evaluate(()=>scrollTo(0,1));await saved;await page.evaluate(()=>scrollTo(0,0));
+   const again=page.waitForResponse(r=>r.url().includes('/api/bookmark')&&r.request().method()==='POST',{timeout:5000});await again;
+   await page.reload();await ready(page);await page.waitForTimeout(250);
+   assert.ok(await page.evaluate(()=>scrollY<=1),'reopening from the top keeps the title in view');
+   await context.close();}
+  // Progress measures the article: the footer and what follows it are not reading still to do.
+  {const {page,context}=await open({layout:'scroll'});
+   await page.goto(url+'#read='+encodeURIComponent(essay+'tidal.md'));await ready(page);await page.locator('#article > .document-meta > .version-line').waitFor();
+   const value=async()=>{await page.waitForTimeout(150);return +await page.locator('#progress-slider').getAttribute('aria-valuenow');};
+   const end=()=>page.evaluate(()=>{const last=[...document.querySelectorAll('#article [data-source-start]')].filter(el=>!el.closest('[data-reader-decoration]')).at(-1);return {y:Math.round(last.getBoundingClientRect().bottom+scrollY-innerHeight),max:document.documentElement.scrollHeight-innerHeight,scrollY:Math.round(scrollY)};});
+   const start=await end();assert.ok(start.y>200&&start.max>start.y+20,'a long article with page after it: '+JSON.stringify(start));
+   await page.locator('#progress-slider').focus();await page.keyboard.press('End');await page.waitForTimeout(250);
+   const atEnd=await end();assert.ok(Math.abs(atEnd.scrollY-atEnd.y)<=2,'End stops where the article ends: '+JSON.stringify(atEnd));assert.equal(await value(),100);
+   await page.evaluate(y=>scrollTo(0,y),Math.round(atEnd.y/2));assert.ok(Math.abs(await value()-50)<=2,'halfway through the article reads as halfway');
+   await page.evaluate(y=>scrollTo(0,y),atEnd.y);assert.equal(await value(),100,'the article\'s end reads as 100%');
+   await page.evaluate(()=>scrollTo(0,document.documentElement.scrollHeight));assert.equal(await value(),100,'the footer stays at 100%');
+   await context.close();}
   assert.deepEqual(errors,[]);
   console.log(`Late versions passed: with /api/versions delayed ${DELAY} ms the article shows first, the chip and status twin follow, the restored paragraph stays put in scroll and two-page reading, and edition and historical deep links open what they name.`);
  }finally{await browser?.close();if(fixture.exitCode===null&&fixture.signalCode===null){fixture.kill('SIGTERM');await new Promise(resolve=>fixture.once('exit',resolve));}}

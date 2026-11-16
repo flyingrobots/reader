@@ -2,8 +2,9 @@
 """Run bounded copy-isolated checks using existing Python and Node Docker images.
 
 Kinds: `formatter` (pinned wide-md build), `python` (pytest; optional test paths or -k expressions after the
-kind run a focused subset), `node` (the Obsidian plugin) and `web` (tests/*.test.mjs, then the web controls
-type check and build from web/package-lock.json; the built web_ui/controls are copied back to the checkout)."""
+kind run a focused subset), `node` (the Obsidian plugin), `contract` (tests/contract against the Python server, with
+the node binary of the pinned Node image copied into the Python worker) and `web` (tests/*.test.mjs, then the web
+controls type check and build from web/package-lock.json; the built web_ui/controls are copied back to the checkout)."""
 import argparse
 import re
 import shlex
@@ -21,6 +22,7 @@ import time
 ROOT = Path(__file__).resolve().parents[1]
 RUNTIME = ROOT / '.reader/review'
 GIB = 1024**3
+NODE_IMAGE = 'node:24.18.0'
 
 
 def worker_name(kind, root=ROOT):
@@ -49,7 +51,7 @@ def docker(*args, **kwargs):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('kind', choices=['python', 'node', 'formatter', 'web'])
+    parser.add_argument('kind', choices=['python', 'node', 'contract', 'formatter', 'web'])
     parser.add_argument('pytest_args', nargs='*', help='python only: test paths or node IDs')
     parser.add_argument('-k', dest='expression', help='python only: select tests by a pytest -k expression')
     args = parser.parse_args()
@@ -68,25 +70,33 @@ def main():
             raise RuntimeError('Host free space below 50 GiB')
         kind = args.kind
         name = worker_name(kind)
-        image = {'python':'python:3.12-bookworm','node':'node:24.18.0','formatter':'rust:1.96.0','web':'node:24.18.0'}[kind]
+        image = {'python':'python:3.12-bookworm','node':'node:24.18.0','contract':'python:3.12-bookworm','formatter':'rust:1.96.0','web':'node:24.18.0'}[kind]
         docker('image', 'inspect', image, stdout=subprocess.DEVNULL)
+        if kind in ('python', 'contract'):
+            docker('image', 'inspect', NODE_IMAGE, stdout=subprocess.DEVNULL)
+            # Both images are Debian bookworm, so the Node image's binary runs in the Python worker (the Python suite
+            # starts the Node test guard; the contract suite is Node).
+            node = docker('run', '--rm', '--network', 'none', '--entrypoint', 'cat', NODE_IMAGE, '/usr/local/bin/node', capture_output=True).stdout
+            if len(node) > 256 * 1024**2:
+                raise RuntimeError('Unexpectedly large node binary')
         prior = subprocess.run(['docker', 'inspect', name], capture_output=True, text=True)
         if prior.returncode == 0:
             raise RuntimeError('Owned worker still exists; inspect it before reusing its name: ' + name)
         # Only selected software paths. No host mount and no vault files enter the worker.
         stream = io.BytesIO()
         with tarfile.open(fileobj=stream, mode='w') as archive:
-            tops = ['src','tests','templates','scripts','skills','schemas','plugins','server','web','docs','activity','README.md','CHANGELOG.md','AGENTS.md','package.json','package-lock.json','pyproject.toml','uv.lock','LICENSE','.reader/tooling/bin/wide-md','.reader/tooling/installed.json']
+            tops = ['src','tests','templates','scripts','skills','schemas','plugins','server','web','docs','planning/devcontainers','activity','README.md','CHANGELOG.md','AGENTS.md','package.json','package-lock.json','pyproject.toml','uv.lock','LICENSE','.reader/tooling/bin/wide-md','.reader/tooling/installed.json']
             if kind == 'web':
-                tops = ['src','tests','web','package.json','package-lock.json','LICENSE']
+                tops = ['src','tests','web','docs/topics','package.json','package-lock.json','LICENSE']
             for top in tops:
                 if not (ROOT/top).exists():
                     continue
                 for path in ([ROOT/top] if (ROOT/top).is_file() else sorted((ROOT/top).rglob('*'))):
                     rel = path.relative_to(ROOT)
-                    # Published screenshots are not executable test input. Keep the
-                    # existing archive cap for source, fixtures and the Linux formatter.
-                    if rel.parts[:2] == ('docs', 'images'):
+                    # Published screenshots and review case files are not executable test
+                    # input. Keep the existing archive cap for source, fixtures and the
+                    # Linux formatter.
+                    if rel.parts[:2] in (('docs', 'images'), ('docs', 'cases')):
                         continue
                     if path.is_file() and not path.is_symlink() and not any(p in ('node_modules','dist','__pycache__') for p in rel.parts):
                         archive.add(path, arcname=str(rel), recursive=False)
@@ -94,34 +104,45 @@ def main():
             raise RuntimeError('Unexpectedly large software input')
         contract = dict(worker=name,image=image,host_free=shutil.disk_usage(ROOT).free,
                         writable_paths={'/work':2*GIB,'/tmp':1024**3},read_only_root=True,
-                        cpus=2,memory='4g',timeout_seconds=900,log_limit=4*1024**2,
+                        cpus=2,memory='4g',shared_memory_bytes=64*1024**2,timeout_seconds=900,log_limit=4*1024**2,
                         mounts=[],lock=str(RUNTIME/'validation.lock'))
         (RUNTIME/(kind+'-contract.json')).write_text(json.dumps(contract, indent=2))
         try:
-            docker('run','-d','--name',name,'--read-only','--cpus','2','--memory','4g','--pids-limit','256',
+            docker('run','-d','--name',name,'--read-only','--cpus','2','--memory','4g','--pids-limit','256','--shm-size','64m',
                    '--tmpfs','/work:rw,exec,size=2147483648','--tmpfs','/tmp:rw,exec,size=1073741824',
                    '--log-driver','local','--log-opt','max-size=4m','--log-opt','max-file=1','--log-opt','compress=false',
-                   '-e','TMPDIR=/tmp','-e','HOME=/work','-w','/work',image,'sleep','1000',stdout=subprocess.DEVNULL)
+                   # Tests refuse to run outside the sandbox or a marked container (tests/jail_guard.py).
+                   '-e','TMPDIR=/tmp','-e','HOME=/work','-e','READER_TEST_JAIL=container','-w','/work',image,'sleep','1000',stdout=subprocess.DEVNULL)
             free = docker('exec',name,'df','-Pk','/',capture_output=True,text=True).stdout
             contract['vm_df'] = free
             if int(free.splitlines()[-1].split()[3])*1024 < 50*GIB:
                 raise RuntimeError('Docker VM free space below 50 GiB')
             (RUNTIME/(kind+'-contract.json')).write_text(json.dumps(contract, indent=2))
             docker('exec','-i',name,'tar','xf','-','-C','/work',input=stream.getvalue())
+            if kind in ('python', 'contract'):
+                docker('exec','-i',name,'sh','-c','mkdir -p /work/node/bin && cat > /work/node/bin/node && chmod 755 /work/node/bin/node',input=node)
+            if kind == 'contract':
+                # Reader runs from a checkout, and /api/health reports its commit: give the copy one of its own.
+                docker('exec',name,'sh','-c','git init -q -b snapshot /work && git -C /work add -A -- . ":(exclude)node" && '
+                       'git -C /work -c user.name=checks -c user.email=checks@invalid commit -q -m snapshot')
             if kind == 'python':
                 # Source-policy tests inspect tracked source names. Give the isolated
                 # copy its own index; no host repository metadata or history is copied.
                 docker('exec',name,'git','init','-q','-b','snapshot','/work')
-                docker('exec',name,'git','-C','/work','add','-A','--','.', ':(exclude).reader/')
+                docker('exec',name,'git','-C','/work','add','-A','--','.', ':(exclude).reader/', ':(exclude)node/')
             cmd = ('python -m pip install --disable-pip-version-check --no-cache-dir --target /work/tools uv && '
                    'PYTHONPATH=/work/tools UV_CACHE_DIR=/work/cache python -m uv sync --locked && '
-                   '.venv/bin/python -m pytest -q' + ''.join(' ' + shlex.quote(a) for a in args.pytest_args)) if kind == 'python' else (
+                   'PATH=/work/node/bin:$PATH .venv/bin/python -m pytest -q' + ''.join(' ' + shlex.quote(a) for a in args.pytest_args)) if kind == 'python' else (
                    'npm --prefix plugins/reader ci --cache /work/npm-cache && '
                    'npm --prefix plugins/reader run check && npm --prefix plugins/reader test && '
                    'npm --prefix plugins/reader run build && '
                    'node --test tests/quiz_controller.cjs tests/request_token.cjs && '
                    'npm --prefix server ci --cache /work/npm-cache && '
                    'npm --prefix server run check && npm --prefix server test')
+            if kind=='contract':
+                cmd = ('python -m pip install --disable-pip-version-check --no-cache-dir --target /work/tools uv && '
+                       'PYTHONPATH=/work/tools UV_CACHE_DIR=/work/cache python -m uv sync --locked && '
+                       'PATH=/work/node/bin:$PATH node --test --test-timeout=120000 "tests/contract/*.test.mjs"')
             if kind=='web':
                 cmd = ('node --test tests/*.test.mjs && cd web && npm ci --cache /work/npm-cache --no-audit --no-fund && '
                        'npm run check && npm run build')
@@ -129,7 +150,7 @@ def main():
                 cmd = ('git init /work/formatter && git -C /work/formatter fetch --depth=1 '
                        'https://github.com/flyingrobots/wide-md c167101b32bbe37954429e9de5db33efcdc0a16c && '
                        'git -C /work/formatter checkout --detach FETCH_HEAD && '
-                       'CARGO_HOME=/work/cargo CARGO_TARGET_DIR=/work/target CARGO_INCREMENTAL=0 '
+                       'CARGO_HOME=/work/cargo CARGO_TARGET_DIR=/work/target CARGO_INCREMENTAL=0 CARGO_PROFILE_RELEASE_STRIP=symbols '
                        'cargo build --manifest-path /work/formatter/Cargo.toml --release --locked -j 2')
             log = RUNTIME/(kind+'.log')
             with log.open('wb') as output:

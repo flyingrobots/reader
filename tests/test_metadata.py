@@ -281,3 +281,28 @@ def test_default_validator_includes_uppercase_markdown(vault):
     assert result['examined'] == 1
     assert result['invalid'] == 1
     assert result['documents'][0]['path'] == 'library/task.MD'
+
+
+def test_opening_byline_extracts_explicit_headers_and_rejects_prose():
+    from reader_mcp.metadata import opening_byline
+
+    assert opening_byline('Written by Ada Lovelace\n\nOpening paragraph.') == 'Ada Lovelace'
+    assert opening_byline('# Title\n\n*By Alan Turing · 2026-10-22*\n\nParagraph.') == 'Alan Turing'
+    assert opening_byline('# Title\n\n- **Author:** Grace Hopper.\n') == 'Grace Hopper'
+    assert opening_byline('# Title\n\n> *Notes on compilers, written by Niklaus Wirth on Nov 12, 2026.*\n') == 'Niklaus Wirth'
+    assert opening_byline('# Title\n\nBy Jane Doe\n\nParagraph.') == 'Jane Doe'
+    assert opening_byline('# Title\n\n**By codex — October 2026**\n') == 'codex'
+    assert opening_byline('# Title\n\nAuthor: [E. M. Forster](mailto:em@example.invalid)\n') == 'E. M. Forster'
+    assert opening_byline('# Title\n\nReport date: 2026-10-03. Author: Codex. Project: Example.\n') == 'Codex'
+    assert opening_byline('# Title\n\nReport date: 2026-10-03. Author: Ada J. Smith. Project: Example.\n') == 'Ada J. Smith'
+    assert opening_byline('# Title\n\nReport date: 2026-10-03. Author: E. M. Forster. Project: Example.\n') == 'E. M. Forster'
+    assert opening_byline('# Title\n\nBy Will Smith\n') == 'Will Smith'
+    assert opening_byline('# Title\n\nBy May Sarton\n') == 'May Sarton'
+
+    assert opening_byline('# Title\n\nBy default, this writes JSON.\n') is None
+    assert opening_byline('# Title\n\nBy inspection all hashes match.\n') is None
+    assert opening_byline('# Title\n\nBy Design Patterns\n') is None
+    assert opening_byline('# Title\n\nWritten by scripts during CI.\n') is None
+    assert opening_byline('# Title\n\nAuthor: Unknown\n') is None
+    assert opening_byline('# Title\n\nWritten by Reader intake\n') is None
+    assert opening_byline('# Title\n\nThis paragraph ends a sentence.\n\n## Background\n\nWritten by Someone.\n') is None

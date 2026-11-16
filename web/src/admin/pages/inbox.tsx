@@ -1,11 +1,12 @@
 /* Admin › Inbox: what is waiting, and You got mail, which starts the existing librarian inbox runner.
-   Design sheet: docs/admin-design/inbox.md. The run card holds the one primary action; the list below is read-only
-   (opening an arrival previews it and writes nothing for the librarian). */
+   Design sheet: docs/admin-design/inbox.md. The run card holds the one primary action; the list below previews
+   (opening an arrival writes nothing for the librarian), and each arrival can be held or allowed to use cloud models. */
 import {Fragment, useState} from 'react';
 import {ChevronRightIcon, InboxIcon, MailIcon, SquareIcon} from 'lucide-react';
 import {toast} from 'sonner';
 import {Button} from '@/components/ui/button';
 import {Spinner} from '@/components/ui/spinner';
+import {Progress, ProgressLabel} from '@/components/ui/progress';
 import {Collapsible, CollapsibleContent, CollapsibleTrigger} from '@/components/ui/collapsible';
 import {Item, ItemActions, ItemContent, ItemDescription, ItemGroup, ItemSeparator, ItemTitle} from '@/components/ui/item';
 import {StatusBadge, type Tone} from '@/theme/atoms/status-badge';
@@ -13,17 +14,41 @@ import {Elapsed, RelativeTime} from '@/theme/atoms/time';
 import {Notice} from '@/theme/molecules/notice';
 import {EmptyState, LoadingState, Unavailable} from '@/theme/molecules/states';
 import {StatusCard} from '@/theme/organisms/status-card';
+import {ConfirmAction} from '@/theme/organisms/confirm-action';
 import {ActivityTranscript} from '../../activity/transcript';
-import type {Arrival, InboxStatus} from '../../backstage';
+import type {Arrival, InboxRun, InboxStatus, RetainedArrival} from '../../backstage';
 import type {ActivityModel} from '../../reader-controls';
 import {plural} from '../../plural';
 import {localOnly, needsReader} from '../../static-demo';
 
 const ACTIVE_RUN=['starting','running'];
+const RETAINED:Record<string,string>={moved:'moved, not yet committed',decided:'decided, not yet moved',deferred:'deferred',queued:'not yet classified'};
+const ELIGIBILITY:Record<string,{label:string;tone:Tone}>={
+  eligible:{label:'Eligible',tone:'ok'},waits:{label:'Waits',tone:'neutral'},blocked:{label:'Not eligible',tone:'error'},held:{label:'On hold',tone:'neutral'}};
 const RUN_STATES:Record<string,{label:string;tone:Tone}>={
-  starting:{label:'Starting…',tone:'active'},running:{label:'Librarian reading',tone:'active'},finished:{label:'Filed',tone:'ok'},
+  starting:{label:'Starting…',tone:'active'},running:{label:'Processing',tone:'active'},finished:{label:'Completed',tone:'ok'},
   empty:{label:'Nothing to file',tone:'neutral'},stopped:{label:'Stopped',tone:'neutral'},failed:{label:'Failed',tone:'error'},interrupted:{label:'Interrupted',tone:'error'}};
 export function size(bytes:number){return bytes<1024?bytes+' B':bytes<1024**2?(bytes/1024).toFixed(1)+' KB':(bytes/1024**2).toFixed(1)+' MB';}
+
+/** Reading arrivals is quick, classifying each one is the long part, and filing closes each batch. */
+export function ingestProgress(run:InboxRun|null|undefined){
+  const phase=run?.phase,done=run?.progress?.done??0,total=run?.progress?.total??0;
+  if(!phase||!total)return {value:null,label:phase==='editorial'||phase==='decision'?'Classifying arrivals':phase==='filing'?'Filing and committing':'Getting ready',count:null};
+  const decided=10+85*done/total,count=`${done} of ${total}`;
+  if(phase==='snapshot')return {value:10*done/total,label:'Reading arrivals',count};
+  if(phase==='filing')return {value:decided,label:'Filing and committing',count};
+  if(phase==='committed')return {value:done===total?100:decided,label:done===total?'Committed':'Committed a batch',count};
+  return {value:decided,label:done<total?`Classifying arrival ${done+1} of ${total}`:'Classified every arrival',count:`${done} decided`};
+}
+
+function IngestProgress({run}:{run:InboxRun|null|undefined}){
+  const {value,label,count}=ingestProgress(run);
+  return <Progress id="inbox-progress" value={value} data-phase={run?.phase||'none'} aria-label="Filing progress"
+    className="gap-2 [&_[data-slot=progress-indicator][data-indeterminate]]:w-1/3 [&_[data-slot=progress-indicator][data-indeterminate]]:animate-pulse">
+    <ProgressLabel className="text-sm font-normal text-muted-foreground">{label}</ProgressLabel>
+    {count?<span className="ml-auto text-sm text-muted-foreground tabular-nums" data-progress-count="">{count}</span>:null}
+  </Progress>;
+}
 
 function Report({markdown,html,onOpen}:{markdown:string;html:(text:string)=>string;onOpen:(path:string)=>void}){
   // Sanitized by DOMPurify; vault links open in the reader, others in a new tab.
@@ -37,42 +62,76 @@ function Report({markdown,html,onOpen}:{markdown:string;html:(text:string)=>stri
   return <div id="inbox-report" className="inbox-report" data-reader-decoration="" onClick={click} dangerouslySetInnerHTML={{__html:html(markdown)}}/>;
 }
 
+/** What the next run does before and besides the arrivals: resume a retained batch, then commit others' pending library work. */
+function BeforeFiling({retained,work}:{retained:RetainedArrival[];work:{paths:string[];count:number}|null|undefined}){
+  const paths=work?.paths||[];
+  if(!retained.length&&!paths.length)return null;
+  return <StatusCard id="inbox-before-filing" title="Before new arrivals" description="What the next You got mail run does first.">
+    <div className="flex min-w-0 flex-col gap-4 text-sm">
+      {retained.length?<section data-retained="" className="flex flex-col gap-1">
+        <h3 className="font-medium">Retained batch · resumes on retry</h3>
+        <ul className="flex flex-col gap-1">{retained.map(entry=><li key={entry.source} data-retained-source={entry.source} className="[overflow-wrap:anywhere]">
+          {entry.title||entry.source}{entry.destination?<span className="text-muted-foreground"> → <code className="font-mono text-xs">{entry.destination}</code></span>:null}<span className="text-muted-foreground" data-retained-state={entry.state}> ({RETAINED[entry.state]})</span></li>)}</ul>
+      </section>:null}
+      {paths.length?<section data-pending-work={work?.count} className="flex flex-col gap-1">
+        <h3 className="font-medium">Uncommitted work · committed first, in its own commit</h3>
+        <p className="text-muted-foreground">These changes belong to no arrival. Filing commits them as they are, with normal hooks, then catalogs new documents and regenerates the indexes.</p>
+        <ul className="flex flex-col gap-0.5 font-mono text-xs">{paths.map(path=><li key={path} className="[overflow-wrap:anywhere]">{path}</li>)}</ul>
+        {work&&work.count>paths.length?<p className="text-muted-foreground">and {plural(work.count-paths.length,'more path')}</p>:null}
+      </section>:null}
+    </div>
+  </StatusCard>;
+}
+
 /** One arrival: a button-rendered shadcn Item. Its receipt status is the badge; files, size and arrival time follow. */
-function ArrivalItem({arrival,onOpen}:{arrival:Arrival;onOpen:(path:string)=>void}){
+function ArrivalItem({arrival,onOpen,onChoose}:{arrival:Arrival;onOpen:(path:string)=>void;onChoose:(arrival:string,choice:'hold'|'cloud'|null)=>void}){
   const meta=[arrival.author,arrival.project,arrival.report_date].filter(Boolean).join(' · ');
-  return <Item size="sm" role="listitem" render={<button type="button"/>} data-arrival={arrival.id} onClick={()=>onOpen(arrival.document)} className="cursor-pointer text-left hover:bg-muted">
+  const held=arrival.choice==='hold';
+  return <div role="listitem" data-arrival-row={arrival.id}><Item size="sm" render={<button type="button"/>} data-arrival={arrival.id} onClick={()=>onOpen(arrival.document)} className="cursor-pointer text-left hover:bg-muted">
     <ItemContent className="min-w-0">
       <ItemTitle data-arrival-title="" className="font-serif text-base font-normal [overflow-wrap:anywhere]">{arrival.title}</ItemTitle>
-      {meta||arrival.source?<ItemDescription className="[overflow-wrap:anywhere]">{meta}{arrival.source?<span className="text-muted-foreground/80"> via {arrival.source}</span>:null}</ItemDescription>:null}
+      {meta||arrival.source?<ItemDescription className="[overflow-wrap:anywhere]">{meta}{arrival.source?<span> via {arrival.source}</span>:null}</ItemDescription>:null}
       <ItemDescription className="text-xs tabular-nums">{plural(arrival.files,'file')} · {size(arrival.bytes)}{arrival.received_at?<> · <RelativeTime value={arrival.received_at}/></>:null}</ItemDescription>
     </ItemContent>
     <ItemActions className="max-sm:basis-full">
+      {arrival.eligibility?<StatusBadge tone={ELIGIBILITY[arrival.eligibility.state].tone} data-eligibility={arrival.eligibility.state}>{ELIGIBILITY[arrival.eligibility.state].label}</StatusBadge>:null}
       {arrival.integrity?<StatusBadge tone={arrival.integrity==='intact'?'ok':'error'} data-integrity={arrival.integrity}>{arrival.integrity==='intact'?'Receipt intact':'Changed since delivery'}</StatusBadge>
         :<StatusBadge tone="neutral" data-integrity="none" title={arrival.receipt_error||undefined}>{arrival.receipt_error?'Unreadable receipt':'No receipt'}</StatusBadge>}
       <ChevronRightIcon aria-hidden className="size-4 text-muted-foreground max-sm:hidden"/>
     </ItemActions>
-  </Item>;
+  </Item>
+  {arrival.eligibility?.reason&&!held?<p className="px-3 pb-1 text-xs text-muted-foreground [overflow-wrap:anywhere]" data-arrival-eligibility-reason="">{arrival.eligibility.reason}</p>:null}
+  <div className="flex flex-wrap items-center gap-2 px-3 pb-2 text-xs text-muted-foreground" data-arrival-choice={arrival.choice||'none'} {...localOnly()}>
+    <span data-arrival-level="" className="min-w-0 flex-1">{held?'On hold: filing skips this until you release it.':arrival.local_only?'Local model only. If it can’t answer, this keeps waiting.':'Cloud models may read this when it’s filed.'}</span>
+    {held?<Button size="xs" variant="ghost" data-arrival-release="" onClick={()=>onChoose(arrival.id,null)}>Release</Button>:<>
+      {arrival.choice==='cloud'?<Button size="xs" variant="ghost" data-arrival-local="" onClick={()=>onChoose(arrival.id,null)}>Use the level it arrived with</Button>
+        :arrival.local_only?<ConfirmAction label="Allow cloud models" title={`Allow cloud models for “${arrival.title}”?`} description="Codex, Claude or agy may read this document when it’s filed, and what they read can’t be recalled." confirm="Allow cloud models" onConfirm={()=>onChoose(arrival.id,'cloud')}/>:null}
+      <Button size="xs" variant="ghost" data-arrival-hold="" onClick={()=>onChoose(arrival.id,'hold')}>Hold</Button>
+    </>}
+  </div></div>;
 }
 
-export function InboxPage({status,error=null,starting,onMail,onStop,onOpen,html,activity}:{status:InboxStatus|null;error?:string|null;starting:boolean;onMail:()=>void;onStop:()=>void;onOpen:(path:string)=>void;html:(text:string)=>string;activity:ActivityModel|null}){
-  const arrivals=status?.arrivals||[],run=status?.runner,active=starting||ACTIVE_RUN.includes(run?.status||''),blocked=status?.blocked;
+export function InboxPage({status,error=null,starting,onMail,onStop,onChoose,onOpen,html,activity}:{status:InboxStatus|null;error?:string|null;starting:boolean;onMail:()=>void;onStop:()=>void;onChoose:(arrival:string,choice:'hold'|'cloud'|null)=>void;onOpen:(path:string)=>void;html:(text:string)=>string;activity:ActivityModel|null}){
+  const arrivals=status?.arrivals||[],ready=arrivals.filter(arrival=>arrival.choice!=='hold'),run=status?.runner,active=starting||ACTIVE_RUN.includes(run?.status||''),blocked=status?.blocked;
   const state=starting&&!active?RUN_STATES.starting:run?RUN_STATES[run.status]||{label:run.status,tone:'neutral' as const}:null;
   const [reportOpen,setReportOpen]=useState<boolean|null>(null),showReport=reportOpen??run?.status==='finished';
   const report=()=>{setReportOpen(true);requestAnimationFrame(()=>document.getElementById('inbox-report-wrap')?.scrollIntoView({block:'start',behavior:'smooth'}));};
   const transcript=activity?.run?<ActivityTranscript activity={activity.activity} run={activity.run} live={active||!activity.done} html={html} onOpen={onOpen} onReport={run?.report_md?report:undefined}/>:null;
   const finished=run&&!ACTIVE_RUN.includes(run.status)&&!active;
-  const note=active?'The librarian is reading the mail.':needsReader()?`Filing ${plural(arrivals.length,'arrival')} needs Reader on your computer, where a librarian voice reads the mail.`:blocked?'Filing is paused; see why above.':`Ask the librarian to file ${plural(arrivals.length,'arrival')}.`;
+  const note=active?'Filing sources and checking the result.':needsReader()?`Filing ${plural(ready.length,'arrival')} needs Reader on your computer.`:blocked?'Filing is paused; see why above.':status?.pending?'Resume the interrupted filing batch.':arrivals.length&&!ready.length?'Everything waiting is on hold.':`File ${plural(ready.length,'arrival')}.`;
   return <div id="inbox" className="flex flex-col gap-6" data-run-state={starting?'starting':run?.status||'none'} data-state={status?'ready':error?'unavailable':'loading'}>
-    <StatusCard title="Librarian run" titleId="inbox-title" description="A librarian voice reads each arrival, files it with its receipt and commits the result."
+    {status?.broken_delivery_keys?<Notice id="inbox-broken-keys" tone="error" title={`${plural(status.broken_delivery_keys,'delivery key')} can’t reach Reader on this machine.`}>Deliveries using {status.broken_delivery_keys===1?'it':'them'} will fail. On each delivering machine, run <code className="font-mono text-xs">remote-setup --force</code> again; see Remote delivery in the docs.</Notice>:null}
+    <StatusCard title="Librarian run" titleId="inbox-title"
       badge={state?<StatusBadge tone={state.tone} busy={active} data-inbox-badge="">{state.label}</StatusBadge>:null}
       footer={<>
-        <Button id="inbox-mail" disabled={!status||active||!!blocked} {...localOnly()} onClick={onMail} aria-describedby="inbox-mail-note">{active?<Spinner data-icon="inline-start" aria-hidden/>:<MailIcon data-icon="inline-start" aria-hidden/>}You got mail</Button>
+        <Button id="inbox-mail" disabled={!status||active||!!blocked||(!!arrivals.length&&!ready.length&&!status?.pending)} {...localOnly()} onClick={onMail} aria-describedby="inbox-mail-note">{active?<Spinner data-icon="inline-start" aria-hidden/>:<MailIcon data-icon="inline-start" aria-hidden/>}You got mail</Button>
         {active?<Button id="inbox-stop" variant="destructive" disabled={starting&&!run?.started_at} onClick={onStop}><SquareIcon data-icon="inline-start" aria-hidden/>Stop</Button>:null}
         <span id="inbox-mail-note" className="min-w-48 flex-1 text-sm text-muted-foreground">{note}</span>
       </>}>
       {!status?(error?<Unavailable id="inbox-unavailable" what="The inbox" error={error}/>:<LoadingState>Looking in the inbox…</LoadingState>):null}
-      {blocked&&!active?<Notice id="inbox-blocked" data-reason={blocked.reason} tone={['interrupted','error','codex'].includes(blocked.reason)?'error':'info'}>{blocked.message}</Notice>:null}
+      {blocked&&!active?<Notice id="inbox-blocked" data-reason={blocked.reason} tone={['interrupted','error','model'].includes(blocked.reason)?'error':'info'}>{blocked.message}</Notice>:null}
       {active?<div className="flex min-w-0 flex-col gap-3" data-inbox-run="" aria-live="polite">
+        {run?.started_at?<IngestProgress run={run}/>:null}
         {!transcript?<span className="text-sm text-muted-foreground" data-run-clock="">{starting&&!run?.started_at?'Starting the librarian…':<>Running for {run?.started_at?<Elapsed since={run.started_at} clock/>:'…'}{run?.arrivals?<> · {plural(run.arrivals,'arrival')}</>:null}{run?.sandbox_mode==='danger-full-access'?' · Host access':''}</>}</span>
           :run?.sandbox_mode==='danger-full-access'?<span className="text-sm text-muted-foreground">Host access</span>:null}
         {transcript||(run?.event?<span className="truncate font-mono text-xs text-muted-foreground" title={run.event}>{run.event}</span>:null)}
@@ -86,10 +145,11 @@ export function InboxPage({status,error=null,starting,onMail,onStop,onOpen,html,
         {transcript}
       </div>:null}
     </StatusCard>
+    {status?<BeforeFiling retained={status.retained||[]} work={status.pending_work}/>:null}
     <StatusCard title="Waiting to be filed" description={status&&arrivals.length?'Opening one previews it; it is not marked read.':undefined}
       badge={status?<StatusBadge tone={arrivals.length?'active':'ok'} data-arrivals={arrivals.length}>{arrivals.length?plural(arrivals.length,'arrival'):'Empty'}</StatusBadge>:null}>
       {!status?(error?null:<LoadingState/>)
-        :arrivals.length?<ItemGroup role="list" aria-label="Arrivals waiting in the inbox">{arrivals.map((arrival,index)=><Fragment key={arrival.id}>{index?<ItemSeparator role="presentation"/>:null}<ArrivalItem arrival={arrival} onOpen={onOpen}/></Fragment>)}</ItemGroup>
+        :arrivals.length?<ItemGroup role="list" aria-label="Arrivals waiting in the inbox">{arrivals.map((arrival,index)=><Fragment key={arrival.id}>{index?<ItemSeparator role="presentation"/>:null}<ArrivalItem arrival={arrival} onOpen={onOpen} onChoose={onChoose}/></Fragment>)}</ItemGroup>
         :<EmptyState icon={InboxIcon} title="No arrivals are waiting" description="Deliveries from other agents and dropped files appear here until the librarian files them."/>}
     </StatusCard>
   </div>;

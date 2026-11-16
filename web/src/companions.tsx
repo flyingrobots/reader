@@ -51,7 +51,7 @@ export function focusCompanion(name:string,panel='guide'){focus={name,panel};foc
 
 async function copy(text:string){
   try{await navigator.clipboard.writeText(text);return true;}
-  catch{const area=document.createElement('textarea');area.value=text;area.setAttribute('readonly','');area.style.position='fixed';area.style.opacity='0';document.body.append(area);area.select();
+  catch{const area=document.createElement('textarea');area.value=text;area.setAttribute('readonly','');area.className='fixed opacity-0';document.body.append(area);area.select();
     const ok=document.execCommand('copy');area.remove();return ok;}
 }
 function Commands({guide,id}:{guide:Guide;id:string}){
@@ -107,10 +107,10 @@ function CompanionCard({item,api,act,busy}:{item:Companion;api:Api;act:Companion
       {item.guide&&item.state!=='installed'?<Button size="sm" variant="outline" data-action="guide" aria-expanded={panel==='guide'} onClick={()=>setPanel(panel==='guide'?null:'guide')}>How to install</Button>:null}
       {item.actions.includes('set-path')?<Button size="sm" variant="outline" data-action="set-path" aria-expanded={panel==='path'} onClick={()=>{setPath(item.path||'');setPanel(panel==='path'?null:'path');}}>Set path</Button>:null}
       <Button size="sm" variant="outline" data-action="check" disabled={pending} onClick={()=>run('check')}>Check again</Button>
-    </ButtonGroup><Button variant="link" size="sm" className="px-0" nativeButton={false} render={<a href={item.repo} target="_blank" rel="noreferrer"/>}>{item.repo.replace('https://github.com/','')}<ExternalLinkIcon data-icon="inline-end" aria-hidden/></Button></div>}>
+    </ButtonGroup><Button variant="link" size="sm" className="px-0 text-foreground underline" nativeButton={false} render={<a href={item.repo} target="_blank" rel="noreferrer"/>}>{item.repo.replace('https://github.com/','')}<ExternalLinkIcon data-icon="inline-end" aria-hidden/></Button></div>}>
     {running?<span className="text-sm" aria-live="polite" data-companion-progress="">{running.progress||running.label+'…'}</span>:item.message?<Notice tone={item.state==='error'?'error':'info'} title={item.message}/>:null}
     <FactList layout="rows" facts={facts.map(([label,value])=>({key:label.toLowerCase(),label,value:value&&wide(label)?<code className="font-mono text-xs">{value}</code>:value}))}/>
-    {item.name==='ai-tts'?<SpeechVoice api={api} saveDefault/>:null}
+    {item.name==='ai-tts'?<SpeechVoice api={api} saveDefault refreshKey={item.state+':'+(item.job?.id||'')}/>:null}
     {item.install&&!item.install.available&&item.state!=='installed'&&item.install.reason?<Notice data-install-blocked="" title="Install isn’t available here">{item.install.reason}{item.install.help?<> <a className="text-primary underline-offset-4 hover:underline" href={item.install.help} target="_blank" rel="noreferrer">{item.install.help.replace('https://','')}</a></>:null}</Notice>:null}
     {error?<Notice tone="error" role="alert" title={error}/>:null}
     {panel==='confirm'&&plan?<Changes title={primary==='start'?'Start AI-TTS':`${ACTION_LABEL[primary!]} ${item.title}${item.install?.pinned?' '+item.install.pinned:''}`} items={[...plan.changes,...(primary==='start'&&item.start?item.start.commands.map(c=>'Runs: '+c):[])]}
@@ -145,7 +145,7 @@ export function CompanionPrompt({item,id,onInstall,onSetup}:{item:Companion;id:s
       {install?<Button size="xs" data-prompt-action="install" onClick={()=>{toast.dismiss(id);onInstall();}}>{install==='install'?'Install':'Update'}</Button>
         :item.state==='not-running'&&item.start?.available?<Button size="xs" data-prompt-action="start" onClick={()=>{toast.dismiss(id);onSetup('confirm');}}>Start…</Button>
         :<Button size="xs" data-prompt-action="setup" onClick={()=>{toast.dismiss(id);onSetup('guide');}}>How to install</Button>}
-      <Button size="xs" variant="link" nativeButton={false} render={<a href={item.repo} target="_blank" rel="noreferrer"/>}>About {item.title}</Button>
+      <Button size="xs" variant="link" className="text-foreground underline" nativeButton={false} render={<a href={item.repo} target="_blank" rel="noreferrer"/>}>About {item.title}</Button>
       <Button size="xs" variant="ghost" className="ml-auto" data-prompt-action="dismiss" onClick={()=>{setDismissed(item.name);toast.dismiss(id);}}>Don’t show again</Button>
     </CardFooter>
   </Card>;

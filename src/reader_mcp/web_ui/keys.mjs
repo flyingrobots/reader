@@ -33,8 +33,6 @@ const LABELS={'<Space>':'Space','<CR>':'Enter','<Esc>':'Escape','<Tab>':'Tab','<
 /** Readable key names for the help and hints: <C-d> → Ctrl d. */
 export function keyLabel(token){if(LABELS[token])return LABELS[token];const ctrl=token.match(/^<C-(.+)>$/);if(ctrl)return 'Ctrl '+(LABELS['<'+ctrl[1]+'>']||ctrl[1]);return token.replace(/^<(.+)>$/,'$1');}
 /** Help text is plain; `x` marks a key. */
-const richHelp=text=>esc(text).replace(/`([^`]+)`/g,'<kbd>$1</kbd>');
-const kbd=tokens=>tokens.map(t=>`<kbd>${esc(keyLabel(t))}</kbd>`).join(' ');
 /** Closest command name for a typo: edit distance, preferring shared prefixes. */
 export function closest(word,names){
   const distance=(a,b)=>{const row=Array.from({length:b.length+1},(_,i)=>i);for(let i=1;i<=a.length;i++){let previous=row[0];row[0]=i;for(let j=1;j<=b.length;j++){const saved=row[j];row[j]=Math.min(row[j]+1,row[j-1]+1,previous+(a[i-1]===b[j-1]?0:1));previous=saved;}}return row[b.length];};
@@ -50,7 +48,7 @@ export const LIMITS={sequenceMs:650,leaderMs:1200,history:100,count:9999};
  *  - changed(): called when the mode, pending keys or table change (updates the status line);
  *  - notify(message, type): toasts for the command line.
  */
-export function createKeys({guard=()=>false,escape=()=>{},changed=()=>{},notify=()=>{},storage=globalThis.localStorage}={}){
+export function createKeys({drawHelp=()=>{},guard=()=>false,escape=()=>{},changed=()=>{},notify=()=>{},storage=globalThis.localStorage,suggestions=null,showPending=null,showLine=null}={}){
   const table=[],commands=[],modes=new Map(),before=[],groups=new Map(),prefixes=new Map();
   const stack=['normal'];let sectionOrder=[];let pending=[],count='',register=null,timer=0;
   const mode=()=>stack.at(-1);
@@ -153,12 +151,7 @@ export function createKeys({guard=()=>false,escape=()=>{},changed=()=>{},notify=
     if(mode()!=='normal'&&spec)return {mode:spec.label(),keys:spec.hints?.()||''};
     return null;
   }
-  let pendingEl=null;
-  function renderPending(){
-    pendingEl??=byId('status-pending');if(!pendingEl)return;
-    const text=(count||'')+(register!==null?'"'+register:'')+(leads(pending[0])?'':pending.map(keyLabel).join(''));
-    pendingEl.textContent=text;pendingEl.hidden=!text;
-  }
+  function renderPending(){showPending?.((count||'')+(register!==null?'"'+register:'')+(leads(pending[0])?'':pending.map(keyLabel).join('')));}
 
   // Command line --------------------------------------------------------------
   /** Register an Ex command: {name, aliases?, args?, help, complete?(prefix)→[{value,label?}]|Promise, run(args, {bang})}. */
@@ -170,13 +163,16 @@ export function createKeys({guard=()=>false,escape=()=>{},changed=()=>{},notify=
     const prefixed=all.filter(c=>c.name.startsWith(name));return name&&prefixed.length===1?prefixed[0]:null;
   }
   let history=[];try{const saved=JSON.parse(storage?.getItem('reader.commands.v1')||'[]');if(Array.isArray(saved))history=saved.filter(h=>typeof h==='string').slice(-LIMITS.history);}catch{}
-  const line={form:null,input:null,menu:null,opener:null,choices:null,choice:-1,base:'',browse:-1,draft:''};
+  const line={form:null,input:null,menu:null,opener:null,choices:null,choice:-1,base:'',browse:-1,draft:'',query:0,timer:null};
   function setupLine(){
     if(line.form)return true;
+    showLine?.(true);
     line.form=byId('command-line');line.input=byId('command-input');line.menu=byId('command-menu');
     if(!line.form)return false;
     line.form.addEventListener('submit',event=>{event.preventDefault();execute(line.input.value);});
-    line.input.addEventListener('input',()=>{line.choices=null;line.browse=-1;showChoices();});
+    line.input.setAttribute('role','combobox');line.input.setAttribute('aria-autocomplete','list');line.input.setAttribute('aria-controls','command-menu');
+    line.input.addEventListener('input',()=>{line.browse=-1;refreshSuggestions();});
+    line.menu.addEventListener('pointerdown',event=>{const option=event.target.closest('[data-command-choice]');if(option){event.preventDefault();acceptChoice(Number(option.dataset.commandChoice));}});
     line.input.addEventListener('keydown',lineKey);
     line.input.addEventListener('blur',()=>setTimeout(()=>{if(mode()==='command'&&document.activeElement!==line.input)closeLine(false);},0));
     return true;
@@ -186,11 +182,11 @@ export function createKeys({guard=()=>false,escape=()=>{},changed=()=>{},notify=
     if(!setupLine())return;
     line.opener=document.activeElement;enter('command');
     byId('statusline')?.classList.add('commanding');
-    line.form.hidden=false;line.input.value=text;line.choices=null;line.browse=-1;showChoices();line.input.focus();emit();
+    line.input.value=text;line.choices=null;line.browse=-1;showChoices();line.input.focus();refreshSuggestions();emit();
   }
   function closeLine(restore=true){
-    if(!line.form||line.form.hidden)return;
-    line.form.hidden=true;line.choices=null;showChoices();byId('statusline')?.classList.remove('commanding');
+    if(!line.form)return;
+    clearTimeout(line.timer);line.query++;line.choices=null;showLine?.(false);line.form=line.input=line.menu=null;byId('statusline')?.classList.remove('commanding');
     leave('command');
     if(restore){const opener=line.opener;(opener?.isConnected&&opener!==document.body&&opener!==line.input?opener:byId('main'))?.focus({preventScroll:true});}
     line.opener=null;emit();
@@ -199,46 +195,62 @@ export function createKeys({guard=()=>false,escape=()=>{},changed=()=>{},notify=
     const key=event.key;
     if(key==='Escape'||key==='Backspace'&&!line.input.value||event.ctrlKey&&key==='c'){event.preventDefault();event.stopPropagation();closeLine();return;}
     if(key==='Tab'){event.preventDefault();complete(event.shiftKey?-1:1);return;}
-    if(key==='ArrowUp'||key==='ArrowDown'||event.ctrlKey&&(key==='p'||key==='n')){event.preventDefault();recall(key==='ArrowUp'||key==='p'?-1:1);return;}
+    if(key==='Enter'&&line.choice>=0&&line.choices?.length){event.preventDefault();const value=line.choices[line.choice].value;if(!value.includes(' ')&&findCommand(value)?.args)acceptChoice(line.choice);else execute(value);return;}
+    if(event.ctrlKey&&(key==='p'||key==='n')){event.preventDefault();recall(key==='p'?-1:1);return;}
+    if(key==='ArrowUp'||key==='ArrowDown'){event.preventDefault();if(line.choices?.length&&(line.input.value||key==='ArrowDown'||line.choice>=0||!history.length)){line.choice=line.choice<0?(key==='ArrowDown'?0:line.choices.length-1):(line.choice+(key==='ArrowDown'?1:-1)+line.choices.length)%line.choices.length;showChoices();}else recall(key==='ArrowUp'?-1:1);return;}
   }
   /** Up/Down: earlier commands that start with what is typed (per device). */
   function recall(delta){
     if(line.browse<0){line.draft=line.input.value;line.browse=history.length;}
     const matches=i=>history[i]?.startsWith(line.draft);
     let i=line.browse+delta;while(i>=0&&i<history.length&&!matches(i))i+=delta;
-    if(i<0)return;if(i>=history.length){line.browse=history.length;line.input.value=line.draft;return;}
-    line.browse=i;line.input.value=history[i];
+    if(i<0)return;if(i>=history.length){line.browse=history.length;line.input.value=line.draft;refreshSuggestions();return;}
+    line.browse=i;line.input.value=history[i];refreshSuggestions();
   }
   async function choicesFor(text){
     const space=text.indexOf(' ');
-    if(space<0)return visibleCommands().map(c=>c.name).filter(name=>name.startsWith(text)).sort().map(name=>({value:name,label:name}));
+    if(space<0)return visibleCommands().filter(c=>c.name.startsWith(text)).sort((a,b)=>a.name.localeCompare(b.name)).map(c=>({value:c.name,label:c.name,description:(c.args?c.args+' · ':'')+c.help}));
     const name=text.slice(0,space),spec=findCommand(name);if(!spec?.complete)return [];
     const typed=text.slice(space+1);
     const found=await spec.complete(typed);
-    return (found||[]).slice(0,50).map(item=>typeof item==='string'?{value:item,label:item}:item).map(item=>({...item,value:spec.name+' '+item.value}));
+    return (found||[]).slice(0,50).map(item=>typeof item==='string'?{value:item,label:item}:item).map(item=>({...item,value:spec.name+' '+item.value,description:item.description||spec.help}));
+  }
+  /** Live suggestions share the command registry and providers with Tab. Late answers never replace newer text. */
+  function refreshSuggestions(){
+    clearTimeout(line.timer);const ticket=++line.query,text=line.input.value;
+    line.choices=null;line.choice=-1;line.base=text;showChoices();
+    const load=async()=>{try{const choices=await choicesFor(text);if(ticket!==line.query||line.input.value!==text)return;line.choices=choices;showChoices(choices.length?'':text?'No matching suggestions':'');}catch{if(ticket===line.query)showChoices('Suggestions unavailable');}};
+    if(text.includes(' '))line.timer=setTimeout(load,100);else load();
+  }
+  function acceptChoice(index){
+    const choice=line.choices?.[index];if(!choice)return;
+    line.input.value=choice.value+(!choice.value.includes(' ')&&findCommand(choice.value)?.args?' ':'');
+    line.browse=-1;line.input.focus();refreshSuggestions();
   }
   /** Tab: complete the command name or its argument; repeated Tab cycles through the choices. */
   async function complete(delta){
     if(!line.choices){
-      const text=line.input.value,choices=await choicesFor(text);if(line.input.value!==text)return;
+      clearTimeout(line.timer);const ticket=++line.query,text=line.input.value,choices=await choicesFor(text);if(ticket!==line.query||line.input.value!==text)return;
       line.base=text;line.choices=choices;line.choice=-1;
       if(!choices.length){showChoices('No completions');return;}
     }
     if(!line.choices.length)return;
-    line.choice=(line.choice+delta+line.choices.length)%line.choices.length;
+    line.choice=line.choice<0?(delta>0?0:line.choices.length-1):(line.choice+delta+line.choices.length)%line.choices.length;
     line.input.value=line.choices[line.choice].value;
     // A single command-name match completes with a trailing space, ready for its argument.
     if(line.choices.length===1&&!line.base.includes(' ')&&findCommand(line.input.value)?.args)line.input.value+=' ';
-    if(line.choices.length===1)line.choices=null;
+    if(line.choices.length===1){refreshSuggestions();return;}
     showChoices();
   }
   function showChoices(message=''){
     if(!line.menu)return;
-    if(message){line.menu.textContent=message;line.menu.hidden=false;return;}
-    if(!line.choices||line.choices.length<2){line.menu.replaceChildren();line.menu.hidden=true;return;}
-    const start=Math.max(0,Math.min(line.choice-2,line.choices.length-6));
-    line.menu.innerHTML=line.choices.slice(start,start+6).map((c,i)=>`<span class="command-choice" role="option" aria-selected="${start+i===line.choice}">${esc(c.label||c.value)}</span>`).join('')+(line.choices.length>6?`<span class="command-more">${line.choice+1}/${line.choices.length}</span>`:'');
-    line.menu.hidden=false;
+    const choices=line.choices||[],start=Math.max(0,Math.min(line.choice-3,choices.length-8)),visible=choices.slice(start,start+8);
+    line.menu.hidden=!message&&!visible.length;
+    line.input.setAttribute('aria-expanded',String(!line.menu.hidden));
+    if(line.choice>=0&&choices[line.choice])line.input.setAttribute('aria-activedescendant','command-option-'+line.choice);else line.input.removeAttribute('aria-activedescendant');
+    const model={choices:visible.map((choice,i)=>({...choice,index:start+i})),selected:line.choice,total:choices.length,message};
+    if(suggestions){suggestions(line.menu,model);return;}
+    line.menu.innerHTML=message?`<span role="status">${esc(message)}</span>`:visible.map((c,i)=>`<button type="button" tabindex="-1" data-command-choice="${start+i}" id="command-option-${start+i}" role="option" aria-selected="${start+i===line.choice}"><span class="command-choice">${esc(c.label||c.value)}</span></button>`).join('');
   }
   /** Run a command line such as "theme paper"; unknown names toast the closest match. */
   async function execute(text){
@@ -265,14 +277,11 @@ export function createKeys({guard=()=>false,escape=()=>{},changed=()=>{},notify=
     const root=byId('help-keys');if(!root)return;
     const sections=new Map();
     for(const entry of table){if(!entry.help)continue;const name=entry.group||'Reading';if(!sections.has(name))sections.set(name,[]);sections.get(name).push(entry);}
-    let html='';
     const rank=name=>{const i=sectionOrder.indexOf(name);return i<0?sectionOrder.length:i;};
-    for(const [name,entries] of [...sections].sort((a,b)=>rank(a[0])-rank(b[0]))){
-      html+=`<h3 class="help-group">${esc(name)}</h3><dl class="keymap">`+entries.map(entry=>`<dt>${entry.display?entry.display.split(' / ').map(part=>kbd(part.split(' '))).join(' / '):kbd(entry.tokens)}</dt><dd>${richHelp(entry.help)}</dd>`).join('')+'</dl>';
-    }
+    const model=[...sections].sort((a,b)=>rank(a[0])-rank(b[0])).map(([name,entries])=>({name,rows:entries.map(entry=>({keys:entry.display?entry.display.split(' / ').map(part=>part.split(' ')):[entry.tokens.map(keyLabel)],help:entry.help}))}));
     const documented=commands.filter(c=>c.help);
-    if(documented.length)html+=`<h3 class="help-group">Command line</h3><p class="quiet">Press <kbd>:</kbd> to type a command in the status line. <kbd>Tab</kbd> completes, <kbd>↑</kbd> <kbd>↓</kbd> recall earlier commands, <kbd>Enter</kbd> runs, <kbd>Esc</kbd> cancels.</p><dl class="keymap commands">`+documented.map(c=>`<dt data-command="${esc(c.name)}"><kbd>:${esc(c.name)}${c.args?' '+esc(c.args):''}</kbd></dt><dd>${richHelp(c.help)}</dd>`).join('')+'</dl>';
-    root.innerHTML=html;
+    if(documented.length)model.push({name:'Command line',note:true,rows:documented.map(c=>({keys:[[':'+c.name+(c.args?' '+c.args:'')]],help:c.help,command:c.name}))});
+    drawHelp(root,model);
   }
   /** Every key sequence a binding maps, for tests and the help. */
   const listed=()=>table.map(entry=>({mode:entry.modes,keys:entry.keys,help:entry.help||'',group:entry.group||'Reading',runs:!!entry.run,...(entry.display?{display:entry.display}:{})}));

@@ -1,3 +1,4 @@
+import './jail_guard.cjs';
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {leaves,splitLeaf,removeLeaf,swapNext,equalize,layout,fits,resize,neighbor,cleanRoute,encodeLayout,decodeLayout,mapOffset,matchHeading,headingKey,MIN_WIDTH,DIVIDER} from '../src/reader_mcp/web_ui/split.mjs';

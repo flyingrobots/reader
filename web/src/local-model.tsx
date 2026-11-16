@@ -105,7 +105,6 @@ function ProviderCard({status,act}:{status:LocalModelStatus;act:Act}){
     try{const result=await act('settings',{settings:{provider:body}});if(!result)setError('Not saved; see the message.');else setDraft(d=>({...d,api_key:''}));}finally{setBusy(false);}};
   return <form id="lm-provider-form" className="contents" onSubmit={e=>{e.preventDefault();save();}}>
     <StatusCard data-lm="provider" data-provider={provider.preset} data-remote={provider.loopback?'false':'true'} title="Provider"
-      description={<>Any OpenAI-compatible server: LM Studio, Ollama, llama.cpp, vLLM, LocalAI, Jan and others. Reader talks to it at its <code className={mono}>/v1</code> base URL and finds models with <code className={mono}>GET /v1/models</code>.</>}
       badge={<StatusBadge id="lm-provider-scope" tone={provider.loopback?'ok':'error'}>{provider.loopback?'This machine only':'Leaves this machine'}</StatusBadge>}
       footer={<Button type="submit" size="sm" id="lm-provider-save" disabled={busy||!changed}>{busy?<Spinner data-icon="inline-start" aria-hidden/>:null}{busy?'Saving…':'Save provider'}</Button>}>
       <FieldGroup>
@@ -148,7 +147,7 @@ function NowCard({status,act}:{status:LocalModelStatus;act:Act}){
 
 function QueueCard({status,act}:{status:LocalModelStatus;act:Act}){
   const ready=status.server.running;
-  return <StatusCard data-lm="queue" title="Queue" description="Waiting items, grouped by task. Queue recent works or the whole library; works with a current output are skipped.">
+  return <StatusCard data-lm="queue" title="Queue">
     <ItemGroup className="gap-0">{Object.entries(status.queue).map(([task,row],index)=>{const enabled=status.settings.tasks[task]?.enabled!==false;
       return <Fragment key={task}>{index?<ItemSeparator role="presentation"/>:null}<UiItem size="xs" role="listitem" className="px-0" data-queue={task} data-active={row.active?'true':'false'}>
         <ItemContent className="min-w-0">
@@ -187,7 +186,7 @@ function RecentCard({items}:{items:Item[]}){
 }
 
 function OutputsCard({outputs,act}:{outputs:Outputs;act:Act}){
-  return <StatusCard data-lm="outputs" title="Outputs in use" description="A rebuildable cache in .reader/local-model/, keyed by source hash, model and prompt version. Never written into vault files."
+  return <StatusCard data-lm="outputs" title="Outputs in use"
     footer={<span className="text-xs text-muted-foreground">Cache {outputs.bytes?mib(outputs.bytes):'empty'} of {mib(outputs.limit_bytes)}. Stale outputs belong to an older edition of their source and are never shown as current.</span>}>
     <ItemGroup className="gap-4">{Object.entries(outputs.tasks).map(([task,o])=><div key={task} role="listitem" className="flex flex-col gap-2" data-outputs={task}>
       <div className="flex flex-wrap items-center justify-between gap-2"><span className="text-sm font-medium">{o.label}</span>{o.stale?<Button size="xs" variant="outline" data-prune={task} onClick={()=>act('prune',{task})}>Remove {o.stale} stale</Button>:null}</div>
@@ -207,7 +206,7 @@ function SettingsCard({status,act}:{status:LocalModelStatus;act:Act}){
   const chosen=draft.embedding_backend.startsWith('openai:')?[draft.embedding_backend.slice(7)]:[];
   const embedItems=[{value:'fastembed',label:'bge-small (built in)'},...legacy,...[...new Set([...chosen,...embeds])].map(key=>({value:'openai:'+key,label:`${shortModel(key)} (${providerLabel})`}))];
   return <form id="lm-settings-form" className="contents" onSubmit={async e=>{e.preventDefault();setBusy(true);try{await act('settings',{settings:draft});}finally{setBusy(false);}}}>
-    <StatusCard data-lm="settings" title="Tasks" description="Which tasks may run, on which model. Runs start only when you press Run."
+    <StatusCard data-lm="settings" title="Tasks"
       footer={<Button type="submit" size="sm" disabled={busy||JSON.stringify(draft)===saved}>{busy?<Spinner data-icon="inline-start" aria-hidden/>:null}{busy?'Saving…':'Save task settings'}</Button>}>
       <FieldGroup>
         {Object.entries(draft.tasks).map(([task,t])=><FieldGroup key={task} className="gap-3 border-b pb-4" data-setting={task}>

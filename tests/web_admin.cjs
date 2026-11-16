@@ -2,6 +2,7 @@
    points and legacy route, Settings opening at its top without scrollIntoView, Back/Forward and direct reloads, Back to
    Library restoring the document's saved place (and a split layout) without new reading progress, no reading chrome or
    smoother in Admin, unavailable backends, a read-only Overview, focus and keyboard use, and phone width (synthetic data). */
+require('./jail_guard.cjs');
 const assert=require('node:assert/strict');
 const {spawn}=require('node:child_process');
 const {createInterface}=require('node:readline');
@@ -53,6 +54,13 @@ const shots=process.env.READER_SHOTS||'.reader/web-dev';
    for(const tile of ['active','inbox','attention','indexes'])await page.locator(`[data-overview=${tile}][data-state=ready]`).waitFor({timeout:8000});
    assert.match(await page.locator('[data-overview=inbox]').textContent(),/3 arrivals waiting/);
    assert.match(await page.locator('[data-overview=indexes]').textContent(),/Not checked yet/,'no check has run, and none is started');
+   assert.deepEqual(await page.locator('[data-sidebar=group-label]').allTextContents(),['Monitor','Library','Configure'],'the sections are grouped');
+   assert.deepEqual(await page.locator('[data-admin-nav]').evaluateAll(links=>links.map(link=>link.dataset.adminNav)),['overview','jobs','logs','publish','encrypted','inbox','library','indexes','artwork','repositories','voices','models','service','settings'],'every section is listed once');
+   assert.match(await page.locator('[data-overview-summary=inbox]').textContent(),/3/);assert.match(await page.locator('[data-overview-summary=indexes]').textContent(),/Not checked yet/);
+   // The section name is in the breadcrumb, so the page head is for assistive technology only: announced and focusable, never drawn.
+   const head=await page.evaluate(()=>{const h=document.querySelector('#admin-title').getBoundingClientRect(),l=document.querySelector('[data-slot=admin-lede]').getBoundingClientRect(),bar=document.querySelector('[data-admin-header]').getBoundingClientRect(),first=document.querySelector('#admin-overview').getBoundingClientRect();return {tall:Math.max(h.height,l.height),gap:first.top-bar.bottom,role:document.querySelector('h1#admin-title')!==null};});
+   assert.ok(head.role,'the page keeps one h1');assert.ok(head.tall<=1,'the heading and lede are not drawn');assert.ok(head.gap<=40,'content starts right under the header');
+   assert.equal(await page.locator('#admin-back').count(),1,'one way back to the library');assert.equal(await page.locator('[data-admin-header] #admin-doc-toggle').count(),1,'Docs is in the header');
    await page.waitForTimeout(1500);assert.deepEqual(posts,[],'opening Overview writes nothing and starts nothing');
    await page.screenshot({path:shots+'/admin-overview.png'});
    await page.goto(url+'/?fresh=1');await page.locator('#home-title').waitFor();
@@ -132,7 +140,7 @@ const shots=process.env.READER_SHOTS||'.reader/web-dev';
    await posted(leaving+1);
    const saved=marks.at(-1),before=marks.length;
    assert.ok(saved.source_offset!=null,'leaving saved a place on a block: '+JSON.stringify([saved.source_offset,saved.block_fraction]));
-   const chrome=await page.evaluate(()=>({smoother:!!window.ScrollSmoother?.get(),twoPage:document.body.classList.contains('two-page'),progress:document.querySelector('#reading-progress').hidden,pages:document.querySelector('#pagination-slot').children.length,footer:!!document.querySelector('.document-footer'),article:!!document.querySelector('#article'),transform:document.querySelector('#smooth-content')?.style.transform||''}));
+   const chrome=await page.evaluate(()=>({smoother:!!window.ScrollSmoother?.get(),twoPage:document.body.classList.contains('two-page'),progress:!document.querySelector('#reading-progress'),pages:document.querySelector('#pagination-slot')?.children.length||0,footer:!!document.querySelector('.document-footer'),article:!!document.querySelector('#article'),transform:document.querySelector('#smooth-content')?.style.transform||''}));
    assert.deepEqual(chrome,{smoother:false,twoPage:false,progress:true,pages:0,footer:false,article:false,transform:''},'no reading chrome or smoother in Admin');
    assert.equal(await page.locator('#status-position').textContent(),'','no reading position in the status line');
    for(const id of ['library','indexes','settings']){await page.locator(`[data-admin-nav=${id}]`).click();await advance(id=>document.querySelector('#admin-content')?.dataset.adminSection===id,id);await page.evaluate(()=>scrollTo(0,document.documentElement.scrollHeight));await page.clock.runFor(300);}
@@ -186,8 +194,8 @@ const shots=process.env.READER_SHOTS||'.reader/web-dev';
    await page.locator('#main').focus();await page.keyboard.press('j');await page.keyboard.press('j');await page.waitForTimeout(1200);
    const spread=await page.locator('#pagination-slot [aria-current=page]').textContent();assert.notEqual(spread,'1');
    await leader(page,'p');await atSection(page,'settings','Settings');
-   const paged=()=>page.evaluate(()=>({twoPage:document.body.classList.contains('two-page'),book:!!document.querySelector('.book-viewport'),pages:document.querySelector('#pagination-slot').children.length}));
-   await page.waitForFunction(()=>!document.body.classList.contains('two-page')&&!document.querySelector('.book-viewport')&&!document.querySelector('#pagination-slot').children.length,null,{timeout:3000}).catch(()=>{});
+   const paged=()=>page.evaluate(()=>({twoPage:document.body.classList.contains('two-page'),book:!!document.querySelector('.book-viewport'),pages:document.querySelector('#pagination-slot')?.children.length||0}));
+   await page.waitForFunction(()=>!document.body.classList.contains('two-page')&&!document.querySelector('.book-viewport')&&!document.querySelector('#pagination-slot'),null,{timeout:3000}).catch(()=>{});
    assert.deepEqual(await paged(),{twoPage:false,book:false,pages:0},'no pagination in Admin');
    await page.locator('#admin-back').click();await page.waitForFunction(()=>document.body.classList.contains('two-page')&&!document.querySelector('.resume-pending'));await page.waitForTimeout(500);
    assert.equal(await page.locator('#pagination-slot [aria-current=page]').textContent(),spread,'the same spread');
@@ -218,6 +226,7 @@ const shots=process.env.READER_SHOTS||'.reader/web-dev';
    const text=await page.locator('#admin-overview').textContent();
    assert.match(text,/Synthetic maintenance outage/);assert.match(text,/Synthetic inbox outage/);
    assert.doesNotMatch(text,/Nothing is running|No arrivals|Nothing needs attention|Not checked yet/,'no healthy or empty claims');
+   for(const card of ['running','inbox','indexes']){const summary=await page.locator(`[data-overview-summary=${card}]`).textContent();assert.doesNotMatch(summary,/\d/,`${card}: an unreadable status is never a number`);assert.match(summary,/unavailable/i);}
    await page.locator('[data-admin-nav=indexes]').click();await atSection(page,'indexes','Indexes');await page.locator('#indexes-unavailable').waitFor();
    assert.equal(await page.locator('[data-index=search][data-state=unavailable]').count(),1);
    await page.locator('[data-admin-nav=inbox]').click();await page.locator('#inbox-unavailable').waitFor();assert.ok(await page.locator('#inbox-mail').isDisabled());

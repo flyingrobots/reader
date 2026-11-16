@@ -1,4 +1,5 @@
 /* Reader Admin's Indexes and Settings pages: index cards, job toasts, settings, and Read next at the end of a document. */
+require('./jail_guard.cjs');
 const assert=require('node:assert/strict');
 const {spawn}=require('node:child_process');
 const {createInterface}=require('node:readline');
@@ -23,6 +24,8 @@ const {sanitizerReport}=require('./web_wait.cjs');  // #151
    assert.equal(new URL(page.url()).hash,'#admin/settings');await page.waitForFunction(()=>document.querySelector('#vim-mode').textContent==='ADMIN');
    assert.equal(await page.locator('#status-location [aria-current=page]').textContent(),'Reader Admin');
    await page.locator('[data-admin-nav=indexes]').click();await page.waitForFunction(()=>document.activeElement?.textContent==='Indexes');await page.locator('#main').focus();
+   await page.locator('[data-index=search][data-state=unknown]').waitFor();
+   await page.locator('#maintenance-check').click();
    for(const [index,state] of [['search','missing'],['browse','unconfigured'],['catalog','missing']])await page.locator(`[data-index=${index}][data-state=${state}]`).waitFor();
    await page.locator('[data-job=search]').click();
    await toast(page,'Search index (with embeddings) running…').waitFor();assert.equal(await toast(page,'running…').getAttribute('data-type'),'loading');
@@ -32,6 +35,13 @@ const {sanitizerReport}=require('./web_wait.cjs');  // #151
    await page.locator('[data-job=catalog]:not([disabled])').waitFor();await page.locator('[data-job=catalog]').click();
    await toast(page,'Synthetic catalog failure').waitFor({timeout:8000});assert.equal(await toast(page,'Catalog SQL mirror failed').getAttribute('data-type'),'error');
    await page.locator('[data-job="search-keyword"]:not([disabled])').waitFor();await page.locator('[data-job="search-keyword"]').click();
+   let keywordJob;const deadline=Date.now()+60000;
+   while(!keywordJob&&Date.now()<deadline){
+     const status=await page.evaluate(()=>fetch('/api/maintenance').then(r=>r.json()));
+     keywordJob=status.jobs.find(job=>job.kind==='search-keyword');
+     if(!keywordJob)await page.waitForTimeout(100);
+   }
+   assert.equal(keywordJob?.state,'succeeded',JSON.stringify(keywordJob)||'Keyword job did not finish');
    await toast(page,'Search index (keywords only) finished').waitFor({timeout:60000});
    await page.locator('[data-index=search][data-state=partial]').waitFor({timeout:15000});
    assert.equal(await page.locator('#recent-runs [data-job-state=failed]').count(),1);
@@ -58,7 +68,7 @@ const {sanitizerReport}=require('./web_wait.cjs');  // #151
   // Two pages: only when it fits the last spread.
   {const {page,context}=await open({layout:'spread'});
    await page.goto(url+'#read='+encodeURIComponent('library/other.md'));await page.locator('#article .next-reads').waitFor();
-   assert.equal(await page.locator('#pagination-slot [aria-current=page]').textContent(),'1','a one-page document shows Read next on its facing page');
+   assert.equal(await page.locator('#pagination-slot [aria-current=page]').textContent(),'1–2','a one-page document shows Read next on its facing page');assert.equal(await page.locator('#pagination-slot [aria-label^="Pages "]').count(),1,'and it adds no second spread');
    const box=await page.evaluate(()=>{const v=document.querySelector('.book-viewport').getBoundingClientRect(),r=document.querySelector('.next-reads').getBoundingClientRect();return {half:v.left+v.width/2,left:r.left,right:r.right,vright:v.right};});
    assert.ok(box.right<=box.vright+1,'inside the spread');await page.waitForTimeout(300);await page.screenshot({path:'.reader/web-dev/next-reads-spread.png'});
    await context.close();

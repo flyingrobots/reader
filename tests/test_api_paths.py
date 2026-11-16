@@ -42,6 +42,9 @@ PARAMS = {
     '/api/companions': [{}, {'name': 'colorful'}, {'name': 'git-locks'}, {'name': 'ai-tts'}, {'name': 'wide-md'}],
     '/api/companions/log': [{'name': 'colorful'}, {'name': 'wide-md'}, {'name': 'ai-tts'}],
     '/api/inbox/events': {'after': '0'},
+    '/api/inbox/deliveries': {'id': '00000000-0000-4000-8000-000000000000'},
+    '/api/private/item': {'id': '00000000-0000-4000-8000-000000000000'},
+    '/api/private/file': {'id': '00000000-0000-4000-8000-000000000000', 'path': 'a.md'},
     '/api/issue': {'start': '2026-10-01', 'end': '2026-10-31'},
     '/api/changes': [{'path': DOC}, {'a': 'HEAD', 'b': 'HEAD'}],
     '/api/version': {'path': DOC, 'commit': 'HEAD'},
@@ -55,7 +58,8 @@ PARAMS = {
     '/api/file': {'path': DOC},
     '/api/art/prompt': [{'path': DOC}, {'path': 'library/other.md'}],
 }
-PREFIXES = {'/api/speak/': ['/api/speak/status', '/api/speak/unknown']}
+PREFIXES = {'/api/speak/': ['/api/speak/status', '/api/speak/unknown'],
+            '/api/attachment/': ['/api/attachment/library/thought.md', '/api/attachment/library/missing.html']}
 SKIP = {'/api/art/still': 'answers a stored image, not JSON'}
 
 
@@ -200,7 +204,8 @@ def test_no_api_answer_names_a_host_path(server):
     prompt = json.loads(fetch(base + '/api/art/prompt?' + urlencode({'path': DOC}))[1])
     assert prompt['recorded'] is True and [s['name'] for s in prompt['stages']] == ['brief', 'scene'], prompt
     chat, turn = chat_with_reply(base)
-    assert finished_inbox_run(base)['report_md']
+    runner = finished_inbox_run(base)
+    assert runner['report_md'], (runner, (Path(server['root']) / '.reader/inbox-runner/stderr.log').read_text()[-2000:])
     # The walk below covers the chat owner record (#20, #72) that /api/chats carries.
     assert json.loads(fetch(base + '/api/chats?' + urlencode({'path': DOC}))[1])['owner']['owner'] is True
     exact, _ = get_routes()

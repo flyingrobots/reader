@@ -12,7 +12,7 @@ Read `docs/capabilities.md`, `docs/design.md`, and `docs/operations.md` before c
 
 ## Turn-boundary upkeep
 
-At the start and end of every Reader librarian turn, apply the installed Upkeep skill. Check inbox arrivals, delegate complete intake bundles within its concurrency limits, inspect new highlights/comments/replies, record only your own actually-read versions, and surface useful source-grounded connections to the user's current work. This is standing authorization for intake subagents and substantive local discussion, not remote publication. Intake workers do not recursively launch upkeep. Honor user interruptions and coordinate shared catalog writers and local commits.
+At the start and end of every Reader librarian turn, apply the installed Upkeep skill. Check inbox arrivals, invoke the installed `reader --root /path/to/vault inbox start` script for authorized intake, inspect new highlights/comments/replies, record only your own actually-read versions, and surface useful source-grounded connections to the user's current work. The deterministic runner owns new intake, including automatic work partitioning, model calls, filing, verification and commits. Do not manually split deliveries or delegate new parallel filing. Existing intake claims may finish before the runner starts. This authorizes substantive local discussion, not remote publication. Intake workers do not recursively launch upkeep. Honor user interruptions and coordinate shared catalog writers and local commits.
 
 ## Intake and stewardship
 

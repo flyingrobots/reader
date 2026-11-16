@@ -21,7 +21,7 @@ import threading
 import time
 import uuid
 
-from . import coding_agents
+from . import coding_agents, process_table
 from .coding_store import CaptureFailed
 from .display import shown
 from .github import GitHubError
@@ -47,10 +47,7 @@ class Stop(Exception):
 
 def process_started(pid):
     """The process's start time as `ps` reports it, to recognize it after a restart (pids are reused)."""
-    try:
-        return subprocess.run(['ps', '-o', 'lstart=', '-p', str(pid)], capture_output=True, text=True, timeout=5).stdout.strip() or None
-    except (OSError, subprocess.TimeoutExpired):
-        return None
+    return process_table.started(pid)
 
 
 class Workflow:

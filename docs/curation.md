@@ -4,7 +4,7 @@ Reader separates delivery, filing, actual reading and curatorial review. A packe
 
 ## Units and versions
 
-- A Reader delivery receipt groups its explicitly declared payloads as one work, keyed `receipt:<UUID>`. Repeated deliveries remain distinct receipts even when their bytes match. The primary document and optional catalog are linked; attachments are members, not separate works.
+- A Reader delivery receipt groups its explicitly declared payloads as one work, keyed `receipt:<UUID>`. Repeated deliveries remain distinct receipts even when their bytes match. The primary document and optional catalog are linked; attachments are members, not separate works. A receipt beneath `originals/` uses the outer catalog as context when that wrapper declares `kind: catalog`.
 - A deeper catalog `index.md` groups a direct-drop book/research packet, keyed by its catalog identity. Otherwise standalone reading documents use their own catalog identities. Top-level/collection navigation, reading copies and standard intake/reading records are excluded as separate works.
 - Ungrouped unsupported attachments are reported with a count and up to 100 paths instead of being silently counted as intellectual works. File them under an appropriate work catalog when they need curation.
 

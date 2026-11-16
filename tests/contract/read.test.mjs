@@ -2,9 +2,9 @@
 // Shapes are recorded from the reference (Python) server; see harness.mjs for the format.
 import {after, before, describe, test} from 'node:test';
 import assert from 'node:assert/strict';
-import {readdirSync} from 'node:fs';
+import {readdirSync, statSync} from 'node:fs';
 import {join} from 'node:path';
-import {assertShape, makeVault, readJson, snapshot, startServer} from './harness.mjs';
+import {assertShape, inboxPath, makeVault, readJson, snapshot, startServer} from './harness.mjs';
 
 const ESSAY = 'library/walden/thoreau/where-i-lived.md';      // art, readers, a shape, a standfirst
 const SOLITUDE = 'library/walden/thoreau/solitude.md';        // highlights, inbound links
@@ -220,8 +220,17 @@ describe('the page and its assets', () => {
 });
 
 describe('reads have no durable side effects', () => {
-  test('nothing outside .reader/ changed after every read above', () => {
-    // Runs last in this file (node:test keeps declaration order within a file).
-    assert.deepEqual(snapshot(vault.root), before_reads);
+  test('nothing outside .reader/ changed after every read above, except the old inbox/ drop box swept in', () => {
+    // Runs last in this file (node:test keeps declaration order within a file). Reading arrivals moves what was
+    // left in the old inbox/ folder into the configured inbox: a rename, so the same size and mtime arrive there.
+    const expected = {...before_reads};
+    const dropped = Object.keys(before_reads).filter(p => p.startsWith('inbox/') && p !== 'inbox/README.md');
+    assert.ok(dropped.length, 'the fixture leaves something in the old drop box');
+    for (const path of dropped) {
+      delete expected[path];
+      const moved = statSync(inboxPath(vault.root, path.slice('inbox/'.length)));
+      assert.equal(`${moved.size}:${moved.mtimeMs}`, before_reads[path], path);
+    }
+    assert.deepEqual(snapshot(vault.root), expected);
   });
 });

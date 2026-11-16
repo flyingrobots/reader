@@ -1,4 +1,5 @@
 /** Document outline: a quiet rail in continuous reading, a popover in two-page reading, a sheet on phones. */
+import {renderOutlineRail} from './controls/reader-controls.js';
 import {escapeHTML as esc} from './logic.mjs';
 const LIMIT=500,FOLD=150,RAIL_MIN=150,RAIL_MAX=240;
 const PHONE='(max-width: 700px)';
@@ -10,7 +11,6 @@ export function installOutline({state,reading,$,controls,scrollToPosition,savePr
   // entries: every extracted heading; shown: the subset at visible levels. Index math uses shown.
   let entries=[],shown=[],allLevels=false,eligible=false,pinned=false,open=false,mode=null,active=-1,pending=null,pendingAt=0,spreads=[],route=0;
   const rail=document.createElement('nav');rail.id='outline-rail';rail.className='outline-rail';rail.hidden=true;rail.dataset.readerDecoration='';rail.setAttribute('aria-label','Document outline');
-  document.body.append(rail);
   const line=()=>innerHeight*.22;
   const expired=()=>performance.now()-pendingAt>1500;
   const phone=()=>matchMedia(PHONE).matches;
@@ -26,7 +26,7 @@ export function installOutline({state,reading,$,controls,scrollToPosition,savePr
     const clear=shell?shell.getBoundingClientRect().left+parseFloat(getComputedStyle(shell).paddingLeft||0):Infinity;
     return Math.min(article.getBoundingClientRect().left-48,clear-16);
   }
-  const leftEdge=()=>$('#picker')&&!$('#picker').hidden?$('#picker').getBoundingClientRect().right:0;
+  const leftEdge=()=>$('#picker')?.getBoundingClientRect().right||0;
   function railFits(){
     if(!$('#article')||geometry()||phone())return false;
     return railEdge()-leftEdge()>=RAIL_MIN+8;
@@ -34,7 +34,7 @@ export function installOutline({state,reading,$,controls,scrollToPosition,savePr
   function chooseMode(){if(!shown.length)return null;if(phone())return 'sheet';if(geometry()||!railFits())return 'popover';return 'rail';}
   const railVisible=()=>mode==='rail'&&state.prefs.outline!==false&&(eligible||pinned);
 
-  function clear(){route++;allLevels=false;entries=[];shown=[];spreads=[];active=-1;pending=null;open=false;pinned=false;mode=null;rail.hidden=true;rail.replaceChildren();$('#status-section').textContent='';publish();}
+  function clear(){route++;allLevels=false;entries=[];shown=[];spreads=[];active=-1;pending=null;open=false;pinned=false;mode=null;rail.hidden=true;renderOutlineRail(rail,{entries:[],levels:null});controls.setStatus({section:''});publish();}
   /** Collect headings after a document renders; PDFs use their own outline. */
   async function refresh(article){
     clear();const id=route;if(!state.doc||!article)return;
@@ -67,13 +67,12 @@ export function installOutline({state,reading,$,controls,scrollToPosition,savePr
     mode=chooseMode();
     const minimum=Math.min(...shown.map(entry=>entry.level));
     if(mode==='rail'){
+      if(!rail.isConnected)document.body.append(rail);
       const folded=!allLevels&&entries.length>shown.length;
-      rail.innerHTML=`<div class="outline-head">Contents</div><ol class="outline-list">${shown.map((entry,index)=>`<li data-depth="${Math.min(3,entry.level-minimum)}"><a href="#${esc(entry.el?.id || 'page-'+entry.page)}" data-outline-index="${index}">${esc(entry.title)}</a></li>`).join('')}</ol>${folded||allLevels&&entries.length>FOLD?`<button type="button" data-button="ghost xs" class="outline-levels">${allLevels?'Show fewer levels':'Show all levels'}</button>`:''}`;
-      rail.querySelectorAll('[data-outline-index]').forEach(link=>link.addEventListener('click',event=>{event.preventDefault();go(+link.dataset.outlineIndex);}));
-      rail.querySelector('.outline-levels')?.addEventListener('click',()=>{allLevels=!allLevels;filter();});
-      const bar=document.createElement('span');bar.className='outline-progress';bar.setAttribute('aria-hidden','true');bar.innerHTML='<span></span>';rail.append(bar);
+      renderOutlineRail(rail,{entries:shown.map(entry=>({href:'#'+(entry.el?.id||'page-'+entry.page),title:entry.title,depth:Math.min(3,entry.level-minimum)})),levels:folded||allLevels&&entries.length>FOLD?(allLevels?'Show fewer levels':'Show all levels'):null,onGo:go,onLevels:()=>{allLevels=!allLevels;filter();}});
+      rail.querySelector('.outline-progress')?.remove();const bar=document.createElement('span');bar.className='outline-progress';bar.setAttribute('aria-hidden','true');bar.innerHTML='<span></span>';rail.append(bar);
       place();
-    }else rail.replaceChildren();
+    }else renderOutlineRail(rail,{entries:[],levels:null});
     rail.hidden=!railVisible();active=-1;sync();publish();
   }
   function place(){
@@ -120,7 +119,7 @@ export function installOutline({state,reading,$,controls,scrollToPosition,savePr
       if(link){link.setAttribute('aria-current','location');link.parentElement.append(rail.querySelector('.outline-progress'));
         const list=rail.querySelector('.outline-list'),item=link.parentElement;
         if(item.offsetTop<list.scrollTop||item.offsetTop+item.offsetHeight>list.scrollTop+list.clientHeight)list.scrollTop=item.offsetTop-list.clientHeight/3;}
-      $('#status-section').textContent=index>=0?shown[index].title:'';$('#status-section').title=index>=0?shown[index].title:'';
+      controls.setStatus({section:index>=0?shown[index].title:''});
       publish();
     }
     const bar=rail.querySelector('.outline-progress');if(bar){bar.hidden=index<0;bar.firstElementChild.style.transform=`scaleX(${progress})`;}

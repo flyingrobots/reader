@@ -140,7 +140,7 @@ export type Item=
 
 export type Usage={input:number;cached:number;output:number;reasoning:number;turns:number};
 export type JobPhase={id:string;label:string;state:'running'|'done'|'failed'};
-export type Activity={items:Item[];usage:Usage|null;session:string|null;turnFailed:string|null;events:number;ignored:number;phases:JobPhase[]};
+export type Activity={items:Item[];usage:Usage|null;session:string|null;sessionScope?:string;turnFailed:string|null;events:number;ignored:number;phases:JobPhase[]};
 export const emptyActivity=():Activity=>({items:[],usage:null,session:null,turnFailed:null,events:0,ignored:0,phases:[]});
 
 function upsert(state:Activity,item:Item,merge?:(old:Item)=>Item){
@@ -153,8 +153,12 @@ function upsert(state:Activity,item:Item,merge?:(old:Item)=>Item){
 export function reduce(state:Activity,event:AgentEvent|null,at?:number):Activity{
   if(!event)return {...state,ignored:state.ignored+1};
   state={...state,events:state.events+1};
+  // Each editorial call starts a fresh Codex session whose item IDs begin again
+  // at item_0. Retain previous calls while still updating items within one call.
+  if(state.sessionScope&&'id' in event&&['message','reasoning','command','files','plan','mcp','search','subagent','error'].includes(event.kind))
+    event={...event,id:state.sessionScope+event.id};
   switch(event.kind){
-    case 'session':return {...state,session:event.id};
+    case 'session':return {...state,session:event.id,...(state.session&&state.session!==event.id?{sessionScope:event.id+':'}:{})};
     case 'turn':return event.phase==='failed'?{...upsert(state,{kind:'error',id:'turn-failed-'+state.events,message:event.error||'The turn failed.',fatal:true}),turnFailed:event.error||'failed'}:state;
     case 'usage':{const u=state.usage;return {...state,usage:{input:(u?.input||0)+event.input,cached:(u?.cached||0)+event.cached,output:(u?.output||0)+event.output,reasoning:(u?.reasoning||0)+event.reasoning,turns:(u?.turns||0)+1}};}
     case 'message':return upsert(state,{kind:'message',id:event.id,text:event.text,role:event.role,cites:citations(event.text)});

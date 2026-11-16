@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Bind this code checkout to a private vault and install its local Codex integrations."""
 import argparse
+import importlib.util
 import json
 import os
 from pathlib import Path
@@ -17,8 +18,8 @@ def main():
     args = parser.parse_args()
     code = Path(__file__).resolve().parents[1]
     vault = args.vault.expanduser().resolve(strict=True)
-    if vault == code or not all((vault / p).is_dir() for p in ('library', 'inbox')):
-        sys.exit('Choose a separate existing vault with library/ and inbox/.')
+    if vault == code or not (vault / 'library').is_dir():
+        sys.exit('Choose a separate existing vault with a library/ folder.')
     python = code / '.venv/bin/python'
     if not python.is_file():
         sys.exit('Run uv sync --locked in the code checkout first.')
@@ -27,7 +28,7 @@ def main():
         sys.exit('codex must be available on PATH.')
     home = Path(os.environ.get('CODEX_HOME', str(Path.home() / '.codex')))
     links = []
-    for name in ('reader', 'upkeep', 'reflective-reading'):
+    for name in ('reader', 'upkeep', 'reflective-reading', 'you-got-mail'):
         link, target = home / 'skills' / name, code / 'skills' / name
         if link.exists() or link.is_symlink():
             if not link.is_symlink() or link.resolve() not in (target, vault / 'skills' / name):
@@ -71,7 +72,16 @@ def main():
             sys.exit(f'Existing installation temporary path: {pending}')
         pending.symlink_to(target, target_is_directory=True)
         os.replace(pending, link)
-    print(f'Reader code: {code}\nPrivate vault: {vault}\nMCP and three skills installed.')
+    # Reader SSH keys name this launcher, so moving the checkout only needs this step again.
+    try:
+        spec = importlib.util.spec_from_file_location('reader_remote', code / 'skills/reader/scripts/remote.py')
+        remote = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(remote)
+        launcher = remote.write_launcher(code / 'skills/reader/scripts/reader.py')
+        print(f'Stable launcher: {launcher}')
+    except (ValueError, OSError) as exc:
+        print(f'Stable launcher not written: {exc}', file=sys.stderr)
+    print(f'Reader code: {code}\nPrivate vault: {vault}\nMCP and four skills installed.')
 
 
 if __name__ == '__main__':

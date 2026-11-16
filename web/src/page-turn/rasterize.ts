@@ -15,7 +15,7 @@ const hit=(r:DOMRect|Box,b:Box)=>('width' in r?r.width:r.w)>0&&('height' in r?r.
 const concealed=(el:Element):boolean=>{const details=el.closest('details:not([open])');if(!details)return false;const summary=el.closest('summary');return !(summary&&summary.parentElement===details)||concealed(details);};
 const shown=(el:Element)=>!concealed(el);
 const visible=(color:string)=>!!color&&color!=='transparent'&&!/rgba?\([^)]*,\s*0\)$/.test(color)&&!/\/\s*0\)$/.test(color);
-const HIGHLIGHTS:Record<string,{fill?:string;wavy?:string;ink?:string;line?:string}>={'reader-own':{fill:'--own'},'reader-other':{fill:'--other'},'reader-find':{fill:'--selection'},'reader-current':{fill:'--accent',ink:'--accent-ink'},'reader-warning':{wavy:'--warning'},'reader-visual':{fill:'--selection'},'reader-cursor':{line:'--accent'},'reader-quiz':{fill:'--accent',ink:'--accent-ink'}};
+const HIGHLIGHTS:Record<string,{fill?:string;wavy?:string;ink?:string;line?:string}>={'reader-own':{fill:'--own'},'reader-other':{fill:'--other'},'reader-find':{fill:'--selection'},'reader-current':{fill:'--primary',ink:'--primary-foreground'},'reader-warning':{wavy:'--destructive'},'reader-visual':{fill:'--selection'},'reader-cursor':{line:'--primary'},'reader-quiz':{fill:'--primary',ink:'--primary-foreground'}};
 // Prose colors (Colorful Language) are read from <body>, where the intensity class sets them,
 // and lose to every annotation or find ink. Their ranges never cross a text node.
 // Syntax roles of the Code Block highlighter (code-blocks.ts CODE_ROLES).
@@ -94,9 +94,9 @@ export function rasterize(article:HTMLElement,page:Box,dx:number,background:stri
   const highlights=(CSS as unknown as {highlights?:Map<string,Set<AbstractRange>>}).highlights;
   const inkRanges:{range:Range;ink:string}[]=[];
   // Prose washes (Vivid's quoted passages) and underlines (Vivid's names) go under everything else.
-  const body=getComputedStyle(document.body);
+  const proseStyle=(role:string)=>getComputedStyle(article,`::highlight(reader-prose-${role})`);
   if(highlights)for(const role of [...PROSE,'quoted']){const set=highlights.get('reader-prose-'+role);if(!set)continue;
-    const fill=body.getPropertyValue('--prose-bg-'+role).trim(),line=body.getPropertyValue('--prose-line-'+role).trim();if(!visible(fill)&&!visible(line))continue;
+    const style=proseStyle(role),fill=style.backgroundColor,line=style.textDecorationLine==='none'?'':style.textDecorationColor;if(!visible(fill)&&!visible(line))continue;
     for(const range of set){if(!(range instanceof Range)||!article.contains(range.commonAncestorContainer))continue;
       for(const r of range.getClientRects()){if(!hit(r,src))continue;
         if(visible(fill)){ctx.fillStyle=fill;ctx.fillRect(r.left,r.top,r.width,r.height);}
@@ -109,11 +109,13 @@ export function rasterize(article:HTMLElement,page:Box,dx:number,background:stri
         if(spec.wavy){ctx.strokeStyle=token(spec.wavy);ctx.lineWidth=1.5;ctx.beginPath();for(let x=r.left,i=0;x<=r.right;x+=3,i++)ctx.lineTo(x,r.bottom-1+(i%2?1.5:-1.5));ctx.stroke();}}
       if(spec.ink)inkRanges.push({range,ink:token(spec.ink)});}}
   const proseInk=new Map<Node,[number,number,string][]>();
-  if(highlights)for(const role of PROSE){const set=highlights.get('reader-prose-'+role),ink=body.getPropertyValue('--prose-ink-'+role).trim();if(!set||!ink)continue;
+  // A role with no rule computes to the article's color, which would flatten links and headings: only the intensity's own roles paint.
+  const classes=document.body.classList,painted=classes.contains('prose-vivid')?PROSE:classes.contains('prose-clear')||classes.contains('prose-subtle')?PROSE.slice(0,5):[];
+  if(highlights)for(const role of painted){const set=highlights.get('reader-prose-'+role);if(!set)continue;const ink=proseStyle(role).color;
     for(const range of set){const node=(range as Range).startContainer;if(node!==(range as Range).endContainer||!article.contains(node))continue;
       let list=proseInk.get(node);if(!list)proseInk.set(node,list=[]);list.push([(range as Range).startOffset,(range as Range).endOffset,ink]);}}
   // Code Block syntax colors (code-blocks.ts): one range per token inside one line's text node.
-  if(highlights)for(const role of CODE_ROLES){const set=highlights.get('reader-syntax-'+role),ink=token('--code-'+role);if(!set||!ink)continue;
+  if(highlights)for(const role of CODE_ROLES){const set=highlights.get('reader-syntax-'+role);if(!set)continue;const ink=getComputedStyle(article,`::highlight(reader-syntax-${role})`).color;if(!ink)continue;
     for(const range of set){const node=(range as Range).startContainer;if(node!==(range as Range).endContainer||!article.contains(node))continue;
       let list=proseInk.get(node);if(!list)proseInk.set(node,list=[]);list.push([(range as Range).startOffset,(range as Range).endOffset,ink]);}}
   // 3. Text, word by word at the browser's own rectangles.

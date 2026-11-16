@@ -1,5 +1,6 @@
 /* A second Reader server on a vault whose chat another server owns (#20, #72): chat stays readable, the composer says why
    it cannot send, a send answers 409, and the owner's state.json bytes never change. Fake voices only. */
+require('./jail_guard.cjs');
 const assert=require('node:assert/strict');
 const {spawn}=require('node:child_process');
 const {createInterface}=require('node:readline');

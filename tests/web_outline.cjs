@@ -1,4 +1,5 @@
 /* Document outline: continuous rail, ]] / [[, Space o, two-page popover, phone sheet, embeds, short documents and PDF outlines. */
+require('./jail_guard.cjs');
 const assert=require('node:assert/strict');
 const {spawn}=require('node:child_process');
 const {createInterface}=require('node:readline');
@@ -76,7 +77,7 @@ const THEMES=['ink','paper','orchid','orchid-dark','harvest','harvest-dark',...r
    await page.locator('#main').focus();await leader(page,'p');const setting=page.getByRole('switch',{name:'Outline beside long documents'});await setting.waitFor();assert.equal(await setting.getAttribute('aria-checked'),'true');
    assert.equal(await rail.isVisible(),false,'no rail outside documents');assert.equal(await page.locator('#outline-open').count(),0);
    // Help and leader hints mention the keys.
-   await page.locator('#main').focus();await page.keyboard.press('?');await page.locator('#help-keys dt').first().waitFor();
+   await page.locator('#main').focus();await page.keyboard.press('?');await page.locator('#help-keys [data-help-key]').first().waitFor();
    assert.ok((await page.locator('#help').textContent()).includes('Show or hide the document outline'));
    await page.keyboard.press('Escape');await page.locator('#help').waitFor({state:'detached'});
    await page.locator('#main').focus();await page.keyboard.press('Space');assert.ok((await page.locator('#status-keys').textContent()).includes('outline'));await page.keyboard.press('Escape');
@@ -86,7 +87,7 @@ const THEMES=['ink','paper','orchid','orchid-dark','harvest','harvest-dark',...r
     const rgb=v=>{c.clearRect(0,0,1,1);c.fillStyle=v;c.fillRect(0,0,1,1);return [...c.getImageData(0,0,1,1).data].slice(0,3);};
     const lum=v=>v.map(x=>x/255).map(x=>x<=.04045?x/12.92:((x+.055)/1.055)**2.4).reduce((n,x,i)=>n+x*[.2126,.7152,.0722][i],0);
     const ratio=(a,b)=>{const [lo,hi]=[lum(rgb(a)),lum(rgb(b))].sort((x,y)=>x-y);return (hi+.05)/(lo+.05);};
-    const rows=themes.map(theme=>{html.dataset.theme=theme;const s=getComputedStyle(html),v=n=>s.getPropertyValue(n).trim();return {theme,muted:ratio(v('--muted'),v('--bg')),ink:ratio(v('--ink'),v('--bg')),accent:ratio(v('--accent'),v('--bg'))};});
+    const rows=themes.map(theme=>{html.dataset.theme=theme;const s=getComputedStyle(html),v=n=>s.getPropertyValue(n).trim();return {theme,muted:ratio(v('--muted-foreground'),v('--background')),ink:ratio(v('--foreground'),v('--background')),accent:ratio(v('--primary'),v('--background'))};});
     html.dataset.theme=original;return rows;},THEMES);
    assert.equal(contrast.length,6+2*require('../src/reader_mcp/web_ui/famous-themes.json').themes.length);for(const row of contrast){assert.ok(row.muted>=4.5&&row.ink>=4.5,JSON.stringify(row));assert.ok(row.accent>=3,'active marker: '+JSON.stringify(row));}
    await ctx.close();}

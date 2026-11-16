@@ -15,7 +15,7 @@ export function VoicesPage({status,error=null}:{status:CompanionsStatus|null;err
   if(!status)return error?<Unavailable id="companion-cli-pending" what="Agent command lines" error={error}/>:<div id="companion-cli-pending" data-state="loading"><LoadingState>Looking for agent command lines…</LoadingState></div>;
   if(!status.cli&&!gpu)return <EmptyState id="companion-cli-none" icon={TerminalIcon} title="No agent command lines" description="This Reader reports none."/>;
   return <div className="flex flex-col gap-4">
-    <StatusCard id="companion-cli" title="Agent command lines" description="Chat voices and the inbox librarian run these with your own account. Reader only finds them; install and sign in yourself.">
+    <StatusCard id="companion-cli" title="Agent command lines">
       <ItemGroup>{(status.cli||[]).map((cli,index)=><Fragment key={cli.name}>{index?<ItemSeparator role="presentation"/>:null}
         <Item size="sm" role="listitem" className="px-0" data-cli={cli.name} data-state={cli.state}>
           <ItemMedia variant="icon"><TerminalIcon aria-hidden/></ItemMedia>

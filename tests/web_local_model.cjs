@@ -1,4 +1,5 @@
 /* Reader Admin · Models (local model): server card, load, queue counts, streaming preview, batch toast, Recent reasons, phone width. Fake LM Studio only. */
+require('./jail_guard.cjs');
 const assert=require('node:assert/strict');
 const {spawn}=require('node:child_process');
 const {createInterface}=require('node:readline');

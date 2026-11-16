@@ -70,7 +70,6 @@ export function ServerCard({api}:{api:Api}){
     {key:'tailscale',label:'Tailscale',value:ts?.state==='on'&&ts.url?<a className="text-primary underline-offset-4 hover:underline" href={ts.url} rel="noreferrer">{ts.url.replace('https://','')}</a>:ts?.state==='unavailable'?'Unavailable':'Off'}]:[]),
     ...(identity?[{key:'identity',label:'Signed in as',value:identity.via==='tailscale'?identity.name?`${identity.name} (${identity.login})`:identity.login:'This Mac (local)'}]:[])];
   return <StatusCard data-card="service" data-installed={installed?'true':'false'} title="Server"
-    description="Reader as an always-on service on this Mac, kept current from its source branch and reachable on your tailnet."
     badge={<StatusBadge tone={state.tone} busy={pending}>{state.label}</StatusBadge>}
     footer={<ButtonGroup>
       <Button id="service-update" variant="default" size="sm" disabled={!installed||!!busy} onClick={()=>act('update')}>{busy==='update'?<Spinner data-icon="inline-start" aria-hidden/>:null}Update now</Button>

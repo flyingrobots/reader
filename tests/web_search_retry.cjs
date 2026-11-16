@@ -1,4 +1,5 @@
 /* A content search refused with 429 (another search running) retries with backoff instead of showing an empty "try another phrase" state. */
+require('./jail_guard.cjs');
 const assert=require('node:assert/strict');
 const {spawn}=require('node:child_process');
 const {createInterface}=require('node:readline');
@@ -23,7 +24,7 @@ const {chromium}=require(process.env.READER_PLAYWRIGHT||'playwright-core');
   pageBusy=99;pageCalls=0;
   await page.clock.install();
   await page.locator('#search-query').fill('another observation');
-  await until(()=>!!document.querySelector('[data-search-results] [data-state=error]'),'the search page gives up');
+  for(let i=0;!await page.locator('[data-search-results] [data-state=error]').count();i++){assert.ok(i<120,'the search page gives up');await page.clock.runFor(1000);await page.waitForTimeout(10);}
   assert.equal(pageCalls,6,'the first try and five retries');
   const said=await page.locator('[data-search-results]').textContent();
   assert.match(said,/Search couldn’t finish/);assert.doesNotMatch(said,/Nothing matched|another phrase/i);

@@ -1,6 +1,8 @@
+import './jail_guard.cjs';
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {isoWeek,weekRange,issueWindow,currentIssue,issueWeeks,selectIssue,interest,candidates,minutes,section,parseExcluded,DEFAULT_EXCLUDED_TYPES} from '../src/reader_mcp/web_ui/magazine.mjs';
+import {sectionsForIssue,sectionArticles} from '../src/reader_mcp/web_ui/section-groups.mjs';
 
 let n=0;
 const work=(fields)=>({primary:`library/p/${++n}.md`,title:'Work '+n,authors:['Ada'],projects:['P'+n],types:['Essay'],date:'2026-10-21',primary_format:'.md',primary_bytes:6000,read:false,...fields});
@@ -73,4 +75,42 @@ test('contents group by section, unread first, with one-piece sections gathered 
   assert.deepEqual(issue.contents.map(g=>g.label),['Echo','Elsewhere']);
   assert.deepEqual(issue.contents[0].items.map(e=>e.work.title),['Echo unread','Echo read']);
   assert.equal(issue.contents[1].items.length,works.length-1-issue.features.length-2);
+});
+test('case variants of one section count once across features, contents and section routes',()=>{
+  const works=[
+    work({projects:['Luma'],title:'Luma cover'}),
+    work({projects:['luma'],title:'Lowercase feature candidate',types:['Note']}),
+    work({projects:['luma'],title:'Lowercase second piece',types:['Note']}),
+    work({projects:['Echo'],title:'Echo feat'}),
+    work({projects:['Bijou'],title:'Bijou feat'}),
+    work({projects:['Edict'],title:'Edict feat'}),
+    work({projects:['Keep'],title:'Keep feat'}),
+  ];
+  const issue=selectIssue(works,{window:W43,today:'2026-10-24'});
+  assert.equal(issue.sections,5,'case-only Luma/luma counts as one section');
+  assert.ok(!issue.features.some(e=>e.work.title.startsWith('Lowercase')),'cover section not repeated in features');
+  assert.equal(issue.contents[0].label,'Luma');
+  assert.equal(issue.contents[0].items.length,2);
+  const links=sectionsForIssue(issue,works);
+  assert.deepEqual(links.filter(item=>item.label.toLowerCase()==='luma'),[{label:'Luma',count:3,href:'#section=Luma'}]);
+  assert.equal(sectionArticles(works,'Luma').length,3);
+});
+test('issue makeup groups overlapping topics with section children, forms and folded tails',()=>{
+  const empty=selectIssue([],{window:W43,today:'2026-10-24'});
+  assert.deepEqual(empty.makeup,{total:0,unread:0,read:0,topicCount:0,topics:[],forms:[]});
+  const works=[
+    ...Array.from({length:9},(_,i)=>work({primary:`library/reports/t${i}.md`,title:`Topic ${i}`,projects:['Luma'],types:['Report'],topics:[`Topic ${i}`],read:i%2===1})),
+    work({primary:'library/reports/shared.md',title:'Shared topic piece',projects:['luma'],types:['Essay'],topics:['Topic 0','Topic 1','Topic 8'],read:false}),
+    work({primary:'library/reports/untagged.md',title:'Untagged piece',projects:['Echo'],types:[],topics:[],read:true}),
+  ];
+  const issue=selectIssue(works,{window:W43,today:'2026-10-24'});
+  assert.equal(issue.makeup.total,works.length);
+  assert.equal(issue.makeup.unread,6);
+  assert.equal(issue.makeup.read,5);
+  assert.equal(issue.makeup.topicCount,10);
+  assert.equal(issue.makeup.topics.length,8,'top 7 topics plus folded Other topics tail');
+  assert.equal(issue.makeup.topics[7].name,'Other topics');
+  assert.equal(issue.makeup.topics[0].children[0].name,'Luma','child sections stay canonical');
+  assert.ok(issue.makeup.topics[0].pieces[0].read===false,'unread pieces lead topic inspector tray');
+  assert.deepEqual(issue.makeup.forms.map(f=>f.name),['Report','Essay','Untyped']);
 });

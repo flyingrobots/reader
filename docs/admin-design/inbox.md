@@ -17,9 +17,10 @@ Previewing an arrival is reading, not filing. It writes no receipt, bookmark or 
 
 ```mermaid
 flowchart TB
-  page[AdminPage template: h1 Inbox, lede, Separator]
+  page[AdminPage template: visually hidden h1 and lede]
   page --> run[StatusCard “Librarian run”<br/>badge: run state · body: Notice / transcript / report · footer: You got mail or Stop]
-  page --> list[StatusCard “Waiting to be filed”<br/>badge: count · body: arrival Items or EmptyState]
+  page --> before[StatusCard “Before new arrivals”, only when needed<br/>body: retained batch · uncommitted library work]
+  page --> list[StatusCard “Waiting to be filed”<br/>badge: count · body: arrival Items with eligibility, or EmptyState]
 ```
 
 The run card comes first because it holds the page's one primary action. On a phone both cards span the full width. The arrival list keeps to one column at every width, so titles are never cut off.
@@ -43,7 +44,7 @@ The run card comes first because it holds the page's one primary action. On a ph
 | Unreadable | `Unavailable` (destructive Alert) with the error; never an empty list |
 | Nothing waiting | `EmptyState` with the inbox icon; the button stays, and the note says why it would do nothing |
 | Blocked | a `Notice` (destructive for interrupted, error or Codex; default for a claim or an empty inbox) with `data-reason` |
-| Running | badge *Librarian reading* with Spinner; elapsed clock; live transcript; Stop (outline, destructive text) |
+| Running | badge *Processing* with Spinner; elapsed clock; live transcript; Stop (outline, destructive text) |
 | Finished, failed or stopped | a `Notice` with the run message and time; commit line; the report in a `Collapsible`, open after success |
 
 ## Theme and tokens
@@ -53,3 +54,7 @@ Only semantic utilities are used (`bg-card`, `text-muted-foreground`, `text-dest
 ## Test hooks
 
 `#inbox` (the page wrapper: `data-state`, `data-run-state`), `#inbox-mail`, `#inbox-mail-note`, `#inbox-stop`, `#inbox-blocked[data-reason]`, `#inbox-run-message`, `#inbox-report`, `[data-arrival]`, `[data-arrival-title]`, `[data-integrity]`, `[data-inbox-badge]`, `[data-run-clock]`.
+
+New intake uses the deterministic runner. The script owns writes and commits;
+its editorial model is read-only. The report distinguishes filed and deferred
+arrivals, and an unfinished checkpoint remains resumable with an empty inbox.

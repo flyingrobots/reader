@@ -29,7 +29,7 @@ math is typeset by KaTeX. Obsidian callouts render as asides.
 
 ![A design proposal with a sequence diagram and the outline rail on the Sync protocol section](docs/images/diagram-outline.png)
 
-Choose **2 pages** for facing-page reading. Spreads turn with a Three.js page curl,
+Choose **Pages** for facing-page reading. Spreads turn with a Three.js page curl,
 which falls back to a slide without WebGL or with reduced motion. Your place is
 saved automatically in both layouts.
 
@@ -111,10 +111,12 @@ and link graph, with rebuilds on demand; the inbox; artwork; library statistics;
 service and companion tools; agent voices; the local-model provider, queue and
 controls; and settings (**Space p**). **Back to Library** returns to the document
 where you left it. Other tools and
-agents deliver documents into the vault's `inbox/` with `reader ingest` or the
-`reader_ingest` MCP tool. **You got mail** then starts a librarian run through your
-own Codex CLI, which files the arrivals, and you can watch its live transcript
-through to the verified commit.
+agents deliver documents into the vault's inbox with `reader ingest` or the
+`reader_ingest` MCP tool. **You got mail** starts deterministic intake: the script
+invokes your Codex CLI for bounded editorial decisions, preserves and files the
+arrivals, checks the result, and commits it. Work is divided automatically;
+original delivery bundles stay intact. You can watch progress through to the
+verified commit.
 
 ![A finished inbox run: the librarian's report, the filed arrivals and the commit](docs/images/inbox-activity.png)
 
@@ -160,7 +162,7 @@ dates. It never touches a folder that is not an earlier demo. See
 writes the same library as a static website that runs entirely in the browser; see
 [static web demo](docs/demo.md#static-web-demo).
 
-When you are ready for your own documents: a vault is a Git repository with `library/` and `inbox/` folders. Put your Markdown
+When you are ready for your own documents: a vault is a Git repository with a `library/` folder. Put your Markdown
 and PDF files anywhere under `library/`:
 
 ```sh
@@ -304,13 +306,14 @@ unless you choose `--scope library` for search and reading too. See
 
 Tests use synthetic fixtures and never open your vault or run a real model CLI;
 stand-ins such as `tests/fake_voice.py` and `tests/fake_lmstudio.py` take their
-place.
+place. Run them through `scripts/test_jail.py`, which enforces that with an
+operating-system sandbox ([Running tests in the sandbox](docs/testing.md)):
 
 ```sh
 uv sync --locked
-uv run --locked pytest -q
-node --test tests/*.test.mjs
-npm run test:server    # the TypeScript port package in server/
+python3 scripts/test_jail.py -- .venv/bin/python -m pytest -q
+python3 scripts/test_jail.py -- node --test tests/*.test.mjs
+python3 scripts/test_jail.py -- npm run test:server    # the TypeScript port package in server/
 ```
 
 The browser suites (`tests/web_*.cjs`) drive a disposable fixture server with
@@ -326,7 +329,7 @@ Set `READER_CHROME` to another Chrome or Chromium executable (needed off macOS) 
 `READER_PLAYWRIGHT` to a different `playwright-core` path to override the defaults.
 
 The full list is in [Development and validation](docs/web.md#development-and-validation).
-CI runs the Python, plugin and `server/` checks in bounded Docker workers through
+CI runs the Python, plugin, `server/` and contract-suite checks in bounded Docker workers through
 `scripts/check_container.py`, which you can run locally too
 ([bounded validation](docs/separate-vault.md#bounded-validation)).
 

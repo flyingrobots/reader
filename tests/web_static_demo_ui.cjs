@@ -3,6 +3,7 @@
    computer" (a tooltip the pointer can reach), or is left out where a disabled card would be pointless; keyboard
    paths to the same writes explain instead of failing; nothing logs an error. A normal server is covered by the
    existing Reader Admin, queue, chat, theme and art suites. */
+require('./jail_guard.cjs');
 const assert=require('node:assert/strict');
 const {spawnSync}=require('node:child_process');
 const http=require('node:http');

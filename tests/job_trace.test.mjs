@@ -1,5 +1,6 @@
 // Coding-job traces (RW-44) through the shared activity reducer: phases, job steps, GitHub rows, Codex and Claude Code
 // agent events, and the event cursor (duplicates ignored, gaps stop for resynchronization).
+import './jail_guard.cjs';
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {emptyActivity, jobMapper, reduceJob, applyFrames, steps, claudeMapper} from '../web/src/activity/reducer.ts';

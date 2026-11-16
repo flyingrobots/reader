@@ -1,5 +1,6 @@
 /* Mermaid diagrams drawn by Pele: figures, error fallback, live theming, find, annotations,
    the enlarge dialog, two-page fit, the page-turn texture and local-only loading. */
+require('./jail_guard.cjs');
 const assert=require('node:assert/strict');
 const {spawn}=require('node:child_process');
 const {createInterface}=require('node:readline');
@@ -44,6 +45,20 @@ const {chromium}=require(process.env.READER_PLAYWRIGHT||'playwright-core');
    // Enlarge: click, then Enter from the keyboard.
    await page.locator('.reader-diagram-canvas').first().click();await page.locator('#diagram-dialog #diagram-body > svg').waitFor();
    assert.ok(await page.evaluate(()=>{const s=document.querySelector('#diagram-body > svg');return s.getBoundingClientRect().width>=+s.getAttribute('width')-1;}),'dialog shows the diagram at least full size');
+   // A diagram too wide for the window opens fitted and can zoom, from the buttons, the keys and Ctrl-scroll.
+   const bodyBox=()=>page.evaluate(()=>{const b=document.querySelector('#diagram-body'),s=b.querySelector(':scope > svg');return {svg:s.getBoundingClientRect().width,client:b.clientWidth,scroll:b.scrollWidth,level:parseInt(document.querySelector('.diagram-zoom-level').textContent)};});
+   const opened=page.viewportSize();await page.setViewportSize({width:320,height:420});await page.waitForFunction(()=>document.querySelector('#diagram-body > svg').getBoundingClientRect().width<innerWidth);
+   const inside=()=>page.evaluate(()=>{const d=document.querySelector('#diagram-dialog').getBoundingClientRect();return {left:d.left,right:d.right,height:d.height,w:innerWidth,h:innerHeight,ok:d.left>=0&&d.right<=innerWidth&&d.height<=innerHeight};});
+   await page.waitForFunction(()=>!document.getAnimations().some(a=>a.effect?.target?.id==='diagram-dialog'));const place=await inside();assert.ok(place.ok,'the dialog stays inside the window: '+JSON.stringify(place));
+   const fitted=await bodyBox();assert.ok(fitted.scroll<=fitted.client+1,`fitted without sideways scrolling: ${JSON.stringify(fitted)}`);
+   await page.keyboard.press('1');let box=await bodyBox();assert.equal(box.level,100,'1 is full size');
+   await page.locator('[data-diagram-zoom="Zoom in"]').click();await page.locator('[data-diagram-zoom="Zoom in"]').click();await page.locator('[data-diagram-zoom="Zoom in"]').click();
+   await page.screenshot({path:'.reader/web-dev/diagram-zoom.png'});box=await bodyBox();assert.ok(box.scroll>box.client,'zoomed in, it scrolls');assert.ok(box.level>150);
+   await page.locator('[data-diagram-zoom="Zoom out"]').click();const smaller=await bodyBox();assert.ok(smaller.level<box.level);
+   await page.keyboard.press('-');assert.ok((await bodyBox()).level<smaller.level,'the - key zooms out');
+   await page.evaluate(()=>document.querySelector('#diagram-body').dispatchEvent(new WheelEvent('wheel',{deltaY:-200,ctrlKey:true,bubbles:true,cancelable:true,clientX:100,clientY:200})));
+   await page.locator('[data-diagram-zoom="Fit to window"]').click();assert.deepEqual(await bodyBox(),fitted,'Fit returns to the fitted view');
+   await page.setViewportSize(opened);await page.waitForFunction(level=>parseInt(document.querySelector('.diagram-zoom-level').textContent)!==level,fitted.level);
    await page.keyboard.press('Escape');await page.waitForFunction(()=>!document.querySelector('#diagram-dialog'));
    await page.locator('.reader-diagram-canvas').nth(2).focus();await page.keyboard.press('Enter');await page.locator('#diagram-dialog #diagram-body > svg.pele-pie').waitFor();
    await page.keyboard.press('Escape');
@@ -66,7 +81,7 @@ const {chromium}=require(process.env.READER_PLAYWRIGHT||'playwright-core');
      const m=await import('/assets/controls/page-turn.js'),article=document.querySelector('.book-viewport > .article');await m.warmSvgImages(article,1);
      const svg=document.querySelector('.pele-pie'),r=svg.getBoundingClientRect(),v=document.querySelector('.book-viewport').getBoundingClientRect(),half=v.width/2;
      const box={x:r.left<v.left+half?v.left:v.left+half,y:v.top,w:half,h:v.height};
-     const probe=document.createElement('span');probe.style.color='var(--bg)';document.body.append(probe);const bg=getComputedStyle(probe).color;probe.remove();
+     const probe=document.createElement('span');probe.style.color='var(--background)';document.body.append(probe);const bg=getComputedStyle(probe).color;probe.remove();
      const canvas=m.rasterize(article,box,0,bg,1),ctx=canvas.getContext('2d'),data=ctx.getImageData(Math.round(r.left-box.x),Math.round(r.top-box.y),Math.round(r.width),Math.round(r.height)).data;
      const ref=ctx.getImageData(0,0,1,1).data;let differ=0;for(let i=0;i<data.length;i+=4)if(Math.abs(data[i]-ref[0])+Math.abs(data[i+1]-ref[1])+Math.abs(data[i+2]-ref[2])>30)differ++;
      return {fraction:differ/(data.length/4),png:canvas.toDataURL('image/png')};});

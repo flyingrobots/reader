@@ -1,3 +1,4 @@
+import './jail_guard.cjs';
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {LOG_NAMES, logEntries, readWhen, readingLogModel, withYou} from '../src/reader_mcp/web_ui/reading-log.mjs';

@@ -2,6 +2,7 @@
    (Ink) theme, against the synthetic fixture. Saves one full-page screenshot per page, profile and theme under
    READER_SHOTS/page-review/, and fails on page errors, console errors or horizontal page overflow.
    Usage: node tests/web_page_review.cjs [page …]   (default: every page below). Admin has tests/web_admin_review.cjs. */
+require('./jail_guard.cjs');
 const assert=require('node:assert/strict');
 const {spawn}=require('node:child_process');
 const {createInterface}=require('node:readline');
@@ -11,7 +12,7 @@ const shots=(process.env.READER_SHOTS||'.reader/web-dev')+'/page-review';
 /** Page name → route, a selector present once the page has rendered, and keys that open a panel on it (optional). */
 const PAGES={home:['#','#home-title'],search:['#search','#search-query'],results:['#search='+encodeURIComponent('q=observation'),'[data-work]'],article:['#read=library%2Fthought.md','#article'],
   queue:['#read=library%2Fthought.md','#article',['Space','r'],'#queue-panel:not([hidden]) [data-queue-row]'],
-  picker:['#','#home-title',['Space','e'],'#picker:not([hidden])'],help:['#','#home-title',['Shift+Slash'],'#help[open]'],
+  picker:['#','#home-title',['Space','e'],'#picker:not([hidden])'],help:['#','#home-title',['Shift+Slash'],'#help'],
   issue:['#issue=2026-W43','.issue-cover']};
 const SECTIONS=process.argv.slice(2).length?process.argv.slice(2):Object.keys(PAGES);
 const PROFILES={desktop:{viewport:{width:1440,height:900}},tablet:devices['iPad Mini'],phone:devices['iPhone 13']};

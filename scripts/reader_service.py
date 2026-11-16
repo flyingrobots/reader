@@ -9,6 +9,7 @@ State lives in ~/Library/Application Support/Reader/service.json; logs and the u
 history (updates.jsonl) in ~/Library/Logs/Reader/. External programs are run with explicit
 argv and timeouts; their paths are recorded at install and can be overridden with
 READER_SERVICE_{LAUNCHCTL,TAILSCALE,GIT,GIT_LOCKS} (tests use fakes)."""
+import importlib.util
 import argparse
 from datetime import datetime, timedelta, timezone
 import fcntl
@@ -383,8 +384,17 @@ def kill_group(process):
             process.wait()
 
 
+def test_jail():
+    """This checkout's sandbox runner. The updater uses its own copy, so even an older candidate commit is sandboxed."""
+    spec = importlib.util.spec_from_file_location('reader_test_jail', Path(__file__).resolve().parent / 'test_jail.py')
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
 def smoke(state, commit):
-    """Test COMMIT in a temporary detached worktree: tests/test_web.py, then a synthetic-vault server."""
+    """Test COMMIT in a temporary detached worktree: tests/test_web.py, then a synthetic-vault server. Both run inside
+    the test sandbox (scripts/test_jail.py), so the candidate's code cannot reach the live vault or service."""
     deadline = time.monotonic() + env_float('READER_SERVICE_SMOKE_TIMEOUT', 120)
     scratch = Path(tempfile.mkdtemp(prefix='reader-smoke-'))
     tree = scratch / 'tree'
@@ -395,9 +405,29 @@ def smoke(state, commit):
         added = True
         env = {k: v for k, v in os.environ.items() if not k.startswith('READER_')} | {
             'PYTHONPATH': str(tree / 'src'), 'TMPDIR': str(scratch), 'PYTHONDONTWRITEBYTECODE': '1'}
+        jail = test_jail()
+        if jail.already_sandboxed():
+            # Inside the test suite's own sandbox, which macOS cannot nest; that sandbox already contains this run.
+            jailed = lambda command: command
+            steps.append({'step': 'sandbox', 'ok': True, 'detail': 'inside the test sandbox'})
+        elif jail.in_container():
+            # A marked Linux test container (CI) is the isolation; the candidate's test guard needs its marker.
+            jailed = lambda command: command
+            env |= {'READER_TEST_JAIL': 'container'}
+            steps.append({'step': 'sandbox', 'ok': True, 'detail': 'inside the test container'})
+        else:
+            try:
+                run, _, sandbox_env = jail.prepare(root=tree)
+            except jail.JailError as exc:
+                return False, steps + [{'step': 'sandbox', 'ok': False, 'detail': str(exc)[:300]}]
+            # Keep what the sandbox set (READER_TEST_*, READER_HOME); drop the service's own READER_ settings.
+            env = {k: v for k, v in sandbox_env.items() if not k.startswith('READER_') or k.startswith('READER_TEST_') or k == 'READER_HOME'} | {
+                'PYTHONPATH': str(tree / 'src'), 'PYTHONDONTWRITEBYTECODE': '1'}
+            jailed = lambda command: jail.command_for(run, command)
+            steps.append({'step': 'sandbox', 'ok': True, 'detail': 'sandbox-exec'})
         remaining = lambda: max(1.0, deadline - time.monotonic())
         try:
-            result = subprocess.run([state['python'], '-m', 'pytest', '-q', '-p', 'no:cacheprovider', 'tests/test_web.py'],
+            result = subprocess.run(jailed([state['python'], '-m', 'pytest', '-q', '-p', 'no:cacheprovider', 'tests/test_web.py']),
                                     cwd=tree, env=env, capture_output=True, text=True, timeout=remaining(),
                                     stdin=subprocess.DEVNULL, start_new_session=True)
         except subprocess.TimeoutExpired:
@@ -406,7 +436,7 @@ def smoke(state, commit):
         steps.append({'step': 'pytest', 'ok': result.returncode == 0, 'detail': tail[0][:300]})
         if result.returncode:
             return False, steps
-        fixture = subprocess.Popen([state['python'], 'tests/web_fixture.py'], cwd=tree, env=env, stdout=subprocess.PIPE,
+        fixture = subprocess.Popen(jailed([state['python'], 'tests/web_fixture.py']), cwd=tree, env=env, stdout=subprocess.PIPE,
                                    stderr=subprocess.DEVNULL, stdin=subprocess.DEVNULL, start_new_session=True)
         try:
             selector = selectors.DefaultSelector()
@@ -554,8 +584,8 @@ def install(args):
     repo = Path(args.repo or previous.get('repo') or default_repo()).expanduser().resolve()
     python = Path(args.python or previous.get('python') or repo / '.venv/bin/python').expanduser()
     vault = Path(args.vault or os.environ.get('READER_ROOT') or previous.get('vault') or configured_vault(repo)).expanduser().resolve(strict=True)
-    if not (vault / 'library').is_dir() or not (vault / 'inbox').is_dir():
-        raise ServiceError('Expected a Reader vault with library/ and inbox/')
+    if not (vault / 'library').is_dir():
+        raise ServiceError('Expected a Reader vault with a library/ folder')
     if not python.is_file():
         raise ServiceError(f'Missing Python interpreter: {python}')
     state = {
@@ -649,6 +679,13 @@ def uninstall(args):
             'tailscale_still_on': bool((state.get('tailscale') or {}).get('enabled'))}
 
 
+def delivery_keys():
+    spec = importlib.util.spec_from_file_location('reader_remote', Path(__file__).resolve().parents[1] / 'skills/reader/scripts/remote.py')
+    remote = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(remote)
+    return remote.delivery_keys()
+
+
 def status(args):
     state = load_state()
     if not state:
@@ -670,7 +707,8 @@ def status(args):
             'failed_commit': state.get('failed_commit'), 'live': state['live'], 'port': state['port'],
             'last_update': updates[-1] if updates else None, 'updates': updates[::-1],
             'last_check_at': last_check, 'next_check_at': next_check, 'interval_seconds': INTERVAL,
-            'update_requested_at': state.get('update_requested_at'), 'tailscale': tailscale_state(state)}
+            'update_requested_at': state.get('update_requested_at'), 'tailscale': tailscale_state(state),
+            'delivery_keys': delivery_keys()}
 
 
 def port_busy(port):

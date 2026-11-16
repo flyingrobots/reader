@@ -85,7 +85,7 @@ export const codeText=(code:Element)=>code.textContent??'';
 // Copy: one delegated listener for every vanilla block; toast through notify().
 async function copyText(text:string){
   try{await navigator.clipboard.writeText(text);return true;}catch{/* No clipboard API (insecure context): fall back below. */}
-  const area=document.createElement('textarea');area.value=text;area.setAttribute('readonly','');area.style.position='fixed';area.style.opacity='0';document.body.append(area);area.select();
+  const area=document.createElement('textarea');area.value=text;area.setAttribute('readonly','');area.className='fixed opacity-0';document.body.append(area);area.select();
   try{return document.execCommand('copy');}catch{return false;}finally{area.remove();}
 }
 export function installCodeCopy(){

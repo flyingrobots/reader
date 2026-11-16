@@ -73,7 +73,7 @@ def test_bundles_group_with_receipt_joins_and_tolerate_missing_or_invalid_receip
     (vault / 'inbox/empty-folder').mkdir()
     os.symlink(vault / 'library', vault / 'inbox/link')
     rows = {row['id']: row for row in InboxView(vault).arrivals()}
-    assert sorted(rows) == ['11111111-1111-4111-8111-111111111111', '22222222-2222-4222-8222-222222222222', 'bad-receipt', 'huge-receipt', 'loose.txt']
+    assert sorted(rows) == ['.hidden.md', '11111111-1111-4111-8111-111111111111', '22222222-2222-4222-8222-222222222222', 'bad-receipt', 'huge-receipt', 'loose.txt']
     first = rows['11111111-1111-4111-8111-111111111111']
     assert first['title'] == 'Behind the scenes' and first['integrity'] == 'intact' and first['files'] == 2
     assert first['document'] == 'inbox/11111111-1111-4111-8111-111111111111/RW-01.md'
@@ -126,7 +126,7 @@ def test_start_spawns_the_supervisor_with_explicit_argv_and_no_shell(vault):
     result = view.start('danger-full-access', wait=.2)
     argv, options = calls[0]
     assert argv == [sys.executable, '-m', 'reader_mcp.inbox_runner', '--root', str(vault), '--codex', str(fake),
-                    '--run-id', result['run_id'], '--sandbox-mode', 'danger-full-access',
+                    '--run-id', result['run_id'], '--sandbox-mode', 'read-only',
                     '--workstation-lock-store', '/srv/git-locks/workstation.git']
     assert options['shell'] is False and options['start_new_session'] is True and options['cwd'] == str(vault)
     assert options['stdin'] == subprocess.DEVNULL and options['stdout'] == subprocess.DEVNULL
@@ -134,24 +134,21 @@ def test_start_spawns_the_supervisor_with_explicit_argv_and_no_shell(vault):
         view.start('bypass')
 
 
-def test_real_supervisor_run_reports_and_reads_a_capped_report(vault):
-    deliver(vault, '55555555-5555-4555-8555-555555555555', 'spec.md', '# Spec five\n')
-    fake = fake_codex(vault, '''import sys,pathlib,shutil
-args=sys.argv
-sys.stdin.read()
-shutil.move('inbox/55555555-5555-4555-8555-555555555555','library/spec-five')
-pathlib.Path(args[args.index('--output-last-message')+1]).write_text('# Filed\\n\\n- library/spec-five\\n\\n' + 'x'*300000 + '\\nEND')
-''')
-    view = InboxView(vault, environ=env_for(fake))
-    result = view.start()
-    assert result['state'] and result['state']['run_id'] == result['run_id']
-    wait_for(view, ('finished', 'failed'))
+def test_finished_reports_are_bounded_and_empty_pending_batches_can_resume(vault):
+    runtime = vault / '.reader/inbox-runner'
+    runtime.mkdir(parents=True)
+    (runtime / 'state.json').write_text(json.dumps({'run_id': 'fixture', 'status': 'finished',
+        'message': 'Verified', 'arrivals': ['packet'], 'remaining': []}))
+    (runtime / 'last-message.md').write_text('# Verified\n' + 'x' * 300000 + '\nEND')
+    view = InboxView(vault, environ=env_for(fake_codex(vault, '')))
     status = view.status()
-    assert status['runner']['status'] == 'finished', status['runner']['message']
-    assert status['runner']['arrivals'] == 1 and status['runner']['remaining'] == 0
-    assert status['runner']['report_truncated'] is True and len(status['runner']['report_md'].encode()) <= MAX_REPORT
+    assert status['runner']['report_truncated'] is True
+    assert len(status['runner']['report_md'].encode()) <= MAX_REPORT
     assert status['runner']['report_md'].endswith('END')
-    assert status['arrivals'] == [] and status['blocked']['reason'] == 'empty'
+    assert status['blocked']['reason'] == 'empty'
+    (runtime / 'pending.json').write_text('{}')
+    status = view.status()
+    assert status['pending'] is True and status['blocked'] is None
 
 
 def test_report_commit_is_verified_against_git(vault):
@@ -301,12 +298,12 @@ def test_inbox_routes_validate_actions_and_keep_previews_read_only(vault):
     try:
         status, body = request('/api/inbox')
         assert status == 200 and body['arrivals'][0]['title'] == 'A delivered spec' and body['codex'] == {'name': 'codex', 'installed': False}
-        assert body['blocked']['reason'] == 'codex'
+        assert body['blocked']['reason'] == 'model'
         assert request('/api/inbox', {'action': 'start'}, token='wrong')[0] == 403
         assert request('/api/inbox', {'action': 'start', 'prompt': 'do something else'})[0] == 400
         assert request('/api/inbox', {'action': 'stop', 'force': True})[0] == 400
         status, body = request('/api/inbox', {'action': 'start'})
-        assert status == 400 and 'Codex was not found' in body['error']
+        assert status == 400 and 'No model is available' in body['error']
         assert request('/api/inbox', {'action': 'stop'})[0] == 400
         path = 'inbox/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/spec.md'
         status, doc = request('/api/document?path=' + path)
@@ -436,10 +433,11 @@ time.sleep(4)
     deadline = time.monotonic() + 3.5
     while time.monotonic() < deadline:
         page = view.events(0)
-        if page['events']:
+        texts = [event['item']['text'] for event in page['events']]
+        if 'Reading the arrivals.' in texts:
             break
         time.sleep(.1)
-    assert page['status'] == 'running' and page['events'][0]['item']['text'] == 'Reading the arrivals.', 'a short line reaches events.jsonl before Codex exits'
+    assert page['status'] == 'running' and texts == ['Asking Codex…', 'Reading the arrivals.'], 'a short line reaches events.jsonl before Codex exits'
     assert page['done'] is False
     wait_for(view, ('finished', 'failed'))
     assert view.events(page['next_offset'])['done'] is True
@@ -494,3 +492,85 @@ def test_a_second_start_while_a_run_is_active_is_a_409_conflict(vault):
         wait_for(library.inbox, ('stopped', 'failed'))
     finally:
         server.shutdown(); server.server_close()
+
+
+def eligibility(status):
+    return {a['id']: (a['eligibility']['state'], a['eligibility']['reason']) for a in status['arrivals']}
+
+
+def test_each_arrival_says_whether_the_next_run_will_file_it_and_why(vault, monkeypatch):
+    monkeypatch.setenv('READER_UNMARKED_PRIVACY', 'normal')
+    ok, changed, claimed, held, private = ('%d' % n * 8 + '-1111-4111-8111-111111111111' for n in range(1, 6))
+    for name in (ok, changed, claimed, held):
+        deliver(vault, name, 'spec.md', '# Spec\n')
+    (vault / 'inbox' / changed / 'spec.md').write_text('# Edited after delivery\n')
+    deliver(vault, private, 'spec.md', '# Spec\n', privacy='no-cloud')
+    (vault / 'inbox/notes-broken').mkdir()
+    (vault / 'inbox/notes-broken/receipt.json').write_text('{not json')
+    (vault / 'inbox/notes-broken/notes.md').write_text('# Notes\n')
+    (vault / '.reader').mkdir()
+    (vault / '.reader/upkeep-claims.json').write_text(json.dumps({'inbox/' + claimed: 'agent-1'}))
+    (vault / '.reader/model-chain.json').write_text(json.dumps({'order': ['codex']}))
+    from reader_mcp import arrival_choices
+    arrival_choices.choose(vault, held, 'hold')
+    seen = eligibility(InboxView(vault, environ={'PATH': '/nonexistent'}).status())
+    assert seen[ok] == ('eligible', None)
+    assert seen[changed][0] == 'blocked' and 'changed since delivery' in seen[changed][1]
+    assert seen['notes-broken'][0] == 'blocked' and 'not valid JSON' in seen['notes-broken'][1]
+    assert seen[claimed][0] == 'waits' and 'agent-1' in seen[claimed][1]
+    assert seen[held][0] == 'held'
+    assert seen[private][0] == 'waits' and 'local model' in seen[private][1]
+
+
+def git_vault(vault):
+    env = {**os.environ, 'GIT_AUTHOR_NAME': 'F', 'GIT_AUTHOR_EMAIL': 'f@example.invalid', 'GIT_COMMITTER_NAME': 'F', 'GIT_COMMITTER_EMAIL': 'f@example.invalid'}
+    for name in ('catalog', 'writings'):
+        (vault / name).mkdir()
+    (vault / 'catalog/index.md').write_text('# Catalog\n')
+    (vault / 'writings/voice.md').write_text('# Voice\n')
+    (vault / '.gitignore').write_text('.reader/\n')
+    for args in (['init', '-q'], ['add', '.'], ['commit', '-qm', 'initial']):
+        subprocess.run(['git', *args], cwd=vault, env=env, check=True)
+
+
+def test_status_lists_the_work_intake_will_commit_first(vault):
+    git_vault(vault)
+    (vault / 'library/essays').mkdir()
+    (vault / 'library/essays/essay.md').write_text('# Essay\n')
+    (vault / 'writings/voice.md').write_text('# Voice\n- essay\n')
+    (vault / 'annotations').mkdir()
+    (vault / 'annotations/x.json').write_text('{}')
+    deliver(vault, '77777777-7777-4777-8777-777777777777', 'spec.md', '# Spec\n')
+    view = InboxView(vault, environ={'PATH': '/nonexistent'})
+    status = view.status()
+    assert status['pending_work'] == {'paths': ['library/essays/essay.md', 'writings/voice.md'], 'count': 2}
+    # A hand edit to a generated output is committed first too, not a reason to refuse filing.
+    (vault / 'catalog/index.md').write_text('# Hand edited\n')
+    status = view.status()
+    assert status['pending_work']['paths'][0] == 'catalog/index.md' and status['blocked']['reason'] == 'model'
+
+
+def test_a_retained_batch_is_listed_and_new_arrivals_wait_for_it(vault):
+    git_vault(vault)
+    runtime = vault / '.reader/inbox-runner'
+    runtime.mkdir(parents=True)
+    destination = 'library/reports/retained-a0f4'
+    (vault / destination).mkdir(parents=True)
+    (vault / destination / 'index.md').write_text('# Report\n')
+    (vault / 'library/reports/index.md').write_text('- [Report](retained-a0f4/index.md)\n')
+    plan = {'schema_version': 1, 'batch_id': 'b1', 'applying': True,
+            'writes': {'library/reports/index.md': {'before': None, 'after': 'a' * 64}},
+            'entries': [{'source': 'inbox/old', 'destination': destination, 'filed': True,
+                         'decision': {'disposition': 'file', 'title': 'A synthetic retained report'}}]}
+    (runtime / 'pending.json').write_text(json.dumps(plan))
+    deliver(vault, '88888888-8888-4888-8888-888888888888', 'spec.md', '# Spec\n')
+    status = InboxView(vault, environ={'PATH': '/nonexistent'}).status()
+    assert status['retained'] == [{'source': 'inbox/old', 'title': 'A synthetic retained report', 'destination': destination, 'state': 'moved'}]
+    assert eligibility(status)['88888888-8888-4888-8888-888888888888'][0] == 'waits'
+    # An arrival still in the frozen queue is resumed by the retry, so it is eligible and listed.
+    (runtime / 'queue.json').write_text(json.dumps({'entries': [{'source': 'inbox/88888888-8888-4888-8888-888888888888'}]}))
+    status = InboxView(vault, environ={'PATH': '/nonexistent'}).status()
+    assert eligibility(status)['88888888-8888-4888-8888-888888888888'][0] == 'eligible'
+    assert status['retained'][1] == {'source': 'inbox/88888888-8888-4888-8888-888888888888', 'title': None, 'destination': None, 'state': 'queued'}
+    # The batch's own partial output is not someone else's pending work.
+    assert status['pending_work'] == {'paths': [], 'count': 0}

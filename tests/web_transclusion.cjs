@@ -1,5 +1,6 @@
 /* Obsidian embeds: fragments, block ids, images, PDFs, nesting, cycles, code, links, annotations, find, lazy loading,
    two-page mode, phone width and the 50-embed performance check (tests/fixtures/transclusion/corpus.json). */
+require('./jail_guard.cjs');
 const assert=require('node:assert/strict');
 const {spawn}=require('node:child_process');
 const {createInterface}=require('node:readline');

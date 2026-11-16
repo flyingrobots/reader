@@ -2,13 +2,14 @@
    badge in CardAction, the body, and the actions in CardFooter. Every Admin panel that reports on one thing (an index,
    the inbox, a service, a tile) is this card, so the same question is always answered in the same place. */
 import type {ComponentProps, ReactNode} from 'react';
+import {AdminDocHelp} from '@/admin/documentation';
 import {cn} from 'cn';
 import {Card, CardAction, CardContent, CardDescription, CardFooter, CardHeader, CardTitle} from '@/components/ui/card';
 
 export function StatusCard({title,titleId,description,badge,footer,children,className,...props}:{title:ReactNode;titleId?:string;description?:ReactNode;badge?:ReactNode;footer?:ReactNode;children?:ReactNode}&Omit<ComponentProps<typeof Card>,'title'>){
   return <Card size="sm" className={cn('min-w-0',className)} {...props}>
     <CardHeader>
-      <CardTitle role="heading" aria-level={2} id={titleId}>{title}</CardTitle>
+      <CardTitle role="heading" aria-level={2} id={titleId}>{title}{typeof title==='string'?<AdminDocHelp title={title}/>:null}</CardTitle>
       {description?<CardDescription>{description}</CardDescription>:null}
       {badge?<CardAction>{badge}</CardAction>:null}
     </CardHeader>

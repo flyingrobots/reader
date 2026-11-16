@@ -57,7 +57,8 @@ export function embedPlugin(md){
     if(!env?.embeds)return escape('![['+e.raw+']]');  // Chat bodies and other plain renders keep the text.
     if(e.kind==='image'&&e.target)return `<img class="embed-image" data-embed-image src="${escape(e.target)}" alt="${escape(e.alias||e.target.split('/').pop())}"${e.width?` width="${e.width}"`:''}${e.height?` height="${e.height}"`:''}>`;
     const tag=e.block?'div':'span';
-    return `<${tag} class="document-embed" data-embed="${escape(e.raw)}" data-embed-kind="${e.kind}"></${tag}>`;
+    const place=e.host?.attrGet('data-source-start');  // The hidden paragraph's position: a block embed is a place to keep.
+    return `<${tag} class="document-embed" data-embed="${escape(e.raw)}" data-embed-kind="${e.kind}"${place!=null?` data-place-start="${escape(place)}"`:''}></${tag}>`;
   };
   md.core.ruler.after('inline','reader_block_ids',state=>{
     for(let i=0;i<state.tokens.length;i++){
@@ -65,7 +66,7 @@ export function embedPlugin(md){
       // A paragraph of nothing but document embeds becomes those embeds, as blocks (never a <div> inside a <p>).
       const solid=token.children.filter(child=>child.type!=='softbreak'&&!(child.type==='text'&&!child.content.trim()));
       if(state.tokens[i-1]?.type==='paragraph_open'&&solid.length&&solid.every(child=>child.type==='reader_embed'&&child.meta.kind!=='image')){
-        state.tokens[i-1].hidden=state.tokens[i+1].hidden=true;for(const child of solid)child.meta.block=true;continue;}
+        state.tokens[i-1].hidden=state.tokens[i+1].hidden=true;for(const child of solid){child.meta.block=true;child.meta.host=state.tokens[i-1];}continue;}
       const children=token.children,last=children.at(-1);if(last.type!=='text')continue;
       if(ONLY_ID.test(last.content)&&children.length===1){last.content='';if(state.tokens[i-1]?.type==='paragraph_open')state.tokens[i-1].attrSet('hidden','');continue;}
       if(ONLY_ID.test(last.content)&&children.at(-2)?.type==='softbreak'){children.splice(-2,2);continue;}

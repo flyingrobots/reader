@@ -8,7 +8,7 @@ import {randomUUID} from 'node:crypto';
 import {readdirSync, readFileSync, writeFileSync} from 'node:fs';
 import {join} from 'node:path';
 import {DatabaseSync} from 'node:sqlite';
-import {assertShape, cli, makeVault, readJson, sleep, startServer} from './harness.mjs';
+import {assertShape, cli, inboxPath, makeVault, readJson, sleep, startServer} from './harness.mjs';
 
 const SOLITUDE = 'library/walden/thoreau/solitude.md';
 let vault;
@@ -74,8 +74,9 @@ describe('JSON and Markdown stores (shapes)', () => {
   test('indexes/coverage.json', () => assertShape('file-coverage', readJson(vault.root, 'indexes/coverage.json')));
   test('indexes/settings.json', () => assertShape('file-browse-settings', readJson(vault.root, 'indexes/settings.json')));
   test('inbox/<uuid>/receipt.json', () => {
-    const bundle = readdirSync(join(vault.root, 'inbox')).find(n => /^[0-9a-f-]{36}$/.test(n));
-    assertShape('file-receipt', readJson(vault.root, `inbox/${bundle}/receipt.json`));
+    const bundle = readdirSync(inboxPath(vault.root)).find(n => /^[0-9a-f-]{36}$/.test(n));
+    assert.ok(bundle, 'the fixture has a delivery bundle waiting');
+    assertShape('file-receipt', JSON.parse(readFileSync(inboxPath(vault.root, bundle, 'receipt.json'), 'utf8')));
   });
   test('art/<path>/<sha256>/<generation>/{provenance,scene}.json', () => {
     const base = 'art/walden/thoreau/where-i-lived.md';

@@ -13,7 +13,7 @@ import time
 import pytest
 
 from coding_fixture import World, git, snapshot
-from reader_mcp import coding_store
+from reader_mcp import coding_store, process_table
 from reader_mcp.github import GitHubError
 
 
@@ -220,9 +220,8 @@ def alive(pid):
         os.kill(pid, 0)
     except ProcessLookupError:
         return False
-    # A zombie still answers kill(0); ps says whether it really runs.
-    state = subprocess.run(['ps', '-o', 'stat=', '-p', str(pid)], capture_output=True, text=True).stdout.strip()
-    return bool(state) and not state.startswith('Z')
+    # A zombie still answers kill(0); the process table says whether it really runs.
+    return process_table.running(pid)
 
 
 def test_stop_kills_the_agent_process_group_and_keeps_the_worktree(world):

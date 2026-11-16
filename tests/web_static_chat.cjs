@@ -3,6 +3,7 @@
    (started, delta, posted, done); a manual voice's reply can be pasted; Cancel and Retry work; everything is labelled "only in this browser",
    survives a reload (localStorage) and is cleared by Reset this demo; and the page makes no request but GETs of the
    exported static files. */
+require('./jail_guard.cjs');
 const assert=require('node:assert/strict');
 const {spawnSync}=require('node:child_process');
 const http=require('node:http');

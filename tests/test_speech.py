@@ -1,6 +1,7 @@
 """Send to AI-TTS against a fake AF_UNIX daemon (AI_TTS_SOCKET); never the real one."""
 from http.client import HTTPConnection
 import json
+import os
 from pathlib import Path
 import shutil
 import socket
@@ -22,7 +23,7 @@ SOURCE = '---\ntitle: A quiet thought\nauthor: Ada\n---\n\n# A quiet thought\n\n
 @pytest.fixture
 def daemon(monkeypatch):
     # AF_UNIX paths are limited to 104 bytes on macOS; pytest's tmp_path can exceed it.
-    folder = Path(tempfile.mkdtemp(prefix='rs-', dir='/tmp' if Path('/tmp').is_dir() else None))
+    folder = Path(tempfile.mkdtemp(prefix='rs-', dir=os.environ.get('READER_TEST_SOCKET_ROOT') or ('/tmp' if Path('/tmp').is_dir() else None)))
     fake = FakeDaemon(folder, step=0.05)
     monkeypatch.setenv('AI_TTS_SOCKET', str(fake.path))
     yield fake

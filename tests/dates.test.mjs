@@ -1,4 +1,5 @@
 // Local-time dates: plain calendar dates stay as written; instants are shown and grouped in the reader's zone.
+import './jail_guard.cjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {addDays, daysBetween, formatDate, formatDateTime, isPlainDate, localDay, localizeLibrary, readActivity, todayLocal, workDay} from '../src/reader_mcp/web_ui/logic.mjs';

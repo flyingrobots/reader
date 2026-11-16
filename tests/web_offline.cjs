@@ -1,4 +1,5 @@
 /* An unreachable server: one coalesced "Reader isn't reachable" toast instead of several bare "Failed to fetch", cleared by a probe when Reader answers again. */
+require('./jail_guard.cjs');
 const assert=require('node:assert/strict');
 const {spawn}=require('node:child_process');
 const {createInterface}=require('node:readline');
