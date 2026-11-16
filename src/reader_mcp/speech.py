@@ -23,6 +23,14 @@ TRACKED = 50
 TERMINAL = frozenset({'Played', 'Skipped', 'Cancelled', 'Failed'})
 CONTROLS = ('pause', 'resume', 'skip', 'next_segment', 'previous_segment', 'cancel')
 UTTERANCE_ID = re.compile(r'utt_[0-9a-f]{32}')
+MIN_VERSION = (0, 2, 0)
+MIN_VERSION_TEXT = '0.2.0'
+_VERSION = re.compile(r'(\d+)\.(\d+)\.(\d+)')
+
+
+def parse_version(text):
+    match = _VERSION.search(text) if isinstance(text, str) else None
+    return tuple(int(part) for part in match.groups()) if match else None
 
 
 class SpeechUnavailable(ConnectionError):
@@ -146,11 +154,13 @@ class Speech:
             raise ValueError('Binary text cannot be spoken.')
         if len(text.encode('utf-8', 'surrogatepass')) > MAX_TEXT:
             raise ValueError('This text exceeds the 512 KiB AI-TTS limit. Use From here or select a passage.')
+        self.require_version()
         selected = self.preferred_voice() if voice is None else voice
         if selected is not None and (not isinstance(selected, str) or len(selected) > 128):
             raise ValueError('Expected a voice name')
         payload = {'op': 'submit', 'origin': 'Reader', 'text': text, 'content_format': fmt,
-                   'source': 'Reader', 'sensitivity': 'confidential', 'priority': 'normal'}
+                   'source': 'Reader', 'sensitivity': 'confidential', 'priority': 'normal',
+                   'playback': False}
         if selected:
             if selected not in self.voices()['voices']:
                 raise ValueError('The selected voice is not available in AI-TTS')
@@ -166,8 +176,11 @@ class Speech:
             self.submitted[utterance] = scope
             while len(self.submitted) > TRACKED:
                 self.submitted.popitem(last=False)
-        return {'id': utterance, 'state': response.get('state'), 'held': bool(response.get('playback_held')),
-                'segment_count': response.get('segment_count'), 'voice': response.get('voice')}
+        playback = bool(response.get('playback', False))
+        return {'id': utterance, 'state': response.get('state'),
+                'held': bool(response.get('playback_held')) if playback else False,
+                'segment_count': response.get('segment_count'), 'voice': response.get('voice'),
+                'playback': playback}
 
     def owned(self, utterance):
         with self.lock:
@@ -181,18 +194,64 @@ class Speech:
         current = status.get('current') if isinstance(status.get('current'), dict) else None
         active = current.get('active_segment') if current and isinstance(current.get('active_segment'), dict) else None
         return {'held': bool(status.get('playback_held')), 'playback_state': status.get('playback_state'),
+                'version': status.get('version'),
                 'current': current.get('id') if current else None,
                 'segment': {'number': active.get('number'), 'count': active.get('count')} if active else None}
+
+    def require_version(self):
+        """Ensure the running AI-TTS daemon supports synthesis-only browser streaming."""
+        found = self.status().get('version')
+        parsed = parse_version(found)
+        if parsed is None or parsed < MIN_VERSION:
+            label = found if isinstance(found, str) and found else 'an older version'
+            raise SpeechUnavailable(f'AI-TTS {MIN_VERSION_TEXT} or newer is required (found {label}). Update and restart AI-TTS, then try again.')
+        return parsed
 
     def get(self, utterance):
         """Progress for one Reader utterance: the daemon's get, plus status while it is current."""
         item = self.request({'op': 'get', 'id': self.owned(utterance)}).get('item') or {}
+        playback = bool(item.get('playback', True))
+        raw_segments = item.get('segments') if isinstance(item.get('segments'), list) else []
+        segments = [
+            {
+                'index': seg['index'],
+                'state': seg.get('state'),
+                'duration_ms': seg.get('duration_ms'),
+                'audio_ready': bool(seg.get('audio_ready')),
+                'error': seg.get('error'),
+            }
+            for seg in raw_segments
+            if isinstance(seg, dict) and isinstance(seg.get('index'), int)
+        ]
+        if not playback:
+            return {'id': utterance, 'state': item.get('state'), 'error': item.get('error'),
+                    'segment_count': item.get('segment_count'), 'completed_segments': item.get('completed_segments'),
+                    'terminal': item.get('state') in TERMINAL, 'held': False, 'current': False,
+                    'playback': False, 'segments': segments, 'segment': None}
         status = self.status()
         current = status['current'] == utterance
         return {'id': utterance, 'state': item.get('state'), 'error': item.get('error'),
                 'segment_count': item.get('segment_count'), 'completed_segments': item.get('completed_segments'),
                 'terminal': item.get('state') in TERMINAL, 'held': status['held'], 'current': current,
-                'segment': status['segment'] if current else None}
+                'playback': True, 'segments': segments, 'segment': status['segment'] if current else None}
+
+    def segment_audio(self, utterance, index):
+        """Return the synthesized WAV path for a ready segment of an owned utterance."""
+        utterance = self.owned(utterance)
+        if type(index) is not int or index < 0:
+            raise ValueError('Expected a non-negative integer segment index')
+        item = self.request({'op': 'get', 'id': utterance}).get('item') or {}
+        raw_segments = item.get('segments') if isinstance(item.get('segments'), list) else []
+        segment = next((s for s in raw_segments if isinstance(s, dict) and s.get('index') == index), None)
+        if segment is None:
+            raise FileNotFoundError('Speech segment not found')
+        audio_path = segment.get('audio_path')
+        if not segment.get('audio_ready') or not isinstance(audio_path, str) or not audio_path:
+            raise FileNotFoundError('Speech segment audio is not ready yet')
+        path = Path(audio_path)
+        if path.is_symlink() or not path.is_file():
+            raise FileNotFoundError('Speech segment audio is unavailable')
+        return path
 
     def control(self, utterance, action):
         """pause/resume/skip/segment steps act on the daemon's current playback, so they

@@ -48,6 +48,9 @@ class GitHub:
     def version(self): raise NotImplementedError
     def viewer(self): raise NotImplementedError
     def repository(self, repo): raise NotImplementedError
+    def revision(self, repo, ref): raise NotImplementedError
+    def tree(self, repo, sha): raise NotImplementedError
+    def blob(self, repo, sha): raise NotImplementedError
     def issue(self, repo, number): raise NotImplementedError
     def create_issue(self, repo, title, body): raise NotImplementedError
     def find_issues(self, repo, marker): raise NotImplementedError
@@ -62,10 +65,10 @@ class GhCli(GitHub):
         self.executable = executable or resolve_cli('gh', environ)
         self.runner = runner
 
-    def call(self, method, route, body=None, write=False):
+    def call(self, method, route, body=None, write=False, *, accept='application/vnd.github+json', raw=False):
         if not self.executable:
             raise GitHubError('The GitHub CLI (gh) is not installed')
-        argv = [self.executable, 'api', '--method', method, '-H', 'Accept: application/vnd.github+json', route]
+        argv = [self.executable, 'api', '--method', method, '-H', 'Accept: ' + accept, route]
         if body is not None:
             argv += ['--input', '-']
         try:
@@ -88,6 +91,7 @@ class GhCli(GitHub):
             if write:  # The write succeeded or may have; its answer is unreadable, so reconcile.
                 raise Uncertain(f'GitHub answered {method} {route} with more than 4 MiB; it may have taken effect')
             raise GitHubError('GitHub response exceeds 4 MiB')
+        if raw:return result.stdout.strip()
         try:
             return json.loads(result.stdout or 'null')
         except ValueError:
@@ -119,6 +123,23 @@ class GhCli(GitHub):
         data = self.call('GET', f'repos/{repo}') or {}
         return {'full_name': data.get('full_name'), 'default_branch': data.get('default_branch'),
                 'can_push': bool((data.get('permissions') or {}).get('push')), 'archived': bool(data.get('archived'))}
+
+    def revision(self, repo, ref):
+        # SHA media type resolves branches, tags and commits without downloading file patches.
+        # https://docs.github.com/en/rest/commits/commits#get-a-commit
+        sha=self.call('GET',f'repos/{repo}/commits/{_quote(ref)}',accept='application/vnd.github.sha',raw=True)
+        if not isinstance(sha,str) or not re.fullmatch(r'[0-9a-f]{40}',sha):
+            raise GitHubError('GitHub did not return a full revision identity')
+        metadata=self.call('GET',f'repos/{repo}/git/commits/{sha}')
+        if not isinstance(metadata,dict) or metadata.get('sha')!=sha or not isinstance(metadata.get('tree'),dict):
+            raise GitHubError('GitHub did not return the pinned commit tree')
+        return {'sha':sha,'commit':metadata}
+
+    def tree(self, repo, sha):
+        return self.call('GET', f'repos/{repo}/git/trees/{_quote(sha)}')
+
+    def blob(self, repo, sha):
+        return self.call('GET', f'repos/{repo}/git/blobs/{_quote(sha)}')
 
     def issue(self, repo, number):
         return issue_view(self.call('GET', f'repos/{repo}/issues/{int(number)}') or {}, repo)

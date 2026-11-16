@@ -13,8 +13,19 @@ import socket
 import threading
 import time
 import uuid
+import wave
 
 TERMINAL = {'Played', 'Skipped', 'Cancelled', 'Failed'}
+
+
+def _silent_wav(path, duration_s=0.15, rate=8000):
+    if path.exists():
+        return
+    with wave.open(str(path), 'wb') as wav:
+        wav.setnchannels(1)
+        wav.setsampwidth(2)
+        wav.setframerate(rate)
+        wav.writeframes(b'\x00\x00' * int(rate * duration_s))
 
 
 class FakeDaemon:
@@ -23,6 +34,7 @@ class FakeDaemon:
         self.path = self.folder / 'ai-tts.sock'
         self.log = self.folder / 'requests.jsonl'
         self.step, self.segments = step, segments
+        self.version = '0.2.0'
         self.items, self.order = {}, []
         self.paused, self.clock = False, time.monotonic()
         self.lock = threading.Lock()
@@ -44,12 +56,17 @@ class FakeDaemon:
         return self.paused or (self.folder / 'held').exists()
 
     def current(self):
-        return next((self.items[i] for i in self.order if self.items[i]['state'] not in TERMINAL and self.items[i]['state'] != 'Cancelled'), None)
+        return next((self.items[i] for i in self.order if self.items[i].get('playback', True) and self.items[i]['state'] not in TERMINAL and self.items[i]['state'] != 'Cancelled'), None)
 
     def tick(self):
         now = time.monotonic()
         while now - self.clock >= self.step:
             self.clock += self.step
+            for item in (self.items[i] for i in self.order if not self.items[i].get('playback', True) and self.items[i]['state'] not in TERMINAL):
+                if item['ready'] < item['count']:
+                    _silent_wav(self.folder / f"{item['id']}-{item['ready']}.wav")
+                    item['ready'] += 1
+                    item['state'] = 'Ready' if item['ready'] >= item['count'] else 'Synthesizing'
             item = self.current()
             if item is None or self.held:
                 continue
@@ -59,7 +76,7 @@ class FakeDaemon:
                 item['completed'] += 1
                 if item['completed'] >= item['count']:
                     item['state'] = 'Played'
-        if self.current() is None:
+        if self.current() is None and not any(not self.items[i].get('playback', True) and self.items[i]['state'] not in TERMINAL and self.items[i]['ready'] < self.items[i]['count'] for i in self.order):
             self.clock = now
 
     def serve(self):
@@ -89,8 +106,22 @@ class FakeDaemon:
             connection.sendall(json.dumps(response).encode() + b'\n')
 
     def item(self, entry):
-        return {'id': entry['id'], 'text': entry['text'], 'state': entry['state'], 'source': 'Reader', 'error': None,
-                'composite': entry['count'] > 1, 'segment_count': entry['count'], 'completed_segments': entry['completed']}
+        base = {'id': entry['id'], 'text': entry['text'], 'state': entry['state'], 'source': 'Reader', 'error': None,
+                'composite': entry['count'] > 1, 'segment_count': entry['count'], 'completed_segments': entry['completed'],
+                'playback': entry.get('playback', True)}
+        if not entry.get('playback', True):
+            base['segments'] = [
+                {
+                    'index': idx,
+                    'state': 'Ready' if idx < entry['ready'] else 'Queued',
+                    'duration_ms': 150 if idx < entry['ready'] else None,
+                    'audio_ready': idx < entry['ready'],
+                    'audio_path': str(self.folder / f"{entry['id']}-{idx}.wav") if idx < entry['ready'] else None,
+                    'error': None,
+                }
+                for idx in range(entry['count'])
+            ]
+        return base
 
     def transport(self):
         current = self.current()
@@ -103,11 +134,12 @@ class FakeDaemon:
         if op == 'submit':
             if not str(payload.get('text', '')).strip():
                 return {'ok': False, 'error': {'type': 'bad_request', 'message': "submit requires non-empty 'text'"}}
-            entry = {'id': 'utt_' + uuid.uuid4().hex, 'text': payload['text'], 'state': 'Queued', 'count': self.segments, 'completed': 0}
+            playback = bool(payload.get('playback', True))
+            entry = {'id': 'utt_' + uuid.uuid4().hex, 'text': payload['text'], 'state': 'Queued', 'count': self.segments, 'completed': 0, 'ready': 0, 'playback': playback}
             self.items[entry['id']] = entry
             self.order.append(entry['id'])
             return {'ok': True, 'accepted': True, 'id': entry['id'], 'state': 'Queued', 'voice': payload.get('voice', 'fake'), 'sensitivity': payload.get('sensitivity'),
-                    'segment_count': entry['count'], 'composite': True, 'accepting_speech': True, 'playback_held': self.held,
+                    'segment_count': entry['count'], 'composite': True, 'playback': playback, 'accepting_speech': True, 'playback_held': self.held,
                     'submission_disposition': 'spooled_until_resume' if self.held else 'queued_for_playback'}
         if op == 'status':
             current = self.current()
@@ -116,7 +148,7 @@ class FakeDaemon:
                 view = self.item(current)
                 if current['state'] in ('Playing', 'Paused'):
                     view['active_segment'] = {'index': current['completed'], 'number': current['completed'] + 1, 'count': current['count'], 'text': 'segment', 'state': current['state']}
-            return {'ok': True, 'state': 'accepting', 'playback_held': self.held, 'playback_state': 'paused' if self.held else 'playing' if current else 'idle', 'current': view}
+            return {'ok': True, 'version': self.version, 'state': 'accepting', 'playback_held': self.held, 'playback_state': 'paused' if self.held else 'playing' if current else 'idle', 'current': view}
         if op in ('get', 'cancel'):
             entry = self.items.get(payload.get('id'))
             if entry is None:

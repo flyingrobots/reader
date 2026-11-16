@@ -415,13 +415,16 @@ def test_ai_tts_is_guided_and_start_asks_its_launch_agent(tmp_path, monkeypatch)
             if not state.exists():
                 from reader_mcp.speech import SpeechUnavailable
                 raise SpeechUnavailable('not yet')
-            return {'held': False, 'playback_state': 'Idle', 'current': None, 'segment': None}
+            return {'held': False, 'playback_state': 'Idle', 'version': '0.2.0', 'current': None, 'segment': None}
     library.companions.speech = Speech()
     library.companions.dispatch({'action': 'start', 'name': 'ai-tts'})
     assert wait_job(library)['state'] == 'succeeded'
     argv = [c['argv'] for c in fake_toolchain.calls(log, 'launchctl')]
     assert argv[0][0] == 'print' and argv[1][0] == 'bootstrap' and argv[1][-1].endswith('com.flyingrobots.ai-tts.plist')
     assert library.companions.status('ai-tts')['companions'][0]['label'] == 'Running'
+    library.companions.speech.status = lambda: {'held': False, 'playback_state': 'Idle', 'version': '0.1.0', 'current': None, 'segment': None}
+    too_old = library.companions.status('ai-tts')['companions'][0]
+    assert too_old['state'] == 'too-old' and '0.2.0 or newer' in too_old['message']
     library.close()
 
 

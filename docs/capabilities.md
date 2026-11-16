@@ -189,13 +189,22 @@ images or historical versions.
 
 **Send to AI-TTS** (Space s, the document footer or the selection toolbar's Speak)
 queues the whole article, the text from the reading position, or a selected passage
-with the local AI-TTS daemon, which owns playback, holds and voice assignment.
+with the local AI-TTS daemon (version 0.2.0 or newer), which synthesizes audio and
+assigns voices. The requesting browser plays the resulting segments; other tabs
+and the daemon's host speakers stay silent. Host-speaker holds do not hold browser
+playback. Older daemons are refused before submission.
+Starting another reading stops the old audio and requests cancellation of its
+synthesis.
 Markdown, plain text and PDF text layers are supported, up to 512 KiB of text per
 submission; PDF selections and scanned PDFs without a text layer are not. A
 status-line control shows segment progress and offers pause/resume, previous/next
-segment and skip, only for Reader's own utterances while they are current. The
+segment and skip for the requesting tab's utterance. Pause and segment navigation
+operate locally. Navigation stops the previous audio immediately, including while
+the selected segment is still preparing. Playback errors end the session and offer
+Read aloud to retry. The
 passage being spoken is not highlighted, because the daemon does not report
-segment source spans. Reader never plays audio directly.
+segment source spans. Audio is served only for utterances created by this Reader
+process; responses do not expose the daemon's local audio paths.
 
 Hovering over (about 350 ms) or focusing a local link shows a plain-text preview of the
 target: title, authors, project, an unread mark and about 300 characters from the
@@ -383,7 +392,7 @@ There is no automatic classifier, file watcher, scheduled librarian, or unattend
 
 The delivery server is local to its caller and has no hosted endpoint. Other machines can deliver, and with a broader key scope search and read, only through a restricted SSH key whose forced command is the helper's gate; see [remote delivery](delivery.md#remote-delivery-over-ssh). Its publication protocol handles cooperating local writers and process interruption; it does not provide a power-loss durability guarantee or protection against hostile filesystem mutation.
 
-Article prompt cards run [coding jobs](web.md#article-prompts-and-coding-jobs) only on an explicit **Run → PR**, against repositories registered locally, one job at a time per vault. A job verifies with the repository's configured command and opens a pull request; it never merges, force-pushes, resets or deletes branches, worktrees or remote artifacts. The worktree isolates Git changes, not the filesystem, build caches or credentials, and telling the agent not to publish is a cooperative rule that Reader backs with reconciliation, not an enforced sandbox. The automated tests use a local Git remote, a fake coding CLI and a fake GitHub; they do not establish the real GitHub integration, which needs a separately authorized sandbox run.
+Article prompt cards run [coding jobs](web.md#article-prompts-and-coding-jobs) only on an explicit **Run → PR**, against repositories registered locally, one job at a time per vault. A job verifies with the repository's configured command and opens a pull request; it never merges, force-pushes, resets or deletes branches, worktrees or remote artifacts. Development runs in a managed Docker workspace with no host checkout or credential/socket mount; a legacy checkout registration is refused by the default runner. Telling a credential-bearing agent not to publish remains a cooperative rule backed by reconciliation. Admin approves pinned configurations; an explicit terminal command prepares container tools/sign-in and performs readiness checks. The installed image command prepares the fixed managed recipe; the real Docker workflow fixture covers task execution, verification, push/readback and cancellation with synthetic provider/GitHub services. The automated tests use a local Git remote, a fake coding CLI and a fake GitHub; they do not establish the real GitHub integration, which needs a separately authorized sandbox run.
 
 Git provides history for committed content. Reader does not configure remote backup or synchronization, and uncommitted or ignored files have no Git recovery guarantee. git-cas and Keep are not integrated.
 

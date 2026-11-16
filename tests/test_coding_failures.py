@@ -498,3 +498,60 @@ def test_a_failed_recovery_releases_ownership_so_the_next_owner_starts_a_worker(
     with pytest.raises(OSError, match='recovery write failure'):
         jobs.own()
     assert jobs.own() and jobs.worker and jobs.worker.is_alive()
+
+
+def test_request_directory_sync_failure_retains_an_idempotent_failed_admission(world, monkeypatch):
+    import os,stat
+    from pathlib import Path
+    w=world()
+    requests=w.jobs.store.folder('requests').resolve()
+    original=os.fsync
+    failed=False
+    def sync(fd):
+        nonlocal failed
+        if not failed and stat.S_ISDIR(os.fstat(fd).st_mode) and Path(os.readlink('/proc/self/fd/'+str(fd)))==requests:
+            failed=True
+            raise OSError(5,'request directory sync refused')
+        return original(fd)
+    monkeypatch.setattr(os,'fsync',sync)
+    request=w.request()
+    with pytest.raises(OSError,match='request directory sync refused'):
+        w.jobs.submit(request)
+    receipt=w.jobs.store.request(request['request_id'])
+    assert receipt and w.jobs.store.load(receipt['run_id']) is not None, 'An installed request must never point to a discarded run'
+    retry=w.jobs.submit(request)
+    assert retry['duplicate'] and retry['status']=='finished' and retry['outcome']=='failed'
+    assert not w.record.exists(), 'Failed durability must never start a task'
+    assert len(w.jobs.store.runs())==1
+    fresh=w.jobs.submit(w.request())
+    assert w.wait(fresh['id'])['outcome']=='pr_opened'
+    assert len(w.calls())==1
+
+
+def test_crash_before_failed_admission_save_recovers_without_launching(world, monkeypatch):
+    """An installed receipt survives the crash window as an interrupted, non-restarted run."""
+    class SimulatedCrash(BaseException):pass
+    w = world()
+    w.jobs.work = lambda: None
+    remember, save = w.jobs.store.remember, w.jobs.store.save
+    def installed(*args):
+        remember(*args)
+        raise coding_store.InstalledRecordError(5, 'directory sync uncertain')
+    def crash(record):
+        if record['status'] == 'finished':raise SimulatedCrash()
+        save(record)
+    monkeypatch.setattr(w.jobs.store, 'remember', installed)
+    monkeypatch.setattr(w.jobs.store, 'save', crash)
+    request = w.request()
+
+    with pytest.raises(SimulatedCrash):w.jobs.submit(request)
+
+    # A fresh store discards in-memory retries, as process restart does.
+    w.jobs.store = coding_store.Store(w.vault)
+    receipt = w.jobs.store.request(request['request_id'])
+    assert receipt and w.jobs.store.load(receipt['run_id'])['status'] == 'queued'
+    w.jobs.recover()
+    retry = w.jobs.submit(request)
+    assert retry['duplicate'] and retry['status'] == 'finished' and retry['outcome'] == 'interrupted'
+    assert not w.jobs.queue and not w.record.exists(), 'recovery must not launch an unacknowledged task'
+    assert len(w.jobs.store.runs()) == 1
