@@ -20,12 +20,17 @@ export function installLinks({threadPanel,closeThreadPanel,state,api,reading,nav
     const href=a.getAttribute('href'),from=sourceOf(a),key=from+'\n'+href;
     if(!cache.has(key)){
       if(cache.size>=200)cache.delete(cache.keys().next().value);
-      cache.set(key,(async()=>{
+      const pending=(async()=>{
         if(/^[a-z][a-z0-9+.-]*:|^\/\//i.test(href)){let host=href;try{host=new URL(href,location.href).host||href.replace(/^mailto:/i,'');}catch{}return {type:'external',host};}
         let target=href;try{target=decodeURI(href);}catch{}
         const resolved=await api('/api/resolve?from='+param(from)+'&target='+param(target));
         return {type:'document',...await api('/api/preview?path='+param(resolved.path)+'&fragment='+param(resolved.fragment||'')+'&participant='+param(state.prefs.participant))};
-      })().catch(error=>({type:'missing',message:error.message})));
+      })().catch(error=>{
+        // A transient refusal can retry; an older evicted request cannot delete its replacement.
+        if(error.status!==404&&cache.get(key)===pending)cache.delete(key);
+        return {type:'missing',message:error.message};
+      });
+      cache.set(key,pending);
     }
     return cache.get(key);
   }
