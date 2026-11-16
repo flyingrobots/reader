@@ -346,9 +346,9 @@ async function openArtSetup(){await openAdmin('voices');}
 /** The static web demo (#107): a control that needs a running Reader, disabled with the reason as its tooltip. */
 async function commissionArt(path){
   const producer=artProducer();
-  if(needsReader('art')){notify('Making art needs Reader on your computer.','info',{description:'This web demo has no server. Run Reader locally: reader demo has a scripted voice that answers art commissions.'});return;}
-  if(!producer){notify('No voice or local model can make art yet.','info',{description:'Add a voice to voices.json or set up a local model; Behind the scenes, Companions, shows which agent command lines Reader found.'});return;}
-  try{const job=await art.generate(path,producer.id);forgetArt(path);showArtJob(path,job);}catch(error){report(error);}
+  if(needsReader('art')){notify('Making art needs Reader on your computer.','info',{description:'This web demo has no server. Run Reader locally: reader demo has a scripted voice that answers art commissions.'});return false;}
+  if(!producer){notify('No voice or local model can make art yet.','info',{description:'Add a voice to voices.json or set up a local model; Behind the scenes, Companions, shows which agent command lines Reader found.'});return false;}
+  try{const job=await art.generate(path,producer.id);forgetArt(path);showArtJob(path,job);return true;}catch(error){report(error);return false;}
 }
 function showArtJob(path,job){
   const figure=$('#article .article-art');

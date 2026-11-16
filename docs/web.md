@@ -792,6 +792,11 @@ Pieces without art show nothing special. The RW-20 shape (the passages projected
 through meaning-space) is no longer cover art; it remains as a data view, `:shape`
 ([Article shapes](#article-shapes-data-view)).
 
+The magazine's **Make cover art** button shows **Making art…** while a commission
+is pending. If the request is refused, its reason appears in a toast and the same
+button becomes usable again, so the reader can retry without reloading the issue.
+An accepted commission keeps the button disabled while pending.
+
 **The Artist's note.** **Artist's note** under the art opens the brief, its title, and
 a provenance line: *Made by <voice or local model> (<model>) · for this edition |
 for an earlier edition · date · time taken · tokens · cost*, as far as the producer

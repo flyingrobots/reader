@@ -22,7 +22,7 @@ export type IssueModel={week:string;number:number;year:string;dates:string;windo
   past:{id:string;label:string;count:number;current:boolean}[];cover:Piece|null;features:Piece[];counts:{label:string;value:number}[];
   letter:{path:string;title:string;href:string}|null;sections:SectionLink[];makeup?:IssueMakeupModel;contents:{id:string;label:string;count:number;items:Row[];more:Row[]}[];artMake:boolean};
 export type WritingPiece={path:string;title:string;date:string};
-export type IssueActions={api:(url:string)=>Promise<{standfirst?:string;source?:string;model?:string}>;openIssue:(week:string)=>void;queue:(path:string)=>void;makeArt:(path:string)=>void;admin:()=>void;
+export type IssueActions={api:(url:string)=>Promise<{standfirst?:string;source?:string;model?:string}>;openIssue:(week:string)=>void;queue:(path:string)=>void;makeArt:(path:string)=>Promise<boolean>;admin:()=>void;
   wire:(element:HTMLElement)=>void;writing:(()=>Promise<WritingPiece[]>)|null};
 type Standfirst={text:string;source?:string;model?:string}|null;
 
@@ -69,7 +69,10 @@ function QueueButton({piece,queue}:{piece:Piece;queue:IssueActions['queue']}){
 function MakeArt({path,makeArt}:{path:string;makeArt:IssueActions['makeArt']}){
   const [making,setMaking]=useState(false),local=needsReader('art');
   return <Button type="button" variant="ghost" size="xs" className="issue-art-make mt-2.5 text-muted-foreground" data-art-generate={path} data-reader-decoration="" title={local?NEEDS_READER:'An agent reads the piece, writes an art brief and composes a scene; a background job'}
-    disabled={local||making} data-needs-reader={local?'':undefined} onClick={event=>{event.preventDefault();setMaking(true);makeArt(path);}}>{making?'Making art…':'Make cover art'}</Button>;
+    disabled={local||making} data-needs-reader={local?'':undefined} onClick={async event=>{
+      event.preventDefault();setMaking(true);let queued=false;
+      try{queued=await makeArt(path);}finally{if(!queued)setMaking(false);}
+    }}>{making?'Making art…':'Make cover art'}</Button>;
 }
 
 function Masthead({model,openIssue}:{model:IssueModel;openIssue:IssueActions['openIssue']}){
