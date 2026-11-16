@@ -233,3 +233,16 @@ def test_pdf_text_layers_and_missing_text(web, daemon):
     assert request('/api/speak', {'path': 'library/pages.pdf', 'source_sha256': sha, 'scope': 'selection', 'start': 0, 'end': 3})[0] == 400
     status, body = request('/api/speak', {'path': 'library/scan.pdf', 'source_sha256': library.digest('library/scan.pdf'), 'scope': 'article'})
     assert status == 400 and 'no text layer' in body['error']
+
+
+def test_older_aitts_version_is_refused(web, daemon):
+    root, library, request = web
+    sha = library.digest('library/thought.md')
+    for old in ('0.1.0', None):
+        daemon.version = old
+        before = len(submits(daemon))
+        status, body = request('/api/speak', {'path': 'library/thought.md', 'source_sha256': sha, 'scope': 'article'})
+        assert status == 503 and body.get('unavailable') is True and '0.2.0 or newer' in body['error']
+        assert len(submits(daemon)) == before
+    daemon.version = '0.2.0'
+    assert request('/api/speak', {'path': 'library/thought.md', 'source_sha256': sha, 'scope': 'article'})[0] == 200

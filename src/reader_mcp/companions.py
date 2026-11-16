@@ -331,7 +331,7 @@ class Companions:
         return self.entry('wide-md', 'installed', 'Installed', version=REVISION[:12], path=str(tool), install=install, actions=actions)
 
     def ai_tts(self):
-        from .speech import SpeechUnavailable, default_socket
+        from .speech import MIN_VERSION, MIN_VERSION_TEXT, SpeechUnavailable, default_socket, parse_version
         socket_path = self.speech.socket_path if self.speech and self.speech.socket_path else default_socket()
         cli = self.which('ai-tts', [self.home / '.local/bin/ai-tts'])
         plist = self.home / 'Library/LaunchAgents' / f'{AI_TTS_LABEL}.plist'
@@ -343,7 +343,15 @@ class Companions:
         else:
             problem = None
         if status is not None:
-            return self.entry('ai-tts', 'installed', 'Running', path=cli, facts=facts + [['Playback', 'Held' if status['held'] else (status.get('playback_state') or 'Idle')]],
+            raw_version = status.get('version')
+            parsed = parse_version(raw_version)
+            if parsed is None or parsed < MIN_VERSION:
+                label = f'Update needed ({raw_version})' if raw_version else 'Update needed'
+                return self.entry('ai-tts', 'too-old', label, version=raw_version, path=cli, facts=facts,
+                                  actions=['check'],
+                                  message=f'AI-TTS {MIN_VERSION_TEXT} or newer is required for browser audio streaming.')
+            return self.entry('ai-tts', 'installed', 'Running', version=raw_version, path=cli,
+                              facts=facts + [['Playback', 'Held' if status['held'] else (status.get('playback_state') or 'Idle')]],
                               actions=['check'])
         if cli or plist.is_file():
             start = {'available': plist.is_file(), 'label': AI_TTS_LABEL, 'plist': str(plist),

@@ -23,6 +23,14 @@ TRACKED = 50
 TERMINAL = frozenset({'Played', 'Skipped', 'Cancelled', 'Failed'})
 CONTROLS = ('pause', 'resume', 'skip', 'next_segment', 'previous_segment', 'cancel')
 UTTERANCE_ID = re.compile(r'utt_[0-9a-f]{32}')
+MIN_VERSION = (0, 2, 0)
+MIN_VERSION_TEXT = '0.2.0'
+_VERSION = re.compile(r'(\d+)\.(\d+)\.(\d+)')
+
+
+def parse_version(text):
+    match = _VERSION.search(text) if isinstance(text, str) else None
+    return tuple(int(part) for part in match.groups()) if match else None
 
 
 class SpeechUnavailable(ConnectionError):
@@ -146,6 +154,7 @@ class Speech:
             raise ValueError('Binary text cannot be spoken.')
         if len(text.encode('utf-8', 'surrogatepass')) > MAX_TEXT:
             raise ValueError('This text exceeds the 512 KiB AI-TTS limit. Use From here or select a passage.')
+        self.require_version()
         selected = self.preferred_voice() if voice is None else voice
         if selected is not None and (not isinstance(selected, str) or len(selected) > 128):
             raise ValueError('Expected a voice name')
@@ -185,8 +194,18 @@ class Speech:
         current = status.get('current') if isinstance(status.get('current'), dict) else None
         active = current.get('active_segment') if current and isinstance(current.get('active_segment'), dict) else None
         return {'held': bool(status.get('playback_held')), 'playback_state': status.get('playback_state'),
+                'version': status.get('version'),
                 'current': current.get('id') if current else None,
                 'segment': {'number': active.get('number'), 'count': active.get('count')} if active else None}
+
+    def require_version(self):
+        """Ensure the running AI-TTS daemon supports synthesis-only browser streaming."""
+        found = self.status().get('version')
+        parsed = parse_version(found)
+        if parsed is None or parsed < MIN_VERSION:
+            label = found if isinstance(found, str) and found else 'an older version'
+            raise SpeechUnavailable(f'AI-TTS {MIN_VERSION_TEXT} or newer is required (found {label}). Update and restart AI-TTS, then try again.')
+        return parsed
 
     def get(self, utterance):
         """Progress for one Reader utterance: the daemon's get, plus status while it is current."""

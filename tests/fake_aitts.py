@@ -34,6 +34,7 @@ class FakeDaemon:
         self.path = self.folder / 'ai-tts.sock'
         self.log = self.folder / 'requests.jsonl'
         self.step, self.segments = step, segments
+        self.version = '0.2.0'
         self.items, self.order = {}, []
         self.paused, self.clock = False, time.monotonic()
         self.lock = threading.Lock()
@@ -147,7 +148,7 @@ class FakeDaemon:
                 view = self.item(current)
                 if current['state'] in ('Playing', 'Paused'):
                     view['active_segment'] = {'index': current['completed'], 'number': current['completed'] + 1, 'count': current['count'], 'text': 'segment', 'state': current['state']}
-            return {'ok': True, 'state': 'accepting', 'playback_held': self.held, 'playback_state': 'paused' if self.held else 'playing' if current else 'idle', 'current': view}
+            return {'ok': True, 'version': self.version, 'state': 'accepting', 'playback_held': self.held, 'playback_state': 'paused' if self.held else 'playing' if current else 'idle', 'current': view}
         if op in ('get', 'cancel'):
             entry = self.items.get(payload.get('id'))
             if entry is None:
