@@ -12,6 +12,7 @@ from uuid import UUID, uuid4
 from .annotations import Annotations, now
 from .display import shown
 from .learning import evidence, source
+from .request_fields import require_fields
 
 MAX_QUIZ = 64 * 1024
 MAX_QUIZZES = 5000
@@ -325,10 +326,13 @@ class Quizzes:
         fields = {'generate': {'action', 'path', 'voice', 'request_id', 'regenerate', 'difficulty'},
                   'review': {'action', 'path', 'voice', 'request_id', 'edition', 'quiz_id', 'question_id', 'answer'},
                   'result': {'action', 'path', 'edition', 'quiz_id', 'answers', 'expected_sha256', 'reviews'}}
-        if action not in fields or set(request) - fields[action]:
+        if not isinstance(action, str) or action not in fields or set(request) - fields[action]:
             raise ValueError('Unexpected quiz action or request fields')
         if action == 'result':
-            return self.result(participant=participant, **{k: v for k, v in request.items() if k != 'action'})
+            payload = {k: v for k, v in request.items() if k != 'action'}
+            require_fields(payload, required={'path', 'edition', 'quiz_id', 'answers', 'expected_sha256'},
+                           optional={'reviews'}, label='quiz result')
+            return self.result(participant=participant, **payload)
         if action == 'generate':
             if 'regenerate' in request and type(request['regenerate']) is not bool:
                 raise ValueError('regenerate must be a boolean')
