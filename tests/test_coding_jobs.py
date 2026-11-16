@@ -5,6 +5,8 @@ call goes to tests/fake_github.py. A real GitHub sandbox run is a separate, sepa
 import gzip
 import hashlib
 import json
+import subprocess
+from collections.abc import Callable
 
 import pytest
 
@@ -418,21 +420,42 @@ def test_a_stop_while_the_issue_intent_is_saved_creates_no_issue(world, monkeypa
     assert run['outcome'] == 'cancelled' and 'create_issue' not in w.github.calls
 
 
-def test_a_coding_job_with_hundreds_of_changed_files_stays_readable_in_the_log_inventory(world):
+def broad_change_agent(w: World) -> None:
     import sys
     from pathlib import Path
-    from reader_mcp import llm_inventory
-    w = world()
     fake = Path(__file__).with_name('fake_coding_cli.py')
-    w.agent.write_text(f'#!{sys.executable}\nimport pathlib,runpy,subprocess,sys\n'
+    w.agent.write_text(f'#!{sys.executable}\nimport pathlib,runpy,subprocess,sys\ncode=0\n'
                        f'try: runpy.run_path({str(fake)!r},run_name="__main__")\n'
                        'except SystemExit as exc: code=exc.code\n'
+                       'if sys.argv[1:] == ["--version"]: sys.exit(code)\n'
                        'for i in range(800): pathlib.Path("src/"+str(i)+"-"+"x"*96).write_text("synthetic\\n")\n'
                        'subprocess.run(["git","add","src"],check=True)\n'
                        'subprocess.run(["git","commit","-qm","Synthetic broad change"],check=True)\n'
                        'sys.exit(code)\n')
+
+
+def test_broad_change_agent_version_probe_preserves_invoking_repository(world: Callable[..., World]) -> None:
+    w = world()
+    broad_change_agent(w)
+    before = snapshot(w.checkout)
+    result = subprocess.run([str(w.agent), '--version'], cwd=w.checkout, env=w.environ,
+                            stdin=subprocess.DEVNULL, capture_output=True, text=True, timeout=10)
+    assert snapshot(w.checkout) == before, 'A capability probe must preserve files, index, HEAD and branches'
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.strip() == 'fake-coding-cli 1.0'
+
+
+def test_a_coding_job_with_hundreds_of_changed_files_stays_readable_in_the_log_inventory(world):
+    from pathlib import Path
+    from reader_mcp import llm_inventory
+    w = world()
+    broad_change_agent(w)
     run, _ = w.run()
     assert run['outcome'] == 'pr_opened', run['message']
+    expected = {f'src/{index}-' + 'x' * 96 for index in range(800)}
+    assert expected <= set(run['git']['changed_paths']), 'The intended task must retain all 800 broad changes'
+    worktree = Path(run['git']['worktree'])
+    assert all((worktree / name).read_bytes() == b'synthetic\n' for name in expected)
     assert llm_inventory.detail(w.vault, run['log'])['meta']['status'] == 'pr_opened'
 
 
