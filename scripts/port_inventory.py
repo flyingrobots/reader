@@ -105,12 +105,12 @@ ENV_PURPOSE = {
 }
 DEP_PURPOSE = {
     'fastembed': 'ONNX text embeddings (BAAI/bge-small-en-v1.5) for semantic search, related works, shapes; optional at runtime.',
-    'numpy': 'Imported directly but not declared (it arrives through fastembed). Vector maths over embeddings: float16 pack/unpack of stored vectors, cosine similarity, SVD/PCA for document shapes, mean vectors for related/magazine diversity.',
+    'numpy': 'Vector maths over embeddings: float16 pack/unpack of stored vectors, cosine similarity, SVD/PCA for document shapes, mean vectors for related/magazine diversity. Imported directly and declared independently of fastembed.',
     'rapidfuzz': 'Fuzzy title/path matching (search fuzzy mode, link resolution suggestions).',
     'pypdf': 'PDF text extraction per page (search index, read, speech, PDF reading).',
     'pillow': 'Art still images: decode/validate/re-encode data-URL PNG/JPEG/WebP.',
     'PIL': 'Same as pillow (import name).',
-    'fonttools': 'Declared, but no module imports it (theme fonts are served as downloaded woff2 files).',
+    'fonttools': 'Embedded CFF Type1 font decoding through pypdf; also used by the circle-mark asset generator. Theme fonts are served as downloaded woff2 files.',
     'mcp': 'FastMCP stdio server (reader serve) and the install verifiers\' MCP client.',
     'pydantic': 'Validated models: ingest Submission, catalog metadata, frontmatter.',
     'pyyaml': 'YAML frontmatter parsing/writing.',

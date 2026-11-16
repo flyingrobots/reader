@@ -7,7 +7,9 @@ license = "Apache-2.0"
 license-files = ["LICENSE"]
 dependencies = [
     "fastembed>=0.9.1,<0.10",
+    "numpy>=1.21,<3",
     "pillow>=13.0.0,<14",
+    # pypdf uses FontTools to decode embedded CFF Type1 fonts.
     "fonttools>=4,<5",
     "markdown-it-py>=4,<5",
     "mcp>=1.28,<2",

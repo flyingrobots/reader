@@ -927,11 +927,11 @@ companions.py), `<vault>/indexes/settings.json` (browse), `<code>/.reader/config
 | - | - | - | - |
 | `fastembed` | yes | search.py | ONNX text embeddings (BAAI/bge-small-en-v1.5) for semantic search, related works, shapes; optional at runtime. |
 | `fontTools` | no (transitive) | generate_circle_mark.py | undocumented |
-| `fonttools` | yes | generate_circle_mark.py | Declared, but no module imports it (theme fonts are served as downloaded woff2 files). |
+| `fonttools` | yes | generate_circle_mark.py | Embedded CFF Type1 font decoding through pypdf; also used by the circle-mark asset generator. Theme fonts are served as downloaded woff2 files. |
 | `markdown-it-py` | yes | — | undocumented |
 | `markdown_it` | no (transitive) | portable_links.py, prompt_blocks.py | undocumented |
 | `mcp` | yes | server.py, verify_installation.py, verify_search_installation.py | FastMCP stdio server (reader serve) and the install verifiers' MCP client. |
-| `numpy` | no (transitive) | magazine.py, related.py, search.py, shape.py, web.py | Imported directly but not declared (it arrives through fastembed). Vector maths over embeddings: float16 pack/unpack of stored vectors, cosine similarity, SVD/PCA for document shapes, mean vectors for related/magazine diversity. |
+| `numpy` | yes | magazine.py, related.py, search.py, shape.py, web.py | Vector maths over embeddings: float16 pack/unpack of stored vectors, cosine similarity, SVD/PCA for document shapes, mean vectors for related/magazine diversity. Imported directly and declared independently of fastembed. |
 | `PIL` | no (transitive) | art.py | Same as pillow (import name). |
 | `pillow` | yes | art.py | Art still images: decode/validate/re-encode data-URL PNG/JPEG/WebP. |
 | `pydantic` | yes | metadata.py, store.py, uploads.py | Validated models: ingest Submission, catalog metadata, frontmatter. |
