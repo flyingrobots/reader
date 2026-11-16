@@ -15,6 +15,7 @@ import time
 
 from fake_github import FakeGitHub
 from reader_mcp.coding_api import CodingJobs
+from reader_mcp.coding_publish import Job
 
 HERE = Path(__file__).resolve().parent
 REPO = 'acme/widget'
@@ -116,8 +117,10 @@ class World:
     def make(self, **options):
         defaults = {'git_locks': False, 'capacity': None, 'limits': False}
         defaults.update(options)
-        return CodingJobs(self.vault, self.articles, github=self.github, environ=self.environ, git_locks=defaults['git_locks'],
+        jobs = CodingJobs(self.vault, self.articles, github=self.github, environ=self.environ, git_locks=defaults['git_locks'],
                           limits=defaults['limits'], capacity=defaults['capacity'] or (lambda path: True))
+        jobs.job_factory = Job  # Reference publication model, not a production runtime choice.
+        return jobs
 
     def write_registry(self):
         (self.vault / '.reader').mkdir(exist_ok=True)

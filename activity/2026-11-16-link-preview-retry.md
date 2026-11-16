@@ -36,3 +36,9 @@ python3 scripts/test_jail.py --timeout 90 -- node --test --test-randomize --test
 ```
 
 These checks used Node v26.13.1, Python 3.14.7, installed Chrome, synthetic files and the macOS test sandbox. They did not access a private vault or deploy Reader. Browser cases run through the local browser runner; the existing CI workflow separately checks Python, contracts, Node and the frontend build. Exact-head CI and review remain live PR gates. This record is agent-written and has not received human editorial review.
+
+## Integration with the bounded formatter transfer
+
+CI run [43916069972](https://github.com/flyingrobots/reader/actions/runs/43916069972) stopped before tests at the existing 24 MiB software-archive cap. The feature added 20 KiB to the packed source; the previous formatter step then supplied the separately bounded Linux executable. Main `ad2ba43` had already landed #207's repair: compressed formatter transport with bounded decompression that restores the original bytes in the Python worker, omitting tooling from other workers. This branch normally merged that main revision without changing either limit or adding another packing implementation.
+
+After integration, all eight new browser cases and the complete existing links suite passed again. `tests/test_check_container.py`, `tests/test_ui_debt.py` and `tests/test_jail_guard.py` passed all 20 tests, including formatter byte preservation and expansion refusal. The largest focused sandbox run used 25 MiB. Fresh CI remains required on the integration commit.

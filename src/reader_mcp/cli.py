@@ -8,6 +8,7 @@ import sys
 import sqlite3
 
 from .store import Store, Submission
+from .container_process import ProcessError
 
 
 def main():
@@ -85,6 +86,11 @@ def main():
     queue_add.add_argument("--reason", help="Required when --by names someone else; shown beside the suggestion")
     queue_list = queue_commands.add_parser("list", help="Print Now reading, Queued and Suggested")
     queue_list.add_argument("--participant", required=True)
+    container = commands.add_parser('container', help='Set up, check or recover a registered coding devcontainer')
+    from .container_setup import arguments as container_arguments
+    container_arguments(container)
+    image = commands.add_parser('container-image', help='Prepare Reader’s fixed managed image from cached pinned bases')
+    image.add_argument('--lock-store', required=True, help='Existing absolute workstation git-locks store')
     args = parser.parse_args()
     if args.command == "metadata-schema":
         from .metadata import schema
@@ -101,12 +107,24 @@ def main():
     if not args.root:
         parser.error("Pass --root or set READER_ROOT")
     try:
+        args.root = str(Path(args.root).expanduser().resolve())
         if args.command == "validate-metadata":
             from .metadata import validate_paths
             result = validate_paths(Path(args.root).expanduser().resolve(strict=True), args.paths,
                                     allow_legacy=args.allow_legacy, profile=args.profile)
             print(json.dumps(result, ensure_ascii=False, indent=2))
             if not result['valid']:
+                sys.exit(1)
+            return
+        if args.command == 'container-image':
+            from .container_image import prepare
+            print(json.dumps(prepare(args.root, args.lock_store), indent=2))
+            return
+        if args.command == 'container':
+            from .container_setup import setup
+            result = setup(args.root, args.action, args.repo, args.argv, args.seconds, confirm_volume=args.confirm_volume)
+            print(json.dumps(result, indent=2))
+            if result.get('exit_code', 0) or result.get('ready') is False:
                 sys.exit(1)
             return
         store = Store(Path(args.root))
@@ -198,7 +216,7 @@ def main():
         print(json.dumps(result, ensure_ascii=False, indent=2))
         if args.command == 'repair-links' and result['failed']:
             sys.exit(1)
-    except (ValueError, TypeError, OSError, sqlite3.Error) as exc:
+    except (ValueError, TypeError, OSError, sqlite3.Error, ProcessError) as exc:
         print(f"Reader: {exc}", file=sys.stderr)
         sys.exit(1)
 

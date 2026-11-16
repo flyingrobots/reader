@@ -1,0 +1,131 @@
+"""Stop only a previous Reader run's proven-owned worker, preserving its persistent workspace.
+
+The caller must hold Reader's exclusive supervisor ownership. A restart never relaunches an agent.
+The saved lease receipt fences recovery; unresolved ownership is reported instead of being stolen.
+"""
+import hashlib
+import json
+import os
+import math
+import time
+import re
+
+from .container_clients import Clients
+from .container_lease import Lease
+from .container_process import ProcessError, execute
+
+
+def _inspection(source):
+    try:
+        rows=json.loads(source)
+        if not isinstance(rows,list) or len(rows)!=1 or not isinstance(rows[0],dict):raise ValueError()
+        return rows[0]
+    except (ValueError,TypeError) as exc:
+        raise ProcessError('Malformed Docker inspection response; ownership retained') from exc
+
+
+def recover(root, repo, run_id, record, *, docker, lock_tool, run=execute, persist=None):
+    if record.get('client_cleanup_unconfirmed') and record.get('client_journal_version') != 1:
+        raise ProcessError('Host control-plane client cleanup needs manual verification before recovery')
+    key = hashlib.sha256(repo.casefold().encode()).hexdigest()[:16]
+    name = 'reader-coding-' + key
+    owner = hashlib.sha256(str(root.resolve()).encode()).hexdigest()
+    labels = {'reader.coding.repo': repo.casefold(), 'reader.coding.owner': owner, 'reader.coding.run': run_id}
+    saved = record.get('lease') or {}
+    if (record.get('owner') != owner or record.get('run_id') != run_id or record.get('name') != name
+            or record.get('volume') != name + '-work' or saved.get('key') != 'host/docker/' + name + '/'
+            or not isinstance(saved.get('store'), str) or not os.path.isabs(saved['store'])
+            or not isinstance(saved.get('job'), str) or not saved['job'].startswith('reader-container-')):
+        raise ProcessError('Incomplete or mismatched container recovery identity')
+    expiry = record.get('expires')
+    if not isinstance(expiry, (int, float)) or not math.isfinite(expiry):
+        raise ProcessError('Invalid saved worker deadline')
+    if persist is None and run is execute:
+        raise ProcessError('Recovery requires a durable record writer')
+    current = dict(record)
+    def save(update):
+        current.update(update)
+        if persist:persist(current)
+    journal = Clients(save, record.get('control_clients', []))
+    journal.reconcile()
+    save({'client_cleanup_unconfirmed': [], 'client_journal_version': 1})
+    transport = run
+    def run(argv, **kwargs):
+        return transport(argv, started=journal.started, finished=journal.finished, **kwargs)
+    def acquire(lease):
+        save({'lease_intent_at':time.time(), 'lease':{'job':lease.job, 'acquisition':None,
+            'key':lease.key, 'store':lease.env['GIT_LOCKS_STORE']}})
+        lease.acquire()
+        save({'lease':current['lease'] | {'acquisition':lease.acquisition}})
+    lease = Lease(lock_tool, saved['store'], saved['key'], max(60, math.ceil(expiry - time.time())), run=run)
+    state = run([lock_tool, 'show', '--job', saved['job']], env=lease.env, timeout=10, limit=65536)
+    if state.returncode == 0:
+        try:
+            prior = json.loads(state.stdout)
+            if prior['job'] != saved['job'] or prior['holder'] != 'reader-coding-job' or prior['paths'] != [saved['key']]:
+                raise ValueError()
+            acquisition = saved.get('acquisition')
+            if acquisition is None:
+                # Creation intent was durably recorded before the claim; cover the crash window before receipt saving.
+                intent = record.get('lease_intent_at')
+                if not isinstance(intent, (float, int)) or not int(intent) <= prior['claimed'] <= intent + 20:
+                    raise ValueError()
+                acquisition = prior['acquisition']
+            if prior['acquisition'] != acquisition:
+                raise ValueError()
+        except (ValueError, TypeError, KeyError) as exc:
+            raise ProcessError('The saved container lease was replaced; recovery refused') from exc
+        if prior.get('state') == 'live':
+            result = run([lock_tool, 'extend', '--job', saved['job'], '--acquisition', acquisition, '--ttl', str(max(180, math.ceil(expiry - time.time()) + 120, math.ceil(prior['expires'] - time.time())))],
+                         env=lease.env, timeout=15, limit=65536)
+            if result.returncode:
+                raise ProcessError('Could not renew the proven-owned recovery lease')
+            lease.job, lease.acquisition = saved['job'], acquisition
+        elif prior.get('state') == 'expired':
+            acquire(lease)
+        else:
+            raise ProcessError('Unrecognized container lease state')
+    else:
+        # git-locks emits a missing event on stderr for an absent job. Other responses remain fail-closed.
+        try:
+            answer = json.loads(state.stderr)
+            missing = answer.get('event') == 'missing' and answer.get('job') == saved['job']
+        except (ValueError, AttributeError):missing = False
+        if state.returncode == 1 and missing:
+            acquire(lease)
+        else:
+            raise ProcessError('Cannot establish the recovery lease state')
+    confirmed = False
+    try:
+        target = record.get('id') or name
+        if record.get('id') and not re.fullmatch(r'[0-9a-f]{64}', record['id']):
+            raise ProcessError('Invalid saved container identity')
+        info = run([docker, 'container', 'inspect', target], timeout=15)
+        if info.returncode:
+            if re.search(r'no such (?:object|container)', info.stderr, re.I):
+                confirmed = True
+                return current | {'state': 'stopped'}
+            raise ProcessError('Docker could not inspect the previous worker')
+        item = _inspection(info.stdout)
+        actual = (item.get('Config') or {}).get('Labels') or {}
+        cid = item.get('Id')
+        if (not isinstance(cid, str) or not re.fullmatch(r'[0-9a-f]{64}', cid)
+                or any(actual.get(k) != value for k, value in labels.items())
+                or (record.get('id') and cid != record['id'])):
+            raise ProcessError('Previous worker ownership does not match; it was not stopped')
+        result = run([docker, 'stop', '--time', '1', cid], timeout=15)
+        if result.returncode:
+            raise ProcessError('Could not stop the previous container')
+        result = run([docker, 'container', 'inspect', cid], timeout=15)
+        stopped = _inspection(result.stdout) if result.returncode == 0 else {}
+        state = stopped.get('State')
+        if not isinstance(state,dict) or state.get('Running') is not False:
+            raise ProcessError('Previous container stop could not be confirmed')
+        result = run([docker, 'rm', cid], timeout=15)
+        if result.returncode:
+            raise ProcessError('Could not remove the stopped worker; workspace volume was retained')
+        confirmed = True
+        return current | {'id': cid, 'state': 'stopped'}
+    finally:
+        if confirmed:
+            lease.release()
