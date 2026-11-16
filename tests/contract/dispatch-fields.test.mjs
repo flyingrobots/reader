@@ -29,13 +29,58 @@ const routes = [
 const durable = root => Object.fromEntries(files(root).filter(path => !path.startsWith('.reader/')).map(path =>
   [path, createHash('sha256').update(readFileSync(join(root, path))).digest('hex')]));
 
-async function fixture(t) {
+async function fixture(t, options = {}) {
   const vault = makeVault();
   let server;
   t.after(async () => {await server?.stop(); vault.cleanup();});
-  server = await startServer(vault);
+  server = await startServer(vault, options);
   return {vault, server};
 }
+
+async function accepted(server, route, body) {
+  const response = await server.post(route, body);
+  assert.equal(response.status, 200, response.text);
+  return response.json;
+}
+
+test('annotation dispatch preserves optional fields, defaults and source bytes', async t => {
+  const {server, vault} = await fixture(t);
+  const source = readFileSync(join(vault.root, DOC));
+  const post = body => accepted(server, '/api/annotations', body);
+  const made = await post({operation: 'create', path: DOC, start: 0, end: 3, owner: 'You', request_id: ID,
+    comment: 'A warning', kind: 'warning', expected_sha256: createHash('sha256').update(source).digest('hex')});
+  assert.equal(made.kind, 'warning');
+  const reply = await post({operation: 'reply', thread_id: made.id, author: 'You', body: 'A reply',
+    reply_to: made.comments[0].id, request_id: ID.replace(/1$/, '2')});
+  assert.equal(reply.comments.at(-1).reply_to, made.comments[0].id);
+  const resolved = await post({operation: 'resolve', thread_id: made.id, resolved: true, expected_revision: reply.revision});
+  assert.equal(resolved.resolved, true);
+  assert.ok((await post({operation: 'list', path: DOC})).threads.some(thread => thread.id === made.id));
+  const attention = await post({operation: 'attention', participant: 'You', path: DOC, offset: 0, limit: 100});
+  const items = [attention.items[0]];
+  assert.equal((await post({operation: 'seen', participant: 'You', items, read: false})).read, false);
+  assert.equal((await post({operation: 'seen', participant: 'You', items})).read, true);
+  const minimal = await post({operation: 'create', path: DOC, start: 0, end: 3, owner: 'You'});
+  assert.equal(minimal.kind, 'highlight');
+  assert.equal(minimal.initial_comment, '');
+  assert.deepEqual(readFileSync(join(vault.root, DOC)), source);
+});
+
+test('chat dispatch preserves the server participant, optional author and reuse behavior', async t => {
+  const {server} = await fixture(t, {participant: 'Server reader'});
+  const post = body => accepted(server, '/api/chat', body);
+  const minimal = await post({action: 'create', path: DOC});
+  assert.equal(minimal.chat.started_by, 'Server reader');
+  const explicit = await post({action: 'create', path: DOC, request_id: ID, author: 'Named reader', reuse: false});
+  assert.equal(explicit.chat.id, ID);
+  assert.equal(explicit.chat.started_by, 'Named reader');
+  // Reuse on a separate document avoids equal-clock ordering between the two creations above.
+  const other = 'library/walden/thoreau/where-i-lived.md';
+  const first = await post({action: 'create', path: other});
+  assert.equal((await post({action: 'create', path: other, request_id: ID.replace(/1$/, '3'), reuse: true})).chat.id, first.chat.id);
+  assert.equal((await post({action: 'settings', id: minimal.chat.id, chime_ins: 'off'})).chat.settings.chime_ins, 'off');
+  assert.equal((await post({action: 'hush', id: minimal.chat.id})).ok, true);
+});
 
 async function refused(server, vault, route, body) {
   const before = durable(vault.root);

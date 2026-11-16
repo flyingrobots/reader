@@ -56,6 +56,8 @@ Quiz GETs use the expensive-request pool because they inspect source evidence an
 | `POST /api/quiz`, `action: review` | `path`, `edition`, `quiz_id`, `question_id`, `answer`, optional `voice`, UUID `request_id`; queues a short-answer review |
 | `POST /api/quiz`, `action: result` | `path`, `edition`, `quiz_id`, `expected_sha256`, complete multiple-choice `answers` map and optional question-to-review-UUID `reviews` map |
 
+Missing result fields or extra request fields return HTTP 400 with a plain `error` message before a result is written. The result action names its required and optional fields instead of exposing Python method arguments; [field-set errors](web.md#local-api-and-protection-boundary) describe the shared boundary.
+
 Source text is limited to 4 MiB. Quiz files and generated JSON are limited to 64 KiB. Question prompts and options are limited to 300 characters; explanations, rubrics and review comments to 2,000; short answers to 16,000. The store admits at most 5,000 quiz files and the runtime at most 5,000 task records. Runtime state lives under `.reader/voice-tasks/`; canonical quizzes, reviews, participant receipts and LLM archives live outside it.
 
 File-capable voices receive the source path and digest. A voice configured for inline documents receives the source text; its argv/stdin transport must support the resulting prompt size. CLI timeouts and resource limits follow voice chat. There is no new spending cap.
