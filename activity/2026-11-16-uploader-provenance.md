@@ -18,7 +18,7 @@ The six medium contract tests exercise actual MCP stdio and CLI processes agains
 python3 scripts/test_jail.py --timeout 90 -- node --test --test-name-pattern='caller-chosen uploader' tests/contract/mcp.test.mjs tests/contract/cli.test.mjs
 ```
 
-On `a8f3344` before the production fix, all six tests failed. MCP returned `{refused: false, receipt: true}` instead of `{refused: true, receipt: false}`; CLI returned status 0 with a receipt instead of status 1 without one. After the fix, all six passed. Ten further runs, using `--test-concurrency=2`, each passed all six cases without skips. Node does not provide test-order randomization here; the two test files ran concurrently.
+On `a8f3344` before the production fix, all six tests failed. MCP returned `{refused: false, receipt: true}` instead of `{refused: true, receipt: false}`; CLI returned status 0 with a receipt instead of status 1 without one. After the fix, all six passed. Ten further runs, using `--test-concurrency=2`, each passed all six cases without skips. The two test files ran concurrently; these repetitions did not randomize test order. Node 26 supports randomization, but that option was not used for these runs.
 
 The input-schema comparison was also observed failing after the production change and before re-recording. The reviewed golden diff removes only the `uploaded_by` property from `mcp-tool-reader_ingest.json`.
 
