@@ -28,9 +28,10 @@ test('browser speech failures preserve playback ownership',async t=>{
           removeAttribute(name){if(name==='src')this.src='';}
         };
       },defer);
-      const state={pending};
+      const state={pending,cancelled:[]};
       await page.route('**/api/speak/utt_*',route=>{
         const id=new URL(route.request().url()).pathname.split('/').at(-1);
+        if(route.request().method()==='POST'&&route.request().postDataJSON()?.action==='cancel')state.cancelled.push(id);
         return route.fulfill({json:route.request().method()==='POST'?{ok:true}:{id,playback:false,state:'Ready',segment_count:3,segments:[0,1,2].map(index=>({index,audio_ready:!(state.pending&&index===1)}))}});
       });
       await page.goto(url+'#read='+encodeURIComponent('library/thought.md'));
@@ -53,7 +54,7 @@ test('browser speech failures preserve playback ownership',async t=>{
       }finally{await page.close();}
     });
     await t.test('a replaced utterance cannot pause or finish its successor',async()=>{
-      const {page,control,track}=await scene({defer:true});
+      const {page,control,track,state}=await scene({defer:true});
       try{
         await page.evaluate(()=>{window.oldMedia=window.media.at(-1);window.deferPlay=false;});
         await track('utt_'+ 'b'.repeat(32));
@@ -61,6 +62,7 @@ test('browser speech failures preserve playback ownership',async t=>{
         await page.evaluate(()=>{window.playRejections[0](new DOMException('replaced','AbortError'));window.oldMedia.dispatchEvent(new Event('error'));window.oldMedia.dispatchEvent(new Event('ended'));});
         await control.locator('[data-speech-label]',{hasText:'Speaking · 1 of 3'}).waitFor({timeout:2000});
         assert.equal(await page.evaluate(()=>window.media.at(-1).paused),false);
+        assert.deepEqual(state.cancelled,['utt_'+ 'a'.repeat(32)],'replaced synthesis must be cancelled without cancelling its successor');
       }finally{await page.close();}
     });
     await t.test('Next stops the old segment while the selected segment is preparing',async()=>{

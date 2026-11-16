@@ -193,6 +193,8 @@ with the local AI-TTS daemon (version 0.2.0 or newer), which synthesizes audio a
 assigns voices. The requesting browser plays the resulting segments; other tabs
 and the daemon's host speakers stay silent. Host-speaker holds do not hold browser
 playback. Older daemons are refused before submission.
+Starting another reading stops the old audio and requests cancellation of its
+synthesis.
 Markdown, plain text and PDF text layers are supported, up to 512 KiB of text per
 submission; PDF selections and scanned PDFs without a text layer are not. A
 status-line control shows segment progress and offers pause/resume, previous/next

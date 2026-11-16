@@ -31,6 +31,17 @@ const {scrollUntilHeld}=require('./web_wait.cjs');
   const otherPage=await browser.newPage();
   await otherPage.goto(url+'#read='+encodeURIComponent('library/thought.md'));
   await otherPage.locator('#article [data-source-start]').first().waitFor();
+  // Keep the first real WAV playing until the transport assertions release it.
+  // A 150 ms fixture must not finish while Playwright is positioning a click.
+  await page.evaluate(()=>{
+    const NativeAudio=window.Audio;
+    window.Audio=function(src){
+      const audio=src===undefined?new NativeAudio():new NativeAudio(src);
+      if(!window.speechFixtureFirstAudio){audio.loop=true;window.speechFixtureFirstAudio=audio;}
+      return audio;
+    };
+    window.Audio.prototype=NativeAudio.prototype;
+  });
   // Article-title button: the whole article, Markdown after the frontmatter, Reader's stable source.
   assert.equal(await page.locator('#article-speech #speak-article').textContent(),'Read aloud');await page.locator('#speak-article').click();await toast('Queued for AI-TTS.').waitFor();
   await page.locator('#article-speech [data-speech-control]').waitFor();assert.equal(await page.locator('#article-speech #speak-article').count(),0);
@@ -46,6 +57,7 @@ const {scrollUntilHeld}=require('./web_wait.cjs');
   assert.ok(!requests().some(r=>r.op==='pause'),'pause stays local to this browser');assert.match(await control.locator('[data-speech-label]').textContent(),/^Paused/);
   await control.locator('[data-speech-action=resume]').click();await control.locator('[data-speech-action=pause]').waitFor();
   assert.ok(!requests().some(r=>r.op==='resume'),'resume stays local to this browser');
+  await page.evaluate(()=>{window.speechFixtureFirstAudio.loop=false;});
   await control.waitFor({state:'detached',timeout:12000});
   await otherPage.close();
   // Space s opens the menu; a sends the whole article even when host speakers are held.

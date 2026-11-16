@@ -123,8 +123,12 @@ async function poll(){
 }
 /** Show the control for a freshly queued utterance; a newer one replaces it. */
 export function trackSpeech(submission:Speaking){
+  const previous=speaking;
   generation++;failures=0;stopAudio();
   set({...submission,current:false});
+  if(previous?.playback===false&&previous.id!==submission.id){
+    api?.('/api/speak/'+encodeURIComponent(previous.id),{action:'cancel'}).catch(()=>{});
+  }
   schedule(submission.playback===false?200:2000);
 }
 
