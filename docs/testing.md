@@ -54,7 +54,9 @@ be read: the live vault would then be unknown.
   codes are preserved; any descendants left in the group are retired too.
 - The leader remains unreaped during group cleanup, reserving its identity. Python versions without
   `os.waitid` on macOS use a bounded process-table observation instead. An unreadable process table or
-  unconfirmed shutdown produces an error and retains the run directory for inspection. This is a
+  unconfirmed shutdown produces an error and retains the run directory for inspection. A nondefault
+  SIGCHLD disposition is refused before launch because it could auto-reap the leader. Lost direct-child
+  custody refuses numeric group signals, and an incomplete process table cannot establish cleanup. This is a
   process-group guarantee: SIGKILL of the supervisor and children that deliberately create another
   session are outside it. Use the container worker when the whole container must be the custody boundary.
 - `--protect PATH` and `--deny-port N` add to what is refused; `--print-profile` shows the profile without running.

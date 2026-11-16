@@ -240,11 +240,11 @@ def command_for(run, command):
     return ['/usr/bin/sandbox-exec', '-f', str(run / 'profile.sb'), *command]
 
 
-def process_states() -> dict[int, tuple[int, str]]:
+def process_states() -> dict[int, tuple[int, int, str]]:
     """Read a bounded, positive process-table snapshot; uncertainty is an error."""
     limit = 1024 * 1024
     deadline = time.monotonic() + 2
-    child = subprocess.Popen(['/bin/ps', '-axo', 'pid=,pgid=,stat='],
+    child = subprocess.Popen(['/bin/ps', '-axo', 'pid=,pgid=,ppid=,stat='],
                              stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     selector = selectors.DefaultSelector()
     buffers = {child.stdout: bytearray(), child.stderr: bytearray()}
@@ -271,9 +271,9 @@ def process_states() -> dict[int, tuple[int, str]]:
         states = {}
         for row in rows:
             fields = row.split()
-            if len(fields) != 3 or not fields[0].isdigit() or not fields[1].isdigit():
+            if len(fields) != 4 or not all(value.isdigit() for value in fields[:3]):
                 raise JailError('Process-table query returned an invalid record')
-            states[int(fields[0])] = (int(fields[1]), fields[2])
+            states[int(fields[0])] = (int(fields[1]), int(fields[2]), fields[3])
         if not states:
             raise JailError('Process-table query returned no records')
         return states
@@ -292,22 +292,30 @@ def child_exited(process: subprocess.Popen) -> bool:
     """Observe exit without reaping: the leader's PID still reserves its group identity."""
     waitid = getattr(os, 'waitid', None)
     if waitid is not None:
-        return waitid(os.P_PID, process.pid, os.WEXITED | os.WNOHANG | os.WNOWAIT) is not None
+        try:
+            return waitid(os.P_PID, process.pid, os.WEXITED | os.WNOHANG | os.WNOWAIT) is not None
+        except ChildProcessError as exc:
+            raise JailError('Lost child custody; refusing unverified process-group signals') from exc
     # Python before 3.13 lacks waitid on macOS. A zombie is a positive exit witness;
     # the still-unreaped leader cannot disappear or have its PID reused here.
     leader = process_states().get(process.pid)
-    if leader is None:
+    if leader is None or leader[:2] != (process.pid, os.getpid()):
         raise JailError('The owned test-group leader is missing before reap')
-    return leader[1].startswith('Z')
+    return leader[2].startswith('Z')
 
 
 def retire_group(process: subprocess.Popen) -> None:
     """Stop the owned group, verify no runnable members, then reap its pinned leader."""
     def finished() -> bool:
+        states = process_states()
+        leader = states.get(process.pid)
+        if leader is None or leader[:2] != (process.pid, os.getpid()):
+            raise JailError('Process table omitted the pinned test-group leader')
         return not any(group == process.pid and not state.startswith('Z')
-                       for group, state in process_states().values())
+                       for group, _parent, state in states.values())
 
     def send(signum: int) -> None:
+        child_exited(process)  # Confirm direct-child custody before any numeric group signal.
         try:
             os.killpg(process.pid, signum)
         except ProcessLookupError:
@@ -334,6 +342,8 @@ def retire_group(process: subprocess.Popen) -> None:
 
 
 def run_jailed(command, *, keep=False, timeout=None, extra_protect=(), extra_ports=()):
+    if signal.getsignal(signal.SIGCHLD) != signal.SIG_DFL:
+        raise JailError('SIGCHLD must use its default disposition to retain child custody')
     interrupted = None
 
     def record_signal(signum, _frame):

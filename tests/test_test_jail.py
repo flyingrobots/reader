@@ -29,3 +29,11 @@ def test_the_service_record_names_the_vault_and_port_to_protect(tmp_path, monkey
     protected = test_jail.protected_paths(root=tmp_path / 'checkout')
     assert Path('/srv/example-vault') in protected and Path('/srv/example-live') in protected
     assert 9123 in test_jail.denied_ports()
+
+
+def test_a_nondefault_child_signal_disposition_is_refused_before_launch(monkeypatch: pytest.MonkeyPatch) -> None:
+    import signal
+    monkeypatch.setattr(test_jail.signal, 'getsignal', lambda signum: signal.SIG_IGN)
+    monkeypatch.setattr(test_jail, 'prepare', lambda *args: pytest.fail('Refusal must precede run preparation'))
+    with pytest.raises(test_jail.JailError, match='SIGCHLD must use its default disposition'):
+        test_jail.run_jailed(['never-launched'])

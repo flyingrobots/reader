@@ -100,10 +100,12 @@ def test_the_jail_deadline_retires_its_group_and_returns_125(tmp_path: Path) -> 
         assert not run.exists()
 
 
-def test_interruption_can_retain_leader_custody_without_waitid(tmp_path: Path) -> None:
-    with scenario(tmp_path, mode='fallback') as (jail, owned, outsider, run):
-        os.kill(jail.pid, signal.SIGTERM)
-        assert jail.wait(timeout=8) == 143
+def test_normal_completion_can_retain_leader_custody_without_waitid(tmp_path: Path) -> None:
+    with scenario(tmp_path, mode='fallback', exit_code=7) as (jail, owned, outsider, run):
+        assert jail.stdin is not None
+        jail.stdin.write('finish\n')
+        jail.stdin.flush()
+        assert jail.wait(timeout=8) == 7
         assert not running(owned['pid']) and not running(owned['descendant'])
         assert outsider.poll() is None
         assert not run.exists()
@@ -118,4 +120,22 @@ def test_unconfirmed_group_cleanup_reports_failure_and_retains_its_directory(tmp
         assert 'cleanup unconfirmed; retained' in diagnostic
         assert 'Synthetic process-table visibility failure' in diagnostic
         assert run.is_dir(), 'Unknown termination must not be reported as clean removal'
+        assert outsider.poll() is None
+
+
+def test_lost_child_custody_refuses_signals_to_an_unverified_group(tmp_path: Path) -> None:
+    with scenario(tmp_path, mode='lost-waitid') as (jail, owned, outsider, run):
+        assert jail.wait(timeout=8) != 0
+        assert not (run / 'unverified-signals').exists(), 'Lost child custody must refuse numeric group signals'
+        assert run.is_dir()
+        assert outsider.poll() is None
+
+
+def test_a_process_table_missing_the_pinned_leader_cannot_confirm_cleanup(tmp_path: Path) -> None:
+    with scenario(tmp_path, mode='missing-leader') as (jail, owned, outsider, run):
+        os.kill(jail.pid, signal.SIGTERM)
+        assert jail.wait(timeout=8) != 0
+        assert jail.stderr is not None
+        assert 'cleanup unconfirmed; retained' in jail.stderr.read(8192)
+        assert run.is_dir(), 'An incomplete process table is not proof of complete cleanup'
         assert outsider.poll() is None

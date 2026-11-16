@@ -35,6 +35,19 @@ def main() -> None:
     # isolate lifecycle behavior without attempting a forbidden nested sandbox.
     jail.prepare = lambda *args: (run, '', dict(os.environ))
     jail.command_for = lambda directory, command: command
+    if mode == 'lost-waitid':
+        def lost(*args):
+            raise ChildProcessError('Synthetic lost child custody')
+        jail.os.waitid = lost
+        def record_unverified(group, signum):
+            with (run / 'unverified-signals').open('a') as record:
+                record.write(f'{group} {signum}\n')
+        jail.os.killpg = record_unverified
+    if mode == 'missing-leader':
+        original_states = jail.process_states
+        def omit_exited_leader():
+            return {pid: state for pid, state in original_states().items() if not state[-1].startswith('Z')}
+        jail.process_states = omit_exited_leader
     if mode == 'fallback':
         jail.os.waitid = None
     if mode == 'unreadable':
