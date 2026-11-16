@@ -2196,8 +2196,10 @@ external link shows only its host, and a link that does not resolve says *Not in
 library* with the reason. No preview opens while text is selected, during a page turn,
 or for links in Read next, Linked from, margin threads or the side panel. At phone
 width (640 px or less) the popover is a bottom sheet inside 16 px gutters. Previews are
-cached per page load for up to 200 links. The excerpt is escaped plain text: Markdown
-and HTML are stripped on the server and never rendered.
+cached per page load for up to 200 links. Successful previews and genuine HTTP 404
+answers stay cached. A busy-server or network failure shows its reason once; the next
+hover, focus or K retries without reloading the page. The excerpt is escaped plain
+text: Markdown and HTML are stripped on the server and never rendered.
 
 **Linked from.** After the article and before Read next, a `data-reader-decoration`
 section lists the documents that link here, most links first: the title, the number of

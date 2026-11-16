@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- MCP and CLI deliveries refuse caller-supplied uploader identities. Authenticated web uploads retain server-owned uploader provenance, and callers may still select a privacy filing limit.
+
 - Block setup and Coding Jobs while a previous destructive volume reset is unconfirmed, including after lease expiry; preserve explicit worker recovery.
 - Preserve request/run links after uncertain directory persistence, keep known reset refusals retryable with reserved cleanup time, and expand the CLI vault root consistently.
 
