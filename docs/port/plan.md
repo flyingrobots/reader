@@ -460,4 +460,3 @@ Still open:
 - #162: some calendar timestamps bypass `reader_mcp.clock` (chat creation, notebook dates, reading copies,
   maintenance and health times).
 - #163: index parses frontmatter twice with the pure-Python YAML loader, which is most of keyword indexing time.
-- #164: dispatchers leak Python `TypeError` messages in 400 responses.

@@ -3983,7 +3983,18 @@ is a UTC offset in minutes, ±840, for clients that want server grouping; the we
 regroups by the local day of each `opened_at`) are read-only views as well.
 The browser explicitly POSTs `/api/seen` after display. POST `/api/annotations`
 uses the existing annotation dispatch contract; POST `/api/bookmark` verifies the
-current source digest before persisting a position. POST `/api/maintenance`
+current source digest before persisting a position.
+
+Annotation and chat dispatchers, and quiz result dispatch, reject missing
+required fields before calling store methods. These routes also refuse
+unexpected fields. Rejections use HTTP 400 and an `{"error": message}` body.
+Field guidance uses the supported field names, without
+Python method names or arbitrary request-key text. Optional fields retain their
+documented defaults; chat and quiz participant selection remains separate from
+the operation's fields. This applies to field-set errors; document, ownership and
+value checks retain their own messages.
+
+POST `/api/maintenance`
 accepts exactly `{"action": "start", "kind": …}` with a kind of `check`, `search`,
 `search-keyword`, `browse`, `catalog` or `links`. POST `/api/local-model` accepts
 `{"action": …}` with `server-start`, `server-stop`, `load {model}`, `unload {model}`,
