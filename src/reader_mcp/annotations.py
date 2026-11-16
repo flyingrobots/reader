@@ -10,6 +10,7 @@ from uuid import UUID, uuid4
 
 from . import clock
 from .metadata import FrontmatterError, source_frontmatter
+from .request_fields import require_fields
 
 MAX_THREADS = 5000
 
@@ -152,9 +153,20 @@ class Annotations:
             return thread
 
     def dispatch(self,request):
+        if not isinstance(request,dict):raise ValueError('Expected an annotation request')
         operation=request.pop('operation',None)
+        fields={
+            'list':({'path'},set()),
+            'create':({'path','start','end','owner'},{'comment','expected_sha256','request_id','kind'}),
+            'reply':({'thread_id','author','body'},{'reply_to','request_id'}),
+            'resolve':({'thread_id','resolved'},{'expected_revision'}),
+            'attention':({'participant'},{'path','offset','limit'}),
+            'seen':({'participant','items'},{'read'}),
+        }
+        if not isinstance(operation,str) or operation not in fields:raise ValueError('Unknown annotation operation')
+        required,optional=fields[operation]
+        require_fields(request,required=required,optional=optional,label=f'annotation {operation}')
         if operation in ('attention','seen'):
             from .engagement import Engagement
             return getattr(Engagement(self.root),operation)(**request)
-        if operation not in ('list','create','reply','resolve'):raise ValueError('Unknown annotation operation')
         return getattr(self,operation)(**request)

@@ -185,6 +185,23 @@ def test_result_requires_complete_valid_answers_and_current_source(store):
     assert not store.engagement.folder.exists()
 
 
+@pytest.mark.parametrize('with_reviews', [False, True])
+def test_result_dispatch_keeps_optional_reviews_and_separate_participant(store: Quizzes, with_reviews: bool) -> None:
+    quiz = save(store)
+    before = (store.root / PATH).read_bytes()
+    request = dict(action='result', path=PATH, edition=quiz['document_sha256'], quiz_id=quiz['id'],
+                   answers={q['id']: 0 for q in quiz['questions']}, expected_sha256=quiz['document_sha256'])
+    if with_reviews:
+        request['reviews'] = {}
+    with pytest.raises(ValueError, match='request fields'):
+        store.dispatch(request | {'participant': 'Caller override'}, 'Server reader')
+    assert store.engagement.quiz_results(PATH) == []
+    result = store.dispatch(request, 'Server reader')
+    assert result['score'] == result['total'] == 5
+    assert {r['participant']: r['score'] for r in store.engagement.quiz_results(PATH)} == {'Server reader': 5}
+    assert (store.root / PATH).read_bytes() == before
+
+
 def test_symlinked_edition_or_quiz_is_never_read_or_overwritten(store, tmp_path):
     first = save(store)
     target = store.file(first['document_sha256'], first['id'])

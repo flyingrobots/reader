@@ -53,6 +53,8 @@ uv run --locked reader --root "$READER_ROOT" annotate request.json
 
 Annotation JSON operations are `list`, `create`, `reply`, and `resolve`; `create` accepts `kind: "warning"` with a required comment, or defaults to `kind: "highlight"`. Shared receipts add `attention` and `seen` as described in [engagement](engagement.md). Other field names match the corresponding store methods (`path`, `thread_id`, and the other fields above). APIs never interpret comment text as commands or rendered HTML.
 
+Missing required fields and extra fields are refused before reading or writing annotation or receipt state. The error lists supported required and optional field names; it does not expose Python method arguments or echo an unknown request key.
+
 ## Concurrency, limits, and recovery
 
 Writes serialize through `.reader/annotations.lock` and atomically replace one thread file, preventing concurrent replies from overwriting one another. An annotation thread is at most 1 MiB and 1,000 comments; the inventory is at most 5,000 threads. Source Markdown is limited to 4 MiB, selected quotes/comments to 16,000 characters, and owner labels to 100 characters. Oversized, malformed, missing, or unsupported inputs report errors without editing sources. The Obsidian bridge has a 15-second timeout and an 8 MiB response limit; unusually large discussion inventories may require narrower future retrieval support.

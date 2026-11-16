@@ -27,6 +27,7 @@ from .art import ART_ROOT, ART_TRAILER
 from .display import shown
 from .chats import Chats, MAX_BODY, chime_ins
 from .resources import has_capacity, minimum_free_bytes
+from .request_fields import require_fields
 from . import llm_logs, process_table
 from . import voices as voice_tools
 
@@ -1358,12 +1359,24 @@ class Conversations:
                 'last_event': self.runner.seq} | self.voices()
 
     def dispatch(self, request, participant):
+        if not isinstance(request, dict):
+            raise ValueError('Expected a chat request')
         action = request.pop('action', None)
-        handlers = {'create': self.create, 'send': self.send, 'paste': self.paste, 'cancel': self.cancel, 'retry': self.retry,
-                    'hand': self.hand, 'settings': self.settings, 'hush': self.hush}
-        if action not in handlers:
+        handlers = {
+            'create': (self.create, {'path'}, {'request_id', 'author', 'reuse'}),
+            'send': (self.send, {'id', 'body'}, {'request_id', 'author', 'reply_to'}),
+            'paste': (self.paste, {'id', 'body'}, {'request_id', 'voice'}),
+            'cancel': (self.cancel, {'turn_id'}, {'id'}),
+            'retry': (self.retry, {'id', 'message_id'}, set()),
+            'hand': (self.hand, {'id', 'message_id', 'decision'}, set()),
+            'settings': (self.settings, {'id', 'chime_ins'}, set()),
+            'hush': (self.hush, {'id'}, set()),
+        }
+        if not isinstance(action, str) or action not in handlers:
             raise ValueError('Unknown chat action')
-        return handlers[action](participant=participant, **request)
+        handler, required, optional = handlers[action]
+        require_fields(request, required=required, optional=optional, label=f'chat {action}')
+        return handler(participant=participant, **request)
 
     def create(self, path, participant, request_id=None, author=None, reuse=False):
         self.runner.own()
