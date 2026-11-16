@@ -1,25 +1,101 @@
 /* Now playing: a status-line control for the utterance Reader last queued with AI-TTS.
-   Polls GET /api/speak/<id> every two seconds while the page is visible and hides
-   itself when the daemon reports a terminal state. Transport buttons are enabled
-   only while this utterance is the one AI-TTS is playing (the server enforces it too). */
+   In browser-streaming mode (playback=false), segments are synthesized on the server
+   and streamed sequentially to a local <audio> element in this browser tab, so
+   transport controls act locally and never affect other devices or host speakers. */
 import {useState,useSyncExternalStore} from 'react';
 import {Pause, Play, SkipForward, StepBack, StepForward, Volume2} from 'lucide-react';
 import {toast} from 'sonner';
 import {Button} from './components/ui/button';
 import {ButtonGroup} from './components/ui/button-group';
 
-export type Speaking={id:string;path?:string;source_sha256?:string;state:string|null;held:boolean;current:boolean;segment_count?:number|null;completed_segments?:number|null;segment?:{number:number;count:number}|null;error?:string|null;terminal?:boolean};
+export type SpeechSegment={index:number;state?:string|null;duration_ms?:number|null;audio_ready:boolean;error?:string|null};
+export type Speaking={id:string;path?:string;source_sha256?:string;state:string|null;held:boolean;current:boolean;playback?:boolean;segment_count?:number|null;completed_segments?:number|null;segment?:{number:number;count:number}|null;segments?:SpeechSegment[];error?:string|null;terminal?:boolean};
 type Api=(path:string,payload?:unknown)=>Promise<any>;
 const TERMINAL=new Set(['Played','Skipped','Cancelled','Failed']);
 let speaking:Speaking|null=null,api:Api|null=null,timer:ReturnType<typeof setTimeout>|undefined,failures=0,generation=0;
+let audio:HTMLAudioElement|null=null,activeSegment=0,localPaused=false,loadedUrl='',playbackAttempt=0;
 const listeners=new Set<()=>void>();
 const set=(next:Speaking|null)=>{speaking=next;listeners.forEach(l=>l());};
 const subscribe=(listener:()=>void)=>{listeners.add(listener);return ()=>{listeners.delete(listener);};};
 
+function ensureAudio(s:Speaking){
+  if(audio||typeof Audio==='undefined')return audio;
+  const player=new Audio(),segment=activeSegment;
+  audio=player;
+  const ownsSource=()=>audio===player&&speaking?.id===s.id&&activeSegment===segment;
+  player.preload='auto';
+  player.addEventListener('error',()=>{
+    if(!ownsSource())return;
+    generation++;
+    stopAudio();set(null);
+    toast.error('Speech audio could not play',{description:'Use Read aloud to try again.',duration:8000});
+    api?.('/api/speak/'+encodeURIComponent(s.id),{action:'cancel'}).catch(()=>{});
+  });
+  player.addEventListener('ended',()=>{
+    if(!ownsSource()||!speaking)return;
+    const current=speaking,total=current.segment_count??current.segments?.length??1;
+    stopSource();
+    activeSegment+=1;
+    if(activeSegment>=total){
+      const id=current.id;
+      generation++;
+      stopAudio();
+      set(null);
+      api?.('/api/speak/'+encodeURIComponent(id),{action:'cancel'}).catch(()=>{});
+      return;
+    }
+    syncBrowserAudio(current);
+  });
+  return player;
+}
+function stopSource(){
+  const previous=audio;
+  audio=null;loadedUrl='';playbackAttempt++;
+  if(previous){previous.pause();previous.removeAttribute('src');previous.load();}
+}
+function playAudio(s:Speaking){
+  const player=audio,attempt=++playbackAttempt;
+  if(!player)return;
+  player.play().catch(()=>{
+    if(audio!==player||attempt!==playbackAttempt||speaking?.id!==s.id)return;
+    localPaused=true;
+    set({...speaking,state:'Paused',current:true});
+  });
+}
+function stopAudio(){
+  clearTimeout(timer);
+  stopSource();
+  localPaused=false;
+  activeSegment=0;
+}
+function syncBrowserAudio(s:Speaking){
+  const segments=s.segments||[];
+  const total=s.segment_count??(segments.length||1);
+  const seg=segments.find(item=>item.index===activeSegment);
+  if(seg?.error){
+    toast.error('AI-TTS couldn’t speak that',{description:seg.error,duration:8000});
+    stopAudio();set(null);return;
+  }
+  if(seg?.audio_ready){
+    const url='/api/speak/'+encodeURIComponent(s.id)+'/segments/'+activeSegment;
+    const player=ensureAudio(s);
+    if(player&&loadedUrl!==url){
+      loadedUrl=url;
+      player.src=url;
+      if(!localPaused){
+        playAudio(s);
+      }
+    }
+    set({...s,current:true,held:false,state:localPaused?'Paused':'Playing',segment:{number:activeSegment+1,count:total}});
+    return;
+  }
+  set({...s,current:false,held:false,state:'Synthesizing',segment:{number:activeSegment+1,count:total}});
+}
+
 export function setSpeechApi(value:Api){api=value;}
-function schedule(){
+function schedule(delay=2000){
   clearTimeout(timer);if(!speaking)return;const mine=generation;
-  timer=setTimeout(()=>{if(mine!==generation)return;if(document.visibilityState==='visible')poll();else document.addEventListener('visibilitychange',()=>{if(mine===generation)poll();},{once:true});},2000);
+  timer=setTimeout(()=>{if(mine!==generation)return;if(document.visibilityState==='visible')poll();else document.addEventListener('visibilitychange',()=>{if(mine===generation)poll();},{once:true});},delay);
 }
 async function poll(){
   const id=speaking?.id,mine=generation;if(!id||!api)return;
@@ -27,21 +103,66 @@ async function poll(){
     const next:Speaking=await api('/api/speak/'+encodeURIComponent(id));if(mine!==generation)return;failures=0;
     if(next.state&&TERMINAL.has(next.state)){
       if(next.state==='Failed')toast.error('AI-TTS couldn’t speak that',{description:next.error||undefined,duration:8000});
-      set(null);return;
+      stopAudio();set(null);return;
     }
-    set({...next,path:speaking?.path,source_sha256:speaking?.source_sha256});
+    const merged:Speaking={...next,path:speaking?.path,source_sha256:speaking?.source_sha256};
+    if(merged.playback===false){
+      syncBrowserAudio(merged);
+      const segments=merged.segments||[];
+      const total=merged.segment_count??(segments.length||1);
+      const allReady=segments.length>=total&&segments.every(seg=>seg.audio_ready);
+      if(!allReady&&speaking)schedule(segments.find(seg=>seg.index===activeSegment)?.audio_ready?1500:350);
+      return;
+    }
+    set(merged);
   }catch(error){
     if(mine!==generation)return;
-    if(++failures>=3){toast.error('Lost track of AI-TTS playback',{description:error instanceof Error?error.message:String(error),duration:8000});set(null);return;}
+    if(++failures>=3){toast.error('Lost track of AI-TTS playback',{description:error instanceof Error?error.message:String(error),duration:8000});stopAudio();set(null);return;}
   }
   schedule();
 }
 /** Show the control for a freshly queued utterance; a newer one replaces it. */
-export function trackSpeech(submission:Speaking){generation++;failures=0;set({...submission,current:false});schedule();}
+export function trackSpeech(submission:Speaking){
+  const previous=speaking;
+  generation++;failures=0;stopAudio();
+  set({...submission,current:false});
+  if(previous?.playback===false&&previous.id!==submission.id){
+    api?.('/api/speak/'+encodeURIComponent(previous.id),{action:'cancel'}).catch(()=>{});
+  }
+  schedule(submission.playback===false?200:2000);
+}
 
 async function act(action:string){
-  const id=speaking?.id;if(!id||!api)return;
-  try{await api('/api/speak/'+encodeURIComponent(id),{action});}
+  const s=speaking;if(!s||!api)return;
+  if(s.playback===false){
+    const total=s.segment_count??(s.segments?.length||1);
+    if(action==='pause'){
+      playbackAttempt++;localPaused=true;audio?.pause();
+      set({...s,state:'Paused',current:true});
+      return;
+    }
+    if(action==='resume'){
+      localPaused=false;
+      playAudio(s);
+      set({...s,state:'Playing',current:true});
+      return;
+    }
+    if(action==='previous_segment'){
+      if(activeSegment>0){stopSource();activeSegment-=1;localPaused=false;syncBrowserAudio(s);}
+      return;
+    }
+    if(action==='next_segment'){
+      if(activeSegment+1<total){stopSource();activeSegment+=1;localPaused=false;syncBrowserAudio(s);return;}
+      action='skip';
+    }
+    if(action==='skip'||action==='cancel'){
+      const id=s.id;
+      generation++;stopAudio();set(null);
+      try{await api('/api/speak/'+encodeURIComponent(id),{action:'cancel'});}catch{}
+      return;
+    }
+  }
+  try{await api('/api/speak/'+encodeURIComponent(s.id),{action});}
   catch(error){toast.error(error instanceof Error?error.message:String(error),{duration:6000});}
   generation++;poll();
 }

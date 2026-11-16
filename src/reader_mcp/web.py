@@ -1735,7 +1735,19 @@ class WebHandler(BaseHTTPRequestHandler):
             elif parsed.path == '/api/speech-voices':
                 self.json(library.speech.voices())
             elif parsed.path.startswith('/api/speak/'):
-                self.json(library.speech.get(parsed.path[len('/api/speak/'):]))
+                tail = parsed.path[len('/api/speak/'):]
+                if '/segments/' in tail:
+                    utt_id, _, seg_raw = tail.partition('/segments/')
+                    if not seg_raw.isdigit() or len(seg_raw) > 6:
+                        raise ValueError('Expected a non-negative integer segment index')
+                    try:
+                        audio_file = library.speech.segment_audio(utt_id, int(seg_raw))
+                    except FileNotFoundError as exc:
+                        self.json({'error': str(exc)}, 404)
+                        return
+                    self.send_file(audio_file, raw=True)
+                else:
+                    self.json(library.speech.get(tail))
             elif parsed.path == '/api/inbox':
                 self.json(library.inbox.status())
             elif parsed.path == '/api/inbox/deliveries':
@@ -1925,7 +1937,7 @@ class WebHandler(BaseHTTPRequestHandler):
         kind = mimetypes.guess_type(file.name)[0] or 'application/octet-stream'
         if attachment and file.suffix.lower() in HTML_FORMATS:
             kind = 'text/html; charset=utf-8'
-        if raw and file.suffix.lower() not in ('.pdf', *IMAGE_FORMATS):
+        if raw and file.suffix.lower() not in ('.pdf', '.wav', *IMAGE_FORMATS):
             kind = 'text/plain; charset=utf-8'
         if download:
             kind = 'application/octet-stream'
