@@ -129,7 +129,7 @@
     "src/jobs/store.ts": "a08dabc82b138ac7921592e40772f397aec874e134ef86482a6bf7e34eb3ad24",
     "src/library-sections.tsx": "0e3ed24a570afe8a95a6b1068995fbb6857561b1afa8495225886e3a13c8816c",
     "src/link-preview.tsx": "88af44ccac760a52abc419a82f9f3828c60b8cb15c641891c9632db8d5ec61f9",
-    "src/local-model.tsx": "9135c80895cef6a606dbab72fc39383cf19726924da5d5ba0de3c04a5c3953d1",
+    "src/local-model.tsx": "84cf2e880ed018b4ac1ad30761ceca6cf33e54a3cfaadc4b5f90617ecba60881",
     "src/log-block.tsx": "514b773a5291e22a958b25a92ffc0e81f48d3caae3507cefefeda57bc0cd3b9a",
     "src/magazine/issue-makeup.tsx": "72d9193dc354c08abe23e9333856134336bd12dcd6279f2452561027063ace3c",
     "src/magazine/magazine.tsx": "761c79056e9f0fa86eed5d43a18b433ed43b84363429cb9c279d6654b02998ce",
@@ -1003,8 +1003,8 @@
       "sha256": "e671e564c636b87b5b8844ad4af973338a7158c971d4f2784f30dacddce4df21"
     },
     "reader-controls.js": {
-      "bytes": 1425258,
-      "sha256": "8f7373c851923c6be2509a05e30b5f4613a4611a835518b7dd5899769e526c5e"
+      "bytes": 1425274,
+      "sha256": "9462b773331ef524f671b73a975a1823b354c4d3f35aebd601e4a50d4839bad8"
     },
     "reader-controls.js.LEGAL.txt": {
       "bytes": 6614,

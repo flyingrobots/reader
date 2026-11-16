@@ -191,7 +191,7 @@ function OutputsCard({outputs,act}:{outputs:Outputs;act:Act}){
     <ItemGroup className="gap-4">{Object.entries(outputs.tasks).map(([task,o])=><div key={task} role="listitem" className="flex flex-col gap-2" data-outputs={task}>
       <div className="flex flex-wrap items-center justify-between gap-2"><span className="text-sm font-medium">{o.label}</span>{o.stale?<Button size="xs" variant="outline" data-prune={task} onClick={()=>act('prune',{task})}>Remove {o.stale} stale</Button>:null}</div>
       <FactList facts={[{label:'Current',value:<span data-current={o.current}>{o.current.toLocaleString()}</span>},{label:'Stale',value:<span data-stale={o.stale}>{o.stale.toLocaleString()}</span>},{label:'Cached',value:o.cached}]}/>
-      {o.samples.slice(0,2).map(s=><UiItem key={s.path+s.created_at} variant="muted" size="sm" render={<blockquote/>} className="lm-output m-0" data-lm="sample" data-reader-decoration=""><ItemContent className="min-w-0"><ItemDescription className="font-mono text-[10px]">{s.path}</ItemDescription>{s.text}<MachineMark model={s.model}/></ItemContent></UiItem>)}</div>)}</ItemGroup>
+      {o.samples.slice(0,2).map(s=><UiItem key={s.path+s.created_at} variant="muted" size="sm" render={<blockquote/>} className="lm-output m-0" data-lm="sample" data-reader-decoration=""><ItemContent className="min-w-0"><ItemDescription className="line-clamp-none font-mono text-[10px]">{s.path}</ItemDescription>{s.text}<MachineMark model={s.model}/></ItemContent></UiItem>)}</div>)}</ItemGroup>
   </StatusCard>;
 }
 
