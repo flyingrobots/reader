@@ -189,13 +189,22 @@ images or historical versions.
 
 **Send to AI-TTS** (Space s, the document footer or the selection toolbar's Speak)
 queues the whole article, the text from the reading position, or a selected passage
-with the local AI-TTS daemon, which owns playback, holds and voice assignment.
+with the local AI-TTS daemon (version 0.2.0 or newer), which synthesizes audio and
+assigns voices. The requesting browser plays the resulting segments; other tabs
+and the daemon's host speakers stay silent. Host-speaker holds do not hold browser
+playback. Older daemons are refused before submission.
+Starting another reading stops the old audio and requests cancellation of its
+synthesis.
 Markdown, plain text and PDF text layers are supported, up to 512 KiB of text per
 submission; PDF selections and scanned PDFs without a text layer are not. A
 status-line control shows segment progress and offers pause/resume, previous/next
-segment and skip, only for Reader's own utterances while they are current. The
+segment and skip for the requesting tab's utterance. Pause and segment navigation
+operate locally. Navigation stops the previous audio immediately, including while
+the selected segment is still preparing. Playback errors end the session and offer
+Read aloud to retry. The
 passage being spoken is not highlighted, because the daemon does not report
-segment source spans. Reader never plays audio directly.
+segment source spans. Audio is served only for utterances created by this Reader
+process; responses do not expose the daemon's local audio paths.
 
 Hovering over (about 350 ms) or focusing a local link shows a plain-text preview of the
 target: title, authors, project, an unread mark and about 300 characters from the

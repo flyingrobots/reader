@@ -52,6 +52,16 @@ def web(tmp_path, daemon):
         connection.close()
         return result
 
+    def raw(path, headers=None):
+        connection = HTTPConnection('127.0.0.1', server.server_port, timeout=10)
+        connection.request('GET', path, headers={'X-Reader-Token': server.token, **(headers or {})})
+        response = connection.getresponse()
+        result = response.status, dict(response.getheaders()), response.read()
+        connection.close()
+        return result
+
+    request.raw = raw
+
     yield tmp_path, library, request
     server.shutdown()
     server.server_close()
@@ -138,33 +148,42 @@ def test_daemon_refusal_text_reaches_the_reader(daemon):
 
 def test_progress_controls_and_foreign_ids(web, daemon):
     root, library, request = web
-    daemon.step = 0.4
+    daemon.step = 0.08
     sha = library.digest('library/thought.md')
-    utterance = request('/api/speak', {'path': 'library/thought.md', 'source_sha256': sha, 'scope': 'article'})[1]['id']
+    submitted = request('/api/speak', {'path': 'library/thought.md', 'source_sha256': sha, 'scope': 'article'})[1]
+    utterance = submitted['id']
+    assert submitted['playback'] is False
+    assert submits(daemon)[-1]['playback'] is False
     foreign = 'utt_' + 'f' * 32
     assert request('/api/speak/' + foreign)[0] == 403
+    assert request('/api/speak/' + foreign + '/segments/0')[0] == 403
     assert request('/api/speak/' + foreign, {'action': 'pause'})[0] == 403
     assert request('/api/speak/../library', {'action': 'pause'})[0] in (403, 404)
     assert request('/api/speak/' + utterance, {'action': 'explode'})[0] == 400
+    assert request('/api/speak/' + utterance + '/segments/nope')[0] == 400
+    # Before synthesis finishes, unready segments return 404.
+    assert request('/api/speak/' + utterance + '/segments/2')[0] == 404
     deadline = time.monotonic() + 5
-    while (state := request('/api/speak/' + utterance)[1])['state'] != 'Playing':
+    while (state := request('/api/speak/' + utterance)[1])['state'] != 'Ready':
         assert time.monotonic() < deadline
-        time.sleep(0.1)
-    assert state['current'] is True and state['segment']['count'] == 3 and 'text' not in state
-    status, paused = request('/api/speak/' + utterance, {'action': 'pause'})
-    assert status == 200 and paused['state'] == 'Paused' and paused['held'] is True
-    assert request('/api/speak/' + utterance)[1]['held'] is True
-    assert request('/api/speak/' + utterance, {'action': 'resume'})[1]['state'] == 'Playing'
-    assert request('/api/speak/' + utterance, {'action': 'next_segment'})[0] == 200
-    # A second Reader utterance is queued, not current: global transport controls are refused for it.
-    second = request('/api/speak', {'path': 'library/thought.md', 'source_sha256': sha, 'scope': 'article'})[1]['id']
-    status, body = request('/api/speak/' + second, {'action': 'pause'})
-    assert status == 400 and 'playing' in body['error']
-    assert request('/api/speak/' + second, {'action': 'cancel'})[1]['state'] == 'Cancelled'
-    assert request('/api/speak/' + utterance, {'action': 'skip'})[1]['state'] in ('Skipped', None)
+        time.sleep(0.05)
+    assert state['playback'] is False and state['current'] is False and 'text' not in state
+    assert len(state['segments']) == 3
+    assert all(seg['audio_ready'] is True and 'audio_path' not in seg for seg in state['segments'])
+    # Daemon playback queue was never touched.
+    assert Speech().status()['current'] is None
+    # Stream full WAV and partial byte range for browser audio playback.
+    status, headers, body = request.raw(f'/api/speak/{utterance}/segments/0')
+    assert status == 200
+    assert headers.get('Content-Type') in ('audio/wav', 'audio/x-wav')
+    assert headers.get('Accept-Ranges') == 'bytes'
+    assert body.startswith(b'RIFF')
+    p_status, p_headers, p_body = request.raw(f'/api/speak/{utterance}/segments/0', {'Range': 'bytes=0-15'})
+    assert p_status == 206 and len(p_body) == 16 and p_body == body[:16]
+    assert p_headers.get('Content-Range', '').startswith('bytes 0-15/')
+    # Local browser transport never forwards pause/resume/skip to the daemon; only cancel reaches it.
+    assert request('/api/speak/' + utterance, {'action': 'cancel'})[1]['state'] == 'Cancelled'
     assert request('/api/speak/' + utterance)[1]['terminal'] is True
-    ops = [r['op'] for r in daemon.requests()]
-    assert {'pause', 'resume', 'next_segment', 'skip', 'cancel'} <= set(ops)
     assert all(r.get('id') != foreign for r in daemon.requests())
 
 
@@ -214,3 +233,16 @@ def test_pdf_text_layers_and_missing_text(web, daemon):
     assert request('/api/speak', {'path': 'library/pages.pdf', 'source_sha256': sha, 'scope': 'selection', 'start': 0, 'end': 3})[0] == 400
     status, body = request('/api/speak', {'path': 'library/scan.pdf', 'source_sha256': library.digest('library/scan.pdf'), 'scope': 'article'})
     assert status == 400 and 'no text layer' in body['error']
+
+
+def test_older_aitts_version_is_refused(web, daemon):
+    root, library, request = web
+    sha = library.digest('library/thought.md')
+    for old in ('0.1.0', None):
+        daemon.version = old
+        before = len(submits(daemon))
+        status, body = request('/api/speak', {'path': 'library/thought.md', 'source_sha256': sha, 'scope': 'article'})
+        assert status == 503 and body.get('unavailable') is True and '0.2.0 or newer' in body['error']
+        assert len(submits(daemon)) == before
+    daemon.version = '0.2.0'
+    assert request('/api/speak', {'path': 'library/thought.md', 'source_sha256': sha, 'scope': 'article'})[0] == 200
