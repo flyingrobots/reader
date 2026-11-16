@@ -93,6 +93,72 @@ def test_interrupted_reset_is_not_repeated_implicitly(control):
     assert calls==[] and state['volume']
 
 
+@pytest.mark.parametrize('prior_state', ['completed', 'refused'])
+@pytest.mark.parametrize('problem', ['clients', 'repo', 'volume', 'missing-clients'])
+def test_reset_retry_preserves_unconfirmed_prior_custody(control, prior_state, problem):
+    """Medium: reset retries share setup admission and cannot overwrite uncertain custody."""
+    from container_coding_fixture import reset_marker
+    world, reset, state, calls = control
+    path = reset_marker(world.vault, prior_state)
+    record = json.loads(path.read_text())
+    if problem == 'clients':record['control_clients'] = [{'pid': 123, 'started': 'unconfirmed'}]
+    elif problem == 'missing-clients':record.pop('control_clients')
+    else:record[problem] = 'foreign'
+    path.write_text(json.dumps(record))
+    before = path.read_bytes()
+
+    with pytest.raises(ProcessError, match='reset'):reset()
+
+    assert path.read_bytes() == before, 'a retry must preserve the prior custody journal byte for byte'
+    assert calls == [] and state['volume'], 'uncertain custody must block every Docker command'
+
+
+@pytest.mark.parametrize('entrypoint', ['reset', 'setup'])
+def test_fifo_setup_record_is_refused_before_work_starts(control, entrypoint):
+    """Medium: a FIFO must be rejected without waiting for an uncontrolled writer."""
+    import os
+    import subprocess
+    import sys
+    world, reset, state, calls = control
+    folder = world.vault / '.reader/container-runtime/b9d71e86eeaf925d'
+    folder.mkdir(parents=True, exist_ok=True)
+    path = folder / 'setup.json'
+    os.mkfifo(path)
+    before = path.lstat()
+    script = '''
+import json, sys
+from reader_mcp.container_process import ProcessError
+from reader_mcp.container_reset import reset
+from reader_mcp.container_setup import setup
+class Supervisor:
+    def __init__(self, *args, **kwargs):pass
+    def acquire(self):return True
+    def release(self):pass
+def forbidden(*args, **kwargs):raise AssertionError('work started before record admission')
+tools = {'docker':'fixture', 'devcontainer':'fixture', 'git-locks':'fixture'}
+try:
+    if sys.argv[2] == 'reset':
+        reset(sys.argv[1], 'acme/widget', 'reader-coding-b9d71e86eeaf925d-work',
+              tools=tools, run=forbidden, supervisor_factory=Supervisor)
+    else:
+        setup(sys.argv[1], 'check', 'acme/widget', tools=tools, runtime_factory=forbidden)
+except ProcessError:
+    print(json.dumps({'refused':True}))
+else:
+    raise AssertionError('FIFO setup record was accepted')
+'''
+    try:
+        result = subprocess.run([sys.executable, '-c', script, str(world.vault), entrypoint],
+                                capture_output=True, text=True, timeout=2)
+    except subprocess.TimeoutExpired:
+        pytest.fail('setup record admission blocked on a FIFO instead of refusing it')
+    assert result.returncode == 0, result.stderr
+    assert json.loads(result.stdout) == {'refused': True}
+    after = path.lstat()
+    assert (after.st_ino, after.st_mode) == (before.st_ino, before.st_mode)
+    assert not (folder / 'reset.json').exists()
+
+
 def test_deletion_confirmation_and_release_have_a_reserved_cleanup_budget(control,monkeypatch):
     _,reset,state,calls=control
     clock={'now':0.0}

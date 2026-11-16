@@ -16,7 +16,7 @@ import uuid
 from .container_process import ProcessError
 from .container_recovery import recover
 from .container_runtime import ContainerRuntime
-from .container_state import require_reset_settled
+from .container_state import read_control_record, require_reset_settled
 from .repositories import Registry
 
 
@@ -68,9 +68,7 @@ def setup(root, action, repo, argv=(), seconds=600, *, runtime_factory=Container
     with os.fdopen(os.open(folder / 'setup.lock', os.O_RDWR | os.O_CREAT | os.O_NOFOLLOW, 0o600), 'w') as lock:
         try:fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
         except BlockingIOError as exc:raise ProcessError('Another setup command owns this repository') from exc
-        if path.exists() and path.stat().st_size > 65536:
-            raise ProcessError('Setup record exceeds its bound')
-        record = json.loads(path.read_text()) if path.exists() else {}
+        record = read_control_record(path) or {}
         if action == 'recover':
             if not record or record.get('state') == 'stopped':return {'repo': repo, 'state': 'stopped'}
             restored = recovery(root, repo, record['run_id'], record, docker=found['docker'], lock_tool=found['git-locks'], persist=lambda value:_save(path,value))

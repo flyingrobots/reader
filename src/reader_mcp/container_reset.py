@@ -15,6 +15,7 @@ from .container_clients import Clients
 from .container_host_storage import measure
 from .container_lease import Lease
 from .container_process import ProcessError, execute
+from .container_state import read_control_record, require_reset_settled
 from .coding_store import Store
 from .prompt_blocks import repository_name
 from .voice_runner import Supervisor
@@ -44,18 +45,11 @@ def reset(root, repo, confirmation, *, tools=None, run=execute, supervisor_facto
             folder/=part
             if folder.is_symlink():raise ProcessError('Reset control folders must not be symlinks')
             folder.mkdir(exist_ok=True)
-        def read(path):
-            if path.is_symlink() or (path.exists() and path.stat().st_size>65536):raise ProcessError('Invalid reset/setup control record')
-            value=json.loads(path.read_text()) if path.exists() else {}
-            if not isinstance(value,dict):raise ProcessError('Invalid reset/setup control record')
-            return value
         setup_lock=os.fdopen(os.open(folder/'setup.lock',os.O_RDWR|os.O_CREAT|os.O_NOFOLLOW,0o600),'w')
         try:fcntl.flock(setup_lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
         except BlockingIOError as exc:raise ProcessError('Another terminal setup owns this repository') from exc
-        previous=read(folder/'reset.json')
-        if previous and previous.get('state') not in ('completed','refused'):
-            raise ProcessError('Previous reset is unconfirmed; verify its saved host-client identities, exact lease and volume state before manual reconciliation')
-        setup=read(folder/'setup.json')
+        require_reset_settled(root,repo)
+        setup=read_control_record(folder/'setup.json')
         if setup and setup.get('state')!='stopped':raise ProcessError('Recover the previous terminal setup before resetting the volume')
         record={'repo':repo,'volume':volume,'state':'claiming','started_at':time.time(),'control_clients':[]}
         def save(update):
