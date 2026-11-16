@@ -235,8 +235,8 @@ class Runner:
                 # No task is queued until receipt persistence succeeds. Distinguish failure before
                 # installation from uncertain directory durability so no receipt points at a discarded run.
                 if isinstance(exc,InstalledRecordError):
-                    # The installed receipt must keep its target. No work was queued; same-UUID
-                    # retry returns this terminal failure, and a new explicit request can try again.
+                    # The installed receipt must keep its target. No work was queued. Try to
+                    # persist a failed result; a crash before that save recovers as interrupted.
                     run.update(status='finished',outcome='failed',finished_at=stamp(),seq=capture.seq,
                                message='Admission durability failed after installing its receipt; no task started. Run again with a new request.')
                     try:self.store.save(run)

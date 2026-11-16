@@ -1,3 +1,4 @@
+import './jail_guard.cjs';
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {slugify,titleOf,wordCount,citation,blockAt} from '../src/reader_mcp/web_ui/scratch.mjs';

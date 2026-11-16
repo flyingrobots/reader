@@ -5,6 +5,7 @@
    coding CLI and a fake GitHub (tests/web_fixture.py --coding). Never a real model, repository or GitHub. Reader Admin's
    Coding jobs, job detail, LLM logs and Repositories pages show the same run and repository. Screenshots go to
    READER_SHOTS (default .reader/web-dev). */
+require('./jail_guard.cjs');
 const assert=require('node:assert/strict');
 const {spawn}=require('node:child_process');
 const {createInterface}=require('node:readline');

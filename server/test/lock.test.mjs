@@ -2,6 +2,7 @@
 // each other on one lock file, a SIGKILLed holder frees the lock, and concurrent
 // increments from both languages lose nothing. Every assertion can only fail when locking
 // is wrong; no step waits on a sleep. Synthetic temp dirs only.
+import '../../tests/jail_guard.cjs';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';

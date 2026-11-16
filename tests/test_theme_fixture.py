@@ -30,8 +30,8 @@ def script():
     css = CSS.read_text() if CSS.is_file() else ''
     return ('(()=>{try{'
             f'const ids={json.dumps(IDS)},cache={{css:{json.dumps(css)},links:[],ids}};'
-            "const known=JSON.parse(localStorage.getItem('reader.themes.v1')||'null');"
-            "if(!known||!ids.every(id=>known.ids?.includes(id)))localStorage.setItem('reader.themes.v1',JSON.stringify(cache));"
+            "const known=JSON.parse(localStorage.getItem('reader.themes.v2')||'null');"
+            "if(!known||!ids.every(id=>known.ids?.includes(id)))localStorage.setItem('reader.themes.v2',JSON.stringify(cache));"
             "const prefs=JSON.parse(localStorage.getItem('reader.preferences.v1')||'{}');"
             f"if(!prefs.theme){{prefs.theme={json.dumps(DEFAULT)};localStorage.setItem('reader.preferences.v1',JSON.stringify(prefs));}}"
             '}catch{}})();').encode()
@@ -52,9 +52,9 @@ def handler(base):
                 return
             super().do_GET()
 
-        def send_file(self, file, raw=False):
-            if raw or file.name != 'index.html':
-                return super().send_file(file, raw)
+        def send_file(self, file, raw=False, attachment=False, download=False):
+            if raw or attachment or download or file.name != 'index.html':
+                return super().send_file(file, raw, attachment, download)
             body = file.read_bytes().replace(b'<head>', b'<head>\n  <script src="' + SCRIPT.encode() + b'"></script>', 1)
             self.response_headers(200, 'text/html', len(body), raw=False)
             self.end_headers()

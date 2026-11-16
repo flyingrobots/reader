@@ -15,7 +15,7 @@ import socket
 import sqlite3
 import threading
 import time
-from urllib.parse import parse_qs, quote, urlsplit
+from urllib.parse import parse_qs, quote, unquote, urlsplit
 
 from rapidfuzz import fuzz, process
 
@@ -35,6 +35,8 @@ from . import embeds as embed_tree
 from .engagement import ONE_OFF_RECEIPTS, Engagement
 from .inbox_view import InboxView, RunConflict
 from .writing import NOTEBOOK, Writing, WritingConflict
+from . import delivery_tokens, model_chain, private_store, uploads
+from .inbox_paths import physical
 from .local_model import LocalModel
 from .links import LinkError, LinkGraph, Resolver, excerpt, title_of
 from .magazine import Magazine
@@ -72,6 +74,8 @@ SUGGEST_TTL = 60       # seconds a participant's generated suggestions are reuse
 HISTORY_PAGE = 40
 TEXT_FORMATS = ('.md', '.markdown', '.txt')
 MAX_RESOLVE_BATCH = 64
+IMAGE_FORMATS = ('.png', '.jpg', '.jpeg', '.gif', '.webp', '.svg', '.avif', '.bmp', '.ico')
+HTML_FORMATS = ('.html', '.htm')
 mimetypes.add_type('font/woff2', '.woff2')
 mimetypes.add_type('application/manifest+json', '.webmanifest')
 
@@ -191,6 +195,8 @@ class WebLibrary:
         self.links = LinkGraph(self.root, primaries=lambda: [w['primary'] for w in self.works()[0]])
         self.maintenance = Maintenance(self.root, maintenance_runners, links=self.links)
         self.local_model = LocalModel(self.root, self, **(local_model or {}))
+        self.private = private_store.PrivateStore()
+        self.delivery_tokens = delivery_tokens.DeliveryTokens(self.root)
         self.prose = prose or Prose()
         self.related = Related(self.root)
         self.editions = Editions(self.root)
@@ -235,8 +241,8 @@ class WebLibrary:
         allowed = value.startswith('library/') or preview and value.startswith('inbox/')
         if not allowed or any(p in ('', '.', '..') or p.startswith('.') for p in parts):
             raise ValueError('Expected a normalized library-relative path')
-        file = self.root / value
-        if any(p.is_symlink() for p in (file, *file.parents) if p != self.root):
+        file = physical(self.root, value) if value.startswith('inbox/') else self.root / value
+        if any(p.is_symlink() for p in (file, *file.parents) if p != self.root and p.is_relative_to(self.root)):
             raise ValueError('Library paths must not cross symlinks')
         if not file.exists():
             raise MissingDocument('No document at this path. It may have moved or been renamed.')
@@ -289,9 +295,20 @@ class WebLibrary:
 
     def chat_document(self, path, inline=False):
         """Identity of a chat's document; its text only for a voice that cannot read files."""
-        self.path(path)  # library documents only: unfiled inbox previews are never chat subjects
+        file = self.path(path)  # library documents only: unfiled inbox previews are never chat subjects
         doc = self.document(path)
-        return {'path': path, 'title': str(doc['title'])[:500], 'sha256': doc['sha256'], 'text': doc['text'] if inline else None}
+        text = doc['text'] if inline else None
+        if inline and doc['kind'] in HTML_FORMATS:
+            # The browser preview has no text body; an inline voice still needs
+            # the exact source because its runtime cannot read the vault itself.
+            with file.open('rb') as stream:
+                data = stream.read(MAX_DOCUMENT + 1)
+            if len(data) > MAX_DOCUMENT:
+                raise ValueError('HTML source exceeds the 4 MiB inline chat limit')
+            if hashlib.sha256(data).hexdigest() != doc['sha256']:
+                raise ValueError('Document changed while reading; reopen it')
+            text = data.decode('utf-8')
+        return {'path': path, 'title': str(doc['title'])[:500], 'sha256': doc['sha256'], 'text': text}
 
     def quiz(self, path, participant, task_id=None):
         quiz = self.quizzes.get(path)
@@ -343,6 +360,7 @@ class WebLibrary:
         self.art.close()
         self.conversations.close()
         self.local_model.close()
+        self.private.close()
 
     def works(self):
         path = self.root / 'indexes/coverage.json'
@@ -418,18 +436,27 @@ class WebLibrary:
         digest = self.digest(path, preview)
         kind = file.suffix.lower()
         data = None
-        if kind not in ('.pdf', '.png', '.jpg', '.jpeg', '.gif', '.webp', '.svg'):
+        if kind not in ('.pdf', *IMAGE_FORMATS, *HTML_FORMATS):
             if file.stat().st_size > MAX_DOCUMENT:
-                raise ValueError('This document exceeds the 4 MiB browser text limit; open the original file')
-            data = file.read_bytes()
-            if hashlib.sha256(data).hexdigest() != digest:
-                raise ValueError('Document changed while reading; reopen it')
+                if kind in TEXT_FORMATS:
+                    raise ValueError('This document exceeds the 4 MiB browser text limit; open the original file')
+            else:
+                data = file.read_bytes()
+                if hashlib.sha256(data).hexdigest() != digest:
+                    raise ValueError('Document changed while reading; reopen it')
+                try:
+                    data.decode('utf-8')
+                    if b'\x00' in data:
+                        data = None
+                except UnicodeDecodeError:
+                    data = None  # A binary companion opens with a download, never a UTF-8 error.
         metadata = parse_metadata(data).metadata if data is not None and kind in ('.md', '.markdown') else {}
         return {'path': path, 'sha256': digest, 'kind': kind, 'text': data.decode('utf-8') if data is not None else None,
                 'title': metadata.get('title') or file.stem.replace('-', ' '), 'metadata': metadata,
                 'file_url': '/api/file?path=' + quote(path, safe=''),
                 'item': None if preview else {'key': 'document:' + path, 'version': digest},
-                'preview': preview, 'bookmark': None if preview else self.bookmarks.get(participant, path)}
+                'preview': preview, 'bookmark': None if preview else self.bookmarks.get(participant, path),
+                **({'preview_url': '/api/attachment/' + quote(path, safe='/')} if kind in HTML_FORMATS else {})}
 
     def speak(self, path, source_sha256, scope='article', start=None, end=None, page=None, voice=None):
         """Queue the exact viewed edition, or a code-point slice of it, with AI-TTS."""
@@ -1221,6 +1248,7 @@ class WebServer(ThreadingHTTPServer):
         self.requests = threading.BoundedSemaphore(EXPENSIVE_LIMIT)
         self.reads = threading.BoundedSemaphore(READ_LIMIT)
         self.streams = threading.BoundedSemaphore(4)  # SSE streams: outside both pools
+        self.uploads = threading.BoundedSemaphore(2)
         self.chat_heartbeat = 15  # Seconds between `ping` events on an idle chat stream.
         self.chat_hangup_check = 0.25  # Seconds between checks for a chat stream's client hanging up (#152).
         super().__init__(address, WebHandler)
@@ -1251,7 +1279,7 @@ class WebHandler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(body)
 
-    def response_headers(self, status, kind, length, *, raw=False):
+    def response_headers(self, status, kind, length, *, raw=False, attachment=False):
         self.send_response(status)
         self.send_header('Content-Type', kind)
         self.send_header('Content-Length', str(length))
@@ -1259,14 +1287,23 @@ class WebHandler(BaseHTTPRequestHandler):
         self.send_header('Cache-Control', 'no-store')
         self.send_header('Referrer-Policy', 'no-referrer')
         policy = "default-src 'self'; script-src 'self'; worker-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' blob:; connect-src 'self'; frame-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'self'"
-        self.send_header('Content-Security-Policy', "default-src 'none'; sandbox; frame-ancestors 'self'" if raw else policy)
+        if attachment:
+            # HTML companions run in an opaque origin, even when opened directly.
+            # Classic sibling scripts/styles/images work; no API fetches, forms,
+            # storage, parent access, popups or top-level navigation are granted.
+            policy = "default-src 'none'; sandbox allow-scripts; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'none'; form-action 'none'; base-uri 'none'; frame-ancestors 'self'"
+        elif raw:
+            policy = "default-src 'none'; sandbox; frame-ancestors 'self'"
+        self.send_header('Content-Security-Policy', policy)
 
-    def json(self, data, status=200):
+    def json(self, data, status=200, headers=()):
         if status >= 400 and isinstance(data.get('error'), str):
             # An OSError's message names the file it failed on; show it as <vault>/… or ~/… (#105).
             data = data | {'error': shown(data['error'], self.server.library.root)}
         body = json.dumps(data, ensure_ascii=False).encode()
         self.response_headers(status, 'application/json; charset=utf-8', len(body))
+        for name, value in headers:
+            self.send_header(name, value)
         self.end_headers()
         self.wfile.write(body)
 
@@ -1416,6 +1453,97 @@ class WebHandler(BaseHTTPRequestHandler):
     def do_POST(self):
         self.handle_request(True)
 
+    def token_write(self, library, request):
+        """Creating or revoking a delivery token takes a browser on this machine."""
+        if not self.identity or self.identity.get('via') != 'local':
+            self.json({'error': 'Not found'}, 404)
+        elif request.get('action') == 'create':
+            self.json(library.delivery_tokens.create(request.get('name')))
+        elif request.get('action') == 'revoke':
+            self.json(library.delivery_tokens.revoke(request.get('id')))
+        else:
+            raise ValueError('Unknown delivery token action')
+
+    def private_session_cookie(self, session, max_age=None):
+        age = private_store.IDLE_LIMIT if max_age is None else max_age
+        return (('Set-Cookie', f'{private_store.COOKIE}={session}; HttpOnly; SameSite=Strict; Path=/api; Max-Age={age}'),)
+
+    def private_write(self, library, request):
+        """Encrypted storage's actions. Through a tailnet it doesn't exist at all, and its cookie names one browser."""
+        if not self.identity or self.identity.get('via') != 'local':
+            self.json({'error': 'Not found'}, 404)
+            return
+        store, action = library.private, request.get('action')
+        session = private_store.cookie_value(self.headers.get('Cookie'))
+        if action == 'install':
+            self.json(store.install())
+        elif action in ('setup', 'unlock') and set(request) == {'action', 'passphrase'}:
+            opened = (store.setup if action == 'setup' else store.unlock)(request['passphrase'])
+            self.json(store.status(opened), headers=self.private_session_cookie(opened))
+        elif action == 'lock':
+            store.close()
+            self.json(store.status(None), headers=self.private_session_cookie('', 0))
+        elif action == 'delete':
+            self.json(store.delete(session, request.get('id')))
+        elif action == 'encrypt-arrival':
+            inbox = library.inbox.status()
+            active = (inbox.get('runner') or {}).get('status') in ('starting', 'running', 'interrupted') or inbox.get('pending')
+            claimed = 'inbox/' + str(request.get('id')) in inbox.get('claims_held', [])
+            busy = 'A filing run is using the inbox. Wait for it to finish.' if active else 'An agent is assigned to file this.' if claimed else None
+            self.json(store.encrypt_arrival(session, library.root, request.get('id'), busy))
+        else:
+            raise ValueError('Unknown encrypted storage action')
+
+    def private_read(self, library, path, args):
+        if not self.identity or self.identity.get('via') != 'local':
+            self.json({'error': 'Not found'}, 404)
+            return
+        store, session = library.private, private_store.cookie_value(self.headers.get('Cookie'))
+        if path == '/api/private':
+            status = store.status(session)
+            self.json({**status, 'items': store.items(session) if status['unlocked'] else []})
+        elif path == '/api/private/item':
+            self.json(store.view(session, args.get('id', '')))
+        elif path == '/api/document':
+            self.json(store.document(session, args.get('path', '')))
+        else:
+            _, files = store.read(session, args.get('id', ''))
+            data = files.get(args.get('path', ''))
+            if data is None:
+                raise ValueError('That file doesn’t exist.')
+            self.response_headers(200, 'application/octet-stream', len(data), raw=True)
+            self.send_header('Content-Disposition', "attachment; filename*=UTF-8''" + quote(Path(args['path']).name, safe=''))
+            self.end_headers()
+            self.wfile.write(data)
+
+    def receive_upload(self, library):
+        """A framed upload, not JSON: checked for its token, type and size before any body is read."""
+        self.close_connection = True  # A refused upload leaves its body unread on this connection.
+        if self.headers.get_content_type() != uploads.CONTENT_TYPE:
+            raise PermissionError('An upload needs its own content type and a same-origin Reader token')
+        sender = self.identity
+        if self.headers.get('Authorization'):
+            sender = library.delivery_tokens.verify(self.headers.get('Authorization'))
+            if sender is None:
+                self.json({'error': 'That delivery token isn’t valid'}, 401)
+                return
+        elif self.headers.get('X-Reader-Token') != self.server.token:
+            self.json({'error': 'A same-origin Reader token is required', 'code': 'reader_token_expired'}, 403)
+            return
+        length = int(self.headers.get('Content-Length', '0'))
+        if not 0 < length <= uploads.MAX_BODY:
+            raise ValueError('An upload is at most 64 MiB')
+        library.delivery_tokens.admit(sender, length)
+        if not self.server.uploads.acquire(blocking=False):
+            self.json({'error': 'Reader is receiving other uploads; try again shortly'}, 429)
+            return
+        try:
+            session = private_store.cookie_value(self.headers.get('Cookie'))
+            result = uploads.receive(library.root, self.rfile, length, sender, private=library.private, session=session)
+            self.json(result if result.get('status') == 'encrypted' else uploads.public_status(library.root, result['id']))
+        finally:
+            self.server.uploads.release()
+
     def admission(self, write):
         path = urlsplit(self.path).path
         if not write and (path in UNGATED or path.startswith(STATIC_PREFIXES)):
@@ -1440,6 +1568,9 @@ class WebHandler(BaseHTTPRequestHandler):
             args = {k: v[0] for k, v in parse_qs(parsed.query).items()}
             library = self.server.library
             if write:
+                if parsed.path == '/api/inbox/deliveries':
+                    self.receive_upload(library)
+                    return
                 if self.headers.get_content_type() != 'application/json':
                     raise PermissionError('A same-origin Reader token and JSON request are required')
                 if self.headers.get('X-Reader-Token') != self.server.token:
@@ -1509,14 +1640,25 @@ class WebHandler(BaseHTTPRequestHandler):
                     self.json(library.companions.dispatch(request, self.identity))
                 elif parsed.path == '/api/inbox':
                     action = request.get('action')
-                    if action == 'start' and not set(request) - {'action', 'sandbox_mode'}:
-                        self.json(library.inbox.start(request.get('sandbox_mode', 'workspace-write')))
+                    if action == 'start' and not set(request) - {'action', 'sandbox_mode', 'arrivals'}:
+                        scope = {'arrivals': request['arrivals']} if 'arrivals' in request else {}
+                        self.json(library.inbox.start(request.get('sandbox_mode', 'read-only'), **scope))
                     elif action == 'stop' and set(request) == {'action'}:
                         self.json(library.inbox.stop())
+                    elif action == 'choose' and set(request) == {'action', 'arrival', 'choice'}:
+                        self.json(library.inbox.choose(request['arrival'], request['choice']))
                     else:
-                        raise ValueError('Expected {"action": "start", "sandbox_mode": ...} or {"action": "stop"}')
+                        raise ValueError('Expected {"action": "start", "sandbox_mode": ...}, {"action": "stop"} or {"action": "choose", "arrival": ..., "choice": ...}')
                 elif parsed.path == '/api/local-model':
                     self.json(library.local_model.dispatch(request))
+                elif parsed.path == '/api/upload-settings':
+                    self.json(uploads.settings(library.root, request))
+                elif parsed.path == '/api/model-chain':
+                    self.json(model_chain.configure(library.root, request, self.identity))
+                elif parsed.path == '/api/private':
+                    self.private_write(library, request)
+                elif parsed.path == '/api/delivery-tokens':
+                    self.token_write(library, request)
                 elif parsed.path == '/api/art':
                     participant = library.engagement.participant(request.pop('participant', self.server.participant))
                     self.json(library.art.dispatch(request, participant))
@@ -1544,6 +1686,9 @@ class WebHandler(BaseHTTPRequestHandler):
                 self.json(library.bootstrap(args.get('participant', self.server.participant)) | {'token': self.server.token})
             elif parsed.path == '/api/token':
                 self.json({'token': self.server.token})
+            elif parsed.path == '/api/document' and args.get('path', '').startswith('private/'):
+                # The same local-browser and session rules as the rest of encrypted storage.
+                self.private_read(library, parsed.path, args)
             elif parsed.path == '/api/document':
                 self.json(library.document(args.get('path', ''), args.get('participant', self.server.participant)))
             elif parsed.path == '/api/search':
@@ -1565,6 +1710,14 @@ class WebHandler(BaseHTTPRequestHandler):
             elif parsed.path == '/api/resolve-batch':
                 targets = parse_qs(parsed.query, keep_blank_values=True).get('target', [])
                 self.json(library.resolve_many(args.get('from', ''), targets))
+            elif parsed.path == '/api/portable-links':
+                from .portable_links import PortableLinks, public_record
+                path = args.get('path', '')
+                library.path(path)
+                sha = library.digest(path)
+                if args.get('sha256') != sha:
+                    raise ValueError('Document changed; reopen it before using link repairs')
+                self.json(public_record(PortableLinks(library.root).stored(path, sha) or {'targets': []}))
             elif parsed.path == '/api/embeds':
                 lists = parse_qs(parsed.query, keep_blank_values=True)
                 depth = args.get('depth', '0')
@@ -1585,6 +1738,25 @@ class WebHandler(BaseHTTPRequestHandler):
                 self.json(library.speech.get(parsed.path[len('/api/speak/'):]))
             elif parsed.path == '/api/inbox':
                 self.json(library.inbox.status())
+            elif parsed.path == '/api/inbox/deliveries':
+                sender = None
+                if self.headers.get('Authorization'):
+                    sender = library.delivery_tokens.verify(self.headers.get('Authorization'))
+                    if sender is None:
+                        self.json({'error': 'That delivery token isn’t valid'}, 401)
+                        return
+                self.json(uploads.public_status(library.root, args.get('id', ''), sender))
+            elif parsed.path == '/api/delivery-tokens':
+                if not self.identity or self.identity.get('via') != 'local':
+                    self.json({'error': 'Not found'}, 404)
+                else:
+                    self.json(library.delivery_tokens.list())
+            elif parsed.path == '/api/private' or parsed.path == '/api/private/item' or parsed.path == '/api/private/file':
+                self.private_read(library, parsed.path, args)
+            elif parsed.path == '/api/upload-settings':
+                self.json(uploads.settings(library.root))
+            elif parsed.path == '/api/model-chain':
+                self.json(model_chain.settings_view(library.root, self.identity))
             elif parsed.path == '/api/links':
                 self.json(library.backlinks(args.get('path', '')))
             elif parsed.path == '/api/preview':
@@ -1686,7 +1858,11 @@ class WebHandler(BaseHTTPRequestHandler):
                 self.send_file(library.themes.font_file(family, name))
             elif parsed.path == '/api/file':
                 file = library.path(args.get('path', ''), preview=True)
-                self.send_file(file, raw=True)
+                self.send_file(file, raw=True, download=args.get('download') == '1')
+            elif parsed.path.startswith('/api/attachment/'):
+                # A path URL retains the browser's relative URL base for sibling assets.
+                file = library.path(unquote(parsed.path[len('/api/attachment/'):]), preview=True)
+                self.send_file(file, attachment=True)
             elif parsed.path == '/' or parsed.path.startswith('/assets/'):
                 name = 'index.html' if parsed.path == '/' else parsed.path[len('/assets/'):]
                 file = (STATIC / name).resolve()
@@ -1731,7 +1907,7 @@ class WebHandler(BaseHTTPRequestHandler):
             raise ValueError(f'Expected {name} as a non-negative whole number')
         return int(value)
 
-    def send_file(self, file, raw=False):
+    def send_file(self, file, raw=False, attachment=False, download=False):
         size = file.stat().st_size
         start, end, status = 0, size - 1, 200
         range_header = self.headers.get('Range')
@@ -1747,9 +1923,15 @@ class WebHandler(BaseHTTPRequestHandler):
                 return
             status = 206
         kind = mimetypes.guess_type(file.name)[0] or 'application/octet-stream'
-        if raw and file.suffix.lower() not in ('.pdf', '.png', '.jpg', '.jpeg', '.webp', '.gif', '.svg'):
+        if attachment and file.suffix.lower() in HTML_FORMATS:
+            kind = 'text/html; charset=utf-8'
+        if raw and file.suffix.lower() not in ('.pdf', *IMAGE_FORMATS):
             kind = 'text/plain; charset=utf-8'
-        self.response_headers(status, kind, max(0, end - start + 1), raw=raw)
+        if download:
+            kind = 'application/octet-stream'
+        self.response_headers(status, kind, max(0, end - start + 1), raw=raw, attachment=attachment)
+        if download:
+            self.send_header('Content-Disposition', "attachment; filename*=UTF-8''" + quote(file.name, safe=''))
         self.send_header('Accept-Ranges', 'bytes')
         if status == 206:
             self.send_header('Content-Range', f'bytes {start}-{end}/{size}')

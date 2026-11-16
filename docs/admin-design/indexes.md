@@ -8,11 +8,11 @@ Inspect freshness, completeness and capacity, start an appropriate rebuild, and 
 
 ## Layout
 
-The Indexes route uses the available Admin content width. At desktop widths the page splits into equal columns: dashboard left, Markdown reference right. Both have independent vertical scrolling. Hide documentation expands the dashboard to full width; Show documentation restores the split. The browser remembers this preference. The reference remains mounted to preserve its position, and info buttons reopen it before focusing the target heading. All Admin routes use this shared workspace with their own topic. On small screens the columns stack, and a documentation action brings the reference into view.
+The Indexes route uses the available Admin content width. The Markdown reference opens over it in a right-hand `Sheet` from the header's Docs button, or from an info button, which also focuses the target heading. The reference remains mounted while closed to preserve its position. All Admin routes use this shared workspace with their own topic. On phones the Sheet fills the screen.
 
-The left pane contains status/check controls, current/attention/timing summaries, a conditional search update action, D3 coverage/capacity charts, the health table, selected-index inspector, recent runs and edition diagnostics. Existing admission, error, demo and busy behavior remains in force. Inline indexing essays, the update-policy notice, repeated purpose descriptions and generic metric help popovers are removed.
+The dashboard contains status/check controls, current/attention/timing summaries, a conditional search update action, D3 coverage/capacity charts, the health table, selected-index inspector, recent runs and edition diagnostics. Existing admission, error, demo and busy behavior remains in force. Inline indexing essays, the update-policy notice, repeated purpose descriptions and generic metric help popovers are removed.
 
-The right pane is a shadcn Card with a contents selector and a scrolling Markdown region. The source is `docs/topics/indexes.md`, imported as text at frontend build time and recorded in build metadata. It is rendered through the existing sanitized Markdown pipeline. There is no API that exposes arbitrary repository or vault files. Heading IDs are namespaced to avoid collisions with dashboard controls. In-document links and info icons scroll/focus the requested heading without changing the Admin route or the dashboard scroll position. Repository documentation links open outside the application.
+The reference is a shadcn Sheet with a contents selector and a scrolling Markdown region. The source is `docs/topics/indexes.md`, imported as text at frontend build time and recorded in build metadata. It is rendered through the existing sanitized Markdown pipeline. There is no API that exposes arbitrary repository or vault files. Heading IDs are namespaced to avoid collisions with dashboard controls. In-document links and info icons scroll/focus the requested heading without changing the Admin route or the dashboard scroll position. Repository documentation links open outside the application.
 
 ## Atomic composition
 
@@ -20,7 +20,7 @@ Shadcn Card, Table, Badge, Button, NativeSelect, Field, Collapsible, Tooltip, Al
 
 ## Status and guarantees
 
-Opening Indexes can request a full freshness audit if the previous one is more than two minutes old. It does not schedule a rebuild. The backend still publishes check results together, keeps process-local job history and admits one running maintenance job. The split-view change adds neither a watcher nor a queue, and changes no source/index integrity contract.
+Opening Indexes reads saved status without starting maintenance, including when observations are absent or old. Run full check starts an explicit audit, with current-stage progress and results published as each probe finishes. Rebuilds verify only affected projections and retain admission through verification. The backend keeps process-local job history and admits one running maintenance job. There is no watcher, durable queue or Git-based invalidation; saved observations keep their per-index checked timestamps. Source/index integrity contracts are unchanged.
 
 Missing measurements stay unknown; errors preserve their messages. Previous measurements remain visible during an audit. Stale/partial/missing rebuildable states invoke the primary action when allowed. Current/error/capacity-only states remain badges. The reference’s description of the backend verification/admission interval must remain accurate until that implementation changes.
 

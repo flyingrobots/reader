@@ -1,5 +1,6 @@
 /* Real browser/UI with synthetic API responses. Checks pinned approval and inference consent,
    stale-preview invalidation, literal verification argv and absence of implicit job admission. */
+require('./jail_guard.cjs');
 const assert=require('node:assert/strict');
 const {spawn}=require('node:child_process');
 const {createInterface}=require('node:readline');

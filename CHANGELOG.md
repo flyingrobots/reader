@@ -23,6 +23,32 @@
 
 - Route default Coding Jobs development through managed devcontainers, preserve legacy registrations without executing them, and fence worker recovery by its exact lease and per-run identity.
 
+- Upkeep skips other projects unless they opt in. Before reading the vault, its check exits with one line, `Reader upkeep skipped: <reason>`, when the caller's repository has a `.no-reader` marker, or has no `.reader-opt-in` marker and is not Reader's own code or vault (or a worktree of either). Observers must name their own participant, or set `AGENT_SESSION_ID`, instead of acknowledging as `Reader librarian`.
+
+- The Reflective Reading quote helper attributes annotations to `--owner` or `AGENT_SESSION_ID` and refuses without either, instead of defaulting to `Reader librarian`.
+
+- Settings has an Article width for continuous reading: Narrow, Standard, Wide, Wider or Full window. Standard is the width Reader has always used, and two-page reading is unchanged.
+
+- While reading an article in continuous reading, a slider in the footer sets the article width. The article rewraps as you drag and keeps your line. It doesn't appear on phones or in two-page reading.
+
+- With reduced motion on, changing the article width no longer loses your place. The column's change arrived a frame after Reader measured your line.
+
+- Reading progress measures the article, tables and embeds included, not the footer and Read next. A saved share of 97% now means 97% of the article, and older bookmarks with no saved block restore on this scale.
+
+- A bookmark in the margin between two blocks keeps the next block; inside a table or embed it keeps its place in that table or embed, and at the top of a document it keeps the top. Attachments are no longer marked finished by waiting on them.
+
+- The title's controls share one row, which wraps on a phone. The chip says when you last read this file only on a later day, since the reading log already covers today.
+
+- The issue page stays inside its column at any width, including with the File Explorer open.
+
+- Reader Admin pages no longer draw a title and description above their content; the breadcrumb names the section, and screen readers still get both.
+
+- A two-page turn made just after a resize, such as closing the file explorer, is no longer undone when the delayed reflow runs.
+
+- Reader Admin uses a conventional layout: grouped sidebar sections, a summary row and tables on Overview, and documentation in a slide-over Docs sheet instead of a permanent half-page pane. Back to Library moves to the sidebar footer.
+
+- Companion HTML opens as an isolated interactive preview with relative assets intact; binary attachments offer byte-preserving downloads.
+
 - Voice selectors recover after AI-TTS starts and offer Retry voices after catalog failures.
 
 - Split panes fit the available space beside the open File Explorer and right dock.

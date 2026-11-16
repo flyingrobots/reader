@@ -13,7 +13,7 @@ import time
 import pytest
 
 from coding_fixture import World, git, snapshot
-from reader_mcp import coding_store
+from reader_mcp import coding_store, process_table
 from reader_mcp.github import GitHubError
 
 
@@ -220,9 +220,8 @@ def alive(pid):
         os.kill(pid, 0)
     except ProcessLookupError:
         return False
-    # A zombie still answers kill(0); ps says whether it really runs.
-    state = subprocess.run(['ps', '-o', 'stat=', '-p', str(pid)], capture_output=True, text=True).stdout.strip()
-    return bool(state) and not state.startswith('Z')
+    # A zombie still answers kill(0); the process table says whether it really runs.
+    return process_table.running(pid)
 
 
 def test_stop_kills_the_agent_process_group_and_keeps_the_worktree(world):
@@ -527,3 +526,32 @@ def test_request_directory_sync_failure_retains_an_idempotent_failed_admission(w
     fresh=w.jobs.submit(w.request())
     assert w.wait(fresh['id'])['outcome']=='pr_opened'
     assert len(w.calls())==1
+
+
+def test_crash_before_failed_admission_save_recovers_without_launching(world, monkeypatch):
+    """An installed receipt survives the crash window as an interrupted, non-restarted run."""
+    class SimulatedCrash(BaseException):pass
+    w = world()
+    w.jobs.work = lambda: None
+    remember, save = w.jobs.store.remember, w.jobs.store.save
+    def installed(*args):
+        remember(*args)
+        raise coding_store.InstalledRecordError(5, 'directory sync uncertain')
+    def crash(record):
+        if record['status'] == 'finished':raise SimulatedCrash()
+        save(record)
+    monkeypatch.setattr(w.jobs.store, 'remember', installed)
+    monkeypatch.setattr(w.jobs.store, 'save', crash)
+    request = w.request()
+
+    with pytest.raises(SimulatedCrash):w.jobs.submit(request)
+
+    # A fresh store discards in-memory retries, as process restart does.
+    w.jobs.store = coding_store.Store(w.vault)
+    receipt = w.jobs.store.request(request['request_id'])
+    assert receipt and w.jobs.store.load(receipt['run_id'])['status'] == 'queued'
+    w.jobs.recover()
+    retry = w.jobs.submit(request)
+    assert retry['duplicate'] and retry['status'] == 'finished' and retry['outcome'] == 'interrupted'
+    assert not w.jobs.queue and not w.record.exists(), 'recovery must not launch an unacknowledged task'
+    assert len(w.jobs.store.runs()) == 1

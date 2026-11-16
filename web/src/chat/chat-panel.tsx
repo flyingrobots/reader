@@ -280,7 +280,9 @@ export function ChatPanel(props:ChatProps){
   const isVoice=(m:ChatMessage)=>!!m.turn||!!m.runtime?.manual;
   const isMine=(m:ChatMessage)=>!m.turn&&!m.runtime?.manual;
 
-  return <aside data-ui="shadcn" id="chat-panel" className="chat-panel" hidden={!open} aria-labelledby="chat-title" data-reader-decoration="">
+  // Closed, the panel keeps its state and any stream but leaves nothing in the document.
+  if(!open)return null;
+  return <aside data-ui="shadcn" id="chat-panel" className="chat-panel" aria-labelledby="chat-title" data-reader-decoration="">
     <div className="flex items-start justify-between gap-2.5">
       <div className="flex min-w-0 flex-col gap-1"><span className="text-xs font-medium tracking-wide text-muted-foreground uppercase">Chat with the voices</span><h2 id="chat-title" data-slot="panel-title" title={title} className="line-clamp-2 font-serif text-2xl leading-tight font-normal max-[700px]:line-clamp-1 max-[700px]:text-[19px]">{title||'This document'}</h2></div>
       <ButtonGroup>
@@ -361,7 +363,7 @@ export function ChatPanel(props:ChatProps){
             }}
             onSelect={event=>{const element=event.currentTarget as unknown as HTMLTextAreaElement;setMention(mentionAt(element.value,element.selectionStart??element.value.length));}}/>
           <InputGroupAddon align="block-end">
-            {pasteName&&!offline?<InputGroupButton variant="ghost" size="xs" onClick={()=>setPasting(value=>!value)} aria-pressed={pasting} id="chat-paste-toggle"><ClipboardPasteIcon/>{manual.length>1?'Paste a reply':`Paste ${pasteName}’s reply`}</InputGroupButton>:null}
+            {pasteName&&!offline?<InputGroupButton variant="ghost" size="xs" className="text-foreground" onClick={()=>setPasting(value=>!value)} aria-pressed={pasting} id="chat-paste-toggle"><ClipboardPasteIcon/>{manual.length>1?'Paste a reply':`Paste ${pasteName}’s reply`}</InputGroupButton>:null}
             <InputGroupButton type="submit" variant="default" size="icon-xs" className="ml-auto" aria-label="Send" disabled={!draft.trim()||busy} {...localOnly('chat')} id="chat-send"><ArrowUpIcon/></InputGroupButton>
           </InputGroupAddon>
         </InputGroup>

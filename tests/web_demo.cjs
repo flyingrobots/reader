@@ -1,4 +1,5 @@
 /* `reader demo`: the real CLI builds a disposable demo vault in a temp folder and serves it; the magazine, a document with margins, and chat with the scripted demo voices and the manual voice's paste label. */
+require('./jail_guard.cjs');
 const assert=require('node:assert/strict');
 const {spawn}=require('node:child_process');
 const {createInterface}=require('node:readline');

@@ -6,7 +6,8 @@ import {Fragment, useEffect, useRef, useState} from 'react';
 import {cn} from 'cn';
 import {ArrowUpRightIcon, MessageSquareTextIcon, XIcon} from 'lucide-react';
 import {Button} from '@/components/ui/button';
-import {Item, ItemActions, ItemContent, ItemDescription, ItemGroup, ItemSeparator, ItemTitle} from '@/components/ui/item';
+import {Badge} from '@/components/ui/badge';
+import {ItemMedia, Item, ItemActions, ItemContent, ItemDescription, ItemGroup, ItemSeparator, ItemTitle} from '@/components/ui/item';
 import {Notice} from '@/theme/molecules/notice';
 import {EmptyState} from '@/theme/molecules/states';
 import {StatusCard} from '@/theme/organisms/status-card';
@@ -47,16 +48,16 @@ function Chart({panel,choose,actions,works,selected,today}:{panel:Panel;choose:(
         <span key={label} className="border-b-4 px-1 py-0.5" style={{borderColor:palette[i]}}>{label}</span>)}</div>:null}
       {legend?<div className="flex flex-col gap-0.5" role="group" aria-label={panel.title+' legend'}>{panel.rows.map((row,i)=>{const key=panel.id+':'+row.key;
         return <Button key={row.key} variant={selected===key?'secondary':'ghost'} size="xs" className="justify-start" data-chart-choice={key} aria-pressed={selected===key} onClick={()=>choose(key,row)}>
-          <span aria-hidden data-chart-swatch="" className="size-2 shrink-0 rounded-full" style={{background:palette[i%palette.length]}}/><span className="min-w-0 flex-1 truncate text-left">{row.label}</span><span className="tabular-nums text-muted-foreground">{row.value.toLocaleString()}</span></Button>;})}</div>:null}
+          <span aria-hidden data-chart-swatch="" className="size-2 shrink-0 rounded-full" style={{background:palette[i%palette.length]}}/><ItemTitle className="min-w-0 flex-1 font-normal">{row.label}</ItemTitle><Badge variant="secondary" className="tabular-nums">{row.value.toLocaleString()}</Badge></Button>;})}</div>:null}
     </div>
   </StatusCard>;
 }
 
 function WorkItem({work,index,open}:{work:LibraryWork;index:number;open:LibraryActions['open']}){
   return <Item size="sm" role="listitem" className="cursor-pointer px-1 text-left hover:bg-muted" render={<button type="button"/>} data-path={work.primary} onClick={event=>open(work.primary,{split:event.shiftKey})}>
-    <span className="w-6 shrink-0 font-mono text-xs text-muted-foreground tabular-nums" aria-hidden>{String(index+1).padStart(2,'0')}</span>
+    <ItemMedia aria-hidden className="w-6 font-mono text-xs text-muted-foreground tabular-nums">{String(index+1).padStart(2,'0')}</ItemMedia>
     <ItemContent className="min-w-0">
-      <ItemTitle className="font-serif text-base font-normal [overflow-wrap:anywhere]">{work.title}{!work.read?<span className="ml-1.5 inline-block size-1.5 rounded-full bg-primary align-middle" title="Unread edition" aria-label="Unread edition"/>:null}</ItemTitle>
+      <ItemTitle className="font-serif text-base font-normal [overflow-wrap:anywhere]">{work.title}{!work.read?<Badge className="ml-1.5 size-1.5 p-0" title="Unread edition" aria-label="Unread edition"/>:null}</ItemTitle>
       <ItemDescription>{work.authors?.join(' · ')||'Unspecified author'}{work.projects?.[0]&&work.projects[0]!=='Unspecified project'?' · '+work.projects[0]:''}</ItemDescription>
     </ItemContent>
     <ItemActions className="text-xs text-muted-foreground tabular-nums">{work.date_label}</ItemActions>
@@ -92,7 +93,7 @@ export function LibraryPage({actions}:{actions:LibraryActions}){
       <StatusCard id="dashboard-explore" titleId="editions-title" title={title} description="Explore the works behind the numbers."
         badge={selection?<Button id="dashboard-reset" variant="ghost" size="xs" onClick={()=>select('',title,[])}><XIcon data-icon="inline-start" aria-hidden/>Clear selection</Button>:null}
         footer={<div className="flex w-full flex-wrap items-center gap-2">{listed.length>count?<Button id="dashboard-more" variant="outline" size="sm" onClick={()=>setShown(count+8)}>Show more works</Button>:null}
-          <Button id="all-works" variant="link" size="sm" className="ml-auto px-0" onClick={actions.picker}>Open the file picker<ArrowUpRightIcon data-icon="inline-end" aria-hidden/></Button></div>}>
+          <Button id="all-works" variant="link" size="sm" className="ml-auto px-0 text-foreground underline" onClick={actions.picker}>Open the file picker<ArrowUpRightIcon data-icon="inline-end" aria-hidden/></Button></div>}>
         <p ref={status} id="dashboard-selection" data-slot="selection-status" role="status" tabIndex={-1} className="text-sm text-muted-foreground outline-none">{selection?`${listed.length.toLocaleString()} matching ${listed.length===1?'work':'works'} · newest arrivals first`:'Select a chart segment or bar to browse its works.'}</p>
         {listed.length?<ItemGroup role="list" id="latest-list" className="gap-0">{newest(listed).slice(0,count).map((work,i)=><Fragment key={work.primary}>{i?<ItemSeparator role="presentation" className="my-0"/>:null}<WorkItem work={work} index={i} open={actions.open}/></Fragment>)}</ItemGroup>
           :<EmptyState title="No works in this selection"/>}

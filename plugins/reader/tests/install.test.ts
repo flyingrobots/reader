@@ -1,3 +1,4 @@
+import '../../../tests/jail_guard.cjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {mkdtemp, mkdir, writeFile, readFile, copyFile, rm, readdir} from 'node:fs/promises';

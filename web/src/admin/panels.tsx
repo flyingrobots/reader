@@ -1,5 +1,6 @@
 /* Reader Admin section bodies. Each wraps an existing Behind the scenes panel unchanged (its handlers, busy states,
    local-only restrictions and error displays), and starts only the status reads that panel already relied on. */
+import {ModelOrderCard} from '../model-order';
 import {useEffect, useRef} from 'react';
 import {MonitorIcon, PaletteIcon} from 'lucide-react';
 import {Button} from '../components/ui/button';
@@ -27,13 +28,13 @@ export function NeedsReader({what}:{what:string}){
 
 export function InboxPanel({context:c}:Props){
   return <section id="backstage-inbox" aria-label="Inbox">
-    <InboxPage status={c.inbox} error={c.inboxError} starting={c.inboxStarting} onMail={c.startInbox} onStop={c.stopInbox} onOpen={c.open} html={c.markdown} activity={c.activity}/>
+    <InboxPage status={c.inbox} error={c.inboxError} starting={c.inboxStarting} onMail={c.startInbox} onStop={c.stopInbox} onChoose={c.chooseArrival} onOpen={c.open} html={c.markdown} activity={c.activity}/>
   </section>;
 }
 
 export function IndexesPanel({context:c}:Props){
-  // Opening Indexes reads its status and, as Behind the scenes did, refreshes a freshness check older than two minutes.
-  useEffect(()=>{c.checkIndexes();},[]);  // Once per visit.
+  // A visit reads saved measurements only. Full audits require an explicit action.
+  useEffect(()=>{c.refreshIndexes();},[c.refreshIndexes]);
   return <IndexesPage status={c.maintenance} error={c.maintenanceError} onStart={c.startJob} editions={<EditionLinks api={c.api}/>}/>;
 }
 
@@ -67,6 +68,7 @@ export function ModelsPanel({context:c}:Props){
   return <div ref={ref} id="backstage-models">
     {!c.localModel&&c.localModelError?<Unavailable id="local-model-unavailable" what="The local-model status" error={c.localModelError}/>
       :<LocalModelSection status={c.localModel} act={c.localModelAction}/>}
+    {c.local?null:<div className="mt-6"><ModelOrderCard api={c.api}/></div>}
   </div>;
 }
 

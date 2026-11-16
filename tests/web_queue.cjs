@@ -1,4 +1,5 @@
 /* Reading queue (Space r): q from Read next, reorder across reload, Now reading, Space n, History, themes and phone width. */
+require('./jail_guard.cjs');
 const assert=require('node:assert/strict');
 const {spawn}=require('node:child_process');
 const {createInterface}=require('node:readline');
@@ -16,7 +17,7 @@ const {sanitizerReport}=require('./web_wait.cjs');  // #151
   await context.addInitScript(()=>{try{if(!localStorage.getItem('reader.preferences.v1'))localStorage.setItem('reader.preferences.v1',JSON.stringify({smooth:false,theme:'user-reader-test',layout:'scroll'}));}catch{}});
   const page=await context.newPage();page.on('pageerror',e=>errors.push(e.message));page.on('console',m=>{if(m.type()==='error'&&!sanitizerReport(m))errors.push(m.text());});page.on('request',r=>{if(!r.url().startsWith(url))external.push(r.url());});
   const toast=text=>page.locator('[data-sonner-toast]').filter({hasText:text});
-  const leader=async key=>{await page.evaluate(()=>{if(!document.querySelector('#queue-panel').contains(document.activeElement))document.querySelector('#main').focus({preventScroll:true});});await page.keyboard.press('Space');await page.keyboard.press(key);};
+  const leader=async key=>{await page.evaluate(()=>{if(!document.querySelector('#queue-panel')?.contains(document.activeElement))document.querySelector('#main').focus({preventScroll:true});});await page.keyboard.press('Space');await page.keyboard.press(key);};
   const panel=page.locator('#queue-panel');
   const titles=section=>panel.locator(`[data-section=${section}] [data-queue-title]`).allTextContents();
   const openPanel=async()=>{await leader('r');await panel.waitFor();await panel.locator('[data-section=queued]').waitFor();await page.locator('#queue-panel:not([aria-busy])').waitFor();};
@@ -34,13 +35,13 @@ const {sanitizerReport}=require('./web_wait.cjs');  // #151
 
   // q on a Read next item, and the + Queue button.
   await read('library/thought.md');
-  const nextTitles=await page.locator('.next-reads li .next-read-title').allTextContents();
+  const nextTitles=await page.locator('.next-reads [role=listitem] .next-read-title').allTextContents();
   assert.deepEqual(nextTitles,['Another thought','A newer observation','Notes on careful reading']);
-  await page.locator('.next-reads li .next-read').first().press('q');
+  await page.locator('.next-reads [role=listitem] .next-read').first().press('q');
   await toast('Added to your queue · 1st').waitFor();
-  await page.locator('.next-reads li').nth(1).getByRole('button',{name:'Add A newer observation to your queue'}).click();
+  await page.locator('.next-reads [role=listitem]').nth(1).getByRole('button',{name:'Add A newer observation to your queue'}).click();
   await toast('Added to your queue · 2nd').waitFor();
-  await page.locator('.next-reads li .next-read').first().press('q');
+  await page.locator('.next-reads [role=listitem] .next-read').first().press('q');
   await toast('Already in your queue · 1st').waitFor();
   await page.mouse.move(5,5);  // Rows under the pointer become active, as in the file picker.
   // Focusing Read next scrolled to the end; read back to half-way so the saved position is mid-article.

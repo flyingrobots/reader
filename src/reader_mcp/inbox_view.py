@@ -9,6 +9,7 @@ and claim check decide admission."""
 from datetime import datetime, timezone
 import errno
 import hashlib
+import importlib.util
 import json
 import os
 from pathlib import Path
@@ -18,9 +19,12 @@ import subprocess
 import sys
 import threading
 import time
-from uuid import uuid4
+from uuid import UUID, uuid4
 
+from . import arrival_choices
+from . import model_chain
 from .display import shown
+from .inbox_paths import inbox_dir, sweep
 from .inbox_runner import chat_turn_running, inventory
 
 MAX_RECEIPT = 256 * 1024
@@ -34,7 +38,7 @@ MAX_EVENT_STREAM = 8 * 1024**2  # The supervisor's stdout cap.
 MAX_EVENT_FIELD = 64 * 1024
 # Codex item fields whose long text is kept head and tail; other oversized fields are dropped.
 EVENT_TEXT_FIELDS = ('aggregated_output', 'text', 'message')
-SANDBOX_MODES = ('workspace-write', 'danger-full-access')
+SANDBOX_MODES = ('read-only', 'workspace-write', 'danger-full-access')
 ACTIVE = ('starting', 'running')
 CANCEL_TEXT = 'Stop requested by the Reader web user.\n'
 INTERRUPTED = ('The inbox runner stopped unexpectedly. Inspect its report and partial changes before retrying: '
@@ -42,6 +46,7 @@ INTERRUPTED = ('The inbox runner stopped unexpectedly. Inspect its report and pa
 
 
 CODEX_MISSING = 'Codex was not found. Set READER_CODEX to its executable path, then run codex login in your terminal.'
+NO_MODEL = 'No model is available to classify arrivals. Install and sign in to Codex, Claude Code or agy, or turn the local model on in Reader Admin.'
 
 
 class RunConflict(Exception):
@@ -64,6 +69,17 @@ def find_codex(environ=None):
         if os.path.isfile(path) and os.access(path, os.X_OK):
             return path
     return None
+
+
+def broken_delivery_keys():
+    """How many Reader SSH keys can no longer start their helper. A count only: tailnet browsers see this too."""
+    try:
+        spec = importlib.util.spec_from_file_location('reader_remote', Path(__file__).resolve().parents[2] / 'skills/reader/scripts/remote.py')
+        remote = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(remote)
+        return sum(not key['healthy'] for key in remote.delivery_keys())
+    except (OSError, ImportError, AttributeError):
+        return 0  # An installed package has no skills folder, so it manages no keys.
 
 
 def read_bounded(path, limit, *, tail=False):
@@ -189,13 +205,13 @@ class InboxView:
         return match.group(1)[:300] if match else None
 
     def arrivals(self):
-        paths = inventory(self.root)
+        paths = inventory(self.root, strict=False)
         groups = {}
         for path in paths:
             groups.setdefault(path.split('/')[1], []).append(path)
-        rows = []
+        rows, choices = [], arrival_choices.read(self.root)
         for name, members in sorted(groups.items()):
-            top = self.root / 'inbox' / name
+            top = inbox_dir(self.root) / name
             bundle = top.is_dir()
             receipt, receipt_error = self.receipt(top) if bundle else (None, None)
             # Same choice as the Obsidian plugin: the first readable document, else any non-receipt file.
@@ -228,6 +244,7 @@ class InboxView:
                 'request_id': receipt.get('id') if receipt else None,
                 'integrity': self.integrity(top, receipt) if receipt else None,
                 'receipt_error': receipt_error,
+                'choice': choices.get(name), 'local_only': arrival_choices.local_only(self.root, name, provenance if provenance else None),
                 'files': len(members), 'bytes': sizes, 'received_at': received})
         return rows
 
@@ -244,6 +261,61 @@ class InboxView:
         if not isinstance(value, dict) or any(not k.startswith('inbox/') or not isinstance(v, str) or not v for k, v in value.items()):
             raise ValueError('Invalid inbox filing reservations')
         return sorted(value)
+
+    def claim_holders(self):
+        read = read_bounded(self.root / '.reader/upkeep-claims.json', MAX_CLAIMS)
+        value = json.loads(read[0]) if read and not read[1] else {}
+        return value if isinstance(value, dict) else {}
+
+    def retained(self):
+        """(retained batch rows, frozen sources, journal) from a failed or paused run; a retry resumes exactly these."""
+        from .intake_journal import MAX_PLAN
+        runtime, plan, sources = self.safe_runtime(), None, set()
+        read = read_bounded(runtime / 'pending.json', MAX_PLAN)
+        if read and not read[1]:
+            plan = json.loads(read[0])
+        rows = []
+        for entry in (plan or {}).get('entries', []):
+            decision = entry.get('decision') or {}
+            sources.add(entry.get('source'))
+            state = ('moved' if entry.get('filed') else 'decided') if decision.get('disposition') == 'file' \
+                else 'deferred' if decision.get('disposition') == 'defer' else 'queued'
+            rows.append({'source': entry.get('source'), 'title': decision.get('title') or None,
+                         'destination': entry.get('destination') if decision.get('disposition') == 'file' else None, 'state': state})
+        queue = read_bounded(runtime / 'queue.json', MAX_PLAN)
+        if queue and not queue[1]:
+            for entry in json.loads(queue[0]).get('entries', []):
+                if isinstance(entry, dict) and entry.get('source') not in sources:
+                    sources.add(entry.get('source'))
+                    rows.append({'source': entry.get('source'), 'title': None, 'destination': None, 'state': 'queued'})
+        return rows[:200], sources, plan
+
+    def working_tree(self, plan):
+        """The pending work the next run commits first, or None when the vault is not a Git checkout."""
+        from . import intake
+        if not (self.root / '.git').exists():
+            return None
+        paths = intake.pending_work(self.root, plan)
+        return {'paths': paths[:500], 'count': len(paths)}
+
+    def eligibility(self, arrival, status, holders, frozen):
+        """Whether the next You got mail run will file this arrival, and if not, why. Mirrors the runner's own checks."""
+        def verdict(state, reason=None):
+            return {'state': state, 'reason': reason}
+        name = arrival['path']
+        if arrival['choice'] == 'hold':
+            return verdict('held', 'On hold: filing skips this until you release it.')
+        if arrival['receipt_error']:
+            return verdict('blocked', 'Its receipt can’t be used: ' + arrival['receipt_error'] + '. Redeliver it.')
+        if arrival['integrity'] == 'changed':
+            return verdict('blocked', 'Its files changed since delivery, so they no longer match the receipt. Redeliver it.')
+        if name in holders:
+            return verdict('waits', 'Assigned to ' + str(holders[name])[:200] + ' through an Upkeep claim; filing waits until it is released.')
+        if frozen and name not in frozen:
+            return verdict('waits', 'A retained batch from an earlier run files first; this one is filed by the run after it.')
+        if arrival['local_only'] and 'local' not in status['model_providers']:
+            return verdict('waits', 'Only the local model may read it, and the local model is not in the filing order.')
+        return verdict('eligible')
 
     def state(self):
         """Runner state as the supervisor wrote it, plus the plugin's liveness check (never written back)."""
@@ -265,6 +337,22 @@ class InboxView:
         if read is None or not read[0].strip():
             return None, False
         return read[0].decode('utf-8', 'replace'), read[1]
+
+    def model_providers(self, errors):
+        """Which providers in the order this machine could try. Names only: tailnet browsers see this too."""
+        try:
+            return model_chain.available(self.root, self.environ)
+        except (ValueError, OSError) as exc:
+            errors.append(str(exc))
+            return []
+
+    def model_chain_state(self):
+        """The current run's walk down the order, as the worker reports it; None before its first model call."""
+        try:
+            read = read_bounded(self.safe_runtime() / model_chain.STATE, 1024 ** 2)
+            return json.loads(read[0]) if read else None
+        except (ValueError, OSError):
+            return None
 
     def latest_event(self):
         """A short line from the newest agent message or command in events.jsonl, for progress."""
@@ -436,7 +524,13 @@ class InboxView:
         # Whether Codex is installed, never where: tailnet browsers see this answer too (#105).
         result = {'arrivals': [], 'runner': None, 'claims_held': [], 'codex': {'name': 'codex', 'installed': bool(find_codex(self.environ))},
                   'sandbox_modes': list(SANDBOX_MODES), 'errors': []}
+        result['pending'] = False
+        result['broken_delivery_keys'] = broken_delivery_keys()
+        result['model_providers'] = self.model_providers(result['errors'])
+        result['model_chain'] = self.model_chain_state()
         try:
+            for name in sweep(self.root):
+                result['errors'].append(f'inbox/{name} could not be moved in, because an arrival already has that name. Rename it.')
             result['arrivals'] = self.arrivals()
         except (ValueError, OSError) as exc:
             result['errors'].append(str(exc))
@@ -445,15 +539,22 @@ class InboxView:
         except (ValueError, OSError) as exc:
             result['errors'].append(f'Cannot read inbox coordination (upkeep-claims.json): {exc}')
         try:
+            result['pending'] = any((self.safe_runtime() / name).is_file() for name in ('pending.json', 'queue.json'))
             state = self.state()
         except (ValueError, OSError) as exc:
             state = None
             result['errors'].append(f'Cannot read inbox coordination (inbox-runner/state.json): {exc}')
         if state:
             runner = {k: state.get(k) for k in ('status', 'run_id', 'started_at', 'updated_at', 'finished_at', 'message',
-                                                 'arrivals', 'remaining', 'exit_code', 'sandbox_mode')}
-            runner['arrivals'] = len(state['arrivals']) if isinstance(state.get('arrivals'), list) else None
-            runner['remaining'] = len(state['remaining']) if isinstance(state.get('remaining'), list) else None
+                                                 'arrivals', 'remaining', 'exit_code', 'sandbox_mode', 'phase', 'progress')}
+            runner['arrivals'] = state.get('arrival_count', len(state['arrivals']) if isinstance(state.get('arrivals'), list) else None)
+            runner['remaining'] = state.get('remaining_count', len(state['remaining']) if isinstance(state.get('remaining'), list) else None)
+            summary = state.get('result')
+            if isinstance(summary, dict):
+                for field in ('filed', 'deferred'):
+                    count = summary.get(field + '_count')
+                    if type(count) is int and count >= 0:
+                        runner[field] = count
             if state['status'] in ACTIVE:
                 runner['event'] = self.latest_event()
             else:
@@ -465,13 +566,28 @@ class InboxView:
                 # Librarian reports link vault files by absolute path; show them vault-relative.
                 runner['report_md'] = report.replace('](' + str(self.root) + '/', '](').replace(str(self.root) + '/', '') if report else report
                 runner['report_truncated'] = truncated
-                runner['commit'] = self.commit(report) if state['status'] == 'finished' else None
+                committed = summary.get('commit') if isinstance(summary, dict) else None
+                commit_source = 'Commit ' + committed if isinstance(committed, str) and re.fullmatch('[0-9a-f]{40}', committed) else report
+                runner['commit'] = self.commit(commit_source) if state['status'] == 'finished' else None
             result['runner'] = shown(runner, self.root)
         try:
             result['chat_turn'] = chat_turn_running(self.root)
         except OSError as exc:
             result['chat_turn'] = False
             result['errors'].append(f'Cannot check the voice chat lock: {exc}')
+        result['retained'], frozen, plan = [], set(), None
+        result['pending_work'] = None
+        try:
+            result['retained'], frozen, plan = self.retained()
+            result['pending_work'] = self.working_tree(plan)
+        except (ValueError, OSError, KeyError, TypeError, AttributeError) as exc:
+            result['errors'].append(f'Cannot check what filing would commit: {exc}'[:2000])
+        try:
+            holders = self.claim_holders()
+        except (ValueError, OSError):
+            holders = {}
+        for arrival in result['arrivals']:
+            arrival['eligibility'] = self.eligibility(arrival, result, holders, frozen)
         result['blocked'] = self.blocked(result)
         return result
 
@@ -492,25 +608,33 @@ class InboxView:
         if status.get('chat_turn'):
             # The supervisor refuses too (inbox_runner.chat_turn_running); say so before spawning it.
             return {'reason': 'chat', 'message': 'A voice chat turn is running in this vault. You got mail can start when it finishes.'}
-        if not status['arrivals']:
+        if not status['arrivals'] and not status.get('pending'):
             return {'reason': 'empty', 'message': 'The inbox is empty.'}
-        if not (status.get('codex') or {}).get('installed'):
-            return {'reason': 'codex', 'message': CODEX_MISSING}
+        if not status.get('model_providers'):
+            return {'reason': 'model', 'message': NO_MODEL}
         return None
 
     # Actions ------------------------------------------------------------
 
-    def command(self, codex, run_id, sandbox_mode):
+    def choose(self, arrival, choice):
+        return arrival_choices.choose(self.root, arrival, choice)
+
+    def command(self, codex, run_id, sandbox_mode, only=()):
         argv = [self.python, '-m', 'reader_mcp.inbox_runner', '--root', str(self.root), '--codex', codex,
-                '--run-id', run_id, '--sandbox-mode', sandbox_mode]
+                '--run-id', run_id, '--sandbox-mode', 'read-only']
+        for arrival in only:
+            argv += ['--only', arrival]
         store = (self.environ.get('READER_WORKSTATION_LOCK_STORE') or '').strip()
         if store:
             argv += ['--workstation-lock-store', store]
         return argv
 
-    def start(self, sandbox_mode='workspace-write', wait=3.0):
+    def start(self, sandbox_mode='read-only', wait=3.0, arrivals=()):
         if sandbox_mode not in SANDBOX_MODES:
-            raise ValueError('Expected sandbox_mode workspace-write or danger-full-access')
+            raise ValueError('Unsupported inbox sandbox mode')
+        if not isinstance(arrivals, (list, tuple)) or len(arrivals) > 64:
+            raise ValueError('Expected at most 64 arrival IDs')
+        only = [str(UUID(arrival)) for arrival in arrivals]
         if sys.platform == 'win32':
             raise ValueError('The inbox runner currently requires macOS or Linux.')
         with self.lock:
@@ -518,11 +642,10 @@ class InboxView:
             if status['blocked']:
                 error = RunConflict if status['blocked']['reason'] == 'active' else ValueError
                 raise error(status['blocked']['message'])
-            codex = find_codex(self.environ)
-            if not codex:
-                raise ValueError(CODEX_MISSING)
+            # Absent Codex is not a refusal: the chain reports it and moves to the next provider.
+            codex = find_codex(self.environ) or 'codex'
             run_id = str(uuid4())
-            argv = self.command(codex, run_id, sandbox_mode)
+            argv = self.command(codex, run_id, sandbox_mode, only)
             # The supervisor imports the same reader_mcp package as this server, whatever its working directory.
             package_root = str(Path(__file__).resolve().parents[1])
             env = dict(os.environ, PYTHONPATH=os.pathsep.join(p for p in (package_root, os.environ.get('PYTHONPATH', '')) if p))

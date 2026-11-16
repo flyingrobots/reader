@@ -1,6 +1,7 @@
 /* A second Reader server on a vault whose art another server owns (#138): the Art studio shows the owner's commissions
    read-only and says why, Generate art answers 409 with that message, and the owner's jobs.json bytes never change.
    Synthetic fixture and fake voice only. */
+require('./jail_guard.cjs');
 const assert=require('node:assert/strict');
 const {spawn}=require('node:child_process');
 const {createInterface}=require('node:readline');

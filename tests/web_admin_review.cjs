@@ -2,6 +2,7 @@
    theme, against the synthetic fixture. Saves one full-page screenshot per section, profile and theme under
    READER_SHOTS/admin-review/, and fails on page errors, console errors or horizontal page overflow.
    Usage: node tests/web_admin_review.cjs [section …]   (default: every registered section). */
+require('./jail_guard.cjs');
 const assert=require('node:assert/strict');
 const {spawn}=require('node:child_process');
 const {createInterface}=require('node:readline');

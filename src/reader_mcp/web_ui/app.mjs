@@ -6,6 +6,7 @@ import {installLinks} from './links.mjs';
 import {mathPlugin,mathOptions} from './math.mjs';
 import {openPDF,pdfPage} from './pdf.mjs';
 import {embedPlugin,installEmbeds} from './embeds.mjs';
+import {portableLinkPlugin,portableEnvironment} from './portable-links.mjs';
 import {installBreadcrumbs} from './breadcrumbs.mjs';
 import {readingLogModel,withYou} from './reading-log.mjs';
 import {modalOpen} from './modal.mjs';
@@ -15,13 +16,14 @@ import {installSearch} from './search-page.mjs';
 import {installProseColors} from './prose-colors.mjs';
 import {installQueue} from './queue.mjs';
 import {libraryModel} from './dashboard.mjs';
-import {DEFAULT_EXCLUDED_TYPES,currentIssue,isoWeek,issueWindow,issueWeeks,selectIssue,mountMagazine} from './magazine.mjs';
+import {DEFAULT_EXCLUDED_TYPES,currentIssue,isoWeek,issueWindow,issueWeeks,selectIssue,issueModel,animateIssue} from './magazine.mjs';
 import {THEMES,oppositeTheme} from './themes.mjs';
 import {calloutPlugin} from './callouts.mjs';
 import {drawable,fetchShape,paintShape} from './shapes.mjs';
 import {artJobs,fetchArt,focusArt,forgetArt,hasArt,paintArt,paintArtThumb,paintPlaceholder} from './art.mjs';
 import {closeArtFocus,focusOpen} from './art-focus.mjs';
-import {renderCommandSuggestions,openScratchSave,closeAppDialogs,openAnnotationDialog,openSpeakMenu,openShellDialog,renderVersionsTimeline,renderLinkPreview,renderReadingLog,applyThemes,installControls,mountSkeleton,mountCodeBlocks,decorateCodeBlocks,clearControlsWithin,renderFileExplorer,mountArticleSpeech,mountSectionItems,mountSectionPage,mountAdmin,setAdminRoute,mountChangesPanel,mountArtRegenerate,notify as shellNotify,openChat,closeChat,chatOpen,trackSpeech,renderQueuePanel,mountCallouts,mountQuiz,mountWritingPrompt,mountScratchQuestion,startJob,promptCompanion,needsReader,NEEDS_READER,mountPromptCards} from './controls/reader-controls.js';
+import {mountDiagramZoom} from './diagram-zoom.mjs';
+import {renderHelpKeys,getStatus,setStatus,showCommandLine,renderNextReads,showPanel,hidePanel,renderCommandSuggestions,openScratchSave,closeAppDialogs,openAnnotationDialog,openSpeakMenu,openShellDialog,renderVersionsTimeline,renderLinkPreview,renderReadingLog,applyThemes,installControls,mountSkeleton,mountCodeBlocks,decorateCodeBlocks,clearControlsWithin,renderFileExplorer,mountArticleSpeech,mountMagazine,mountSectionPage,mountAdmin,setAdminRoute,mountChangesPanel,mountArtRegenerate,notify as shellNotify,openChat,closeChat,chatOpen,trackSpeech,renderQueuePanel,mountCallouts,mountQuiz,mountWritingPrompt,mountScratchQuestion,startJob,promptCompanion,needsReader,NEEDS_READER,mountPromptCards} from './controls/reader-controls.js';
 import {promptPlugin,promptMounts} from './prompt-blocks.mjs';
 import {installVersions,chipMarkup,historicalMarkup,splitRef,compareLabel} from './versions.mjs';
 import {installSplit,installPane,cleanRoute} from './split.mjs';
@@ -43,7 +45,7 @@ if(EMBEDDED)document.documentElement.classList.add('embedded-pane');
 let split=null,pane=null;
 /** Toasts from a pane appear in the shell's toaster. */
 function notify(message,type,options){if(pane){pane.post({type:'toast',message:String(message),kind:type,options:options&&{id:options.id,duration:options.duration}});return;}return shellNotify(message,type,options);}
-const defaults = {theme:'ink', participant:null, recent:20, atlas:true, activity:true, smooth:true, layout:'scroll', pace:220, zen:false, pageTurn:'curl', nextReads:true, backlinks:true, outline:true, inboxSandbox:'workspace-write', issueExclude:DEFAULT_EXCLUDED_TYPES.join(', '), proseColors:'clear', shapes:true, art:true, artHero:true, artBy:'', artAuto:'off'};
+const defaults = {theme:'ink', participant:null, recent:20, atlas:true, activity:true, smooth:true, layout:'scroll', pace:220, zen:false, pageTurn:'curl', nextReads:true, backlinks:true, outline:true, issueExclude:DEFAULT_EXCLUDED_TYPES.join(', '), proseColors:'clear', shapes:true, art:true, artHero:true, artBy:'', artAuto:'off', articleWidth:'standard'};
 // Route sentinels for views that are not documents (document routes are always library/ paths). Reader Admin's are
 // ':admin' and ':admin/<section>/…' (admin-routes.mjs); legacy #backstage opens its Overview.
 const SEARCH=':search',SCRATCH=':scratch';  // A scratch buffer: ':scratch' (the latest draft) or ':scratch=<id>'.
@@ -70,27 +72,40 @@ function passageFromHash(){
   catch{return null;}
 }
 let reading,controls,links,outline,speech,versions,search,prose,queue,scratch,quiz,writingPrompts,keys,visual,registers,quickfix,marks,jumps,panels;
+// Choose the layout preference for this window when it opens. Resizing still reflows the current layout.
+let mobileLayout = matchMedia('(max-width: 899px)').matches;
+if(EMBEDDED){try{mobileLayout=window.parent.matchMedia('(max-width: 899px)').matches;}catch{}}
+const layoutPreferences = prefs => ({...prefs,layout:(mobileLayout?prefs.mobileLayout:prefs.layout)||'scroll'});
 let saved = {};
 try { saved = JSON.parse(localStorage.getItem('reader.preferences.v1') || '{}'); } catch {}
-const state = {prefs:{...defaults,...saved}, data:null, doc:null, threads:[], attention:[], token:null, routeId:0, pdf:null, smoother:null, find:[], findIndex:-1, selected:null, activeThread:null, replyTo:null, visits:[null], cursor:0, ranges:[], leader:null,themeEditorOpen:false,view:null};
+const state = {prefs:{...defaults,...layoutPreferences(saved)}, data:null, doc:null, threads:[], attention:[], token:null, routeId:0, pdf:null, smoother:null, find:[], findIndex:-1, findQuery:'', findCount:'0 / 0', selected:null, activeThread:null, replyTo:null, visits:[null], cursor:0, ranges:[], leader:null,themeEditorOpen:false,view:null};
 const fetchRequest=createTokenFetch({getToken:()=>state.token,setToken:token=>{state.token=token;}});
 // Custom theme CSS is cached so a saved custom theme paints before /api/themes answers.
 let themeCache={css:'',links:[],ids:[]};
-try{const cached=JSON.parse(localStorage.getItem('reader.themes.v1')||'null');if(cached&&typeof cached.css==='string'&&Array.isArray(cached.ids)&&Array.isArray(cached.links))themeCache=cached;}catch{}
+try{const cached=JSON.parse(localStorage.getItem('reader.themes.v2')||'null');if(cached&&typeof cached.css==='string'&&Array.isArray(cached.ids)&&Array.isArray(cached.links))themeCache=cached;}catch{}
 if(themeCache.css){const style=document.createElement('style');style.id='reader-user-themes';style.textContent=themeCache.css;document.head.append(style);for(const href of themeCache.links){if(!/^\/fonts\/[a-z0-9-]+\/font\.css$/.test(href))continue;const link=document.createElement('link');link.rel='stylesheet';link.href=href;link.dataset.themeFont='';document.head.append(link);}}
 const knownTheme=theme=>THEMES.includes(theme)||themeCache.ids.includes(theme);
 const previewTheme=new URLSearchParams(location.search).get('theme');
 if(knownTheme(previewTheme))state.prefs.theme=previewTheme;
 if(!knownTheme(state.prefs.theme))state.prefs.theme='ink';
 document.documentElement.dataset.theme=state.prefs.theme;
+/** Continuous reading's article width (style.css); two-page reading ignores it. */
+const ARTICLE_WIDTHS={narrow:['640px'],wide:['960px','1070px'],wider:['1200px','1310px'],full:['none','none']};
+function applyArticleWidth(){
+  const value=String(state.prefs.articleWidth),root=document.documentElement,px=/^\d+$/.test(value)?Number(value):0;
+  root.dataset.articleWidth=px?'custom':value;
+  const preset=ARTICLE_WIDTHS[value],article=px?px+'px':preset?.[0],shell=px?Math.max(980,px+110)+'px':preset?.[1];
+  for(const [name,size] of [['--article-width',article],['--article-shell',shell]]){if(size)root.style.setProperty(name,size);else root.style.removeProperty(name);}
+}
+applyArticleWidth();
 // The browser chrome (and the installed app's status bar) follows the theme's page colour.
-const syncThemeColor=()=>{const meta=document.querySelector('meta[name=theme-color]'),bg=getComputedStyle(document.documentElement).getPropertyValue('--bg').trim();if(meta&&bg)meta.content=bg;};
+const syncThemeColor=()=>{const meta=document.querySelector('meta[name=theme-color]'),bg=getComputedStyle(document.documentElement).getPropertyValue('--background').trim();if(meta&&bg)meta.content=bg;};
 new MutationObserver(syncThemeColor).observe(document.documentElement,{attributes:true,attributeFilter:['data-theme']});addEventListener('load',syncThemeColor,{once:true});
 const reduced = matchMedia('(prefers-reduced-motion: reduce)');
 // Callouts register before the source-map wrapper below, so their asides receive the blockquote's map.
 // reader:prompt blocks (RW-44) are found from these tokens before sanitizing; see prompt-blocks.mjs.
-const md = window.markdownit({html:true, linkify:true, breaks:false}).use(mathPlugin).use(calloutPlugin).use(embedPlugin).use(promptPlugin);
-for (const type of ['paragraph_open','heading_open','blockquote_open','bullet_list_open','ordered_list_open','math_block','fence']) {
+const md = window.markdownit({html:true, linkify:true, breaks:false}).use(mathPlugin).use(calloutPlugin).use(embedPlugin).use(promptPlugin).use(portableLinkPlugin);
+for (const type of ['paragraph_open','heading_open','blockquote_open','bullet_list_open','ordered_list_open','math_block','fence','table_open']) {
   const original = md.renderer.rules[type];
   md.renderer.rules[type] = (tokens, index, options, env, self) => {
     const token = tokens[index];
@@ -100,8 +115,9 @@ for (const type of ['paragraph_open','heading_open','blockquote_open','bullet_li
       const offset = env.offset || 0;
       const begin = offset + env.lineOffsets[token.map[0]];
       const end = offset + env.lineOffsets[token.map[1]];
-      token.attrSet('data-source-start', env.codePoint(begin));
-      token.attrSet('data-source-end', env.codePoint(Math.min(end, env.full.length)));
+      // A table is a place to keep, not a passage to annotate, so it stays out of the source-range lookups.
+      if(type==='table_open')token.attrSet('data-place-start', env.codePoint(begin));
+      else{token.attrSet('data-source-start', env.codePoint(begin));token.attrSet('data-source-end', env.codePoint(Math.min(end, env.full.length)));}
     }
     return original ? original(tokens, index, options, env, self) : self.renderToken(tokens, index, options);
   };
@@ -129,11 +145,12 @@ function reachable() {
   notify(unsaved ? 'Reader is reachable again. Redo your last change if it’s missing.' : 'Reader is reachable again.', 'success', {id:OFFLINE_TOAST, duration:6000});
 }
 async function api(path, payload, extra={}) {
-  const options = payload ? {method:'POST', headers:{'Content-Type':'application/json','X-Reader-Token':state.token}, body:JSON.stringify(payload)} : {};
+  const {contentType,...sent}=extra;
+  const options = payload ? {method:'POST', headers:{'Content-Type':contentType||'application/json','X-Reader-Token':state.token}, body:contentType?null:JSON.stringify(payload)} : {};
   let response;
-  try { response = await fetchRequest(path, {...options,...extra});
+  try { response = await fetchRequest(path, {...options,...sent});
     // Several panes load at once; a busy server's 429 on a read is retried once.
-    if (EMBEDDED && !payload && response.status === 429) { await new Promise(resolve => setTimeout(resolve, 400)); response = await fetchRequest(path, {...options,...extra}); } }
+    if (EMBEDDED && !payload && response.status === 429) { await new Promise(resolve => setTimeout(resolve, 400)); response = await fetchRequest(path, {...options,...sent}); } }
   catch (cause) {
     if (cause?.name === 'AbortError') throw cause;
     unreachable(!!payload);
@@ -242,10 +259,19 @@ async function loadLibrary() {
   const profile = state.prefs.participant ? '?participant=' + param(state.prefs.participant) : '';
   const data = await api('/api/library' + profile);
   state.data = localizeLibrary(data); state.token = data.token; state.prefs.participant = data.participant;
-  if(!$('#picker').hidden)updateExplorer();
+  if($('#picker'))updateExplorer();
   return data;
 }
-function savePrefs() { const url=new URL(location.href);if(url.searchParams.has('theme') && url.searchParams.get('theme')!==state.prefs.theme){url.searchParams.delete('theme');history.replaceState(history.state,'',url);}try { localStorage.setItem('reader.preferences.v1', JSON.stringify(state.prefs)); } catch {} if(split?.active())split.broadcast({type:'prefs-changed'}); }
+function savePrefs() {
+  const url=new URL(location.href);if(url.searchParams.has('theme') && url.searchParams.get('theme')!==state.prefs.theme){url.searchParams.delete('theme');history.replaceState(history.state,'',url);}
+  try {
+    const stored=JSON.parse(localStorage.getItem('reader.preferences.v1')||'{}');
+    localStorage.setItem('reader.preferences.v1',JSON.stringify({...state.prefs,
+      layout:mobileLayout?(stored.layout||'scroll'):state.prefs.layout,
+      mobileLayout:mobileLayout?state.prefs.layout:stored.mobileLayout}));
+  } catch {}
+  if(split?.active())split.broadcast({type:'prefs-changed'});
+}
 function issueOptions(){return {today:state.data.today,exclude:state.prefs.issueExclude};}
 async function renderHome(path=null,id=state.routeId) {
   state.issuePath=path;
@@ -260,14 +286,10 @@ async function renderHome(path=null,id=state.routeId) {
   state.issue=issue;
   const artwork=await issueArt(issue);if(id!==state.routeId)return;
   clearControlsWithin($('#main'));
-  state.magazine=mountMagazine({root:$('#main'),issue,weeks:issueWeeks(works,{exclude:options.exclude,through:isoWeek(state.data.today).end}),signals,prefs:state.prefs,api,wireDocumentLinks,openIssue,motion:()=>!reduced.matches,art:artwork,artMake:state.prefs.art!==false&&!!artProducer()});
-  const sections=$('#issue-sections');if(sections)mountSectionItems(sections,sectionsForIssue(issue,works));
+  const model=issueModel({issue,weeks:issueWeeks(works,{exclude:options.exclude,through:isoWeek(state.data.today).end}),signals,prefs:state.prefs,art:artwork,artMake:state.prefs.art!==false&&!!artProducer(),sections:sectionsForIssue(issue,works)});
+  state.magazine=mountMagazine($('#main'),model,{api,openIssue,wire:wireDocumentLinks,queue:path=>queue.add(path),makeArt:commissionArt,admin:()=>openAdmin('library'),writing:needsReader()?null:()=>api('/api/writing?participant='+param(state.prefs.participant)).then(data=>(data.pieces||[]).slice(0,10).map(piece=>({path:piece.path,title:piece.title,date:formatDate(piece.date)})))});
+  if(!reduced.matches)animateIssue($('#main'));
   prose?.attach($('#main'),{kind:'issue',issue:issue.id});  // Space c colors the issue's standfirsts and note.
-  $('#main').querySelectorAll('.issue [data-art-generate]').forEach(button=>{if(needsReader('art')){localOnly(button);return;}
-    button.onclick=event=>{event.preventDefault();button.disabled=true;button.textContent='Making art…';commissionArt(button.dataset.artGenerate);};});
-  $('#issue-backstage').onclick=()=>openAdmin('library');
-  $('#main').querySelectorAll('.issue [data-queue-add]').forEach(button=>{if(needsReader()){localOnly(button);return;}button.onclick=event=>{event.preventDefault();queue.add(button.dataset.queueAdd);};});
-  if(!needsReader())api('/api/writing?participant='+param(state.prefs.participant)).then(data=>{if(id!==state.routeId||!data.pieces?.length)return;const section=document.createElement('section');section.className='your-writing';section.dataset.readerDecoration='';section.innerHTML='<h2>Your writing</h2><ul>'+data.pieces.slice(0,10).map(piece=>`<li><a href="#read=${param(piece.path)}" data-path="${esc(piece.path)}">${esc(piece.title)}</a><time>${esc(formatDate(piece.date))}</time></li>`).join('')+'</ul>';$('#main').append(section);wireDocumentLinks(section);}).catch(error=>console.warn('Your writing',error));
   resetScroll();reading?.updateStatus();
   paintIssueArt(artwork,id).catch(error=>console.warn('Article art',error));
   autoCommission(issue,artwork);
@@ -322,7 +344,6 @@ function autoCommission(issue,found){
 /** No producer for art: Reader Admin's Voices page, which lists the agent command lines Reader found. */
 async function openArtSetup(){await openAdmin('voices');}
 /** The static web demo (#107): a control that needs a running Reader, disabled with the reason as its tooltip. */
-function localOnly(button){button.disabled=true;button.title=NEEDS_READER;button.dataset.needsReader='';button.onclick=null;}
 async function commissionArt(path){
   const producer=artProducer();
   if(needsReader('art')){notify('Making art needs Reader on your computer.','info',{description:'This web demo has no server. Run Reader locally: reader demo has a scripted voice that answers art commissions.'});return;}
@@ -358,7 +379,7 @@ async function toggleArt(){
 /** Change the article above the reader's place, keeping the first visible block in view in two-page reading. */
 function keepPlace(change){
   const mark=reading?.hasBook()?reading.capture():null;change();refreshScroll();positionPins();
-  const block=mark?.source_offset!=null&&$(`#article [data-source-start="${mark.source_offset}"]`);
+  const block=mark?.source_offset!=null&&$(`#article [data-source-start="${mark.source_offset}"],#article [data-place-start="${mark.source_offset}"]`);
   if(block){const range=document.createRange();range.selectNode(block);reading.reveal(range,false);}
 }
 function removeArticleArt(figure){
@@ -477,13 +498,15 @@ const library={
   tooltip:(event,title,detail)=>showChartTooltip(event,title,detail),hideTooltip:()=>hideChartTooltip(),
 };
 function showChartTooltip(event,title,detail='') {
-  const tip=$('#chart-tooltip'); tip.replaceChildren();
+  const tip=floatingTip('chart-tooltip'); tip.replaceChildren();
   const strong=document.createElement('strong');strong.textContent=title;tip.append(strong,document.createTextNode(detail));
   const rect=event.currentTarget.getBoundingClientRect();
   tip.style.left=Math.min(innerWidth-310,Math.max(12,event.clientX || rect.x+rect.width/2))+12+'px';
   tip.style.top=Math.min(innerHeight-100,(event.clientY || rect.y)+15)+'px';tip.classList.add('visible');
 }
-function hideChartTooltip(){ $('#chart-tooltip').classList.remove('visible'); }
+/** Hover tips exist from their first use. */
+function floatingTip(id){let tip=document.getElementById(id);if(!tip){tip=document.createElement('div');tip.id=id;tip.className=id;if(id==='chart-tooltip')tip.setAttribute('role','status');document.body.append(tip);}return tip;}
+function hideChartTooltip(){ floatingTip('chart-tooltip').classList.remove('visible'); }
 function wireDocumentLinks(root) {
   root.querySelectorAll('[data-path]').forEach(el=>{
     const open=()=>navigate(el.dataset.path,{thread:el.dataset.threadLink});
@@ -496,7 +519,7 @@ function wireDocumentLinks(root) {
 function closeContext() {
   quiz?.close();writingPrompts?.close();
   if(visual?.active())visual.exit();panels?.close(false);keys?.closeLine(false);
-  closeChat();links?.hide();hideChartTooltip();$('#passage-tooltip').classList.remove('visible');$('#selection-tools').hidden=true;$('#thread-panel').hidden=true;$('#find-bar').hidden=true;versions?.close();
+  closeChat();links?.hide();hideChartTooltip();floatingTip('passage-tooltip').classList.remove('visible');hidePanel('selection-tools');closeThreadPanel();hidePanel('find-bar');versions?.close();
   closeAppDialogs();
   queue?.close(false);state.smoother?.paused(false);
 }
@@ -548,7 +571,7 @@ async function navigate(path,{thread=null,fragment='',record=true,commit=null,at
     // take longer than rendering the whole document. A timeline that is already here joins the first
     // layout; otherwise the chip and status twin fill in after the reading position is restored (placeLateChip).
     // Inbox arrivals are unfiled previews: they have no versions or read receipt to compare.
-    const preview=path.startsWith('inbox/');
+    const preview=path.startsWith('inbox/')||path.startsWith('private/');
     // An article with art opens on it (#145): its art is asked for alongside the document, so the hero costs no extra wait.
     if(heroWanted()&&!atCommit&&!preview&&TEXTUAL.test(path))fetchArt(api,path).catch(()=>{});
     let editions=LATE;
@@ -564,14 +587,24 @@ async function navigate(path,{thread=null,fragment='',record=true,commit=null,at
     const title=doc.metadata.title || known?.title || doc.title;
     clearControlsWithin($('#main'));
     const chip=doc.preview?'':chipMarkup(state.versions,doc,param);
-    $('#main').innerHTML=`<div class="document-shell resume-pending${historical?' historical':''}"><div class="eyebrow document-kicker">${esc(doc.preview?'Inbox preview · not yet filed':known?.projects?.[0] || 'From the library')}</div><h1 class="document-title">${esc(title)}</h1><div class="document-meta">${author?`<span class="by">${esc(author)}</span>`:''}${doc.metadata.created||doc.metadata.added?`<span>${formatDate(doc.metadata.created||doc.metadata.added)}</span>`:''}${doc.metadata.document_revision&&!chip?`<span class="document-edition">Edition ${esc(doc.metadata.document_revision)}</span>`:''}${historical?'':`<a class="document-source" data-button="outline sm" href="${esc(doc.file_url)}" target="_blank" rel="noopener noreferrer" title="Open the raw source file · Space u">Source</a>`}</div><div id="article-speech" class="article-speech" data-reader-decoration></div>${historical?historicalMarkup(doc,param):chip}${changeMarkup(changes)}<div class="reading-log" data-reader-decoration aria-live="polite"></div><article id="article" class="article"></article><footer class="document-footer">${esc(path)}${historical?` @ ${esc(doc.short)}<br>Historical text from the vault’s git history · <a href="${esc('#read='+param(path))}" data-path="${esc(path)}">Open the current file</a>`:`<br>Original source preserved · <a href="${esc(doc.file_url)}" target="_blank" rel="noopener noreferrer">Open original</a>${/^library\/notebook\/[^/]+\.md$/.test(path)&&doc.text!==null?' <button type="button" id="edit-scratch" data-button="outline sm" title="Open this piece in the scratch pad; saving writes a new version">Edit in scratch</button>':''}`}</footer></div>`;
+    $('#main').innerHTML=`<div class="document-shell resume-pending${historical?' historical':''}"><div class="eyebrow document-kicker">${esc(doc.private?'Encrypted · this machine only':doc.preview?'Inbox preview · not yet filed':known?.projects?.[0] || 'From the library')}</div><h1 class="document-title">${esc(title)}</h1><div class="document-meta">${author?`<span class="by">${esc(author)}</span>`:''}${doc.metadata.created||doc.metadata.added?`<span>${formatDate(doc.metadata.created||doc.metadata.added)}</span>`:''}${doc.metadata.document_revision&&!chip?`<span class="document-edition">Edition ${esc(doc.metadata.document_revision)}</span>`:''}<div id="article-speech" class="article-speech" data-reader-decoration></div>${historical?'':`<a class="document-source" data-button="outline sm" href="${esc(doc.file_url)}" target="_blank" rel="noopener noreferrer" title="Open the raw source file · Space u">Source</a>${doc.text!==null?'<button type="button" class="document-copy" data-button="outline sm" aria-label="Copy raw source" title="Copy the raw source to the clipboard"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8" y="8" width="14" height="14" rx="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg></button>':''}`}${historical?'':chip}</div><div class="reading-log" data-reader-decoration aria-live="polite"></div>${historical?historicalMarkup(doc,param):''}${changeMarkup(changes)}<article id="article" class="article"></article><footer class="document-footer">${esc(path)}${historical?` @ ${esc(doc.short)}\nHistorical text from the vault’s git history · <a href="${esc('#read='+param(path))}" data-path="${esc(path)}">Open the current file</a>`:`\nOriginal source preserved · <a href="${esc(doc.file_url)}" target="_blank" rel="noopener noreferrer">Open original</a>${/^library\/notebook\/[^/]+\.md$/.test(path)&&doc.text!==null?' <button type="button" id="edit-scratch" data-button="outline sm" title="Open this piece in the scratch pad; saving writes a new version">Edit in scratch</button>':''}`}</footer></div>`;
     // A historical view keeps the reading log of the current file (it never adds you: nothing is marked read).
-    const article=$('#article');$('#edit-scratch')?.addEventListener('click',()=>scratch.editSaved(doc,bodyOf(doc.text).text.replace(/^\r?\n/,'')));if(doc.preview){$('.reading-log')?.remove();$('#speak-article')?.remove();}else loadReadingLog(doc,id);
+    if(doc.private_files?.length>1)$('.document-meta').insertAdjacentHTML('afterend',`<nav class="document-meta" data-private-files aria-label="Files in this document">${doc.private_files.map(file=>`<a href="#read=${esc(file.path)}"${file.current?' aria-current="page"':''}>${esc(file.name)}</a>`).join('')}</nav>`);
+    const article=$('#article');$('.document-copy')?.addEventListener('click',()=>copySource(doc));$('#edit-scratch')?.addEventListener('click',()=>scratch.editSaved(doc,bodyOf(doc.text).text.replace(/^\r?\n/,'')));if(doc.preview){$('.reading-log')?.remove();$('#speak-article')?.remove();}else loadReadingLog(doc,id);
     if(doc.kind==='.md' || doc.kind==='.markdown'){
       await renderMarkdown(article,doc.text,path,0,{defer:true,prompts:promptContext(doc)});
     } else if(doc.kind==='.pdf') {
       const controller=await openPDF(article,doc.file_url);if(id!==state.routeId){await controller.destroy();return;}state.pdf=controller;
-    } else if(doc.text===null){article.innerHTML=`<img class="document-image" src="${esc(doc.file_url)}" alt="${esc(title)}">`;}
+    } else if(doc.preview_url){
+      const frame=document.createElement('iframe');frame.className='document-attachment';frame.title=title;
+      frame.setAttribute('sandbox','allow-scripts');frame.referrerPolicy='no-referrer';frame.src=doc.preview_url+(fragment?'#'+param(fragment):'');
+      const download=document.createElement('a');download.href=doc.file_url+'&download=1';download.textContent='Download original HTML';download.download='';download.dataset.readerDownload='';
+      const note=document.createElement('p');note.textContent='Interactive preview · network features and browser storage are unavailable. ';note.append(download);
+      article.append(note,frame);
+    } else if(doc.text===null){
+      if(/\.(png|jpe?g|gif|webp|svg|avif|bmp|ico)$/i.test(doc.kind))article.innerHTML=`<img class="document-image" src="${esc(doc.file_url)}" alt="${esc(title)}">`;
+      else article.innerHTML=`<p>This attachment is available as a file.</p><a href="${esc(doc.file_url)}&amp;download=1" download data-reader-download>Download attachment</a>`;
+    }
     else {const pre=document.createElement('pre');pre.textContent=doc.text;article.append(pre);}
     const speechSlot=$('#article-speech');if(!historical&&!doc.preview&&(doc.text!==null||doc.kind==='.pdf'))mountArticleSpeech(speechSlot,{path:doc.path,sourceSha:doc.sha256,onRead:()=>speech.send('article')});else speechSlot?.remove();
     if(doc.text!==null){
@@ -582,7 +615,7 @@ async function navigate(path,{thread=null,fragment='',record=true,commit=null,at
       if(heading!==placeholder)placeholder.remove();else heading.dataset.readerDecoration='';
       const kicker=$('.document-kicker'),meta=$('.document-meta');
       kicker.dataset.readerDecoration='';meta.dataset.readerDecoration='';
-      article.prepend(kicker,heading,meta,...(speechSlot?.isConnected?[speechSlot]:[]),$('.reading-log'),...$('#main').querySelectorAll('.document-shell>.version-line,.document-shell>.historical-banner,.document-shell>.change-banner'));
+      article.prepend(kicker,heading,meta,$('.reading-log'),...$('#main').querySelectorAll('.document-shell>.historical-banner,.document-shell>.change-banner'));
     }
     if(id!==state.routeId)return;
     // Show shape is on for this session: reserve the figure before the reading position is restored.
@@ -615,7 +648,7 @@ async function navigate(path,{thread=null,fragment='',record=true,commit=null,at
     if(fragment)showHeading(article,fragment);
     if(at)await secondary('Passage',()=>revealPassage(at));
     if(thread)openThread(thread);
-    if(!$('#picker').hidden)updateExplorer();
+    if($('#picker'))updateExplorer();
     settleFocus();
     // Historical versions are read-only views of the past: no Read next or Linked from for them.
     if(!historical){placeQuizControl();showNextReads(path,id).catch(error=>console.warn('Read next',error));links?.backlinks(path,id)?.catch(error=>console.warn('Linked from',error));}
@@ -631,8 +664,8 @@ async function markRead(doc,path,title,author){
     state.data.recent=[{...(work||{}),title,primary:path,authors:author?[author]:[],read:true,read_at:new Date().toISOString()},...state.data.recent.filter(w=>w.primary!==path)].slice(0,50);
 }
 const LATE=Symbol('late');
-/** A version timeline that arrived after first render: fill the status twin, then put the chip line where the
- *  first layout would have (after the reading log), keeping the reader on the same block as drawLate() does. */
+/** A version timeline that arrived after first render: fill the status twin, then put the chip where the first
+ *  layout would have (at the end of the title's row of controls), keeping the reader on the same block as drawLate() does. */
 function placeLateChip(late,doc,id){
   if(id!==state.routeId||state.doc!==doc||!late)return;
   state.editions=state.versions=late;versions.update();
@@ -640,9 +673,9 @@ function placeLateChip(late,doc,id){
   const template=document.createElement('template');template.innerHTML=markup;const line=template.content.firstElementChild;
   versions.wire(template.content);wireDocumentLinks(line);
   for(const button of line.querySelectorAll('[data-compare]'))button.addEventListener('click',()=>openChanges(button.dataset.compare,button.dataset.against));
-  const anchor=$('#article > .reading-log')||$('#main .document-meta');if(!anchor)return;
+  const meta=$('#main .document-meta');if(!meta)return;
   const place=readingPlace();
-  anchor.after(line);$('#main .document-meta .document-edition')?.remove();refreshScroll();
+  meta.append(line);meta.querySelector('.document-edition')?.remove();refreshScroll();
   if(!place?.block.isConnected)return;
   if(reading?.geometry()){const range=document.createRange();range.selectNodeContents(place.block);reading.reveal(range,false);}
   else{const shift=place.block.getBoundingClientRect().top-place.top;if(Math.abs(shift)>1)scrollTo(0,scrollY+shift);}
@@ -730,6 +763,13 @@ async function renderMarkdown(container,raw,path,depth,{defer=false,range=null,c
   // embed's placeholder never grants a source coordinate to the embedded document's blocks.
   // Only the article itself (`prompts` given) turns prompt blocks into cards; embeds, chat and scratch keep plain code.
   const env={raw:source.text,full:raw,offset:source.offset,embeds:true,...mathOptions(raw),...(prompts?{prompts:{}}:{})};
+  if(/file:/i.test(source.text)&&/^library\/.+\.(md|markdown)$/i.test(path)){
+    try{
+      const bytes=new TextEncoder().encode(raw),hash=await crypto.subtle.digest('SHA-256',bytes);
+      const sha=[...new Uint8Array(hash)].map(n=>n.toString(16).padStart(2,'0')).join('');
+      env.portableLinks=await portableEnvironment(md,source.text,await api('/api/portable-links?path='+param(path)+'&sha256='+sha),{mathDollar:env.mathDollar});
+    }catch(error){console.warn('Local link repairs unavailable',error);}
+  }
   const rendered=md.render(source.text,env);
   const clean=DOMPurify.sanitize(rendered,{USE_PROFILES:{html:true},FORBID_TAGS:['style','form','input','button','textarea','select','iframe'],FORBID_ATTR:['style','srcset']});
   const template=document.createElement('template');template.innerHTML=clean;
@@ -741,7 +781,7 @@ async function renderMarkdown(container,raw,path,depth,{defer=false,range=null,c
   }
   // Markdown percent-encodes a destination (`my%20pic.png`); an embed's image target is written as is.
   const located=await resolveMany(path,images.map(image=>image.hasAttribute('data-embed-image')?image.getAttribute('src'):decode(image.getAttribute('src') || '')));
-  images.forEach((image,index)=>{const resolved=located[index];if(resolved?.path)image.src='/api/file?path='+param(resolved.path);else{image.removeAttribute('src');image.alt=(image.alt || 'Image')+' (unavailable)';}});
+  images.forEach((image,index)=>{const resolved=located[index];if(resolved?.path)image.src='/api/file?path='+param(resolved.path)+(resolved.fragment?'#'+resolved.fragment:'');else{image.removeAttribute('src');image.alt=(image.alt || 'Image')+' (unavailable)';}});
   clearControlsWithin(container);container.replaceChildren(template.content);slugHeadings(container);
   if(prompts&&env.prompts.blocks?.length)mountPromptCards(promptMounts(container,env.prompts),prompts);
   prepareDiagrams(container);
@@ -798,7 +838,7 @@ function nearReader(){
 /** Typeset formulas replace their TeX text, so anchors painted over it are drawn again from the new text. */
 function mathLanded(){
   if(state.ranges.length||state.threads.length||state.embedThreads?.size)paintAnnotations();
-  if(!state.pdf&&!$('#find-bar').hidden&&$('#find-query').value){const index=state.findIndex;updateFind().then(()=>{if(index>0&&state.find.length){state.findIndex=Math.min(index,state.find.length-1);showFind(false);}});}
+  if(!state.pdf&&$('#find-bar')&&state.findQuery){const index=state.findIndex;updateFind().then(()=>{if(index>0&&state.find.length){state.findIndex=Math.min(index,state.find.length-1);showFind(false);}});}
 }
 /** The first source block in view, and its offset from the top of the window. */
 function readingPlace(){
@@ -839,12 +879,12 @@ async function drawDiagrams(container){
 function openDiagram(canvas){
   const svg=canvas.querySelector(':scope > svg');if(!svg)return;
   const copy=svg.cloneNode(true),width=+svg.getAttribute('width')||svg.getBoundingClientRect().width,height=+svg.getAttribute('height')||svg.getBoundingClientRect().height;
-  // Full size, or larger when the natural size is small, up to three times.
-  const scale=Math.max(1,Math.min(3,(innerWidth*.9-48)/width,(innerHeight*.82-90)/height));
-  copy.style.width=Math.round(width*scale)+'px';copy.style.maxWidth='none';copy.style.height='auto';copy.removeAttribute('aria-hidden');copy.setAttribute('role','img');copy.setAttribute('aria-label',canvas.getAttribute('aria-label')||'Diagram');
+  copy.removeAttribute('aria-hidden');copy.setAttribute('role','img');copy.setAttribute('aria-label',canvas.getAttribute('aria-label')||'Diagram');
   state.smoother?.paused(true);
-  openShellDialog({id:'diagram-dialog',title:'Diagram',closeLabel:'Close diagram',className:'w-[min(96vw,1400px)] max-w-none p-5 sm:max-w-none',
-    bodyId:'diagram-body',bodyClassName:'max-h-[calc(85vh-80px)] bg-background p-3 [&>svg]:mx-auto [&>svg]:block',fill:body=>body.replaceChildren(copy),focusBody:true,onClosed:dialogClosed});
+  // The dialog's box, less its padding and the zoom bar.
+  const room=()=>({width:Math.min(innerWidth*.96,1400)-64,height:innerHeight*.85-120});let stopZoom=()=>{};
+  openShellDialog({id:'diagram-dialog',title:'Diagram',closeLabel:'Close diagram',className:'sm:max-w-none',
+    bodyId:'diagram-body',bodyClassName:'bg-background p-3',fill:body=>{stopZoom=mountDiagramZoom(body,copy,width,height,room);},focusBody:true,onClosed:()=>{stopZoom();dialogClosed();}});
 }
 /** After an app dialog has closed: reading resumes, and a split view takes the focus back. */
 function dialogClosed(){
@@ -876,9 +916,11 @@ function showHeading(root,id){
   return true;
 }
 function wireArticleLinks(root,path){
-  root.querySelectorAll('a').forEach(link=>link.addEventListener('click',async event=>{
+  root.querySelectorAll('a:not([data-reader-download])').forEach(link=>link.addEventListener('click',async event=>{
     // Each document wires its own links (an embed's resolve from the embedded file); embed headers open their source.
     if(scopeOf(link)!==scopeOf(root)||link.closest('[data-embed-open]'))return;
+    // The header is prepended into the article, but its links (Source) are UI, not document links.
+    if(link.closest('.document-meta'))return;
     const href=link.getAttribute('href');if(!href)return;
     if(href.startsWith('#')){event.preventDefault();const heading=decode(href.slice(1));if(showHeading(root,heading)&&root.id==='article')history.replaceState(history.state,'',routeHash(path,null,heading));return;}
     if(/^(https?:|mailto:)/i.test(href)){link.target='_blank';link.rel='noopener noreferrer';return;}
@@ -927,10 +969,10 @@ async function showNextReads(path,id){
   if(id!==state.routeId||state.doc?.path!==path||!items.length&&!queued||$('#main .next-reads'))return;
   const aside=document.createElement('aside');aside.className='next-reads';aside.dataset.readerDecoration='';aside.dataset.endOrder='2';
   if(items.length)aside.setAttribute('aria-labelledby','next-reads-title');else aside.setAttribute('aria-label','Next in your queue');
-  const byline=w=>esc([w.authors?.join(' · '),w.date?formatDate(w.date):''].filter(Boolean).join(' · ')||'Unspecified author');
+  const byline=w=>[w.authors?.join(' · '),w.date?formatDate(w.date):''].filter(Boolean).join(' · ')||'Unspecified author';
   // When the queue has something, it leads: the next track before the recommendations.
-  const lead=queued?`<a class="next-read next-in-queue" href="${esc('#read='+param(queued.path))}" data-path="${esc(queued.path)}"><span class="next-in-queue-label">Next in your queue →</span><span class="next-read-title">${esc(queued.title)}${!queued.read?'<span class="unread-pip" title="Unread edition" aria-label="Unread edition"></span>':''}</span><span class="next-read-byline">${byline(queued)}</span><span class="next-read-keys"><kbd>Space</kbd> <kbd>n</kbd></span></a>`:'';
-  aside.innerHTML=lead+(items.length?`<div class="eyebrow" id="next-reads-title">Read next</div><ol>${items.map(w=>`<li><a class="next-read" href="${esc('#read='+param(w.primary))}" data-path="${esc(w.primary)}"><span class="next-read-title">${esc(w.title)}${!w.read?'<span class="unread-pip" title="Unread edition" aria-label="Unread edition"></span>':''}</span><span class="next-read-byline">${byline(w)}</span><span class="next-read-reasons">${w.reasons.map(r=>`<span>${esc(r)}</span>`).join('')}</span></a><button type="button" data-button="ghost xs" class="next-read-queue" data-queue-add="${esc(w.primary)}" aria-label="Add ${esc(w.title)} to your queue" title="Add to your queue · q">+ Queue</button></li>`).join('')}</ol>`:'');
+  const read=(path,w,reasons)=>({path,href:'#read='+param(path),title:w.title,unread:!w.read,byline:byline(w),reasons});
+  renderNextReads(aside,{queued:queued?{...read(queued.path,queued,[]),label:'Next in your queue →'}:null,items:items.map(w=>read(w.primary,w,w.reasons))});
   wireDocumentLinks(aside);
   aside.querySelectorAll('[data-queue-add]').forEach(button=>button.onclick=event=>{event.preventDefault();queue.add(button.dataset.queueAdd);});
   if(!reading?.placeAtEnd(aside))return;
@@ -1084,7 +1126,7 @@ function positionPins(){
   for(const {thread,range} of state.ranges){const rects=[...range.getClientRects()];const rect=spread?rects.find(r=>r.width>0&&r.right>spread.left+1&&r.left<spread.right-1):reading?.hasBook()?null:rects.at(-1);const pin=article.querySelector(`[data-thread="${CSS.escape(thread.id)}"]`);if(!pin)continue;pin.hidden=!rect;if(rect)placed.push({pin,rect});}
   for(const piece of state.writingRecords||[]){const range=learningEvidenceRange(piece.evidence||piece.prompt?.evidence);if(!range)continue;let pin=article.querySelector(`[data-writing-pin="${CSS.escape(piece.path)}"]`);if(!pin){pin=document.createElement('button');pin.className='annotation-pin writing-pin';pin.dataset.readerDecoration='';pin.dataset.writingPin=piece.path;pin.type='button';pin.textContent='✎';pin.title='Your writing: '+piece.title;pin.setAttribute('aria-label',pin.title);pin.onclick=()=>navigate(piece.path);article.append(pin);}const rects=[...range.getClientRects()],rect=spread?rects.find(r=>r.width>0&&r.right>spread.left+1&&r.left<spread.right-1):reading?.hasBook()?null:rects.at(-1);pin.hidden=!rect;if(rect)placed.push({pin,rect});}
   placed.sort((a,b)=>a.rect.top-b.rect.top||a.rect.left-b.rect.left);
-  for(const {pin,rect} of placed){if(place){const at=place(rect,pin);pin.style.left=at.left+'px';pin.style.top=at.top+'px';}else if(reading?.hasBook()){pin.style.left=Math.min(pageWidth()-25,rect.right+9)+'px';pin.style.top=rect.bottom-5+'px';}else{pin.style.left='';const top=Math.max(previous+27,rect.bottom-box.top-5);pin.style.top=top+'px';previous=top;}}
+  for(const {pin,rect} of placed){if(place){const at=place(rect,pin);pin.style.left=at.left+'px';pin.style.top=at.top+'px';}else if(reading?.hasBook()){pin.style.left=Math.min(pageWidth()-25,rect.right+9)+'px';pin.style.top=rect.bottom-5+'px';}else{pin.style.removeProperty('left');const top=Math.max(previous+27,rect.bottom-box.top-5);pin.style.top=top+'px';previous=top;}}
 }
 function threadUnread(id){return state.attention.find(i=>i.key==='thread:'+id)?.read!==true;}
 function seenLabel(key){const item=state.attention.find(i=>i.key===key);return item?.seen_by?.length?'Seen by '+item.seen_by.map(r=>r.participant).join(', '):'Not yet seen by another reader';}
@@ -1111,11 +1153,20 @@ function toggleChat(){
 }
 /** Focus moves into the margin panel when it opens and returns to whatever opened it when it closes. */
 function enterThreadPanel(target){
-  const active=document.activeElement;if(!$('#thread-panel').contains(active))state.threadOpener=active&&active!==document.body?active:null;
+  const active=document.activeElement;if(!$('#thread-panel')?.contains(active))state.threadOpener=active&&active!==document.body?active:null;
   (target || $('#thread-title')).focus({preventScroll:true});
 }
+/** The margin panel is in the document only while open; a reply being written survives a close that keeps its thread. */
+function threadPanel(){return $('#thread-panel')||showPanel('thread-panel',{onClose:leaveThreadPanel,onQuiz:()=>quiz.open(),onChat:toggleChat,quizBlocked:needsReader()?NEEDS_READER:null,onBodyKeys:threadKeys});}
+function closeThreadPanel(){const draft=$('#reply-body')?.value;state.replyDraft=draft?{id:state.activeThread,text:draft}:null;hidePanel('thread-panel');}
+// The thread list moves like the other panels: j / k or arrows between threads, Enter opens one.
+function threadKeys(event){
+  const items=[...$('#thread-body').querySelectorAll('.thread-list-item')],index=items.indexOf(document.activeElement);
+  if(index<0||event.ctrlKey||event.metaKey||event.altKey||!['j','k','ArrowDown','ArrowUp'].includes(event.key))return;
+  event.preventDefault();items[(index+(['j','ArrowDown'].includes(event.key)?1:-1)+items.length)%items.length].focus();
+}
 function leaveThreadPanel(){
-  const opener=state.threadOpener;state.threadOpener=null;$('#thread-panel').hidden=true;state.activeThread=null;
+  const opener=state.threadOpener;state.threadOpener=null;hidePanel('thread-panel');state.activeThread=null;
   (opener?.isConnected&&!opener.closest('[hidden],dialog:not([open])')?opener:$('#main')).focus({preventScroll:true});
 }
 function openThreadList(participant=null){
@@ -1124,13 +1175,13 @@ function openThreadList(participant=null){
   if(!['.md','.markdown'].includes(state.doc.kind)){toast('Passage threads currently support Markdown documents.');return;}
   if(typeof participant!=='string')participant=null;
   const every=allThreads(),threads=participant?every.filter(t=>t.owner===participant||t.comments.some(c=>c.author===participant)):every;
-  state.activeThread=null;$('#thread-panel').hidden=false;$('#thread-title').textContent=participant?'In the margins · '+participant:'In the margins';
+  state.activeThread=null;threadPanel();$('#thread-title').textContent=participant?'In the margins · '+participant:'In the margins';
   $('#thread-body').innerHTML=threads.length?threads.map(t=>`<button class="thread-list-item" data-open-thread="${esc(t.id)}"><small>${esc(t.owner)}${t.kind==='warning'?' · warning':''}${threadUnread(t.id)?' · unread':''}${t.document_path&&t.document_path!==state.doc.path?' · in '+esc(embeds.doc(t.document_path)?.title||t.document_path.split('/').pop()):''}</small><blockquote>“${esc(plainQuote(t.anchor.quote).slice(0,220))}”</blockquote><small>${plural(t.comments.length,'comment')}${t.resolved?' · resolved':''}</small></button>`).join(''):'<p class="empty-note">No notes in these margins yet.<br>Select a passage to begin.</p>';
   $('#thread-body').querySelectorAll('[data-open-thread]').forEach(el=>el.onclick=()=>openThread(el.dataset.openThread));
   enterThreadPanel($('#thread-body .thread-list-item'));
 }
 function renderThread(thread){
-  const draft=state.activeThread===thread.id?$('#reply-body')?.value || '':'';const wasWriting=document.activeElement?.id==='reply-body';
+  const kept=state.replyDraft?.id===thread.id?state.replyDraft.text:'';state.replyDraft=null;const draft=state.activeThread===thread.id?$('#reply-body')?.value || kept:'';const wasWriting=document.activeElement?.id==='reply-body';
   $('#thread-title').textContent=thread.kind==='warning'?'A word of caution':'In the margins';
   $('#thread-body').innerHTML=`<blockquote class="thread-quote${thread.kind==='warning'?' warning':''}">${esc(plainQuote(thread.anchor.quote))}</blockquote><div class="thread-status">${esc(thread.owner)} · ${formatDate(thread.created_at)}${thread.resolved?' · resolved':''}<br>${esc(seenLabel('thread:'+thread.id))}</div>${!['exact','relocated'].includes(thread.location?.status)?'<p class="orphan-note">This passage has moved or is ambiguous. The original quote is preserved; no inline location is guessed.</p>':''}<div class="comments">${thread.comments.map(c=>`<div class="comment${c.reply_to?' reply':''}"><div class="comment-header"><span class="comment-author">${esc(c.author)}</span><span class="comment-time">${formatDate(c.created_at)}</span></div><p>${esc(c.body)}</p><div class="comment-footer"><span>${esc(seenLabel('comment:'+thread.id+':'+c.id))}</span><button type="button" data-button="ghost xs" data-reply="${esc(c.id)}">Reply</button></div></div>`).join('') || '<p class="quiet">A passage worth returning to.</p>'}</div><form id="thread-reply" class="thread-reply"><div id="reply-context" class="reply-context" hidden></div><label class="sr-only" for="reply-body">Reply to this thread</label><textarea id="reply-body" maxlength="16000" placeholder="Continue the thought…" required></textarea><button type="submit" data-button="default" class="form-submit">Add reply</button></form>`;
   $('#reply-body').value=draft;if(wasWriting)$('#reply-body').focus();
@@ -1140,8 +1191,8 @@ function renderThread(thread){
 async function openThread(id){
   try {
     await loadDiscussion();const thread=allThreads().find(t=>t.id===id);if(!thread)throw new Error('This thread is not in the open document.');
-    const first=state.activeThread!==id||$('#thread-panel').hidden;
-    queue?.close(false);if(state.activeThread!==id){state.replyTo=null;$('#thread-body').replaceChildren();}state.activeThread=id;$('#thread-panel').hidden=false;renderThread(thread);
+    const first=state.activeThread!==id||!$('#thread-panel');
+    queue?.close(false);threadPanel();if(state.activeThread!==id){state.replyTo=null;$('#thread-body').replaceChildren();}state.activeThread=id;renderThread(thread);
     if(first)enterThreadPanel();
     const items=state.attention.filter(i=>i.thread_id===id).map(({key,version})=>({key,version}));
     if(items.length)await api('/api/seen',{participant:state.prefs.participant,items});
@@ -1172,41 +1223,40 @@ function captureSelection(given=null){
     const coords=sourceRangeForQuote(doc.text,quote,bounds,projection(doc));
     state.selected={...coords,path:doc.path,sha256:doc.sha256,quote:rawCodePoints(doc.text,coords.start,coords.end),requests:{}};
     state.lastQuote={quote:plainQuote(state.selected.quote),path:doc.path,title:String(doc.metadata?.title||doc.title||doc.path)};  // :cite in the scratch pad
-    const rect=[...range.getClientRects()].at(-1) || range.getBoundingClientRect(),tools=$('#selection-tools');
-    tools.hidden=false;tools.style.left=Math.max(130,Math.min(pageWidth()-130,rect.right))+'px';tools.style.top=Math.max(60,rect.top-10)+'px';
+    const rect=[...range.getClientRects()].at(-1) || range.getBoundingClientRect(),tools=$('#selection-tools')||showPanel('selection-tools',{onAnnotate:annotate,onSpeak:()=>{hidePanel('selection-tools');speech.send('selection');}});
+    tools.style.left=Math.max(130,Math.min(pageWidth()-130,rect.right))+'px';tools.style.top=Math.max(60,rect.top-10)+'px';
     // Touch browsers draw their own selection menu above the passage, so the toolbar goes below it there.
     if(matchMedia('(pointer: coarse)').matches)tools.style.top=Math.min(innerHeight-20,range.getBoundingClientRect().bottom+tools.offsetHeight+28)+'px';
-  }catch(error){state.selected=null;$('#selection-tools').hidden=true;if(!error.offline&&captureSelection.failed!==quote)toast(error.message);captureSelection.failed=quote;}
+  }catch(error){state.selected=null;hidePanel('selection-tools');if(!error.offline&&captureSelection.failed!==quote)toast(error.message);captureSelection.failed=quote;}
 }
 async function createAnnotation(kind,comment=''){
   const selected=state.selected;if(!selected||selected.path!==state.doc?.path&&!embeds.doc(selected.path))throw new Error('Select the passage again.');
   const key=JSON.stringify([kind,comment]);selected.requests[key] ||= crypto.randomUUID();
   const thread=await api('/api/annotations',{operation:'create',path:selected.path,start:selected.start,end:selected.end,owner:state.prefs.participant,comment,expected_sha256:selected.sha256,request_id:selected.requests[key],kind});
-  annotationDialog?.close();$('#selection-tools').hidden=true;getSelection()?.removeAllRanges();await loadDiscussion();if(comment || kind==='warning')await openThread(thread.id);else toast('Passage highlighted.');
+  annotationDialog?.close();hidePanel('selection-tools');getSelection()?.removeAllRanges();await loadDiscussion();if(comment || kind==='warning')await openThread(thread.id);else toast('Passage highlighted.');
 }
 
 function updateExplorer(){
   if(!state.data)return;
-  renderFileExplorer($('#picker'),{articles:[...state.data.works],current:state.doc?.path||null,folder:state.pickerFolder||null,
+  renderFileExplorer({articles:[...state.data.works],current:state.doc?.path||null,folder:state.pickerFolder||null,
     onOpen:path=>navigate(path),onClose:closePicker,onSearch:()=>{closePicker();openSearch();},onQueue:path=>queue.add(path),
     onClearFolder:()=>{state.pickerFolder=null;updateExplorer();}});
 }
 function closePicker(){
-  $('#picker').hidden=true;document.documentElement.style.removeProperty('--explorer-width');
+  hidePanel('picker');delete document.documentElement.dataset.explorerOpen;
   $('#summon').setAttribute('aria-expanded','false');dispatchEvent(new Event('resize'));refreshScroll();focusMain();reading?.updateStatus();
 }
 function openPicker(source='all',folder=null){
-  state.pickerFolder=folder;updateExplorer();$('#picker').hidden=false;
-  document.documentElement.style.setProperty('--explorer-width','min(22rem, 46vw)');
-  $('#summon').setAttribute('aria-expanded','true');dispatchEvent(new Event('resize'));refreshScroll();$('#file-results').focus({preventScroll:true});reading?.updateStatus();
+  state.pickerFolder=folder;updateExplorer();document.documentElement.dataset.explorerOpen='';
+  $('#summon').setAttribute('aria-expanded','true');dispatchEvent(new Event('resize'));refreshScroll();$('#file-results')?.focus({preventScroll:true});reading?.updateStatus();
 }
-function togglePicker(){if($('#picker').hidden)openPicker();else closePicker();}
+function togglePicker(){if($('#picker'))closePicker();else openPicker();}
 
-function clearFind(){state.pdf?.cancelFind();state.find=[];state.findMore=false;state.findIndex=-1;CSS.highlights?.delete('reader-find');CSS.highlights?.delete('reader-current');$('#find-query').value='';$('#find-count').textContent='0 / 0';state.fromSearch=null;searchChip();}
+function clearFind(){state.pdf?.cancelFind();state.find=[];state.findMore=false;state.findIndex=-1;CSS.highlights?.delete('reader-find');CSS.highlights?.delete('reader-current');state.findQuery='';setFindCount('0 / 0');const input=$('#find-query');if(input)input.value='';state.fromSearch=null;searchChip();}
+/** Find's query and count live here: the bar is in the document only while open, and they outlast it. */
+function setFindCount(text){state.findCount=text;const count=$('#find-count');if(count)count.textContent=text;}
 function searchChip(){
-  const chip=$('#search-chip');if(!state.fromSearch){chip.hidden=true;return;}
-  chip.hidden=false;chip.replaceChildren();const query=document.createElement('q');query.textContent=state.fromSearch.query;
-  chip.append('From search: ',query,` · ${state.find.length?state.findIndex+1:0} of ${state.find.length}`);const hint=document.createElement('span');hint.className='search-chip-hint';hint.textContent=' · Esc to clear';chip.append(hint);
+  setStatus({search:state.fromSearch?{query:state.fromSearch.query,at:state.findIndex,total:state.find.length}:null});
 }
 /** Open-at-passage: reveal the indexed line (or PDF page) in either layout, then highlight the query's words with find. */
 async function revealPassage(at){
@@ -1214,7 +1264,7 @@ async function revealPassage(at){
   const terms=[...new Set(at.terms)].filter(Boolean).sort((a,b)=>b.length-a.length);
   if(!terms.length)return;
   if(state.pdf){
-    $('#find-query').value=terms[0];await updateFind();
+    state.findQuery=terms[0];const input=$('#find-query');if(input)input.value=terms[0];await updateFind();
     const index=state.find.findIndex(hit=>hit.page>=(at.page||1));state.findIndex=index>=0?index:state.find.length?0:-1;
   }else{
     const root=$('#article');if(!root)return;const dom=articleProjection(root);
@@ -1225,13 +1275,22 @@ async function revealPassage(at){
     state.findIndex=index>=0?index:state.find.length?0:-1;
   }
   state.fromSearch={query:at.query||terms.join(' ')};
-  if(state.find.length){if(window.Highlight&&CSS.highlights&&!state.pdf)CSS.highlights.set('reader-current',new Highlight(state.find[state.findIndex]));$('#find-count').textContent=`${state.findIndex+1} / ${state.find.length}`;if(state.pdf)await showFind();}
+  if(state.find.length){if(window.Highlight&&CSS.highlights&&!state.pdf)CSS.highlights.set('reader-current',new Highlight(state.find[state.findIndex]));setFindCount(`${state.findIndex+1} / ${state.find.length}`);if(state.pdf)await showFind();}
   searchChip();
 }
-function openFind(){if(!state.doc){openPicker();return;}$('#find-bar').hidden=false;$('#find-query').focus();$('#find-query').select();}
+function openFind(){
+  if(!state.doc){openPicker();return;}
+  if(!$('#find-bar')){
+    showPanel('find-bar',{});const input=$('#find-query');input.value=state.findQuery;$('#find-count').textContent=state.findCount;
+    input.oninput=()=>{state.findQuery=input.value;updateFind();};
+    input.onkeydown=event=>{if(event.key==='Enter'){event.preventDefault();showFind();hidePanel('find-bar');focusMain();}};
+    $('#find-next').onclick=()=>nextFind();$('#find-prev').onclick=()=>nextFind(-1);$('#find-close').onclick=()=>{hidePanel('find-bar');focusMain();};
+  }
+  $('#find-query').focus();$('#find-query').select();
+}
 async function updateFind(){
-  const query=$('#find-query').value;
-  if(state.pdf){const controller=state.pdf;$('#find-count').textContent='Searching PDF…';try{const result=await controller.find(query);if(!result||state.pdf!==controller||$('#find-query').value!==query)return;state.find=result.hits;state.findMore=!result.complete;state.findIndex=state.find.length?0:-1;showFind(false);if(!result.complete)toast(`PDF search stopped after ${result.examined} of ${plural(controller.count,'page')}; showing partial results.`);}catch(error){report(error);}return;}
+  const query=state.findQuery;
+  if(state.pdf){const controller=state.pdf;setFindCount('Searching PDF…');try{const result=await controller.find(query);if(!result||state.pdf!==controller||state.findQuery!==query)return;state.find=result.hits;state.findMore=!result.complete;state.findIndex=state.find.length?0:-1;showFind(false);if(!result.complete)toast(`PDF search stopped after ${result.examined} of ${plural(controller.count,'page')}; showing partial results.`);}catch(error){report(error);}return;}
   // Find covers embedded documents too (those loaded so far); anchoring uses each document's own text.
   const root=$('#article');if(!root)return;const dom=articleProjection(root,{embeds:true});
   const hits=occurrences(dom.text,query);state.findMore=!!hits.limited;
@@ -1240,15 +1299,12 @@ async function updateFind(){
   showFind(false);
 }
 async function showFind(scroll=true){
-  $('#find-count').textContent=`${state.findIndex+1} / ${state.find.length}${state.findMore?'+':''}`;searchChip();
+  setFindCount(`${state.findIndex+1} / ${state.find.length}${state.findMore?'+':''}`);searchChip();
   if(!state.find.length){CSS.highlights?.delete('reader-current');return;}
-  if(state.pdf){if(scroll){const controller=state.pdf,hit=state.find[state.findIndex],page=controller.pages[hit.page-1],range=document.createRange();range.selectNode(page);moveToRange(range);await controller.show(hit.page);if(controller!==state.pdf)return;const dom=domProjection(page.querySelector('.textLayer')||page),matches=occurrences(dom.text,$('#find-query').value),match=matches[hit.occurrence] || matches[0];if(match && window.Highlight&&CSS.highlights)CSS.highlights.set('reader-current',new Highlight(dom.range(match.start,match.end)));}return;}
+  if(state.pdf){if(scroll){const controller=state.pdf,hit=state.find[state.findIndex],page=controller.pages[hit.page-1],range=document.createRange();range.selectNode(page);moveToRange(range);await controller.show(hit.page);if(controller!==state.pdf)return;const dom=domProjection(page.querySelector('.textLayer')||page),matches=occurrences(dom.text,state.findQuery),match=matches[hit.occurrence] || matches[0];if(match && window.Highlight&&CSS.highlights)CSS.highlights.set('reader-current',new Highlight(dom.range(match.start,match.end)));}return;}
   const range=state.find[state.findIndex];if(window.Highlight&&CSS.highlights)CSS.highlights.set('reader-current',new Highlight(range));if(scroll)moveToRange(range);
 }
 function nextFind(delta=1){if(!state.find.length){toast('Use / to find a passage first.');return;}state.findIndex=(state.findIndex+delta+state.find.length)%state.find.length;showFind();}
-$('#find-query').oninput=updateFind;
-$('#find-query').onkeydown=event=>{if(event.key==='Enter'){event.preventDefault();showFind();$('#find-bar').hidden=true;focusMain();}};
-$('#find-next').onclick=()=>nextFind();$('#find-prev').onclick=()=>nextFind(-1);$('#find-close').onclick=()=>{$('#find-bar').hidden=true;focusMain();};
 
 /** Reader Admin: a dedicated layout in #main with native scrolling (no reading smoother, pagination or reading chrome).
  *  The shell mounts once; moving between its sections updates it in place. The shell focuses each page's heading. */
@@ -1294,19 +1350,18 @@ function themeEditorClosed(){
 }
 function useTheme(theme){state.prefs.theme=theme;document.documentElement.dataset.theme=theme;savePrefs();controls.update({theme,prefs:{...state.prefs}});reading?.updateStatus();}
 function themesChanged(themes,fonts){
-  themeCache=applyThemes(themes,fonts);try{localStorage.setItem('reader.themes.v1',JSON.stringify(themeCache));}catch{}
+  themeCache=applyThemes(themes,fonts);try{localStorage.setItem('reader.themes.v2',JSON.stringify(themeCache));}catch{}
   controls.update({customThemes:themes,fonts});
   if(!knownTheme(state.prefs.theme))useTheme(state.prefs.theme.endsWith('-dark')?'ink':'paper');
 }
 async function loadThemes(){try{const list=await api('/api/themes');themesChanged(list.themes,list.fonts);}catch(error){report(error);}}
 function previewFont(href){if(!/^\/fonts\/[a-z0-9-]+\/font\.css$/.test(href)||document.querySelector(`link[data-theme-font][href="${href}"]`))return;const link=document.createElement('link');link.rel='stylesheet';link.href=href;link.dataset.themeFont='';document.head.append(link);}
 async function applyPreferences(prefs){
-  await reading?.leave();if(prefs.proseColors!==state.prefs.proseColors)state.proseStyles?.clear();state.prefs={...state.prefs,...prefs};savePrefs();document.documentElement.dataset.theme=state.prefs.theme;
+  await reading?.leave();if(prefs.proseColors!==state.prefs.proseColors)state.proseStyles?.clear();state.prefs={...state.prefs,...prefs};savePrefs();document.documentElement.dataset.theme=state.prefs.theme;applyArticleWidth();
   await loadLibrary();
   if(state.view==='admin'){controls.update({theme:state.prefs.theme,prefs:{...state.prefs},participants:state.data?.participants||[]});notify('Preferences saved.','success');}
   else if(state.doc)await navigate(state.doc.path,{record:false});else if(state.view==='section')await navigate(SECTION+state.sectionLabel,{record:false});else await renderHome(state.issuePath);reading?.updateStatus();
 }
-$('#selection-tools').onmousedown=event=>event.preventDefault();
 /** Highlight at once, or open the comment / warning dialog for the captured selection. */
 function annotate(kind){
   if(kind==='highlight'){createAnnotation('highlight').catch(report);return;}
@@ -1316,15 +1371,6 @@ function annotate(kind){
     submit:text=>createAnnotation(kind==='warning'?'warning':'highlight',text).catch(report)});
 }
 let annotationDialog=null;
-document.querySelectorAll('[data-annotate]').forEach(button=>button.onclick=()=>annotate(button.dataset.annotate));
-$('#chat-open').onclick=toggleChat;
-$('#thread-close').onclick=leaveThreadPanel;
-// The thread list moves like the other panels: j / k or arrows between threads, Enter opens one.
-$('#thread-body').addEventListener('keydown',event=>{
-  const items=[...$('#thread-body').querySelectorAll('.thread-list-item')],index=items.indexOf(document.activeElement);
-  if(index<0||event.ctrlKey||event.metaKey||event.altKey||!['j','k','ArrowDown','ArrowUp'].includes(event.key))return;
-  event.preventDefault();items[(index+(['j','ArrowDown'].includes(event.key)?1:-1)+items.length)%items.length].focus();
-});
 $('#summon').onclick=togglePicker;
 let mouseSelecting=false,selectionTimer;
 document.addEventListener('pointerdown',event=>{if(event.pointerType==='mouse')mouseSelecting=true;},true);
@@ -1334,39 +1380,38 @@ document.addEventListener('touchend',event=>{if(!event.target.closest('#selectio
 document.addEventListener('selectionchange',()=>{
   // VISUAL mirrors its selection into the page; its own keys act on it, without the toolbar.
   if(state.visual)return;
-  clearTimeout(selectionTimer);if(getSelection()?.isCollapsed){$('#selection-tools').hidden=true;captureSelection.failed=null;return;}
+  clearTimeout(selectionTimer);if(getSelection()?.isCollapsed){hidePanel('selection-tools');captureSelection.failed=null;return;}
   selectionTimer=setTimeout(()=>{if(!mouseSelecting&&!modalOpen())captureSelection();},450);
 });
 let hoverFrame;
 document.addEventListener('mousemove',event=>{
   document.body.classList.toggle('reveal-controls',event.clientX>pageWidth()-75&&event.clientX<pageWidth()&&event.clientY>innerHeight-80);
   if(hoverFrame)return;
-  hoverFrame=requestAnimationFrame(()=>{hoverFrame=null;const spread=reading?.geometry()?.viewport.getBoundingClientRect(),inside=!spread||event.clientX>=spread.left&&event.clientX<=spread.right&&event.clientY>=spread.top&&event.clientY<=spread.bottom;const hit=inside&&state.ranges.find(({range})=>[...range.getClientRects()].some(r=>event.clientX>=r.left&&event.clientX<=r.right&&event.clientY>=r.top&&event.clientY<=r.bottom));const tip=$('#passage-tooltip');if(hit){tip.textContent=`${hit.thread.owner} · ${plural(hit.thread.comments.length,'comment')}`;tip.style.left=Math.max(10,Math.min(innerWidth-260,event.clientX+12))+'px';tip.style.top=event.clientY+20+'px';tip.classList.add('visible');}else tip.classList.remove('visible');});
+  hoverFrame=requestAnimationFrame(()=>{hoverFrame=null;const spread=reading?.geometry()?.viewport.getBoundingClientRect(),inside=!spread||event.clientX>=spread.left&&event.clientX<=spread.right&&event.clientY>=spread.top&&event.clientY<=spread.bottom;const hit=inside&&state.ranges.find(({range})=>[...range.getClientRects()].some(r=>event.clientX>=r.left&&event.clientX<=r.right&&event.clientY>=r.top&&event.clientY<=r.bottom));const tip=floatingTip('passage-tooltip');if(hit){tip.textContent=`${hit.thread.owner} · ${plural(hit.thread.comments.length,'comment')}`;tip.style.left=Math.max(10,Math.min(innerWidth-260,event.clientX+12))+'px';tip.style.top=event.clientY+20+'px';tip.classList.add('visible');}else tip.classList.remove('visible');});
 });
 // Keyboard ------------------------------------------------------------------------------------------
 // Every page key is a row in the keymap table (keys.mjs); the help dialog and the leader hints are generated from it.
 // A feature adds keys with keys.map({mode, keys, when, run, help, hint, group}) and commands with keys.command({...}).
-const typing=event=>state.themeEditorOpen||!!event.target.closest?.('input,textarea,select,[contenteditable="true"],dialog,[role=dialog],[role=listbox]:not([data-queue-list]),[data-slot=select-trigger],[data-slot=select-content],[data-slot=popover-content],[role=switch],[data-slot=pagination]:not([data-explorer-pagination])');
+const typing=event=>state.themeEditorOpen||!!event.target.closest?.('input,textarea,select,[contenteditable="true"],dialog,[role=dialog],[role=listbox]:not([data-queue-list]),[data-slot=select-trigger],[data-slot=select-content],[data-slot=popover-content],[data-slot=dropdown-menu-content],[role=switch],[data-slot=pagination]:not([data-explorer-pagination])');
 const nestedEscapes=new WeakSet();
-document.addEventListener('keydown',event=>{if(event.key==='Escape'&&document.querySelector('[data-slot="select-content"][data-open],[data-slot="popover-content"][data-open]'))nestedEscapes.add(event);},true);
+document.addEventListener('keydown',event=>{if(event.key==='Escape'&&document.querySelector('[data-slot="select-content"][data-open],[data-slot="popover-content"][data-open],[data-slot="dropdown-menu-content"][data-open]'))nestedEscapes.add(event);},true);
 function pageEscape(event){
   if(nestedEscapes.has(event))return;
   // React Sheets (What changed, chat) handle their own Escape; the panel Sheets (panel-sheet.tsx) leave it to the app.
   if(event.target.closest?.('.cm-editor'))return;  // Vim's Escape stays in the scratch editor; Escape in normal mode leaves it.
   if(state.themeEditorOpen||event.target.closest('[data-slot=popover-content],[data-slot=select-content],[data-slot=sheet-content]:not([data-panel-sheet])')||modalOpen())return;
   event.preventDefault();
-  if(!$('#picker').hidden){closePicker();return;}
-  if(!$('#thread-panel').hidden&&$('#thread-panel').contains(document.activeElement)){leaveThreadPanel();return;}
+  if($('#picker')){closePicker();return;}
+  if($('#thread-panel')?.contains(document.activeElement)){leaveThreadPanel();return;}
   if(panels.isOpen()&&panels.contains(document.activeElement)){panels.close();return;}
   if(state.view==='search'){if(!search.escape())goBack();return;}
-  if(state.fromSearch&&$('#find-bar').hidden){clearFind();return;}
+  if(state.fromSearch&&!$('#find-bar')){clearFind();return;}
   closeContext();if(split?.active())split.refocus();else focusMain();
 }
 function syncChips(){
-  const qf=quickfix?.get(),chip=$('#status-qf');
-  if(chip){chip.hidden=!qf?.items.length;chip.textContent=qf?.items.length?`QF ${qf.index>=0?qf.index+1:'–'}/${qf.items.length}`:'';}
+  const qf=quickfix?.get();setStatus({quickfix:qf?.items.length?`QF ${qf.index>=0?qf.index+1:'–'}/${qf.items.length}`:''});
 }
-keys=createKeys({guard:typing,escape:pageEscape,notify,suggestions:renderCommandSuggestions,changed(){
+keys=createKeys({drawHelp:renderHelpKeys,showPending:text=>setStatus({pending:text}),showLine:showCommandLine,guard:typing,escape:pageEscape,notify,suggestions:renderCommandSuggestions,changed(){
   const pending=keys?.pending();state.leader=pending?.keys[0]==='<Space>'?(pending.keys[1]===','?',':true):null;state.windowKey=pending?.keys[0]==='<C-w>';
   syncChips();reading?.updateStatus();
 }});
@@ -1383,7 +1428,7 @@ function position(){
 }
 function restorePlace(spot){
   const size=el=>+el.dataset.sourceEnd-el.dataset.sourceStart;
-  const blocks=spot.page?[...document.querySelectorAll(`#article [data-pdf-page="${spot.page}"]`)]:spot.offset!=null?[...document.querySelectorAll(`#article [data-source-start="${spot.offset}"]`)].filter(el=>!el.closest('.document-embed')).sort((a,b)=>size(a)-size(b)):[];
+  const blocks=spot.page?[...document.querySelectorAll(`#article [data-pdf-page="${spot.page}"]`)]:spot.offset!=null?[...[...document.querySelectorAll(`#article [data-source-start="${spot.offset}"]`)].filter(el=>!el.closest('.document-embed')).sort((a,b)=>size(a)-size(b)),...[...document.querySelectorAll(`#article [data-place-start="${spot.offset}"]`)].filter(el=>!el.parentElement.closest('.document-embed'))]:[];
   const target=blocks[0];if(!target){reading.seek(spot.progress??0,false);return;}
   const range=document.createRange();range.selectNode(target);
   if(!reading.reveal(range,false)){const r=target.getBoundingClientRect();scrollToPosition(shown()+r.top+r.height*(spot.fraction||0)-innerHeight*.22,false,target,spot.fraction||0);}
@@ -1402,7 +1447,7 @@ async function openAt(item){
   if(item.sha256&&item.sha256!==state.doc.sha256){toast('This edition changed since then; showing the start of the document.');return;}
   if(item.start!=null)seekChange(item.start,item.end??item.start);
 }
-({registers,quickfix,marks,jumps,lists:panels}=installLists({state,api,notify,openAt,position,goTo,param,onChange:()=>{syncChips();reading?.updateStatus();}}));
+({registers,quickfix,marks,jumps,lists:panels}=installLists({showPanel,hidePanel,state,api,notify,openAt,position,goTo,param,onChange:()=>{syncChips();reading?.updateStatus();}}));
 const focusedLink=()=>{const a=document.activeElement;return a?.matches?.('a[href]')&&article()?.contains(a)?a:null;};
 const linkActions={
   preview:a=>links.preview(a),
@@ -1417,7 +1462,7 @@ const linkActions={
   },
 };
 function onLink(run){const a=focusedLink();if(!a){toast('Move to a link with ]l or Tab first.');return;}run(a);}
-visual=installVisual({state,keys,reading:{geometry:()=>reading.geometry(),reveal:(range,animate)=>reading.reveal(range,animate)},scrollToPosition,notify,captureSelection,createAnnotation,annotate,speak:()=>speech.send('selection'),registers,quickfix,links:linkActions,jumps,report});
+visual=installVisual({hideTools:()=>hidePanel('selection-tools'),state,keys,reading:{geometry:()=>reading.geometry(),reveal:(range,animate)=>reading.reveal(range,animate)},scrollToPosition,notify,captureSelection,createAnnotation,annotate,speak:()=>speech.send('selection'),registers,quickfix,links:linkActions,jumps,report});
 /** Elements in document order around the reading place: the next one after it, or the last one before it. */
 function stepThrough(list,delta,current,count=1){
   if(!list.length)return null;let index=current?list.indexOf(current):-1;
@@ -1463,6 +1508,15 @@ keys.prefix('<C-w>',{label:'WINDOW',ms:1500});
 keys.order([R,'Selecting (v, V)',M,Q,L,W,X,H,S,P]);
 /** In a split pane, the shell owns the queue, chat and help: the pane forwards those keys. */
 /** The raw bytes of the open current document or inbox preview, in a new tab; a historical view has no raw route. */
+/** Copy the file's exact bytes as text. The ClipboardItem takes a promise so Safari keeps the click's activation across the fetch. */
+async function copySource(doc){
+  const text=()=>fetch(doc.file_url).then(r=>{if(!r.ok)throw new Error('The source file could not be read ('+r.status+').');return r.text();});
+  try{
+    if(window.ClipboardItem&&navigator.clipboard?.write)await navigator.clipboard.write([new ClipboardItem({'text/plain':text().then(t=>new Blob([t],{type:'text/plain'}))})]);
+    else await navigator.clipboard.writeText(await text());
+    toast('Copied the raw source.');
+  }catch(error){report(error);}
+}
 const openSource=()=>{const doc=state.doc;if(!doc?.file_url||doc.historical){toast(doc?.historical?'The raw source is the current file; open it first.':'Open a document to see its raw source.');return;}window.open(doc.file_url,'_blank','noopener,noreferrer');};
 const inShell=(key,run)=>()=>{if(pane){pane.post({type:'window-key',key,shell:true});return;}run();};
 keys.map(
@@ -1471,7 +1525,7 @@ keys.map(
   // Leader, in the order the status line lists it.
   {keys:'<Space>/',run:()=>openSearch(),hint:'search',group:L,help:'Search every passage: exact words or meaning'},
   {keys:'<Space>,e',run:togglePicker,hint:'files',group:L},
-  {keys:'<Space>e',run:togglePicker,hint:'files',group:L,help:'Toggle the File Explorer column'},
+  {keys:'<Space>e',run:togglePicker,hint:'files',group:L,display:'Space e / Space , e',help:'Toggle the File Explorer column'},
   {keys:'<Space>h',run:()=>navigate(null),hint:'home',group:L,help:'Return to your homepage'},
   {keys:'<Space>r',run:inShell('r',()=>queue.toggle()),hint:'queue',group:L,help:'Reading queue: Up next and History (`Tab` switches)'},
   {keys:'<Space>n',run:inShell('n',()=>queue.next()),hint:'next',group:L,help:'Open the next document in your queue'},
@@ -1495,8 +1549,8 @@ keys.map(
   {keys:'<Space>?',run:inShell('?',()=>openHelp()),group:L,help:'This map of keys'},
   {keys:'<Space>,t',run:theme,hint:'theme editor',group:L,display:'Space , t / F10',help:'Open or close the Theme Editor'},
   // A selection made with the mouse or the shift keys: show its toolbar.
-  {keys:'a',when:event=>!event?.target.closest?.('a,button,summary')&&getSelection()?.isCollapsed===false&&!!article()?.contains(getSelection().anchorNode),run(){captureSelection();if(!$('#selection-tools').hidden)$('#selection-tools button')?.focus({preventScroll:true});},group:R,display:'a / Enter',help:'With a passage selected, show the Highlight / Comment / Warn toolbar'},
-  {keys:'<CR>',when:event=>!event?.target.closest?.('a,button,summary')&&getSelection()?.isCollapsed===false&&!!article()?.contains(getSelection().anchorNode),run(){captureSelection();if(!$('#selection-tools').hidden)$('#selection-tools button')?.focus({preventScroll:true});}},
+  {keys:'a',when:event=>!event?.target.closest?.('a,button,summary')&&getSelection()?.isCollapsed===false&&!!article()?.contains(getSelection().anchorNode),run(){captureSelection();$('#selection-tools button')?.focus({preventScroll:true});},group:R,display:'a / Enter',help:'With a passage selected, show the Highlight / Comment / Warn toolbar'},
+  {keys:'<CR>',when:event=>!event?.target.closest?.('a,button,summary')&&getSelection()?.isCollapsed===false&&!!article()?.contains(getSelection().anchorNode),run(){captureSelection();$('#selection-tools button')?.focus({preventScroll:true});}},
   // Paging, before the per-view keys so they work everywhere.
   ...['<C-d>','<C-u>','<C-f>','<C-b>'].map(key=>({keys:key,run(){const down=key==='<C-d>'||key==='<C-f>',half=key==='<C-d>'||key==='<C-u>';if(reading.hasBook())reading.turn(down?1:-1);else scrollToPosition(scrollY+innerHeight*(down?1:-1)*(half?.5:.9));},
     ...(key==='<C-d>'?{group:R,display:'Ctrl d / Ctrl u',help:'Half a page down / up (a spread in two-page reading)'}:key==='<C-f>'?{group:R,display:'Ctrl f / Ctrl b',help:'A page down / up'}:{})})),
@@ -1582,15 +1636,15 @@ keys.intercept(event=>{
 keys.intercept(event=>{
   if(!split?.active()||event.ctrlKey||event.metaKey||event.altKey||typing(event)||keys.mode()!=='normal'||keys.pending().keys.length)return false;
   if([' ',',','?',':','Escape','F10','Shift','Control','Alt','Meta','CapsLock'].includes(event.key))return false;
-  if(!$('#picker').hidden||!$('#queue-panel').hidden||chatOpen()||modalOpen())return false;
+  if($('#picker')||$('#queue-panel')||chatOpen()||modalOpen())return false;
   event.preventDefault();split.refocus();return true;
 });
 keys.intercept(event=>{
   if(['Shift','Control','Alt','Meta','CapsLock'].includes(event.key))return false;
-  if(pasteInto){const target=pasteInto;pasteInto=null;$('#status-pending').hidden=true;
+  if(pasteInto){const target=pasteInto;pasteInto=null;setStatus({pending:''});
     if(event.target===target&&/^[a-z"]$/.test(event.key)&&!event.ctrlKey&&!event.metaKey){event.preventDefault();registers.paste(event.key,target);return true;}
     if(event.key==='Escape'){event.preventDefault();return true;}return false;}
-  if(event.ctrlKey&&!event.metaKey&&!event.altKey&&event.key==='r'&&event.target.matches?.('textarea')){event.preventDefault();pasteInto=event.target;const hint=$('#status-pending');hint.textContent='Ctrl r';hint.hidden=false;return true;}
+  if(event.ctrlKey&&!event.metaKey&&!event.altKey&&event.key==='r'&&event.target.matches?.('textarea')){event.preventDefault();pasteInto=event.target;setStatus({pending:'Ctrl r'});return true;}
   return false;
 });
 // Reader Admin is a page of controls: Space on a focused button, checkbox, switch, tab or select activates it, as it
@@ -1660,7 +1714,7 @@ keys.command({name:'theme',aliases:['colorscheme'],args:'<id>',help:'Switch the 
   run(id){if(!id){toast('The theme is '+state.prefs.theme+'.');return;}if(!knownTheme(id)){const near=keysClosest(id,[...THEMES,...themeCache.ids]);toast(`No theme called ${id}.`+(near?` Did you mean ${near}?`:''));return;}useTheme(id);}});
 keys.command({name:'themes',help:'Open the quick theme picker',run:quickTheme});
 keys.command({name:'layout',args:'scroll|spread',help:'Continuous or two-page reading',complete:typed=>prefixed(['scroll','spread'],typed),
-  run(mode){if(!['scroll','spread'].includes(mode)){toast('Use :layout scroll or :layout spread.');return;}if(state.prefs.layout!==mode)$('#layout-swap').click();}});
+  run(mode){if(!['scroll','spread'].includes(mode)){toast('Use :layout scroll or :layout spread.');return;}if(state.prefs.layout!==mode)reading.swapLayout();}});
 keys.command({name:'speak',args:'[article|here|selection]',help:'Send to AI-TTS: the whole article, from here, or the selection; without a scope, the menu',complete:typed=>prefixed(['article','here','selection'],typed),
   run(scope){if(!scope){speech.openMenu();return;}if(!SPEAK[scope]){toast('Use :speak article, here or selection.');return;}if(SPEAK[scope]==='selection'&&visual.active()){visual.speak();return;}speech.send(SPEAK[scope]);}});
 keys.command({name:'rebuild',args:'search|keywords|browse|catalog|links',help:'Rebuild an index, as on Behind the scenes',complete:typed=>prefixed(Object.keys(JOBS),typed),
@@ -1680,7 +1734,7 @@ keys.command({name:'backstage',aliases:['admin'],help:'Reader Admin: its Overvie
 keys.command({name:'settings',help:'Settings, in Reader Admin',run:()=>openSettings()});
 keys.command({name:'zen',help:'Hide or reveal the reading chrome',run:()=>{closeContext();reading.toggleZen();}});
 keys.command({name:'colors',help:'Next prose color strength for this document',run:()=>prose.press()});
-keys.command({name:'find',args:'<words>',help:'Find inside the open document',run:async text=>{if(!state.doc){toast('Open a document to find in it.');return;}if(!text){openFind();return;}$('#find-query').value=text;await updateFind();if(state.find.length){jumps.record();showFind();}else toast(`“${text}” is not in this document.`);}});
+keys.command({name:'find',args:'<words>',help:'Find inside the open document',run:async text=>{if(!state.doc){toast('Open a document to find in it.');return;}if(!text){openFind();return;}state.findQuery=text;const input=$('#find-query');if(input)input.value=text;await updateFind();if(state.find.length){jumps.record();showFind();}else toast(`“${text}” is not in this document.`);}});
 keys.command({name:'nohlsearch',aliases:['noh'],help:'Clear the find highlights',run:()=>clearFind()});
 keys.command({name:'grep',args:'<words>',help:'Passages across the library with these words, as a location list (`]q` steps through it)',run:text=>quickfix.grep(text||visual.text())});
 keys.command({name:'copen',aliases:['cw','cwindow','clist'],help:'Show the location list',run:()=>panels.open('quickfix')});
@@ -1691,7 +1745,6 @@ keys.command({name:'cclear',help:'Empty the location list',run:()=>quickfix.clea
 keys.command({name:'marks',help:'Your marks, in this document first',run:()=>panels.open('marks')});
 keys.command({name:'registers',aliases:['reg','display','di'],help:'What you have yanked, with citations',run:()=>panels.open('registers')});
 keys.command({name:'help',aliases:['h'],args:'[command]',help:'This map; `:help grep` jumps to a command',complete:typed=>prefixed(keys.commands(),typed),run:topic=>openHelp(topic)});
-$('#status-qf').onclick=()=>panels.open('quickfix');
 // The key map's surroundings; keys.renderHelp() writes the generated lists into #help-keys.
 const HELP_INTRO='Space is your leader. Comma works too. <kbd>v</kbd> selects from the keyboard and <kbd>:</kbd> takes a command. No commands run while you’re writing.';
 const HELP_NOTE='Hover over or Tab to a library link to preview it; Escape closes the preview. Each article ends with the documents that link to it. Select a passage to highlight, comment, or leave a warning. Click a passage’s margin mark or a pip on the progress rail to open its thread. The footer switches between continuous and two-page reading. On narrow screens, pages appear one at a time. Your place is saved automatically for this participant and edition. PDF text can be selected and searched; passage annotations currently support Markdown.';
@@ -1774,7 +1827,7 @@ function paneFocus(focused,move){
 }
 let lastPaneDoc='',lastPaneStatus='';
 function paneStatus(){
-  const status={type:'status',mode:$('#vim-mode').textContent,position:state.doc?Math.round(reading.progress()*100)+'%':$('#status-position').textContent,path:state.doc?.path||(state.view==='admin'?state.adminPath:state.view==='search'?SEARCH:state.view==='section'?SECTION+state.sectionLabel:null)};
+  const status={type:'status',mode:getStatus().mode,position:state.doc?Math.round(reading.progress()*100)+'%':getStatus().position,path:state.doc?.path||(state.view==='admin'?state.adminPath:state.view==='search'?SEARCH:state.view==='section'?SECTION+state.sectionLabel:null)};
   const now=JSON.stringify(status);if(now!==lastPaneStatus){lastPaneStatus=now;pane.post(status);}
   const doc=state.doc,ref=doc?(doc.historical?doc.path+'@'+doc.commit:doc.path):null;
   const message={type:'doc',hash:location.hash,ref,path:doc?.path||null,title:doc?String(doc.metadata?.title||doc.title||''):'',preview:!!doc?.preview,historical:!!doc?.historical};
@@ -1782,15 +1835,13 @@ function paneStatus(){
 }
 /** While split, the one status bar shows the focused pane: its mode, breadcrumb, place and number. */
 function paintSplitStatus(){
-  if(!$('#picker').hidden||modalOpen()||!$('#queue-panel').hidden||chatOpen())return false;
+  if($('#picker')||modalOpen()||$('#queue-panel')||chatOpen())return false;
   const focused=split.focused();if(!focused)return false;
   // The shell's own keymap state (Ctrl-w, the leader, the command line) comes before the pane's mode.
   const owned=keys.status(),mode=owned?.mode||focused.status?.mode||'NORMAL';
-  $('#vim-mode').textContent=mode;$('#vim-mode').dataset.mode=mode;
-  $('#status-keys').innerHTML=owned?owned.keys:'<kbd>Ctrl-w w</kbd> next pane <kbd>Ctrl-w v</kbd> <kbd>s</kbd> split <kbd>Ctrl-w q</kbd> close';
-  breadcrumbs.update(focused.status?.path??null);$('#status-position').textContent=focused.status?.position||'';
-  const indicator=$('#split-indicator');indicator.hidden=false;indicator.textContent=`${focused.number}/${focused.count}${focused.bound?' ⇅':''}`;
-  indicator.title=`Pane ${focused.number} of ${focused.count}${focused.bound?', scrolling with its neighbor':''}`;
+  breadcrumbs.update(focused.status?.path??null);
+  setStatus({mode,keys:owned?owned.keys:'<kbd>Ctrl-w w</kbd> next pane <kbd>Ctrl-w v</kbd> <kbd>s</kbd> split <kbd>Ctrl-w q</kbd> close',position:focused.status?.position||'',
+    split:{label:`${focused.number}/${focused.count}${focused.bound?' ⇅':''}`,title:`Pane ${focused.number} of ${focused.count}${focused.bound?', scrolling with its neighbor':''}`}});
   return true;
 }
 function goBack(){
@@ -1802,20 +1853,19 @@ window.addEventListener('resize',()=>{clearTimeout(positionPins.timer);positionP
 document.fonts.ready.then(()=>{refreshScroll();positionPins();});
 reduced.addEventListener('change',resetScroll);
 search=installSearch({api,state,navigate,back:goBack,backstage:()=>openAdmin('indexes'),notify,queue:path=>queue.add(path)});
-$('#reader-home').onclick=()=>navigate(null);
-installStatusPriority($('#statusline'));
-const breadcrumbs=installBreadcrumbs({container:$('#status-location'),openFolder:folder=>openPicker('all',folder),onChange:()=>reading?.updateStatus()});
-controls=installControls({seek:fraction=>reading.seek(fraction),spread:index=>reading.seekSpread(index),thread:id=>{const hit=state.ranges.find(entry=>entry.thread.id===id);if(hit)moveToRange(hit.range);openThread(id);},theme:()=>{state.prefs.theme=oppositeTheme(state.prefs.theme);document.documentElement.dataset.theme=state.prefs.theme;savePrefs();reading.updateStatus();},save:applyPreferences,error:report,outlineToggle:()=>outline.toggle(),outlineOpen:open=>outline.setOpen(open),outlineGo:index=>outline.go(index),themeEditor:setThemeEditorOpen,themeEditorClosed,api,themesChanged,useTheme,previewFont,chatMarkdown,openPath:path=>navigate(path),chatChanged:()=>reading?.updateStatus(),
+const breadcrumbs=installBreadcrumbs({render:trail=>setStatus({trail})});
+controls=installControls({home:()=>navigate(null),quickfix:()=>panels.open('quickfix'),versions:()=>versions.isOpen()?versions.close():versions.open(),layoutSwap:()=>reading.swapLayout(),backstage:()=>openAdmin(),openFolder:folder=>openPicker('all',folder),statusChanged:()=>reading?.updateStatus(),articleWidthPreview:value=>previewArticleWidth(value),articleWidthCommit:()=>commitArticleWidth(),seek:fraction=>reading.seek(fraction),spread:index=>reading.seekSpread(index),thread:id=>{const hit=state.ranges.find(entry=>entry.thread.id===id);if(hit)moveToRange(hit.range);openThread(id);},theme:()=>{state.prefs.theme=oppositeTheme(state.prefs.theme);document.documentElement.dataset.theme=state.prefs.theme;savePrefs();reading.updateStatus();},save:applyPreferences,error:report,outlineToggle:()=>outline.toggle(),outlineOpen:open=>outline.setOpen(open),outlineGo:index=>outline.go(index),themeEditor:setThemeEditorOpen,themeEditorClosed,api,themesChanged,useTheme,previewFont,chatMarkdown,openPath:path=>navigate(path),chatChanged:()=>reading?.updateStatus(),
   open:path=>navigate(path),libraryChanged:async()=>{await loadLibrary();if(!state.doc){if(state.view==='section')renderSectionPage();else if(state.view==='issue')renderHome();}},
   adminHref:(section,...params)=>adminHash(adminPath(section,...params)),adminGo:(section,...params)=>openAdmin(section,...params),backToLibrary,
   markdown:text=>{const template=document.createElement('template');template.innerHTML=DOMPurify.sanitize(window.markdownit({html:false,linkify:true}).render(text),{USE_PROFILES:{html:true}});decorateCodeBlocks(template.content,{wrap:true,lineNumbers:false});return template.innerHTML;}},state.prefs);
+installStatusPriority($('#statusline'));
 speech=installSpeech({state,api,reading:{capture:()=>reading.capture(),hasBook:()=>reading.hasBook()},notify,track:trackSpeech,openMenu:options=>{state.smoother?.paused(true);return openSpeakMenu({...options,onClosed:()=>{options.onClosed();dialogClosed();}});},companion:promptCompanion});
-prose=installProseColors({state,api,notify,companion:promptCompanion});
-queue=installQueue({state,api,navigate,notify,needsReader,renderPanel:renderQueuePanel,focusMain:()=>focusMain(),onChange:()=>reading?.updateStatus()});
-queue.setCloseOthers(()=>{$('#thread-panel').hidden=true;state.activeThread=null;});
-reading=installReading({statusOverride:()=>{const on=!!split?.active();if(!on)$('#split-indicator').hidden=true;return on&&paintSplitStatus();},onStatus:()=>pane&&paneStatus(),mayCurl:()=>!pane||pane.focused(),scratchStatus:()=>state.view==='scratch'?scratch?.status():null,controls,updateBreadcrumbs:path=>breadcrumbs.update(path),state,api,toast,openAdmin:()=>openAdmin(),openThread,revealRange:moveToRange,scrollToPosition,savePrefs,reloadDocument:()=>navigate(state.doc.path,{record:false}),positionPins,keyStatus:()=>keys.status()});
-outline=installOutline({state,reading,$,controls,scrollToPosition,savePrefs,notify});
-links=installLinks({state,api,reading,navigate,openBackstage:()=>openAdmin('indexes'),renderPreview:renderLinkPreview});
+prose=installProseColors({setStatus,state,api,notify,companion:promptCompanion});
+queue=installQueue({state,api,navigate,notify,needsReader,renderPanel:renderQueuePanel,hidePanel,focusMain:()=>focusMain(),onChange:()=>reading?.updateStatus()});
+queue.setCloseOthers(()=>{closeThreadPanel();state.activeThread=null;});
+reading=installReading({statusOverride:()=>{const on=!!split?.active();if(!on)setStatus({split:null});return on&&paintSplitStatus();},onStatus:()=>{publishArticleWidth();return pane&&paneStatus();},mayCurl:()=>!pane||pane.focused(),scratchStatus:()=>state.view==='scratch'?scratch?.status():null,controls:{...controls,getStatus,setStatus},updateBreadcrumbs:path=>breadcrumbs.update(path),state,api,toast,openAdmin:()=>openAdmin(),openThread,revealRange:moveToRange,scrollToPosition,savePrefs,reloadDocument:()=>navigate(state.doc.path,{record:false}),positionPins,keyStatus:()=>keys.status()});
+outline=installOutline({state,reading,$,controls:{...controls,setStatus},scrollToPosition,savePrefs,notify});
+links=installLinks({threadPanel,closeThreadPanel,state,api,reading,navigate,openBackstage:()=>openAdmin('indexes'),renderPreview:renderLinkPreview});
 scratch=installScratch({openSaveDialog:openScratchSave,state,api,notify,navigate,mountQuestion:mountScratchQuestion,focusMain:()=>$('#main').focus({preventScroll:true}),updateStatus:()=>reading?.updateStatus(),openChat,savedChanged:()=>readingLogs.clear(),registers:()=>registers,
   // A draft has no file yet: its links resolve from the notebook folder it saves into (the server accepts a folder source).
   renderMarkdown:(container,text)=>renderMarkdown(container,text,'library/notebook/',0)});
@@ -1823,9 +1873,7 @@ quiz=installQuiz({api,document:()=>state.doc,participant:()=>state.prefs.partici
 keys.defineMode('quiz',{label:()=> 'QUIZ',hints:()=>'<kbd>Tab</kbd> move <kbd>Enter</kbd> choose <kbd>Esc</kbd> return',escape:()=>quiz.close()});
 writingPrompts=installWritingPrompts({api,document:()=>state.doc,participant:()=>state.prefs.participant,mount:mountWritingPrompt,write:(prompt,opening)=>scratch.forPrompt(prompt,opening),showEvidence:showQuizEvidence,available:()=>needsReader()?NEEDS_READER:null,toast,mode:open=>{if(open)keys.enter('writing-prompt');else{keys.leave('writing-prompt');focusMain();}reading?.updateStatus();}});
 keys.defineMode('writing-prompt',{label:()=> 'WRITE ABOUT',hints:()=>'<kbd>Tab</kbd> move <kbd>Enter</kbd> choose <kbd>Esc</kbd> return',escape:()=>writingPrompts.close()});
-$('#quiz-open').onclick=()=>quiz.open();
-if(needsReader()){$('#quiz-open').disabled=true;$('#quiz-open').title=NEEDS_READER;}
-versions=installVersions({state,api,navigate:ref=>navigate(ref),openCompare:openComparison,openSideBySide:(older,newer)=>{if(pane)pane.post({type:'open-in-split',compare:{a:older,b:newer}});else split.compare(older,newer,cleanRoute(location.hash)).catch(report);},notify,param,onChange:()=>reading?.updateStatus(),renderTimeline:renderVersionsTimeline});
+versions=installVersions({setStatus,showPanel,hidePanel,state,api,navigate:ref=>navigate(ref),openCompare:openComparison,openSideBySide:(older,newer)=>{if(pane)pane.post({type:'open-in-split',compare:{a:older,b:newer}});else split.compare(older,newer,cleanRoute(location.hash)).catch(report);},notify,param,onChange:()=>reading?.updateStatus(),renderTimeline:renderVersionsTimeline});
 if(EMBEDDED)pane=installPane({open:openRoute,save:()=>reading.save(),onFocus:paneFocus,
   reveal:element=>{if(!reading.hasBook())return false;const range=document.createRange();range.selectNodeContents(element);return reading.reveal(range,false);},
   scrollBy:delta=>{if(Math.abs(delta)>=1)scrollToPosition(scrollY+delta,false);},seek:fraction=>reading.seek(fraction,false),docFraction:()=>reading.progress()});
@@ -1837,17 +1885,21 @@ else{
 function prefsFromStorage(){
   let fresh;try{fresh=JSON.parse(localStorage.getItem('reader.preferences.v1')||'{}');}catch{return;}
   if(!fresh||typeof fresh!=='object')return;
+  fresh=layoutPreferences(fresh);
   const relayout=typeof fresh.layout==='string'&&fresh.layout!==state.prefs.layout;
+  const rewrap=typeof fresh.articleWidth==='string'&&fresh.articleWidth!==state.prefs.articleWidth;
   state.prefs={...state.prefs,...fresh,participant:state.prefs.participant};
+  // A width chosen in another tab or window rewraps this one's article around the reader's line.
+  if(rewrap){const kept=readingLine.before();applyArticleWidth();readingLine.after(kept);dispatchEvent(new Event('resize'));}
   // A layout change (continuous or two-page) reopens the document in its new layout, at the same place.
   if(relayout&&state.doc&&!state.doc.preview){const doc=state.doc;reading.save().then(()=>{if(state.doc===doc)navigate(doc.historical?doc.path+'@'+doc.commit:doc.path,{record:false});});}
   if(knownTheme(state.prefs.theme)&&document.documentElement.dataset.theme!==state.prefs.theme){document.documentElement.dataset.theme=state.prefs.theme;controls.update({theme:state.prefs.theme,prefs:{...state.prefs}});}
   reading?.updateStatus();
 }
-window.addEventListener('storage',event=>{if(event.key==='reader.preferences.v1')prefsFromStorage();else if(event.key==='reader.themes.v1')loadThemes();});
+window.addEventListener('storage',event=>{if(event.key==='reader.preferences.v1')prefsFromStorage();else if(event.key==='reader.themes.v2')loadThemes();});
 window.addEventListener('reader:prefs',prefsFromStorage);
-// A docked panel narrows continuous reading: keep the line at the reading line (22% down) in view.
-installDock({
+// A docked panel or a new article width rewraps continuous reading: keep the line at the reading line (22% down) in view.
+const readingLine={
   before(){
     const article=$('#article');if(!article||reading?.hasBook()||split?.active())return null;
     const list=[...article.children].filter(el=>!el.classList.contains('annotation-pin')),line=innerHeight*.22;
@@ -1858,7 +1910,28 @@ installDock({
   after(kept){
     if(!kept?.el.isConnected)return;const rect=kept.el.getBoundingClientRect(),shift=rect.top+rect.height*kept.fraction-kept.line;
     if(Math.abs(shift)>1)scrollToPosition(scrollY+shift,false,kept.el,kept.fraction);
-  }});
+  }};
+installDock(readingLine);
+// The footer's slider: articles in continuous reading, on a screen that isn't a phone's, with room to widen. It rewraps
+// around the reading line as it moves, one layout a frame, and saves when it lets go.
+let widthHold=null,widthFrame=0,widthKey='';
+function rewrapArticle(){applyArticleWidth();readingLine.after(widthHold);dispatchEvent(new Event('resize'));}
+function previewArticleWidth(value){widthHold??=readingLine.before();state.prefs.articleWidth=value;widthFrame||=requestAnimationFrame(()=>{widthFrame=0;rewrapArticle();});}
+function commitArticleWidth(){cancelAnimationFrame(widthFrame);widthFrame=0;rewrapArticle();widthHold=null;savePrefs();controls.update({prefs:{...state.prefs}});publishArticleWidth();}
+function publishArticleWidth(){
+  const article=$('#article'),shell=article?.closest('.document-shell'),main=$('#main');
+  const eligible=!!shell&&typeof state.doc?.text==='string'&&state.doc.kind!=='.pdf'&&!document.body.classList.contains('two-page')&&Math.min(screen.width,screen.height)>=600;
+  const key=[eligible,state.doc?.path,main.clientWidth,state.prefs.theme,state.prefs.articleWidth].join('|');
+  if(key===widthKey)return;widthKey=key;
+  if(!eligible){controls.update({articleWidth:{shown:false,standard:0,max:0}});return;}
+  const style=getComputedStyle(shell),room=main.clientWidth-parseFloat(style.paddingLeft)-parseFloat(style.paddingRight);
+  // Longhands: the computed font shorthand is empty when the article sets any font feature.
+  const face=getComputedStyle(article),probe=document.createElement('span');probe.className='invisible absolute w-[65ch]';Object.assign(probe.style,{fontFamily:face.fontFamily,fontSize:face.fontSize,fontWeight:face.fontWeight,fontStyle:face.fontStyle,fontStretch:face.fontStretch});document.body.append(probe);
+  const standard=probe.getBoundingClientRect().width;probe.remove();
+  controls.update({articleWidth:{shown:room>640,standard,max:480+Math.floor((room-480)/10)*10}});
+}
+new ResizeObserver(publishArticleWidth).observe($('#main'));
+document.fonts?.ready.then(()=>{widthKey='';publishArticleWidth();});
 mountSkeleton($('#main'),'library');
 loadThemes();
 try{await loadLibrary();

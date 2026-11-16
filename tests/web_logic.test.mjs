@@ -1,3 +1,4 @@
+import './jail_guard.cjs';
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {bodyOf, codePointIndex, codePointOffset, occurrences, projectSource, projectText, rawCodePoints, sourceRangeForQuote, visibleQuote} from '../src/reader_mcp/web_ui/logic.mjs';

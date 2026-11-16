@@ -20,16 +20,15 @@ export function historyDays(pages, timeZone) {
   return days;
 }
 
-export function installQueue({state, api, navigate, notify, renderPanel, focusMain, onChange, needsReader=() => false}) {
+export function installQueue({hidePanel,state, api, navigate, notify, renderPanel, focusMain, onChange, needsReader=() => false}) {
   const $ = selector => document.querySelector(selector);
-  const panel = $('#queue-panel');
-  const q = {tab:'next', active:0, filter:'all', data:null, history:null, loading:false, confirm:null, pending:null, generation:0};
+  const q = {open:false, tab:'next', active:0, filter:'all', data:null, history:null, loading:false, confirm:null, pending:null, generation:0};
   const param = encodeURIComponent;
   const participant = () => state.prefs.participant;
   const tz = () => -new Date().getTimezoneOffset();
   const ordinal = n => n + (n % 100 >= 11 && n % 100 <= 13 ? 'th' : ({1:'st', 2:'nd', 3:'rd'})[n % 10] || 'th');
   const pace = () => +state.prefs.pace || 220;
-  const isOpen = () => !panel.hidden;
+  const isOpen = () => q.open;
 
   function minutes(words, fraction=0) { return Math.max(1, Math.ceil(words * (1 - fraction) / pace())); }
   function time(row) {
@@ -62,13 +61,12 @@ export function installQueue({state, api, navigate, notify, renderPanel, focusMa
     if (!isOpen()) return;
     const m = model(), list = rows(m);
     q.active = Math.max(0, Math.min(q.active, list.length - 1));
-    panel.toggleAttribute('aria-busy', q.loading);
-    renderPanel(panel, {tab:q.tab, active:q.active, loading:q.loading, next:m.next, history:m.history, queuedCount:q.data?.queued.length || 0,
+    renderPanel({tab:q.tab, active:q.active, loading:q.loading, next:m.next, history:m.history, queuedCount:q.data?.queued.length || 0,
       historyEmpty:q.history && !q.history.total ? (q.filter === 'finished' ? 'Nothing finished yet.' : 'No reading history yet.') : null,
       historyMore:q.history?.next_cursor != null, filter:q.filter, confirm:q.confirm,
       onTab:switchTab, onFilter:setFilter, onOpen:openRow, onActive:index => {q.active = index; render();}, onRemove:index => {q.active = index; remove();},
       onPin:index => {q.active = index; pin();}, onMore:more, onConfirm:answer, onClose:() => close()});
-    const active = panel.querySelector(`#queue-${q.tab}-${q.active}`);
+    const active = $(`#queue-${q.tab}-${q.active}`);
     active?.scrollIntoView({block:'nearest'});
   }
 
@@ -108,19 +106,19 @@ export function installQueue({state, api, navigate, notify, renderPanel, focusMa
 
   function open(tab='next') {
     closeOthers?.();
-    q.tab = tab; q.confirm = null; panel.hidden = false;
+    q.tab = tab; q.confirm = null; q.open = true;
     render(); refresh(); if (tab === 'history' || !q.history) loadHistory();
-    requestAnimationFrame(() => (panel.querySelector('#queue-list-' + q.tab) || panel.querySelector('[role=tab]'))?.focus({preventScroll:true}));
+    requestAnimationFrame(() => ($('#queue-list-' + q.tab) || $('#queue-panel [role=tab]'))?.focus({preventScroll:true}));
     onChange?.(q.data);
   }
   function close(focus=true) {
     if (!isOpen()) return;
-    panel.hidden = true; q.confirm = null; q.generation++;
+    hidePanel('queue-panel'); q.open = false; q.confirm = null; q.generation++;
     if (focus) focusMain();
     onChange?.(q.data);
   }
   function toggle() { isOpen() ? close() : open(); }
-  function switchTab(tab) { if (tab === q.tab) return; q.tab = tab; q.active = 0; q.confirm = null; if (tab === 'history') loadHistory(); render(); requestAnimationFrame(() => panel.querySelector('#queue-list-' + tab)?.focus({preventScroll:true})); onChange?.(q.data); }
+  function switchTab(tab) { if (tab === q.tab) return; q.tab = tab; q.active = 0; q.confirm = null; if (tab === 'history') loadHistory(); render(); requestAnimationFrame(() => $('#queue-list-' + tab)?.focus({preventScroll:true})); onChange?.(q.data); }
   function setFilter(filter) { q.filter = filter; q.active = 0; loadHistory(); }
   function more() { if (q.history?.next_cursor != null) loadHistory(true); }
 
@@ -151,10 +149,10 @@ export function installQueue({state, api, navigate, notify, renderPanel, focusMa
     q.confirm = {message:`Clear ${count} queued ${count === 1 ? 'document' : 'documents'}? Suggestions and your history stay.`, action:'Clear queue', run:async () => { try { await change('clear'); notify('Your queue is clear.'); } catch (error) { failed(error); } }};
     render(); focusConfirm();
   }
-  function focusConfirm() { requestAnimationFrame(() => panel.querySelector('#queue-confirm-yes')?.focus()); }
+  function focusConfirm() { requestAnimationFrame(() => $('#queue-confirm-yes')?.focus()); }
   function answer(yes) {
     const confirm = q.confirm; q.confirm = null; render();
-    panel.querySelector('#queue-list-' + q.tab)?.focus({preventScroll:true});
+    $('#queue-list-' + q.tab)?.focus({preventScroll:true});
     if (yes) confirm?.run();
   }
   async function move(delta) {
@@ -197,7 +195,7 @@ export function installQueue({state, api, navigate, notify, renderPanel, focusMa
 
   /** Keys while the panel has focus. Returns true when the key was handled here. */
   function handleKey(event) {
-    if (!isOpen() || !panel.contains(event.target) || state.leader || event.metaKey || event.ctrlKey) return false;
+    if (!isOpen() || !$('#queue-panel')?.contains(event.target) || state.leader || event.metaKey || event.ctrlKey) return false;
     const key = event.key;
     if (q.confirm) {
       if (['Escape', 'n'].includes(key)) { event.preventDefault(); event.stopPropagation(); answer(false); return true; }

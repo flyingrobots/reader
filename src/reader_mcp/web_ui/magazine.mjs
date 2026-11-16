@@ -1,11 +1,12 @@
 /** The homepage as this week's issue: a cover story, features and contents chosen from recent additions. */
-import {escapeHTML as esc, formatDate} from './logic.mjs';
+import {formatDate} from './logic.mjs';
 
 // Types left out of an issue unless the reader changes the list in Settings.
 export const DEFAULT_EXCLUDED_TYPES=['Task','Receipt','Manifest','Handoff'];
 // The newsletter is an editorial signal for the issue; its working papers are not pieces of it.
 export const EXCLUDED_FOLDERS=['library/newsletters/'];
-export const FEATURES=4, MIN_FEATURES=3, QUIET=4, STANDFIRSTS=12, GROUP=6, CONTENTS=80;
+export const FEATURES=4, MIN_FEATURES=3, QUIET=4, GROUP=6, CONTENTS=80;
+export const TOPICS_SHOWN=7, SECTIONS_SHOWN=4, FORMS_SHOWN=6, MAKEUP_PIECES=10;
 const DAY=86400000;
 // Bounded interest terms; the sum orders candidates. See docs/web.md.
 export const WEIGHTS={unread:1,recency:.5,type:.4,engagement:.4,references:.3,pick:.5,short:-.3};
@@ -38,6 +39,8 @@ const named=values=>(values||[]).filter(value=>typeof value==='string'&&value&&!
 function folderLabel(path){const folder=path.split('/')[1]||'Library';return path.split('/').length>2?folder.replace(/[-_]+/g,' ').replace(/^\w/,c=>c.toUpperCase()):'Library';}
 /** Pieces in one issue should come from different places: the first named project, else the top folder. */
 export function section(work){return named(work.projects)[0]||folderLabel(work.primary);}
+export const sectionKey=work=>section(work).toLocaleLowerCase();
+export const pickSectionLabel=(current,candidate)=>!current||(current===current.toLocaleLowerCase()&&candidate!==candidate.toLocaleLowerCase())?candidate:current;
 export function baseTitle(title){return (title||'').toLocaleLowerCase().replace(/\s*\([^)]*\)?\s*$/,'').trim();}
 export function words(work){return TEXT.has((work.primary_format||'').toLowerCase())&&Number.isFinite(work.primary_bytes)?Math.round(work.primary_bytes/6):null;}
 export function minutes(work,pace=220){const count=words(work);return count===null?null:Math.max(1,Math.round(count/(pace||220)));}
@@ -89,6 +92,54 @@ export function interest(work,{start,end,today,picks=new Set()}){
 }
 const order=(a,b)=>b.score-a.score||(b.work.date||'').localeCompare(a.work.date||'')||a.work.title.localeCompare(b.work.title)||a.work.primary.localeCompare(b.work.primary);
 
+const groupOrder=(a,b)=>b.count-a.count||b.unread-a.unread||a.name.localeCompare(b.name);
+const asEntry=item=>item.work?item:{work:item,score:0};
+const pieceSort=(a,b)=>Number(!!a.work.read)-Number(!!b.work.read)||order(a,b);
+function addToGroup(map,key,rawName,entry){
+  let g=map.get(key);if(!g){g={key,name:rawName,other:false,entries:new Map()};map.set(key,g);}
+  else g.name=pickSectionLabel(g.name,rawName);
+  g.entries.set(entry.work.primary,entry);
+}
+function finalizeGroup(group,labels,withSections){
+  const items=[...group.entries.values()].sort(pieceSort),unread=items.filter(e=>!e.work.read).length;
+  const out={name:group.name,other:group.other,count:items.length,unread,read:items.length-unread,pieces:items.slice(0,MAKEUP_PIECES).map(({work})=>({path:work.primary,title:work.title,href:href(work),read:!!work.read,section:sectionLabel(work,labels),type:named(work.types)[0]||null,date:formatDate(work.date)}))};
+  if(withSections){
+    const sections=new Map();
+    for(const entry of items){const raw=sectionLabel(entry.work,labels);addToGroup(sections,raw.toLocaleLowerCase(),raw,entry);}
+    const rawChildren=[...sections.values()].map(s=>{const list=[...s.entries.values()],u=list.filter(e=>!e.work.read).length;return {name:s.name,other:false,count:list.length,unread:u,read:list.length-u,entries:s.entries};}).sort(groupOrder);
+    let folded=rawChildren;
+    if(rawChildren.length>SECTIONS_SHOWN&&rawChildren.slice(SECTIONS_SHOWN).length>1){
+      const merged=new Map();for(const s of rawChildren.slice(SECTIONS_SHOWN))for(const [p,e] of s.entries)merged.set(p,e);
+      const list=[...merged.values()],u=list.filter(e=>!e.work.read).length;
+      folded=[...rawChildren.slice(0,SECTIONS_SHOWN),{name:'Other sections',other:true,count:list.length,unread:u,read:list.length-u}];
+    }
+    out.children=folded.map(({name,other,count,unread:u,read})=>({name,other,count,unread:u,read}));
+  }
+  return out;
+}
+/** Topic × section hierarchy and reading/form makeup for the works in an issue. */
+export function issueMakeup(pool,labels={}){
+  const entries=pool.map(asEntry),total=entries.length;
+  if(!total)return {total:0,unread:0,read:0,topicCount:0,topics:[],forms:[]};
+  const topicMap=new Map(),formMap=new Map();
+  let unread=0;
+  for(const entry of entries){
+    const {work}=entry;if(!work.read)unread+=1;
+    const topics=named(work.topics);
+    for(const raw of topics.length?topics:['General'])addToGroup(topicMap,raw.toLocaleLowerCase(),raw,entry);
+    const form=named(work.types)[0]||'Untyped';
+    addToGroup(formMap,form.toLocaleLowerCase(),form,entry);
+  }
+  const fold=(map,limit,otherLabel,withSections)=>{
+    const list=[...map.values()].map(g=>finalizeGroup(g,labels,withSections)).sort(groupOrder);
+    if(list.length<=limit||list.slice(limit).length<=1)return list;
+    const head=list.slice(0,limit),merged={key:otherLabel.toLocaleLowerCase(),name:otherLabel,other:true,entries:new Map()};
+    for(const g of list.slice(limit))for(const [p,e] of map.get(g.name.toLocaleLowerCase())?.entries||[])merged.entries.set(p,e);
+    return [...head,finalizeGroup(merged,labels,withSections)];
+  };
+  return {total,unread,read:total-unread,topicCount:topicMap.size,topics:fold(topicMap,TOPICS_SHOWN,'Other topics',true),forms:fold(formMap,FORMS_SHOWN,'Other forms',false)};
+}
+
 /** Cover, features and contents for a window. Deterministic for the same works, reads and signals. */
 export function selectIssue(works,{window,today,exclude,picks=[],near=[],features=FEATURES}){
   const pickSet=new Set(picks),similar=new Map();
@@ -102,70 +153,44 @@ export function selectIssue(works,{window,today,exclude,picks=[],near=[],feature
     for(const entry of pool){
       if(chosen.length>features||(!strict&&chosen.length>MIN_FEATURES))break;
       if(chosen.includes(entry)||close(entry))continue;
-      if(strict&&chosen.some(other=>section(other.work)===section(entry.work)))continue;
+      if(strict&&chosen.some(other=>sectionKey(other.work)===sectionKey(entry.work)))continue;
       chosen.push(entry);
     }
   }
+  const sectionLabels=new Map();
+  for(const entry of pool){const raw=section(entry.work),key=raw.toLocaleLowerCase();sectionLabels.set(key,pickSectionLabel(sectionLabels.get(key),raw));}
+  const labelsObj=Object.fromEntries(sectionLabels);
   const rest=pool.filter(entry=>!chosen.includes(entry)),groups=new Map();
-  for(const entry of rest){const key=section(entry.work);if(!groups.has(key))groups.set(key,[]);groups.get(key).push(entry);}
+  for(const entry of rest){const key=sectionKey(entry.work);if(!groups.has(key))groups.set(key,[]);groups.get(key).push(entry);}
   for(const items of groups.values())items.sort((a,b)=>Number(a.work.read)-Number(b.work.read)||order(a,b));
-  let contents=[...groups].map(([label,items])=>({label,items})).sort((a,b)=>b.items.filter(e=>!e.work.read).length-a.items.filter(e=>!e.work.read).length||b.items.length-a.items.length||a.label.localeCompare(b.label));
+  let contents=[...groups].map(([key,items])=>({label:sectionLabels.get(key)||key,items})).sort((a,b)=>b.items.filter(e=>!e.work.read).length-a.items.filter(e=>!e.work.read).length||b.items.length-a.items.length||a.label.localeCompare(b.label));
   // Many one-piece sections read as noise; past six sections they share one 'Elsewhere' group.
   const single=contents.filter(group=>group.items.length===1);
   if(contents.length>6&&single.length>1)contents=[...contents.filter(group=>group.items.length>1),{label:'Elsewhere',elsewhere:true,items:single.map(group=>group.items[0]).sort((a,b)=>Number(a.work.read)-Number(b.work.read)||order(a,b))}];
-  return {...window,cover,features:chosen.slice(1),contents,count:pool.length,unread:pool.filter(entry=>!entry.work.read).length,sections:new Set(pool.map(entry=>section(entry.work))).size};
+  return {...window,cover,features:chosen.slice(1),contents,count:pool.length,unread:pool.filter(entry=>!entry.work.read).length,sections:sectionLabels.size,sectionLabels:labelsObj,makeup:issueMakeup(pool,labelsObj)};
 }
 
-// Rendering. All catalog text is escaped; standfirsts arrive as text nodes.
-// A machine-written standfirst carries the same small mark as Behind the scenes: local model · <model>.
-const machineMark=model=>{const mark=document.createElement('span');mark.className='lm-mark issue-machine-mark';mark.dataset.readerDecoration='';mark.textContent='local model · '+(String(model).split('/').pop()||model);return mark;};
+// The model the React issue draws (web/src/magazine/magazine.tsx).
 const range=(start,end)=>{const a=day(start),b=day(end),month=d=>d.toLocaleDateString('en',{month:'long',timeZone:'UTC'});
   return a.getUTCMonth()===b.getUTCMonth()?`${month(a)} ${a.getUTCDate()}–${b.getUTCDate()}, ${b.getUTCFullYear()}`:`${month(a)} ${a.getUTCDate()} – ${month(b)} ${b.getUTCDate()}, ${b.getUTCFullYear()}`;};
 const short=(start,end)=>{const a=formatDate(start),b=formatDate(end);return a.split(' ')[0]===b.split(' ')[0]?`${a}–${b.split(' ')[1]}`:`${a} – ${b}`;};
-const pip=work=>work.read?'':'<span class="unread-pip" title="Unread edition" aria-label="Unread edition"></span>';
 const href=work=>'#read='+encodeURIComponent(work.primary);
-function byline(work,pace){
-  const parts=[work.authors?.length?esc(work.authors.join(' · ')):'Unspecified author',esc(formatDate(work.date))];
-  const time=minutes(work,pace);if(time)parts.push(`≈ ${time} min`);
-  return parts.map(part=>`<span>${part}</span>`).join('')+(work.read?'<span class="issue-read">Read</span>':'<span class="issue-unread"><span class="unread-pip" aria-hidden="true"></span>Unread</span>');
-}
-function kicker(work,label){const type=named(work.types)[0];return [label,section(work),type].filter(Boolean).map(esc).join('<span aria-hidden="true"> · </span>');}
+const sectionLabel=(work,labels={})=>labels[sectionKey(work)]||section(work);
+const kicker=(work,label,labels)=>[label,sectionLabel(work,labels),named(work.types)[0]].filter(Boolean).join(' · ');
 
-export function mountMagazine({root,issue,weeks,signals,prefs,api,wireDocumentLinks,openIssue,motion,art={},artMake=false}){
-  const {cover,features,contents}=issue,letter=signals?.newsletters?.[0];
+/** What an issue shows, as plain values: the pieces, their lines of type and the neighbouring issues. */
+export function issueModel({issue,weeks,signals,prefs,art={},artMake=false,sections=[]}){
+  const letter=signals?.newsletters?.[0],span=weekRange(issue.week),labels=issue.sectionLabels||{};
   const index=weeks.findIndex(w=>w.id===issue.week),older=weeks[index+1]||(index<0?weeks.find(w=>w.id<issue.week):null),newer=index>0?weeks[index-1]:index<0?[...weeks].reverse().find(w=>w.id>issue.week):null;
-  const note=issue.fallback?`Nothing new has arrived in the last two weeks. This is the latest issue, ${short(issue.start,issue.end)}.`:issue.quiet?`A quiet week: covering ${short(issue.start,issue.end)}.`:'';
-  const weekNumber=+issue.week.slice(6);
-  // + Queue (RW-30): the app wires [data-queue-add]; q on a focused piece does the same.
-  const queueButton=work=>`<button type="button" data-button="ghost xs" class="issue-queue" data-queue-add="${esc(work.primary)}" aria-label="Add ${esc(work.title)} to your queue" title="Add to your queue · q">+ Queue</button>`;
-  const item=({work})=>`<li${work.read?' data-read':''}><a href="${esc(href(work))}" data-path="${esc(work.primary)}" data-piece><span class="contents-title">${esc(work.title)}</span>${pip(work)}<span class="contents-meta">${esc([elsewhere?section(work):null,named(work.types)[0],formatDate(work.date)].filter(Boolean).join(' · '))}</span></a></li>`;
-  let elsewhere=false;
-  // Bespoke art (RW-43): the cover's figure and the features' thumbnails; app.mjs paints them after mount.
-  // A piece without art shows nothing special; the cover offers to make some when a producer is available.
-  const thumb=work=>art[work.primary]?`<div class="feature-art" data-art-thumb="${esc(work.primary)}" data-reader-decoration aria-hidden="true"></div>`:'';
-  const feature=(entry,i)=>`<article class="issue-feature" aria-labelledby="feature-${i}"><div class="feature-number" aria-hidden="true">${String(i+2).padStart(2,'0')}</div>${thumb(entry.work)}<div class="issue-kicker">${kicker(entry.work)}</div><h3 class="feature-title" id="feature-${i}"><a href="${esc(href(entry.work))}" data-path="${esc(entry.work.primary)}" data-piece>${esc(entry.work.title)}</a></h3><p class="feature-standfirst" data-standfirst="${esc(entry.work.primary)}"></p><div class="issue-byline">${byline(entry.work,prefs.pace)}</div>${queueButton(entry.work)}</article>`;
-  root.innerHTML=`<div class="issue" id="issue" data-week="${esc(issue.week)}">
-<header class="issue-masthead"><div class="issue-dateline"><span>Issue ${weekNumber} · ${esc(issue.week.slice(0,4))}</span><span>${esc(range(weekRange(issue.week).start,weekRange(issue.week).end))}</span></div>
-<h1 class="issue-flag" id="home-title">Reader<span class="dot" aria-hidden="true">.</span><span class="sr-only"> Issue ${esc(issue.week)}</span></h1>
-<nav class="issue-nav" aria-label="Issues"><button type="button" data-button="ghost xs" data-issue="${esc(older?.id||'')}" ${older?'':'disabled'} aria-label="Previous issue" title="Previous issue · [">‹</button><details class="issue-archive"><summary>Past issues</summary><ol>${weeks.slice(0,12).map(w=>`<li><a href="#issue=${esc(w.id)}" data-issue="${esc(w.id)}"${w.id===issue.week?' aria-current="page"':''}><span>${esc(short(w.start,w.end))}</span><small>${w.count} ${w.count===1?'piece':'pieces'}</small></a></li>`).join('')}</ol></details><button type="button" data-button="ghost xs" data-issue="${esc(newer?.id||'')}" ${newer?'':'disabled'} aria-label="Next issue" title="Next issue · ]">›</button></nav></header>
-${note?`<p class="issue-note" role="note">${esc(note)}</p>`:''}
-<div class="issue-spread" data-features="${features.length}" data-rest="${Math.max(0,features.length-1)}">
-${cover?`<section class="issue-cover" aria-labelledby="cover-title"><div class="issue-kicker">${kicker(cover.work,'Cover story')}</div><h2 class="cover-title" id="cover-title"><a href="${esc(href(cover.work))}" data-path="${esc(cover.work.primary)}" data-piece data-cover>${esc(cover.work.title)}</a></h2>${art[cover.work.primary]?`<figure class="cover-art" data-art="${esc(cover.work.primary)}" data-reader-decoration></figure>`:''}<p class="cover-standfirst" data-standfirst="${esc(cover.work.primary)}"></p><div class="issue-byline">${byline(cover.work,prefs.pace)}</div>${queueButton(cover.work)}${!art[cover.work.primary]&&artMake?`<button type="button" data-button="ghost xs" class="issue-art-make" data-art-generate="${esc(cover.work.primary)}" data-reader-decoration title="An agent reads the piece, writes an art brief and composes a scene; a background job">Make cover art</button>`:''}</section>
-<aside class="issue-summary" aria-label="This issue"><dl><div><dt>New</dt><dd>${issue.count}</dd></div><div><dt>Unread</dt><dd>${issue.unread}</dd></div><div><dt>Sections</dt><dd>${issue.sections}</dd></div></dl>${letter?`<a class="issue-letter" href="${esc('#read='+encodeURIComponent(letter.path))}" data-path="${esc(letter.path)}"><span class="issue-kicker">From the editors</span><span class="issue-letter-title">${esc(letter.title)}</span></a>`:''}<nav class="issue-index" aria-label="Sections in this issue"><h2 class="issue-kicker">Sections</h2><div id="issue-sections" data-reader-decoration></div></nav></aside>`
-  :`<section class="issue-empty"><h2>Nothing has arrived yet.</h2><p>When works are filed with a date, the newest become this week’s issue. Reader Admin keeps the library statistics.</p></section>`}
-${features.length?`<section class="issue-features" aria-label="Features">${features.map(feature).join('')}</section>`:''}
-${contents.length?`<section class="issue-contents" aria-labelledby="contents-title"><h2 class="issue-section-title" id="contents-title">In this issue</h2><div class="contents-columns">${contents.map((group,i)=>(elsewhere=!!group.elsewhere,`<section class="contents-group" id="contents-${i}" tabindex="-1" aria-label="${esc(group.label)}"><h3>${esc(group.label)}<small>${group.items.length}</small></h3><ol>${group.items.slice(0,GROUP).map(item).join('')}</ol>${group.items.length>GROUP?`<details class="contents-more"><summary>${group.items.length-GROUP} more</summary><ol>${group.items.slice(GROUP,CONTENTS).map(item).join('')}</ol></details>`:''}</section>`)).join('')}</div></section>`:''}
-</div>
-<footer class="issue-footer"><p>Chosen from works filed ${esc(short(issue.start,issue.end))}: unread first, then how recent, the kind of writing, other voices’ reading, open margin threads${letter?' and the newsletter’s picks':''}. Each feature comes from a different project where one is available.</p><button type="button" data-button="link xs" id="issue-backstage">Library statistics are in Reader Admin ↗</button></footer>
-</div>`;
-  wireDocumentLinks(root);
-  // The wide-window rail lists the contents sections; a jump scrolls there without touching the route.
-  root.querySelectorAll('[data-jump]').forEach(el=>el.addEventListener('click',()=>{const target=root.querySelector('#'+el.dataset.jump);if(!target)return;target.scrollIntoView({behavior:motion()?'smooth':'auto',block:'start'});target.focus({preventScroll:true});}));
-  root.querySelectorAll('[data-issue]').forEach(el=>el.addEventListener('click',event=>{event.preventDefault();if(el.dataset.issue)openIssue(el.dataset.issue);}));
-  // Standfirsts: only for the pieces on screen, a few at a time.
-  const slots=[...root.querySelectorAll('[data-standfirst]')].slice(0,STANDFIRSTS),queue=[...slots];
-  const next=async()=>{for(let slot=queue.shift();slot;slot=queue.shift()){try{const data=await api('/api/standfirst?path='+encodeURIComponent(slot.dataset.standfirst));if(data.standfirst&&slot.isConnected){slot.textContent=data.standfirst;slot.dataset.source=data.source;if(data.source==='local-model'&&data.model)slot.after(machineMark(data.model));}else slot.remove();}catch{slot.remove();}}};
-  const done=Promise.all([next(),next(),next()]);
-  if(motion())gsap.from(root.querySelectorAll('.issue-masthead,.issue-cover>*,.issue-summary,.issue-feature,.issue-contents'),{y:14,opacity:0,duration:.7,stagger:.05,ease:'power3.out',clearProps:'all'});
-  return {done,pieces:()=>[...root.querySelectorAll('[data-piece]')].filter(el=>el.checkVisibility())};
+  const piece=({work},label)=>{const time=minutes(work,prefs.pace);return {path:work.primary,title:work.title,href:href(work),read:!!work.read,kicker:kicker(work,label,labels),author:work.authors?.length?work.authors.join(' · '):'Unspecified author',date:formatDate(work.date),time:time?`≈ ${time} min`:null,art:!!art[work.primary]};};
+  const row=(entry,elsewhere)=>{const {work}=entry;return {path:work.primary,title:work.title,href:href(work),read:!!work.read,meta:[elsewhere?sectionLabel(work,labels):null,named(work.types)[0],formatDate(work.date)].filter(Boolean).join(' · ')};};
+  return {week:issue.week,number:+issue.week.slice(6),year:issue.week.slice(0,4),dates:range(span.start,span.end),window:short(issue.start,issue.end),
+    note:issue.fallback?`Nothing new has arrived in the last two weeks. This is the latest issue, ${short(issue.start,issue.end)}.`:issue.quiet?`A quiet week: covering ${short(issue.start,issue.end)}.`:'',
+    older:older?.id||null,newer:newer?.id||null,past:weeks.slice(0,12).map(w=>({id:w.id,label:short(w.start,w.end),count:w.count,current:w.id===issue.week})),
+    cover:issue.cover?piece(issue.cover,'Cover story'):null,features:issue.features.map(entry=>piece(entry)),
+    counts:[{label:'New',value:issue.count},{label:'Unread',value:issue.unread},{label:'Sections',value:issue.sections}],
+    letter:letter?{path:letter.path,title:letter.title,href:'#read='+encodeURIComponent(letter.path)}:null,sections,artMake,makeup:issue.makeup||issueMakeup([]),
+    contents:issue.contents.map((group,i)=>({id:`contents-${i}`,label:group.label,count:group.items.length,items:group.items.slice(0,GROUP).map(entry=>row(entry,group.elsewhere)),more:group.items.slice(GROUP,CONTENTS).map(entry=>row(entry,group.elsewhere))}))};
 }
+/** The issue's entrance; app.mjs skips it under reduced motion. */
+export function animateIssue(root){gsap.from(root.querySelectorAll('.issue-masthead,.issue-cover>*,.issue-summary,.issue-feature,.issue-makeup,.issue-contents'),{y:14,opacity:0,duration:.7,stagger:.05,ease:'power3.out',clearProps:'all'});}

@@ -10,6 +10,6 @@
   },
   "scripts": {
     "test:contract": "node --test --test-timeout=120000 tests/contract/",
-    "test:server": "npm --prefix server ci && npm --prefix server run check && npm --prefix server test"
+    "test:server": "npm --prefix server run check && npm --prefix server test"
   }
 }

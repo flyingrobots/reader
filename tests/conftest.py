@@ -9,6 +9,7 @@ so a subprocess started from another cwd still finds it), then fail fast if
 import os
 from pathlib import Path
 import sys
+import tempfile
 import threading
 
 import pytest
@@ -18,6 +19,23 @@ if 'reader_mcp' in sys.modules:
     raise RuntimeError(f'reader_mcp was imported before tests/conftest.py could pin {SRC}')
 sys.path.insert(0, SRC)
 os.environ['PYTHONPATH'] = os.pathsep.join([SRC, *[p for p in os.environ.get('PYTHONPATH', '').split(os.pathsep) if p and p != SRC]])
+
+# A failing fake Codex must never fall through to a real Claude or agy on this machine.
+os.environ['READER_MODEL_CHAIN'] = 'codex'
+# Most fixtures deliver without a level and a fake Codex files them; saved defaults have their own tests.
+os.environ['READER_UNMARKED_PRIVACY'] = 'normal'
+# Most fixtures write arrivals directly into inbox/. test_inbox_paths covers the default hidden folder.
+os.environ.setdefault('READER_INBOX', 'inbox')
+# Nor may a test read this machine's SSH keys or write its launcher.
+os.environ['READER_HOME'] = str(Path(tempfile.gettempdir()) / f'reader-test-home-{os.getpid()}')
+os.environ['READER_AUTHORIZED_KEYS'] = str(Path(os.environ['READER_HOME']) / 'authorized_keys')
+
+# No test runs outside the enforced sandbox (scripts/test_jail.py, docs/testing.md).
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import jail_guard  # noqa: E402
+
+if reason := jail_guard.problem():
+    pytest.exit(f'{jail_guard.MESSAGE}\n({reason})', returncode=2)
 
 import reader_mcp  # noqa: E402
 

@@ -27,11 +27,11 @@ const Toaster = ({ theme = "system", ...props }: ToasterProps) => {
       }}
       style={
         {
-          "--normal-bg": "var(--surface)",
-          "--normal-text": "var(--ink)",
-          "--normal-border": "var(--line)",
+          "--normal-bg": "var(--card)",
+          "--normal-text": "var(--foreground)",
+          "--normal-border": "var(--border)",
           "--border-radius": "8px",
-          fontFamily: "var(--sans)",
+          fontFamily: "var(--font-sans)",
         } as React.CSSProperties
       }
       toastOptions={{

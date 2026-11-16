@@ -1,4 +1,5 @@
 /* Link previews on hover and focus, the Linked from list, its two-page placement, and the Link graph card. */
+require('./jail_guard.cjs');
 const assert=require('node:assert/strict');
 const {spawn}=require('node:child_process');
 const {createInterface}=require('node:readline');
@@ -118,7 +119,7 @@ const {sanitizerReport}=require('./web_wait.cjs');  // #151
   // Reader Admin, Indexes: the Link graph card and a refresh with toasts.
   {const {page,context}=await open({});
    await page.goto(url+'#admin/indexes');await page.locator('[data-index=links][data-state=current]').waitFor({timeout:20000});
-   assert.match(await page.locator('[data-index=links]').textContent(),/Links20/);
+   await page.locator('[data-index=links] button',{hasText:'Link graph'}).first().click();assert.equal(await page.locator('#index-inspector[data-inspected-index=links] [data-fact=links] td').last().textContent(),'20');
    await page.locator('[data-job=links]').click();
    await page.locator('[data-sonner-toast]').filter({hasText:'Link graph finished'}).waitFor({timeout:15000});
    assert.match(await page.locator('[data-sonner-toast]').filter({hasText:'Link graph finished'}).textContent(),/0 documents read, 20 links, 1 unresolved/);

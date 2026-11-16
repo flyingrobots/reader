@@ -58,7 +58,7 @@ def format_markdown(root: Path, data: bytes) -> tuple[bytes, str]:
     return formatted, tool_hash
 
 
-def reading_copy(root: Path, source_path: str) -> dict:
+def reading_copy(root: Path, source_path: str, *, writer=None) -> dict:
     root = root.resolve(strict=True)
     parts = source_path.split('/')
     if (not source_path.startswith('library/') or any(p in ('', '.', '..') or p.startswith('.') for p in parts)
@@ -131,6 +131,9 @@ def reading_copy(root: Path, source_path: str) -> dict:
     CatalogEnvelope.model_validate(fields)
     output = b'---\n' + yaml.safe_dump(fields,allow_unicode=True,sort_keys=False).encode() + b'---\n' + body
     frontmatter(output)  # Verify the generated header is accepted by the shared catalog codec.
+    if writer:
+        writer(path, output)
+        return dict(result, status='created', reading_copy=path, reading_sha256=digest(output))
     temporary = None
     try:
         with tempfile.NamedTemporaryFile(dir=source.parent, prefix='.reader-reading-', delete=False) as stream:

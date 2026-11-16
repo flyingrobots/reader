@@ -1,4 +1,5 @@
 /* What changed: banner after a post-receipt edit, the changes Sheet, seeking, caught up, another reader, the newer version. */
+require('./jail_guard.cjs');
 const assert=require('node:assert/strict');
 const {spawn}=require('node:child_process');
 const {createInterface}=require('node:readline');

@@ -662,20 +662,23 @@ def contract_inventory():
 
 def area(path):
     path = path.rstrip('*')
-    table = [('/api/chat', 'chat'), ('/api/art', 'art'), ('/api/search', 'search'), ('/api/speak', 'speech'),
-             ('/api/inbox', 'inbox'), ('/api/companions', 'companions'), ('/api/local-model', 'local model'),
+    table = [('/api/chat', 'chat'), ('/api/art', 'art'), ('/api/search', 'search'), ('/api/speak', 'speech'), ('/api/speech-voices', 'speech'),
+             ('/api/inbox', 'inbox'), ('/api/companions', 'companions'), ('/api/local-model', 'local model'), ('/api/model-chain', 'inbox'), ('/api/private', 'inbox'), ('/api/delivery-tokens', 'inbox'), ('/api/upload-settings', 'inbox'),
              ('/api/editions', 'versions'), ('/api/version', 'versions'), ('/api/changes', 'versions'),
              ('/api/annotations', 'annotations'), ('/api/discussion', 'annotations'), ('/api/seen', 'engagement'), ('/api/readers', 'engagement'),
              ('/api/queue', 'queue'), ('/api/history', 'queue'), ('/api/next', 'queue'),
              ('/api/themes', 'themes'), ('/api/fonts', 'themes'), ('/fonts/', 'themes'),
-             ('/api/resolve', 'links'), ('/api/links', 'links'), ('/api/link-counts', 'links'), ('/api/preview', 'links'), ('/api/embeds', 'links'),
+             ('/api/resolve', 'links'), ('/api/links', 'links'), ('/api/link-counts', 'links'), ('/api/preview', 'links'), ('/api/embeds', 'links'), ('/api/portable-links', 'links'),
              ('/api/standfirst', 'magazine'), ('/api/issue', 'magazine'), ('/api/shape', 'shape'), ('/api/prose', 'prose'),
              ('/api/quiz', 'quizzes'), ('/api/prompt', 'prompts'), ('/api/writing', 'writing'),
              ('/api/jobs', 'coding jobs'), ('/api/repositories', 'coding jobs'), ('/api/logs', 'llm logs'),
              ('/api/service', 'service'), ('/api/health', 'service'), ('/api/token', 'service'), ('/api/maintenance', 'maintenance'),
-             ('/api/library', 'library'), ('/api/document', 'library'), ('/api/file', 'library'), ('/api/bookmark', 'library'),
+             ('/api/library', 'library'), ('/api/document', 'library'), ('/api/file', 'library'), ('/api/bookmark', 'library'), ('/api/attachment/', 'library'),
              ('/assets/', 'static'), ('/', 'static')]
-    return next(a for prefix, a in table if path == prefix or (prefix != '/' and path.startswith(prefix)))
+    found = next((a for prefix, a in table if path == prefix or (prefix != '/' and path.startswith(prefix))), None)
+    if found is None:
+        raise ValueError(f'No area for route {path}; add it to the table in area()')
+    return found
 
 
 # ----------------------------------------------------------------------------- render
@@ -971,11 +974,11 @@ def render(demo=True):
             elif isinstance(node, ast.ImportFrom) and node.level == 0 and node.module:
                 names = [node.module.split('.')[0]]
             for n in names:
-                if n not in STDLIB and n != 'reader_mcp' and not (REPO / 'scripts' / (n + '.py')).exists():
+                if n not in STDLIB and n != 'reader_mcp' and not any((REPO / local / (n + '.py')).exists() for local in ('scripts', 'tests')):
                     users[n].add(short(file))
     w('| Dependency | Declared | Imported by | Used for |')
     w('| - | - | - | - |')
-    for name in sorted(set(declared) | set(users), key=str.lower):
+    for name in sorted(set(declared) | set(users), key=lambda n: (n.lower(), n)):  # fonttools and fontTools differ only in case
         imported = users.get(name) or users.get({'pillow': 'PIL', 'fonttools': 'fontTools', 'pyyaml': 'yaml'}.get(name, ''), set())
         w(f"| `{name}` | {'yes' if name in declared else 'no (transitive)'} | {', '.join(sorted(imported)) or '—'} | {md(DEP_PURPOSE.get(name, 'undocumented'))} |")
     w('')

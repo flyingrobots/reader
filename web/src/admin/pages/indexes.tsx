@@ -72,19 +72,20 @@ function IndexStatus({indexKey,label,tone,active,needsBuild,disabled,onStart}:{i
 
 export function IndexesPage({status,error,onStart,editions}:{status:MaintenanceStatus|null;error:string|null;onStart:(kind:string)=>void;editions?:ReactNode}){
   const [selected,setSelected]=useState('search');
-  const running=status?.running,busy=!!running||!!status?.checking,checkedAt=Object.values(status?.checks||{})[0]?.checked_at,local=needsReader();
+  const running=status?.running,busy=!!running||!!status?.checking,local=needsReader();
   const unavailable=!status&&!!error,checking=!!status?.checking||running?.kind==='check';
   const measured=INDEXES.filter(index=>status?.checks[index.key]),current=measured.filter(index=>['current','ok'].includes(status!.checks[index.key].state));
   const attention=measured.filter(index=>!['current','ok','unconfigured'].includes(status!.checks[index.key].state));
   const lastCheck=status?.jobs.find(job=>job.kind==='check');
   const index=INDEXES.find(index=>index.key===selected)!,check=status?.checks[selected];
-  const facts=check?index.facts.map(([label,value])=>({label,value:value(check) as ReactNode})).filter(f=>f.value!==null&&f.value!==undefined):[];
+  const facts=check?[{label:'Checked',value:when(check.checked_at)},...index.facts.map(([label,value])=>({label,value:value(check) as ReactNode}))].filter(f=>f.value!==null&&f.value!==undefined):[];
   return <section className="flex min-w-0 flex-col gap-5" id="backstage-indexes" aria-label="Indexes" data-state={unavailable?'unavailable':status?'ready':'loading'}>
-    <Toolbar media={checking?<Spinner aria-hidden/>:null} status={checking?<span role="status">{running?.kind==='check'?<>Checking freshness · <Elapsed since={running.started_at}/></>:'Verifying freshness after the rebuild'}</span>:unavailable?'Index status is unavailable':checkedAt?'Last checked '+when(checkedAt):local?'Checks need Reader on your computer':'Waiting for the first freshness check'}>
-      <Button id="maintenance-check" variant="outline" size="sm" disabled={busy||unavailable} {...localOnly()} onClick={()=>onStart('check')}>Check again</Button><IndexDocHelp title="Freshness checks" section="freshness-checks"/><IndexDocHelp title="Index update policy" section="update-policy-and-schedules"/>
+    <Toolbar media={checking?<Spinner aria-hidden/>:null} status={checking?<span role="status">{running?.progress||'Checking freshness'}{running?<> · <Elapsed since={running.started_at}/></>:null}</span>:unavailable?'Index status is unavailable':lastCheck?.finished_at?'Last full check '+when(lastCheck.finished_at):local?'Checks need Reader on your computer':'Run a full check to measure all indexes'}>
+      <Button id="maintenance-check" variant="outline" size="sm" disabled={busy||unavailable} {...localOnly()} onClick={()=>onStart('check')}>Run full check</Button><IndexDocHelp title="Freshness checks" section="freshness-checks"/><IndexDocHelp title="Index update policy" section="update-policy-and-schedules"/>
     </Toolbar>
     {unavailable?<Unavailable id="indexes-unavailable" what="Index status" error={error!}/>:null}
     {status&&error?<Notice id="indexes-stale" role="status" title="The last status refresh failed">{error}. Showing the previous measurements.</Notice>:null}
+    {measured.length?<p className="text-sm text-muted-foreground" data-saved-measurements="">Showing saved measurements. Sources may have changed since each index was checked. Refresh an index to update it, or run a full check to measure drift.</p>:null}
     {busy?<Notice data-index-busy="" title={running?.kind==='check'?'A full freshness audit is running':running?running.label+' is running':'The rebuild finished; verification is running'}>
       {running?.progress||'Previous measurements remain visible.'}<IndexDocHelp title="Maintenance jobs" section="maintenance-jobs-and-recent-runs"/>
     </Notice>:null}
@@ -112,8 +113,8 @@ export function IndexesPage({status,error,onStart,editions}:{status:MaintenanceS
     </Card>
     <StatusCard id="index-inspector" title={index.title} data-inspected-index={selected}
       badge={check?<IndexStatus indexKey={selected} label={(STATES[check.state]||{label:check.state}).label} tone={(STATES[check.state]||{tone:'neutral' as Tone}).tone} active={!!running&&INDEX_OF[running.kind]===selected} needsBuild={['stale','partial','missing'].includes(check.state)} disabled={busy||unavailable} onStart={onStart}/>:undefined}>
-      {check?.message?<p className="text-sm [overflow-wrap:anywhere]" data-check-message="">{check.message}</p>:<p className="text-sm text-muted-foreground">No measurements yet. The full audit publishes its results together.</p>}
-      {facts.length?<Table><TableHeader><TableRow><TableHead>Measurement</TableHead><TableHead>Value</TableHead></TableRow></TableHeader><TableBody>{facts.map(fact=><TableRow key={fact.label} data-fact={fact.label.toLowerCase()}><TableCell>{fact.label}<IndexDocHelp title={fact.label} section={fact.label==='Built'?'checked-versus-built':fact.label==='Text without embeddings'?'embedding-coverage':fact.label==='Embedding cache'?'embedding-model-and-privacy':fact.label==='Passages'?'search-storage-and-schema':'dashboard-measurements'}/></TableCell><TableCell data-fact-value="" className="tabular-nums">{fact.value}</TableCell></TableRow>)}</TableBody></Table>:null}
+      {check?.message?<p className="text-sm [overflow-wrap:anywhere]" data-check-message="">{check.message}</p>:<p className="text-sm text-muted-foreground">No measurements yet. Run a full check, or update this index directly. Check results appear as each stage finishes.</p>}
+      {facts.length?<Table><TableHeader><TableRow><TableHead>Measurement</TableHead><TableHead>Value</TableHead></TableRow></TableHeader><TableBody>{facts.map(fact=><TableRow key={fact.label} data-fact={fact.label.toLowerCase()}><TableCell>{fact.label}<IndexDocHelp title={fact.label} section={['Built','Checked'].includes(fact.label)?'checked-versus-built':fact.label==='Text without embeddings'?'embedding-coverage':fact.label==='Embedding cache'?'embedding-model-and-privacy':fact.label==='Passages'?'search-storage-and-schema':'dashboard-measurements'}/></TableCell><TableCell data-fact-value="" className="tabular-nums">{fact.value}</TableCell></TableRow>)}</TableBody></Table>:null}
       {selected==='search'&&check?.legacy?<Legacy legacy={check.legacy as LegacyIndex} busy={busy} onRemove={()=>onStart('remove-legacy-search')}/>:null}
     </StatusCard>
     <div className="grid min-w-0 items-start gap-4 xl:grid-cols-2"><RecentRuns status={status} error={error}/>{editions}</div>

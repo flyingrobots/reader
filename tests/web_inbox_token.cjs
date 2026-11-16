@@ -1,4 +1,5 @@
 /* An open Reader tab recovers its write token before starting one synthetic inbox job. */
+require('./jail_guard.cjs');
 const assert=require('node:assert/strict');
 const {spawn}=require('node:child_process');
 const {createInterface}=require('node:readline');

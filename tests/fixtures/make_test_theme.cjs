@@ -32,9 +32,9 @@ const tokens=require('../../src/reader_mcp/web_ui/theme-tokens.json').colors;
       // The fixture lists the JSON in /api/themes; the app builds the stylesheet and caches it in localStorage.
       const answered=page.waitForResponse(response=>new URL(response.url()).pathname==='/api/themes');
       await page.goto(url+'/?theme=user-reader-test');await answered;
-      await page.waitForFunction(()=>{try{const c=JSON.parse(localStorage.getItem('reader.themes.v1'));return c?.ids?.includes('user-reader-test-dark')&&c.css.includes('user-reader-test-dark');}catch{return false;}});
+      await page.waitForFunction(()=>{try{const c=JSON.parse(localStorage.getItem('reader.themes.v2'));return c?.ids?.includes('user-reader-test-dark')&&c.css.includes('user-reader-test-dark');}catch{return false;}});
       await page.waitForTimeout(300);
-      const css=await page.evaluate(()=>JSON.parse(localStorage.getItem('reader.themes.v1')).css);
+      const css=await page.evaluate(()=>JSON.parse(localStorage.getItem('reader.themes.v2')).css);
       writeFileSync(join(here,'reader-test-theme.css'),css);console.log('Wrote reader-test-theme.css ('+css.length+' bytes)');
     }
   }finally{await browser?.close();fixture.kill();}

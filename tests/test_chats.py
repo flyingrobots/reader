@@ -17,6 +17,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 from chat_vault import calls, default_voices, git_locks_shim, make_vault  # noqa: E402
 
 from reader_mcp.chats import Chats
+from reader_mcp import process_table
 from reader_mcp import voices as voice_tools
 from reader_mcp.voice_runner import Conversations, StreamParser
 from reader_mcp.web import WebLibrary, WebServer
@@ -395,9 +396,8 @@ def alive(pid):
         os.kill(pid, 0)
     except ProcessLookupError:
         return False
-    # A zombie still answers kill(0); ask ps for its state.
-    state = subprocess.run(['ps', '-o', 'stat=', '-p', str(pid)], capture_output=True, text=True).stdout.strip()
-    return bool(state) and not state.startswith('Z')
+    # A zombie still answers kill(0); the process table says whether it really runs.
+    return process_table.running(pid)
 
 
 def wait_for(predicate, timeout=10):

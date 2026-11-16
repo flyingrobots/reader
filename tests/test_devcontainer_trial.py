@@ -9,6 +9,8 @@ from types import SimpleNamespace
 
 import pytest
 
+from reader_mcp import process_table
+
 SCRIPT = Path(__file__).resolve().parents[1] / 'planning/devcontainers/trial.py'
 spec = importlib.util.spec_from_file_location('reader_devcontainer_trial', SCRIPT)
 trial = importlib.util.module_from_spec(spec)
@@ -149,16 +151,16 @@ def test_exited_cli_leader_does_not_leave_a_live_descendant(tmp_path, monkeypatc
         with pytest.raises(TimeoutError, match='deadline'):
             trial.watch([sys.executable, '-c', leader], tmp_path / 'command.log', trial.time.monotonic() + 1)
         pid = int(pid_file.read_text())
-        stat = Path(f'/proc/{pid}/stat')
         until = trial.time.monotonic() + 2
-        while stat.exists() and stat.read_text().rsplit(')', 1)[1].split()[0] != 'Z' and trial.time.monotonic() < until:
+        while process_table.running(pid) and trial.time.monotonic() < until:
             trial.time.sleep(.01)
-        assert not stat.exists() or stat.read_text().rsplit(')', 1)[1].split()[0] == 'Z', 'CLI descendant survived group cleanup'
+        assert not process_table.running(pid), 'CLI descendant survived group cleanup'
     finally:
         for child in children:
+            # macOS refuses killpg with EPERM when only exited, unreaped members remain.
             try:
                 os.killpg(child.pid, signal.SIGKILL)
-            except ProcessLookupError:
+            except (ProcessLookupError, PermissionError):
                 pass
             child.wait(timeout=5)
 

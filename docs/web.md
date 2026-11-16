@@ -30,6 +30,40 @@ CDN, external analytics or hosted account. Content and semantic
 search retain the existing [search](search.md) configuration and model lifecycle.
 The web server does not rebuild indexes or download models at startup.
 
+## Companion attachments
+
+Article-relative links resolve against the article's folder in both filed bundles
+and inbox previews. Keep companion files in the delivered directory structure;
+neither relocation into a separate asset tree nor source URL rewriting is needed.
+
+HTML (`.html` and `.htm`) opens in an interactive sandboxed frame. The path-based
+`/api/attachment/<vault-relative-path>` URL preserves relative links and sibling
+classic scripts, stylesheets and images. Inline scripts and styles work. The frame
+and HTTP response both enforce an opaque-origin sandbox: companion code cannot
+read Reader's page or browser storage, fetch APIs, submit forms, open popups or
+navigate the enclosing reader. External resources, JavaScript modules and local
+`fetch()` data loading are unsupported. A document's own CSP may restrict it
+further. Self-contained HTML with embedded data is suitable for this preview.
+HTML responses specify UTF-8, including direct previews of files without a charset
+declaration. Inline chat voices receive the unchanged HTML source within the
+4 MiB text limit, independently of its visual preview.
+
+**Source** continues to open inert HTML text, and **Download original HTML** saves
+the original bytes. Python, JavaScript and JSON companions remain readable text.
+Binary companions and non-prose files above the 4 MiB text limit display a
+**Download attachment** link instead of attempting UTF-8 decoding or displaying a
+broken image. `/api/file?path=…&download=1` returns original bytes as an attachment
+with an encoded filename. PDF and image views retain their existing rendering.
+Article-authored relative links with a `download` attribute still resolve through
+Reader; only Reader-generated original-file downloads bypass document navigation.
+All file routes enforce the existing identity, size, hidden-path and symlink
+checks. Previewing and downloading do not rewrite originals or receipts.
+
+Verify with `pytest -q tests/test_web_attachments.py` and
+`node tests/web_attachments.cjs` using the existing synthetic browser setup.
+The tests cover delivery followed by filing, intact receipts, sibling assets,
+HTML isolation, text companions, binary downloads and rejected path escapes.
+
 ## Reading and navigation
 
 | Key or control | Behavior |
@@ -55,6 +89,7 @@ The web server does not rebuild indexes or download models at startup.
 | Space Shift+T; `:themes` | Quick theme picker in the footer; choose a theme to apply and save it immediately |
 | Space s, then a / f / s | Send to AI-TTS: whole article, from here, or the selection |
 | Space u; header Source | Open the raw source file (`/api/file`, front matter included) in a new tab; filed documents and inbox previews, not historical versions |
+| Header Copy (clipboard icon) | Copy the raw source bytes of a text document to the clipboard |
 | Space m | Chat with the voices about the open document |
 | Space x | Take a source-anchored quiz on the open article |
 | Space a | Write about the article from a voice's question |
@@ -231,7 +266,7 @@ suggestion; Tab or a pointer press fills it without running. Enter runs the sele
 complete command; selecting a command name that takes arguments first fills its
 name and opens argument suggestions. With no selected suggestion, Enter runs the
 typed command. Ctrl-p / Ctrl-n recall earlier commands that start with what is typed;
-Up on an empty input also recalls history. Up to 100 commands are kept per
+Up on an empty input with no selected suggestion also recalls history. Up to 100 commands are kept per
 device (`reader.commands.v1`). Enter runs, Escape (or Backspace on an empty line)
 cancels. A unique prefix runs its command (`:chan`), an unknown name toasts the
 closest match (“Did you mean :changes?”). Document argument queries are debounced,
@@ -352,15 +387,14 @@ in `web_ui/theme-tokens.json`, which both the server validator and the editor re
 
 | Group | Tokens |
 | --- | --- |
-| Surfaces | `--bg`, `--surface`, `--raised`, `--line` |
-| Text | `--ink`, `--muted`, `--faint` |
-| Accent | `--accent`, `--accent-ink`, `--rust` (secondary emphasis) |
-| Signals | `--warning` |
-| Annotations (translucent) | `--selection`, `--own`, `--other` |
-| Charts | `--chart-1` … `--chart-8`, `--chart-stroke` |
-| Fonts | `--serif` (reading), `--sans` (interface), `--mono` (code) |
+| Surfaces | `--background`, `--card`, `--secondary`, `--border` |
+| Text | `--foreground`, `--muted-foreground` |
+| Accent | `--primary`, `--primary-foreground` |
+| Signals | `--destructive` |
+| Charts | `--chart-1` … `--chart-8` |
+| Fonts | `--font-serif` (reading), `--font-sans` (interface), `--font-mono` (code) |
 
-`--shadow` and the footer's `--mode-*` colors are derived from these, not edited.
+Highlights, code colors, callouts and the footer's mode labels mix from the chart colors, so they follow a theme's palette and aren't edited on their own. A theme saved with the retired `faint`, `rust`, `selection`, `own`, `other` or `chart-stroke` values still loads, and those values are dropped.
 Tailwind semantic colors (`--color-primary` and so on) map onto the same tokens.
 A dark variant is any `data-theme` that is `ink` or ends in `-dark`.
 
@@ -394,7 +428,7 @@ deuteranopia, tritanopia or grayscale without changing the stored values.
 
 | Group | Rule |
 | --- | --- |
-| Text contrast (WCAG 2.2) | Text on page and surfaces 4.5:1, aim 7:1; muted on page, surfaces and raised fills 4.5:1; faint on page and surfaces 4.5:1; links on page and surfaces 4.5:1; on-accent, secondary emphasis and warning 4.5:1; text over each translucent highlight 4.5:1 |
+| Text contrast (WCAG 2.2) | Text on page and surfaces 4.5:1, aim 7:1; muted on page, surfaces and raised fills 4.5:1; faint on page and surfaces 4.5:1; links on page and surfaces 4.5:1; on-accent, secondary emphasis and warning 4.5:1; text over each translucent highlight 4.5:1; in dark variants, text and muted text on filled controls 4.5:1 |
 | Mode labels | On-accent text over each derived mode color 4.5:1 (shown only when failing) |
 | Interface boundaries | Accent 3:1 as a non-text control; rules about 1.2:1; surface layers ΔE_OK ≥ 0.012; text hierarchy steps by lightness; page polarity matches the variant |
 | Charts | Each fill 3:1 against the page *or* the chart border (the border rule) |
@@ -412,9 +446,9 @@ with `id`, `name`, `fonts` (`serif`/`sans`/`mono` family or null for the default
 a size in pixels from 10 to 120 or null for the stylesheet default), `light` and `dark` (every color token, lowercase `#rrggbb` or `#rrggbbaa`),
 `created_at` and `updated_at`. Ids are 1–40 lowercase letters, digits or hyphens. They
 cannot be a built-in name or end in `-dark`. A theme saved before `headings` existed
-reads with every level at its default. Heading settings become `--h1-font`/`--h1-size`
-through `--h6-*` custom properties, which only the document's headings read; the H1 font
-also sets the document title, whose size stays responsive. The page uses
+reads with every level at its default. Heading settings become generated rules on the document's headings
+(`headingRules()` in `web/src/theme/theme-css.ts`), at the same specificity as `style.css` and later in
+the cascade; the H1 font also sets the document title, whose size stays responsive. The page uses
 `data-theme="user-<id>"` and `user-<id>-dark`. Writes are atomic under
 `.reader/themes.lock`. Limits are 64 themes and 64 KiB per theme. The generated CSS is
 cached in `reader.themes.v1` local storage so a saved theme paints before
@@ -450,6 +484,15 @@ returns focus. The current filename has `aria-current="page"` and exposes the fu
 path on hover. The trail follows the composition in the
 [shadcn breadcrumb reference](https://ui.shadcn.com/docs/components/base/breadcrumb),
 adapted to Reader's existing plain-JavaScript interface.
+
+`web/src/status-line.tsx` renders the line into the empty `#statusline` footer in
+`index.html`. Plain JavaScript owns what it says and tells a small store (`setStatus`):
+the mode and its key hints, the breadcrumb trail, section, position, chips and pending
+keys. An item with nothing to say is not in the document, except the section and
+position labels, which are empty. Read a value with `getStatus()`, not from the DOM:
+React paints it a moment later. The hints stay `<kbd>j k</kbd> move` strings and
+become shadcn Kbds there. The command line (`:`) mounts when opened, and `keys.mjs`
+binds it by id each time.
 
 When the status line is too narrow for everything, items give way by declared
 priority (`status-priority.mjs`). Every `#statusline` child carries
@@ -488,12 +531,22 @@ click, Left/Right, Home and End. A persistent readout at the right end shows
 percentage and estimated minutes remaining, based on visible text and the selected
 reading pace. The seek track has no hover popup. The readout follows the current
 reading position, independently of the pointer location. PDF estimates use pages remaining. Highlight/warning pips identify an owner
-and open the corresponding thread. Seeking uses the document's scroll range or
-the discrete spread index; it is a layout position, not a measure of comprehension.
+and open the corresponding thread. Seeking uses the article's reading range (see
+[automatic bookmarks](#two-page-mode-and-automatic-bookmarks)) or the discrete spread index; it is a layout position, not a measure of comprehension.
 
 ### Two-page mode and automatic bookmarks
 
-Choose **2 pages** in the footer or **Two pages** in settings. Text flows through
+On mobile windows below 900 CSS pixels, articles open in continuous scrolling
+by default, even when an older desktop preference selected **Pages** (formerly **Two pages**).
+Mobile and desktop layout choices are remembered separately in this browser.
+Reader chooses which preference to use when the window opens; resizing reflows
+the current layout without switching it.
+
+Choose **Pages** in the footer or settings; choose **Scroll** to return to continuous
+scrolling. On a touch screen, a swipe turns exactly one page: the page follows the
+finger, and releasing after a fifth of a page or a quick flick turns to the
+neighbouring page; anything less springs back. Browser fling momentum does not
+carry a swipe across several pages. Text flows through
 two facing columns at a fixed viewport height, continuing across successive
 spreads. The document title flows as a full-size heading at the start of the
 text, rather than repeating above each spread. Existing Markdown title headings
@@ -567,7 +620,7 @@ current one.
 
 - **Masthead:** the issue number and its Monday-to-Sunday dates (ISO weeks, the
   same weeks as the inventory's `week` field), previous/next buttons and a **Past
-  issues** list of the last twelve weeks that hold pieces.
+  issues** popover of the last twelve weeks that hold pieces (Escape closes it).
 - **Cover story:** a large serif headline with a kicker (Cover story · project ·
   type), a standfirst, and a byline with author, date, approximate reading time and
   read state. When the cover story has [bespoke art](#article-art), it is drawn
@@ -576,6 +629,7 @@ current one.
 - **Features:** up to four more pieces, each from a different project.
 - **Summary:** counts of new and unread pieces and sections, and a link to the
   week's newsletter when one exists.
+- **Topics & makeup:** above **In this issue**, an interactive D3 view (`web/src/magazine/issue-makeup.tsx`) of the window's topic-by-section hierarchy, unread/read balance, and document forms; selecting a topic tile or form bar lists up to ten matching unread-first pieces and opens any selection in the reader.
 - **In this issue:** the rest of the window grouped by section, unread first; read
   pieces are dimmed. Six pieces per group show, and the rest expand. When there are
   more than six sections, one-piece sections share an **Elsewhere** group.
@@ -599,8 +653,14 @@ Elsewhere aggregate. Section pages filter title/author/path metadata and paginat
 browser Back returns to the section route. Inbox completion refreshes its article
 inventory while preserving the active filter, page and input focus.
 
-**Layout by window width.** The issue fills the window, with outer margins that scale
-from 40 to 120px (`clamp(…, 4vw, …)`); added width becomes columns, not longer lines.
+**Layout by column width.** The issue is a React island (`web/src/magazine/magazine.tsx` and `web/src/magazine/issue-makeup.tsx`,
+drawing the model from `issueModel` and `issueMakeup` in `web_ui/magazine.mjs`) built from shadcn Card,
+Item, Badge, Separator, Popover, Collapsible and Empty, with Tailwind container queries
+on the issue's own column: the File Explorer narrows it at any window width, and every
+layout below follows the column, not the window. With nothing docked the column is the
+window. Outer margins scale from 40 to 120px (`clamp(…, 4vw, …)`); added width becomes
+columns, not longer lines. Class names such as `.issue-cover` are hooks for the app, art,
+prose colors and tests; they carry no style.
 
 - **1360px and wider:** a twelve-column spread plus a rail (260–400px). The cover takes
   eight columns and the first feature sits beside it as a second lead, bottom-aligned
@@ -1114,9 +1174,11 @@ No model is called and nothing leaves the machine; the route writes nothing.
 ### Reader Admin: indexes, the inbox, library statistics and settings
 
 Reader Admin (formerly Behind the scenes) is a separate layout for administration,
-not a page inside the article reader. A shadcn **Sidebar** lists its sections; a
-header carries the sidebar trigger, a breadcrumb (*Reader Admin › Section*) and
-**Back to Library**; the page shows one section at a time under its own heading.
+not a page inside the article reader. A shadcn **Sidebar** groups its sections
+under Monitor, Library and Configure, and ends with **Back to Library**; a header
+carries the sidebar trigger, a breadcrumb (*Reader Admin › Section*) and **Docs**;
+the page shows one section at a time. The breadcrumb names it on screen; its heading and
+one-line description are kept for assistive technology, and the heading takes focus on each route change.
 Each section is its own hash route:
 
 | Route | Section |
@@ -1166,7 +1228,8 @@ reduced motion removes its transitions.
 
 Status is read, never assumed. The Overview summarizes what Reader already polls
 (`/api/maintenance` and `/api/inbox`); opening it starts no check, rebuild, model
-or inbox run. A tile says *Loading…* until its status arrives, and a status that
+or inbox run. Four summary cards lead, above attention and index health tables and
+active work and inbox cards. A tile says *Loading…* until its status arrives, and a status that
 could not be read is shown as unavailable with the reason, never as zero or
 healthy; if a later refresh fails, the page says the tiles show the earlier status.
 Indexes and the Inbox show the same unavailable state, with their actions disabled.
@@ -1184,7 +1247,7 @@ build up through atomic tiers in `web/src/theme/`:
 | Atoms | `theme/atoms/` | `StatusBadge` (a tone: ok, attention, error, active or neutral, mapped to a Badge variant), `RelativeTime`, `Elapsed`, `RunStateIcon`, `SectionHeading` |
 | Molecules | `theme/molecules/` | `FactList` (grid or rows of Items), `Notice` (Alert), `EmptyState` (Empty), `LoadingState`, `Unavailable`, `RunRow` (Item), `Toolbar` (muted Item), `FilterSelect` and `FilterBar` (Field + Select), `Pager` |
 | Organisms | `theme/organisms/` | `StatusCard` (full Card composition), `RunList` (ItemGroup), `ConfirmAction` (AlertDialog) |
-| Templates | `theme/templates/` | `AdminHeader` (sidebar trigger, Breadcrumb, Back to Library), `AdminPage` (focusable h1, lede, Separator), `CardGrid` |
+| Templates | `theme/templates/` | `AdminHeader` (sidebar trigger, Breadcrumb, page actions), `AdminPage` (visually hidden focusable h1 and lede), `CardGrid` |
 
 Pages live in `web/src/admin/pages/` (Inbox, Indexes, Coding jobs, LLM logs, Repositories, Voices, Library), with Overview in
 `web/src/admin/overview.tsx` and the larger sections in their feature files (`local-model.tsx`, `server-card.tsx`,
@@ -1217,12 +1280,11 @@ New sections are added in one place: the section registry in
 on this computer, which route parameters it accepts, and its page). The route
 syntax, `#admin/<section>[/<param>…]`, is parsed by `web_ui/admin-routes.mjs`.
 
-Every registered **Admin section** splits the available page width equally between the dashboard and an
-independently scrolling Markdown reference. Info buttons navigate directly to
-reference headings. The right pane renders that section’s canonical [technical reference](admin-documentation.md)
-that is maintained in the repository, bundled with the frontend release. Its contents
-selector and internal links preserve the Admin route and dashboard scroll position.
-On narrow screens the panes stack. Hide documentation expands the dashboard to full width; this preference is shared across Admin pages. Reference positions are saved per section for the browser session.
+Every registered **Admin section** gives its dashboard the full page width. The header's **Docs**
+button opens that section's canonical [technical reference](admin-documentation.md), maintained in the
+repository and bundled with the frontend release, in a Sheet over the page. Info buttons open it at
+the relevant heading. Its contents selector and internal links preserve the Admin route and dashboard
+scroll position. Reference positions are saved per section for the browser session.
 
 The dashboard contains summary Cards, interactive D3 charts, an index health Table
 and a selected-index inspector. Shadcn components provide controls, data surfaces
@@ -1249,15 +1311,9 @@ time limit finishes with "Stopped at the time limit; N passages saved. Run again
 continue." in its toast and in Recent runs. A failed run shows the worker's last
 meaningful error line, not its log tail.
 
-Opening the Indexes page runs a freshness check when the last one is older than two
-minutes (the Overview never does). **Check again** reruns it, and every rebuild is followed by one. On a
-large vault the browse check takes about ten seconds. A catalog check can refuse
-outright: for example, an inventory over the 50,000-file / 2 GiB catalog limit, or
-a duplicate `document_id`, shows as Error with that message. Jobs run one at a time in a background thread of
-the web server. While one runs, every rebuild button is disabled. The page explains this shared job slot and shows elapsed time for a running freshness check; cached measurements stay visible. This layout does not change the cost of the full audit or introduce a maintenance queue. A second start
-is refused with HTTP 429. **Recent runs** lists this server process's last 20 jobs
-with their results or errors. Job history is not persisted; freshness is always
-measured again.
+Opening Indexes reads saved status without starting a check or rebuild, even when measurements are old or absent. **Run full check** explicitly measures all indexes. It reports its current probe and publishes each result as it finishes. Saved observations retain their individual checked timestamps; they do not prove that sources are still unchanged.
+
+Rebuilds verify only affected projections: Search, Catalog and Links check themselves; Browse also checks Links and Other inventories because they use its published work inventory. Failed writes are verified too. The maintenance slot remains held through verification, which is included in the job's elapsed time. Other API starts receive HTTP 429 while that slot is occupied. The UI disables maintenance actions during the same interval, while reading and status access remain available. Full checks can still be expensive: Browse renders navigation and Catalog hashes sources. Native lock waits have no general deadline. Jobs and saved checks live only in server memory; a restart shows unmeasured indexes until an explicit check or rebuild. There is no maintenance queue or Git-based invalidation.
 
 Job toasts use shadcn **Sonner**. A start shows a loading toast, which the same
 toast replaces with success (with a summary) or failure (with the error, shown for
@@ -1280,12 +1336,26 @@ the first success, or any request that reaches the server, replaces the toast wi
 *Reader is reachable again.*
 
 The Settings page holds the preferences form in four cards: *You and the page* (reading name, palette), *Reading*
-(layout, page turn, pace, recent files, prose colors, and switches for the atlas, activity, smooth scrolling, Read
+(layout, article width, page turn, pace, recent files, prose colors, and switches for the atlas, activity, smooth scrolling, Read
 next, Linked from and the outline rail), *The issue and article art* (excluded kinds of writing, article art, art
 producer and automatic art) and *Inbox* (job permissions). Choices are shadcn **Select** controls. Escape dismisses
 an open Select only, and Reader's global Vim commands yield to these controls. A save bar stays in view at the bottom
 of the page. Preferences take effect when saved; you stay on the page, and a toast confirms the save. **Theme
 Editor…**, in the toolbar above the form, opens the editor over the page.
+
+**Article width** sets the article column in continuous reading: Narrow (640 px), Standard (65ch, the default), Wide
+(960 px), Wider (1200 px) or Full window. It is a maximum, so a narrower window, a docked panel or the File Explorer
+still narrows the column. Wide and up also widen the shell, so the footer and Read next line up with the article, and
+the outline rail becomes a popover when no margin is left for it. Two-page reading ignores the setting.
+
+While you read an article in continuous reading, the footer also has an **article width slider**. The article rewraps as
+you drag, keeping your line in place, and the choice is saved when you let go. It stops every 10 px from 480 px up to
+the width the window allows, and the far right end is Full window. The stop nearest 65ch is Standard. Any other stop
+appears in Settings as **Custom**. The slider isn't shown on other pages, in two-page reading, on a phone (a screen
+whose shorter side is under 600 px) or when the window leaves less than 640 px to fill, and it gives way when the footer
+is crowded.
+
+Like other preferences, the article width is saved per browser; a tab or pane already reading rewraps at the same line.
 
 ### Inbox and You got mail
 
@@ -1301,7 +1371,18 @@ and empty folders. Each row shows:
 - receipt integrity: **Receipt intact** when every recorded file matches its size and
   SHA-256, **Changed since delivery** otherwise, or **No receipt** / **Unreadable receipt**
   (over 256 KiB, not JSON, or not a Reader receipt);
-- the file count, total size and when it arrived (`received_at`, else the newest file time).
+- the file count, total size and when it arrived (`received_at`, else the newest file time);
+- eligibility for the next run, `eligibility: {state, reason}`: `eligible`, `waits`
+  (an Upkeep claim, a retained batch that files first, or local-only with no local
+  model in the order), `blocked` (unreadable receipt, or files changed since
+  delivery) or `held`. These mirror the runner's own admission checks.
+
+`GET /api/inbox` also returns `retained` (a failed or stopped run's batch, which a
+retry resumes, with each entry's source, title, destination and `state`: `moved`,
+`decided`, `deferred`, or `queued` when the frozen queue has not classified it yet), and `pending_work` (`{paths, count}`, the uncommitted changes under `library/`,
+`writings/` and the generated `catalog/`, `indexes/`, `README.md` and `link-repairs/`
+that the next run commits first in their own commit; `null` outside Git). The page
+shows both on a *Before new arrivals* card.
 
 Opening a row previews its document (the receipt's `document`, else the first
 `.md`, `.txt` or `.pdf`) at `#read=inbox/…`. A preview is plain reading: the kicker
@@ -1340,7 +1421,7 @@ While a run is active, a loading toast reads "The librarian is reading the mail�
 The card shows the **Activity** transcript (below) and **Stop**. Elapsed time appears once in the transcript header; a fallback counter appears only until the transcript is available. Activity uses distinct blue running indicators, green completion indicators and red failure indicators, derived from the active theme. Commands use stronger text, and librarian messages have a separate surface. Labels and icons retain the state information without relying on color. Stop writes `.reader/inbox-runner/cancel` ("Stop
 requested by the Reader web user."), as the plugin does, and the supervisor stops
 the process group within a second. When the run ends, the same toast becomes
-"Mail filed: N arrivals" (with a **Report** action), "Inbox run stopped", or an
+"Added to the library: N arrivals" (with a **Report** action), "Inbox run stopped", or an
 error carrying the runner's message. The card then shows the runner's message,
 the commit, the librarian's report (`last-message.md`, its last 256 KiB) and the
 finished transcript,
@@ -1520,8 +1601,8 @@ In the static demo these sections say they need Reader.
 Reader Admin's **Models** page (`#admin/models`, after Voices) supervises a small work
 queue for a model you run yourself: LM Studio, Ollama, llama.cpp's `llama-server`, or
 any other server with an OpenAI-compatible API (vLLM, LocalAI, Jan and others). It suits bulk, private, judgment-light
-language tasks. Outputs are suggestions labelled with their model; filing, catalog
-writes and anything under a voice's name stay with the voices. Machine-written text
+language tasks. Outputs are suggestions labelled with their model; anything under a voice's name stays with the voices.
+The local model is also the last resort in [intake's model order](inbox-runner.md#the-model-order). Machine-written text
 is a rebuildable cache and is never written into vault documents.
 
 | Card | Shows | Controls |
@@ -1897,10 +1978,10 @@ line says who has a read receipt for the document and when, for example
 - **Empty and live state.** With no receipts the line reads *Not yet read by
   anyone. You'll be first.* Opening the document records your receipt as before
   (`/api/seen`), and the line then shows *You just now* without a reload.
-- **Placement.** The line follows `.document-meta` and carries
+- **Placement.** The line follows `.document-meta` (the title's row, which wraps at phone width: byline, date, Read aloud, Source and the edition chip) and carries
   `data-reader-decoration`, so passage selection, annotations and find skip it. Its
   slot reserves one line before the response arrives, so the article does not move.
-  In two-page reading (where the meta row is hidden) it stays in the first column
+  In two-page reading (where the meta row keeps only Read aloud and the chip) it stays in the first column
   under the title, on one line; at phone width it wraps.
 - **Requests.** `/api/readers` is requested once per path, edition and participant
   per page session, in parallel with the discussion, and never delays the article.
@@ -1937,7 +2018,7 @@ speech stay in force.
 
 - **Entry points.** **Space s** opens a small menu: **Whole article** (`a`),
   **From here** (`f`) and **Selection** (`s`, enabled while a passage is
-  selected). **Read aloud**, below the article title and metadata, sends the whole
+  selected). **Read aloud**, in the row under the article title, sends the whole
   article. It switches to playback controls for that article and edition while queued
   or playing, then returns when the utterance finishes. The
   selection toolbar's **Speak** sends only the selected passage.
@@ -1997,14 +2078,22 @@ and margin pins stop at the column's edge, and the find bar centres on the page.
 interactive: it scrolls, selects and opens links while the panel is open, and a click
 on the page leaves a docked What changed open.
 
-`web_ui/dock.mjs` is the one mechanism. It watches the panels' `hidden` attributes
-(and the What changed Sheet's `data-side`), and while one is open it sets
+`web_ui/dock.mjs` is the one mechanism. A closed panel is not in the document, so it
+watches panels come and go as children of the body and the controls root (and the
+What changed Sheet's `data-side`), and while one is open it sets
 `data-dock="right"` and `--dock-width` on the root; the layout rules in `style.css`
 and `web/src/styles.css` consume them. Each panel declares its width as
 `--panel-width` (410 px for the margins, Versions and lists, 420 px for the queue,
 440 px for Chat, 520 px for What changed). Panels open together share the column: the
 widest sets its width, every docked panel takes it, and the one opened last is on top.
 Code that clamps to the window uses `pageWidth()` (the window less the dock).
+
+The File Explorer, Find bar, selection toolbar, queue, margins, Versions, lists and Chat
+mount when opened and unmount when closed (`showPanel`, `hidePanel` and `renderFileExplorer`
+in `reader-controls.tsx`): test for one with its element, as `$('#queue-panel')`, and keep
+what must outlast it elsewhere. Find's query and count are in `state`, the Explorer's filters
+in its module, a reply being written in `state.replyDraft`, and Chat's stream and draft in
+its component, which stays mounted and renders nothing while closed.
 
 A dock change keeps the reader's place. In continuous reading the block at the reading
 line (22% down the window) is measured before the column narrows and scrolled back to
@@ -2218,14 +2307,14 @@ is written or repaired.
 
 ### Versions: the chip, its twin and the explorer
 
-**The version chip.** Under the title meta, one bordered chip says which version
+**The version chip.** At the end of the row under the title, one bordered chip says which version
 you are reading: `v1 of 3`, `Reading copy of v2`, `Reading copy of the
 original`, `Original · 1 reading copy`, or, for a file without siblings whose
 path has at least two commits in the vault's git history, `Current · 7
 revisions`. Beside it, **Newer v3 available · Open v3 · Compare v1 → v3** when a
-higher version exists (the chip's dot turns `--accent`), and **You read this on
-Oct 16** (or **You read v2 on …**) when your receipt matches a family member's
-current bytes. The chip replaces the frontmatter's "Edition N" meta item, which
+higher version exists (the chip shows an `--accent` dot only then), and **You read
+v2 on …** when your receipt matches a sibling edition's current bytes. On a later day it also says **You last read this on …**, because opening the
+file rewrites your receipt and the reading log then says *just now*. The chip replaces the frontmatter's "Edition N" meta item, which
 still shows when there is no chip. A file with no siblings and at most one
 commit shows nothing. The line is `data-reader-decoration` (excluded from
 selection, find and word counts). The text never waits for `/api/versions` (a
@@ -2731,10 +2820,10 @@ underlines and background washes rather than weight or size.
   numbers and quotation marks take a faint tint of their role color. Every role reads at
   4.5:1 or more.
 - **Clear (default):** function words and punctuation recede strongly, to about 3:1 on the
-  page (`--prose-recede`, between 3.0:1 and 3.3:1). This is WCAG's large-text level, and a
+  page (`prose-recede`, between 3.0:1 and 3.3:1). This is WCAG's large-text level, and a
   deliberate choice: the receding words are de-emphasized structure whose meaning the
   sentence carries anyway, while the content words, which carry the meaning, stay at 7:1 or
-  more (`--prose-content`, the theme's ink raised to 7:1 when it is below it). Proper nouns
+  more (`prose-content`, the theme's ink raised to 7:1 when it is below it). Proper nouns
   and acronyms take the accent's hue, numbers and quotation marks their own hues, each at
   4.5:1 or more.
 - **Vivid:** every role Colorful emits gets its own saturated hue, as in its CLI: function
@@ -2781,18 +2870,19 @@ and Clear only names, numbers and quotes. Function words cannot recede in a PDF.
 from the cache.
 
 **Two-page reading.** The page-turn rasterizer reads each role's current ink,
-wash and underline (`--prose-ink-<role>`, `--prose-bg-<role>`, `--prose-line-<role>` on
-`<body>`) and draws words split at role boundaries, so the 3D sheet shows the same
+wash and underline from the article's computed `::highlight(reader-prose-<role>)` style
+(`color`, `backgroundColor`, `textDecorationColor`) and draws words split at role boundaries, so the 3D sheet shows the same
 colors. Find and annotation inks win. PDF tints are not
 rasterized; the sheet shows the PDF page without them.
 
 **Theme colors.** Prose colors are derived per theme, never stored (the `prose`
 and `prose_derived` lists in `theme-tokens.json`), by `proseColors()` in
-`web/src/theme/color.ts`:
+`web/src/theme/color.ts`, and reach the page as generated rules holding literal colors, per
+theme and per intensity (`proseRules()` in `web/src/theme/theme-css.ts`), not as custom properties:
 
-- The eight role colors `--prose-function`, `--prose-proper`, `--prose-quote`,
-  `--prose-number`, `--prose-noun`, `--prose-verb`, `--prose-adjective` and
-  `--prose-adverb` are Vivid's. They are chosen greedily in OKLCH, proper nouns first. The
+- The eight role colors `prose-function`, `prose-proper`, `prose-quote`,
+  `prose-number`, `prose-noun`, `prose-verb`, `prose-adjective` and
+  `prose-adverb` are Vivid's. They are chosen greedily in OKLCH, proper nouns first. The
   proper-noun role starts from the accent. Each other role tries the unused theme colors
   (secondary emphasis, charts) within 40° of its target hue, then synthesized hues stepping
   away from it. Each candidate's chroma is raised to at least 0.11 (0.12 for names) and its
@@ -2800,14 +2890,18 @@ and `prose_derived` lists in `theme-tokens.json`), by `proseColors()` in
   least 0.11 ΔE_OK from ink, content ink, muted and the roles already chosen wins (names
   also 0.14 from the ink, so they stand out in Clear), otherwise the most separated one.
   Function words, a third of all words, also keep at least 60° of hue from the names.
-- `--prose-punct` (muted at 4.5:1), `--prose-recede` (muted's hue moved toward the page
-  until just above 3:1), `--prose-content` (ink at 7:1), `--prose-subtle-function`,
-  `--prose-subtle-proper`, `--prose-subtle-number` and `--prose-subtle-quote` (OKLab mixes
-  with ink at 4.5:1), `--prose-wash` (the quote color at the highest alpha, up to 0.2 dark
-  or 0.22 light, that keeps ink and every role at 4.5:1 over it) and `--prose-underline`.
+- `prose-punct` (muted at 4.5:1), `prose-recede` (muted's hue moved toward the page
+  until just above 3:1), `prose-content` (ink at 7:1), `prose-subtle-function`,
+  `prose-subtle-proper`, `prose-subtle-number` and `prose-subtle-quote` (OKLab mixes
+  with ink at 4.5:1), `prose-wash` (the quote color at the highest alpha, up to 0.2 dark
+  or 0.22 light, that keeps ink and every role at 4.5:1 over it) and `prose-underline`.
 
-Famous and custom theme stylesheets carry the derived values; built-in themes get them at
-runtime from the cascade, at zero specificity. The Theme Editor's *Prose colors (derived)*
+Only the active theme has these rules: `ensureProseRules()` derives them from the cascade
+into the `reader-prose-tokens` sheet when the theme or its stylesheet changes, for built-in,
+famous and custom themes alike, and palette-only themes keep to their swatches there.
+Shipping every theme's rules would slow style recalculation, because a `::highlight` rule's
+last selector is universal and so is tried on every element. The rule that keeps PDF text layers transparent is `!important`,
+so no generated rule can reveal the layer's glyphs. The Theme Editor's *Prose colors (derived)*
 group checks each intensity's paint against its floor (3:1 for Clear's receding words, 7:1
 for content words, 4.5:1 for every colored role), Vivid's closest pair of roles (0.08
 ΔE_OK) and text over the wash. The browser test checks the same floors in all 22 built-in
@@ -3369,10 +3463,9 @@ prompts in chat raw output, and the theme preview use the React component direct
   `-function`, `-parameter`, `-punctuation`, `-comment`, `-link`) over the unchanged
   text node: highlighting never changes the DOM, so it cannot move an annotation, a find
   match or a selection. Their priority is below annotations and find.
-- **Theme colors.** `--code-<role>` (style.css) maps each role to the theme's derived
-  prose colors (`--prose-function`, `--prose-quote`, `--prose-number`, …), which hold
-  4.5:1 on the page (the browser suite checks all 22 bundled themes); comments and punctuation
-  use `--muted`. A theme change recolors without re-highlighting. The block's background
+- **Theme colors.** Each `::highlight(reader-syntax-<role>)` rule in `style.css` mixes a
+  chart color into the foreground or uses the primary color; comments and punctuation
+  use `--muted-foreground`. A theme change recolors without re-highlighting. The block's background
   is the page color, so these ratios hold inside it.
 - **Two-page mode.** Blocks avoid column breaks and scroll inside the column. The
   page-turn rasterizer paints the syntax colors (it reads `--code-<role>`) and the
@@ -3397,7 +3490,13 @@ keeps an intermediate animation frame from replacing a restored bookmark.
 Navigation and hiding the browser page still save the currently visible place
 immediately. It restores a matching
 source edition before revealing the document. Text positions include a source
-block offset and relative position, with a normalized progress fallback. PDF
+block offset and relative position, with a normalized progress fallback. In
+continuous reading, progress runs from the top of the page until the bottom edge
+of the article's last content, tables and embeds included, is in view; the footer
+and Read next add nothing, and `End` on the slider stops there. An article that
+fits the first screen uses the whole page's range, and only the dwell finishes it.
+A saved share of 0.97 or more counts as finished, so that now means 97% of the
+article. Offset-less bookmarks saved before this rule restore on the new scale. PDF
 positions include an explicit page number. A saved spread index is reused when
 the current number of spreads matches. Layout changes use the source/page anchor
 where possible. A changed source SHA-256 starts at the beginning with a notice;
@@ -3702,6 +3801,8 @@ offsets of surrounding passages are unchanged.
   embeds') render after the reading position is restored and its math is typeset, so
   first paint never waits for them; when they finish, the block that was first in view is kept in view (unless
   you moved meanwhile) and spread counts are re-measured.
+- **Colors.** A shape the author colored keeps that color in every theme, so its label can't follow the theme. It takes black or white, whichever reads better on the fill, unless the author's own label color already reaches 4.5:1.
+- **Expanding.** Clicking a diagram or pressing Enter on it opens it fitted to the window, and it stays fitted as the window changes until you zoom. The zoom bar has −, +, **Fit** and **100%**. The keys are `+`, `-`, `0` for fit and `1` for full size. Ctrl/⌘-scroll or a pinch zooms at the pointer, from 10% to 800%, and dragging moves a diagram larger than its box.
 - **Errors and limits.** A diagram that does not parse, an unsupported type, a source
   over 64 KiB, or any diagram after the first 64 in a document shows its source
   expanded, with a muted line: "Couldn't draw this diagram: <reason>". Other diagrams
@@ -3892,7 +3993,7 @@ accepts exactly `{"action": …}` with `pause`, `resume`, `skip`, `next_segment`
 `previous_segment` or `cancel`. A foreign id is refused with 403; an unavailable
 daemon answers 503 with `unavailable: true`. POST `/api/inbox` accepts exactly
 `{"action": "start", "sandbox_mode": "workspace-write" | "danger-full-access"}` or
-`{"action": "stop"}`. A start returns the run id, the argv and the supervisor's first
+`{"action": "stop"}`, or `{"action": "choose", "arrival": …, "choice": "hold"|"cloud"|null}`. A start returns the run id, the argv and the supervisor's first
 state; a start while a run is active is a state conflict, refused with HTTP 409
 (*The librarian is already reading the mail.*), and other refusals
 with HTTP 400. Receipts, state and claims are read at most 256 KiB (claims 1 MiB),
@@ -4041,7 +4142,10 @@ again; it keeps the recorded paths and backups.
 2. Add a temporary detached worktree for that commit (under the repo `.git/`
    git-locks key) and, with a 120-second total budget, run `python -m pytest -q
    tests/test_web.py` there, then start `tests/web_fixture.py` (a synthetic vault)
-   and GET `/`, `/api/library` and the first listed document. The worktree is
+   and GET `/`, `/api/library` and the first listed document. Both run inside the
+   test sandbox, built from the updater's own `scripts/test_jail.py`, so the
+   candidate cannot read the live vault or reach the live server; the first smoke
+   step records it ([Running tests in the sandbox](testing.md)). The worktree is
    always removed.
 3. While `/api/health` reports busy work, wait (polling every 15 s) up to 30
    minutes; then record *deferred* and retry at the next interval.
@@ -4167,7 +4271,8 @@ rebuild from the lockfile; do not substitute a CDN script or loosen the CSP.
 ### Running the browser suites
 
 `tests/web_*.cjs` are the browser suites. Each starts its own fixture (a synthetic vault on a free port) and its own
-browser, so they run side by side:
+browser, so they run side by side. Run them inside the test sandbox ([Running tests in the sandbox](testing.md)); the
+commands below show the runner's arguments after `python3 scripts/test_jail.py --`:
 
 ```sh
 python3 scripts/run_browser_suites.py              # every suite, as many at a time as the machine has room for
@@ -4252,7 +4357,8 @@ directory see it too) and stops the run if `reader_mcp` still resolves elsewhere
 example from a shared virtual environment that is an editable install of another
 worktree.
 
-Synthetic checks, without opening the configured vault:
+Synthetic checks, without opening the configured vault. Run each inside the test sandbox, as
+`python3 scripts/test_jail.py -- <command>` ([Running tests in the sandbox](testing.md)):
 
 ```sh
 .venv/bin/python -m pytest -q tests/test_no_absolute_paths.py
@@ -4317,6 +4423,9 @@ node tests/web_chat.cjs
 .venv/bin/python -m pytest -q tests/test_local_model.py tests/test_local_provider.py
 node tests/web_local_model.cjs
 node tests/web_local_provider.cjs
+node tests/web_model_order.cjs
+node tests/web_publish.cjs
+node tests/web_private.cjs   # installs the pinned git-cas offline, from scripts/fetch_private_bridge.py's cache, into a throwaway home
 node tests/web_index_scale.cjs
 .venv/bin/python -m pytest -q tests/test_versions.py
 node tests/web_versions.cjs
@@ -4531,7 +4640,8 @@ fixture and delays every `/api/versions` answer by 2 s (a Playwright route): the
 article must be visible before the timeline arrives and within 600 ms of asking
 for it, the chip and twin follow, a saved place stays on the same paragraph in
 scroll and two-page reading, and edition and `@commit` deep links open what they
-name. All three need `git` on `PATH`.
+name. `web_reading_position.cjs` checks what progress measures and which place a
+bookmark keeps. All four need `git` on `PATH`.
 
 `web_queue.cjs` starts the fixture with `--queue` (the Read next works plus a
 longer document in another project). It checks the panel, keys, toasts, reorder

@@ -1,6 +1,6 @@
 import json
 from datetime import date
-from pathlib import Path
+from pathlib import Path, PurePath
 from uuid import uuid4
 
 import pytest
@@ -51,6 +51,89 @@ def test_packet_group_and_nested_receipts_are_not_double_counted(vault):
     book=next(u for u in data if u['title']=='Geometry')
     assert book['authors']==['Unspecified author'] and book['primary'].endswith('complete.txt')
     assert book['primary_bytes']==5000
+
+
+def grouping_cases(vault):
+    """Overlapping roots, lexical siblings and both kinds of nested receipt."""
+    note(vault,'library/reports/package/index.md','title: Package\nkind: catalog\nauthor: Package author')
+    note(vault,'library/reports/package/source.md','title: Hidden source')
+    note(vault,'library/reports/package/nested/index.md','title: Nested catalog')
+    note(vault,'library/reports/package/nested/source.md','title: Hidden nested source')
+    note(vault,'library/reports/package/aside.md','title: Package aside\nauthor: Essay author\nwriting_type: Essay')
+    note(vault,'library/reports/package-neighbor/source.md','title: Lexical neighbor\nauthor: Neighbor author')
+    note(vault,'library/reports/navigation/index.md','title: Navigation over receipts')
+    note(vault,'library/reports/navigation/loose.md','title: Loose work beside receipts')
+
+    def delivered(folder, title, attachments=None):
+        receipt=Store(vault).ingest(Submission(request_id=uuid4(),title=title,markdown='Preserved source.',
+            provenance={'author':'Source author'},attachments=attachments or []))
+        target=vault/folder;target.parent.mkdir(parents=True,exist_ok=True)
+        (vault/receipt['bundle_path']).rename(target)
+        return receipt['id']
+
+    # The attached receipt is payload, while a separate delivery under it remains a work.
+    attachment=vault/'attached-receipt.json';attachment.write_text('{"reader_receipt": 1}')
+    outer=delivered('library/reports/navigation/outer','Outer delivery',
+                    [{'source_path':str(attachment),'path':'attached/receipt.json'}])
+    inner=delivered('library/reports/navigation/outer/inner','Nested delivery')
+    note(vault,'library/reports/navigation/outer/index.md','title: Delivery wrapper\nkind: catalog')
+    note(vault,'library/reports/navigation/outer/aside.md','title: Delivery aside\nwriting_type: Essay')
+    return outer,inner
+
+
+def test_group_ancestry_preserves_nested_receipts_writing_and_siblings(vault):
+    outer,inner=grouping_cases(vault)
+    before={p.relative_to(vault):p.read_bytes() for p in (vault/'library').rglob('*') if p.is_file()}
+    units=Browse(vault).inventory({})
+    assert [u['title'] for u in units]==['Delivery aside','Lexical neighbor','Loose work beside receipts',
+                                       'Nested delivery','Outer delivery','Package','Package aside']
+    deliveries=[u for u in units if u['id'].startswith('receipt:')]
+    assert {u['id'] for u in deliveries}=={'receipt:'+outer,'receipt:'+inner}
+    assert all(u['authors']==['Source author'] for u in deliveries)
+    assert next(u for u in units if u['title']=='Package')['authors']==['Package author']
+    assert next(u for u in units if u['title']=='Outer delivery')['path'].endswith('/outer/index.md')
+    Browse(vault).run(today=TODAY)
+    outputs={p.relative_to(vault):p.read_bytes() for p in (vault/'indexes').rglob('*') if p.is_file()}
+    outputs[Path('README.md')]=(vault/'README.md').read_bytes()
+    assert json.loads(outputs[Path('indexes/coverage.json')])['works']==units
+    assert Browse(vault).run(check=True,today=TODAY)['status']=='current'
+    assert Browse(vault).run(today=TODAY)['changed']==[]
+    assert all((vault/p).read_bytes()==data for p,data in outputs.items())
+    assert all((vault/p).read_bytes()==data for p,data in before.items())
+
+
+@pytest.mark.parametrize('kind',['catalog','receipt'])
+def test_group_membership_cost_grows_with_files_not_all_groups(tmp_path,monkeypatch,kind):
+    relative=PurePath.is_relative_to;equal=PurePath.__eq__
+    counts=[]
+    for total in (40,80):
+        root=tmp_path/str(total)
+        for i in range(total):
+            folder=root/'library/reports'/str(i)
+            note(root,str(folder.relative_to(root)/'source.md'),'title: Source')
+            if kind=='catalog':
+                note(root,str(folder.relative_to(root)/'index.md'),'title: Catalog\nkind: catalog')
+            else:
+                (folder/'receipt.json').write_text(json.dumps({'reader_receipt':1,'id':str(i),
+                    'document':'source.md','files':[{'path':'source.md'}],'title':'Delivery'}))
+                note(root,str(folder.relative_to(root)/'aside.md'),'title: Aside\nwriting_type: Essay')
+        operations=0
+        def related(path,*args):
+            nonlocal operations
+            operations+=1
+            return relative(path,*args)
+        def compared(path,other):
+            nonlocal operations
+            operations+=1
+            return equal(path,other)
+        with monkeypatch.context() as patch:
+            patch.setattr(PurePath,'is_relative_to',related)
+            patch.setattr(PurePath,'__eq__',compared)
+            units=Browse(root).inventory({})
+        assert len(units)==total*(2 if kind=='receipt' else 1)
+        counts.append(operations)
+    assert counts[0]>0
+    assert counts[1]*2<=counts[0]*5, counts
 
 
 def test_weeks_are_arrivals_not_source_dates_and_unknowns_remain_unknown(vault):
@@ -173,3 +256,71 @@ def test_navigation_author_comes_from_settings_and_defaults_unchanged(vault):
     (vault/'indexes/settings.json').write_text(json.dumps({'navigation_author':'two\nlines'}))
     with pytest.raises(ValueError,match='navigation_author'):
         Browse(vault).run(today=TODAY)
+
+
+def test_receipt_wrapper_and_opening_byline_attribution_fallbacks(vault):
+    r1=Store(vault).ingest(Submission(request_id=uuid4(),title='Wrapper attributed',markdown='Body without header.'))
+    f1=vault/'library/reports/wrapped';f1.parent.mkdir(parents=True);(vault/r1['bundle_path']).rename(f1)
+    note(vault,'library/reports/wrapped/index.md','title: Wrapper\ntype: report\nkind: catalog\nauthor: External Writer')
+
+    r2=Store(vault).ingest(Submission(request_id=uuid4(),title='Role withheld',markdown='Plain opening body.'))
+    f2=vault/'library/reports/role-only';(vault/r2['bundle_path']).rename(f2)
+    note(vault,'library/reports/role-only/index.md','title: Wrapper\ntype: report\nkind: catalog\nauthor: Reader intake')
+
+    r2b=Store(vault).ingest(Submission(request_id=uuid4(),title='Legacy wrapper role withheld',markdown='Plain opening body.'))
+    f2b=vault/'library/reports/legacy-role';(vault/r2b['bundle_path']).rename(f2b)
+    note(vault,'library/reports/legacy-role/index.md','title: Legacy wrapper\ntype: report\nauthor: Reader librarian (worker)')
+
+    r3=Store(vault).ingest(Submission(request_id=uuid4(),title='Byline inside receipt',
+                                      markdown='---\ntitle: Inner\n---\n\nWritten by Ada Lovelace\n\nMain body.'))
+    f3=vault/'library/reports/byline-receipt';(vault/r3['bundle_path']).rename(f3)
+    note(vault,'library/reports/byline-receipt/index.md','title: Wrapper\ntype: report\nkind: catalog\nauthor: Reader librarian')
+
+    (vault/'library/essays').mkdir(parents=True)
+    (vault/'library/essays/no-frontmatter.md').write_text('Written by Grace Hopper\n\nDetails follow.\n')
+    note(vault,'library/essays/prose-by.md','title: Prose By\nadded: 2026-10-22','By default, the build skips caches.')
+    note(vault,'library/essays/reading-notes.md','title: My Reading Notes\nauthor: Reader librarian\nsource_author: Original Author\nwriting_type: Reading notes\nadded: 2026-10-22','Notes on the text.')
+    note(vault,'library/reports/blank-source-author/index.md','title: Blank Source Author\ntype: report\nkind: catalog\nsource_author: "   "\nauthor: Ada Lovelace\nadded: 2026-10-22')
+
+    units={u['title']:u['authors'] for u in Browse(vault).inventory({})}
+    assert units['Blank Source Author']==['Ada Lovelace']
+    assert units['Wrapper attributed']==['External Writer']
+    assert units['Role withheld']==['Unspecified author']
+    assert units['Legacy wrapper role withheld']==['Unspecified author']
+    assert units['Byline inside receipt']==['Ada Lovelace']
+    assert units['no-frontmatter']==['Grace Hopper']
+    assert units['Prose By']==['Unspecified author']
+    assert units['My Reading Notes']==['Reader librarian']
+
+
+def test_project_normalization_aliases_compound_labels_and_receipt_wrappers(vault):
+    note(vault,'library/reports/custom.md','title: Echo notes\nproject: Custom Studio\nadded: 2026-10-22')
+    note(vault,'library/reports/slash.md','title: Cap inventory\nproject: Jim / Jedit iterative capability inventory\nadded: 2026-10-22')
+    note(vault,'library/reports/repo.md','title: Dispatcher\nproject: flyingrobots/taskalisk\nadded: 2026-10-22')
+    note(vault,'library/reports/workcell.md','title: Workcell note\nproject: luma workcell (example-org/luma), main\nadded: 2026-10-22')
+    note(vault,'library/reports/hyphenated.md','title: Repo tooling\nproject: reader-code\nadded: 2026-10-22')
+    note(vault,'library/reports/placeholder.md','title: Taskalisk backlog\nproject: Unknown\nadded: 2026-10-22')
+
+    r_curated=Store(vault).ingest(Submission(request_id=uuid4(),title='Curated wrapper receipt',
+        markdown='Body.',provenance={'project':'luma workcell (example-org/luma), main'}))
+    f_curated=vault/'library/reports/curated-receipt';(vault/r_curated['bundle_path']).rename(f_curated)
+    note(vault,'library/reports/curated-receipt/index.md','title: Wrapper\ntype: report\nkind: catalog\nproject: Luma')
+
+    settings={
+        'projects':[
+            {'name':'Jedit','terms':['Jedit']},
+            {'name':'Taskalisk','terms':['Taskalisk']},
+            {'name':'Luma','terms':['Luma']},
+            {'name':'Reader','terms':['Reader']},
+            {'name':'Echo','terms':['Echo']},
+        ],
+        'project_aliases':{'git-stunts/git-warp':'git-warp'},
+    }
+    units={u['title']:u['projects'] for u in Browse(vault).inventory(settings)}
+    assert units['Echo notes']==['Custom Studio']
+    assert units['Cap inventory']==['Jedit']
+    assert units['Dispatcher']==['Taskalisk']
+    assert units['Workcell note']==['Luma']
+    assert units['Repo tooling']==['reader-code']
+    assert units['Taskalisk backlog']==['Taskalisk']
+    assert units['Curated wrapper receipt']==['Luma']

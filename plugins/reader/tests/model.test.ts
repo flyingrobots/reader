@@ -1,3 +1,4 @@
+import '../../../tests/jail_guard.cjs';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { RelationshipIndex, editorialKind, recordedDate, sortRows, filterRows, inboxItems, matchingParts } from '../src/model.ts';

@@ -39,7 +39,11 @@ export function chipMarkup(v,doc,param){
   const parts=[];
   if(d.newer)parts.push(`<span class="version-newer">Newer v${esc(d.newer.revision)} available <a href="${esc('#read='+param(d.newer.path))}" data-path="${esc(d.newer.path)}">Open v${esc(d.newer.revision)}</a><button type="button" data-button="link sm" class="compare-successor" data-compare="successor">Compare ${esc(compareLabel(v))}</button></span>`);
   const read=v.read;
-  if(read?.where==='current'&&read.at)parts.push(`<span class="version-read">${read.path===current?.path?'You read this':'You read '+esc(read.label)} on ${esc(day(read.at))}</span>`);
+  // Opening a file rewrites your receipt, so the reading log says "just now": only this line can say you were here before.
+  if(read?.where==='current'&&read.at){
+    if(read.path!==current?.path)parts.push(`<span class="version-read">You read ${esc(read.label)} on ${esc(day(read.at))}</span>`);
+    else if(new Date(read.at).toDateString()!==new Date().toDateString()){const year=new Date(read.at).getFullYear();parts.push(`<span class="version-read">You last read this on ${esc(day(read.at))}${year!==new Date().getFullYear()?`, ${year}`:''}</span>`);}
+  }
   return `<div class="version-line${d.newer?' has-newer':''}" data-reader-decoration><button type="button" class="version-chip" data-version-chip aria-haspopup="dialog" aria-controls="versions-panel" title="${esc(d.title)}"><span class="version-dot" aria-hidden="true"></span>${esc(d.chip)}<svg class="version-caret" viewBox="0 0 16 16" width="12" height="12" aria-hidden="true"><path d="M5 6.5 8 9.5l3-3" fill="none" stroke="currentColor" stroke-width="1.5"/></svg></button>${parts.join('')}</div>`;
 }
 export function compareLabel(v){const current=v.family.find(e=>e.current);const from=current?.role==='version'?'v'+current.revision:current?.label||'this';return `${from} → v${v.newer.revision}`;}
@@ -81,19 +85,16 @@ export function timelineModel(v,{at,marked,participant,title,historical,sideBySi
     marked:marked?labelOf(marked):null,editions,more:v.more||0,catalog:v.catalog||null};
 }
 
-export function installVersions({state,api,navigate,openCompare,openSideBySide,notify,param,onChange,renderTimeline}){
+export function installVersions({setStatus,showPanel,hidePanel,state,api,navigate,openCompare,openSideBySide,notify,param,onChange,renderTimeline}){
   const $=s=>document.querySelector(s);
-  const panel=$('#versions-panel'),body=$('#versions-body'),twin=$('#status-version');
   let marked=null,focusRef=null,hashedFor=null,lastItem=null;
 
   /** The status-bar twin: compact, accent when a newer version exists, warning tone when historical. */
   function update(){
     const d=describe(state.versions,state.doc);
-    twin.hidden=!d;if(!d)return;
-    twin.querySelector('span').textContent=d.twin;
-    twin.classList.toggle('newer',!!d.newer);twin.classList.toggle('historical',!!d.historical);
-    twin.title=d.newer?`${d.chip} · newer v${d.newer.revision} available · Space v`:`${d.chip} · Space v`;
-    twin.setAttribute('aria-label',twin.title.replace(' · Space v','. Open versions, Space then v.'));
+    if(!d){setStatus({version:null});return;}
+    const title=d.newer?`${d.chip} · newer v${d.newer.revision} available · Space v`:`${d.chip} · Space v`;
+    setStatus({version:{text:d.twin,newer:!!d.newer,historical:!!d.historical,title,label:title.replace(' · Space v','. Open versions, Space then v.')}});
   }
   const here=()=>state.doc?(state.doc.historical?state.doc.path+'@'+state.doc.commit:state.doc.path):null;
   const labelOf=ref=>{
@@ -107,11 +108,11 @@ export function installVersions({state,api,navigate,openCompare,openSideBySide,n
   const resolve=ref=>{const {path,commit}=splitRef(ref);if(!commit)return ref;const c=state.versions?.history?.[path]?.find(x=>x.commit.startsWith(commit));return c?.matches_current&&!state.versions.family.find(e=>e.path===path)?.uncommitted?path:ref;};
 
   function render(){
-    const v=state.versions;if(!v){renderTimeline(body,null);return;}
+    const v=state.versions,body=$('#versions-body');if(!v){renderTimeline(body,null);return;}
     renderTimeline(body,timelineModel(v,{at:here(),marked,participant:state.prefs.participant,title:state.doc?.metadata?.title||state.doc?.title||'',
       historical:!!state.doc?.historical,sideBySide:!!openSideBySide,labelOf}),state.doc?.path||'');
   }
-  const items=()=>[...body.querySelectorAll('[data-vt-item]')].filter(el=>el.offsetParent!==null);
+  const items=()=>[...$('#versions-body').querySelectorAll('[data-vt-item]')].filter(el=>el.offsetParent!==null);
   /** Focus a row by its key (data-vt-key: a reference, or `history:<path>` for a History toggle), else where you are. */
   function focus(ref){
     const all=items();
@@ -138,21 +139,22 @@ export function installVersions({state,api,navigate,openCompare,openSideBySide,n
     const waiting=state.versionsPending;
     if(state.doc&&!state.versions&&waiting?.path===state.doc.path){const late=await waiting.timeline;if(late&&!state.versions&&state.doc?.path===waiting.path){state.versions=late;update();}}
     if(!state.doc||!describe(state.versions,state.doc)){notify(state.doc?'This document has one version and no earlier revisions in the vault history.':'Open a document to see its versions.');return;}
-    panel.hidden=false;render();focus(ref||here());onChange?.();
+    if(!$('#versions-panel'))wire(showPanel('versions-panel',{onClose:()=>{close();$('#main').focus({preventScroll:true});}}));
+    render();focus(ref||here());onChange?.();
     // Content hashes place your read marker (and other readers) on historical revisions; fetched on demand.
     const key=state.doc.path;
     if(hashedFor!==key&&state.versions.git){
       try{const fresh=await api('/api/versions?path='+param(key)+'&participant='+param(state.prefs.participant)+'&hashes=1');
         if(state.doc?.path!==key)return;hashedFor=key;state.versions=fresh;
         // The re-render keeps the keyboard where it was, a History toggle included.
-        const active=document.activeElement?.dataset?.vtKey;if(!panel.hidden){render();focus(active||here());}update();}
+        const active=document.activeElement?.dataset?.vtKey;if($('#versions-panel')){render();focus(active||here());}update();}
       catch{/* The timeline stays usable without read markers on old revisions. */}
     }
   }
-  function close(){if(panel.hidden)return;panel.hidden=true;onChange?.();}
+  function close(){if(!$('#versions-panel'))return;hidePanel('versions-panel');onChange?.();}
   function reset(){hashedFor=null;marked=null;lastItem=null;}
 
-  panel.addEventListener('click',event=>{
+  function wire(panel){panel.addEventListener('click',event=>{
     if(event.target.closest('[data-unmark]')){marked=null;render();focus(focusRef);return;}
     const compareButton=event.target.closest('[data-compare-ref]');if(compareButton){choose(compareButton.dataset.compareRef);return;}
     const openButton=event.target.closest('[data-open-ref]');if(openButton){go(openButton.dataset.openRef);return;}
@@ -184,8 +186,6 @@ export function installVersions({state,api,navigate,openCompare,openSideBySide,n
       event.preventDefault();if(marked){marked=null;render();focus(focusRef);return;}
       close();$('#main').focus({preventScroll:true});
     }
-  });
-  twin.addEventListener('click',()=>panel.hidden?open():close());
-  $('#versions-close').addEventListener('click',()=>{close();$('#main').focus({preventScroll:true});});
-  return {open,close,update,reset,isOpen:()=>!panel.hidden,wire(root){root.querySelector('[data-version-chip]')?.addEventListener('click',()=>open());}};
+  });}
+  return {open,close,update,reset,isOpen:()=>!!$('#versions-panel'),wire(root){root.querySelector('[data-version-chip]')?.addEventListener('click',()=>open());}};
 }

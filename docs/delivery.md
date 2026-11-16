@@ -64,6 +64,16 @@ Example submission JSON (replace the example UUID for a new delivery and use act
 
 For a report referencing `assets/chart.png`, the attachment destination above preserves the link. If the document is nested, destinations are still relative to the bundle root; account for the document's own directory. The service preserves paths but does not discover attachments or rewrite links. `receipt.json` and `index.md` are reserved at the bundle root; source documents with those names may be placed under `original/` with corresponding attachment paths.
 
+Companion HTML, scripts, data and images use the same attachment contract. Include
+every required file with its relative directory structure, for example
+`implementation/index.html`, `implementation/app.js` and `assets/figure.svg`.
+Filing moves the whole bundle together; it does not flatten attachments or copy
+them into a second asset tree. This preserves source links and receipt hashes.
+The [web reader](web.md#companion-attachments) previews HTML in isolation, displays
+text companions and offers binary downloads. A source-text HTML view on an older
+Reader does not establish that its assets were lost during intake. Check the
+receipt's `integrity` before repairing or redelivering a bundle.
+
 Paths reject traversal, absolute destinations, hidden components, backslashes, control characters, and several cross-platform filename hazards. Case-insensitive and Unicode-normalized duplicate destinations and file/directory collisions are rejected. Limits are 64 files total, 32 MiB per file, and 64 MiB total payload; inline Markdown additionally has an 8,388,608-character limit. Sources are explicitly selected local files; directories are not recursively imported. A source changing size or modification time during its read is rejected. Callers should finish writing before delivery; this is not a general snapshot of concurrently modified source trees.
 
 ## CLI fallback
@@ -84,6 +94,74 @@ python3 "$HOME/.codex/skills/reader/scripts/reader.py" status RECEIPT_UUID
 
 The core CLI also accepts `READER_ROOT` instead of `--root`, and `ingest -` reads JSON from standard input. It does not infer the vault from the calling project's current directory. Successful output is JSON; CLI failures exit nonzero and describe the error on stderr. MCP failures are tool errors. Neither adapter executes source content.
 
+## Where arrivals wait
+
+Arrivals wait in the ignored `.reader/inbox/`, out of sight of Obsidian and Git, and move into `library/` when filed. They keep the logical name `inbox/<arrival>` in queues, receipts' `bundle_path`, previews and URLs, so `document_path` is the only field that names the real location. `READER_INBOX` names another vault-relative folder.
+
+A vault doesn't need an `inbox/` folder. If one exists, it still works as a drop box for people and older helpers: whenever arrivals are read, everything in it except `README.md` moves in, by rename. Nothing is overwritten. A name that's already taken stays where it is and is reported on the Inbox page, and symlinks stay put.
+
+Because `.reader/` is ignored, waiting arrivals aren't in Git, the same as before. `git clean -fdx` would delete them, where `git clean -fd` would not. Back up the folder if you rely on it.
+
+## Upload from the web
+
+Reader Admin's **Publish** page uploads files into the inbox and files them, showing each step. "Publish" means filing into your private vault; nothing becomes public. Filing runs only on that upload (`POST /api/inbox` with `arrivals`), so anything else waiting stays put.
+
+`POST /api/inbox/deliveries` takes the content type `application/vnd.reader.delivery`: one JSON header line, then each file's bytes in header order.
+
+```json
+{"upload": 1, "request_id": "UUID", "title": "A title", "privacy": "no-cloud",
+ "provenance": {"author": "A. Writer"},
+ "files": [{"path": "note.md", "bytes": 7, "sha256": "…"}]}
+```
+
+The first file is the main document. It uses the same ingest, receipts, retries and limits as other deliveries: 64 files, 32 MiB per file, 64 MiB in total. Access is the same as every other write: a browser on this machine or an approved Tailscale login, with Host and Origin checks and the page's write token. Sizes are refused from the header and `Content-Length` before the body is stored, two uploads run at once, and each has a 5-minute limit. `GET /api/inbox/deliveries?id=UUID` reports its state without local paths.
+
+The server records `uploaded_by` from how it identified the request; a client cannot set it.
+
+| `privacy` | Who can read it | Pushed with the vault |
+| --- | --- | --- |
+| `normal` | The whole [model order](inbox-runner.md#the-model-order) | Yes |
+| `no-cloud` | Local model only. If none can answer, it is deferred and stays in the inbox | Yes, including its logged excerpts |
+| `machine-only` | Nothing through Reader. Encrypted outside the vault | No |
+
+The upload default is Normal. Change it on the Publish page with **Use this choice as the default**. The per-vault setting is stored in `.reader/uploads.json` as `{"default_privacy":"normal"}` (or `"no-cloud"`). `GET /api/upload-settings` reads it; `POST` saves it. Uploads, helper deliveries and dropped files with no privacy label use this setting; explicit choices and existing receipts remain unchanged. Machine-only requires an explicit choice.
+
+### This machine only
+
+The reader opens these as `/api/document?path=private/<id>[/<index>]`, with no names in the URL, under the same local-browser and session rules as `/api/private`.
+
+A `machine-only` upload never enters the vault. It needs a browser on the vault machine with encrypted storage unlocked; any other request stores nothing. The server checks it in memory and passes it to git-cas over stdin, so no plaintext is written to disk. It skips the inbox, intake, catalogs, indexes, LLM logs and read records, so no model or Reader tool can find it.
+
+- **Storage:** a bare Git repository at `~/.reader/private.git` (or under `READER_HOME`), mode `0700`, in git-cas's privacy-mode vault with `framed` AES-256-GCM. Titles and filenames are encrypted too. File sizes, the number of documents and random document IDs remain visible.
+- **Guards:** before every write, Reader refuses if the repository has a Git remote, and restores its mode, `core.fsync` for objects and refs, and a `pre-push` hook that refuses every push. Someone can bypass a hook deliberately, so this guards against accidents.
+- **Tool:** **Install encrypted storage** on the Publish page runs `npm ci --ignore-scripts` from a pinned lockfile into `~/.reader/tools/git-cas-bridge`. It needs Node.js and npm.
+- **Unlocking:** the passphrase goes to the server once. The derived key stays in the server's memory, and the browser gets an `HttpOnly`, `SameSite=Strict` cookie. A session ends on Lock, on a server restart, or after 15 idle minutes. Five wrong passphrases block attempts for a minute.
+- **Access:** `/api/private` and its sub-routes answer 404 to anything but a browser on this machine, and need the cookie as well as the page's token.
+- **Encrypting a waiting delivery:** the Publish page can move an intact delivery from the inbox into encrypted storage, receipt included, without filing it. Reader reads the encrypted copy back and matches every file before it removes the inbox copy, and refuses while a filing run or an agent's claim could be using it.
+- **Deleting:** this removes the document and prunes the repository's unreachable objects. It isn't secure erasure of the disk.
+
+**Limits.** There is no passphrase recovery and no backup: a lost passphrase or a failed disk loses these files. This protects Reader's stored copy. It doesn't protect the original file wherever it came from, a document while it is open, or against a program that can read the server's memory or browser data while it's unlocked. A backup tool would copy only ciphertext. Reading happens only on this page, where an open document shows **Encrypted** and a lock under its title: Obsidian sees nothing, and these documents can't be highlighted or searched.
+
+Other programs running as you can read `~/.reader/private.git`, but only as ciphertext.
+
+## Delivery tokens
+
+A token lets one named machine or agent deliver over HTTPS, as an alternative to an SSH key. Create and revoke tokens on the Publish page; only a browser on the vault machine can, and the secret is shown once. Reader stores only its hash in `.reader/delivery-tokens.json`, mode `0600`.
+
+A token can `POST` deliveries and `GET` the status of receipts it uploaded. It can't read the library, see other receipts, use machine-only storage or start filing, so it can't spend a model's usage. Its uploads wait in the inbox until someone files them, and `uploaded_by` records its name.
+
+A token doesn't open a new door. The request must still reach Reader: from this machine, or through `tailscale serve` from an approved Tailscale login. Public (Funnel) requests stay refused.
+
+**Quotas.** Each token and each tailnet login gets 200 uploads and 512 MiB per UTC day, checked from `Content-Length` before the body is read. A browser on this machine has no quota. Refused uploads answer 400 and store nothing.
+
+To use one from another machine, run this and paste the token:
+
+```sh
+python3 /path/to/skills/reader/scripts/reader.py remote-token-setup https://reader.example.ts.net
+```
+
+The helper's `ingest` and `status` then use HTTPS, and nothing else is available. It refuses to send a token over plain HTTP except to this machine. Delete `~/.config/reader/remote.json` to stop.
+
 ## Remote delivery over SSH
 
 Remote delivery is optional and off by default. Nothing listens on the network, and nothing changes on either machine until you run `remote-setup`. Without `~/.config/reader/remote.json`, the helper behaves exactly as described above.
@@ -99,10 +177,10 @@ python3 /path/to/skills/reader/scripts/reader.py remote-setup user@vault-host
 `remote-setup` checks whether a working Reader key is already configured and stops if it is. Otherwise it creates a dedicated key (`~/.ssh/reader_ed25519`, no passphrase unless `--passphrase`), logs in once with your existing SSH credentials or password, and runs `remote-authorize` on the vault machine. That adds one entry to the vault user's `~/.ssh/authorized_keys`:
 
 ```text
-restrict,command="/path/to/python3 /path/to/skills/reader/scripts/reader.py remote-gate --scope deliver" ssh-ed25519 AAAA… reader-remote@laptop
+restrict,command="/path/to/.reader/bin/reader remote-gate --scope deliver" ssh-ed25519 AAAA… reader-remote@laptop
 ```
 
-`restrict` disables shells, terminals, port, agent and X11 forwarding for that key; the forced command means it can run only `remote-gate`. Setup then writes `~/.config/reader/remote.json` (mode 600) on the delivering machine and verifies the key in batch mode. It changes nothing else: no SSH client configuration, and no other `authorized_keys` line. Rerunning is safe; `--force` reauthorizes, and a scope change replaces the Reader entry. If the same key is already authorized without the forced command, `remote-authorize` refuses rather than restricting a key used for other logins. `remote-authorize` holds a lock on `authorized_keys.reader-lock` while it updates the file, so setups from two machines at once keep both keys. If `ssh-agent` holds the Reader key, the authorization login can reach the gate instead of a shell; setup detects the refusal and retries once with `IdentitiesOnly=yes`. Every Reader SSH call passes `-S none`, so a `ControlMaster` connection authenticated with other credentials is never reused. Options: `--port`, `--key` (saved as an absolute path), `--passphrase` (then load it into `ssh-agent`), `--server-helper PATH` when the vault machine's helper is not in `~/.claude/skills/reader` or `$CODEX_HOME/skills/reader`, and `--scope`.
+`restrict` disables shells, terminals, port, agent and X11 forwarding for that key; the forced command means it can run only `remote-gate`. Setup then writes `~/.config/reader/remote.json` (mode 600) on the delivering machine and verifies the key in batch mode. It changes nothing else: no SSH client configuration, and no other `authorized_keys` line. Rerunning is safe; `--force` reauthorizes, and a scope change replaces the Reader entry. If the same key is already authorized without the forced command, `remote-authorize` refuses rather than restricting a key used for other logins. `remote-authorize` holds a lock on `authorized_keys.reader-lock` while it updates the file, so setups from two machines at once keep both keys. If `ssh-agent` holds the Reader key, the authorization login can reach the gate instead of a shell; setup detects the refusal and retries once with `IdentitiesOnly=yes`. Every Reader SSH call passes `-S none`, so a `ControlMaster` connection authenticated with other credentials is never reused. Options: `--port`, `--key` (saved as an absolute path), `--passphrase` (then load it into `ssh-agent`), `--server-helper PATH` when the vault machine has no launcher and its helper is not in `~/.claude/skills/reader` or `$CODEX_HOME/skills/reader`, and `--scope`.
 
 | Scope | Allowed operations |
 | --- | --- |
@@ -115,11 +193,15 @@ While `remote.json` exists, the helper sends commands to the vault machine inste
 
 With `library` scope, an MCP client on the delivering machine can launch `ssh -i ~/.ssh/reader_ed25519 -o IdentitiesOnly=yes user@vault-host reader-remote serve` as its stdio command. The gate always starts that server with `serve --inline-only`, so `reader_ingest` refuses `document_path` and attachments, which would otherwise name files on the vault machine; use the helper to deliver files.
 
+**The stable launcher.** Keys name `~/.reader/bin/reader`, a small script that starts the current checkout's helper with whichever `python3` is available. So a moved checkout or a replaced Python does not break any key: rerun `scripts/install.py`, which rewrites the launcher, and every key works again. `remote-authorize` writes the launcher if none works yet, and keeps one that does. It refuses to point the launcher into a linked Git worktree, which can be removed while keys still rely on it. `READER_HOME` names another folder than `~/.reader`.
+
+A key can still break if its checkout is deleted, or if it was registered before the launcher existed. `reader_service.py status` lists each key's health under `delivery_keys`, and Reader Admin's Inbox page warns when any key cannot start, showing a count only. To repair one, rerun `remote-setup --force` on the delivering machine. On the vault machine you can instead pipe the key's public line to `reader.py remote-authorize --scope deliver`.
+
 Use a stable address for the vault machine, such as its local hostname or a private network name (Tailscale, WireGuard). Exposing SSH to the internet is outside this design. To revoke a machine, delete its `reader-remote` line from the vault user's `authorized_keys`; delete `remote.json` and the key on the delivering machine to return it to local mode.
 
 ## Receipts, retries, and filing
 
-Each accepted request publishes `inbox/<uuid>/` containing its payloads and `receipt.json`. The receipt records a schema version, ID, title, document path relative to the bundle, optional provenance, UTC receipt time, per-file byte lengths and SHA-256 hashes, and a fingerprint of the submission's title, document path, provenance, and file descriptors. It is a content integrity record, not a cryptographic signature or proof that a report's claims are true.
+Each accepted request publishes the arrival `inbox/<uuid>/` containing its payloads and `receipt.json`. The receipt records a schema version, ID, title, document path relative to the bundle, optional provenance, UTC receipt time, per-file byte lengths and SHA-256 hashes, and a fingerprint of the submission's title, document path, provenance, and file descriptors. It is a content integrity record, not a cryptographic signature or proof that a report's claims are true.
 
 The response adds `bundle_path` relative to the vault, an absolute `document_path` for clickable links, `status`, `integrity`, and per-file `issues`. A status lookup scans receipts in inbox and library and verifies current payloads. The states are:
 

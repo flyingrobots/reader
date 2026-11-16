@@ -171,3 +171,81 @@ def test_ambiguous_remove_failure_retains_ownership_and_does_not_repeat(control,
     count=len(calls)
     with pytest.raises(ProcessError,match='Previous reset is unconfirmed'):reset()
     assert len(calls)==count
+
+
+@pytest.mark.parametrize('boundary', ['storage', 'deadline'])
+def test_pre_dispatch_refusal_does_not_claim_removal_started(control, monkeypatch, boundary):
+    """Medium: admission failures before Docker dispatch leave a retryable refusal."""
+    world, reset, state, calls = control
+    clock, armed, released = [0.0], [False], []
+    monkeypatch.setattr(module, 'time', SimpleNamespace(monotonic=lambda: clock[0], time=module.time.time))
+    def check(self):
+        armed[0] = True
+        if boundary == 'deadline':clock[0] = 31.0
+    def measure(*args):
+        if armed[0] and boundary == 'storage':
+            armed[0] = False
+            raise ProcessError('reset storage admission refused')
+    def release(self):released.append(self.job);self.acquisition = None
+    monkeypatch.setattr(Lease, 'check', check)
+    monkeypatch.setattr(Lease, 'release', release)
+    monkeypatch.setattr(module, 'measure', measure)
+
+    with pytest.raises(ProcessError):reset()
+
+    record = json.loads(next((world.vault/'.reader/container-runtime').glob('*/reset.json')).read_text())
+    assert record['state'] == 'refused', 'a command that was never dispatched must remain retryable'
+    assert not any(call[1:3] == ['volume', 'rm'] for call in calls)
+    assert state['volume'] and released == ['fixture']
+
+
+@pytest.mark.parametrize('outcome', ['completed', 'refused'])
+def test_release_failure_preserves_the_settled_volume_result(control, monkeypatch, outcome):
+    """Medium: lease release errors do not change the known Docker deletion outcome."""
+    from reader_mcp.container_state import require_reset_settled
+    world, reset, state, calls = control
+    if outcome == 'refused':state['volume']['Driver'] = 'nfs'
+    def release(self):raise ProcessError('lease release unavailable')
+    monkeypatch.setattr(Lease, 'release', release)
+
+    with pytest.raises(ProcessError, match='release unavailable'):reset()
+
+    record = json.loads(next((world.vault/'.reader/container-runtime').glob('*/reset.json')).read_text())
+    assert record['state'] == outcome
+    assert record['control_clients'] == []
+    assert (state['volume'] is None) == (outcome == 'completed')
+    require_reset_settled(world.vault, 'acme/widget')
+
+
+@pytest.mark.parametrize('outcome', ['completed', 'refused'])
+def test_release_client_uncertainty_still_blocks_admission(control, monkeypatch, outcome):
+    """Medium: a known volume result never overrides a retained live host-client identity."""
+    import subprocess
+    import sys
+    from reader_mcp.container_state import require_reset_settled
+    world, reset, state, calls = control
+    if outcome == 'refused':state['volume']['Driver'] = 'nfs'
+    children = []
+    class Releasing(Lease):
+        def __init__(self, *args, **kwargs):
+            super().__init__(*args, **kwargs)
+            self.run = kwargs['run']
+        def release(self):self.run(['locks', 'release'], timeout=15, limit=65536)
+    def before(argv, kwargs):
+        if argv[:2] == ['locks', 'release']:
+            child = subprocess.Popen([sys.executable, '-c', 'import time; time.sleep(30)'], start_new_session=True)
+            children.append(child)
+            kwargs['started'](child.pid)
+            raise ProcessError('release client completion is unknown')
+    monkeypatch.setattr(module, 'Lease', Releasing)
+    state['before'] = before
+    try:
+        with pytest.raises(ProcessError, match='completion is unknown'):reset()
+        record = json.loads(next((world.vault/'.reader/container-runtime').glob('*/reset.json')).read_text())
+        assert record['state'] == outcome and len(record['control_clients']) == 1
+        with pytest.raises(ProcessError, match='reset'):require_reset_settled(world.vault, 'acme/widget')
+        assert children[0].poll() is None, 'the witness must cover a still-live client'
+    finally:
+        for child in children:
+            child.terminate()
+            child.wait(timeout=5)

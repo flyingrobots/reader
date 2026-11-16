@@ -1,0 +1,9 @@
+{
+  "name": "reader-private-bridge",
+  "private": true,
+  "description": "Reader's pinned git-cas, for encrypted machine-only storage",
+  "type": "module",
+  "dependencies": {
+    "@git-stunts/git-cas": "7.1.0"
+  }
+}

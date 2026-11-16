@@ -1,4 +1,5 @@
 /* Reading log under the title: marks and order, expanded groups, folded agents, your own read, find exclusion, phone width, two pages, PDFs, errors and every theme. */
+require('./jail_guard.cjs');
 const assert=require('node:assert/strict');
 const {spawn}=require('node:child_process');
 const {createInterface}=require('node:readline');
@@ -46,6 +47,9 @@ const THEMES=['ink','paper','orchid','orchid-dark','harvest','harvest-dark',...r
    await page.setViewportSize({width:390,height:844});await page.waitForTimeout(200);
    assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),'no horizontal scroll at 390 px');
    const box=await page.locator('.reading-log').boundingBox();assert.ok(box.x>=16-1&&box.x+box.width<=390-16+1,JSON.stringify(box));
+   const sizes=await page.evaluate(()=>['#speak-article','.document-source'].map(s=>{const el=document.querySelector(s),c=getComputedStyle(el);return [el.getBoundingClientRect().height,c.fontSize];}));
+   assert.deepEqual(sizes[0],sizes[1],'the title row keeps one size of control on a phone');
+   assert.ok(await page.evaluate(()=>{const l=s=>document.querySelector(s).getBoundingClientRect().left;return Math.abs(l('.document-meta')-l('[data-reading-log-line]'))<1;}),'the log lines up with the row above it');
    await page.screenshot({path:'.reader/web-dev/reading-log-phone.png'});
    // Every theme: the log's text keeps contrast against the page.
    const contrast=await page.evaluate(themes=>{
@@ -54,7 +58,7 @@ const THEMES=['ink','paper','orchid','orchid-dark','harvest','harvest-dark',...r
      const rgb=v=>{context.clearRect(0,0,1,1);context.fillStyle=v;context.fillRect(0,0,1,1);return [...context.getImageData(0,0,1,1).data].slice(0,3);};
      const lum=c=>c.map(v=>v/255).map(v=>v<=.04045?v/12.92:((v+.055)/1.055)**2.4).reduce((n,v,i)=>n+v*[.2126,.7152,.0722][i],0);
      const ratio=(a,b)=>{const [lo,hi]=[lum(rgb(a)),lum(rgb(b))].sort((x,y)=>x-y);return (hi+.05)/(lo+.05);};
-     const rows=[];for(const theme of themes){html.dataset.theme=theme;const bg=getComputedStyle(html).getPropertyValue('--bg');
+     const rows=[];for(const theme of themes){html.dataset.theme=theme;const bg=getComputedStyle(html).getPropertyValue('--background');
        const text=['[data-reading-log-entry]','[data-reading-log-name]','[data-reading-log-row] time','[data-reading-log-agents-toggle]'].map(s=>ratio(getComputedStyle(document.querySelector(s)).color,bg));
        const mark=ratio(getComputedStyle(document.querySelector('[data-state=current] [data-reading-log-mark]')).color,bg);
        rows.push({theme,text:Math.min(...text),mark,height:document.querySelector('.reading-log').getBoundingClientRect().height});}

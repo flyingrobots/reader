@@ -1,8 +1,9 @@
 import {CommandSuggestions, type CommandChoices} from './command-suggestions';
-import {SectionItems,SectionPage,type SectionLink,type SectionPageProps} from './library-sections';
+import {SectionPage,type SectionPageProps} from './library-sections';
+import {Magazine,type IssueActions,type IssueModel} from './magazine/magazine';
 import {useState, useSyncExternalStore, useEffect, type ReactNode} from 'react';
 import {FindBar} from './find-bar';
-import {PanelSheet} from './panel-sheet';
+import {ListPanel, SelectionTools, ThreadPanel, VersionsPanel} from './panel-sheet';
 import {ArtPromptCard, type ArtPromptView} from './art-prompt-card';
 import {ArtFocusChrome, type ArtFocusChromeProps} from './art-focus-chrome';
 import {ReadingLog, type ReadingLogActions, type ReadingLogModel} from './reading-log';
@@ -10,6 +11,7 @@ import {LinkPreview, type LinkPreviewState} from './link-preview';
 import {VersionsTimeline, type TimelineModel} from './versions-timeline';
 import {AnnotationDialog, ScratchSaveDialog, ShellDialog, SpeakMenu, type AnnotationOptions, type ScratchSaveOptions, type ShellDialogOptions, type SpeakOptions} from './shell-dialog';
 import {createRoot, type Root} from 'react-dom/client';
+import {ArticleWidthControl, type ArticleWidthActions, type ArticleWidthModel} from './article-width';
 import {createPortal, flushSync} from 'react-dom';
 import {Progress} from './components/ui/progress';
 import {Popover, PopoverTrigger, PopoverContent, PopoverTitle, PopoverDescription} from './components/ui/popover';
@@ -27,6 +29,7 @@ import {StatusCard} from './theme/organisms/status-card';
 import type {LibraryActions} from './admin/pages/library';
 import {Input} from './components/ui/input';
 import {Button} from './components/ui/button';
+import {ButtonGroup} from './components/ui/button-group';
 import {Badge} from './components/ui/badge';
 import {decorateCodeBlocks, installCodeCopy, type CodeBlockOptions} from './code-blocks';
 export {decorateCodeBlocks};
@@ -38,7 +41,9 @@ export {needsReader, NEEDS_READER};
 import {type MaintenanceStatus, type Job, type InboxStatus} from './backstage';
 import {AdminShell} from './admin/admin-shell';
 import type {AdminContext, AdminRoute} from './admin/sections';
-import {ArticleSpeechControl,SpeechControl, setSpeechApi} from './speech-control';
+import {ArticleSpeechControl, setSpeechApi} from './speech-control';
+import {StatusLine, getStatus, setStatus, type StatusActions} from './status-line';
+export {getStatus, setStatus};
 export {trackSpeech} from './speech-control';
 import {ChatPanel} from './chat/chat-panel';
 import {runSummary, type LocalModelStatus, type Run} from './local-model';
@@ -65,25 +70,27 @@ export {mountQuiz} from './quiz';
 export {mountWritingPrompt} from './writing-prompt';
 export {mountScratchQuestion} from './scratch-question';
 import {ThemeEditor} from './theme/theme-editor';
-import {applyThemes, ensureProseTokens, themeId, type InstalledFont} from './theme/theme-css';
+import {applyThemes, ensureProseRules, themeId, type InstalledFont} from './theme/theme-css';
 import type {Theme} from './theme/color';
 export {applyThemes};
 import {observeButtons} from './vanilla-buttons';
+import {HelpKeys, type HelpSection} from './help-keys';
+import {LinkedFromHead, LinkedFromList, NextReads, OutlineRail, type LinkedFromRow, type NextReadsModel, type OutlineRailModel} from './reading-lists';
 import {OutlineControl, type OutlineModel, type OutlineActions} from './outline';
 import {FAMOUS, famousId} from './theme/famous';
 import {plural} from './plural';
 export const famousThemeIds=FAMOUS.flatMap(t=>[famousId(t.id,'light'),famousId(t.id,'dark')]);
 
-type Preferences={participant:string;theme:string;recent:number;pace:number;layout:string;pageTurn:string;proseColors:string;atlas:boolean;activity:boolean;smooth:boolean;nextReads:boolean;backlinks:boolean;outline:boolean;shapes?:boolean;art?:boolean;artHero?:boolean;artBy?:string;artAuto?:string;inboxSandbox?:string;issueExclude:string};
+type Preferences={participant:string;theme:string;recent:number;pace:number;layout:string;pageTurn:string;proseColors:string;atlas:boolean;activity:boolean;smooth:boolean;nextReads:boolean;backlinks:boolean;outline:boolean;shapes?:boolean;art?:boolean;artHero?:boolean;artBy?:string;artAuto?:string;issueExclude:string;articleWidth?:string};
 export type ProseStatus={available:boolean;version:string|null;path:string|null;origin:string|null;message:string|null;install:string};
 type Pip={id:string;owner:string;quote:string;kind:string;own:boolean;fraction:number};
-type Model={value:number;words:number;pdfPages:number|null;pace:number;spread:number;spreads:number;pages:number;columns:number;theme:string;pips:Pip[];prefs:Preferences;participants:string[];themeEditorOpen:boolean;customThemes:Theme[];fonts:InstalledFont[];maintenance:MaintenanceStatus|null;prose:ProseStatus|null;outline:OutlineModel;outlineActive:number;inbox:InboxStatus|null;inboxStarting:boolean;chat:{open:boolean;path:string|null;title:string;participant:string;initialId?:string};localModel:LocalModelStatus|null;activity:ActivityModel;companions:CompanionsStatus|null;
+type Model={articleWidth:ArticleWidthModel;value:number;words:number;pdfPages:number|null;pace:number;spread:number;spreads:number;pages:number;columns:number;theme:string;pips:Pip[];prefs:Preferences;participants:string[];themeEditorOpen:boolean;customThemes:Theme[];fonts:InstalledFont[];maintenance:MaintenanceStatus|null;prose:ProseStatus|null;outline:OutlineModel;outlineActive:number;inbox:InboxStatus|null;inboxStarting:boolean;chat:{open:boolean;path:string|null;title:string;participant:string;initialId?:string};localModel:LocalModelStatus|null;activity:ActivityModel;companions:CompanionsStatus|null;
   // Reader Admin: the shown route, and the last failed read of each status (cleared by the next good one).
   admin:AdminRoute|null;maintenanceError:string|null;inboxError:string|null;localModelError:string|null;companionsError:string|null};
 export type ActivityModel={runId:string|null;offset:number;activity:Activity;run:RunInfo|null;done:boolean};
-type Actions={seek:(fraction:number)=>void;spread:(index:number)=>void;thread:(id:string)=>void;theme:()=>void;save:(prefs:Preferences)=>Promise<void>;error:(error:unknown)=>void;themeEditor:(open:boolean)=>void;themeEditorClosed:()=>void;api:(path:string,payload?:unknown)=>Promise<any>;themesChanged:(themes:Theme[],fonts:InstalledFont[])=>void;useTheme:(dataTheme:string)=>void;previewFont:(href:string)=>void;open:(path:string)=>void;libraryChanged:()=>Promise<void>;markdown:(text:string)=>string;chatMarkdown:(text:string)=>string;openPath:(path:string)=>void;chatChanged:(open:boolean)=>void;
+type Actions=ArticleWidthActions&{seek:(fraction:number)=>void;spread:(index:number)=>void;thread:(id:string)=>void;theme:()=>void;save:(prefs:Preferences)=>Promise<void>;error:(error:unknown)=>void;themeEditor:(open:boolean)=>void;themeEditorClosed:()=>void;api:(path:string,payload?:unknown)=>Promise<any>;themesChanged:(themes:Theme[],fonts:InstalledFont[])=>void;useTheme:(dataTheme:string)=>void;previewFont:(href:string)=>void;open:(path:string)=>void;libraryChanged:()=>Promise<void>;markdown:(text:string)=>string;chatMarkdown:(text:string)=>string;openPath:(path:string)=>void;chatChanged:(open:boolean)=>void;
   /** Reader Admin routes (web_ui/admin-routes.mjs): a section's hash, navigation to it, and the way back. */
-  adminHref:(section?:string,...params:string[])=>string;adminGo:(section?:string,...params:string[])=>void;backToLibrary:()=>void}&OutlineActions;
+  adminHref:(section?:string,...params:string[])=>string;adminGo:(section?:string,...params:string[])=>void;backToLibrary:()=>void}&OutlineActions&StatusActions;
 const dark=(theme:string)=>theme==='ink'||theme.endsWith('-dark');
 const clamp=(value:number)=>Math.max(0,Math.min(1,value));
 const builtInThemes=[{value:'ink',label:'Ink'},{value:'paper',label:'Paper'},{value:'orchid',label:'Orchid · Light'},{value:'orchid-dark',label:'Orchid · Dark'},{value:'harvest',label:'Harvest · Light'},{value:'harvest-dark',label:'Harvest · Dark'},...FAMOUS.flatMap(t=>(['light','dark'] as const).map(v=>({value:famousId(t.id,v),label:`${t.name} · ${t.labels[v]}`})))];
@@ -93,7 +100,7 @@ function QuickThemePicker({model,actions}:{model:Model;actions:Actions}){
   const items=themeChoices(model.customThemes);
   // A saved custom theme can paint from the local cache before its metadata arrives.
   if(!items.some(item=>item.value===model.theme))items.push({value:model.theme,label:'Saved theme'});
-  return <div className="quick-theme-controls">
+  return <ButtonGroup className="quick-theme-controls">
     <Select items={items} value={model.theme} onValueChange={value=>{if(value!==null)actions.useTheme(value);}}>
       <SelectTrigger id="quick-theme" size="sm" aria-label="Switch theme" title="Switch theme · Space Shift+T">
         <PaletteIcon aria-hidden="true"/><SelectValue/>
@@ -102,8 +109,8 @@ function QuickThemePicker({model,actions}:{model:Model;actions:Actions}){
         <SelectGroup>{items.map(item=><SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>)}</SelectGroup>
       </SelectContent>
     </Select>
-    <Label className="shrink-0 cursor-pointer gap-0 px-1.5 text-[10px] font-normal max-[700px]:hidden" data-theme-toggle=""><Switch id="theme-swap" size="sm" aria-label="Dark mode" checked={dark(model.theme)} onCheckedChange={checked=>{if(checked!==dark(model.theme))actions.theme();}}/><span className="ml-[7px]">Dark</span></Label>
-  </div>;
+    <Label className="shrink-0 cursor-pointer gap-[7px] px-1.5 text-[10px] font-normal max-[700px]:hidden" data-theme-toggle=""><Switch id="theme-swap" size="sm" aria-label="Dark mode" checked={dark(model.theme)} onCheckedChange={checked=>{if(checked!==dark(model.theme))actions.theme();}}/>Dark</Label>
+  </ButtonGroup>;
 }
 
 function Choice({id,label,value,items,onChange}:{id:string;label:string;value:string;items:{label:string;value:string}[];onChange:(value:string)=>void}){
@@ -125,8 +132,9 @@ function SettingsForm({model,actions}:{model:Model;actions:Actions}){
     </StatusCard>
     <StatusCard title="Reading" description="Layout, pace and what appears around an article.">
       <FieldGroup className="max-w-2xl">
-      <Choice id="reading-mode" label="Reading layout" value={draft.layout} items={[{value:'scroll',label:'Continuous'},{value:'spread',label:'Two pages'}]} onChange={value=>set('layout',value)}/>
-      <Choice id="page-turn" label="Page turn (two pages)" value={draft.pageTurn||'curl'} items={[{value:'curl',label:'Turn the page (3D)'},{value:'slide',label:'Slide'}]} onChange={value=>set('pageTurn',value)}/>
+      <Choice id="reading-mode" label="Reading layout" value={draft.layout} items={[{value:'scroll',label:'Scroll'},{value:'spread',label:'Pages'}]} onChange={value=>set('layout',value)}/>
+      <Choice id="article-width" label="Article width (continuous)" value={draft.articleWidth||'standard'} items={[...(/^\d+$/.test(String(draft.articleWidth))?[{value:String(draft.articleWidth),label:`Custom: ${draft.articleWidth} px`}]:[]),{value:'narrow',label:'Narrow: 640 px'},{value:'standard',label:'Standard: about 65 characters a line'},{value:'wide',label:'Wide: 960 px'},{value:'wider',label:'Wider: 1200 px'},{value:'full',label:'Full window'}]} onChange={value=>set('articleWidth',value)}/>
+      <Choice id="page-turn" label="Page turn (Pages layout)" value={draft.pageTurn||'curl'} items={[{value:'curl',label:'Turn the page (3D)'},{value:'slide',label:'Slide'}]} onChange={value=>set('pageTurn',value)}/>
       <Choice id="reading-speed" label="Reading pace" value={String(draft.pace)} items={[160,220,300].map(n=>({value:String(n),label:`${n} words / min`}))} onChange={value=>set('pace',+value)}/>
       <Choice id="recent-count" label="Recent files" value={String(draft.recent)} items={[10,20,30,50].map(n=>({value:String(n),label:String(n)}))} onChange={value=>set('recent',+value)}/>
       <Choice id="prose-colors" label="Prose colors" value={({skim:'subtle',full:'vivid'} as Record<string,string>)[draft.proseColors]??draft.proseColors??'clear'} items={[{value:'off',label:'Off'},{value:'subtle',label:'Subtle: function words fade a little'},{value:'clear',label:'Clear: the skeleton recedes, names stand out'},{value:'vivid',label:'Vivid: every role its own color, like an editor'}]} onChange={value=>set('proseColors',value)}/>
@@ -147,12 +155,6 @@ function SettingsForm({model,actions}:{model:Model;actions:Actions}){
       <FieldDescription id="art-auto-note">Each piece of art is a background run of the chosen voice’s CLI (its subscription) or the local model: usually a few minutes, never more than one at a time. Every run is archived in the vault’s LLM logs, and each version is committed beside its edition under <code>art/</code>.</FieldDescription>
       </FieldGroup>
     </StatusCard>
-    <StatusCard title="Inbox" description="How the librarian runs when you press You got mail.">
-      <FieldGroup className="max-w-2xl">
-      <Choice id="inbox-sandbox" label="Inbox job permissions" value={draft.inboxSandbox==='danger-full-access'?'danger-full-access':'workspace-write'} items={[{value:'workspace-write',label:'Sandboxed workspace'},{value:'danger-full-access',label:'Host access'}]} onChange={value=>set('inboxSandbox',value)}/>
-      <FieldDescription id="inbox-sandbox-note">For You got mail. Host access supports git-locks process control and guarded indexing. It allows writes beyond the vault; use only for trusted librarian jobs. Runtime resource limits still apply.</FieldDescription>
-      </FieldGroup>
-    </StatusCard>
     <Item variant="outline" size="sm" className="sticky bottom-12 z-10 bg-background">
       <ItemContent><ItemDescription>Saved on this device.</ItemDescription></ItemContent>
       <ItemActions><Button type="submit" disabled={busy||!draft.participant.trim()}>{busy?<Spinner data-icon="inline-start" aria-hidden/>:null}{busy?'Saving…':'Save preferences'}</Button></ItemActions>
@@ -165,7 +167,7 @@ function ReadingProgress({model,actions}:{model:Model;actions:Actions}){
   return <><div className="progress-rail"><div id="progress-slider" className="progress-slider" role="slider" tabIndex={0} aria-label="Seek reading position" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(model.value*100)} aria-valuetext={estimate(model.value)} onClick={event=>actions.seek(fraction(event))} onKeyDown={event=>{if(['ArrowLeft','ArrowRight','Home','End'].includes(event.key)){event.preventDefault();event.stopPropagation();if(event.key==='Home')actions.seek(0);else if(event.key==='End')actions.seek(1);else if(model.spreads)actions.spread(model.spread+(event.key==='ArrowRight'?1:-1));else actions.seek(clamp(model.value+(event.key==='ArrowRight'?.05:-.05)));}}}>
     <Progress value={model.value*100} aria-label="Reading progress" className="reader-progress"/>
   </div>
-  <div id="progress-pips" className="progress-pips">{model.pips.map(pip=><Popover key={pip.id}><PopoverTrigger className={'progress-pip'+(pip.kind==='warning'?' warning':pip.own?' own':'')} style={{left:`${pip.fraction*100}%`}} aria-label={`${pip.owner}’s ${pip.kind==='warning'?'warning':'highlight'} at ${Math.round(pip.fraction*100)} percent`} openOnHover delay={120} onClick={()=>actions.thread(pip.id)}/><PopoverContent side="top" initialFocus={false}><PopoverTitle>{pip.owner} · {estimate(model.value)}</PopoverTitle><PopoverDescription>{pip.quote}</PopoverDescription></PopoverContent></Popover>)}</div></div><span id="progress-readout" className="progress-readout">{estimate(model.value)}</span></>;
+  <div id="progress-pips" className="progress-pips">{model.pips.map(pip=><Popover key={pip.id}><PopoverTrigger className={'progress-pip'+(pip.kind==='warning'?' warning':pip.own?' own':'')} style={{left:`${pip.fraction*100}%`}} aria-label={`${pip.owner}’s ${pip.kind==='warning'?'warning':'highlight'} at ${Math.round(pip.fraction*100)} percent`} openOnHover delay={120} onClick={()=>actions.thread(pip.id)}/><PopoverContent side="top" initialFocus={false}><PopoverTitle>{pip.owner} · {estimate(model.value)}</PopoverTitle><PopoverDescription>{pip.quote}</PopoverDescription></PopoverContent></Popover>)}</div></div><Badge id="progress-readout" variant="ghost" className="progress-readout h-auto rounded-none p-0 font-normal">{estimate(model.value)}</Badge></>;
 }
 function Pages({model,actions}:{model:Model;actions:Actions}){
   if(!model.spreads)return null;
@@ -283,9 +285,7 @@ export async function promptCompanion(name:string,fallback?:string){
 let inboxTimer:ReturnType<typeof setTimeout>|undefined,inboxPolled=false;const runSeen=new Map<string,string>(),ownRuns=new Set<string>();
 const ACTIVE=['starting','running'];
 function inboxBadge(status:InboxStatus|null){
-  const button=document.getElementById('settings-open'),label=button?.querySelector('span');if(!button||!label)return;
-  const count=status?.arrivals.length||0;label.textContent=count?`Backstage · ${count}`:'Backstage';
-  button.dataset.inbox=String(count);button.setAttribute('aria-label',`Open Reader Admin${count?`; ${count} inbox arrival${count===1?'':'s'} waiting`:''}`);
+  setStatus({inbox:status?.arrivals.length||0});
 }
 function announceInbox(status:InboxStatus){
   const run=status.runner;
@@ -295,8 +295,8 @@ function announceInbox(status:InboxStatus){
       if(ACTIVE.includes(run.status)){if(!previous&&!dismissed.has(id))toast.loading('The librarian is reading the mail…',{id,description:run.arrivals?`${run.arrivals} arrival${run.arrivals===1?'':'s'}. You can keep reading.`:'You can keep reading.',duration:Infinity,cancel:dismissAction(id)});}
       else if(previous&&ACTIVE.includes(previous)||ownRuns.has(run.run_id)||inboxPolled&&!previous){
         dismissed.delete(id);
-        const filed=Math.max(0,(run.arrivals||0)-(run.remaining||0)),report={label:'Report',onClick:()=>controlActions.adminGo('inbox')};
-        if(run.status==='finished')toast.success(`Mail filed: ${filed} arrival${filed===1?'':'s'}`,{id,description:run.commit?`Commit ${run.commit.short}. ${run.message}`:run.message,duration:12000,action:report});
+        const filed=run.filed??Math.max(0,(run.arrivals||0)-(run.remaining||0)),report={label:'Report',onClick:()=>controlActions.adminGo('inbox')};
+        if(run.status==='finished')toast.success(run.deferred?`Added ${filed} to the library, ${run.deferred} deferred`:`Added to the library: ${filed} arrival${filed===1?'':'s'}`,{id,description:run.commit?`Commit ${run.commit.short}. ${run.message}`:run.message,duration:12000,action:report});
         else if(run.status==='stopped'||run.status==='empty')toast(run.status==='stopped'?'Inbox run stopped':'Nothing to file',{id,description:run.message,duration:8000});
         else toast.error('The librarian couldn’t file the mail',{id,description:run.message,duration:15000,action:report});
         controlActions.libraryChanged().catch(()=>{});startJob('check');
@@ -339,7 +339,7 @@ async function pollInbox(){
 }
 export async function startInbox(){
   if(model.inboxStarting||needsReader())return;update({inboxStarting:true});
-  try{const result=await controlActions.api('/api/inbox',{action:'start',sandbox_mode:model.prefs.inboxSandbox==='danger-full-access'?'danger-full-access':'workspace-write'});
+  try{const result=await controlActions.api('/api/inbox',{action:'start',sandbox_mode:'read-only'});
     ownRuns.add(result.run_id);
     const id='inbox-'+result.run_id;dismissed.delete(id);
     if(!result.state||ACTIVE.includes(result.state.status))toast.loading('The librarian is reading the mail…',{id,description:'You can keep reading. This updates when the librarian finishes.',duration:Infinity,cancel:dismissAction(id)});
@@ -351,6 +351,11 @@ export async function startInbox(){
   finally{update({inboxStarting:false});}
   pollInbox();
 }
+export async function chooseArrival(arrival:string,choice:'hold'|'cloud'|null){
+  try{await controlActions.api('/api/inbox',{action:'choose',arrival,choice});}
+  catch(error){toast.error('Couldn’t change that arrival',{description:error instanceof Error?error.message:String(error),duration:10000});}
+  pollInbox();
+}
 export async function stopInbox(){
   try{await controlActions.api('/api/inbox',{action:'stop'});toast('Stop requested',{description:'The runner stops the librarian’s process group; partial changes stay for inspection.'});}
   catch(error){toast.error('Couldn’t stop the run',{description:error instanceof Error?error.message:String(error)});}
@@ -359,9 +364,9 @@ export async function stopInbox(){
 
 export function installControls(actions:Actions,prefs:Preferences){
   controlActions=actions;setSpeechApi(actions.api);setJobsApi(actions.api);
-  model={value:0,words:0,pdfPages:null,pace:220,spread:0,spreads:0,pages:0,columns:2,theme:prefs.theme,pips:[],prefs,participants:[],themeEditorOpen:false,customThemes:[],fonts:[],maintenance:null,prose:null,chat:{open:false,path:null,title:'',participant:''},outline:{mode:null,open:false,title:'',entries:[],folded:false,railOpen:false},outlineActive:-1,inbox:null,inboxStarting:false,activity:newActivity(),localModel:null,companions:null,admin:null,maintenanceError:null,inboxError:null,localModelError:null,companionsError:null};
-  function View(){const current=useSyncExternalStore(subscribe,snapshot);return <>{createPortal(<ReadingProgress model={current} actions={actions}/>,document.getElementById('progress-controls-slot')!)}{createPortal(<Pages model={current} actions={actions}/>,document.getElementById('pagination-slot')!)}{createPortal(<OutlineControl outline={current.outline} active={current.outlineActive} actions={actions}/>,document.getElementById('outline-slot')!)}{createPortal(<SpeechControl/>,document.getElementById('speech-slot')!)}{createPortal(<QuickThemePicker model={current} actions={actions}/>,document.getElementById('theme-switch-slot')!)}<ThemeEditor open={current.themeEditorOpen} onOpenChange={actions.themeEditor} onClosed={actions.themeEditorClosed} themes={current.customThemes} fonts={current.fonts} current={current.theme} api={actions.api} onChanged={actions.themesChanged} onUse={actions.useTheme} onPreviewFont={actions.previewFont} error={actions.error}/><ChatPanel open={current.chat.open} path={current.chat.path} title={current.chat.title} participant={current.chat.participant} initialId={current.chat.initialId} api={actions.api} markdown={actions.chatMarkdown} openPath={actions.openPath} onClose={()=>closeChat()} notify={notify}/><Toaster theme={dark(current.theme)?'dark':'light'} position="bottom-center" offset={{bottom:44}} mobileOffset={{bottom:56}}/></>;}
-  ensureProseTokens();new MutationObserver(()=>ensureProseTokens()).observe(document.documentElement,{attributes:true,attributeFilter:['data-theme']});
+  model={articleWidth:{shown:false,standard:0,max:0},value:0,words:0,pdfPages:null,pace:220,spread:0,spreads:0,pages:0,columns:2,theme:prefs.theme,pips:[],prefs,participants:[],themeEditorOpen:false,customThemes:[],fonts:[],maintenance:null,prose:null,chat:{open:false,path:null,title:'',participant:''},outline:{mode:null,open:false,title:'',entries:[],folded:false,railOpen:false},outlineActive:-1,inbox:null,inboxStarting:false,activity:newActivity(),localModel:null,companions:null,admin:null,maintenanceError:null,inboxError:null,localModelError:null,companionsError:null};
+  function View(){const current=useSyncExternalStore(subscribe,snapshot);return <>{createPortal(<StatusLine actions={actions} progress={<ReadingProgress model={current} actions={actions}/>} pages={current.spreads?<Pages model={current} actions={actions}/>:null} outline={current.outline.mode?<OutlineControl outline={current.outline} active={current.outlineActive} actions={actions}/>:null} width={current.articleWidth.shown?<ArticleWidthControl model={current.articleWidth} value={String(current.prefs.articleWidth||'standard')} actions={actions}/>:null} theme={<QuickThemePicker model={current} actions={actions}/>}/>,document.getElementById('statusline')!)}<ThemeEditor open={current.themeEditorOpen} onOpenChange={actions.themeEditor} onClosed={actions.themeEditorClosed} themes={current.customThemes} fonts={current.fonts} current={current.theme} api={actions.api} onChanged={actions.themesChanged} onUse={actions.useTheme} onPreviewFont={actions.previewFont} error={actions.error}/><ChatPanel open={current.chat.open} path={current.chat.path} title={current.chat.title} participant={current.chat.participant} initialId={current.chat.initialId} api={actions.api} markdown={actions.chatMarkdown} openPath={actions.openPath} onClose={()=>closeChat()} notify={notify}/><Toaster theme={dark(current.theme)?'dark':'light'} position="bottom-center" offset={{bottom:44}} mobileOffset={{bottom:56}}/></>;}
+  ensureProseRules();new MutationObserver(()=>ensureProseRules()).observe(document.documentElement,{attributes:true,attributeFilter:['data-theme']});
   observeButtons();installCodeCopy();
   const root=createRoot(document.getElementById('reader-controls-root')!);flushSync(()=>root.render(<View/>));
   pollMaintenance();pollInbox();
@@ -395,14 +400,6 @@ export async function localModelAction(action:string,payload:Record<string,unkno
   catch(error){toast.error('Local model: that didn’t work',{description:error instanceof Error?error.message:String(error),duration:8000});}
   finally{await pollLocalModel();}
 }
-/** Index freshness for Admin › Indexes: read the status and, as Behind the scenes did, run the light freshness check
- *  when the last one is over two minutes old. Never in the web demo, and never from Overview. */
-async function checkIndexes(){
-  if(needsReader()){if(!model.maintenance)pollMaintenance();return;}
-  if(!model.maintenance)await pollMaintenance();
-  const status=model.maintenance,checked=Object.values(status?.checks||{})[0]?.checked_at;
-  if(status&&!status.running&&!status.checking&&(!checked||Date.now()-+new Date(checked)>120000))startJob('check');
-}
 function watchLocalModel(element:HTMLElement){localHost=element;pollLocalModel();}
 function AdminView({library}:{library?:LibraryActions}){
   const current=useSyncExternalStore(subscribe,snapshot);
@@ -414,7 +411,7 @@ function AdminView({library}:{library?:LibraryActions}){
     localModel:current.localModel,localModelError:current.localModelError,companions:current.companions,companionsError:current.companionsError,
     api:controlActions.api,markdown:controlActions.markdown,open:controlActions.open,
     href:controlActions.adminHref,go:controlActions.adminGo,backToLibrary:controlActions.backToLibrary,
-    startJob,startInbox,stopInbox,localModelAction,companionAction,refreshCompanions,checkIndexes,watchLocalModel,
+    startJob,startInbox,stopInbox,chooseArrival,localModelAction,companionAction,refreshCompanions,refreshIndexes:pollMaintenance,watchLocalModel,
     settings:<SettingsForm model={current} actions={controlActions}/>,themeEditor:()=>controlActions.themeEditor(true),library};
   return <AdminShell context={context}/>;
 }
@@ -431,11 +428,24 @@ export function setAdminRoute(route:AdminRoute){flushSync(()=>update({admin:rout
 // Route-owned roots are always disposed before the vanilla renderer replaces DOM.
 const islands=new Map<HTMLElement,Root>();
 function mount(container:HTMLElement,content:ReactNode){clearControlsWithin(container);const root=createRoot(container);islands.set(container,root);flushSync(()=>root.render(content));}
-// The Find bar's controls render as this module loads, before app.mjs binds its handlers to them by id.
-{const findBar=document.getElementById('find-bar');if(findBar){findBar.dataset.ui='shadcn';mount(findBar,<FindBar/>);}}
-// The right-hand panels become non-modal Sheets around their existing asides (panel-sheet.tsx), also before app.mjs runs.
-for(const id of ['thread-panel','versions-panel','list-panel']){const panel=document.getElementById(id);
-  if(panel){const container=document.createElement('div');container.dataset.panelHost=id;document.body.append(container);mount(container,<PanelSheet panel={panel}/>);}}
+/** Chrome that exists only while open, so that a closed panel leaves nothing in the document: each gets its own container
+    just before the status line (the tab order they had in index.html) and takes it away again on closing. */
+const shown=new Map<string,HTMLElement>();
+function showChrome(id:string,content:ReactNode){
+  const open=shown.get(id);if(open){flushSync(()=>islands.get(open)!.render(content));return;}
+  const container=document.createElement('div');document.getElementById('statusline')?.before(container);shown.set(id,container);mount(container,content);
+}
+export function hidePanel(id:string){
+  const container=shown.get(id);if(!container)return;shown.delete(id);
+  // A Sheet's aside is portalled out of its container, with any island (the versions timeline) still inside it.
+  const element=document.getElementById(id);if(element)clearControlsWithin(element);
+  clearControlsWithin(container);container.remove();
+}
+const PANELS:Record<string,(props:any)=>ReactNode>={'thread-panel':ThreadPanel,'versions-panel':VersionsPanel,'list-panel':ListPanel,'selection-tools':SelectionTools,'find-bar':FindBar};
+/** The status line's command form: keys.mjs opens it, and binds it by id, in one go. */
+export function showCommandLine(open:boolean){const menu=document.getElementById('command-menu');if(!open&&menu)clearControlsWithin(menu);flushSync(()=>setStatus({command:open}));}
+/** Open a panel app.mjs fills by id, once; returns its element. */
+export function showPanel(id:string,props:object){if(!shown.has(id)){const Panel=PANELS[id];showChrome(id,<Panel {...props}/>);}return document.getElementById(id);}
 /** The search page, as a route-owned island; search-page.mjs owns its state and calls update(). */
 export function mountSearchPage(container:HTMLElement,initial:SearchModel,actions:SearchActions){
   let current=initial;const watchers=new Set<()=>void>();
@@ -459,14 +469,13 @@ export function mountArtRegenerate(container:HTMLElement,options:ArtRegenerateOp
   return {unmount(){clearControlsWithin(container);}};
 }
 export function mountArticleSpeech(container:HTMLElement,props:{path:string;sourceSha:string;onRead:()=>Promise<unknown>}){mount(container,<ArticleSpeechControl {...props}/>);}
-export function mountSectionItems(container:HTMLElement,items:SectionLink[]){container.dataset.ui='shadcn';mount(container,<SectionItems items={items}/>);}
+export function mountMagazine(container:HTMLElement,model:IssueModel,actions:IssueActions){mount(container,<Magazine model={model} actions={actions}/>);actions.wire(container);return {pieces:()=>[...container.querySelectorAll<HTMLElement>('[data-piece]')].filter(el=>el.checkVisibility())};}
 export function mountSectionPage(container:HTMLElement,props:SectionPageProps){
   const root=islands.get(container);
   if(root)flushSync(()=>root.render(<SectionPage {...props}/>));else mount(container,<SectionPage {...props}/>);
 }
-export function renderFileExplorer(container:HTMLElement,props:ExplorerProps){
-  const root=islands.get(container);
-  if(root)flushSync(()=>root.render(<FileExplorer {...props}/>));else mount(container,<FileExplorer {...props}/>);
+export function renderFileExplorer(props:ExplorerProps){
+  showChrome('picker',<aside id="picker" className="file-explorer" aria-labelledby="picker-title"><FileExplorer {...props}/></aside>);
 }
 /** What changed, as a Sheet island; closing unmounts it. */
 export function mountChangesPanel(container:HTMLElement,options:Omit<ChangesOptions,'onClose'>){
@@ -488,6 +497,12 @@ function openAppDialog(id:string,onClosed:()=>void,render:(props:{register:(clos
 }
 /** Close open modal app dialogs on navigation or leaving a context. */
 export function closeAppDialogs(){for(const entry of [...appDialogs.values()])entry.close();}
+function draw(container:HTMLElement,view:ReactNode){const root=islands.get(container);if(root)flushSync(()=>root.render(view));else mount(container,view);}
+export const renderHelpKeys=(container:HTMLElement,sections:HelpSection[])=>draw(container,<HelpKeys sections={sections}/>);
+export const renderOutlineRail=(container:HTMLElement,model:OutlineRailModel)=>draw(container,model.entries.length?<OutlineRail {...model}/>:null);
+export const renderNextReads=(container:HTMLElement,model:NextReadsModel)=>draw(container,<NextReads {...model}/>);
+export const renderLinkedFromHead=(container:HTMLElement,count:number)=>draw(container,<LinkedFromHead count={count}/>);
+export const renderLinkedFromList=(container:HTMLElement,rows:LinkedFromRow[])=>draw(container,<LinkedFromList rows={rows}/>);
 export function openShellDialog(options:ShellDialogOptions){
   const handle=openAppDialog(options.id,options.onClosed,({register,onClosed})=><ShellDialog options={{...options,onClosed}} register={register}/>);
   return {...handle,body:()=>document.getElementById(options.bodyId)};
@@ -531,9 +546,8 @@ export function renderReadingLog(container:HTMLElement,model:ReadingLogModel|nul
   if(root)flushSync(()=>root.render(<ReadingLog model={model} actions={actions}/>));else mount(container,<ReadingLog model={model} actions={actions}/>);
 }
 /** The reading queue panel: one persistent root, re-rendered with fresh props from queue.mjs. */
-export function renderQueuePanel(container:HTMLElement,props:QueueProps){
-  const root=islands.get(container);
-  if(root)flushSync(()=>root.render(<QueuePanel {...props}/>));else mount(container,<QueuePanel {...props}/>);
+export function renderQueuePanel(props:QueueProps){
+  showChrome('queue-panel',<aside id="queue-panel" className="queue-panel" aria-labelledby="queue-title" aria-busy={props.loading||undefined}><QueuePanel {...props}/></aside>);
 }
 export function clearControlsWithin(container:HTMLElement){for(const [element,root] of islands){if(element===container||container.contains(element)){root.unmount();islands.delete(element);}}container.removeAttribute('aria-busy');}
 export function mountSkeleton(container:HTMLElement,kind='document'){

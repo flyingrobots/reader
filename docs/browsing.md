@@ -1,10 +1,10 @@
 ---
 frontmatter_schema_version: 1
-document_revision: 1
+document_revision: 2
 title: Markdown indexes and the README dashboard
 author: Reader librarian
 created: 2026-10-22
-updated: 2026-10-22
+updated: 2026-11-01
 type: reference
 ---
 
@@ -29,15 +29,17 @@ A refresh owns `indexes/index.md`, five `indexes/by-*.md` pages, four SVG charts
 
 Each filed receipt counts once regardless of attachments. An attached nested receipt is not another arrival. A direct-drop book/package with a deeper catalog counts once; navigation above multiple deliveries does not add another work. Explicitly identified original writing can appear alongside a packet. Outside packages, standalone Markdown, TXT, PDF, HTML, EPUB and DOCX files are eligible. Existing metadata sidecars can describe standalone non-Markdown files.
 
-Reading copies, navigation, ingestion records and archived source trees are not separate entries. Discovery skips operating-system metadata files (`.DS_Store`, `Thumbs.db`, `ehthumbs.db`, `desktop.ini` and AppleDouble `._*` files), hidden directories and `.git`, `node_modules`, `target`, `__pycache__`, `assets`, `fonts`, `originals`, `snapshot`, `evidence`, `reading`, `dist` and `build`. Their holdings remain accessible through the containing catalog. An uncataloged work only in a skipped directory needs a catalog or a normal standalone path to enter these views.
+Reading copies, navigation, ingestion records and archived source trees are not separate entries. Discovery skips operating-system metadata files (`.DS_Store`, `Thumbs.db`, `ehthumbs.db`, `desktop.ini` and AppleDouble `._*` files), hidden directories and `.git`, `node_modules`, `target`, `__pycache__`, `assets`, `fonts`, `originals`, `snapshot`, `evidence`, `reading`, `dist` and `build`. An `originals/` directory containing a delivery receipt is discovered as a delivery and associated with its outer catalog when its `index.md` declares `kind: catalog`; receipt identity, primary text, attribution, project and arrival time remain authoritative. Other skipped holdings remain accessible through the containing catalog. An uncataloged work only in a skipped directory needs a catalog or a normal standalone path to enter these views.
 
 These are grouping rules, not proof that every intellectual boundary has been determined. `coverage.json` lists each entry’s identity, source/clickthrough path, attribution, date basis, representative primary-file bytes and metadata diagnostics. It is not a preservation manifest, read receipt or verification certificate. Distinct editions remain distinct entries.
 
+Refreshes and checks use the same inventory. It indexes package roots and delivery ancestors once, then tests each file's ancestors against those sets. Group membership depends on path depth rather than scanning every package for every file; discovery, metadata parsing and rendering still run normally.
+
 ## Classification and attribution
 
-Editable topic/project rules match title, tags and shelf path, not full-text semantics. Declared topics remain visible. Declared project metadata takes precedence over inferred rules. Only configured project aliases normalize names. Topics, project groups and coauthors overlap; their totals need not sum to work count. The pie uses one document type per entry instead.
+Editable topic/project rules match title, tags and shelf path, not full-text semantics. Declared topics remain visible. Declared project metadata resolves against configured `project_aliases` and configured `projects` rules before falling back to title/tag/path inference; placeholder values (`Unknown`, `Unspecified`) fall back to inference. Topics, project groups and coauthors overlap; their totals need not sum to work count. The pie uses one document type per entry instead.
 
-Delivered authorship uses receipt provenance, then explicit source-author/source header fields. Intake-worker authorship is not substituted for source authorship. The known catalog-writer role is also withheld for direct packages with no source attribution. Editable `author_aliases` map case-folded source labels to one or more display names. This combines equivalent names and can credit explicit coauthors separately; original `source_authors` remain in coverage records. Aliases are editorial classification, not authenticated identity resolution. Do not turn a courier’s “for” attribution into a claim of coauthorship. Unknown authors/types/projects are explicit.
+Delivered authorship uses receipt provenance, then explicit source-author, catalog-wrapper (excluding the intake/librarian role), or source header fields, falling back to an explicit opening-line byline when plain-text or Markdown headers omit an author. Intake-worker authorship is not substituted for source authorship. The known catalog-writer role is also withheld for direct packages with no source attribution. Editable `author_aliases` map case-folded source labels to one or more display names. This combines equivalent names and can credit explicit coauthors separately; original `source_authors` remain in coverage records. Aliases are editorial classification, not authenticated identity resolution. Do not turn a courier’s “for” attribution into a claim of coauthorship. Unknown authors/types/projects are explicit.
 
 ## Dates, recency and records
 

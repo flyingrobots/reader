@@ -1,4 +1,5 @@
 /* The Server card on Reader Admin's Service & tools page: commit, source, Tailscale address, identity, and the Update now / Pause toasts. */
+require('./jail_guard.cjs');
 const assert=require('node:assert/strict');
 const {spawn}=require('node:child_process');
 const {createInterface}=require('node:readline');
@@ -13,7 +14,8 @@ const {chromium}=require(process.env.READER_PLAYWRIGHT||'playwright-core');
   const errors=[],external=[];
   const context=await browser.newContext({viewport:{width:1300,height:900},reducedMotion:'reduce'});
   await context.addInitScript(()=>{try{localStorage.setItem('reader.preferences.v1',JSON.stringify({smooth:false,theme:'user-reader-test'}));}catch{}});
-  const page=await context.newPage();page.on('pageerror',e=>errors.push(e.message));page.on('console',m=>{if(m.type()==='error')errors.push(m.text());});page.on('request',r=>{if(!r.url().startsWith(url))external.push(r.url());});
+  const page=await context.newPage();page.on('pageerror',e=>errors.push(e.message));page.on('console',m=>{// No AI-TTS daemon in this fixture: the voice field answers 503, and nothing else from it is excused.
+    if(m.type()==='error'&&!(m.location()?.url?.endsWith('/api/speech-voices')&&/status of 503/.test(m.text())))errors.push(m.text()+' '+(m.location()?.url||''));});page.on('request',r=>{if(!r.url().startsWith(url))external.push(r.url());});
   const toast=text=>page.locator('[data-sonner-toast]').filter({hasText:text});
   const card=page.locator('[data-card=service]');
   // Installable app: manifest, touch icon, and a theme colour that follows the theme.
@@ -21,9 +23,10 @@ const {chromium}=require(process.env.READER_PLAYWRIGHT||'playwright-core');
   const manifest=await page.evaluate(async()=>{const href=document.querySelector('link[rel=manifest]').href;const r=await fetch(href);return {type:r.headers.get('content-type'),body:await r.json()};});
   assert.equal(manifest.type,'application/manifest+json');assert.equal(manifest.body.display,'standalone');
   for(const icon of [...manifest.body.icons.map(i=>i.src),await page.locator('link[rel=apple-touch-icon]').getAttribute('href')])assert.equal((await page.request.get(url+icon)).status(),200,icon);
-  await page.waitForFunction(()=>document.querySelector('meta[name=theme-color]').content===getComputedStyle(document.documentElement).getPropertyValue('--bg').trim());
+  await page.waitForFunction(()=>document.querySelector('meta[name=theme-color]').content===getComputedStyle(document.documentElement).getPropertyValue('--background').trim());
   // The card.
   await page.goto(url+'#admin/service');await card.waitFor();
+  await page.getByRole('button',{name:'Retry voices'}).waitFor();  // The 503 above reaches the person as a retry.
   await card.locator('[data-fact=commit]').waitFor();
   assert.match(await card.locator('[data-fact=commit] [data-fact-value]').textContent(),/^1f2e3d4 · /);
   assert.equal(await card.locator('[data-fact=source] [data-fact-value]').textContent(),'preview/integration');

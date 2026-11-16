@@ -52,9 +52,9 @@ export function ReadingLog({model,actions}:{model:ReadingLogModel|null;actions:R
         </span>
         <ChevronDownIcon aria-hidden className="size-3 shrink-0 self-center transition-transform group-data-[panel-open]/log:rotate-180"/>
       </CollapsibleTrigger>
-      <CollapsibleContent keepMounted data-reading-log-body="" className="grid gap-4 pt-4 pb-1">
+      <CollapsibleContent data-reading-log-body="" className="grid gap-4 pt-4 pb-1">
         {model.groups.map(group=><section key={group.state} data-reading-log-group={group.state}>
-          <h3 className="m-0 mb-2 font-sans text-[10px] font-medium tracking-wider text-muted-foreground uppercase">{group.title}</h3>
+          <ItemTitle role="heading" aria-level={3} className="mb-2 text-[10px] tracking-wider text-muted-foreground uppercase">{group.title}</ItemTitle>
           <Rows rows={group.rows} actions={actions}/>
         </section>)}
         {model.agents?<Collapsible data-reading-log-agents="" onOpenChange={()=>relayout(actions)}>

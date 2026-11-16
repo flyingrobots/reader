@@ -1,4 +1,5 @@
 /* Editions: the edition line, newer-version callout, Space v menu (Popover / phone Sheet) and Backstage diagnostics. */
+require('./jail_guard.cjs');
 const assert=require('node:assert/strict');
 const {spawn}=require('node:child_process');
 const {createInterface}=require('node:readline');
@@ -26,11 +27,18 @@ const essay='library/essays/tidal/';
    await page.locator('[data-version-chip]').click();const panel=page.locator('#versions-panel');await panel.waitFor();
    await panel.locator(`[data-vt-item=file][data-ref="${essay}tidal.v2.md"]`).click();await page.getByRole('heading',{name:'The tidal archive (v2)',exact:true}).waitFor();await ready(page);
    await page.keyboard.press('Escape');await panel.waitFor({state:'hidden'});
-   const line=page.locator('#article > .version-line');await line.waitFor();
+   const line=page.locator('#article > .document-meta > .version-line');await line.waitFor();
    assert.ok(await line.evaluate(el=>el.hasAttribute('data-reader-decoration')));
    assert.equal((await line.locator('[data-version-chip]').textContent()).trim(),'v2 of 3');
-   assert.ok(await page.evaluate(()=>document.querySelector('#article > .document-meta + .reading-log + .version-line')!==null),'the chip follows the title meta and its reading log');
+   assert.ok(await page.evaluate(()=>document.querySelector('#article > .document-meta > .version-line')!==null&&document.querySelector('#article > .document-meta + .reading-log')!==null),'the chip sits in the title row, above the reading log');
    assert.match(await line.textContent(),/Newer v3 available Open v3/);
+   const controls=await page.evaluate(()=>['#speak-article','.document-source','.document-copy','[data-version-chip]'].map(s=>{const el=document.querySelector(s),r=el.getBoundingClientRect(),c=getComputedStyle(el);return {top:Math.round(r.top),left:Math.round(r.left),height:Math.round(r.height),font:c.fontFamily,size:c.fontSize,color:c.color};}));
+   const same=({top,left,...rest})=>rest;
+   for(const c of controls)assert.deepEqual(same(c),same(controls[0]),'Read aloud, Source, Copy and the chip are one kind of control');
+   for(const c of controls.slice(0,3))assert.equal(c.top,controls[0].top,'Read aloud, Source and Copy share the title row');
+   // A long version line wraps whole: the chip is on the title row or starts the next row at the left edge.
+   const chip=controls[3],by=await page.locator('#article > .document-meta').evaluate(el=>Math.round(el.getBoundingClientRect().left));
+   assert.ok(chip.top===controls[0].top||chip.left===by,'the version line wraps as a unit: '+JSON.stringify(chip));
    await page.screenshot({path:'.reader/web-dev/editions-line.png'});
    // Find skips the decoration.
    await page.locator('#main').focus();await page.keyboard.press('/');await page.locator('#find-query').fill('Newer v3');await page.waitForTimeout(150);
@@ -62,6 +70,7 @@ const essay='library/essays/tidal/';
   {const {page,context}=await open({layout:'spread'});
    await page.goto(url+'#read='+encodeURIComponent(essay+'tidal.v2.md'));await page.waitForFunction(()=>document.body.classList.contains('two-page')&&!document.querySelector('.resume-pending'));
    const measure=()=>page.evaluate(()=>{const v=document.querySelector('.book-viewport').getBoundingClientRect(),l=document.querySelector('.version-line').getBoundingClientRect(),h=document.querySelector('#article h1').getBoundingClientRect();return {label:document.querySelector('#pagination-slot [aria-label^="Pages "]:last-of-type')?.textContent||document.querySelectorAll('#pagination-slot a').length,top:Math.round(l.top),head:Math.round(h.top),inside:l.left>=v.left-1&&l.right<=v.right+1};});
+   assert.equal(await page.locator('.document-source').isVisible(),false,'two-page reading hides Source, as documented');
    const first=await measure();await page.waitForTimeout(900);const later=await measure();
    assert.deepEqual(later,first,'no layout shift after the first measurement');assert.ok(first.inside&&first.top>first.head,'the line sits under the title on the first spread');
    await leader(page,'v');await page.locator('#versions-panel').waitFor();await page.keyboard.press('Escape');

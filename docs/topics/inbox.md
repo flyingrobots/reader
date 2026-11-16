@@ -6,9 +6,36 @@ Inbox separates delivery from filing. Delivered material waits here until an aut
 
 ## Waiting to be filed
 
+Arrivals wait out of sight in `.reader/inbox/`, so they don't appear in Obsidian's file list or Git. Anything left in an old `inbox/` folder moves there automatically.
+
 One complete top-level bundle is an arrival; attachments do not count as independent work assignments. Delivered bundles retain their document, attachments and receipt. Direct deposits can lack delivery receipts. Counts describe waiting arrivals under the inbox inventory rules, not all library works or unread documents.
 
+Each arrival says whether the next You got mail run will file it:
+
+- **Eligible**: the next run files it.
+- **Waits**: something else goes first. Another agent holds an Upkeep claim on it, a retained batch from an earlier run must finish, or only the local model may read it and the local model isn't in the filing order.
+- **Not eligible**: its receipt can't be read, or its files changed since delivery. Redeliver it; don't edit the receipt to make it match.
+- **On hold**: you held it.
+
+The reason appears under the row. A blocked notice on the run card (for example, another agent's Upkeep claims) stops every arrival, not just one.
+
 Selecting an arrival opens a preview. Previews are read-only discovery surfaces: they do not file the content or create normal library read receipts, bookmarks or discussion state. Previewing does not prove that every attachment has been read.
+
+## Before new arrivals
+
+This card appears when the next run has work to do before any new arrival:
+
+- **Retained batch**: a failed or stopped run's batch, which a retry resumes exactly. Each entry says how far it got: *moved, not yet committed* (already at its destination), *decided*, *deferred* or *not yet classified*. Arrivals in it are eligible; other arrivals wait for it.
+- **Uncommitted work**: changes that belong to no arrival, such as a voice's new essay under `library/` or `writings/`, or an earlier refresh of the generated indexes and README. Filing commits them first, as they are, in their own commit with normal hooks, then catalogs new documents by sidecar and regenerates the indexes. Nothing else, such as annotations or engagement, is committed.
+
+## Who can read an arrival
+
+An arrival only goes to cloud models if it was delivered with the level Normal. Anything else, including an arrival with no level, is read only by a local model when filed. If that model can't answer, the arrival keeps waiting.
+
+- **Hold** keeps an arrival out of every filing run until you release it.
+- **Allow cloud models** lets Codex, Claude or agy read it when it's filed. What they read can't be recalled.
+
+Filed documents are committed and pushed with your vault at every level. To keep a document off GitHub, encrypt it instead, from Publish.
 
 ## Receipt integrity
 

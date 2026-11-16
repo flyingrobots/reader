@@ -1,4 +1,5 @@
 /* Touch, keyboard and repeated-phrase selections reach the annotation toolbar (synthetic data). */
+require('./jail_guard.cjs');
 const assert=require('node:assert/strict');
 const {spawn}=require('node:child_process');
 const {createInterface}=require('node:readline');

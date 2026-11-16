@@ -1,4 +1,5 @@
 /* Chat panels stay in sync: two tabs share one chat and see each other's messages and turns; a dead or stalled server shows Lost connection. Fake voices only. */
+require('./jail_guard.cjs');
 const assert=require('node:assert/strict');
 const {spawn}=require('node:child_process');
 const {createInterface}=require('node:readline');

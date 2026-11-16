@@ -65,14 +65,21 @@ def reset(root, repo, confirmation, *, tools=None, run=execute, supervisor_facto
         cleanup_deadline=deadline+30
         env=dict(os.environ,TMPDIR=str(folder),XDG_CACHE_HOME=str(folder))
         def transport(argv,*,cleanup=False,**kwargs):
-            nonlocal claim_dispatched
+            nonlocal claim_dispatched,removal_attempted
             measure(root/'.reader/container-runtime',set(journal.values))
             cleanup = cleanup or argv[:2]==[found['git-locks'],'release'] or (removal_attempted and argv[1:3]!=['volume','rm'])
             remaining=(cleanup_deadline if cleanup else deadline)-time.monotonic()
             if remaining<=0:raise ProcessError('Reset command deadline exceeded')
+            timeout=kwargs.pop('timeout',15)
+            deleting=argv[:3]==[found['docker'],'volume','rm']
+            if deleting:
+                if remaining<timeout:raise ProcessError('Insufficient reset work time for the complete deletion timeout')
+                save({'state':'removing'})
+                if deadline-time.monotonic()<timeout:raise ProcessError('Insufficient reset work time after saving deletion intent')
+                removal_attempted=True
             if argv[:2]==[found['git-locks'],'claim']:claim_dispatched=True
             result=run(argv,env=dict(kwargs.pop('env',env),TMPDIR=str(folder),XDG_CACHE_HOME=str(folder)),started=journal.started,finished=journal.finished,
-                       timeout=min(kwargs.pop('timeout',15),remaining),**kwargs)
+                       timeout=timeout if deleting else min(timeout,remaining),**kwargs)
             measure(root/'.reader/container-runtime',set(journal.values))
             return result
         # Use the already registered authority; no new store is created or guessed for other hosts.
@@ -116,8 +123,7 @@ def reset(root, repo, confirmation, *, tools=None, run=execute, supervisor_facto
         item=inspect('volume',volume)
         if item is not None:
             if not owned(item):raise ProcessError('The volume is foreign or has unsupported storage options; it was not removed')
-            lease.check();save({'state':'removing'})
-            removal_attempted=True
+            lease.check()
             result=transport([found['docker'],'volume','rm',volume],timeout=30,limit=65536)
             remaining=inspect('volume',volume)
             if result.returncode:
@@ -126,15 +132,16 @@ def reset(root, repo, confirmation, *, tools=None, run=execute, supervisor_facto
                     raise ProcessError('Docker refused deletion because the owned volume is in use; no reset was completed')
                 raise ProcessError('Volume deletion is unconfirmed; ownership retained')
             if remaining is not None:raise ProcessError('Volume deletion is unconfirmed; ownership retained')
+        save({'state':'completed','finished_at':time.time()})
         release_attempted=True
-        lease.release();save({'state':'completed','finished_at':time.time()})
+        lease.release()
         return {'repo':repo,'volume':volume,'state':'removed','archives':'retained'}
     finally:
         # Errors keep the journal and receipt. Never advertise completion or release unknown effects.
         try:
             if lease and claim_confirmed and lease.acquisition and not removal_attempted and not release_attempted and journal and not journal.values:
-                lease.release()
                 save({'state':'refused'})
+                lease.release()
         finally:
             try:
                 if setup_lock:setup_lock.close()

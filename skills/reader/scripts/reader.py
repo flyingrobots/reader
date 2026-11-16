@@ -21,24 +21,25 @@ def load_remote():
 
 
 def local():
-    code, root = runpy.run_path(str(Path(__file__).resolve().parents[3] / 'scripts/reader_paths.py'))['paths']()
-    python = code / ".venv" / "bin" / "python"
+    code, root, python, env = runpy.run_path(str(Path(__file__).resolve().parents[3] / 'scripts/reader_paths.py'))['runtime']()
     if not python.is_file():
         sys.exit("Reader environment missing: run uv sync --locked in the Reader checkout.")
+    os.environ["PYTHONPATH"] = env["PYTHONPATH"]
     return root, [str(python), "-m", "reader_mcp.cli", "--root", str(root)]
 
 
 def main():
     args = sys.argv[1:]
     command = args[0] if args else None
-    if command in ("remote-setup", "remote-gate", "remote-authorize"):
+    if command in ("remote-setup", "remote-token-setup", "remote-gate", "remote-authorize"):
         remote = load_remote()
         try:
+            if command == "remote-token-setup":
+                raise SystemExit(remote.http_setup(args[1:]))
             if command == "remote-setup":
                 raise SystemExit(remote.setup(args[1:]))
             if command == "remote-authorize":
-                # The installed (unresolved) path keeps working if the checkout is reinstalled elsewhere.
-                raise SystemExit(remote.authorize(args[1:], Path(os.path.abspath(__file__))))
+                raise SystemExit(remote.authorize(args[1:], Path(__file__)))
             scope = args[2] if args[1:2] == ["--scope"] and len(args) == 3 else None
             if scope is None:
                 sys.exit("Usage: reader.py remote-gate --scope SCOPE (run as an SSH forced command)")

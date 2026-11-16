@@ -1,4 +1,5 @@
 /* GSAP must retain its normal glide; stalled-position recovery must not snap ordinary scrolls. */
+require('./jail_guard.cjs');
 const assert=require('node:assert/strict');
 const {spawn}=require('node:child_process');
 const {createInterface}=require('node:readline');

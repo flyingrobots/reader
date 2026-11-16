@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import {randomUUID} from 'node:crypto';
 import {existsSync, readFileSync} from 'node:fs';
 import {join} from 'node:path';
-import {assertShape, makeVault, mcp} from './harness.mjs';
+import {assertShape, inboxPath, makeVault, mcp} from './harness.mjs';
 
 const SOLITUDE = 'library/walden/thoreau/solitude.md';
 const TOOLS = ['reader_attention', 'reader_curate', 'reader_curation', 'reader_highlight', 'reader_ingest', 'reader_mark_seen', 'reader_read',
@@ -67,7 +67,7 @@ describe('MCP over stdio', () => {
     const request_id = randomUUID();
     const delivered = content(await client.tool('reader_ingest', {submission: {request_id, title: 'An MCP delivery', markdown: '# An MCP delivery\n'}}));
     assertShape('mcp-ingest', delivered);
-    assert.ok(existsSync(join(vault.root, `inbox/${request_id}/receipt.json`)));
+    assert.ok(existsSync(inboxPath(vault.root, request_id, 'receipt.json')));
     const status = content(await client.tool('reader_status', {request_id}));
     assertShape('mcp-status', status);
   });

@@ -10,6 +10,8 @@ Reader is a plain-file Markdown library intended for Obsidian. Its [catalog](../
 
 Classification, cataloging, connection discovery, and editorial reading happen during librarian sessions. Depositing a file or delivering a bundle does not start that work automatically. The librarian preserves distinct source versions and uses catalog notes for metadata when originals must remain unchanged. See [design and conventions](design.md) and [operations](operations.md).
 
+The explicitly invoked [inbox workflow](inbox-runner.md) runs deterministic preservation, filing, validation and commits, with bounded LLM editorial decisions and automatic context/batch partitioning. [Portable link records](portable-links.md) let Reader render local references in unchanged originals. Missing targets retain explicit dispositions.
+
 Markdown intake can produce labelled, unwrapped reading copies through the pinned wide-md integration, preserving original bytes and receipt hashes. See [setup and supported formatting](reading-copies.md).
 
 ## Local delivery
@@ -24,9 +26,15 @@ The CLI and local MCP server provide path/content keyword search, typo-tolerant 
 
 ## Obsidian sidebar
 
-The optional desktop [Reader plugin](obsidian-plugin.md) shows existing librarian links and evidence for the open document, groups by ingestion date by default, filters titles/paths, and invokes local hybrid, semantic, fuzzy, or keyword search. When AI-TTS is available, it can queue selected text or a Markdown/TXT document with voice selection. It also launches explicit Codex inbox jobs, groups Library, Discussion, and Inbox into separate tabs and tracks shared participant-specific Read/Unread receipts, automatically acknowledging opened documents and threads in Obsidian, and supports shared Markdown highlights, explained warning annotations with red wavy underlines, and comment threads through Obsidian and CLI/MCP. PDF narration and annotations remain unsupported.
+The optional desktop [Reader plugin](obsidian-plugin.md) shows existing librarian links and evidence for the open document, groups by ingestion date by default, filters titles/paths, and invokes local hybrid, semantic, fuzzy, or keyword search. When AI-TTS is available, it can queue selected text or a Markdown/TXT document with voice selection. It also launches explicit deterministic inbox jobs, groups Library, Discussion, and Inbox into separate tabs and tracks shared participant-specific Read/Unread receipts, automatically acknowledging opened documents and threads in Obsidian, and supports shared Markdown highlights, explained warning annotations with red wavy underlines, and comment threads through Obsidian and CLI/MCP. PDF narration and annotations remain unsupported.
 
 ## Local library website
+
+Filed and inbox companion files retain their bundle-relative links. HTML opens in
+an isolated interactive preview with inline and sibling classic scripts, styles
+and images; network fetches and modules are unsupported. Source code and JSON
+remain readable text, and binary attachments offer original-byte downloads. See
+[companion attachments](web.md#companion-attachments).
 
 The loopback-only web reader opens on this week's issue: a magazine cover with a
 cover story, up to four features from different projects and an "In this issue"
@@ -97,7 +105,7 @@ See [web operation, privacy, limits and recovery](web.md).
 
 `scripts/reader_service.py` runs the web reader as a macOS LaunchAgent from a
 dedicated live worktree, restarted by launchd and advanced by a 10-minute updater
-only to commits that pass a smoke test, with rollback when the restarted server is
+only to commits that pass a sandboxed smoke test, with rollback when the restarted server is
 unhealthy and a wait while inbox runs or rebuilds are active. `tailscale on`
 publishes it on the user's own tailnet with `tailscale serve` (never Funnel); Reader
 still binds to loopback and admits proxied requests only for allow-listed
@@ -131,7 +139,7 @@ Reader Admin (the footer's Backstage; Space p opens its Settings) is a sidebar l
 route per section (`#admin`, `#admin/indexes`, `#admin/inbox`, … `#admin/settings`); its
 read-only Overview summarizes running work, the inbox, attention items and index health, and
 shows a status it could not read as unavailable. Its Indexes page shows the freshness of the search index, browse indexes,
-catalog SQL mirror and link graph. It rebuilds any of them on demand, one job at a time, through
+catalog SQL mirror and link graph from saved measurements; opening the page never starts a full audit. Explicit full checks report their current stage and publish results progressively. Rebuilds verify only affected projections and retain job admission through verification. It rebuilds any of them on demand, one job at a time, through
 the existing guarded entry points, and announces each start, finish and failure with
 toasts. Each card shows usage against its budget (search passages, database and
 embedding cache; catalog files and source bytes), and an Other inventories card lists
@@ -143,13 +151,13 @@ reading it appears only when it fits the last spread. Its **Inbox** card lists w
 receipt titles, provenance and integrity, previews them without writing receipts or
 bookmarks, and **You got mail** starts the same supervised librarian inbox runner as
 the Obsidian plugin, with Stop, live status, the final report and its verified commit.
-While it runs, an activity transcript shows Codex's JSON events as shadcn AI Elements:
-messages with document citations, commands with terminal output and parsed
-pytest/node results, file trees, the plan, searches, errors, the commit checkpoint
-and token usage. Only the latest run's transcript is available, and the step
-timeline is inferred when the agent writes no plan.
-The supervisor's lock and Upkeep claims decide admission. An interrupted run must be
-recovered by hand, and a run processes the whole inventory; arrivals cannot be selected.
+While it runs, an activity transcript shows model decisions, verified filing
+changes, errors, the commit checkpoint and token usage. Distinct model calls
+retain separate transcript items. The renderer also supports command, plan and
+search events in historical transcripts. Only the latest run's transcript is
+available. The supervisor's lock and Upkeep claims decide admission. A failed or
+stopped run retains its journal for explicit retry, including with an empty inbox.
+The frozen inventory is partitioned automatically; later arrivals wait for another run.
 
 Long Markdown documents and PDFs with an outline show a document outline: a rail beside the text in continuous
 reading, a popover with page labels in two-page reading and a bottom sheet on phones,
@@ -175,6 +183,10 @@ opens the exact file bytes, front matter included, in a new tab: text as `text/p
 PDFs and images with their own type. It covers filed documents and inbox previews; a
 historical version has no raw route, so it shows no Source button.
 
+**Copy** (the clipboard icon beside Source) puts the same exact bytes, front matter
+included, on the clipboard as plain text. It appears only for text documents, not PDFs,
+images or historical versions.
+
 **Send to AI-TTS** (Space s, the document footer or the selection toolbar's Speak)
 queues the whole article, the text from the reading position, or a selected passage
 with the local AI-TTS daemon, which owns playback, holds and voice assignment.
@@ -198,7 +210,7 @@ holds at most 500,000 links and 256 MiB.
 
 Under a document's title, a version chip names the version being read (`v1 of 3`,
 a reading copy, an original, or `Current · 7 revisions` for a file with git
-history), says when a newer version exists and when you read it; a status-bar twin
+history), says when a newer version exists, when you read a sibling edition and when you last read this file on an earlier day; a status-bar twin
 (`v1/3`) mirrors it. Space v opens a version explorer (a bottom sheet at phone
 width): a timeline of the edition family and, under each edition, the commits that
 changed it (at most 50 per file, 200 per family, 2 s), with markers for where you
@@ -253,6 +265,15 @@ start further checks, and a check that changes files is discarded with a warning
 Each check is a cold CLI start for that voice; there is no spending cap beyond the
 90-second timeout. Threaded sub-conversations and voices starting chats are not
 implemented.
+
+Filing asks models in a prescribed order, moving on when one cannot answer: Codex,
+Claude, agy, then the local model, which Reader can start the configured way. Each
+step appears live in the Activity transcript, and any model but Codex is told it
+stands in for the librarian. See [the model order](inbox-runner.md#the-model-order).
+
+Reader Admin's Publish page uploads documents and files them while showing each step, at one of
+three levels: Normal, No cloud models, or This machine only, which encrypts a document outside the
+vault under a passphrase with no recovery. See [uploads](delivery.md#upload-from-the-web).
 
 Reader Admin also supervises a local model on any OpenAI-compatible server:
 LM Studio (the default), Ollama, llama.cpp's `llama-server`, or another server such

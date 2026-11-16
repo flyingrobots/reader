@@ -121,9 +121,14 @@ def test_container_cli_expands_literal_tilde_root(monkeypatch,command):
 
 
 @pytest.mark.parametrize('action,argv', [('check', ()), ('exec', ('echo', 'hello'))])
-def test_unconfirmed_reset_blocks_ordinary_setup(configured, action, argv):
+@pytest.mark.parametrize('state,clients', [
+    ('claiming', []), ('removing', []), ('unknown', []),
+    ('completed', [{'pid': 123, 'birth': 'fixture'}]),
+    ('refused', [{'pid': 123, 'birth': 'fixture'}]),
+])
+def test_unconfirmed_reset_blocks_ordinary_setup(configured, action, argv, state, clients):
     from container_coding_fixture import reset_marker
-    path = reset_marker(configured.vault)
+    path = reset_marker(configured.vault, state, clients)
     before, count = path.read_bytes(), len(Runtime.instances)
     with pytest.raises(ProcessError, match='reset'):
         call(configured, action, argv)

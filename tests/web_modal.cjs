@@ -1,13 +1,14 @@
 /* The modal keyboard (synthetic data): VISUAL selections anchor like mouse ones, the `:` command line,
    registers and Ctrl-r, the location list, marks and jumps, document motions, the generated help, and
    two-page VISUAL. No page errors, no external requests and no key capture while typing. */
+require('./jail_guard.cjs');
 const assert=require('node:assert/strict');
 const {spawn}=require('node:child_process');
 const {createInterface}=require('node:readline');
 const {chromium}=require(process.env.READER_PLAYWRIGHT||'playwright-core');
 const {waitFor,watch,settled}=require('./web_wait.cjs');
 const press=async(page,...keys)=>{for(const key of keys)await page.keyboard.press(key);};
-const status=page=>page.evaluate(()=>({mode:document.querySelector('#vim-mode').textContent,keys:document.querySelector('#status-keys').textContent,qf:document.querySelector('#status-qf').hidden?'':document.querySelector('#status-qf').textContent}));
+const status=page=>page.evaluate(()=>({mode:document.querySelector('#vim-mode').textContent,keys:document.querySelector('#status-keys').textContent,qf:!document.querySelector('#status-qf')?'':document.querySelector('#status-qf').textContent}));
 const highlightText=(page,name)=>page.evaluate(name=>[...(CSS.highlights.get(name)||[])].map(range=>range.toString()).join('|'),name);
 (async()=>{
  const fixture=spawn(process.env.READER_PYTHON||'.venv/bin/python',['tests/web_fixture.py','--modal','--search-page'],{stdio:['ignore','pipe','inherit']});let browser;
@@ -26,8 +27,8 @@ const highlightText=(page,name)=>page.evaluate(name=>[...(CSS.highlights.get(nam
 
   // The help is generated from the table: every mapped key appears, with the existing descriptions.
   // Help is a dialog now; it exists while open.
-  await page.locator('#main').focus();await page.keyboard.press('?');await page.locator('#help-keys dt').first().waitFor();
-  const help=await page.evaluate(()=>({text:document.querySelector('#help').textContent,dts:[...document.querySelectorAll('#help-keys dt')].map(dt=>dt.textContent.replace(/\s+/g,' ')),listed:window.readerKeymap.listed(),commands:window.readerKeymap.commands()}));
+  await page.locator('#main').focus();await page.keyboard.press('?');await page.locator('#help-keys [data-help-key]').first().waitFor();
+  const help=await page.evaluate(()=>({text:document.querySelector('#help').textContent,dts:[...document.querySelectorAll('#help-keys [data-help-key]')].map(dt=>dt.textContent.replace(/\s+/g,' ')),listed:window.readerKeymap.listed(),commands:window.readerKeymap.commands()}));
   await page.keyboard.press('Escape');await page.locator('#help').waitFor({state:'detached'});
   const label=key=>({'<Space>':'Space','<CR>':'Enter','<Down>':'↓','<Up>':'↑','<Left>':'←','<Right>':'→','{a-z}':'a–z','{mark}':'a–z'})[key]||key.replace(/^<C-(.)>$/,'Ctrl $1').replace(/^<(.+)>$/,'$1');
   const tokens=keys=>keys.match(/<[^>]+>|\{[a-z-]+\}|./g)||[];

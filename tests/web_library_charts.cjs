@@ -1,4 +1,5 @@
 /* Gallery charts through Reader's real dashboard, navigation and exact-version read API. Synthetic vault only. */
+require('./jail_guard.cjs');
 const assert=require('node:assert/strict');
 const {spawn}=require('node:child_process');
 const {createInterface}=require('node:readline');

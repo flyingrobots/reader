@@ -21,3 +21,13 @@ def test_quote_helper_unicode_anchor_roundtrip_and_refusals(tmp_path):
     with pytest.raises(ValueError,match='changed'):prepare(expected='0'*64)
     source.write_text('same same')
     with pytest.raises(ValueError,match='exactly once'):prepare('same',hashlib.sha256(source.read_bytes()).hexdigest())
+
+
+def test_quote_helper_owner_defaults_to_the_session_label_not_the_curator(monkeypatch,capsys):
+    required=['library/note.md','--quote-file','q.txt','--comment-file','c.txt','--expected-sha256','0'*64,'--request-id',str(uuid4())]
+    monkeypatch.delenv('AGENT_SESSION_ID',raising=False)
+    with pytest.raises(SystemExit) as error:reflective.parse_args(required)
+    assert error.value.code==2 and '--owner' in capsys.readouterr().err
+    monkeypatch.setenv('AGENT_SESSION_ID','claude-session-1234')
+    assert reflective.parse_args(required).owner=='claude-session-1234'
+    assert reflective.parse_args([*required,'--owner','Courier']).owner=='Courier'

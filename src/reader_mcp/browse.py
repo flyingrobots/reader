@@ -13,7 +13,7 @@ import re
 import tempfile
 from urllib.parse import quote
 
-from .metadata import MAX_HEADER, source_frontmatter
+from .metadata import MAX_HEADER, is_intake_role, opening_byline, source_frontmatter
 from .store import relative_path
 from .junk import os_junk
 
@@ -48,6 +48,60 @@ def strings(value):
     if isinstance(value, list):
         return sorted({v.strip() for v in value if isinstance(v, str) and v.strip()}, key=str.casefold)
     return []
+
+
+def catalog_author(m, *, catalog=False):
+    """Explicit source author, or catalog author unless it only credits Reader intake/librarian."""
+    source = m.get('source_author')
+    if strings(source):
+        return source
+    author = m.get('author')
+    if (catalog or m.get('kind') == 'catalog') and any(is_intake_role(a) for a in strings(author)):
+        return None
+    return author
+
+
+PROJECT_PLACEHOLDERS = {'unknown', 'unspecified', 'unspecified project', 'none', 'n/a', 'na', 'tbd'}
+
+
+def first_text(*candidates):
+    for value in candidates:
+        if strings(value):
+            return value
+    return None
+
+
+first_author = first_text
+
+
+def _matching_rule_names(text_cf, rules, aliases, *, hyphen_boundary=False):
+    edge = r'[\w-]' if hyphen_boundary else r'\w'
+    matched = []
+    for r in rules:
+        if any(re.search(rf'(?<!{edge}){re.escape(t.casefold())}(?!{edge})', text_cf) for t in r['terms']):
+            name = r['name']
+            matched.append(aliases.get(name.casefold(), name))
+    return matched
+
+
+def normalize_projects(project, corpus, settings):
+    """Resolve declared project metadata against configured aliases/rules before corpus inference."""
+    rules = settings.get('projects', [])
+    aliases = {k.casefold(): v for k, v in settings.get('project_aliases', {}).items()}
+    declared = [p for p in strings(project) if p.casefold() not in PROJECT_PLACEHOLDERS]
+    if declared:
+        resolved = []
+        for raw in declared:
+            cf = raw.casefold()
+            if cf in aliases:
+                resolved.append(aliases[cf])
+            elif matched := _matching_rule_names(cf, rules, aliases, hyphen_boundary=True):
+                resolved.extend(matched)
+            else:
+                resolved.append(raw)
+    else:
+        resolved = _matching_rule_names(corpus, rules, aliases, hyphen_boundary=False)
+    return sorted(set(resolved), key=str.casefold) or ['Unspecified project']
 
 
 def calendar_day(value):
@@ -94,15 +148,19 @@ class Browse:
             raise ValueError('Browse metadata exceeds 32 MiB; no publication')
         return data
 
-    def header(self, path):
+    def _header_and_byline(self, path):
         if not path.is_file():
-            return {}
+            return {}, None
         data = self.read(path, MAX_HEADER + 1)
         try:
-            return source_frontmatter(data)[0]
+            meta, body = source_frontmatter(data)
         except ValueError as exc:
             self.diagnostics.append({'path':path.relative_to(self.root).as_posix(), 'issue':str(exc)[:300]})
-            return {}
+            return {}, None
+        return meta, opening_byline(body)
+
+    def header(self, path):
+        return self._header_and_byline(path)[0]
 
     def scan(self):
         result = {}
@@ -110,7 +168,8 @@ class Browse:
         if self.library.is_symlink():
             raise ValueError('Library must not be a symlink')
         for directory, dirs, files in os.walk(self.library, followlinks=False):
-            dirs[:] = sorted(d for d in dirs if not d.startswith('.') and d not in SKIP)
+            dirs[:] = sorted(d for d in dirs if not d.startswith('.') and (
+                d not in SKIP or d == 'originals' and (Path(directory) / d / 'receipt.json').is_file()))
             for name in dirs + files:
                 p = Path(directory) / name
                 count += 1
@@ -131,19 +190,38 @@ class Browse:
         self.diagnostics = []
         snapshot = self.scan()
         meta = {}
+        bylines = {}
         def metadata(path):
             rel = path.relative_to(self.root).as_posix()
             if rel not in meta:
-                meta[rel] = self.header(path)
+                meta[rel], bylines[rel] = self._header_and_byline(path)
             return meta[rel]
+        def fallback_author(primary):
+            if primary.name == 'index.md' and metadata(primary).get('kind') == 'catalog':
+                return None
+            rel = primary.relative_to(self.root).as_posix()
+            suffix = primary.suffix.lower()
+            if suffix in {'.md', '.markdown'}:
+                if rel not in bylines:
+                    metadata(primary)
+                return bylines.get(rel)
+            if suffix == '.txt' and primary.is_file():
+                if rel not in bylines:
+                    bylines[rel] = opening_byline(self.read(primary, 2048))
+                return bylines[rel]
+            return None
         units = []
-        receipts = []
         receipt_ids = set()
-        groups = []
+        group_roots = set()
+        receipt_ancestors = set()
         covered = set()
+        def inside_group(path):
+            return any(parent in group_roots for parent in path.parents)
         def make(path, m, *, title=None, author=None, arrival=None, basis=None,
                  project=None, kind=None, identity=None, primary=None):
             primary = primary or path
+            if not strings(author) and primary is not None:
+                author = fallback_author(primary)
             source_authors = strings(author) or ['Unspecified author']
             author_aliases = settings.get('author_aliases', {})
             authors = sorted({name for raw in source_authors for name in (strings(author_aliases.get(raw.casefold(), raw)) or [raw])}, key=str.casefold)
@@ -154,11 +232,7 @@ class Browse:
             corpus = ' '.join([title, path.relative_to(self.library).as_posix(), *strings(m.get('tags')), *strings(m.get('topics'))]).casefold()
             topic_names = [r['name'] for r in settings.get('topics', []) if any(re.search(r'(?<!\w)' + re.escape(t.casefold()) + r'(?!\w)', corpus) for t in r['terms'])]
             topics = sorted(set(strings(m.get('topics')) + topic_names), key=str.casefold) or ['Unclassified topic']
-            projects = strings(project)
-            if not projects:
-                projects = [r['name'] for r in settings.get('projects', []) if any(re.search(r'(?<!\w)' + re.escape(t.casefold()) + r'(?!\w)', corpus) for t in r['terms'])]
-            aliases = settings.get('project_aliases', {})
-            projects = sorted({aliases.get(p.casefold(), p) for p in projects}, key=str.casefold) or ['Unspecified project']
+            projects = normalize_projects(project, corpus, settings)
             genre = kind or m.get('writing_type') or m.get('type') or 'Unspecified type'
             genre = str(genre)
             if 'development-journal' in strings(m.get('tags')) and genre.casefold() in {'report', 'document', 'unspecified type'}:
@@ -198,44 +272,45 @@ class Browse:
                 raise ValueError('Receipt payload escapes its delivery')
             sm = metadata(primary) if primary.suffix.lower() in {'.md','.markdown'} else {}
             wrapper = p.parent/'index.md'
+            outer = p.parent.parent/'index.md'
+            if p.parent.name == 'originals' and metadata(outer).get('kind') == 'catalog':
+                wrapper = outer
             wm = metadata(wrapper)
             provenance = r.get('provenance') or {}
             merged = {**sm, **wm}
             if sm.get('type') and wm.get('kind') == 'catalog':
                 merged['type'] = sm['type']
             make(wrapper if wrapper.is_file() else primary, merged, title=r.get('title'),
-                 author=provenance.get('author') or wm.get('source_author') or sm.get('author'),
+                 author=first_text(provenance.get('author'), catalog_author(wm, catalog=True), sm.get('source_author'), sm.get('author')),
                  arrival=r.get('received_at'), basis='receipt received_at (UTC)',
-                 project=provenance.get('project') or sm.get('project'), identity='receipt:'+identity,
+                 project=first_text(wm.get('project'), provenance.get('project'), sm.get('project')), identity='receipt:'+identity,
                  primary=primary)
-            receipts.append(p.parent)
+            group_roots.add(wrapper.parent if wrapper.is_file() else p.parent)
+            receipt_ancestors.update(p.parents)
         # Cataloged direct-drop packages count once; nested deliveries remain separate.
         for rel in sorted(snapshot, key=lambda p:(len(Path(p).parts),p)):
             p = self.root/rel
             if p.name != 'index.md' or len(p.parts)-len(self.root.parts) < 4:
                 continue
-            if any(p.is_relative_to(g) for g in receipts + groups):
+            if inside_group(p):
                 continue
-            if any(g.is_relative_to(p.parent) for g in receipts):
+            if p.parent in receipt_ancestors:
                 continue  # This is navigation over delivered works.
             m = metadata(p)
-            package_author = m.get('source_author') or m.get('author')
-            if m.get('kind') == 'catalog' and not m.get('source_author') and any(a.startswith('Reader librarian') for a in strings(package_author)):
-                package_author = None
             originals = [f for pattern in ('*.pdf', '*.txt', 'originals/*.pdf', 'originals/*.txt') for f in p.parent.glob(pattern) if f.is_file() and not f.is_symlink()]
             primary = max(originals, key=lambda f:f.stat().st_size) if originals else p
-            make(p, m, author=package_author, primary=primary,
+            make(p, m, author=catalog_author(m), primary=primary,
                  arrival=m.get('added') or m.get('metadata_created'), basis='catalog filing date',
                  kind='Book' if p.relative_to(self.library).parts[0]=='books' else None,
                  project=m.get('project'))
-            groups.append(p.parent)
+            group_roots.add(p.parent)
         for rel in sorted(snapshot):
             p = self.root/rel
             if p.suffix.lower() not in READABLE or p.name == 'index.md':
                 continue
-            inside = any(p.is_relative_to(g) for g in receipts + groups)
+            inside = inside_group(p)
             # Only explicitly identified original writing escapes package grouping.
-            m = metadata(p) if p.suffix.lower() in {'.md','.markdown'} and (not inside or p.parent in receipts + groups) else {}
+            m = metadata(p) if p.suffix.lower() in {'.md','.markdown'} and (not inside or p.parent in group_roots) else {}
             if not m and not inside:
                 sidecar = self.root/'catalog/metadata'/(p.relative_to(self.library).as_posix()+'.md')
                 if sidecar.is_file():
@@ -247,7 +322,7 @@ class Browse:
                 continue
             if p.name in AUX and not writing:
                 continue
-            make(p, m, author=m.get('author'), arrival=m.get('added') or m.get('metadata_created'),
+            make(p, m, author=first_author(m.get('author'), m.get('source_author')), arrival=m.get('added') or m.get('metadata_created'),
                  basis='document filing date', project=m.get('project'))
         if self.scan() != snapshot:
             raise ValueError('Browse inputs changed during discovery; retry after filing')
@@ -419,7 +494,7 @@ class Browse:
         with lock.open('a') as f:
             fcntl.flock(f,fcntl.LOCK_EX);yield
 
-    def run(self, check=False, today=None):
+    def run(self, check=False, today=None, *, writer=None):
         today=today or datetime.now(timezone.utc).date()
         with self.locked():
             if self.output.is_symlink() or (self.root/'README.md').is_symlink():raise ValueError('Unsafe browse output')
@@ -439,7 +514,7 @@ class Browse:
             else:
                 anchor='## What is Reader?'
                 block=self.dashboard(units,groups,today)+'\n\n'
-                new_readme=original.replace(anchor,block+anchor,1) if anchor in original else original.rstrip()+'\n\n'+block
+                new_readme=original.replace(anchor,block+anchor,1) if anchor in original else original.rstrip()+'\n\n'+self.dashboard(units,groups,today)+'\n'
             writes={self.output/name:text.encode() for name,text in outputs.items()};writes[readme]=new_readme.encode()
             if sum(len(v) for v in writes.values())>MAX_OUTPUT_BYTES:raise ValueError('Browse output exceeds 16 MiB; no publication')
             # Refuse overwriting an unrelated file or traversing a symlinked output parent.
@@ -450,6 +525,9 @@ class Browse:
             if not check:
                 for path,data in writes.items():
                     if str(path.relative_to(self.root)) not in changed:continue
+                    if writer:
+                        writer(path.relative_to(self.root).as_posix(), data)
+                        continue
                     path.parent.mkdir(parents=True,exist_ok=True)
                     fd,name=tempfile.mkstemp(prefix='.browse-',dir=path.parent)
                     try:

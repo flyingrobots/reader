@@ -8,6 +8,7 @@ the Reader operations allowed by its scope.
 
 import argparse
 import fcntl
+import getpass
 import hashlib
 import json
 import os
@@ -20,6 +21,8 @@ import stat
 import subprocess
 import sys
 import tempfile
+import urllib.error
+import urllib.request
 from uuid import UUID
 
 MAX_FILE = 32 * 1024 * 1024
@@ -35,7 +38,8 @@ SCOPES = {
 }
 KEY_LINE = re.compile(r'^(ssh-ed25519|sk-ssh-ed25519@openssh\.com|ecdsa-sha2-nistp(?:256|384|521)|'
                       r'sk-ecdsa-sha2-nistp256@openssh\.com|ssh-rsa) ([A-Za-z0-9+/]+={0,3})(?: ([\x21-\x7e ]{0,200}))?$')
-HELPER_SEARCH = ('for h in "$HOME/.claude/skills/reader/scripts/reader.py" '
+HELPER_SEARCH = ('if [ -x "$HOME/.reader/bin/reader" ]; then exec "$HOME/.reader/bin/reader" remote-authorize --scope %s; fi; '
+                 'for h in "$HOME/.claude/skills/reader/scripts/reader.py" '
                  '"${CODEX_HOME:-$HOME/.codex}/skills/reader/scripts/reader.py"; do '
                  'if [ -f "$h" ]; then exec python3 "$h" remote-authorize --scope %s; fi; done; '
                  'echo "Reader helper not found on this host; pass --server-helper" >&2; exit 3')
@@ -57,6 +61,8 @@ def load_config():
         config = json.loads(path.read_text())
     except ValueError:
         config = None
+    if isinstance(config, dict) and isinstance(config.get('url'), str) and isinstance(config.get('token_file'), str):
+        return config
     if not (isinstance(config, dict) and isinstance(config.get('host'), str)
             and isinstance(config.get('identity'), str)):
         raise ValueError(f'{path} is not a valid remote configuration; run reader.py remote-setup again '
@@ -126,10 +132,89 @@ def encode_delivery(submission: dict) -> bytes:
     return json.dumps(header, ensure_ascii=False).encode() + b'\n' + b''.join(payloads)
 
 
+def encode_upload(submission: dict) -> bytes:
+    """The web upload route's framing: a JSON header line, then the document and each attachment."""
+    if not isinstance(submission, dict) or (submission.get('document_path') is None) == (submission.get('markdown') is None):
+        raise ValueError('The request needs exactly one of document_path or markdown')
+    if submission.get('document_path') is not None:
+        document = read_local(submission['document_path'])
+    else:
+        document = submission['markdown'].encode()
+    listed = submission.get('attachments') or []
+    if not isinstance(listed, list) or not all(isinstance(a, dict) for a in listed):
+        raise ValueError('attachments must be a list of objects')
+    if len(listed) + 1 > MAX_FILES:
+        raise ValueError('Delivery exceeds the 64-file limit')
+    payloads = [(submission.get('filename') or 'report.md', document), *((a['path'], read_local(a['source_path'])) for a in listed)]
+    if sum(len(data) for _, data in payloads) > MAX_TOTAL:
+        raise ValueError('Delivery exceeds the 64 MiB limit')
+    provenance = {k: v for k, v in (submission.get('provenance') or {}).items() if k in ('project', 'source', 'author', 'report_date', 'commit')}
+    header = {'upload': 1, 'request_id': submission.get('request_id'), 'title': submission.get('title'), 'privacy': submission.get('privacy', 'no-cloud'),
+              'provenance': provenance, 'files': [{'path': path, 'bytes': len(data), 'sha256': hashlib.sha256(data).hexdigest()} for path, data in payloads]}
+    return json.dumps(header, ensure_ascii=False).encode() + b'\n' + b''.join(data for _, data in payloads)
+
+
+def http_request(config, method, path, body=None):
+    token = Path(config['token_file']).expanduser().read_text().strip()
+    url = config['url'].rstrip('/')
+    if not url.startswith('https://') and not re.match(r'http://(127\.0\.0\.1|localhost)(:\d+)?$', url):
+        raise ValueError('A delivery token is only sent over https or to this machine')
+    headers = {'Authorization': 'Bearer ' + token}
+    if body is not None:
+        headers['Content-Type'] = 'application/vnd.reader.delivery'
+    request = urllib.request.Request(url + path, data=body, headers=headers, method=method)
+    try:
+        with urllib.request.urlopen(request, timeout=300) as response:
+            sys.stdout.write(response.read().decode() + '\n')
+        return 0
+    except urllib.error.HTTPError as exc:
+        try:
+            message = json.loads(exc.read()).get('error')
+        except ValueError:
+            message = None
+        print(f'Reader: {message or exc.reason} (HTTP {exc.code})', file=sys.stderr)
+    except urllib.error.URLError as exc:
+        print(f'Reader: could not reach {url}: {exc.reason}', file=sys.stderr)
+    return 1
+
+
+def http_client(args, config) -> int:
+    """Delivery with a token instead of an SSH key. Only ingest and status exist on this route."""
+    if not args or args[0] not in ('ingest', 'status') or len(args) != 2:
+        raise ValueError('With a delivery token, the helper runs: ingest REQUEST.json, or status RECEIPT_ID')
+    if args[0] == 'status':
+        return http_request(config, 'GET', '/api/inbox/deliveries?id=' + str(UUID(args[1])))
+    raw = sys.stdin.buffer.read() if args[1] == '-' else Path(args[1]).read_bytes()
+    return http_request(config, 'POST', '/api/inbox/deliveries', encode_upload(json.loads(raw)))
+
+
+def http_setup(argv) -> int:
+    parser = argparse.ArgumentParser(prog='reader.py remote-token-setup',
+                                     description='Deliver to Reader over https with a delivery token, instead of an SSH key.')
+    parser.add_argument('url', help='Reader on your tailnet, for example https://reader.example.ts.net')
+    args = parser.parse_args(argv)
+    if not args.url.startswith('https://'):
+        raise ValueError('Use the https:// address Reader has on your tailnet')
+    token = getpass.getpass('Delivery token: ').strip()
+    if not token.startswith('rdt_'):
+        raise ValueError('That doesn’t look like a delivery token')
+    path = config_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    token_file = path.with_name('delivery-token')
+    for target, text in ((token_file, token + '\n'), (path, json.dumps({'url': args.url, 'token_file': str(token_file)}, indent=2) + '\n')):
+        fd = os.open(target, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+        with os.fdopen(fd, 'w') as stream:
+            stream.write(text)
+    print(f'Ready: deliveries from this machine now go to Reader at {args.url}. Config: {path}')
+    return 0
+
+
 def client(args, config) -> int:
     """Run a helper command on the vault machine."""
     if not args:
         raise ValueError('Missing command')
+    if 'url' in config:
+        return http_client(args, config)
     op, rest, stdin = args[0], list(args[1:]), b''
     if op == 'ingest':
         if len(rest) != 1:
@@ -188,7 +273,7 @@ def setup(argv) -> int:
         print(f'Reusing Reader key {key}')
     public = key.with_name(key.name + '.pub').read_bytes()
     remote = (shlex.join(['python3', args.server_helper, 'remote-authorize', '--scope', args.scope])
-              if args.server_helper else HELPER_SEARCH % args.scope)
+              if args.server_helper else HELPER_SEARCH % (args.scope, args.scope))
     print(f'Authorizing the key on {args.host}. SSH may ask for your password on that machine once.')
     login = [os.environ.get('READER_SSH', 'ssh'), '-S', 'none'] + (['-p', str(args.port)] if args.port else [])
     result = subprocess.run(login + [args.host, remote], input=public, stderr=subprocess.PIPE)
@@ -327,7 +412,95 @@ def gate(scope: str, cli: list, state: Path, environ=os.environ, stdin=None) -> 
         shutil.rmtree(staging, ignore_errors=True)
 
 
-def authorize(argv, helper: Path, python=sys.executable, stdin=None) -> int:
+LAUNCHER = '''#!/bin/sh
+# Reader's stable entry point. Written by install.py and remote-authorize; rerun install.py if Reader moves.
+helper={helper}
+if [ ! -f "$helper" ]; then
+  echo "Reader helper is missing at $helper. On this machine, rerun Reader's scripts/install.py." >&2
+  exit 3
+fi
+PATH="$PATH:/usr/bin:/opt/homebrew/bin:/usr/local/bin:$HOME/.local/bin"
+exec python3 "$helper" "$@"
+'''
+LAUNCHER_TARGET = re.compile(r'^helper=(.+)$', re.M)
+MAX_AUTHORIZED_KEYS = 1024 * 1024
+
+
+def launcher_path() -> Path:
+    return Path(os.environ.get('READER_HOME') or '~/.reader').expanduser() / 'bin/reader'
+
+
+def launcher_target(path=None):
+    """The helper a launcher starts, or None if it is absent or not ours."""
+    try:
+        match = LAUNCHER_TARGET.search(Path(path or launcher_path()).read_text())
+        argv = shlex.split(match.group(1)) if match else []
+        return Path(argv[0]) if len(argv) == 1 else None
+    except (OSError, ValueError):
+        return None
+
+
+def linked_worktree(path: Path) -> bool:
+    """Whether a file lives in a linked Git worktree, which can be removed while keys still name it."""
+    for parent in Path(path).resolve().parents:
+        marker = parent / '.git'
+        if marker.exists():
+            return marker.is_file()
+    return False
+
+
+def write_launcher(helper: Path) -> Path:
+    """Point the stable launcher at this helper's real file. It holds no interpreter path, which can go stale too."""
+    real = Path(helper).resolve()
+    if linked_worktree(real):
+        raise ValueError(f'{real} is in a linked Git worktree, which can be removed while it is still in use; '
+                         'run this from the main Reader checkout')
+    link = launcher_path()
+    link.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+    fd, temporary = tempfile.mkstemp(prefix='.reader-', dir=link.parent)
+    with os.fdopen(fd, 'w') as stream:
+        stream.write(LAUNCHER.format(helper=shlex.quote(str(real))))
+    os.chmod(temporary, 0o755)
+    os.replace(temporary, link)
+    return link
+
+
+def stable_helper(helper: Path) -> Path:
+    """The launcher a key should name. A working launcher is kept, so a run from a worktree cannot repoint it."""
+    current = launcher_target()
+    if current and current.is_file():
+        return launcher_path()
+    return write_launcher(helper)
+
+
+def delivery_keys(path=None) -> list:
+    """Each Reader key in authorized_keys and whether its forced command can still start."""
+    file = Path(path or os.environ.get('READER_AUTHORIZED_KEYS') or '~/.ssh/authorized_keys').expanduser()
+    try:
+        if file.stat().st_size > MAX_AUTHORIZED_KEYS:
+            return []
+        lines = file.read_text(errors='replace').splitlines()
+    except OSError:
+        return []
+    keys = []
+    for line in lines:
+        match = re.match(r'^\S*command="([^"]*remote-gate[^"]*)"\s+\S+\s+\S+\s*(.*)$', line)
+        if not match:
+            continue
+        try:
+            argv = shlex.split(match.group(1))
+            start = argv[:argv.index('remote-gate')]
+        except ValueError:
+            keys.append({'name': match.group(2), 'healthy': False})
+            continue
+        healthy = bool(start) and all(Path(item).expanduser().is_file() for item in start)
+        if healthy and launcher_target(start[-1]):
+            healthy = launcher_target(start[-1]).is_file()
+        keys.append({'name': match.group(2), 'healthy': healthy})
+    return keys
+
+
+def authorize(argv, helper: Path, stdin=None) -> int:
     """Add or update the restricted authorized_keys entry for a Reader key read from stdin."""
     parser = argparse.ArgumentParser(prog='reader.py remote-authorize')
     parser.add_argument('--scope', choices=sorted(SCOPES), default='deliver')
@@ -338,9 +511,14 @@ def authorize(argv, helper: Path, python=sys.executable, stdin=None) -> int:
         print('Reader: expected exactly one OpenSSH public key line', file=sys.stderr)
         return 2
     kind, blob, comment = match.groups()
-    command = shlex.join([python, str(helper), 'remote-gate', '--scope', args.scope])
+    try:
+        launcher = stable_helper(helper)
+    except (ValueError, OSError) as exc:
+        print(f'Reader: {exc}', file=sys.stderr)
+        return 2
+    command = shlex.join([str(launcher), 'remote-gate', '--scope', args.scope])
     if '"' in command or '\\' in command:
-        print('Reader: helper path cannot be quoted safely in authorized_keys', file=sys.stderr)
+        print('Reader: the launcher path cannot be quoted safely in authorized_keys', file=sys.stderr)
         return 2
     entry = f'restrict,command="{command}" {kind} {blob}' + (f' {comment}' if comment else '')
     path = Path(os.environ.get('READER_AUTHORIZED_KEYS') or '~/.ssh/authorized_keys').expanduser()
