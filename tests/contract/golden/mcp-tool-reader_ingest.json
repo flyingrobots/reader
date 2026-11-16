@@ -183,21 +183,6 @@
            "title": "string",
            "type": "string"
           }
-         },
-         "uploaded_by?": {
-          "object": {
-           "anyOf": {
-            "array": {
-             "object": {
-              "maxLength?": "number",
-              "type": "string"
-             }
-            }
-           },
-           "default": "null",
-           "description": "string",
-           "title": "string"
-          }
          }
         }
        },

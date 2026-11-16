@@ -50,6 +50,17 @@ describe('delivery', () => {
     const status = ok(null, ['status', randomUUID()]);
     assert.match(JSON.stringify(status), /not_found/);
   });
+  // Medium contract regression; oracle: #255 reserves uploader identity for the server.
+  for (const [label, uploaded_by] of [['named', 'someone-else@example.com'], ['empty', ''], ['null', null]]) {
+    test(`reader ingest rejects a caller-chosen uploader (${label}) before publishing a receipt`, () => {
+      const request_id = randomUUID();
+      const run = cli(vault, ['ingest', '-'], {input: JSON.stringify({
+        request_id, title: 'A forged uploader', markdown: '# Synthetic delivery\n', provenance: {uploaded_by},
+      })});
+      assert.deepEqual({status: run.status, receipt: existsSync(inboxPath(vault.root, request_id, 'receipt.json'))},
+        {status: 1, receipt: false}, 'caller-supplied uploader must be refused without publishing a receipt');
+    });
+  }
 });
 
 describe('search and read', () => {

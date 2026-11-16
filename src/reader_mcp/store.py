@@ -36,6 +36,10 @@ class Provenance(BaseModel):
     report_date: str | None = Field(default=None, max_length=100)
     commit: str | None = Field(default=None, max_length=100)
     privacy: str | None = Field(default=None, max_length=40, description="Filing limit: normal, or no-cloud for local models only")
+
+
+class _ReceiptProvenance(Provenance):
+    """Stored provenance adds identity established by the upload handler."""
     uploaded_by: str | None = Field(default=None, max_length=320, description="Set by the server for web uploads")
 
 
@@ -168,7 +172,8 @@ class Store:
         with self.locked():
             return self._status(request_id)
 
-    def ingest(self, submission: Submission) -> dict:
+    def ingest(self, submission: Submission, *, uploaded_by: str | None = None) -> dict:
+        provenance = _ReceiptProvenance(**submission.provenance.model_dump(), uploaded_by=uploaded_by)
         document = relative_path(submission.filename)
         paths = [document, *(relative_path(a.path) for a in submission.attachments)]
         # Reject case collisions and file/directory collisions before writing anything.
@@ -192,7 +197,7 @@ class Store:
         files = sorted([{"path": p.as_posix(), "bytes": len(b), "sha256": digest(b)} for p, b in payloads],
                        key=lambda item: item["path"])
         identity = {"title": submission.title, "document": document.as_posix(),
-                    "provenance": submission.provenance.model_dump(exclude_none=True), "files": files}
+                    "provenance": provenance.model_dump(exclude_none=True), "files": files}
         fingerprint = digest(json_bytes(identity))
         request_id = str(submission.request_id)
         with self.locked():

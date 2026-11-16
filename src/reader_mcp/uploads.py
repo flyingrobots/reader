@@ -161,10 +161,10 @@ def receive(root, stream, length, identity, clock=time.monotonic, private=None, 
             submission = Submission(
                 request_id=UUID(header.get('request_id')), title=header.get('title'), filename=files[0]['path'], document_path=paths[0],
                 attachments=[Attachment(source_path=path, path=item['path']) for path, item in zip(paths[1:], files[1:])],
-                provenance=Provenance(**provenance, privacy=privacy, uploaded_by=uploader(identity)))
+                provenance=Provenance(**provenance, privacy=privacy))
         except (ValidationError, TypeError, AttributeError) as exc:
             raise ValueError('The upload’s title, request ID or provenance is invalid') from exc
-        return Store(root).ingest(submission)
+        return Store(root).ingest(submission, uploaded_by=uploader(identity))
     finally:
         shutil.rmtree(staging, ignore_errors=True)
 
