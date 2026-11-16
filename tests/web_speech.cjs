@@ -107,6 +107,6 @@ const {scrollUntilHeld}=require('./web_wait.cjs');
   assert.ok(await page.locator('#speak-menu select').isDisabled());flag('down',false);
   await context.close();
   assert.deepEqual(external,[]);assert.deepEqual(errors,[]);
-  console.log('Speech passed: footer and Space s menu queue the article, held note, selection-only Speak, From here offsets, now-playing progress with pause/resume reaching the daemon and leaving on Played, unavailable toast, help entry, phone width, local-only requests.');
+  console.log('Speech passed: article, selection and From here submissions, browser-local playback and pause/resume, other tabs silent, host holds independent, unavailable companion prompt, voice choices, phone width and local-only requests.');
  }finally{await browser?.close();if(fixture.exitCode===null&&fixture.signalCode===null){fixture.kill('SIGTERM');await new Promise(resolve=>fixture.once('exit',resolve));}}
 })().catch(error=>{console.error(error);process.exitCode=1;});

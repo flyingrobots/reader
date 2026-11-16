@@ -13,39 +13,60 @@ export type Speaking={id:string;path?:string;source_sha256?:string;state:string|
 type Api=(path:string,payload?:unknown)=>Promise<any>;
 const TERMINAL=new Set(['Played','Skipped','Cancelled','Failed']);
 let speaking:Speaking|null=null,api:Api|null=null,timer:ReturnType<typeof setTimeout>|undefined,failures=0,generation=0;
-let audio:HTMLAudioElement|null=null,activeSegment=0,localPaused=false,loadedUrl='';
+let audio:HTMLAudioElement|null=null,activeSegment=0,localPaused=false,loadedUrl='',playbackAttempt=0;
 const listeners=new Set<()=>void>();
 const set=(next:Speaking|null)=>{speaking=next;listeners.forEach(l=>l());};
 const subscribe=(listener:()=>void)=>{listeners.add(listener);return ()=>{listeners.delete(listener);};};
 
-function ensureAudio(){
+function ensureAudio(s:Speaking){
   if(audio||typeof Audio==='undefined')return audio;
-  audio=new Audio();
-  audio.preload='auto';
-  audio.addEventListener('ended',()=>{
-    const s=speaking;
-    if(!s||s.playback!==false)return;
-    const total=s.segment_count??s.segments?.length??1;
+  const player=new Audio(),segment=activeSegment;
+  audio=player;
+  const ownsSource=()=>audio===player&&speaking?.id===s.id&&activeSegment===segment;
+  player.preload='auto';
+  player.addEventListener('error',()=>{
+    if(!ownsSource())return;
+    generation++;
+    stopAudio();set(null);
+    toast.error('Speech audio could not play',{description:'Use Read aloud to try again.',duration:8000});
+    api?.('/api/speak/'+encodeURIComponent(s.id),{action:'cancel'}).catch(()=>{});
+  });
+  player.addEventListener('ended',()=>{
+    if(!ownsSource()||!speaking)return;
+    const current=speaking,total=current.segment_count??current.segments?.length??1;
+    stopSource();
     activeSegment+=1;
-    loadedUrl='';
     if(activeSegment>=total){
-      const id=s.id;
+      const id=current.id;
       generation++;
       stopAudio();
       set(null);
       api?.('/api/speak/'+encodeURIComponent(id),{action:'cancel'}).catch(()=>{});
       return;
     }
-    syncBrowserAudio(s);
+    syncBrowserAudio(current);
   });
-  return audio;
+  return player;
+}
+function stopSource(){
+  const previous=audio;
+  audio=null;loadedUrl='';playbackAttempt++;
+  if(previous){previous.pause();previous.removeAttribute('src');previous.load();}
+}
+function playAudio(s:Speaking){
+  const player=audio,attempt=++playbackAttempt;
+  if(!player)return;
+  player.play().catch(()=>{
+    if(audio!==player||attempt!==playbackAttempt||speaking?.id!==s.id)return;
+    localPaused=true;
+    set({...speaking,state:'Paused',current:true});
+  });
 }
 function stopAudio(){
   clearTimeout(timer);
-  loadedUrl='';
+  stopSource();
   localPaused=false;
   activeSegment=0;
-  if(audio){audio.pause();audio.removeAttribute('src');audio.load();}
 }
 function syncBrowserAudio(s:Speaking){
   const segments=s.segments||[];
@@ -57,12 +78,12 @@ function syncBrowserAudio(s:Speaking){
   }
   if(seg?.audio_ready){
     const url='/api/speak/'+encodeURIComponent(s.id)+'/segments/'+activeSegment;
-    const player=ensureAudio();
+    const player=ensureAudio(s);
     if(player&&loadedUrl!==url){
       loadedUrl=url;
       player.src=url;
       if(!localPaused){
-        player.play().catch(()=>{localPaused=true;if(speaking?.id===s.id)set({...speaking,state:'Paused',current:true});});
+        playAudio(s);
       }
     }
     set({...s,current:true,held:false,state:localPaused?'Paused':'Playing',segment:{number:activeSegment+1,count:total}});
@@ -112,22 +133,22 @@ async function act(action:string){
   if(s.playback===false){
     const total=s.segment_count??(s.segments?.length||1);
     if(action==='pause'){
-      localPaused=true;audio?.pause();
+      playbackAttempt++;localPaused=true;audio?.pause();
       set({...s,state:'Paused',current:true});
       return;
     }
     if(action==='resume'){
       localPaused=false;
-      if(audio)audio.play().catch(()=>{localPaused=true;if(speaking?.id===s.id)set({...speaking,state:'Paused',current:true});});
+      playAudio(s);
       set({...s,state:'Playing',current:true});
       return;
     }
     if(action==='previous_segment'){
-      if(activeSegment>0){activeSegment-=1;loadedUrl='';localPaused=false;syncBrowserAudio(s);}
+      if(activeSegment>0){stopSource();activeSegment-=1;localPaused=false;syncBrowserAudio(s);}
       return;
     }
     if(action==='next_segment'){
-      if(activeSegment+1<total){activeSegment+=1;loadedUrl='';localPaused=false;syncBrowserAudio(s);return;}
+      if(activeSegment+1<total){stopSource();activeSegment+=1;localPaused=false;syncBrowserAudio(s);return;}
       action='skip';
     }
     if(action==='skip'||action==='cancel'){
