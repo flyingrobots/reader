@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- MCP and CLI deliveries refuse caller-supplied uploader identities. Authenticated web uploads retain server-owned uploader provenance, and callers may still select a privacy filing limit.
+
 - Upkeep skips other projects unless they opt in. Before reading the vault, its check exits with one line, `Reader upkeep skipped: <reason>`, when the caller's repository has a `.no-reader` marker, or has no `.reader-opt-in` marker and is not Reader's own code or vault (or a worktree of either). Observers must name their own participant, or set `AGENT_SESSION_ID`, instead of acknowledging as `Reader librarian`.
 
 - The Reflective Reading quote helper attributes annotations to `--owner` or `AGENT_SESSION_ID` and refuses without either, instead of defaulting to `Reader librarian`.
