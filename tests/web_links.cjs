@@ -122,7 +122,7 @@ const {sanitizerReport}=require('./web_wait.cjs');  // #151
    await page.locator('[data-index=links] button',{hasText:'Link graph'}).first().click();assert.equal(await page.locator('#index-inspector[data-inspected-index=links] [data-fact=links] td').last().textContent(),'20');
    await page.locator('[data-job=links]').click();
    await page.locator('[data-sonner-toast]').filter({hasText:'Link graph finished'}).waitFor({timeout:15000});
-   assert.match(await page.locator('[data-sonner-toast]').filter({hasText:'Link graph finished'}).textContent(),/0 documents read, 20 links, 1 unresolved/);
+   assert.equal(await page.locator('[data-sonner-toast]').filter({hasText:'Link graph finished'}).locator('[data-description]').textContent(),'0 documents read, 20 links, 1 unresolved.','the unchanged synthetic fixture refresh reports exact counts');
    await context.close();}
   assert.deepEqual(external,[]);assert.deepEqual(errors,[]);
   console.log('Links passed: quiet first build, Linked from order, counts, Show all and fragment navigation, hover/focus/Escape previews (document, external, missing), no preview during selection, phone bottom sheet, two-page placement without extra spreads, Link graph card and refresh toast, local-only assets.');
