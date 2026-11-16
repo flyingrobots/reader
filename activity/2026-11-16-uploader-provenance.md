@@ -32,3 +32,9 @@ python3 scripts/test_jail.py --timeout 240 -- npm run test:contract
 The Python selection passed 83 tests, including authenticated uploader identity, upload retry ownership, public upload restrictions and delivery preservation. The complete contract suite passed 155 tests with no skips. The contract run includes the separately verified inbox-shape repair from #208, copied as `a11742e`; it adds the already-shipped `editorial`, `pending_work` and `retained` fields to that unrelated golden.
 
 These runs used Python 3.14.7, Node v26.13.1, the macOS test sandbox, synthetic files and process boundaries. They did not read or change a private vault, deploy Reader, or exercise an external MCP host. CI and review status remain live gates on the PR. This record is agent-written and has not received human editorial review.
+
+## Integration with the landed UI repair
+
+CI run [43911154231](https://github.com/flyingrobots/reader/actions/runs/43911154231) at `168bc4c` passed 1,346 Python tests and failed the pre-existing UI debt check: 1,077 CSS rules exceeded its 1,076 ceiling. The same failure was reproduced locally with `python3 scripts/test_jail.py --timeout 60 -- .venv/bin/python -m pytest -q tests/test_ui_debt.py` before integrating the already-landed #208 repair from main `647247e902a62f7f0f2964e2ccd88411ff2847d0`. No ceiling or test was weakened.
+
+After that normal merge, the UI debt check plus the 83 upload/delivery tests passed all 84 tests. The full sandboxed contract suite again passed all 155 tests without skips. A fresh CI run remains required for the integrated commit.
