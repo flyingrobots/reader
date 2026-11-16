@@ -1,12 +1,12 @@
 /* The activity transcript: agent events as shadcn AI Elements (Base UI), composed from the registry's Trace,
- * Message, Marker, Hover Card, Code Block, Collapsible, Button and Progress items as the AI Elements docs
+ * Item, Marker, Hover Card, Code Block, Collapsible, Button and Progress items as the AI Elements docs
  * describe. Text renders as text; agent messages go through the app's DOMPurify-sanitized Markdown.
  * Producer-neutral: the inbox runner and coding jobs (RW-44) pass their own `labels`; the defaults are the inbox's. */
 import {useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode} from 'react';
 import {ArrowDownIcon, BotIcon, GitPullRequestIcon, ChevronRightIcon, CircleCheckIcon, CircleDotIcon, CircleIcon, CircleXIcon, FileIcon, FileMinusIcon, FilePenIcon, FilePlusIcon,
   FlaskConicalIcon, FolderIcon, GaugeIcon, GitCommitHorizontalIcon, GlobeIcon, InboxIcon, ListChecksIcon, RouteIcon, TerminalIcon, TriangleAlertIcon, WrenchIcon, XIcon, ArrowUpRightIcon} from 'lucide-react';
 import {Trace, TraceCollapsible, TraceCollapsibleContent, TraceCollapsibleTrigger, TraceDescription, TraceIcon, TraceLine, TraceTitle} from '../components/ui/trace';
-import {Message, MessageContent, MessageHeader} from '../components/ui/message';
+import {Item as UiItem, ItemContent, ItemTitle} from '../components/ui/item';
 import {Marker, MarkerContent, MarkerIcon} from '../components/ui/marker';
 import {HoverCard, HoverCardContent, HoverCardTrigger} from '../components/ui/hover-card';
 import {CodeBlock, CodeBlockContent} from '../components/ui/code-block';
@@ -164,13 +164,13 @@ function MessageRow({item,html,onOpen,speaker}:{item:Extract<Item,{kind:'message
     const href=link.getAttribute('href')||'',path=decodeURIComponent(href.split('#')[0]);
     if(/^https?:/i.test(href))window.open(href,'_blank','noopener,noreferrer');else if(openable(path))onOpen(path);
   };
-  return <Message className="activity-message">
-    <MessageContent>
-      <MessageHeader className="px-0">{speaker}</MessageHeader>
+  return <UiItem variant="muted" className="items-start" data-activity-message="">
+    <ItemContent className="min-w-0 gap-1.5">
+      <ItemTitle className="text-xs text-muted-foreground">{speaker}</ItemTitle>
       <div className="activity-prose" onClick={click} dangerouslySetInnerHTML={{__html:html(item.text)}}/>
       {item.cites.length?<div className="activity-cites" aria-label="Documents mentioned">{item.cites.map(path=><Citation key={path} path={path} onOpen={onOpen}/>)}</div>:null}
-    </MessageContent>
-  </Message>;
+    </ItemContent>
+  </UiItem>;
 }
 
 function ReasoningRow({item}:{item:Extract<Item,{kind:'reasoning'}>}){

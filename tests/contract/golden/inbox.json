@@ -13,6 +13,12 @@
      "bytes": "number",
      "choice": "null",
      "document": "string",
+     "eligibility": {
+      "object": {
+       "reason": "null",
+       "state": "string"
+      }
+     },
      "files": "number",
      "id": "string",
      "integrity": {
@@ -78,6 +84,17 @@
    "array": "string"
   },
   "pending": "boolean",
+  "pending_work": {
+   "object": {
+    "count": "number",
+    "paths": {
+     "array": "empty"
+    }
+   }
+  },
+  "retained": {
+   "array": "empty"
+  },
   "runner": "null",
   "sandbox_modes": {
    "array": "string"
