@@ -27,29 +27,34 @@ const {scrollUntilHeld}=require('./web_wait.cjs');
   const toast=text=>page.locator('[data-sonner-toast]').filter({hasText:text}).last();
   const leader=async key=>{await page.locator('#main').focus();await page.keyboard.press('Space');await page.keyboard.press(key);};
   await page.goto(url+'#read='+encodeURIComponent('library/thought.md'));await page.locator('#article [data-source-start]').first().waitFor();await page.waitForFunction(()=>!document.querySelector('.resume-pending'));
+  // Other connected devices/pages do not play or show this tab's speech.
+  const otherPage=await browser.newPage();
+  await otherPage.goto(url+'#read='+encodeURIComponent('library/thought.md'));
+  await otherPage.locator('#article [data-source-start]').first().waitFor();
   // Article-title button: the whole article, Markdown after the frontmatter, Reader's stable source.
   assert.equal(await page.locator('#article-speech #speak-article').textContent(),'Read aloud');await page.locator('#speak-article').click();await toast('Queued for AI-TTS.').waitFor();
   await page.locator('#article-speech [data-speech-control]').waitFor();assert.equal(await page.locator('#article-speech #speak-article').count(),0);
   let sent=submits().at(-1);
-  assert.deepEqual({origin:sent.origin,source:sent.source,sensitivity:sent.sensitivity,priority:sent.priority,content_format:sent.content_format},{origin:'Reader',source:'Reader',sensitivity:'confidential',priority:'normal',content_format:'markdown'});
+  assert.deepEqual({origin:sent.origin,source:sent.source,sensitivity:sent.sensitivity,priority:sent.priority,content_format:sent.content_format,playback:sent.playback},{origin:'Reader',source:'Reader',sensitivity:'confidential',priority:'normal',content_format:'markdown',playback:false});
   assert.ok(sent.text.trimStart().startsWith('# A quiet thought')&&!sent.text.includes('author: Ada')&&sent.text.includes('chapter 44'),'whole body, no frontmatter');
-  // Now playing: progress, pause/resume reach the daemon, and the control leaves on Played.
+  // Now playing in this browser: progress, local pause/resume (daemon untouched), and the control leaves when done.
   const control=page.locator('#speech-slot [data-speech-control]');
   await control.locator('[data-speech-label]',{hasText:/Speaking · \d of 3/}).waitFor({timeout:8000});
+  assert.equal(await otherPage.locator('#speech-slot [data-speech-control]').count(),0,'other device stays silent');
   await page.screenshot({path:'.reader/web-dev/speech-playing.png'});
   await control.locator('[data-speech-action=pause]').click();await control.locator('[data-speech-action=resume]').waitFor();
-  assert.ok(requests().some(r=>r.op==='pause'));assert.match(await control.locator('[data-speech-label]').textContent(),/^Paused/);
+  assert.ok(!requests().some(r=>r.op==='pause'),'pause stays local to this browser');assert.match(await control.locator('[data-speech-label]').textContent(),/^Paused/);
   await control.locator('[data-speech-action=resume]').click();await control.locator('[data-speech-action=pause]').waitFor();
-  assert.ok(requests().some(r=>r.op==='resume'));
+  assert.ok(!requests().some(r=>r.op==='resume'),'resume stays local to this browser');
   await control.waitFor({state:'detached',timeout:12000});
-  // Space s opens the menu; a sends the whole article. A hold adds the pause note.
+  await otherPage.close();
+  // Space s opens the menu; a sends the whole article even when host speakers are held.
   flag('held',true);
   await leader('s');await page.locator('#speak-menu').waitFor();
   assert.ok(await page.locator('#speak-menu [data-speak=selection]').isDisabled(),'no selection yet');
-  await page.keyboard.press('a');await toast('it plays when the pause ends').waitFor();
+  await page.keyboard.press('a');await toast('Queued for AI-TTS.').waitFor();
   assert.equal(submits().length,2);await page.locator('#speak-menu').waitFor({state:'detached'});
-  await control.locator('[data-speech-label]',{hasText:'Queued · held'}).waitFor({timeout:6000});
-  assert.ok(await control.locator('[data-speech-action]').isDisabled(),'transport waits until this passage is current');
+  await control.locator('[data-speech-label]',{hasText:/Speaking · \d of 3/}).waitFor({timeout:8000});
   flag('held',false);await control.waitFor({state:'detached',timeout:12000});
   // Selection toolbar Speak sends only the selection, with the title first.
   await page.evaluate(()=>{const strong=[...document.querySelectorAll('#article strong')].find(el=>el.textContent==='a precise passage');const range=document.createRange();range.selectNodeContents(strong);getSelection().removeAllRanges();getSelection().addRange(range);strong.dispatchEvent(new MouseEvent('mouseup',{bubbles:true}));});

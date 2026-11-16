@@ -153,7 +153,7 @@
     "src/server-card.tsx": "3889c7bd5c2f961490dc43ec9566caf9eea2b68f04dd45c81f8715976f476602",
     "src/shape/shape.ts": "9fe4b2b1dd21a2869130afa25aed34e2ea482fc8fe05aa2609193aa24c04b50c",
     "src/shell-dialog.tsx": "894e39bb3e44d40e1c47d6a10ac7b0c6fcb6100c9c3b7aec77b88d627f7ea148",
-    "src/speech-control.tsx": "3ab7fb19196b95ee7d5a5b38376d57fa325e5ec6965438171dbd91e0c32f7b27",
+    "src/speech-control.tsx": "c8875fc05d5f437253054903260d4db4075fadb3dd3ffaf465c23a3c22f76582",
     "src/speech-voice.tsx": "c27921734b930c25d9864f86b81b29c667f4cd883f6d8881055fc00b1d283134",
     "src/static-demo.ts": "036a0b4413452d2ec8f7a51248157340082f3c030fc51d3237275021340e8810",
     "src/status-line.tsx": "b73d8c9a492cc2d3cca7f6dd4e48d3535115865e04b289685408cffdb53e5774",
@@ -1003,8 +1003,8 @@
       "sha256": "a6ad7c68d39d3b319c9729c7852a6cf4a2c9d58a72b9baad699184ab602363de"
     },
     "reader-controls.js": {
-      "bytes": 1424849,
-      "sha256": "f6e2788f7939f37062289353335d1cd10bf8c2653a8e2699258dfe3f376199d9"
+      "bytes": 1426725,
+      "sha256": "29621f28376b74484b8d2bbbd9caf03293a7e13a9337e53764e6ba82242259fb"
     },
     "reader-controls.js.LEGAL.txt": {
       "bytes": 6614,
