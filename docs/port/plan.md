@@ -455,7 +455,6 @@ Still open:
 
 ## Issues filed while inventorying
 
-- #160: numpy is imported but undeclared; fonttools is declared but unused.
 - #161: browse's 32 MiB metadata budget is reached by about 2,000 long documents, below the 10,000-work limit.
 - #162: some calendar timestamps bypass `reader_mcp.clock` (chat creation, notebook dates, reading copies,
   maintenance and health times).
