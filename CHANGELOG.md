@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- PDF-only inbox arrivals now give the editor a bounded reading excerpt plus source-labelled embedded title and author metadata (#236). One supervised parser child hashes and reads the snapshot bytes within page, file-count, deadline, output, payload and memory limits; unreadable PDFs defer with a reason, and originals are untouched.
+- `scripts/test_jail.py` retires its whole test process group when it is interrupted, times out or exits normally, and keeps the run directory with a diagnostic when it cannot confirm cleanup (#267).
+- New issues use typed templates (Feature, Bug, Decision, Investigation, Research, Spike) with Taskalisk `issue-dag/2` frontmatter, an execution prompt and nine numbered sections; see `docs/issues.md`.
+
 - MCP and CLI deliveries refuse caller-supplied uploader identities. Authenticated web uploads retain server-owned uploader provenance, and callers may still select a privacy filing limit.
 
 - Block setup and Coding Jobs while a previous destructive volume reset is unconfirmed, including after lease expiry; preserve explicit worker recovery.
