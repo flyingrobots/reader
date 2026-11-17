@@ -514,3 +514,36 @@ def test_a_failed_request_receipt_leaves_no_orphan_run_and_a_retry_admits_one(wo
         assert [r['id'] for r in w.jobs.store.runs()] == [retried['id']] and list(w.jobs.queue) == [retried['id']]
     finally:
         w.jobs.stop(retried['id'])
+
+
+def test_a_failed_run_save_at_admission_leaves_no_queued_orphan(world, monkeypatch):
+    w = world()
+    w.jobs.work = lambda: None
+    write, failed = w.jobs.store._write, []
+
+    def fail_once(path, *rest):
+        if path.parent.name == 'runs' and not failed:  # The real save must still fill its retry cache.
+            failed.append(True)
+            raise OSError(5, 'synthetic run write failure')
+        return write(path, *rest)
+    monkeypatch.setattr(w.jobs.store, '_write', fail_once)
+    request = w.request()
+    with pytest.raises(OSError, match='run write failure'):
+        w.jobs.submit(request)
+    assert w.jobs.store.unsaved == {} and not w.jobs.queue
+    w.jobs.store.retry()  # The retry cache must not resurrect the discarded record.
+    assert w.jobs.store.runs() == []
+    retried = w.jobs.submit(request)
+    try:
+        assert [r['id'] for r in w.jobs.store.runs()] == [retried['id']] and list(w.jobs.queue) == [retried['id']]
+    finally:
+        w.jobs.stop(retried['id'])
+
+
+def test_stop_does_not_acknowledge_a_run_that_is_neither_queued_nor_active(world):
+    w = world()
+    w.jobs.work = lambda: None
+    run = w.jobs.submit(w.request())
+    w.jobs.queue.remove(run['id'])  # A queued record that no worker will ever run.
+    stopped = w.jobs.stop(run['id'])
+    assert stopped['stopped'] is False and stopped['status'] == 'queued'

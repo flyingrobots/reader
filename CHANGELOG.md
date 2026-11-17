@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Coding jobs: a failed run save at admission leaves no queued orphan, and Stop answers `stopped: false` for a run that is neither queued nor active (#174).
+
 - MCP and CLI deliveries refuse caller-supplied uploader identities. Authenticated web uploads retain server-owned uploader provenance, and callers may still select a privacy filing limit.
 
 - Block setup and Coding Jobs while a previous destructive volume reset is unconfirmed, including after lease expiry; preserve explicit worker recovery.
