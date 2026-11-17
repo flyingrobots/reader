@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Coding jobs: an archive write that fails after a saved GitHub intent (a pending issue, a sent but unverified push, or a pending pull request) ends the run `needs_reconciliation` and keeps the intent, not `failed`. A created pull request is recorded before its event is written (part of #173).
 - Coding jobs: a Reader shutdown ends a running job `interrupted` (*Reader stopped before this job finished; it was not restarted.*), not `cancelled` with *Stopped by you*; a user Stop pressed first still records `cancelled` (#171).
 - Coding jobs: a pull request Reader opens closes exactly the job's issue. Closing keywords in the agent's text are neutralised, and live and restart read-back refuse a body with any other `#N` or `owner/repo#N` closing reference (#170).
 - Coding jobs: a failed run save at admission leaves no queued orphan, and Stop answers `stopped: false` for a run that is neither queued nor active (#174).

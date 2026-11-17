@@ -312,7 +312,12 @@ class Runner:
         except Stop as stop:
             outcome, message = stop.outcome, stop.message
         except CaptureFailed as exc:
-            outcome, message = 'failed', str(exc)
+            # After a saved GitHub intent the effect may exist; keep the intent and ask for reconciliation.
+            push = run.get('push') or {}
+            if run.get('issue_pending') or run.get('pr_pending') or (push.get('sent') and not push.get('verified')):
+                outcome, message = 'needs_reconciliation', f'{exc} A GitHub write may have happened; reconcile it before rerunning.'
+            else:
+                outcome, message = 'failed', str(exc)
         except (RegistryError, LegacyRepository) as exc:
             outcome, message = 'blocked', str(exc)
         except Exception as exc:

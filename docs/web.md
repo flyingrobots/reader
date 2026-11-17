@@ -1576,7 +1576,7 @@ Outcomes (`pr_opened`, `already_fixed`, `blocked`, `failed`, `cancelled`, `inter
 `verify.log`, `git.log`, `last-message.md` and `result.json`, streamed as `.partial` and gzipped with sizes and
 SHA-256 by `RunLog.finish()`, including failed, cancelled and interrupted runs. `meta.json` pins the source SHA,
 block ID, prompt SHAs, repository, base and head SHAs, branch and worktree, issue and pull request, tool versions
-and the outcome. Agent, verification and Git output plus events share a 64 MiB archive budget; transient control probes have their own bounded capture. A full budget or failed archive write stops owned work. Completed remote effects remain recorded and may require reconciliation. `events.jsonl` holds the normalized events,
+and the outcome. Agent, verification and Git output plus events share a 64 MiB archive budget; transient control probes have their own bounded capture. A full budget or failed archive write stops owned work. Reader records each GitHub result before the event that reports it. When the write fails after a saved intent (a pending issue, a sent but unverified push, or a pending pull request), the run ends `needs_reconciliation` and keeps that intent; otherwise it ends `failed`. Completed remote effects remain recorded and may require reconciliation. `events.jsonl` holds the normalized events,
 each with the run ID, a sequence number and a timestamp: phases, Reader's own steps (Git, checks, publication),
 the agent's recognized CLI events, changed files, commits, GitHub results and the outcome. Unrecognized CLI output
 stays in the raw logs only. The trace reuses the activity reducer and `ActivityTranscript` with job labels: phases
