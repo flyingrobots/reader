@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Coding jobs: a rerun settles its predecessor's pending issue by marker before it can create one, reusing that issue or refusing to start when it cannot be found once, so no duplicate issue is created (closes #173).
 - Coding jobs: an archive write that fails after a saved GitHub intent (a pending issue, a sent but unverified push, or a pending pull request) ends the run `needs_reconciliation` and keeps the intent, not `failed`. A created pull request is recorded before its event is written (part of #173).
 - Coding jobs: restart recovery also reconciles finished runs that still hold `issue_pending` or `pr_pending`, recording the issue found by marker or the pull request that reads back as the job's (part of #173).
 - The Find bar, the reading queue and Chat stay above the status line and the reading progress on phones and desktops: one shared bottom inset counts the status height, the shown progress rail and the safe area once, and the phone Find controls are 44 px targets (#222).
