@@ -366,7 +366,8 @@ def test_an_archive_write_failure_stops_the_job_before_publication(world, monkey
 
 
 @pytest.mark.parametrize('change', [{'repository': 'other/repo'}, {'base': 'release'}, {'head_repository': 'other/fork'},
-                                    {'state': 'closed'}, {'body': 'no issue link'}])
+                                    {'state': 'closed'}, {'body': 'no issue link'},
+                                    {'body': 'Closes #277\nFixes #1'}, {'body': 'Closes #277\nFixes other/repo#3'}])
 def test_restart_recovery_accepts_only_a_pull_request_that_reads_back_as_the_jobs(world, monkeypatch, change):
     w = world()
     head = w.base_sha

@@ -79,7 +79,7 @@ def main():
     report = {'outcome': outcome, 'summary': scenario.get('summary', 'Bounded the parser depth; deep input now yields a diagnostic.'),
               'evidence': 'RED: deep input aborted. GREEN: 3 passed.', 'existing_pr': scenario.get('existing_pr'),
               'issue_title': 'Bound parser depth', 'issue_body': 'Deeply nested input aborts the process.\n\nAcceptance: a controlled diagnostic.',
-              'pr_title': 'Bound parser depth', 'pr_body': 'Adds a depth limit with tests below and above it.'}
+              'pr_title': 'Bound parser depth', 'pr_body': scenario.get('pr_body', 'Adds a depth limit with tests below and above it.')}
     final = 'Done.\n\n```reader-result\n' + json.dumps(report) + '\n```' if outcome not in (None, 'bad-json') else \
         'Done, without a report.' if outcome is None else 'Done.\n\n```reader-result\n{not json\n```'
     if codex:
