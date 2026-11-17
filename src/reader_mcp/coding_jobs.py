@@ -228,8 +228,9 @@ class Runner:
                                                       'admitted_at': run['created_at']}, ensure_ascii=False, indent=1) + '\n')
             capture.write('prompt.txt', prompt)
             capture.event(run_id, 'phase', phase='queued', state='started', detail=f'{entry["repo"]} · {coding_agents.LABELS[request["agent"]]}')
-            self.store.save(run)
             try:
+                # Inside the rollback: a failed run save discards the record and its retry-cache copy.
+                self.store.save(run)
                 self.store.remember(request['request_id'], run_id, print_)
             except BaseException as exc:
                 # No task is queued until receipt persistence succeeds. Distinguish failure before
@@ -263,7 +264,8 @@ class Runner:
         if not run:
             raise ValueError('No coding job with that ID')
         with self.lock:
-            if run.get('status') == 'finished':
+            if run_id not in self.queue and run_id != self.active:
+                # Finished, or a record no worker will run: nothing was stopped.
                 return self.view(run) | {'stopped': False}
             self.cancels.add(run_id)
             if run_id in self.queue:
