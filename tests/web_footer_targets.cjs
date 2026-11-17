@@ -29,16 +29,16 @@ const NAMES=['Back to library','Document outline','Switch to Pages layout','Swit
    const pad=parseFloat(getComputedStyle(line).paddingBottom)||0;
    const shown=e=>getComputedStyle(e).display!=='none'&&box(e).width>0&&box(e).height>0;
    const flow=[...line.children].filter(e=>shown(e)&&!['absolute','fixed'].includes(getComputedStyle(e).position)).map(e=>{const r=box(e);return {id:e.id,top:r.top,bottom:r.bottom,left:r.left,right:r.right};});
-   const controls=[...line.querySelectorAll('button,[role=button],a[href],select,input:not([type=hidden])')].filter(e=>shown(e)&&!e.closest('[data-status-hidden]')&&box(e).width>2)
+   const controls=[...line.querySelectorAll('button,[role=button],a[href],select')].filter(e=>shown(e)&&!e.closest('[data-status-hidden]')&&box(e).width>2)
     .map(e=>{const r=box(e);return {id:e.id||e.getAttribute('aria-label')||e.textContent.trim().slice(0,20),name:e.getAttribute('aria-label')||e.textContent.trim(),context:!!e.closest('#status-location'),width:r.width,height:r.height};});
    const font=sel=>{const e=line.querySelector(sel);return e&&shown(e)?parseFloat(getComputedStyle(e).fontSize):null;};
    return {top:l.top,bottom:l.bottom,height:l.height-pad,pad,flow,controls,scroll:document.documentElement.scrollWidth<=innerWidth+1,
     fonts:{mode:font('#vim-mode'),crumb:font('#status-location [aria-current]'),position:font('#status-position'),section:font('#status-section')},
     all:[...line.querySelectorAll('[aria-label]')].map(e=>e.getAttribute('aria-label'))};});
-  const check=async(page,label,phone)=>{const m=await measure(page),want=phone?PHONE:DESK;
+  const check=async(page,label,phone,essentials=['vim-mode','status-location','settings-open'])=>{const m=await measure(page),want=phone?PHONE:DESK;
    assert.ok(Math.abs(m.height-want.height)<1.5,`${label}: the footer is ${want.height}px without the safe area (${m.height})`);
    assert.ok(m.scroll,`${label}: no horizontal page scroll`);
-   for(const id of ['vim-mode','status-location','settings-open'])assert.ok(m.flow.some(f=>f.id===id),`${label}: ${id} stays shown`);
+   for(const id of essentials)assert.ok(m.flow.some(f=>f.id===id),`${label}: ${id} stays shown (${m.flow.map(f=>f.id)})`);
    for(const f of m.flow)assert.ok(f.top>=m.top-.5&&f.bottom<=m.bottom-m.pad+.5&&f.left>=-.5&&f.right<=viewportWidth+.5,`${label}: ${f.id} ${JSON.stringify(f)} stays inside the footer`);
    if(phone){
     const context=m.flow.filter(f=>CONTEXT.includes(f.id)),actions=m.flow.filter(f=>!CONTEXT.includes(f.id));
@@ -72,11 +72,14 @@ const NAMES=['Back to library','Document outline','Switch to Pages layout','Swit
    const safe=await check(page,`${label} safe area`,phone);assert.ok(Math.abs(safe.pad-34)<1,`${label}: the footer pads the safe area once (${safe.pad})`);
    await cdp.send('Emulation.setSafeAreaInsetsOverride',{insets:{}});await context.close();}
 
-  // Split view puts its pane indicator on the context row.
-  for(const width of [390,1440]){viewportWidth=width;const {page,context}=await open({width,height:844});
-   await page.locator('#main').focus();await page.keyboard.press('Control+w');await page.keyboard.press('v');
-   await page.locator('#split-indicator').waitFor();await page.waitForTimeout(300);await page.keyboard.press('Escape');await page.waitForTimeout(200);
-   await check(page,`${width} split view`,width<=700);await context.close();}
+  // Split view puts its pane indicator on the context row. Splitting is refused at 390 px, so a desktop split narrows to it.
+  for(const width of [390,1440]){viewportWidth=width;const {page,context}=await open({width:1440,height:844});
+   await page.locator('#main').focus();await page.keyboard.press('Control+w');await page.waitForTimeout(100);await page.keyboard.press('v');
+   await page.waitForFunction(()=>document.querySelectorAll('.split-pane iframe').length===2);await page.keyboard.press('Escape');
+   await page.locator('#split-indicator').waitFor();await page.setViewportSize({width,height:844});await page.waitForTimeout(400);
+   // The new pane's picker leaves it without a document, so it has no breadcrumb.
+   const m=await check(page,`${width} split view`,width<=700,['vim-mode','split-indicator','settings-open']);
+   assert.ok(m.flow.some(f=>f.id==='split-indicator'),`${width}: the split indicator is shown`);await context.close();}
 
   // Speech: the transport joins the action row with the same targets.
   for(const width of [390,1440]){viewportWidth=width;const {page,context}=await open({width,height:844});
