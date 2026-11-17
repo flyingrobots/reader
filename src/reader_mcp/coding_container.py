@@ -30,7 +30,7 @@ class ContainerJob(Job):
         try:
             return super().execute()
         except ProcessError as exc:
-            raise Stop('cancelled' if self.cancelled() else 'failed', self.private(getattr(self.runtime, 'error', None) or str(exc))) from exc
+            raise Stop(self.halted() or 'failed', self.private(getattr(self.runtime, 'error', None) or str(exc))) from exc
         finally:
             if self.runtime:
                 try:
@@ -191,7 +191,7 @@ class ContainerJob(Job):
             return None, result.returncode, None
         except ProcessError as exc:
             self.runtime.stop()
-            return 'cancelled' if self.cancelled() else 'failed', None, getattr(self.runtime, 'error', None) or str(exc)
+            return self.halted() or 'failed', None, getattr(self.runtime, 'error', None) or str(exc)
 
     def agent(self):
         self.phase('agent', coding_agents.LABELS[self.run['agent']])

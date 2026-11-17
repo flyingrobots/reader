@@ -470,7 +470,7 @@ def test_shutdown_keeps_job_ownership_until_the_worker_has_stopped(world, monkey
         assert release.wait(30)
         return viewer()
     monkeypatch.setattr(w.github, 'viewer', blocked)
-    w.jobs.submit(w.request())
+    admitted = w.jobs.submit(w.request())
     assert entered.wait(10)
     other = w.make()
     try:
@@ -480,6 +480,49 @@ def test_shutdown_keeps_job_ownership_until_the_worker_has_stopped(world, monkey
         release.set()
         w.jobs.worker.join(timeout=10)
         other.close()
+    run = w.jobs.store.load(admitted['id'])  # Nobody pressed Stop: the record must not say so.
+    assert (run['outcome'], run['message']) == ('interrupted', 'Reader stopped before this job finished; it was not restarted.')
+
+
+def test_a_stop_pressed_before_shutdown_stays_the_users_stop(world, monkeypatch):
+    import threading
+    w = world()
+    entered, release = threading.Event(), threading.Event()
+    viewer = w.github.viewer
+
+    def blocked():
+        entered.set()
+        assert release.wait(30)
+        return viewer()
+    monkeypatch.setattr(w.github, 'viewer', blocked)
+    admitted = w.jobs.submit(w.request())
+    assert entered.wait(10)
+    w.jobs.stop(admitted['id'])
+    w.jobs.close()
+    release.set()
+    w.jobs.worker.join(timeout=20)
+    run = w.jobs.store.load(admitted['id'])
+    assert run['outcome'] == 'cancelled' and run['message'].startswith('Stopped by you'), (run['outcome'], run['message'])
+
+
+def test_server_shutdown_is_not_recorded_as_the_users_stop(world, monkeypatch):  # Moriarty probe m2 (#171).
+    import threading
+    w = world()
+    entered, release = threading.Event(), threading.Event()
+    viewer = w.github.viewer
+
+    def blocked():
+        entered.set()
+        assert release.wait(30)
+        return viewer()
+    monkeypatch.setattr(w.github, 'viewer', blocked)
+    admitted = w.jobs.submit(w.request())
+    assert entered.wait(10)
+    w.jobs.close()  # Reader is quitting; nobody pressed Stop.
+    release.set()
+    w.jobs.worker.join(timeout=20)
+    run = w.jobs.store.load(admitted['id'])
+    assert not (run['outcome'] == 'cancelled' and 'Stopped by you' in run['message']), (run['outcome'], run['message'])
 
 
 def test_a_failed_recovery_releases_ownership_so_the_next_owner_starts_a_worker(world, monkeypatch):
