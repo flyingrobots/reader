@@ -613,3 +613,48 @@ def test_an_archive_failure_after_a_github_write_needs_reconciliation_and_a_reru
     second, _ = w.run(predecessor=first['id'])
     assert w.github.calls.count('create_issue') == 1, second['message']
     assert second['source']['issue'] == first['issue']['number']
+
+
+def test_recovery_settles_a_finished_runs_pending_pull_request(world, monkeypatch):
+    """#173 (2): a run that ended with `pr_pending` after an archive failure is reconciled by the next recover()."""
+    from reader_mcp import coding_store
+    w = world(issue=None)
+    armed, write, create = [], coding_store.Capture.write, w.github.create_pull_request
+
+    def failing(self, name, data):
+        if armed == [True]:
+            raise coding_store.CaptureFailed('synthetic archive write failure')
+        return write(self, name, data)
+
+    def created(*args, **options):
+        value = create(*args, **options)
+        armed.append(True)
+        return value
+    monkeypatch.setattr(coding_store.Capture, 'write', failing)
+    monkeypatch.setattr(w.github, 'create_pull_request', created)
+    first, _ = w.run()
+    assert first['outcome'] == 'needs_reconciliation' and first['pr_pending'], first['message']
+    armed.append(False)
+    w.jobs.recover()
+    done = w.jobs.store.load(first['id'])
+    # Oracle: the fake GitHub holds exactly one pull request, the one this run created.
+    assert done['pr_pending'] is None, 'recover() left pr_pending on a finished run'
+    assert done['pr'] and done['pr']['number'] == first['pr_pending']['number'] and done['outcome'] == 'pr_opened'
+    assert w.github.calls.count('create_pull_request') == 1
+
+
+def test_recovery_settles_a_finished_runs_pending_issue_by_marker(world):
+    """#173 (2): an issue whose creation was unconfirmed at finish is found by marker by the next recover()."""
+    w = world(issue=None)
+    w.github.fail['create_issue'] = 'lost-ack'
+    w.github.lag = True
+    first, _ = w.run()
+    assert first['outcome'] == 'needs_reconciliation' and first['issue_pending'], first['message']
+    w.github.lag = False  # The search index catches up.
+    w.jobs.recover()
+    done = w.jobs.store.load(first['id'])
+    # Oracle: the fake GitHub holds exactly one issue carrying this run's marker.
+    [number] = [n for n, i in w.github.issues.items() if first['issue_pending']['marker'] in i['body']]
+    assert done['issue_pending'] is None, 'recover() left issue_pending on a finished run'
+    assert done['issue'] and done['issue']['number'] == number and done['outcome'] == 'needs_reconciliation'
+    assert w.github.calls.count('create_issue') == 1

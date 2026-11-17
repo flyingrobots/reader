@@ -376,7 +376,9 @@ class Runner:
         """Reconcile runs a previous server left unfinished. Never relaunches an agent."""
         for run in self.store.runs():
             finished = run.get('status') == 'finished'
-            if finished and (not run.get('container') or run['container'].get('state') == 'stopped'):
+            # A finished run can still hold a GitHub intent its archive failure left unsettled (#173).
+            pending = finished and (run.get('issue_pending') or run.get('pr_pending'))
+            if finished and not pending and (not run.get('container') or run['container'].get('state') == 'stopped'):
                 continue
             notes, outcome = [], 'interrupted'
             process = run.get('process') or {}
@@ -390,7 +392,8 @@ class Runner:
             except (RegistryError, LegacyRepository):
                 pass
             container_problem = None
-            if run.get('container') and run['container'].get('state') != 'stopped':
+            container_live = bool(run.get('container')) and run['container'].get('state') != 'stopped'
+            if container_live:
                 try:
                     from .container_recovery import recover as recover_container
                     if (run.get('owner') or {}).get('host') != self.host:
@@ -405,9 +408,15 @@ class Runner:
                     container_problem = str(exc)
                     notes.append('Container shutdown requires reconciliation: ' + container_problem)
             if finished:
-                # Keep the sealed outcome and its evidence intact. Cleanup is a later operation.
-                run['cleanup'] = {'at':stamp(), 'state':'needs_reconciliation' if container_problem else 'stopped',
-                                  'message':' '.join(notes)}
+                if pending:
+                    # Settle the intent by the same read-back; the sealed archive keeps its evidence.
+                    if self.reconcile(run, entry, notes)[0] == 'pr_opened':
+                        run.update(outcome='pr_opened', message=('Reconciled after the run finished: pull request #' +
+                                                                 str(run['pr']['number']) + ' is open.'))
+                if container_live:
+                    # Keep the sealed outcome and its evidence intact. Cleanup is a later operation.
+                    run['cleanup'] = {'at':stamp(), 'state':'needs_reconciliation' if container_problem else 'stopped',
+                                      'message':' '.join(notes)}
                 self.store.save(run)
                 continue
             outcome, found = self.reconcile(run, entry, notes)
