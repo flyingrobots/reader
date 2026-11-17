@@ -5,6 +5,7 @@ call goes to tests/fake_github.py. A real GitHub sandbox run is a separate, sepa
 import gzip
 import hashlib
 import json
+import re
 import subprocess
 from collections.abc import Callable
 
@@ -243,6 +244,28 @@ def test_the_pull_request_must_close_exactly_the_jobs_issue(world, monkeypatch):
     original = w.github.pull_request
     # For issue 277, "Closes #2770" contains "#277" but links another issue.
     monkeypatch.setattr(w.github, 'pull_request', lambda *a: (lambda pr: dict(pr, body=pr['body'].replace('Closes #277', 'Closes #2770')))(original(*a)))
+    run, _ = w.run()
+    assert run['outcome'] == 'needs_reconciliation', run['message']
+
+
+@pytest.mark.parametrize('text', ['Fixes #1', 'fixes: #1 and Resolves #2', 'Closes other/repo#3', 'resolved acme/widget#277'])
+def test_the_agents_closing_keywords_close_no_issue(world, text):
+    # GitHub closes every issue a merged body names after a closing keyword, in any repository.
+    w = world(scenario={'pr_body': f'Adds a depth limit. {text}.'})
+    run, _ = w.run()
+    assert run['outcome'] == 'pr_opened', run['message']
+    body = w.github.pulls[run['pr']['number']]['body']
+    # GitHub's closing syntax, independent of Reader's own parser.
+    closing = re.findall(r'(?i)\b(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?)\s*:?\s*((?:[\w.-]+/[\w.-]+)?#\d+)', body)
+    assert closing == ['#277'], body
+    assert re.search(r'(?m)^Closes #277$', body)
+
+
+@pytest.mark.parametrize('extra', ['Fixes #1', 'resolves other/repo#3'])
+def test_a_pull_request_that_also_closes_another_issue_is_not_reported_opened(world, monkeypatch, extra):
+    w = world()
+    original = w.github.pull_request
+    monkeypatch.setattr(w.github, 'pull_request', lambda *a: (lambda pr: dict(pr, body=f'{extra}\n' + pr['body']))(original(*a)))
     run, _ = w.run()
     assert run['outcome'] == 'needs_reconciliation', run['message']
 

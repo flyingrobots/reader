@@ -46,11 +46,12 @@ const GAP=12;
     if(id!=='#find-query')assert.ok(r.width>=44-.5,`${label}: ${id} is 44px wide (${r.width})`);}
    // The safe area counts once: the status line and Find both rise by exactly the inset.
    const before=await checkFind(page,`${label} no safe area`);
-   await page.evaluate(()=>document.documentElement.style.setProperty('--safe-bottom','34px'));await page.waitForTimeout(30);
+   // Chrome's DevTools safe-area override stands in for a notched phone; env(safe-area-inset-bottom) reads it.
+   const cdp=await context.newCDPSession(page);await cdp.send('Emulation.setSafeAreaInsetsOverride',{insets:{bottom:34}});await page.waitForTimeout(30);
    const after=await checkFind(page,`${label} safe area`);
    assert.ok(Math.abs((before.f.bottom-after.f.bottom)-34)<1,`${label}: Find rises by the safe area once (${before.f.bottom}->${after.f.bottom})`);
    assert.ok(Math.abs((after.c.statusHeight-before.c.statusHeight)-34)<1,`${label}: the status line pads the safe area once`);
-   await page.evaluate(()=>document.documentElement.style.removeProperty('--safe-bottom'));
+   await cdp.send('Emulation.setSafeAreaInsetsOverride',{insets:{}});await page.waitForTimeout(30);
    // Progress counts only while shown.
    const shown=await checkFind(page,`${label} progress shown`);
    await page.evaluate(()=>document.querySelector('#reading-progress').hidden=true);await page.waitForTimeout(30);

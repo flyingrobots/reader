@@ -3,6 +3,7 @@
 ## Unreleased
 
 - The Find bar, the reading queue and Chat stay above the status line and the reading progress on phones and desktops: one shared bottom inset counts the status height, the shown progress rail and the safe area once, and the phone Find controls are 44 px targets (#222).
+- Coding jobs: a pull request Reader opens closes exactly the job's issue. Closing keywords in the agent's text are neutralised, and live and restart read-back refuse a body with any other `#N` or `owner/repo#N` closing reference (#170).
 - Coding jobs: a failed run save at admission leaves no queued orphan, and Stop answers `stopped: false` for a run that is neither queued nor active (#174).
 - PDF-only inbox arrivals now give the editor a bounded reading excerpt plus source-labelled embedded title and author metadata (#236). One supervised parser child hashes and reads the snapshot bytes within page, file-count, deadline, output, payload and memory limits; unreadable PDFs defer with a reason, and originals are untouched.
 - `scripts/test_jail.py` retires its whole test process group when it is interrupted, times out or exits normally, and keeps the run directory with a diagnostic when it cannot confirm cleanup (#267).

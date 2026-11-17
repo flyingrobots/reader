@@ -13,6 +13,13 @@ from .coding_workflow import PUSH_TIMEOUT, TAIL, Stop, Workflow
 from .github import GitHubError, Uncertain
 
 PULL = re.compile(r'https://github\.com/([^/]+/[^/]+)/pull/(\d+)')
+# GitHub's closing keywords followed by `#N` or `owner/repo#N`; merging a body with one closes that issue.
+CLOSING = re.compile(r'(?i)\b(close[sd]?|fix(?:e[sd])?|resolve[sd]?)(\s*:?\s*)((?:[\w.-]+/[\w.-]+)?#\d+)\b')
+
+
+def neutralise(text):
+    """The agent's text with each closing reference put in a code span, which GitHub does not link or close."""
+    return CLOSING.sub(lambda m: f'{m[1]}{m[2]}`{m[3]}`', text)
 
 
 def ours(pull, repo, base, branch, head):
@@ -23,8 +30,8 @@ def ours(pull, repo, base, branch, head):
 
 
 def closes(body, issue, run_id):
-    """The body Reader wrote: the exact 'Closes #<issue>' line (not '#2770' for 277) and the run's marker."""
-    return bool(issue) and bool(re.search(rf'(?m)^Closes #{issue}\r?$', body or '')) and f'reader-run:{run_id}' in (body or '')
+    """The body Reader wrote: the exact 'Closes #<issue>' line (not '#2770' for 277), no other closing reference and the run's marker."""
+    return bool(issue) and {m[3] for m in CLOSING.finditer(body or '')} == {f'#{issue}'} and bool(re.search(rf'(?m)^Closes #{issue}\r?$', body or '')) and f'reader-run:{run_id}' in (body or '')
 
 
 class Job(Workflow):
@@ -201,7 +208,7 @@ class Job(Workflow):
             created = ours[0]
         else:
             title = self.private(result['pr_title'] or self.run['source']['title'])[:200]
-            body = (self.private(result['pr_body'] or result['summary'])[:32000] +
+            body = (neutralise(self.private(result['pr_body'] or result['summary'])[:32000]) +
                     f'\n\nCloses #{issue}\n\n---\nOpened by Reader for a coding job; verified with the repository’s configured check before publishing.\n<!-- {self.marker()} -->\n')
             self.check_cancel()  # A Stop while the listing above was read opens no pull request.
             self.run['pr_pending'] = {'branch': branch}
