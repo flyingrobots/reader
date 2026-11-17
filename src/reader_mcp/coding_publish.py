@@ -230,6 +230,9 @@ class Job(Workflow):
             except GitHubError as exc:
                 self.step(f'Open a pull request for {branch}', 'failed', str(exc), 1, step)
                 raise Stop('failed', f'GitHub refused the pull request: {exc}')
+            # Record the created pull request before the event, whose archive write can fail.
+            self.run['pr_pending'] = {'branch': branch, 'number': created.get('number')}
+            self.jobs.store.save(self.run)
             self.step(f'Open a pull request for {branch}', 'completed', created.get('url') or '', 0, step)
         try:
             pr = self.github.pull_request(self.repo, created['number'])
