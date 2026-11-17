@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- The Find bar, the reading queue and Chat stay above the status line and the reading progress on phones and desktops: one shared bottom inset counts the status height, the shown progress rail and the safe area once, and the phone Find controls are 44 px targets (#222).
 - MCP and CLI deliveries refuse caller-supplied uploader identities. Authenticated web uploads retain server-owned uploader provenance, and callers may still select a privacy filing limit.
 
 - Block setup and Coding Jobs while a previous destructive volume reset is unconfirmed, including after lease expiry; preserve explicit worker recovery.
