@@ -92,6 +92,17 @@ def test_normal_jail_completion_preserves_the_command_exit_code(tmp_path: Path, 
         assert not run.exists()
 
 
+def test_normal_completion_retires_a_descendant_the_command_left_running(tmp_path: Path) -> None:
+    with scenario(tmp_path, mode='orphan', exit_code=7) as (jail, owned, outsider, run):
+        assert jail.stdin is not None
+        jail.stdin.write('finish\n')
+        jail.stdin.flush()
+        assert jail.wait(timeout=8) == 7
+        assert not running(owned['descendant']), 'Normal exit left a live descendant in the test group'
+        assert outsider.poll() is None
+        assert not run.exists()
+
+
 def test_the_jail_deadline_retires_its_group_and_returns_125(tmp_path: Path) -> None:
     with scenario(tmp_path, timeout=0.5) as (jail, owned, outsider, run):
         assert jail.wait(timeout=8) == 125

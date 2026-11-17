@@ -23,8 +23,9 @@ def main() -> None:
         descendant.stdout.close()
         print(json.dumps({'pid': os.getpid(), 'group': os.getpgrp(), 'descendant': ready['pid']}), flush=True)
         sys.stdin.read(1)
-        descendant.kill()
-        descendant.wait(timeout=3)
+        if sys.argv[3:] != ['orphan']:
+            descendant.kill()
+            descendant.wait(timeout=3)
         raise SystemExit(int(sys.argv[2]))
     spec = importlib.util.spec_from_file_location('test_jail', sys.argv[2])
     assert spec is not None and spec.loader is not None
@@ -56,6 +57,8 @@ def main() -> None:
         jail.process_states = refuse
     timeout = float(sys.argv[4]) or None
     command = [sys.executable, __file__, 'command', sys.argv[5]]
+    if mode == 'orphan':
+        command.append('orphan')
     raise SystemExit(jail.run_jailed(command, timeout=timeout))
 
 
