@@ -192,7 +192,7 @@ def test_low_disk_mid_run_stops_before_the_next_batch(vault):
         assert len(runs(vault)) == 1 and model.waiting('keyterms')
 
 
-def test_a_remote_provider_logs_its_host_only(vault):
+def test_a_remote_run_records_its_provider_host_not_its_url(vault):
     with FakeServer('ollama') as fake:
         model = make(vault, connect=loopback_connect(fake.port))
         model.dispatch({'action': 'settings', 'settings': {'provider': {'preset': 'custom', 'base_url': 'http://192.0.2.10:8000/private/v1',
@@ -203,8 +203,24 @@ def test_a_remote_provider_logs_its_host_only(vault):
     [folder] = runs(vault)
     files = unpacked(folder)
     meta = json.loads(files['meta.json'])
+    # Oracle: the run-log contract records the provider host, never its URL, port or path.
     assert meta['host'] == '192.0.2.10' and meta['loopback'] is False and meta['preset'] == 'custom' and meta['api_key'] is False
-    assert all('/private' not in text and '8000' not in text for text in files.values())
+    values = list(leaves(meta))
+    leaked = [(path, value) for path, value in values if path[-1] in ('port', 'url', 'base_url')
+              or (isinstance(value, str) and ('/private/v1' in value or '192.0.2.10:' in value))]
+    assert values and not leaked, f'{len(values)} meta fields checked; leaked: {leaked}'
+
+
+def leaves(value, path=()):
+    """Every scalar in parsed JSON with its key path, so a new field cannot slip past a hand-written list."""
+    if isinstance(value, dict):
+        for key, item in value.items():
+            yield from leaves(item, path + (key,))
+    elif isinstance(value, list):
+        for index, item in enumerate(value):
+            yield from leaves(item, path + (index,))
+    else:
+        yield path or ('',), value
 
 
 def test_an_interrupted_run_is_sealed_on_restart(vault):
