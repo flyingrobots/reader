@@ -570,3 +570,46 @@ def test_stop_does_not_acknowledge_a_run_that_is_neither_queued_nor_active(world
     w.jobs.queue.remove(run['id'])  # A queued record that no worker will ever run.
     stopped = w.jobs.stop(run['id'])
     assert stopped['stopped'] is False and stopped['status'] == 'queued'
+
+
+@pytest.mark.parametrize('effect', ['create_issue', 'push', 'create_pull_request'])
+def test_an_archive_failure_after_a_github_write_needs_reconciliation_and_a_rerun_makes_no_second_issue(world, monkeypatch, effect):
+    """#173: a failed archive write directly after a GitHub effect never ends the run `failed` with its intent lost."""
+    from reader_mcp import coding_store
+    w = world(issue=None)
+    armed, write = [], coding_store.Capture.write
+
+    def failing(self, name, data):
+        if armed == [True]:
+            raise coding_store.CaptureFailed('synthetic archive write failure')
+        result = write(self, name, data)
+        if effect == 'push' and name == 'git.log' and str(data).startswith('$ git push') and not armed:
+            armed.append(True)
+            raise coding_store.CaptureFailed('synthetic archive write failure')
+        return result
+    monkeypatch.setattr(coding_store.Capture, 'write', failing)
+    if effect != 'push':
+        create = getattr(w.github, effect)
+
+        def created(*args, **options):
+            value = create(*args, **options)
+            armed.append(True)
+            return value
+        monkeypatch.setattr(w.github, effect, created)
+    first, _ = w.run()
+    assert armed and w.github.calls.count('create_issue') == 1
+    if effect == 'create_issue':
+        # The issue is recorded before the event that fails, so nothing is pending.
+        assert first['issue'] and first['issue']['created'] and first['issue_pending'] is None
+    elif effect == 'push':
+        assert first['outcome'] == 'needs_reconciliation', first['message']
+        assert first['push'] == {'sha': first['push']['sha'], 'sent': True, 'verified': False}
+    else:
+        assert first['outcome'] == 'needs_reconciliation', first['message']
+        assert first['pr_pending'] and first['pr_pending']['number'] in w.github.pulls
+    armed.append(False)  # Later archive writes succeed.
+    if effect == 'create_pull_request':
+        return  # The predecessor's branch already carries a pull request; the issue check above suffices.
+    second, _ = w.run(predecessor=first['id'])
+    assert w.github.calls.count('create_issue') == 1, second['message']
+    assert second['source']['issue'] == first['issue']['number']
