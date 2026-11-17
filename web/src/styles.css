@@ -293,7 +293,8 @@ body:has(#changes-panel[data-side=right]) [data-slot=sheet-overlay] { display: n
 :root[data-dock] #changes-panel[data-side=right], :root[data-dock] .chat-panel { top: 0; bottom: 0; width: var(--dock-width); max-width: none; box-shadow: none; }
 
 /* Chat with the voices: a right-side panel, a bottom sheet on phones. */
-.chat-panel { position: fixed; top: 0; right: 0; bottom: 32px; z-index: 31; width: min(440px, 100vw); display: flex; flex-direction: column; gap: 10px; padding: 20px 20px 12px; background: var(--card); color: var(--foreground); border-left: 1px solid var(--border); box-shadow: -20px 0 90px #0003; font-family: var(--font-sans); }
+/* Its bottom comes from the bottom inset rules in style.css (#222). */
+.chat-panel { position: fixed; top: 0; right: 0; z-index: 31; width: min(440px, 100vw); display: flex; flex-direction: column; gap: 10px; padding: 20px 20px 12px; background: var(--card); color: var(--foreground); border-left: 1px solid var(--border); box-shadow: -20px 0 90px #0003; font-family: var(--font-sans); }
 .chat-markdown { font-size: 13.5px; line-height: 1.55; overflow-wrap: anywhere; }
 .chat-markdown > :first-child { margin-top: 0; }
 .chat-markdown > :last-child { margin-bottom: 0; }
@@ -308,7 +309,7 @@ body:has(#changes-panel[data-side=right]) [data-slot=sheet-overlay] { display: n
 @keyframes chat-flash { from { background: color-mix(in srgb, var(--primary) 22%, transparent); } to { background: transparent; } }
 @media (prefers-reduced-motion: reduce) { [data-chat-flash] { animation: none; outline: 2px solid var(--primary); outline-offset: 4px; } }
 @media (max-width: 700px) {
-  .chat-panel { top: auto; left: 0; right: 0; bottom: 38px; width: auto; height: min(74vh, 640px); padding: 14px 16px 10px; border-left: 0; border-top: 1px solid var(--border); border-radius: 14px 14px 0 0; box-shadow: 0 -20px 60px #0004; }
+  .chat-panel { top: auto; left: 0; right: 0; width: auto; height: min(74vh, 640px); padding: 14px 16px 10px; border-left: 0; border-top: 1px solid var(--border); border-radius: 14px 14px 0 0; box-shadow: 0 -20px 60px #0004; }
 }
 .thread-actions { display: flex; align-items: center; flex: none; }
 
