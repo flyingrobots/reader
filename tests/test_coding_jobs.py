@@ -658,3 +658,20 @@ def test_recovery_settles_a_finished_runs_pending_issue_by_marker(world):
     assert done['issue_pending'] is None, 'recover() left issue_pending on a finished run'
     assert done['issue'] and done['issue']['number'] == number and done['outcome'] == 'needs_reconciliation'
     assert w.github.calls.count('create_issue') == 1
+
+
+def test_a_rerun_settles_its_predecessors_pending_issue_by_marker_and_creates_no_second_issue(world):
+    """#173 (3): a predecessor that ended with an unconfirmed issue creation lends that issue, found by marker, to its rerun."""
+    w = world(issue=None)
+    w.github.fail['create_issue'] = 'lost-ack'
+    w.github.lag = True
+    before = set(w.github.issues)
+    first, _ = w.run()
+    assert first['outcome'] == 'needs_reconciliation' and first['issue_pending'], first['message']
+    w.github.fail.pop('create_issue')
+    w.github.lag = False  # The search index catches up; no restart runs recover() in between.
+    second, _ = w.run(predecessor=first['id'])
+    # Oracle: the fake GitHub holds exactly one issue for the job, and the rerun's record names it.
+    issues = [n for n, i in w.github.issues.items() if not i['pull'] and n not in before]
+    assert len(issues) == 1, f'rerun created a second issue: {issues}'
+    assert second['source']['issue'] == issues[0] and second['issue']['number'] == issues[0]
