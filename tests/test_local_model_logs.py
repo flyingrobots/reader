@@ -195,7 +195,7 @@ def test_low_disk_mid_run_stops_before_the_next_batch(vault):
 def test_a_remote_provider_logs_its_host_only(vault):
     with FakeServer('ollama') as fake:
         model = make(vault, connect=loopback_connect(fake.port))
-        model.dispatch({'action': 'settings', 'settings': {'provider': {'preset': 'custom', 'base_url': 'http://192.0.2.10:8000/private/v1',
+        model.dispatch({'action': 'settings', 'settings': {'provider': {'preset': 'custom', 'base_url': 'http://192.0.2.10:47913/private-canary-path/v1',
                                                                         'model': 'llama3.2:3b', 'allow_remote': True}}})
         model.dispatch({'action': 'enqueue', 'task': 'standfirst', 'scope': 'path', 'path': 'library/note-0.md'})
         model.dispatch({'action': 'run', 'task': 'standfirst'})
@@ -204,7 +204,8 @@ def test_a_remote_provider_logs_its_host_only(vault):
     files = unpacked(folder)
     meta = json.loads(files['meta.json'])
     assert meta['host'] == '192.0.2.10' and meta['loopback'] is False and meta['preset'] == 'custom' and meta['api_key'] is False
-    assert all('/private' not in text and '8000' not in text for text in files.values())
+    # Canaries that cannot occur by chance: a bare '8000' also matched timestamps and durations.
+    assert all('private-canary-path' not in text and ':47913' not in text and '"port"' not in text for text in files.values())
 
 
 def test_an_interrupted_run_is_sealed_on_restart(vault):
