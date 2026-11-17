@@ -25,6 +25,7 @@ This corpus describes how Reader works: its architecture, contracts, capabilitie
 - [Library search](search.md) — CLI/MCP search, source reading, indexing, local model setup, and recovery.
 - [Versioned document metadata](metadata.md) — frontmatter schema, Obsidian placeholders, SQL mirror, migration, and validation.
 - [Capabilities and boundaries](capabilities.md) — supported behavior and operational limits.
+- [Filing issues](issues.md) — issue types, templates, Taskalisk frontmatter and the dependency graph.
 - [Running tests in the sandbox](testing.md) — `scripts/test_jail.py`: what every test run may read, write, reach and start, the canaries that prove it, and the updater's sandboxed smoke step.
 - [Librarian instructions](../AGENTS.md) — the standing agent mandate.
 
