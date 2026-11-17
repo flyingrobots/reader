@@ -1,6 +1,6 @@
 /* The shared bottom inset (#222): Find, the queue sheet and the chat sheet sit above the status line and the reading progress
    at phone and desktop widths, in every shipped theme; the safe area counts once; progress counts only while it is shown; and
-   the end of the article stays reachable above an open Find bar. Compares rendered rectangles, not a clickable centre. */
+   the end of the article stays reachable above an open Find bar. 195x422 stands in for 200% zoom of a 390x844 phone. Compares rendered rectangles, not a clickable centre. */
 require('./jail_guard.cjs');
 const assert=require('node:assert/strict');
 const {spawn}=require('node:child_process');
@@ -33,9 +33,9 @@ const GAP=12;
   const themes=await (await open({width:390,height:844})).page.evaluate(async()=>(await import('/assets/themes.mjs')).THEMES);
   assert.ok(themes.length>=2,'shipped themes load');
 
-  for(const viewport of [{width:320,height:640},{width:390,height:844},{width:844,height:390},{width:1300,height:900}]){
+  for(const viewport of [{width:195,height:422,zoom:'200% of 390x844'},{width:320,height:640},{width:390,height:844},{width:844,height:390},{width:1300,height:900}]){
    const phone=viewport.width<=700,label=`${viewport.width}x${viewport.height}`;
-   const {page,context}=await open(viewport);
+   const {page,context}=await open({width:viewport.width,height:viewport.height});
    // Find, in every shipped theme.
    await openFind(page);
    for(const theme of themes){await page.evaluate(t=>document.documentElement.dataset.theme=t,theme);await page.waitForTimeout(30);
@@ -63,7 +63,7 @@ const GAP=12;
    const f=await rect(page,findBox);assert.ok(last<=f.top,`${label}: last text ${last} is above the Find bar ${f.top}`);
    // Keyboard resizing: a shorter viewport keeps the contract.
    await page.setViewportSize({width:viewport.width,height:Math.round(viewport.height*.6)});await page.waitForTimeout(50);await checkFind(page,`${label} keyboard`);
-   await page.setViewportSize(viewport);
+   await page.setViewportSize({width:viewport.width,height:viewport.height});
    await page.keyboard.press('Escape');await page.locator('#find-bar').waitFor({state:'hidden'});
    // The queue and chat sheets end at the top of the chrome.
    for(const [key,sel] of [['r','#queue-panel'],['m','#chat-panel']]){
