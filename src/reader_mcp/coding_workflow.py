@@ -38,6 +38,9 @@ GIT_TIMEOUT = 120
 PUSH_TIMEOUT = 300
 
 
+INTERRUPTED = 'Reader stopped before this job finished; it was not restarted.'
+
+
 class Stop(Exception):
     def __init__(self, outcome, message):
         super().__init__(message)
@@ -71,9 +74,18 @@ class Workflow:
         self.jobs.store.save(self.run)
         self.emit('phase', phase=name, state='started', detail=detail)
 
+    def halted(self):
+        """Why the job must stop now: `cancelled` for the user's Stop, `interrupted` for a Reader shutdown, else None."""
+        if not self.cancelled():
+            return None
+        return 'interrupted' if self.jobs.closed and self.run['id'] not in self.jobs.cancels else 'cancelled'
+
     def check_cancel(self):
-        if self.cancelled():
-            raise Stop('cancelled', 'Stopped by you. Completed effects (a pushed branch, a created issue) stay recorded.')
+        state = self.halted()
+        if state == 'interrupted':
+            raise Stop(state, INTERRUPTED)
+        if state:
+            raise Stop(state, 'Stopped by you. Completed effects (a pushed branch, a created issue) stay recorded.')
 
     def private(self, text):
         """Text safe for GitHub and the browser: no vault, home or worktree folders."""
@@ -259,8 +271,8 @@ class Workflow:
         with stdin.open('rb') as handle:
             state, code, error = self.supervise(argv, worktree, handle, dict(self.env, TMPDIR=str(scratch)), self.entry['agent_timeout_seconds'],
                                                 'stdout.jsonl', 'stderr.log', on_line)
-        if state == 'cancelled':
-            raise Stop('cancelled', error)
+        if state in ('cancelled', 'interrupted'):
+            raise Stop(state, error)
         if state:
             raise Stop('failed', error)
         if code:
@@ -362,8 +374,9 @@ class Workflow:
                 if failure['error']:
                     state, error = 'failed', failure['error']
                     break
-                if self.cancelled():
-                    state, error = 'cancelled', 'Stopped by you. The worktree and its changes are kept for inspection.'
+                state = self.halted()
+                if state:
+                    error = INTERRUPTED if state == 'interrupted' else 'Stopped by you. The worktree and its changes are kept for inspection.'
                     break
                 if time.monotonic() > deadline:
                     state, error = 'failed', f'Timed out after {timeout} s.'
@@ -386,6 +399,6 @@ class Workflow:
                 reader.join(timeout=5)
             self.run['process'] = None
             self.jobs.store.save(self.run)
-        if failure['error'] and state != 'cancelled':
+        if failure['error'] and state not in ('cancelled', 'interrupted'):
             state, error = 'failed', failure['error']
         return state, worker.returncode, error

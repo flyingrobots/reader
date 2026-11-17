@@ -150,8 +150,8 @@ class Job(Workflow):
                                             'verify.log', None, on_line)
         self.run['verification'].update(exit_code=code, seconds=round(time.monotonic() - started, 1))
         self.step(title, 'completed' if not state and code == 0 else 'failed', tail['text'], code, step)
-        if state == 'cancelled':
-            raise Stop('cancelled', error)
+        if state in ('cancelled', 'interrupted'):
+            raise Stop(state, error)
         if state:
             raise Stop('failed', 'Verification stopped: ' + error)
         if code:
