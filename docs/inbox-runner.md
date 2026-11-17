@@ -145,13 +145,46 @@ so an interrupted classification can resume without repeating those calls.
 
 Context contains receipt provenance, the file inventory, existing collections,
 configured `existing_projects` from `indexes/settings.json` when present,
-and at most 96 KiB of textual excerpts, with at most 16 KiB from one file. Coverage
+and at most 96 KiB of excerpt and embedded-metadata UTF-8 payloads, with at most
+16,000 bytes from one file. Inventory, context labels and JSON framing are separate
+from this payload budget; oversized context uses the partitioning described above. Coverage
 is explicit; a filename or truncated excerpt is not full reading. A model returns
 the source key and snapshot hash, a file/defer decision, collection, slug, title,
 source-stated author, canonical project (or empty), bounded description and defer reason. Unknown authorship
 and project stay empty. Invalid output or stale identity cannot authorize filing. Original
 writing namespaces belonging to Reader librarian, Agy and Claude are reserved,
 as are directory names excluded by Browse, such as `assets`, `reading` and `evidence`.
+
+PDFs supply extracted text and embedded title/author fields through the existing
+`pypdf` dependency. Metadata is labelled untrusted and never becomes verified
+authorship or filing authority. Extracted restriction markings remain visible to
+the editor. Each excerpt is explicitly incomplete: text extraction does not
+establish image, layout or whole-document reading. Originals remain unchanged.
+
+Extraction admits a regular file of at most 32 MiB through a read-only descriptor,
+then hashes the exact bytes against the frozen inventory before parsing. A separate
+child extracts text from at most the first 16 pages; the parser may inspect more of
+the page tree. Title and author each receive at most 512 UTF-8 bytes, charged to
+the same payload budget. A context call attempts at most eight PDFs within a shared
+20-second work deadline. Unlisted PDFs remain in the inventory and are labelled
+unread. Markdown and text companions can still supply evidence.
+
+Each child has a five-second wall deadline and a two-second CPU limit, preserving
+any tighter inherited limit. Linux also enforces a 512 MiB address-space limit;
+Linux and macOS sample the child's resident memory against 512 MiB every 20 ms
+while supervising output. Sampling is not a hard peak-memory guarantee on macOS.
+Unmeasurable live children are refused. The parent caps serialized output at
+128 KiB and kills and reaps the direct child on failure or interruption. The
+trusted parser creates no subprocesses or new session and remains inside the
+intake supervisor's process group. These controls are not an OS security sandbox.
+
+Scanned/no-text, encrypted, malformed, changed and resource-refused PDFs carry an
+explicit reason. A PDF-containing arrival with no readable excerpt defers without
+invoking an editorial model. Mixed readable evidence can still reach the model
+with the PDF refusal attached. Supply an unlocked or text-bearing source, correct
+a malformed file, or request human review; extraction does not add OCR or silently
+raise limits. A changed source requires a fresh intake snapshot. Tests for this
+boundary are `tests/test_intake_pdf.py` and `tests/test_pdf_context_limits.py`.
 
 ## Filing and verification
 

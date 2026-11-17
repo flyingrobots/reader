@@ -13,11 +13,14 @@ import shutil
 import signal
 import subprocess
 import sys
+import time
 from uuid import UUID, uuid4
 
 import yaml
 
 from . import arrival_choices
+from . import pdf_context
+from .pdf_worker import utf8_prefix
 from .browse import SKIP as BROWSE_SKIP
 from .inbox_paths import physical
 from .junk import os_junk
@@ -167,25 +170,47 @@ def validate_decision(value, entry, *, allow_legacy=False):
 def model_context(root, entry):
     source = checked_path(root, entry['source'])
     texts, size = [], 0
+    pdf_attempts = 0
+    pdf_deadline = time.monotonic() + pdf_context.MAX_TOTAL_SECONDS
     primary = entry.get('receipt', {}).get('document')
     # A delivery's declared document gets the first excerpt budget, even when
     # its filename sorts after a large attachment inventory.
     for row in sorted(entry['files'], key=lambda row: row['path'] != primary):
         path = source / row['path'] if source.is_dir() else source
+        budget = min(16000, MAX_CONTEXT - size)
+        if budget <= 0:
+            break
+        if path.suffix.lower() == '.pdf':
+            remaining = pdf_deadline - time.monotonic()
+            if pdf_attempts >= pdf_context.MAX_FILES or remaining <= 0:
+                continue
+            pdf_attempts += 1
+            reading = pdf_context.reading(path, row, budget=budget,
+                timeout_seconds=min(pdf_context.MAX_WALL_SECONDS, remaining))
+            texts.append(reading)
+            size += len(reading['excerpt'].encode()) + sum(
+                len(value.encode()) for value in reading.get('source_metadata', {}).values())
+            continue
         if path.suffix.lower() not in ('.md', '.markdown', '.txt'):
             continue
         with path.open('rb') as stream:
-            data = stream.read(16000)
-        if size + len(data) > MAX_CONTEXT:
-            break
-        texts.append({'path': row['path'], 'excerpt': data.decode('utf-8', 'replace'), 'complete': len(data) == row['bytes']})
-        size += len(data)
+            data = stream.read(budget)
+        decoded = data.decode('utf-8', 'replace')
+        excerpt = utf8_prefix(decoded, budget)
+        texts.append({'path': row['path'], 'excerpt': excerpt,
+                      'complete': len(data) == row['bytes'] and excerpt == decoded})
+        size += len(excerpt.encode())
     collections = [p.name for p in sorted((root / 'library').iterdir()) if p.is_dir() and not p.name.startswith('.') and p.name not in RESERVED]
     projects = _configured_projects(root)
     return {'source': entry['source'], 'snapshot_sha256': entry['snapshot_sha256'], 'files': entry['files'],
             'provenance': entry.get('receipt', {}).get('provenance', {}), 'existing_collections': collections,
             'existing_projects': projects,
-            'reading': texts, 'reading_scope': 'Only these bounded excerpts have been supplied; do not claim full reading of truncated or binary files.'}
+            'reading': texts, 'reading_scope': (
+                'Only these bounded excerpts have been supplied; do not claim full reading of truncated or binary files. '
+                'Excerpt and embedded metadata payloads are limited to 16,000 UTF-8 bytes per file and 96 KiB total; '
+                'inventory, labels and JSON framing are separate. PDF extraction attempts at most 8 files, 16 pages each, '
+                'within a shared 20-second deadline. Unlisted PDFs have not been read. Extracted restriction markings '
+                'remain source evidence requiring editorial consideration; embedded metadata is untrusted.')}
 
 
 def _configured_projects(root):
@@ -269,6 +294,13 @@ def groups(items, budget=128 * 1024):
 
 def classify(root, runtime, entry, codex, checkpoint=lambda: None):
     context = model_context(root, entry)
+    if (any(Path(row['path']).suffix.lower() == '.pdf' for row in context['files'])
+            and not any(row['excerpt'].strip() for row in context['reading'])):
+        reasons = list(dict.fromkeys(row['reason'] for row in context['reading'] if row.get('reason')))
+        decision = dict.fromkeys(DECISION_FIELDS, '')
+        decision.update(source=entry['source'], snapshot_sha256=entry['snapshot_sha256'], disposition='defer',
+                        reason='No readable evidence was extracted. ' + ' '.join(reasons))
+        return validate_decision(decision, entry)
     cache = entry.setdefault('editorial_calls', {})
     def call(data):
         key = digest(json.dumps(data, sort_keys=True, ensure_ascii=False).encode())

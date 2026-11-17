@@ -111,3 +111,10 @@ This reference describes the configured private vault unless a code checkout is 
 ## Deterministic intake and local references
 
 The [inbox supervisor](inbox-runner.md) freezes a queue and calls the model only for schema-validated editorial decisions. Script-owned write-ahead records protect recovery, preservation checks and exact-file commits. Oversized context and queues are partitioned automatically without splitting original bundles. [Portable link records](portable-links.md) bind prepared URL replacements to source hashes; rendering consumes them without changing document bytes or annotation coordinates.
+
+PDF editorial context crosses a supervised child-process boundary. The child
+hashes read-only bytes against the frozen inventory before parsing; the parent
+admits bounded output with explicit extraction coverage and untrusted source
+metadata. Extraction failure is evidence for deferral, not an empty successful
+reading. Text and metadata payload budgets are separate from complete source
+inventory and receipt preservation.
