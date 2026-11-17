@@ -494,6 +494,20 @@ React paints it a moment later. The hints stay `<kbd>j k</kbd> move` strings and
 become shadcn Kbds there. The command line (`:`) mounts when opened, and `keys.mjs`
 binds it by id each time.
 
+Everything that floats above the status line or ends at it uses one bottom inset, written
+as literal `calc()` values in `style.css` (the UI-debt ratchet allows no custom
+properties). The constants: the status line is 32 px (38 px at 700 px and narrower), the
+reading progress 18 px (25 px), and `env(safe-area-inset-bottom)` is counted once, by the
+status line's padding. The queue and Chat sheets end at status + progress + safe area; the
+Find bar shares that bottom and floats 12 px above it through its `margin-bottom`. When
+`#reading-progress` is absent or hidden, a `:root:not(:has(...))` override drops the
+progress term. The document's bottom padding clears an open Find bar. A note above the
+override rules lists the constants; a change to the footer's height (#226) must update
+every literal. On phones the Find input and its three buttons are 44 px targets.
+`tests/web_bottom_inset.cjs` is the contract: it compares rendered rectangles at 195x422
+(200% zoom of a phone), 320, 390, landscape and desktop widths in every shipped theme,
+with Chrome's safe-area override.
+
 When the status line is too narrow for everything, items give way by declared
 priority (`status-priority.mjs`). Every `#statusline` child carries
 `data-status-priority`: `1` never gives way, and larger numbers give way first,
