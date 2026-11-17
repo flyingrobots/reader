@@ -26,6 +26,7 @@ docs/testing.md.
 import argparse
 import json
 import os
+import selectors
 import shutil
 import signal
 import subprocess
@@ -239,38 +240,162 @@ def command_for(run, command):
     return ['/usr/bin/sandbox-exec', '-f', str(run / 'profile.sb'), *command]
 
 
+def process_states() -> dict[int, tuple[int, int, str]]:
+    """Read a bounded, positive process-table snapshot; uncertainty is an error."""
+    limit = 1024 * 1024
+    deadline = time.monotonic() + 2
+    child = subprocess.Popen(['/bin/ps', '-axo', 'pid=,pgid=,ppid=,stat='],
+                             stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    selector = selectors.DefaultSelector()
+    buffers = {child.stdout: bytearray(), child.stderr: bytearray()}
+    used = 0
+    try:
+        for stream in buffers:
+            selector.register(stream, selectors.EVENT_READ)
+        while selector.get_map():
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                raise JailError('Process-table query exceeded its deadline')
+            for key, _ in selector.select(remaining):
+                data = os.read(key.fileobj.fileno(), 65536)
+                if not data:
+                    selector.unregister(key.fileobj)
+                    continue
+                used += len(data)
+                if used > limit:
+                    raise JailError('Process-table query exceeded its output limit')
+                buffers[key.fileobj].extend(data)
+        if child.wait(timeout=max(.01, deadline - time.monotonic())) or buffers[child.stderr]:
+            raise JailError('Process-table query failed')
+        rows = bytes(buffers[child.stdout]).decode('ascii').splitlines()
+        states = {}
+        for row in rows:
+            fields = row.split()
+            if len(fields) != 4 or not all(value.isdigit() for value in fields[:3]):
+                raise JailError('Process-table query returned an invalid record')
+            states[int(fields[0])] = (int(fields[1]), int(fields[2]), fields[3])
+        if not states:
+            raise JailError('Process-table query returned no records')
+        return states
+    except (OSError, UnicodeError, subprocess.TimeoutExpired) as exc:
+        raise JailError(f'Cannot verify test-group termination: {exc}') from exc
+    finally:
+        selector.close()
+        if child.poll() is None:
+            child.kill()
+        child.wait(timeout=2)
+        for stream in buffers:
+            stream.close()
+
+
+def child_exited(process: subprocess.Popen) -> bool:
+    """Observe exit without reaping: the leader's PID still reserves its group identity."""
+    waitid = getattr(os, 'waitid', None)
+    if waitid is not None:
+        try:
+            return waitid(os.P_PID, process.pid, os.WEXITED | os.WNOHANG | os.WNOWAIT) is not None
+        except ChildProcessError as exc:
+            raise JailError('Lost child custody; refusing unverified process-group signals') from exc
+    # Python before 3.13 lacks waitid on macOS. A zombie is a positive exit witness;
+    # the still-unreaped leader cannot disappear or have its PID reused here.
+    leader = process_states().get(process.pid)
+    if leader is None or leader[:2] != (process.pid, os.getpid()):
+        raise JailError('The owned test-group leader is missing before reap')
+    return leader[2].startswith('Z')
+
+
+def retire_group(process: subprocess.Popen) -> None:
+    """Stop the owned group, verify no runnable members, then reap its pinned leader."""
+    def finished() -> bool:
+        states = process_states()
+        leader = states.get(process.pid)
+        if leader is None or leader[:2] != (process.pid, os.getpid()):
+            raise JailError('Process table omitted the pinned test-group leader')
+        return not any(group == process.pid and not state.startswith('Z')
+                       for group, _parent, state in states.values())
+
+    def send(signum: int) -> None:
+        child_exited(process)  # Confirm direct-child custody before any numeric group signal.
+        try:
+            os.killpg(process.pid, signum)
+        except ProcessLookupError:
+            pass
+        except PermissionError:
+            if not finished():
+                raise
+
+    try:
+        send(signal.SIGTERM)
+        deadline = time.monotonic() + .5
+        while not finished() and time.monotonic() < deadline:
+            time.sleep(.05)
+    finally:
+        # Also escalate when the leader exited on TERM but a descendant ignored it,
+        # or when the graceful-stop observation failed. The leader is not reaped yet.
+        send(signal.SIGKILL)
+    deadline = time.monotonic() + 3
+    while not finished():
+        if time.monotonic() >= deadline:
+            raise JailError('Test-group termination remains unconfirmed')
+        time.sleep(.05)
+    process.wait(timeout=2)
+
+
 def run_jailed(command, *, keep=False, timeout=None, extra_protect=(), extra_ports=()):
-    run, _, env = prepare(extra_protect, extra_ports)
-    process = subprocess.Popen(command_for(run, command), cwd=os.getcwd(), env=env, start_new_session=True)
-    deadline = time.monotonic() + timeout if timeout else None
+    if signal.getsignal(signal.SIGCHLD) != signal.SIG_DFL:
+        raise JailError('SIGCHLD must use its default disposition to retain child custody')
+    interrupted = None
+
+    def record_signal(signum, _frame):
+        nonlocal interrupted
+        if interrupted is None:
+            interrupted = signum
+
+    handlers = {signum: signal.getsignal(signum) for signum in (signal.SIGINT, signal.SIGTERM)}
+    run = process = None
+    confirmed = False
     reason = None
     try:
-        while process.poll() is None:
-            try:
-                process.wait(timeout=5)
-            except subprocess.TimeoutExpired:
-                pass
-            if process.poll() is None and size(run) > DATA_LIMIT:
-                reason = f'the run directory passed {DATA_LIMIT // 1024**3} GiB'
-            elif deadline and time.monotonic() > deadline:
+        for signum in handlers:
+            signal.signal(signum, record_signal)
+        run, _, env = prepare(extra_protect, extra_ports)
+        process = subprocess.Popen(command_for(run, command), cwd=os.getcwd(), env=env, start_new_session=True)
+        deadline = time.monotonic() + timeout if timeout else None
+        next_size_check = time.monotonic()
+        while not interrupted and not child_exited(process):
+            now = time.monotonic()
+            if now >= next_size_check:
+                if size(run) > DATA_LIMIT:
+                    reason = f'the run directory passed {DATA_LIMIT // 1024**3} GiB'
+                next_size_check = now + 1
+            if deadline and now >= deadline:
                 reason = f'the run passed its {timeout} s deadline'
             if reason:
-                os.killpg(process.pid, signal.SIGKILL)
-                process.wait()
-    except KeyboardInterrupt:
-        os.killpg(process.pid, signal.SIGTERM)
-        process.wait()
-        raise
+                break
+            time.sleep(.05)
     finally:
-        used = size(run)
-        if not keep:
-            shutil.rmtree(run, ignore_errors=True)
+        try:
+            if process is not None:
+                retire_group(process)
+            confirmed = True
+        finally:
+            for signum, handler in handlers.items():
+                signal.signal(signum, handler)
+            if run is not None:
+                if confirmed:
+                    used = size(run)
+                    if not keep:
+                        shutil.rmtree(run, ignore_errors=True)
+                else:
+                    print(f'test_jail: cleanup unconfirmed; retained {run}', file=sys.stderr)
+    if interrupted:
+        print(f'test_jail: stopped by {signal.Signals(interrupted).name}', file=sys.stderr)
+        return 128 + interrupted
     if reason:
         print(f'test_jail: stopped: {reason}', file=sys.stderr)
         return 125
     print(f'test_jail: run directory used {used / 1024**2:.1f} MiB' + (f', kept at {run}' if keep else ''), file=sys.stderr)
     return process.returncode
-
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)

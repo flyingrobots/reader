@@ -47,7 +47,18 @@ be read: the live vault would then be unknown.
 ## Limits
 
 - The run directory is removed afterwards (`--keep` keeps it) and the run is stopped if it grows past 4 GiB.
-  `--timeout SECONDS` stops the whole run, with its children, after a deadline.
+  `--timeout SECONDS` stops the owned test process group after a deadline and returns 125.
+  SIGINT and SIGTERM stop that same group and return 130 and 143. Shutdown allows a short TERM grace
+  period, escalates to KILL for remaining members, and verifies that the group is absent or contains only
+  exited zombie records before reaping its leader and removing the run directory. Normal command exit
+  codes are preserved; any descendants left in the group are retired too.
+- The leader remains unreaped during group cleanup, reserving its identity. Python versions without
+  `os.waitid` on macOS use a bounded process-table observation instead. An unreadable process table or
+  unconfirmed shutdown produces an error and retains the run directory for inspection. A nondefault
+  SIGCHLD disposition is refused before launch because it could auto-reap the leader. Lost direct-child
+  custody refuses numeric group signals, and an incomplete process table cannot establish cleanup. This is a
+  process-group guarantee: SIGKILL of the supervisor and children that deliberately create another
+  session are outside it. Use the container worker when the whole container must be the custody boundary.
 - `--protect PATH` and `--deny-port N` add to what is refused; `--print-profile` shows the profile without running.
 - macOS cannot nest sandboxes. Code that is already inside the test sandbox, such as the service updater's smoke step
   when the service tests run it, detects that (the process is sandboxed and the sandbox's probe refuses a write) and
@@ -70,7 +81,9 @@ Before deploying a commit, `scripts/reader_service.py` smoke-tests it in a tempo
 `tests/test_jail_canaries.py` and `tests/jail_canary.test.mjs` try each refused action and require a permission error,
 not some other failure: a refused connection or a missing file would also fail, and would pass without the sandbox.
 Positive controls show loopback and the run directory still work. `tests/test_test_jail.py` covers the runner's
-refusals. Outside the sandbox the guard stops them before they run.
+refusals. `tests/test_jail_lifecycle.py` exercises signals, deadlines and group cleanup with synthetic
+processes inside the bounded container worker; it does not relax the macOS sandbox's process-table
+restriction. Outside the sandbox the guard stops them before they run.
 
 To show a rule matters, build a profile without it and run the canaries; exactly the matching canary fails. Do this
 from a scratch script that calls `prepare()` and `command_for()`; the runner has no option to weaken itself.
