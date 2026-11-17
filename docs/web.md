@@ -496,14 +496,25 @@ binds it by id each time.
 
 Everything that floats above the status line or ends at it uses one bottom inset, written
 as literal `calc()` values in `style.css` (the UI-debt ratchet allows no custom
-properties). The constants: the status line is 32 px (38 px at 700 px and narrower), the
+properties). The constants: the status line is 48 px (80 px at 700 px and narrower), the
 reading progress 18 px (25 px), and `env(safe-area-inset-bottom)` is counted once, by the
 status line's padding. The queue and Chat sheets end at status + progress + safe area; the
 Find bar shares that bottom and floats 12 px above it through its `margin-bottom`. When
 `#reading-progress` is absent or hidden, a `:root:not(:has(...))` override drops the
 progress term. The document's bottom padding clears an open Find bar. A note above the
-override rules lists the constants; a change to the footer's height (#226) must update
-every literal. On phones the Find input and its three buttons are 44 px targets.
+override rules lists the constants and every place that repeats them (the summon button,
+the file explorer, two-page reading, the scratch pad, the narrow split pane and the
+`[data-panel-sheet]` panels in `web/src/styles.css`); a change to the footer's height must
+update every literal. On phones the Find input and its three buttons are 44 px targets.
+
+The footer (#226) is one compact 48 px row on wider screens, with 36 px controls. At
+700 px and narrower it is 80 px in two rows: the context (mode, split indicator, pending
+keys, breadcrumb, section and position, in 12 px text) fills a 35 px row, and the actions
+below it are 44 px targets. CSS `order` and a full-width `:before` break make the rows,
+so the markup and the priority ranks stay as they are. Breadcrumb folder links are on the
+context row and are 35 px tall. `tests/web_footer_targets.cjs` checks the heights, the
+rows, the targets and the caption size at 195x422, 320, 390, 834 and 1440 px, with long
+breadcrumbs, the version, split and speech states, every shipped theme and the safe area.
 `tests/web_bottom_inset.cjs` is the contract: it compares rendered rectangles at 195x422
 (200% zoom of a phone), 320, 390, landscape and desktop widths in every shipped theme,
 with Chrome's safe-area override.
@@ -513,8 +524,9 @@ priority (`status-priority.mjs`). Every `#statusline` child carries
 `data-status-priority`: `1` never gives way, and larger numbers give way first,
 rightmost first within a number. After each resize, layout change or change to the
 line's items, one pass brings back what gave way and hides items until nothing
-reaches past the line's right edge and the current breadcrumb shows at least 64 px
-(or all of its name). Items keep their content width (only the breadcrumb shrinks),
+reaches past the line's right edge, the current breadcrumb shows at least 64 px
+(or all of its name), and a wrapping line (the phone footer) is no taller than its
+`min-height`. Items keep their content width (only the breadcrumb shrinks),
 so a crowded line overflows, which the pass sees, instead of crushing the mode
 label. Text-only changes, such as the position while scrolling, only hide more,
 never bring items back. The current ranks:

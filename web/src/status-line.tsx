@@ -34,14 +34,14 @@ function hints(keys:string){
   return [...template.content.childNodes].map((node,index)=>node.nodeName==='KBD'?<Kbd key={index} className="h-4 min-w-4 text-[9px]">{node.textContent}</Kbd>:<Fragment key={index}>{node.textContent}</Fragment>);
 }
 // The line's own density: a shadcn Badge at the size of the text around it.
-const DENSE='text-[10px] max-[700px]:px-1.5 max-[700px]:text-[9px]';
+const DENSE='text-[10px] max-[700px]:px-1.5 max-[700px]:text-xs';
 const Tip=({label,children}:{label:string;children:ReactElement})=><Tooltip><TooltipTrigger render={children}/><TooltipContent>{label}</TooltipContent></Tooltip>;
 
 function Trail({trail,actions}:{trail:StatusTrail;actions:StatusActions}){
   return <Breadcrumb id="status-location" data-status-priority="1" className="status-location" aria-label="Document breadcrumb"
     // Native button activation takes priority over Vim motions here.
     onKeyDown={event=>{if(event.key===' '||event.key==='Enter')event.stopPropagation();}}>
-    <BreadcrumbList className="m-0 list-none flex-nowrap gap-1 p-0 text-[10px] whitespace-nowrap max-[700px]:text-[9px]">{trail.items.map((item,index)=><Fragment key={item.folder||item.label||'more'}>
+    <BreadcrumbList className="m-0 list-none flex-nowrap gap-1 p-0 text-[10px] whitespace-nowrap max-[700px]:text-xs">{trail.items.map((item,index)=><Fragment key={item.folder||item.label||'more'}>
       {index?<BreadcrumbSeparator/>:null}
       <BreadcrumbItem className={cn('min-w-0',item.current&&'breadcrumb-current flex-auto')}>
         {item.collapsed?<DropdownMenu onOpenChange={()=>queueMicrotask(actions.statusChanged)}>
