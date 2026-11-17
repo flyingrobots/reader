@@ -50,7 +50,7 @@ const {chromium}=require(process.env.READER_PLAYWRIGHT || 'playwright-core');
   assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),'footer does not overflow the page');
   const statusCrowd=()=>page.evaluate(()=>{const box=e=>e.getBoundingClientRect(),location=box(document.querySelector('#status-location'));
     const items=[...document.querySelectorAll('#statusline > :not(#reading-progress)')].filter(e=>getComputedStyle(e).display!=='none'&&box(e).width>0);
-    const overlaps=[];for(let i=0;i<items.length;i++)for(let j=i+1;j<items.length;j++){const a=box(items[i]),b=box(items[j]);if(Math.min(a.right,b.right)-Math.max(a.left,b.left)>.5)overlaps.push(items[i].id+'/'+items[j].id);}
+    const overlaps=[];for(let i=0;i<items.length;i++)for(let j=i+1;j<items.length;j++){const a=box(items[i]),b=box(items[j]);if(Math.min(a.right,b.right)-Math.max(a.left,b.left)>.5&&Math.min(a.bottom,b.bottom)-Math.max(a.top,b.top)>.5)overlaps.push(items[i].id+'/'+items[j].id);}
     const escaped=[...document.querySelectorAll('#status-location [data-slot=breadcrumb-item] > :not([data-base-ui-focus-guard]), #status-location [data-slot=breadcrumb-separator]')].filter(e=>box(e).width>0&&(box(e).right>location.right+.5||box(e).left<location.left-.5)).map(e=>e.textContent||e.className);
     return {overlaps,escaped,offscreen:items.filter(e=>box(e).right>innerWidth+.5).map(e=>e.id),home:box(document.querySelector('#reader-home')).width};});
   for(const width of [390,320]){await page.setViewportSize({width,height:844});await page.waitForTimeout(200);const crowd=await statusCrowd();
