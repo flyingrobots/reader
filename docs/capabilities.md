@@ -12,6 +12,12 @@ Classification, cataloging, connection discovery, and editorial reading happen d
 
 The explicitly invoked [inbox workflow](inbox-runner.md) runs deterministic preservation, filing, validation and commits, with bounded LLM editorial decisions and automatic context/batch partitioning. [Portable link records](portable-links.md) let Reader render local references in unchanged originals. Missing targets retain explicit dispositions.
 
+Inbox editorial context includes bounded PDF text excerpts and untrusted embedded
+title/author metadata. Extraction preserves originals and states its coverage and
+resource limits. Unreadable PDF-only arrivals defer explicitly without a model
+call; extraction provides neither OCR nor visual review. See the
+[PDF intake boundary](inbox-runner.md#selection-and-editorial-work).
+
 Markdown intake can produce labelled, unwrapped reading copies through the pinned wide-md integration, preserving original bytes and receipt hashes. See [setup and supported formatting](reading-copies.md).
 
 ## Local delivery
