@@ -10,6 +10,9 @@ const {chromium}=require(process.env.READER_PLAYWRIGHT||'playwright-core');
 const MARKER='ZQXMARKER4471PLAINTEXT',TITLE='SECRETTITLE5582',PASSPHRASE='a long enough browser passphrase';
 const everything=dir=>{let all=Buffer.alloc(0);for(const e of readdirSync(dir,{withFileTypes:true})){const p=join(dir,e.name);if(e.isDirectory()){if(e.name!=='node_modules'&&e.name!=='tools')all=Buffer.concat([all,everything(p)]);}else if(e.isFile())all=Buffer.concat([all,readFileSync(p)]);}return all;};
 (async()=>{
+ // Without the cache the offline install cannot run: report a skip (77) with the reason, not a failure.
+ const ready=spawnSync(process.env.READER_PYTHON||'.venv/bin/python',['scripts/fetch_private_bridge.py','--check'],{encoding:'utf8'});
+ if(ready.status!==0){console.log('SKIP web_private: '+(ready.stderr.trim()||'the private bridge cache check failed'));process.exit(77);}
  // The install is the real `npm ci`, offline from the cache scripts/fetch_private_bridge.py fills outside the sandbox.
  const cache=join(process.cwd(),'.reader/npm-cache');
  const home=mkdtempSync(join(tmpdir(),'reader-private-'));

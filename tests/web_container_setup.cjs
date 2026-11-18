@@ -10,7 +10,7 @@ const {chromium}=require(process.env.READER_PLAYWRIGHT||'playwright-core');
  try{
   child=spawn(process.env.READER_PYTHON||'.venv/bin/python',['tests/web_fixture.py'],{stdio:['ignore','pipe','inherit']});
   const {url}=await new Promise((resolve,reject)=>{createInterface({input:child.stdout}).once('line',l=>resolve(JSON.parse(l)));child.once('exit',code=>reject(new Error('fixture exit '+code)));});
-  browser=await chromium.launch({headless:true,executablePath:process.env.READER_CHROME||'/usr/bin/chromium',args:['--no-sandbox','--disable-background-networking']});
+  browser=await chromium.launch({headless:true,executablePath:process.env.READER_CHROME||'/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',args:['--no-sandbox','--disable-background-networking']});
   const page=await browser.newPage({viewport:{width:1300,height:1000}}),posts=[],jobPosts=[],errors=[];
   page.on('pageerror',e=>errors.push(e.message));
   const revision='a'.repeat(40),config={name:'acme/widget coding job',image:'reader-coding:local',remoteUser:'root',userEnvProbe:'none'};
