@@ -232,7 +232,7 @@ def test_stop_kills_the_agent_process_group_and_keeps_the_worktree(world):
         time.sleep(0.05)
     [call] = w.calls()
     stopped = w.jobs.dispatch({'action': 'stop', 'id': admitted['id']})
-    assert stopped['stopped']
+    assert stopped['stopping'] and not stopped['stopped']
     run = w.wait(admitted['id'])
     assert run['outcome'] == 'cancelled' and not alive(call['pid'])
     assert os.path.isdir(run['git']['worktree']) and run['pr'] is None

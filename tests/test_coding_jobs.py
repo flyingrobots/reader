@@ -437,7 +437,7 @@ def test_a_stop_while_the_issue_intent_is_saved_creates_no_issue(world, monkeypa
         save(record)
         if record.get('issue_pending') and not stopped:
             stopped.append(True)
-            assert w.jobs.stop(record['id'])['stopped']
+            assert w.jobs.stop(record['id'])['stopping']
     monkeypatch.setattr(w.jobs.store, 'save', stop_after_save)
     run, _ = w.run()
     assert run['outcome'] == 'cancelled' and 'create_issue' not in w.github.calls
@@ -493,7 +493,7 @@ def test_a_stop_while_publication_intent_is_saved_publishes_nothing(world, monke
         pending = push.get('sent') and not push.get('verified') if effect == 'push' else record.get('pr_pending')
         if pending and not stopped:
             stopped.append(True)
-            assert w.jobs.stop(record['id'])['stopped']
+            assert w.jobs.stop(record['id'])['stopping']
     monkeypatch.setattr(w.jobs.store, 'save', stop_after_save)
     run, _ = w.run()
     assert stopped and run['outcome'] == 'cancelled', run['message']
