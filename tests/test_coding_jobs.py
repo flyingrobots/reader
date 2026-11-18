@@ -437,7 +437,7 @@ def test_a_stop_while_the_issue_intent_is_saved_creates_no_issue(world, monkeypa
         save(record)
         if record.get('issue_pending') and not stopped:
             stopped.append(True)
-            assert w.jobs.stop(record['id'])['stopped']
+            assert w.jobs.stop(record['id'])['stopping']
     monkeypatch.setattr(w.jobs.store, 'save', stop_after_save)
     run, _ = w.run()
     assert run['outcome'] == 'cancelled' and 'create_issue' not in w.github.calls
@@ -493,7 +493,7 @@ def test_a_stop_while_publication_intent_is_saved_publishes_nothing(world, monke
         pending = push.get('sent') and not push.get('verified') if effect == 'push' else record.get('pr_pending')
         if pending and not stopped:
             stopped.append(True)
-            assert w.jobs.stop(record['id'])['stopped']
+            assert w.jobs.stop(record['id'])['stopping']
     monkeypatch.setattr(w.jobs.store, 'save', stop_after_save)
     run, _ = w.run()
     assert stopped and run['outcome'] == 'cancelled', run['message']
@@ -675,3 +675,45 @@ def test_a_rerun_settles_its_predecessors_pending_issue_by_marker_and_creates_no
     issues = [n for n, i in w.github.issues.items() if not i['pull'] and n not in before]
     assert len(issues) == 1, f'rerun created a second issue: {issues}'
     assert second['source']['issue'] == issues[0] and second['issue']['number'] == issues[0]
+
+
+def test_a_stop_while_the_issue_intent_is_saved_leaves_no_issue_intent(world, monkeypatch):
+    """#179 (Moriarty test_m4): a Stop acknowledged while the issue intent is saved clears that intent in the run record."""
+    w = world(issue=None)
+    save, stopped = w.jobs.store.save, []
+
+    def stop_after_save(record):
+        save(record)
+        if record.get('issue_pending') and not stopped:
+            stopped.append(w.jobs.stop(record['id']))
+    monkeypatch.setattr(w.jobs.store, 'save', stop_after_save)
+    run, _ = w.run()
+    assert stopped and run['outcome'] == 'cancelled' and 'create_issue' not in w.github.calls, run['message']
+    assert run['issue_pending'] is None, f'issue_pending outlived the Stop: {run["issue_pending"]}'
+
+
+def test_a_stop_during_an_in_flight_pull_request_create_answers_stopping_and_records_the_pull_request(world, monkeypatch):
+    """#179: Stop cannot recall a GitHub create already sent, so it answers `stopping`, and the record reports the PR."""
+    w = world()
+    create, replies = w.github.create_pull_request, []
+
+    def blocking_create(repo, base, branch, title, body):
+        # The forced interleaving: Stop arrives while the create request is in flight, before GitHub answers.
+        [run_id] = [r['id'] for r in w.jobs.store.runs() if r.get('pr_pending')]
+        replies.append(w.jobs.stop(run_id))
+        return create(repo, base, branch, title, body)
+    monkeypatch.setattr(w.github, 'create_pull_request', blocking_create)
+    run, _ = w.run()
+    [reply] = replies
+    assert reply['stopping'] is True and reply['stopped'] is False, f'Stop answered {reply.get("stopped")=} {reply.get("stopping")=}'
+    assert run['outcome'] == 'pr_opened' and run['pr'] and run['pr_pending'] is None, (run['outcome'], run['message'])
+    assert run['pr']['number'] in w.github.pulls, 'The record must name the pull request that GitHub holds'
+
+
+def test_stop_of_a_queued_run_answers_stopped_not_stopping(world):
+    """#179: a queued run is cancelled at once, so Stop answers `stopped` and not `stopping`."""
+    w = world()
+    w.jobs.work = lambda: None
+    run = w.jobs.submit(w.request())
+    reply = w.jobs.stop(run['id'])
+    assert (reply['stopped'], reply['stopping'], reply['outcome']) == (True, False, 'cancelled'), reply
