@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Coding jobs: a run whose archive was sealed but whose finished record was lost in a crash recovers with the sealed outcome instead of `interrupted`; pending intents are still settled by recovery (closes #178).
 - Coding jobs: Stop of an active run answers `stopping: true` instead of `stopped: true`, because a push or GitHub create already in flight completes and the final outcome reports it (a pull request can still open). A Stop acknowledged while the issue intent is saved now clears `issue_pending`, as push and pull request intents already were (closes #179).
 - Reader can run behind a reverse proxy (nginx, Caddy) at a path prefix: web config `base_path` (`READER_WEB_BASE_PATH`) serves `/reader/...` as the root, and `trusted_proxy: "reverse"` accepts proxied requests whose Host is listed in `allowed_hosts` and whose Origin is in `allowed_origins`, as a non-local `proxy` identity. Direct loopback access and unlisted origins are refused as before (closes #106).
 - The web UI can be served under a path prefix behind a reverse proxy: every URL the page builds (API calls, assets, fonts, the split-view pane, PDF.js worker and fonts, the web manifest) is page-relative, and server-returned file URLs resolve against the page. The static demo exporter no longer rewrites copied assets for its base path, and the demo shim routes requests relative to that base (#106).

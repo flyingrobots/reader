@@ -392,10 +392,13 @@ class Runner:
     def recover(self):
         """Reconcile runs a previous server left unfinished. Never relaunches an agent."""
         for run in self.store.runs():
+            adopted = run.get('status') != 'finished' and self.adopt_sealed(run)
             finished = run.get('status') == 'finished'
             # A finished run can still hold a GitHub intent its archive failure left unsettled (#173).
             pending = finished and (run.get('issue_pending') or run.get('pr_pending'))
             if finished and not pending and (not run.get('container') or run['container'].get('state') == 'stopped'):
+                if adopted:
+                    self.store.save(run)
                 continue
             notes, outcome = [], 'interrupted'
             process = run.get('process') or {}
@@ -461,6 +464,21 @@ class Runner:
                 except (OSError, ValueError) as exc:
                     run['archive_error'] = f'Sealing the run archive failed: {exc}'
             self.store.save(run)
+
+    def adopt_sealed(self, run):
+        """A crash between sealing the archive and saving the finished record: the record takes the sealed outcome.
+        Its pending intents stay, so the finished-run path below still settles them (#173)."""
+        try:
+            folder = llm_logs.safe_dir(self.root, run['log']) if run.get('log') else None
+            meta = json.loads((folder / 'meta.json').read_text()) if folder and (folder / 'meta.json').is_file() else {}
+        except (OSError, ValueError):
+            return False
+        if meta.get('status') in OUTCOMES and not any(folder.glob('*.partial')):
+            run.update(status='finished', outcome=meta['status'], process=None, recovered=True,
+                       message=shown(meta.get('message') or 'Recovered from the sealed run archive.', self.root),
+                       finished_at=meta.get('ended_at') or stamp())
+            return True
+        return False
 
     def reconcile(self, run, entry, notes):
         """(outcome, detail) for an unfinished run's publication state."""
