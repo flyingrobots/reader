@@ -230,11 +230,15 @@ class ContainerJob(Job):
         return result
 
     def publish(self, result, head):
-        # The URLs Git really uses after insteadOf/pushInsteadOf rewrites (#301); the push to the explicit URL below
-        # is rewritten the same way as origin's identical URL.
-        urls = self.git(['remote', 'get-url', '--all', 'origin']).stdout.split()
-        urls += self.git(['remote', 'get-url', '--push', '--all', 'origin']).stdout.split()
+        url = self.git(['config', '--get', 'remote.origin.url']).stdout.strip()
+        push = self.git(['config', '--get-all', 'remote.origin.pushurl'], check=False).stdout.strip() or url
         expected = 'https://github.com/' + self.repo + '.git'
-        if not urls or any(url != expected for url in urls):
+        # Git rewrites the explicit push URL below by any matching insteadOf/pushInsteadOf rule (#301). Rules from the
+        # approved environment (scope `command`: GIT_CONFIG_COUNT in containerEnv) are trusted; a rule in a config
+        # file the agent can write (local, worktree, global, system) that matches the URL stops publication.
+        rules = self.git(['config', '--show-scope', '--get-regexp', r'^url\..*\.(pushinsteadof|insteadof)$'], check=False).stdout
+        rewritten = any(len(parts) == 3 and parts[0] != 'command' and expected.startswith(parts[2])
+                        for parts in (line.split(None, 2) for line in rules.splitlines()))
+        if url != expected or push != expected or rewritten:
             raise Stop('failed', 'The agent changed the publication remote; nothing was pushed.')
         return super().publish(result, head)

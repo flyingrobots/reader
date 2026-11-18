@@ -53,3 +53,13 @@ def test_a_url_rewrite_to_another_repository_stops_publication(job, rewrite):
     with pytest.raises(Stop) as stopped:
         instance.publish({}, 'a' * 40)
     assert stopped.value.outcome == 'failed', stopped.value.message
+
+
+def test_a_rewrite_from_the_approved_environment_is_published(job, monkeypatch):
+    """#301: an insteadOf rule the approved devcontainer configuration sets through GIT_CONFIG_COUNT (scope `command`)
+    is the operator's, not the agent's; publication goes on."""
+    instance, _ = job
+    monkeypatch.setenv('GIT_CONFIG_COUNT', '1')
+    monkeypatch.setenv('GIT_CONFIG_KEY_0', 'url.file:///work/fixture-origin.git.insteadOf')
+    monkeypatch.setenv('GIT_CONFIG_VALUE_0', URL)
+    assert instance.publish({}, 'a' * 40) == 'published'
