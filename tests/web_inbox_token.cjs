@@ -15,7 +15,7 @@ const {chromium}=require(process.env.READER_PLAYWRIGHT || 'playwright-core');
    const original=globalThis.fetch;globalThis.inboxResponses=[];globalThis.writeResponses=[];globalThis.tokenRefreshes=0;
    globalThis.fetch=async(...args)=>{
     const response=await original(...args);
-    if(args[0]==='/api/token')tokenRefreshes++;
+    if(args[0]==='api/token')tokenRefreshes++;
     if(args[1]?.method==='POST'){writeResponses.push(response.status);if(args[0]==='/api/inbox')inboxResponses.push(response.status);}
     return response;
    };

@@ -16,9 +16,9 @@ async function harness(fetcher){
 }
 test('a rejected preflight refreshes and retries the identical JSON write once',async()=>{
  const signal=new AbortController().signal;
- const h=await harness((path,options)=>path==='/api/token'?json({token:'new'}):new Headers(options.headers).get('X-Reader-Token')==='new'?json({started:true}):expired());
+ const h=await harness((path,options)=>path==='api/token'?json({token:'new'}):new Headers(options.headers).get('X-Reader-Token')==='new'?json({started:true}):expired());
  assert.deepEqual(await(await h.request('/api/inbox',post('old',{signal,keepalive:true}))).json(),{started:true});
- assert.deepEqual(h.calls.map(c=>c.path),['/api/inbox','/api/token','/api/inbox']);
+ assert.deepEqual(h.calls.map(c=>c.path),['/api/inbox','api/token','/api/inbox']);
  assert.equal(h.token(),'new');assert.equal(h.calls[1].options.cache,'no-store');
  const retry=h.calls[2].options;
  assert.equal(retry.body,h.calls[0].options.body);assert.equal(retry.signal,signal);assert.equal(retry.keepalive,true);
@@ -33,7 +33,7 @@ test('GETs and successful POSTs never refresh',async()=>{
  await h.request('/api/inbox');await h.request('/api/inbox',post());assert.equal(h.calls.length,2);
 });
 test('a second token rejection is returned without a retry loop',async()=>{
- const h=await harness(path=>path==='/api/token'?json({token:'new'}):expired());
+ const h=await harness(path=>path==='api/token'?json({token:'new'}):expired());
  assert.equal((await h.request('/api/inbox',post())).status,403);assert.equal(h.calls.length,3);
 });
 test('an uncertain network failure never replays an action',async()=>{
@@ -41,14 +41,14 @@ test('an uncertain network failure never replays an action',async()=>{
  await assert.rejects(h.request('/api/inbox',post()),/Network failed/);assert.equal(h.calls.length,1);
 });
 for(const [label,refresh] of [['access revoked',()=>json({error:'Access revoked'},403)],['missing token',()=>json({token:null})],['invalid JSON',()=>new Response('invalid')]])test(`an invalid refresh cannot authorize a replay: ${label}`,async()=>{
- const h=await harness(path=>path==='/api/token'?refresh():expired());
+ const h=await harness(path=>path==='api/token'?refresh():expired());
  assert.equal((await h.request('/api/inbox',post())).status,403);assert.equal(h.calls.length,2);assert.equal(h.token(),'old');
 });
 test('concurrent rejected writes share one token refresh',async()=>{
  let finish;
- const h=await harness((path,options)=>path==='/api/token'?new Promise(resolve=>{finish=()=>resolve(json({token:'new'}));}):new Headers(options.headers).get('X-Reader-Token')==='new'?json({ok:true}):expired());
+ const h=await harness((path,options)=>path==='api/token'?new Promise(resolve=>{finish=()=>resolve(json({token:'new'}));}):new Headers(options.headers).get('X-Reader-Token')==='new'?json({ok:true}):expired());
  const first=h.request('/api/inbox',post()),second=h.request('/api/bookmark',post());
- await new Promise(setImmediate);assert.equal(h.calls.filter(c=>c.path==='/api/token').length,1);finish();
+ await new Promise(setImmediate);assert.equal(h.calls.filter(c=>c.path==='api/token').length,1);finish();
  assert.deepEqual((await Promise.all([first,second])).map(r=>r.status),[200,200]);
  assert.equal(h.calls.length,5);
 });
@@ -58,7 +58,7 @@ test('a token already refreshed by another request is reused',async()=>{
 });
 test('cancelling while refresh is pending prevents the action retry',async()=>{
  let finish;const controller=new AbortController();
- const h=await harness(path=>path==='/api/token'?new Promise(resolve=>{finish=()=>resolve(json({token:'new'}));}):expired());
+ const h=await harness(path=>path==='api/token'?new Promise(resolve=>{finish=()=>resolve(json({token:'new'}));}):expired());
  const result=h.request('/api/inbox',post('old',{signal:controller.signal}));
  await new Promise(setImmediate);controller.abort();finish();
  await assert.rejects(result,{name:'AbortError'});assert.equal(h.calls.length,2);
