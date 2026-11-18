@@ -46,6 +46,7 @@ PHASES = ('queued', 'preflight', 'worktree', 'agent', 'issue', 'verify', 'push',
 ARTIFACTS = ('meta.json', 'request.json', 'prompt.txt', 'system.txt', 'stdout.jsonl', 'stderr.log', 'events.jsonl',
              'verify.log', 'git.log', 'last-message.md', 'result.json')
 MAX_ARTIFACT = 1024**2
+TRUNCATED = 16000  # Characters kept of a text field cut so that an oversized finished record can still be saved.
 OWNED = 'Another Reader server owns coding jobs for this vault'
 
 
@@ -308,6 +309,10 @@ class Runner:
                     try:
                         if run and run.get('status') == 'queued':
                             self.execute(run)
+                    except Exception as exc:  # One job's failure finishes that job, never the queue worker.
+                        current = self.store.load(run_id) if run else None
+                        if current and current.get('status') != 'finished':
+                            self.finish(current, 'failed', f'Reader stopped this job unexpectedly: {exc}')
                     finally:
                         with self.lock:
                             self.active = None
@@ -367,13 +372,27 @@ class Runner:
             except (OSError, ValueError) as exc:
                 run['archive_error'] = f'Sealing the run archive failed: {exc}'
         self.cancels.discard(run['id'])
-        try:
-            self.store.save(run)
-        except OSError as exc:  # The store keeps the finished record in memory and retries; the runner carries on.
-            run['archive_error'] = f'Saving the finished run failed ({exc}); Reader keeps it in memory and retries.'
+        self.save_final(run)
         llm_logs.forget_usage(self.root)
         self.live.release(run['id'])
         threading.Thread(target=self.commit_log, args=(run,), daemon=True).start()
+
+    def save_final(self, run):
+        """Save a finished record without raising: cut an oversized record's longest text fields (named in
+        `truncated`), and keep a record that still cannot be written in memory for the store to retry."""
+        try:
+            try:
+                self.store.save(run)
+            except ValueError:  # Over the store's size limit: shorten the longest top-level text fields, then save.
+                cut = sorted((k for k, v in run.items() if isinstance(v, str) and len(v) > TRUNCATED), key=lambda k: -len(run[k]))
+                for key in cut:
+                    run[key] = run[key][:TRUNCATED] + ' [truncated]'
+                run['truncated'] = sorted(set(run.get('truncated') or []) | set(cut))
+                self.store.save(run)
+        except Exception as exc:  # The store keeps the finished record in memory and retries; the runner carries on.
+            run['archive_error'] = f'Saving the finished run failed ({exc}); Reader keeps it in memory and retries.'
+            with self.store.lock:
+                self.store.unsaved[run['id']] = json.loads(json.dumps(run))
 
     def commit_log(self, run):
         try:

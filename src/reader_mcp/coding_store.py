@@ -110,7 +110,7 @@ class Store:
             for run in list(self.unsaved.values()):
                 try:
                     self.save(run)
-                except OSError:
+                except (OSError, ValueError):  # Still unwritable: it stays in memory, and the worker carries on.
                     pass
 
     def load(self, run_id):
