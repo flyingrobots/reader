@@ -200,6 +200,20 @@ class Runner:
                     raise JobConflict('The run this reruns started from a different prompt block.', 'predecessor')
                 if issue is None and (predecessor.get('issue') or {}).get('number') and source.get('repo') == block['repo']:
                     issue = predecessor['issue']['number']
+                elif issue is None and predecessor.get('issue_pending') and source.get('repo') == block['repo']:
+                    # Settle the predecessor's unconfirmed issue by its marker before this run can create another (#173).
+                    try:
+                        found = [i for i in self.github.find_issues(block['repo'], predecessor['issue_pending']['marker'])
+                                 if not i.get('is_pull_request')]
+                    except GitHubError:
+                        found = []
+                    if len(found) != 1:
+                        raise JobConflict('The run this reruns may have created an issue; search for “' +
+                                          predecessor['issue_pending']['marker'] + '” and reconcile it first.', 'predecessor')
+                    predecessor['issue'] = {'number': found[0]['number'], 'url': found[0]['url'], 'state': found[0]['state'], 'created': True}
+                    predecessor['issue_pending'] = None
+                    self.store.save(predecessor)
+                    issue = found[0]['number']
             run_id = str(uuid.uuid4())
             branch = f'reader/{block["id"][:40]}-{run_id[:8]}'
             run = {'schema_version': 1, 'id': run_id, 'request_id': request['request_id'], 'predecessor': request.get('predecessor'),

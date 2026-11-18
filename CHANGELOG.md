@@ -3,6 +3,7 @@
 ## Unreleased
 
 - The phone footer is easier to read and touch: at 700 px and narrower it is 80 px in two rows, the mode, breadcrumb, section and position in 12 px text above 44 px action targets; wider screens keep one compact 48 px row with 36 px controls. The shared bottom inset, panels, two-page reading, the file explorer and the scratch pad follow the new heights, and no action is removed (#226).
+- Coding jobs: a rerun settles its predecessor's pending issue by marker before it can create one, reusing that issue or refusing to start when it cannot be found once, so no duplicate issue is created (closes #173).
 - Coding jobs: an archive write that fails after a saved GitHub intent (a pending issue, a sent but unverified push, or a pending pull request) ends the run `needs_reconciliation` and keeps the intent, not `failed`. A created pull request is recorded before its event is written (part of #173).
 - Coding jobs: restart recovery also reconciles finished runs that still hold `issue_pending` or `pr_pending`, recording the issue found by marker or the pull request that reads back as the job's (part of #173).
 - The Find bar, the reading queue and Chat stay above the status line and the reading progress on phones and desktops: one shared bottom inset counts the status height, the shown progress rail and the safe area once, and the phone Find controls are 44 px targets (#222).
