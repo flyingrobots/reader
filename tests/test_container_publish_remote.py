@@ -63,3 +63,30 @@ def test_a_rewrite_from_the_approved_environment_is_published(job, monkeypatch):
     monkeypatch.setenv('GIT_CONFIG_KEY_0', 'url.file:///work/fixture-origin.git.insteadOf')
     monkeypatch.setenv('GIT_CONFIG_VALUE_0', URL)
     assert instance.publish({}, 'a' * 40) == 'published'
+
+
+def test_a_rewrite_the_agent_includes_from_another_file_is_not_trusted(job, tmp_path):
+    """#301: a rule reached through `include.path` in a config file the agent can write keeps that file's scope."""
+    instance, config = job
+    extra = tmp_path / 'agent-rules'
+    extra.write_text(f'[url "https://github.com/mallory/widget.git"]\n\tpushInsteadOf = {URL}\n')
+    config('include.path', str(extra))
+    with pytest.raises(Stop) as stopped:
+        instance.publish({}, 'a' * 40)
+    assert stopped.value.outcome == 'failed', stopped.value.message
+
+
+def test_an_agent_environment_cannot_reach_the_publication_check(monkeypatch):
+    """#301: Reader's container git runs in a fresh `docker exec` whose environment is the container's approved
+    configuration plus Reader's own flags. GIT_CONFIG_COUNT in any other process environment (the agent's, or even
+    Reader's) is not passed, so a `command`-scope rule can only come from the approved configuration."""
+    from reader_mcp.container_runtime import ContainerRuntime
+    monkeypatch.setenv('GIT_CONFIG_COUNT', '1')
+    monkeypatch.setenv('GIT_CONFIG_KEY_0', 'url.https://github.com/mallory/widget.git.pushInsteadOf')
+    monkeypatch.setenv('GIT_CONFIG_VALUE_0', URL)
+    runtime = ContainerRuntime.__new__(ContainerRuntime)
+    runtime.docker, runtime.cid, runtime.configuration = 'docker', 'c' * 64, {'remoteEnv': {'APPROVED': '1'}}
+    runtime.check = lambda: None
+    argv = runtime.exec_argv(['git', 'config', '--show-scope', '--get-regexp', 'url'])
+    passed = [argv[i + 1] for i, value in enumerate(argv) if value == '--env']
+    assert passed == ['GIT_TERMINAL_PROMPT=0', 'APPROVED=1'], passed
