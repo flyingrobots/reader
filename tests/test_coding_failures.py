@@ -743,3 +743,31 @@ def test_a_slow_github_call_in_recovery_does_not_hold_up_reader_start(world, mon
     release.set()
     done = w.wait(pending['id'])
     assert done['status'] == 'finished' and done['recovered'], done
+
+
+def test_recovery_notes_a_branch_pushed_before_the_crash(world):
+    """#181: a run that pushed its verified branch but opened no pull request says so in its recovered record."""
+    w = world()
+    run = interrupted_run(w, phase='pull_request', push={'sha': 'b' * 40, 'sent': True, 'verified': True})
+    w.jobs.close()
+    w.jobs = w.make()
+    assert w.jobs.own()
+    done = w.jobs.store.load(run['id'])
+    branch = run['git']['branch']
+    assert done['outcome'] == 'interrupted' and f'{branch} was pushed' in done['message'], done['message']
+
+
+def test_a_recovered_run_archive_has_the_same_meta_fields_as_a_finished_one(world):
+    """#181: recovery seals the archive with the run's full metadata (git, push, pr, issue, phase, ...), as finish() does."""
+    w = world()
+    normal, _ = w.run()
+    # The fields finish() adds when it seals; the fields set when the archive opens come from admission, which the
+    # synthetic interrupted record (no admission) does not have.
+    opened = {'runner', 'agent', 'base', 'branch', 'predecessor', 'prompt', 'repository', 'request_id', 'source'}
+    expected = set(json.loads((w.vault / normal['log'] / 'meta.json').read_text())) - opened
+    run = interrupted_run(w)
+    w.jobs.close()
+    w.jobs = w.make()
+    assert w.jobs.own()
+    recovered = set(json.loads((w.vault / w.jobs.store.load(run['id'])['log'] / 'meta.json').read_text()))
+    assert expected <= recovered, f'recovered meta.json lacks {sorted(expected - recovered)}'

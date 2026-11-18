@@ -47,6 +47,8 @@ PHASES = ('queued', 'preflight', 'worktree', 'agent', 'issue', 'verify', 'push',
 ARTIFACTS = ('meta.json', 'request.json', 'prompt.txt', 'system.txt', 'stdout.jsonl', 'stderr.log', 'events.jsonl',
              'verify.log', 'git.log', 'last-message.md', 'result.json')
 MAX_ARTIFACT = 1024**2
+# The run fields a sealed archive's meta.json records, by finish() and by recovery alike (#181).
+ARCHIVED = ('phase', 'git', 'issue', 'pr', 'push', 'tools', 'verification', 'existing_pr')
 TRUNCATED = 16000  # Characters kept of a text field cut so that an oversized finished record can still be saved.
 OWNED = 'Another Reader server owns coding jobs for this vault'
 
@@ -384,8 +386,7 @@ class Runner:
             capture.close()
         if log:
             try:
-                log.finish(outcome, outcome=outcome, message=run['message'], phase=run['phase'], git=run['git'], issue=run['issue'],
-                           pr=run['pr'], push=run['push'], tools=run['tools'], verification=run['verification'], existing_pr=run['existing_pr'])
+                log.finish(outcome, outcome=outcome, message=run['message'], **{key: run.get(key) for key in ARCHIVED})
             except (OSError, ValueError) as exc:
                 run['archive_error'] = f'Sealing the run archive failed: {exc}'
         self.cancels.discard(run['id'])
@@ -519,7 +520,7 @@ class Runner:
                         out.write((json.dumps({'run_id': run['id'], 'seq': seq, 'at': stamp(), 'type': 'outcome', 'outcome': outcome,
                                                'message': message, 'phase': run.get('phase'), 'recovered': True}) + '\n').encode())
                     run['seq'] = seq
-                llm_logs.seal(self.root, run['log'], outcome, message, pr=run.get('pr') if outcome == 'pr_opened' else None)
+                llm_logs.seal(self.root, run['log'], outcome, message, outcome=outcome, message=message, **{key: run.get(key) for key in ARCHIVED})
             except (OSError, ValueError) as exc:
                 run['archive_error'] = f'Sealing the run archive failed: {exc}'
         self.save_recovered(run)
@@ -592,4 +593,7 @@ class Runner:
         if (run.get('push') or {}).get('sent') and not run['push'].get('verified'):
             notes.append(f'A push of {branch} was started; check {run["git"]["remote"]}/{branch}.')
             return 'needs_reconciliation', None
+        if (run.get('push') or {}).get('verified') and not run.get('pr'):
+            notes.append(f'{branch} was pushed to {run["git"]["remote"]} at {run["push"]["sha"][:12]} before Reader stopped; '
+                         'no pull request was opened.')
         return 'interrupted', None
