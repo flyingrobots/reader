@@ -179,7 +179,7 @@ def seal(root, relative, status='interrupted', note=None, **fields):
     meta.update(status=status if meta.get('status') in (None, 'running') else meta['status'], ended_at=meta.get('ended_at') or stamp())
     if note:
         meta['note'] = note
-    meta.update({k: v for k, v in fields.items() if v is not None})
+    meta.update(fields)
     (folder / '.meta.next').write_text(json.dumps(meta, ensure_ascii=False, indent=2) + '\n')
     (folder / '.meta.next').replace(meta_file)
     return relative
