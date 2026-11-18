@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Coding jobs: a recovered run notes a branch it pushed before Reader stopped, and its sealed `meta.json` has the same fields as a normally finished run (closes #181).
 - Coding jobs: restart recovery runs off the server start path, and a run record it cannot recover ends `needs_reconciliation` with the reason instead of stopping Reader from owning coding jobs (part of #181).
 - Coding jobs: restart recovery stops a left-over host agent process group even after its leader exited (every member must have started at or after the recorded leader start), and recognises this machine by its boot identity instead of the hostname (closes #175).
 - Coding jobs: a run whose archive was sealed but whose finished record was lost in a crash recovers with the sealed outcome instead of `interrupted`; pending intents are still settled by recovery (closes #178).
