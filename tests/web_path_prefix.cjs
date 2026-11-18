@@ -1,5 +1,6 @@
 /* Reader served under a path prefix behind a reverse proxy (#106). The proxy forwards /reader/* to the server with
-   the prefix stripped and refuses everything else, as a proxy that owns only that prefix would. Every request the page
+   the prefix stripped and refuses everything else, as a proxy that owns only that prefix would. It presents the
+   upstream's own Host and Origin, so the server's same-origin gate sees a loopback client; that gate is not under test. Every request the page
    makes is harvested; any same-origin request outside /reader/ fails the suite (deny by default), and the page must
    still open the library and a document. */
 require('./jail_guard.cjs');
@@ -16,7 +17,7 @@ const PREFIX='/reader/';
   const upstream=new URL(url),outside=[];
   proxy=http.createServer((req,res)=>{
    if(!req.url.startsWith(PREFIX)){outside.push(req.method+' '+req.url);res.writeHead(404).end();return;}
-   const forward=http.request({host:upstream.hostname,port:upstream.port,method:req.method,path:req.url.slice(PREFIX.length-1),headers:{...req.headers,host:upstream.host}},reply=>{res.writeHead(reply.statusCode,reply.headers);reply.pipe(res);});
+   const forward=http.request({host:upstream.hostname,port:upstream.port,method:req.method,path:req.url.slice(PREFIX.length-1),headers:{...req.headers,host:upstream.host,...(req.headers.origin?{origin:upstream.origin}:{})}},reply=>{res.writeHead(reply.statusCode,reply.headers);reply.pipe(res);});
    forward.on('error',()=>{if(!res.headersSent)res.writeHead(502);res.end();});req.pipe(forward);});
   await new Promise(resolve=>proxy.listen(0,'127.0.0.1',resolve));
   const origin='http://127.0.0.1:'+proxy.address().port;

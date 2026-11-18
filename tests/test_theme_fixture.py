@@ -55,7 +55,7 @@ def handler(base):
         def send_file(self, file, raw=False, attachment=False, download=False):
             if raw or attachment or download or file.name != 'index.html':
                 return super().send_file(file, raw, attachment, download)
-            body = file.read_bytes().replace(b'<head>', b'<head>\n  <script src="' + SCRIPT.encode() + b'"></script>', 1)
+            body = file.read_bytes().replace(b'<head>', b'<head>\n  <script src="' + SCRIPT[1:].encode() + b'"></script>', 1)
             self.response_headers(200, 'text/html', len(body), raw=False)
             self.end_headers()
             self.wfile.write(body)
