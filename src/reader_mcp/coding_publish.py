@@ -91,7 +91,7 @@ class Job(Workflow):
         self.check_cancel()
         self.run['issue_pending'] = {'marker': marker}
         self.jobs.store.save(self.run)
-        self.check_cancel()  # A Stop acknowledged while the intent was saved creates no issue.
+        self.unsent('issue_pending')  # A Stop acknowledged while the intent was saved creates no issue and clears the intent.
         step = self.step(f'Create an issue in {self.repo}')
         try:
             issue = self.github.create_issue(self.repo, title, body)

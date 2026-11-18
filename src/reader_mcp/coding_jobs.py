@@ -280,12 +280,15 @@ class Runner:
         with self.lock:
             if run_id not in self.queue and run_id != self.active:
                 # Finished, or a record no worker will run: nothing was stopped.
-                return self.view(run) | {'stopped': False}
+                return self.view(run) | {'stopped': False, 'stopping': False}
             self.cancels.add(run_id)
             if run_id in self.queue:
                 self.queue.remove(run_id)
                 self.finish(run, 'cancelled', 'Stopped by you before it started.')
-        return self.view(self.store.load(run_id)) | {'stopped': True}
+                return self.view(self.store.load(run_id)) | {'stopped': True, 'stopping': False}
+        # An active run ends at its next check: a push or GitHub create already in flight completes, and the
+        # final outcome reports it (a pull request can still open), so Stop answers `stopping`, not `stopped`.
+        return self.view(self.store.load(run_id)) | {'stopped': False, 'stopping': True}
 
     # Running ---------------------------------------------------------------------------------------
 
