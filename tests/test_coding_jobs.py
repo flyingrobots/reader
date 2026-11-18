@@ -770,3 +770,34 @@ def test_recovery_of_a_sealed_run_with_a_pending_pull_request_still_settles_it(w
     assert meta['status'] == 'needs_reconciliation', meta['status']
     assert (run['status'], run['outcome'], run['pr_pending']) == ('finished', 'pr_opened', None), (run['outcome'], run['message'])
     assert run['pr']['number'] in w.github.pulls and len(w.github.pulls) == 1
+
+
+def test_finish_saves_an_oversized_record_truncated_instead_of_raising(world):
+    """#178: a final record over the store's size limit is saved with its large fields cut and marked, never raised."""
+    from reader_mcp.coding_store import MAX_RECORD
+    w = world()
+    w.jobs.work = lambda: None
+    run = w.jobs.submit(w.request())
+    record = w.jobs.store.load(run['id'])
+    record['evidence'] = 'x' * (MAX_RECORD + 1024)
+    w.jobs.finish(record, 'already_fixed', 'synthetic oversized evidence')  # Must not raise.
+    saved = json.loads((w.jobs.store.runtime / 'runs' / (run['id'] + '.json')).read_text())
+    assert (saved['status'], saved['outcome']) == ('finished', 'already_fixed'), (saved['status'], saved['outcome'])
+    assert 'evidence' in saved['truncated'] and len(saved['evidence']) < MAX_RECORD, saved.get('truncated')
+
+
+def test_a_job_that_raises_does_not_stop_the_queue_worker(world, monkeypatch):
+    """#178: one job's unexpected exception finishes that job `failed`; the worker goes on to the next job."""
+    w = world()
+    execute, raised = w.jobs.execute, []
+
+    def explode_once(run):
+        if not raised:
+            raised.append(run['id'])
+            raise RuntimeError('synthetic job failure')
+        return execute(run)
+    monkeypatch.setattr(w.jobs, 'execute', explode_once)
+    first, _ = w.run(timeout=20)
+    second, _ = w.run()
+    assert raised == [first['id']] and first['outcome'] == 'failed', (first['status'], first.get('outcome'))
+    assert second['outcome'] == 'pr_opened', second['message']
