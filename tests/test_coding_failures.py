@@ -700,3 +700,46 @@ def kill_quietly(group):
         os.killpg(group, signal.SIGKILL)
     except (ProcessLookupError, PermissionError):
         pass
+
+
+def test_a_broken_run_record_ends_needs_reconciliation_and_recovery_goes_on(world):
+    """#181: one record that recovery cannot read (no `git`) never stops Reader from owning and running jobs."""
+    w = world()
+    broken = interrupted_run(w)
+    del broken['git']  # recover() reads run['git']['branch']: a KeyError on unfixed code.
+    w.jobs.store.save(broken)
+    w.jobs.close()
+    w.jobs = w.make()
+    assert w.jobs.own(), 'a broken record stopped Reader from owning coding jobs'
+    done = w.jobs.store.load(broken['id'])
+    assert (done['status'], done['outcome']) == ('finished', 'needs_reconciliation'), (done['status'], done['outcome'])
+    assert 'git' in done['message'], f'the reason is not recorded: {done["message"]}'
+    run, _ = w.run()
+    assert run['outcome'] == 'pr_opened', run['message']
+
+
+def test_a_slow_github_call_in_recovery_does_not_hold_up_reader_start(world, monkeypatch):
+    """#181: recovery runs off the start path; a GitHub read-back that blocks does not block start()."""
+    import threading
+    w = world()
+    pending = interrupted_run(w, pr_pending={'branch': 'reader/x'}, push={'sha': 'a' * 40, 'sent': True, 'verified': True})
+    w.jobs.close()
+    entered, release, threads = threading.Event(), threading.Event(), []
+    listing = w.github.pull_requests
+
+    def blocking(repo, branch):
+        threads.append(threading.get_ident())
+        if threading.get_ident() == starter:
+            return listing(repo, branch)  # On the start path: answer at once, and the assertion below reports it.
+        entered.set()
+        release.wait()  # The barrier: GitHub answers only when the test says so.
+        return listing(repo, branch)
+    monkeypatch.setattr(w.github, 'pull_requests', blocking)
+    w.jobs = w.make()
+    starter = threading.get_ident()
+    w.jobs.start()  # Returns while the read-back is still blocked.
+    assert starter not in threads, 'recovery called GitHub on the start path'
+    assert entered.wait(30), 'recovery never reached the GitHub read-back'
+    release.set()
+    done = w.wait(pending['id'])
+    assert done['status'] == 'finished' and done['recovered'], done
