@@ -719,8 +719,9 @@ def test_stop_of_a_queued_run_answers_stopped_not_stopping(world):
     assert (reply['stopped'], reply['stopping'], reply['outcome']) == (True, False, 'cancelled'), reply
 
 
-def lost_final_save(w, monkeypatch, **request):
-    """Run a job whose archive is sealed but whose finished record never reaches the disk, then restart Reader."""
+def lost_final_save(w, monkeypatch, before_restart=None, **request):
+    """Run a job whose archive is sealed but whose finished record never reaches the disk, then restart Reader.
+    `before_restart(run_id, meta_path)` may change the archive or GitHub first."""
     write = w.jobs.store._write
 
     def full(path, data):
@@ -732,14 +733,29 @@ def lost_final_save(w, monkeypatch, **request):
     w.wait(admitted['id'])  # Finished in memory only.
     w.jobs.close()  # The process dies before a retry reaches the disk.
     monkeypatch.setattr(w.jobs.store, '_write', write)
+    if before_restart:
+        record = w.jobs.store.load(admitted['id'])
+        before_restart(admitted['id'], llm_logs.safe_dir(w.vault, record['log']) / 'meta.json')
+    return restart(w, admitted['id'])
+
+
+def restart(w, run_id):
     w.jobs = w.make()
     assert w.jobs.own()  # Taking ownership runs recovery.
-    return w.jobs.store.load(admitted['id'])
+    return w.jobs.store.load(run_id)
+
+
+def github_down(w, monkeypatch):
+    from reader_mcp.github import GitHubError
+
+    def down(*args, **options):
+        raise GitHubError('synthetic GitHub outage')
+    for name in ('pull_requests', 'pull_request', 'find_issues', 'issue'):
+        monkeypatch.setattr(w.github, name, down)
 
 
 def test_recovery_keeps_the_outcome_a_sealed_archive_already_records(world, monkeypatch):
     """#178 (Moriarty test_m5): a crash between sealing the archive and saving the record keeps the sealed outcome."""
-    from reader_mcp import llm_logs
     w = world(scenario={'outcome': 'already_fixed', 'commit': False})
     run = lost_final_save(w, monkeypatch)
     meta = json.loads((llm_logs.safe_dir(w.vault, run['log']) / 'meta.json').read_text())
@@ -748,9 +764,9 @@ def test_recovery_keeps_the_outcome_a_sealed_archive_already_records(world, monk
 
 
 def test_recovery_of_a_sealed_run_with_a_pending_pull_request_still_settles_it(world, monkeypatch):
-    """#178 with #173 (2): adopting the sealed outcome keeps the pending intent, which recovery then settles; the
-    record may advance to `pr_opened` while the sealed archive keeps `needs_reconciliation`, as docs/web.md says."""
-    from reader_mcp import coding_store, llm_logs
+    """#178 with #173 (2): adopting the sealed outcome keeps the archive's message and the pending intent; a later
+    recovery settles it, so the record may advance to `pr_opened` while the sealed archive keeps `needs_reconciliation`."""
+    from reader_mcp import coding_store
     w = world(issue=None)
     armed, capture_write, create = [], coding_store.Capture.write, w.github.create_pull_request
 
@@ -765,11 +781,103 @@ def test_recovery_of_a_sealed_run_with_a_pending_pull_request_still_settles_it(w
         return value
     monkeypatch.setattr(coding_store.Capture, 'write', failing)
     monkeypatch.setattr(w.github, 'create_pull_request', created)
-    run = lost_final_save(w, monkeypatch)
+    with monkeypatch.context() as outage:
+        run = lost_final_save(w, monkeypatch, before_restart=lambda *_: github_down(w, outage))
     meta = json.loads((llm_logs.safe_dir(w.vault, run['log']) / 'meta.json').read_text())
     assert meta['status'] == 'needs_reconciliation', meta['status']
+    # GitHub was down: the record holds exactly what the sealed archive holds, with the intent still pending.
+    assert (run['status'], run['outcome'], run['message']) == ('finished', 'needs_reconciliation', meta['message']), run['message']
+    assert run['pr_pending'], 'adoption dropped the pending pull request intent'
+    w.jobs.close()
+    run = restart(w, run['id'])
     assert (run['status'], run['outcome'], run['pr_pending']) == ('finished', 'pr_opened', None), (run['outcome'], run['message'])
     assert run['pr']['number'] in w.github.pulls and len(w.github.pulls) == 1
+
+
+def test_recovery_refuses_a_symlinked_archive_meta_file(world, monkeypatch, tmp_path):
+    """#178 review: a `meta.json` that is a symlink is never followed; its target's outcome never reaches the record."""
+    w = world(scenario={'outcome': 'already_fixed', 'commit': False})
+    outside = tmp_path / 'elsewhere.json'
+
+    def link(run_id, meta):
+        outside.write_text(json.dumps({'status': 'pr_opened', 'message': 'SECRET-OUTSIDE-TEXT'}))
+        meta.unlink()
+        meta.symlink_to(outside)
+    run = lost_final_save(w, monkeypatch, before_restart=link)
+    assert run['status'] == 'finished' and run['outcome'] != 'pr_opened', run['outcome']
+    assert 'SECRET-OUTSIDE-TEXT' not in json.dumps(run), 'the symlink target leaked into the run record'
+    assert json.loads(outside.read_text())['status'] == 'pr_opened', 'recovery wrote through the symlink'
+
+
+def test_recovery_of_a_non_object_archive_meta_file_finishes_the_run(world, monkeypatch):
+    """#178 review: a `meta.json` holding `[]` is not a sealed outcome and does not stop recovery or ownership."""
+    w = world(scenario={'outcome': 'already_fixed', 'commit': False})
+    run = lost_final_save(w, monkeypatch, before_restart=lambda run_id, meta: meta.write_text('[]'))
+    assert (run['status'], run['outcome']) == ('finished', 'interrupted'), (run['status'], run['outcome'])
+    assert run.get('archive_error'), 'the unreadable archive metadata was not recorded'
+
+
+def test_recovery_adopts_an_oversized_sealed_message_truncated(world, monkeypatch):
+    """#178 review: a sealed message over the record limit is cut and marked, so the adopted record can be saved."""
+    from reader_mcp.coding_store import MAX_RECORD
+    w = world(scenario={'outcome': 'already_fixed', 'commit': False})
+
+    def huge(run_id, meta):
+        data = json.loads(meta.read_text())
+        meta.write_text(json.dumps(data | {'message': 'm' * (MAX_RECORD + 1024)}))
+    run = lost_final_save(w, monkeypatch, before_restart=huge)
+    assert (run['status'], run['outcome']) == ('finished', 'already_fixed'), (run['status'], run['outcome'])
+    assert 'message' in run['truncated'] and len(run['message']) < MAX_RECORD, run.get('truncated')
+
+
+def test_recovery_stops_a_live_agent_group_before_adopting_a_sealed_outcome(world, monkeypatch):
+    """#178 review: adoption must not clear `process` before recovery stops the group the previous server left."""
+    import os
+    import signal
+    from reader_mcp.coding_workflow import process_started
+    w = world(scenario={'outcome': 'already_fixed', 'commit': False})
+    leftover = subprocess.Popen(['sleep', '60'], start_new_session=True)
+    try:
+        def leave_group(run_id, meta):
+            record = w.jobs.store.load(run_id)
+            record.update(status='running', process={'group': leftover.pid, 'host': w.jobs.host, 'started': process_started(leftover.pid)})
+            w.jobs.store.save(record)
+        lost_final_save(w, monkeypatch, before_restart=leave_group)
+        assert leftover.wait(timeout=10) == -signal.SIGTERM or leftover.returncode is not None
+    finally:
+        if leftover.poll() is None:
+            os.killpg(leftover.pid, signal.SIGKILL)
+            leftover.wait()
+            raise AssertionError('recovery left the previous agent group running')
+
+
+def test_recovery_keeps_the_verified_pull_request_across_a_second_restart(world, monkeypatch):
+    """#178 review: recovery verifies a pending pull request and seals `pr_opened`, then dies before the save; the
+    next recovery, with GitHub down, still records the verified pull request."""
+    w = world()
+    done, _ = w.run()
+    assert done['outcome'] == 'pr_opened', done['message']
+    number = done['pr']['number']
+    meta = llm_logs.safe_dir(w.vault, done['log']) / 'meta.json'
+    # The state a server leaves when it dies after the create: pending intent, unsealed archive.
+    record = dict(done, status='running', outcome=None, pr=None, pr_pending={'branch': done['git']['branch']})
+    w.jobs.store.save(record)
+    meta.write_text(json.dumps(json.loads(meta.read_text()) | {'status': 'running'}))
+    w.jobs.close()
+    write = w.jobs.store._write
+
+    def crash(path, data):
+        if data.get('status') == 'finished':
+            raise OSError(28, 'synthetic crash before the recovered record is saved')
+        write(path, data)
+    w.jobs = w.make()
+    monkeypatch.setattr(w.jobs.store, '_write', crash)
+    with pytest.raises(OSError):
+        w.jobs.own()
+    assert json.loads(meta.read_text())['status'] == 'pr_opened'
+    github_down(w, monkeypatch)
+    run = restart(w, done['id'])
+    assert run['outcome'] == 'pr_opened' and (run['pr'] or {}).get('number') == number, (run['outcome'], run['pr'])
 
 
 def test_finish_saves_an_oversized_record_truncated_instead_of_raising(world):
