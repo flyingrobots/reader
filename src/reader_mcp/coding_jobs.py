@@ -50,6 +50,15 @@ TRUNCATED = 16000  # Characters kept of a text field cut so that an oversized fi
 OWNED = 'Another Reader server owns coding jobs for this vault'
 
 
+def truncate(run, keys):
+    """Cut each named text field longer than TRUNCATED characters and name it in `truncated`."""
+    cut = [k for k in keys if isinstance(run.get(k), str) and len(run[k]) > TRUNCATED]
+    for key in cut:
+        run[key] = run[key][:TRUNCATED] + ' [truncated]'
+    if cut:
+        run['truncated'] = sorted(set(run.get('truncated') or []) | set(cut))
+
+
 class JobsOwned(Exception):
     """Another server owns coding jobs (409)."""
 
@@ -384,10 +393,7 @@ class Runner:
             try:
                 self.store.save(run)
             except ValueError:  # Over the store's size limit: shorten the longest top-level text fields, then save.
-                cut = sorted((k for k, v in run.items() if isinstance(v, str) and len(v) > TRUNCATED), key=lambda k: -len(run[k]))
-                for key in cut:
-                    run[key] = run[key][:TRUNCATED] + ' [truncated]'
-                run['truncated'] = sorted(set(run.get('truncated') or []) | set(cut))
+                truncate(run, [k for k, v in run.items() if isinstance(v, str)])
                 self.store.save(run)
         except Exception as exc:  # The store keeps the finished record in memory and retries; the runner carries on.
             run['archive_error'] = f'Saving the finished run failed ({exc}); Reader keeps it in memory and retries.'
@@ -411,6 +417,13 @@ class Runner:
     def recover(self):
         """Reconcile runs a previous server left unfinished. Never relaunches an agent."""
         for run in self.store.runs():
+            notes, outcome = [], 'interrupted'
+            # Before adoption, which clears `process`: a group the previous server left running is stopped first.
+            process = run.get('process') or {}
+            if run.get('status') != 'finished' and not run.get('container') and process.get('group') and \
+                    process.get('host') == self.host and process.get('started') and process_started(process['group']) == process['started']:
+                kill_group(process['group'])
+                notes.append('Reader stopped the process the previous server left running.')
             adopted = run.get('status') != 'finished' and self.adopt_sealed(run)
             finished = run.get('status') == 'finished'
             # A finished run can still hold a GitHub intent its archive failure left unsettled (#173).
@@ -419,12 +432,6 @@ class Runner:
                 if adopted:
                     self.store.save(run)
                 continue
-            notes, outcome = [], 'interrupted'
-            process = run.get('process') or {}
-            if not run.get('container') and process.get('group') and process.get('host') == self.host and process.get('started') and \
-                    process_started(process['group']) == process['started']:
-                kill_group(process['group'])
-                notes.append('Reader stopped the process the previous server left running.')
             entry = None
             try:
                 entry = self.registry.entry(run['source']['repo'], require_container=self.job_factory is ContainerJob)
@@ -479,7 +486,7 @@ class Runner:
                             out.write((json.dumps({'run_id': run['id'], 'seq': seq, 'at': stamp(), 'type': 'outcome', 'outcome': outcome,
                                                    'message': message, 'phase': run.get('phase'), 'recovered': True}) + '\n').encode())
                         run['seq'] = seq
-                    llm_logs.seal(self.root, run['log'], outcome, message)
+                    llm_logs.seal(self.root, run['log'], outcome, message, pr=run.get('pr') if outcome == 'pr_opened' else None)
                 except (OSError, ValueError) as exc:
                     run['archive_error'] = f'Sealing the run archive failed: {exc}'
             self.store.save(run)
@@ -489,13 +496,17 @@ class Runner:
         Its pending intents stay, so the finished-run path below still settles them (#173)."""
         try:
             folder = llm_logs.safe_dir(self.root, run['log']) if run.get('log') else None
-            meta = json.loads((folder / 'meta.json').read_text()) if folder and (folder / 'meta.json').is_file() else {}
-        except (OSError, ValueError):
+            meta = llm_logs.read_meta(folder) if folder else {}
+        except (OSError, ValueError):  # A symlinked or malformed meta.json is no sealed outcome; sealing records why.
             return False
         if meta.get('status') in OUTCOMES and not any(folder.glob('*.partial')):
+            message = meta.get('message') if isinstance(meta.get('message'), str) else ''
             run.update(status='finished', outcome=meta['status'], process=None, recovered=True,
-                       message=shown(meta.get('message') or 'Recovered from the sealed run archive.', self.root),
+                       message=shown(message or 'Recovered from the sealed run archive.', self.root),
                        finished_at=meta.get('ended_at') or stamp())
+            if not run.get('pr') and isinstance(meta.get('pr'), dict):
+                run['pr'] = meta['pr']  # The pull request a recovery verified before it sealed (#178 review).
+            truncate(run, ['message'])
             return True
         return False
 

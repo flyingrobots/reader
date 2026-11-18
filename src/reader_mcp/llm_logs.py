@@ -153,17 +153,33 @@ def compress(folder):
     return files
 
 
-def seal(root, relative, status='interrupted', note=None):
-    """Finish a run a crashed process left behind; a no-op once it is sealed."""
+def read_meta(folder):
+    """A run directory's metadata object, or {} when there is none. Refuses (ValueError) a symlinked file, which
+    is never followed, and metadata that is not a JSON object."""
+    meta_file = Path(folder) / META
+    if meta_file.is_symlink():
+        raise ValueError(f'{META} is a symlink; it is not read')
+    if not meta_file.is_file():
+        return {}
+    meta = json.loads(meta_file.read_text())
+    if not isinstance(meta, dict):
+        raise ValueError(f'{META} is not a JSON object')
+    return meta
+
+
+def seal(root, relative, status='interrupted', note=None, **fields):
+    """Finish a run a crashed process left behind; a no-op once it is sealed. `fields` (for example a verified
+    pull request) are recorded with the outcome."""
     folder = safe_dir(root, relative)
     meta_file = folder / META
-    meta = json.loads(meta_file.read_text()) if meta_file.is_file() else {}
+    meta = read_meta(folder)
     if meta.get('status') not in (None, 'running') and not any(folder.glob('*.partial')):
         return relative
     meta['files'] = compress(folder)
     meta.update(status=status if meta.get('status') in (None, 'running') else meta['status'], ended_at=meta.get('ended_at') or stamp())
     if note:
         meta['note'] = note
+    meta.update({k: v for k, v in fields.items() if v is not None})
     (folder / '.meta.next').write_text(json.dumps(meta, ensure_ascii=False, indent=2) + '\n')
     (folder / '.meta.next').replace(meta_file)
     return relative
