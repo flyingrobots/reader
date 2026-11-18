@@ -762,6 +762,72 @@ def test_tailnet_origin_is_accepted_for_writes_and_others_refused(web):
     assert request('/api/seen', seen, {'Origin': 'https://' + TAILNET})[0] == 403
 
 
+PROXY_HOST = 'books.example.org'
+
+
+def reverse(path_host=PROXY_HOST, **extra):
+    """Headers as a generic reverse proxy (nginx, Caddy) forwards them: the client's Host and Origin unchanged."""
+    return {'Host': path_host, 'X-Forwarded-Host': path_host, 'X-Forwarded-Proto': 'https', 'X-Forwarded-For': '203.0.113.9'} | extra
+
+
+def code(request, path, payload=None, headers=None):
+    return request(path, payload, headers, raw=True)[0]
+
+
+def configure_reverse(root, **config):
+    configure(root, **({'trusted_proxy': 'reverse', 'allowed_hosts': [PROXY_HOST], 'allowed_origins': ['https://' + PROXY_HOST],
+                        'allowed_logins': [], 'base_path': '/reader/'} | config))
+
+
+def test_reverse_proxy_at_a_prefix_is_served_with_host_and_origin_unchanged(web):
+    root, library, server, request = web
+    assert code(request, '/reader/api/library', headers=reverse()) == 403, 'no trusted proxy configured: refused'
+    configure_reverse(root)
+    status, body, _ = request('/reader/api/library', headers=reverse(), raw=True)
+    assert status == 200, 'a trusted reverse proxy at the prefix is served'
+    assert json.loads(body)['token'] == server.token
+    status, page, headers = request('/reader/', headers=reverse(), raw=True)
+    assert status == 200 and headers['Content-Type'].startswith('text/html') and b'assets/app.mjs' in page
+    assert code(request, '/reader/assets/style.css', headers=reverse(), raw=True) == 200
+    doc = json.loads(request('/reader/api/document?path=library/thought.md', headers=reverse(), raw=True)[1])
+    seen = {'participant': 'Test reader', 'items': [doc['item']]}
+    assert code(request, '/reader/api/seen', seen, reverse(Origin='https://' + PROXY_HOST)) == 200
+    status, body, _ = request('/reader/api/service', headers=reverse(), raw=True)
+    assert status == 200 and json.loads(body)['identity'] == {'via': 'proxy', 'login': None, 'name': None}
+
+
+def test_reverse_proxy_never_grants_access_to_untrusted_origins_hosts_or_local_powers(web):
+    root, library, server, request = web
+    configure_reverse(root)
+    port = server.server_port
+    doc = json.loads(request('/reader/api/document?path=library/thought.md', headers=reverse(), raw=True)[1])
+    seen = {'participant': 'Test reader', 'items': [doc['item']]}
+    for origin in ('https://evil.example', 'http://' + PROXY_HOST, f'http://127.0.0.1:{port}'):
+        assert code(request, '/reader/api/seen', seen, reverse(Origin=origin)) == 403, origin
+    # Unlisted names, a Host that disagrees with X-Forwarded-Host, and the proxy's name without forwarding headers.
+    assert code(request, '/reader/api/library', headers=reverse('other.example')) == 403
+    assert code(request, '/reader/api/library', headers=reverse(**{'X-Forwarded-Host': 'other.example'})) == 403
+    assert code(request, '/reader/api/library', headers={'Host': PROXY_HOST}) == 403
+    assert code(request, '/reader/api/library', headers=reverse(**{'Tailscale-Funnel-Request': '?1'})) == 403
+    # A proxied identity is not the local user: local-only writes stay refused.
+    assert code(request, '/reader/api/delivery-tokens', {'action': 'create', 'name': 'x'}, reverse(Origin='https://' + PROXY_HOST)) in (403, 404)
+    # Direct loopback access keeps today's rules, at the root and at the prefix.
+    assert code(request, '/api/library') == 200 and code(request, '/reader/api/library') == 200
+    assert code(request, '/api/library', headers={'Host': 'untrusted.example'}) == 403
+    assert code(request, '/api/seen', seen, {'Origin': 'https://' + PROXY_HOST}) == 403
+    # The tailscale proxy does not accept a reverse proxy's requests, nor the reverse proxy a tailnet identity's.
+    configure_reverse(root, trusted_proxy='tailscale')
+    assert code(request, '/reader/api/library', headers=reverse()) == 403
+
+
+@pytest.mark.parametrize('value', ['reader/', '/reader', '/a/../b/', '//evil/', '/a b/', '/a"/', '/'])
+def test_unsafe_base_paths_are_refused(web, value):
+    root, library, server, request = web
+    configure_reverse(root, base_path=value)
+    assert code(request, '/reader/api/library', headers=reverse()) == 403
+    assert code(request, '/api/library') == 200, 'a broken config never locks out the local user'
+
+
 def test_web_config_environment_overrides_and_unsafe_files(web):
     root, library, server, request = web
     library.access.environ = {'READER_WEB_TRUSTED_PROXY': 'tailscale', 'READER_WEB_ALLOWED_HOSTS': TAILNET,
