@@ -20,6 +20,11 @@ def tarballs(lock=LOCK):
     return sorted(entry['resolved'] for name, entry in packages.items() if name and 'resolved' in entry)
 
 
+def missing(wanted, listed):
+    """The wanted tarball URLs that `npm cache ls` (its lines in `listed`) does not hold."""
+    raise NotImplementedError
+
+
 def main():
     npm = shutil.which('npm')
     if not npm:

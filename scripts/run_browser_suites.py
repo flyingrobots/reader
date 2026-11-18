@@ -55,6 +55,15 @@ def exclusive(name):
     return any('suite: exclusive' in line for line in head)
 
 
+# A suite exits with this status when a prerequisite outside the repository is absent (the automake convention).
+SKIP = 77
+
+
+def verdict(code):
+    """The runner's reading of a suite's exit status: 'ok', 'skip', 'TIMEOUT' (killed) or 'FAIL (code)'."""
+    raise NotImplementedError
+
+
 def run(name, timeout, env):
     log = OUT / f'{name}.log'
     started = time.monotonic()
