@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Activity transcript: the latest scroll decides whether the transcript follows new activity. Before, a scroll up just after a scroll to the end could be ignored, and the transcript returned to the newest line without a Jump to latest button (#294).
 - Coding jobs: finishing a run never raises. An oversized final record is saved with its longest text fields cut and named in `truncated`, and an unexpected error in one job finishes it `failed` instead of stopping the queue worker (part of #178).
 - Coding jobs: Stop of an active run answers `stopping: true` instead of `stopped: true`, because a push or GitHub create already in flight completes and the final outcome reports it (a pull request can still open). A Stop acknowledged while the issue intent is saved now clears `issue_pending`, as push and pull request intents already were (closes #179).
 - Reader can run behind a reverse proxy (nginx, Caddy) at a path prefix: web config `base_path` (`READER_WEB_BASE_PATH`) serves `/reader/...` as the root, and `trusted_proxy: "reverse"` accepts proxied requests whose Host is listed in `allowed_hosts` and whose Origin is in `allowed_origins`, as a non-local `proxy` identity. Direct loopback access and unlisted origins are refused as before (closes #106).
