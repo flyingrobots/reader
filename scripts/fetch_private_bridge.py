@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Download the private shelf's pinned packages into .reader/npm-cache, so tests/web_private.cjs installs them offline.
 
-Run it with the other installs, outside the test sandbox, which refuses the network. When the suite installs from the
+`--check` reports, offline, whether the cache already holds every pinned package. Run it with the other installs, outside the test sandbox, which refuses the network. When the suite installs from the
 cache, npm checks every tarball against the integrity hash in src/reader_mcp/private_bridge/package-lock.json.
 """
 from pathlib import Path
@@ -22,7 +22,19 @@ def tarballs(lock=LOCK):
 
 def missing(wanted, listed):
     """The wanted tarball URLs that `npm cache ls` (its lines in `listed`) does not hold."""
-    raise NotImplementedError
+    held = {line.strip().removeprefix('make-fetch-happen:request-cache:') for line in listed}
+    return [url for url in wanted if url not in held]
+
+
+def check():
+    """Exit 0 when the cache holds every pinned tarball; otherwise name how many are absent and exit 1. Offline."""
+    npm = shutil.which('npm')
+    if not npm:
+        sys.exit('npm was not found')
+    listed = subprocess.run([npm, 'cache', 'ls', '--cache', str(CACHE)], capture_output=True, text=True).stdout.splitlines() if CACHE.is_dir() else []
+    absent = missing(tarballs(), listed)
+    if absent:
+        sys.exit(f'{len(absent)} of {len(tarballs())} pinned packages are not in {CACHE.relative_to(ROOT)}; run scripts/fetch_private_bridge.py outside the sandbox')
 
 
 def main():
@@ -36,4 +48,4 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    check() if sys.argv[1:] == ['--check'] else main()

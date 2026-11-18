@@ -9,7 +9,9 @@ Each suite starts its own fixture (a synthetic vault on a free port) and its own
 can run side by side. Suites start slowest first, from the durations of earlier runs, so a long suite does not
 straggle at the end. A suite that measures performance (frame rates, load times) declares `// suite: exclusive` near
 its top; those run first, together, on a quiet machine, and the rest follow in parallel. A suite runs in its own
-process group and is killed with its fixture and browser when it overruns. Logs, durations and the summary go to .reader/web-dev/suites/; the exit status is 1 if any suite failed.
+process group and is killed with its fixture and browser when it overruns. A suite that exits 77 is reported as a
+skip, with the reason it printed: a prerequisite outside the repository is absent. Logs, durations and the summary go
+to .reader/web-dev/suites/; the exit status is 1 if any suite failed, and a skip is not a failure.
 
 Run the web build first when web/ changed (`npm run build` in web/). Set READER_PYTHON to the interpreter whose
 reader_mcp is this checkout (default .venv/bin/python) and READER_CHROME to override the browser.
@@ -61,7 +63,7 @@ SKIP = 77
 
 def verdict(code):
     """The runner's reading of a suite's exit status: 'ok', 'skip', 'TIMEOUT' (killed) or 'FAIL (code)'."""
-    raise NotImplementedError
+    return 'ok' if code == 0 else 'skip' if code == SKIP else 'TIMEOUT' if code is None else f'FAIL ({code})'
 
 
 def run(name, timeout, env):
@@ -111,21 +113,26 @@ def main(argv=None):
     quiet = [name for name in names if exclusive(name)]
     rest = [name for name in names if name not in quiet]
     print(f'{len(names)} suites: {len(quiet)} exclusive first, then {len(rest)} at {args.jobs} at a time', flush=True)
-    started, failed, durations = time.monotonic(), [], {}
+    started, failed, skipped, durations = time.monotonic(), [], [], {}
     for batch, jobs in ((quiet, max(1, len(quiet))), (rest, args.jobs)):
         with ThreadPoolExecutor(max_workers=jobs) as pool:
             for future in as_completed([pool.submit(run, name, args.timeout, env) for name in batch]):
                 name, code, seconds, log = future.result()
                 durations[name] = round(seconds, 1)
-                verdict = 'ok' if code == 0 else 'TIMEOUT' if code is None else f'FAIL ({code})'
-                print(f'{verdict:>9} {seconds:6.1f}s  {name}', flush=True)
-                if code != 0:
-                    failed.append((name, verdict, log))
+                result = verdict(code)
+                print(f'{result:>9} {seconds:6.1f}s  {name}', flush=True)
+                if result == 'skip':
+                    skipped.append((name, log))
+                elif result != 'ok':
+                    failed.append((name, result, log))
     TIMES.write_text(json.dumps(known | durations, indent=1, sort_keys=True) + '\n')
     total = time.monotonic() - started
-    print(f'\n{len(names) - len(failed)}/{len(names)} passed in {total:.0f}s (suite time {sum(durations.values()):.0f}s)')
-    for name, verdict, log in failed:
-        print(f'\n{verdict} {name}  ({log.relative_to(ROOT)})\n{tail(log)}')
+    passed = len(names) - len(failed) - len(skipped)
+    print(f'\n{passed}/{len(names)} passed, {len(skipped)} skipped in {total:.0f}s (suite time {sum(durations.values()):.0f}s)')
+    for name, log in skipped:
+        print(f'\nskip {name}  ({log.relative_to(ROOT)})\n{tail(log, 2)}')
+    for name, result, log in failed:
+        print(f'\n{result} {name}  ({log.relative_to(ROOT)})\n{tail(log)}')
     return 1 if failed else 0
 
 
