@@ -15,6 +15,7 @@ import {Button} from '../components/ui/button';
 import {ButtonGroup} from '../components/ui/button-group';
 import {Bubble, BubbleContent} from '../components/ui/bubble';
 import {Message, MessageContent, MessageFooter, MessageHeader} from '../components/ui/message';
+import {useMessageScroller} from '@shadcn/react/message-scroller';
 import {MessageScroller, MessageScrollerButton, MessageScrollerContent, MessageScrollerItem, MessageScrollerProvider, MessageScrollerViewport} from '../components/ui/message-scroller';
 import {InputGroup, InputGroupAddon, InputGroupButton, InputGroupTextarea} from '../components/ui/input-group';
 import {ComboboxContent, ComboboxEmpty, ComboboxList} from '../components/ui/combobox';
@@ -64,6 +65,10 @@ const stateLabel=(turn:Turn)=>turn.state==='queued'?(turn.ahead?`Queued (${turn.
 type RawProps={chatId:string;api:(path:string,payload?:unknown)=>Promise<any>;bus:RawBus;openRaw:Set<string>;setRaw:(turnId:string,open:boolean)=>void};
 const failedLabel:Record<string,string>={failed:'Failed',timeout:'Timed out',cancelled:'Cancelled'};
 const LISTEN_OUTCOME:Record<string,string>={pass:'passed',hand:'raised a hand',discarded:'discarded (it changed files)'};
+type ScrollTo=ReturnType<typeof useMessageScroller>['scrollToMessage'];
+/** Hands the scroller's scrollToMessage to the panel, which renders the provider and so cannot call the hook itself. */
+function ScrollerHandle({into}:{into:{current:ScrollTo|null}}){into.current=useMessageScroller().scrollToMessage;return null;}
+
 /** Why a turn did not finish, in a few words; the full reason follows it. */
 const failureLabel:Record<string,string>={exit:'CLI error',unreadable:'Unreadable output',empty:'No output',status:'CLI reported failure','no-reply':'No reply',
   timeout:'Timed out',cancelled:'Cancelled',resource:'Stopped by a resource limit',capacity:'Not started: low disk space',interrupted:'Interrupted'};
@@ -272,8 +277,10 @@ export function ChatPanel(props:ChatProps){
     setDraft(next);setMention(null);setReplyTo(message);caret.current=alias.length+2;textarea.current?.focus();
     if(next===draft){textarea.current?.setSelectionRange(alias.length+2,alias.length+2);caret.current=null;}
   };
-  const jump=(id:string)=>{const element=document.querySelector(`#chat-panel [data-chat-message="${CSS.escape(id)}"]`);if(!element)return;
-    element.scrollIntoView({block:'center',behavior:'auto'});setFlash(id);window.setTimeout(()=>setFlash(value=>value===id?null:value),1600);};
+  // Through the scroller, so it stops following the end: content arriving later must not undo the jump (#288).
+  const scroller=useRef<ScrollTo|null>(null);
+  const jump=(id:string)=>{if(!scroller.current?.(id,{align:'center',behavior:'auto'}))return;
+    setFlash(id);window.setTimeout(()=>setFlash(value=>value===id?null:value),1600);};
   const decide=async(hand:ChatMessage,decision:'accept'|'decline')=>{if(!chat)return;
     try{const data=await api('api/chat',{action:'hand',id:chat.id,message_id:hand.id,decision});setChat(data.chat);setTurns(old=>merge(old,data.pending));}catch(error){fail(error);}};
   const configure=async(value:ChimeIns)=>{try{const current=await ensureChat();const data=await api('api/chat',{action:'settings',id:current.id,chime_ins:value});setChat(data.chat);}catch(error){fail(error);}};
@@ -296,7 +303,7 @@ export function ChatPanel(props:ChatProps){
     {history.length>0?<div className="min-w-0"><Select items={history.map(c=>({value:c.id,label:`${when(c.created_at)} · ${c.messages} messages`}))} value={chat?.id??null} onValueChange={value=>{if(value)load(value).catch(fail);}}>
       <SelectTrigger id="chat-history" size="sm" className="w-full" aria-label="Earlier chats about this document"><SelectValue placeholder="New chat"/></SelectTrigger>
       <SelectContent alignItemWithTrigger={false}><SelectGroup>{history.map(c=><SelectItem key={c.id} value={c.id}>{when(c.created_at)} · {c.messages} messages{c.last?` · ${c.last.author}`:''}</SelectItem>)}</SelectGroup></SelectContent></Select></div>:null}
-    <MessageScrollerProvider>
+    <MessageScrollerProvider><ScrollerHandle into={scroller}/>
       <MessageScroller className="min-h-0 flex-1">
         <MessageScrollerViewport>
           <MessageScrollerContent className="gap-4 px-0.5 pt-1.5 pb-4" aria-live="polite">
@@ -307,7 +314,7 @@ export function ChatPanel(props:ChatProps){
                   {handOpen(message)?null:<CardAction><Badge variant="outline" data-chat-hand-state="">{handLabel[message.state||'expired']}</Badge></CardAction>}</CardHeader>
                 {handOpen(message)?<CardFooter><ButtonGroup><Button size="xs" onClick={()=>decide(message,'accept')} data-chat-hand-accept="">Let them speak</Button><Button variant="ghost" size="xs" onClick={()=>decide(message,'decline')} data-chat-hand-decline="">Not now</Button></ButtonGroup></CardFooter>:null}
               </Card>
-            </MessageScrollerItem>:<MessageScrollerItem key={message.id} scrollAnchor={isMine(message)}>
+            </MessageScrollerItem>:<MessageScrollerItem key={message.id} messageId={message.id} scrollAnchor={isMine(message)}>
               <Message align={isMine(message)?'end':'start'} data-chat-message={message.id} data-author={message.author} data-chat-state={message.turn?.state} data-chat-kind={message.kind||'message'}
                 data-chat-flash={flash===message.id?'':undefined} tabIndex={isVoice(message)?0:undefined}
                 onKeyDown={event=>{if(event.key==='r'&&!event.metaKey&&!event.ctrlKey&&!event.altKey&&isVoice(message)&&event.target===event.currentTarget){event.preventDefault();reply(message);}}}>
