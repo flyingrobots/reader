@@ -16,7 +16,10 @@ export function installStatusPriority(line){
   // Fits when no item reaches past the line's padding edge. Items keep their content width (style.css sets
   // flex-shrink:0 on all but the breadcrumb and section label), so too many items overflow instead of crushing each other.
   // The breadcrumb, the one item that shrinks, also needs its current crumb readable: at least CRUMB px, or all of it.
-  const fits=()=>{const box=line.getBoundingClientRect(),limit=box.right-parseFloat(getComputedStyle(line).paddingRight)+.5,crumb=line.querySelector('.status-location [aria-current]');
+  // A wrapping line (the two-row phone footer, #226) also fits only while it keeps its declared height: an item that
+  // wraps into an extra row grows the line past its min-height.
+  const fits=()=>{const box=line.getBoundingClientRect(),style=getComputedStyle(line),limit=box.right-parseFloat(style.paddingRight)+.5,crumb=line.querySelector('.status-location [aria-current]');
+    if(style.flexWrap==='wrap'&&box.height>parseFloat(style.minHeight)+.5)return false;
     if(crumb?.getClientRects().length&&crumb.clientWidth+1<Math.min(crumb.scrollWidth,CRUMB))return false;
     return flow().every(element=>{const own=element.getBoundingClientRect();return !own.width||(own.right<=limit&&own.left>=box.left-.5);});};
   let frame=0,restore=false,width=0;

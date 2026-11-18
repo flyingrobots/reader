@@ -1,5 +1,6 @@
 /* Status line priority (#74), using only a disposable synthetic vault: items give way by their declared
-   data-status-priority, lowest first, so an extra item never pushes the mode or Backstage off screen. */
+   data-status-priority, lowest first, so an extra item never pushes the mode or Backstage off screen. On phones the line has
+   two rows (#226), so two items overlap only when their boxes intersect both ways. */
 require('./jail_guard.cjs');
 const assert=require('node:assert/strict');
 const {spawn}=require('node:child_process');
@@ -19,7 +20,7 @@ const {chromium}=require(process.env.READER_PLAYWRIGHT || 'playwright-core');
   const crowd=()=>page.evaluate(()=>{const line=document.querySelector('#statusline'),box=e=>e.getBoundingClientRect();
     const children=[...line.children].filter(e=>e.id!=='reading-progress'&&!e.classList.contains('sr-only'));
     const shown=children.filter(e=>getComputedStyle(e).display!=='none'&&box(e).width>0);
-    const overlaps=[];for(let i=0;i<shown.length;i++)for(let j=i+1;j<shown.length;j++){const a=box(shown[i]),b=box(shown[j]);if(Math.min(a.right,b.right)-Math.max(a.left,b.left)>.5)overlaps.push(shown[i].id+'/'+shown[j].id);}
+    const overlaps=[];for(let i=0;i<shown.length;i++)for(let j=i+1;j<shown.length;j++){const a=box(shown[i]),b=box(shown[j]);if(Math.min(a.right,b.right)-Math.max(a.left,b.left)>.5&&Math.min(a.bottom,b.bottom)-Math.max(a.top,b.top)>.5)overlaps.push(shown[i].id+'/'+shown[j].id);}
     const rank=e=>Number(e.dataset.statusPriority??99),gaveWay=children.filter(e=>e.hasAttribute('data-status-hidden'));
     // Content spilling out of its own box (a crushed mode label) overlaps visually even when boxes do not.
     const squeezed=shown.filter(e=>e.id!=='status-location'&&getComputedStyle(e).overflowX==='visible'&&e.scrollWidth>e.clientWidth+1).map(e=>e.id);

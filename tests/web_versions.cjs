@@ -137,7 +137,7 @@ const shots=process.env.READER_SHOTS||'.reader/web-dev';
    assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),'no horizontal scroll at phone width');
    await page.screenshot({path:shots+'/versions-phone-chip.png'});
    await page.locator('#status-version').click();const panel=page.locator('#versions-panel');await panel.waitFor();
-   const box=await panel.boundingBox();assert.ok(box.x<=1&&box.width>=388&&box.y>100&&box.y+box.height>=844-40,'a bottom sheet across the width');
+   const box=await panel.boundingBox();assert.ok(box.x<=1&&box.width>=388&&box.y>100&&box.y+box.height>=844-80-2,'a bottom sheet across the width, ending at the 80px phone footer (#226)');
    assert.ok(await panel.evaluate(el=>el.scrollWidth<=el.clientWidth+1),'timeline items wrap');
    await page.waitForTimeout(300);await page.screenshot({path:shots+'/versions-phone-sheet.png'});
    await context.close();}
