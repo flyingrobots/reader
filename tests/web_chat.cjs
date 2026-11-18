@@ -100,6 +100,12 @@ const {chromium}=require(process.env.READER_PLAYWRIGHT||'playwright-core');
   await page.waitForFunction(()=>document.querySelector('[data-chat-message][data-author=Claude]')?.hasAttribute('data-chat-flash'));
   const seen=await reply.evaluate(el=>{const r=el.getBoundingClientRect(),p=document.querySelector('#chat-panel').getBoundingClientRect();return r.bottom>p.top&&r.top<p.bottom;});
   assert.ok(seen,'the quoted message is scrolled into view');
+  // Content that arrives after the jump (a streamed reply growing) must not pull the view back to the end.
+  await page.evaluate(()=>new Promise(done=>{const content=document.querySelector('#chat-panel [data-slot=message-scroller-content]'),late=document.createElement('div');late.dataset.lateContent='';late.style.height='600px';content.append(late);
+   requestAnimationFrame(()=>requestAnimationFrame(()=>requestAnimationFrame(done)));}));
+  const held=await reply.evaluate(el=>{const r=el.getBoundingClientRect(),p=document.querySelector('#chat-panel').getBoundingClientRect();return r.bottom>p.top&&r.top<p.bottom;});
+  await page.evaluate(()=>document.querySelector('[data-late-content]')?.remove());
+  assert.ok(held,'the quoted message stays in view when content arrives after the jump');
   // Typing straight past the mention list keeps every character.
   await page.locator('#chat-input').focus();await page.keyboard.type('@agy what about provenance?');
   assert.equal(await page.locator('#chat-input').inputValue(),'@agy what about provenance?');await page.keyboard.press('Enter');
