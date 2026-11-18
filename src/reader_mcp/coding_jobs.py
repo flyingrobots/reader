@@ -34,11 +34,12 @@ from . import coding_agents, llm_logs, prompt_blocks
 from .coding_publish import closes, ours
 from .coding_container import ContainerJob
 from .coding_store import InstalledRecordError, CaptureFailed, Capture, Live, Store, archived_events, stamp, valid_id
-from .coding_workflow import Stop, process_started
+from .coding_workflow import Stop
 from .display import shown
 from .github import GhCli, GitHubError
 from .repositories import AGENTS, Registry, RegistryError, LegacyRepository
 from .resources import has_capacity
+from . import process_table
 from .voice_runner import Supervisor, kill_group
 
 OUTCOMES = ('pr_opened', 'already_fixed', 'blocked', 'failed', 'cancelled', 'interrupted', 'needs_reconciliation')
@@ -420,8 +421,8 @@ class Runner:
             notes, outcome = [], 'interrupted'
             # Before adoption, which clears `process`: a group the previous server left running is stopped first.
             process = run.get('process') or {}
-            if run.get('status') != 'finished' and not run.get('container') and process.get('group') and \
-                    process.get('host') == self.host and process.get('started') and process_started(process['group']) == process['started']:
+            if run.get('status') != 'finished' and not run.get('container') and process.get('group') and process.get('started') and \
+                    self.this_machine(process) and process_table.left_group(process['group'], process['started']):
                 kill_group(process['group'])
                 notes.append('Reader stopped the process the previous server left running.')
             adopted = run.get('status') != 'finished' and self.adopt_sealed(run)
@@ -490,6 +491,12 @@ class Runner:
                 except (OSError, ValueError) as exc:
                     run['archive_error'] = f'Sealing the run archive failed: {exc}'
             self.store.save(run)
+
+    def this_machine(self, process):
+        """A process record from this boot of this machine. Records that predate the boot identity fall back to the hostname."""
+        if 'boot' in process:
+            return bool(process['boot']) and process['boot'] == process_table.boot_id()
+        return process.get('host') == self.host
 
     def adopt_sealed(self, run):
         """A crash between sealing the archive and saving the finished record: the record takes the sealed outcome.
