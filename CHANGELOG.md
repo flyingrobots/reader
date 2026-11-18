@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Coding jobs: a run whose archive was sealed but whose finished record was lost in a crash recovers with the sealed outcome instead of `interrupted`; pending intents are still settled by recovery (closes #178).
 - Browser suites: `web_inbox_token` recognizes the page-relative inbox and token URLs the web UI builds since #106, so it observes the recovered inbox start instead of timing out (#287).
 - Browser suites: `web_container_setup` launches the shared default browser instead of `/usr/bin/chromium`, and `web_private` reports a skip with its reason (exit 77) when `.reader/npm-cache` lacks the private bridge packages; `scripts/run_browser_suites.py` counts skips apart from passes and failures, and `scripts/fetch_private_bridge.py --check` tests the cache offline (#286).
 - Coding jobs: finishing a run never raises. An oversized final record is saved with its longest text fields cut and named in `truncated`, and an unexpected error in one job finishes it `failed` instead of stopping the queue worker (part of #178).
