@@ -788,7 +788,7 @@ def test_reverse_proxy_at_a_prefix_is_served_with_host_and_origin_unchanged(web)
     assert json.loads(body)['token'] == server.token
     status, page, headers = request('/reader/', headers=reverse(), raw=True)
     assert status == 200 and headers['Content-Type'].startswith('text/html') and b'assets/app.mjs' in page
-    assert code(request, '/reader/assets/style.css', headers=reverse(), raw=True) == 200
+    assert code(request, '/reader/assets/style.css', headers=reverse()) == 200
     doc = json.loads(request('/reader/api/document?path=library/thought.md', headers=reverse(), raw=True)[1])
     seen = {'participant': 'Test reader', 'items': [doc['item']]}
     assert code(request, '/reader/api/seen', seen, reverse(Origin='https://' + PROXY_HOST)) == 200

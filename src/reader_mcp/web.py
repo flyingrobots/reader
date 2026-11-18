@@ -1261,6 +1261,15 @@ class WebHandler(BaseHTTPRequestHandler):
         super().setup()
         self.connection.settimeout(30)
 
+    def parse_request(self):
+        """Serve the configured base path (web_access) as the root, so a proxy can forward /reader/* unchanged (#106)."""
+        if not super().parse_request():
+            return False
+        base = self.server.library.access.base_path()
+        if base and self.path.startswith(base):
+            self.path = '/' + self.path[len(base):]
+        return True
+
     def log_message(self, *_):
         pass  # No private paths, queries or passages in access logs.
 
