@@ -155,3 +155,13 @@ def started(pid):
     except (OSError, ValueError, StopIteration):
         return None
     return None
+
+
+def boot_id():
+    """An identity of this machine's current boot, to recognise a process record after a restart."""
+    raise NotImplementedError
+
+
+def group_members(pgid):
+    """The running pids in one process group."""
+    raise NotImplementedError
