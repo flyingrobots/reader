@@ -132,9 +132,16 @@ class Runner:
         return self.supervisor.fd is not None
 
     def start(self):
-        """At server start: take ownership and reconcile leftovers when this vault has registered repositories."""
+        """At server start: take ownership and reconcile leftovers when this vault has registered repositories. Recovery
+        can wait on GitHub, so it runs on its own thread; coding-job actions wait for it on the ownership lock (#181)."""
         if self.registry.configured():
+            threading.Thread(target=self.own_quietly, name='reader-coding-recovery', daemon=True).start()
+
+    def own_quietly(self):
+        try:
             self.own()
+        except Exception:
+            pass  # own() released ownership; the next coding-job action tries again and reports the error.
 
     def close(self):
         self.closed = True
@@ -416,81 +423,106 @@ class Runner:
         self.store.save(run)
 
     def recover(self):
-        """Reconcile runs a previous server left unfinished. Never relaunches an agent."""
+        """Reconcile runs a previous server left unfinished. Never relaunches an agent. One record that cannot be
+        recovered ends `needs_reconciliation` with the reason; the others are still recovered (#181)."""
         for run in self.store.runs():
-            notes, outcome = [], 'interrupted'
-            # Before adoption, which clears `process`: a group the previous server left running is stopped first.
-            process = run.get('process') or {}
-            if run.get('status') != 'finished' and not run.get('container') and process.get('group') and process.get('started') and \
-                    self.this_machine(process) and process_table.left_group(process['group'], process['started']):
-                kill_group(process['group'])
-                notes.append('Reader stopped the process the previous server left running.')
-            adopted = run.get('status') != 'finished' and self.adopt_sealed(run)
-            finished = run.get('status') == 'finished'
-            # A finished run can still hold a GitHub intent its archive failure left unsettled (#173).
-            pending = finished and (run.get('issue_pending') or run.get('pr_pending'))
-            if finished and not pending and (not run.get('container') or run['container'].get('state') == 'stopped'):
-                if adopted:
-                    self.store.save(run)
-                continue
-            entry = None
             try:
-                entry = self.registry.entry(run['source']['repo'], require_container=self.job_factory is ContainerJob)
-            except (RegistryError, LegacyRepository):
-                pass
-            container_problem = None
-            container_live = bool(run.get('container')) and run['container'].get('state') != 'stopped'
-            if container_live:
-                try:
-                    from .container_recovery import recover as recover_container
-                    if (run.get('owner') or {}).get('host') != self.host:
-                        raise RuntimeError('The previous worker belongs to another host')
-                    docker, locks = shutil.which('docker', path=(self.environ or {}).get('PATH')), self.git_locks()
-                    if not docker or not locks:
-                        raise RuntimeError('Docker and git-locks are required to confirm the previous worker stopped')
-                    run['container'] = recover_container(self.root, run['source']['repo'], run['id'], run['container'],
-                                                         docker=docker, lock_tool=locks, persist=lambda value: self._save_container_recovery(run,value))
-                    notes.append('Its container was stopped; the persistent workspace volume was retained.')
-                except Exception as exc:
-                    container_problem = str(exc)
-                    notes.append('Container shutdown requires reconciliation: ' + container_problem)
-            if finished:
-                if pending:
-                    # Settle the intent by the same read-back; the sealed archive keeps its evidence.
-                    if self.reconcile(run, entry, notes)[0] == 'pr_opened':
-                        run.update(outcome='pr_opened', message=('Reconciled after the run finished: pull request #' +
-                                                                 str(run['pr']['number']) + ' is open.'))
-                if container_live:
-                    # Keep the sealed outcome and its evidence intact. Cleanup is a later operation.
-                    run['cleanup'] = {'at':stamp(), 'state':'needs_reconciliation' if container_problem else 'stopped',
-                                      'message':' '.join(notes)}
-                self.store.save(run)
-                continue
-            outcome, found = self.reconcile(run, entry, notes)
-            if container_problem:
-                outcome = 'needs_reconciliation'
-            message = ('Reader stopped before this job finished; it was not restarted. ' + ' '.join(notes)).strip() if outcome != 'pr_opened' else \
-                ('Reconciled after a restart: pull request #' + str(run['pr']['number']) + ' is open. ' + ' '.join(notes)).strip()
-            run.update(status='finished', outcome=outcome, message=message, finished_at=stamp(), process=None, recovered=True)
-            if run.get('log'):
-                try:
-                    events, _ = archived_events(self.root, run['log'], 0, limit=10**6, max_bytes=64 * 1024**2)
-                    seq = max([e['seq'] for e in events] or [0]) + 1
-                    folder = llm_logs.safe_dir(self.root, run['log'])
-                    if (folder / 'events.jsonl.partial').is_file():
-                        with (folder / 'events.jsonl.partial').open('ab+') as out:
-                            # A server that stopped mid-write leaves a torn last line: end it, or the outcome joins it.
-                            if out.seek(0, 2):
-                                out.seek(-1, 2)
-                                if out.read(1) != b'\n':
-                                    out.write(b'\n')
-                            out.write((json.dumps({'run_id': run['id'], 'seq': seq, 'at': stamp(), 'type': 'outcome', 'outcome': outcome,
-                                                   'message': message, 'phase': run.get('phase'), 'recovered': True}) + '\n').encode())
-                        run['seq'] = seq
-                    llm_logs.seal(self.root, run['log'], outcome, message, pr=run.get('pr') if outcome == 'pr_opened' else None)
-                except (OSError, ValueError) as exc:
-                    run['archive_error'] = f'Sealing the run archive failed: {exc}'
+                self.recover_run(run)
+            except Exception as exc:
+                if getattr(exc, 'store_write', False):
+                    raise  # The runtime store cannot be written: not this record's fault; own() releases and retries.
+                self.unrecoverable(run, exc)
+
+    def save_recovered(self, run):
+        try:
             self.store.save(run)
+        except OSError as exc:
+            exc.store_write = True
+            raise
+
+    def unrecoverable(self, run, exc):
+        reason = f'{type(exc).__name__}: {exc}'[:1000]
+        run.update(status='finished', outcome='needs_reconciliation', finished_at=run.get('finished_at') or stamp(), process=None,
+                   recovered=True, message=shown('Reader could not recover this job after a restart; check it by hand. ' + reason, self.root))
+        try:
+            self.store.save(run)
+        except Exception:  # The store keeps the record in memory and retries it; recovery goes on.
+            pass
+
+    def recover_run(self, run):
+        notes, outcome = [], 'interrupted'
+        # Before adoption, which clears `process`: a group the previous server left running is stopped first.
+        process = run.get('process') or {}
+        if run.get('status') != 'finished' and not run.get('container') and process.get('group') and process.get('started') and \
+                self.this_machine(process) and process_table.left_group(process['group'], process['started']):
+            kill_group(process['group'])
+            notes.append('Reader stopped the process the previous server left running.')
+        adopted = run.get('status') != 'finished' and self.adopt_sealed(run)
+        finished = run.get('status') == 'finished'
+        # A finished run can still hold a GitHub intent its archive failure left unsettled (#173).
+        pending = finished and (run.get('issue_pending') or run.get('pr_pending'))
+        if finished and not pending and (not run.get('container') or run['container'].get('state') == 'stopped'):
+            if adopted:
+                self.save_recovered(run)
+            return
+        entry = None
+        try:
+            entry = self.registry.entry(run['source']['repo'], require_container=self.job_factory is ContainerJob)
+        except (RegistryError, LegacyRepository):
+            pass
+        container_problem = None
+        container_live = bool(run.get('container')) and run['container'].get('state') != 'stopped'
+        if container_live:
+            try:
+                from .container_recovery import recover as recover_container
+                if (run.get('owner') or {}).get('host') != self.host:
+                    raise RuntimeError('The previous worker belongs to another host')
+                docker, locks = shutil.which('docker', path=(self.environ or {}).get('PATH')), self.git_locks()
+                if not docker or not locks:
+                    raise RuntimeError('Docker and git-locks are required to confirm the previous worker stopped')
+                run['container'] = recover_container(self.root, run['source']['repo'], run['id'], run['container'],
+                                                     docker=docker, lock_tool=locks, persist=lambda value: self._save_container_recovery(run,value))
+                notes.append('Its container was stopped; the persistent workspace volume was retained.')
+            except Exception as exc:
+                container_problem = str(exc)
+                notes.append('Container shutdown requires reconciliation: ' + container_problem)
+        if finished:
+            if pending:
+                # Settle the intent by the same read-back; the sealed archive keeps its evidence.
+                if self.reconcile(run, entry, notes)[0] == 'pr_opened':
+                    run.update(outcome='pr_opened', message=('Reconciled after the run finished: pull request #' +
+                                                             str(run['pr']['number']) + ' is open.'))
+            if container_live:
+                # Keep the sealed outcome and its evidence intact. Cleanup is a later operation.
+                run['cleanup'] = {'at':stamp(), 'state':'needs_reconciliation' if container_problem else 'stopped',
+                                  'message':' '.join(notes)}
+            self.save_recovered(run)
+            return
+        outcome, found = self.reconcile(run, entry, notes)
+        if container_problem:
+            outcome = 'needs_reconciliation'
+        message = ('Reader stopped before this job finished; it was not restarted. ' + ' '.join(notes)).strip() if outcome != 'pr_opened' else \
+            ('Reconciled after a restart: pull request #' + str(run['pr']['number']) + ' is open. ' + ' '.join(notes)).strip()
+        run.update(status='finished', outcome=outcome, message=message, finished_at=stamp(), process=None, recovered=True)
+        if run.get('log'):
+            try:
+                events, _ = archived_events(self.root, run['log'], 0, limit=10**6, max_bytes=64 * 1024**2)
+                seq = max([e['seq'] for e in events] or [0]) + 1
+                folder = llm_logs.safe_dir(self.root, run['log'])
+                if (folder / 'events.jsonl.partial').is_file():
+                    with (folder / 'events.jsonl.partial').open('ab+') as out:
+                        # A server that stopped mid-write leaves a torn last line: end it, or the outcome joins it.
+                        if out.seek(0, 2):
+                            out.seek(-1, 2)
+                            if out.read(1) != b'\n':
+                                out.write(b'\n')
+                        out.write((json.dumps({'run_id': run['id'], 'seq': seq, 'at': stamp(), 'type': 'outcome', 'outcome': outcome,
+                                               'message': message, 'phase': run.get('phase'), 'recovered': True}) + '\n').encode())
+                    run['seq'] = seq
+                llm_logs.seal(self.root, run['log'], outcome, message, pr=run.get('pr') if outcome == 'pr_opened' else None)
+            except (OSError, ValueError) as exc:
+                run['archive_error'] = f'Sealing the run archive failed: {exc}'
+        self.save_recovered(run)
 
     def this_machine(self, process):
         """A process record from this boot of this machine. Records that predate the boot identity fall back to the hostname."""
