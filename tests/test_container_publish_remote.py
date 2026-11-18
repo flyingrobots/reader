@@ -52,4 +52,4 @@ def test_a_url_rewrite_to_another_repository_stops_publication(job, rewrite):
     config(f'url.https://github.com/mallory/widget.git.{rewrite}', URL)
     with pytest.raises(Stop) as stopped:
         instance.publish({}, 'a' * 40)
-    assert stopped.value.args[0] == 'failed', stopped.value.args
+    assert stopped.value.outcome == 'failed', stopped.value.message

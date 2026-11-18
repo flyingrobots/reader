@@ -230,9 +230,11 @@ class ContainerJob(Job):
         return result
 
     def publish(self, result, head):
-        url = self.git(['config', '--get', 'remote.origin.url']).stdout.strip()
-        push = self.git(['config', '--get-all', 'remote.origin.pushurl'], check=False).stdout.strip() or url
+        # The URLs Git really uses after insteadOf/pushInsteadOf rewrites (#301); the push to the explicit URL below
+        # is rewritten the same way as origin's identical URL.
+        urls = self.git(['remote', 'get-url', '--all', 'origin']).stdout.split()
+        urls += self.git(['remote', 'get-url', '--push', '--all', 'origin']).stdout.split()
         expected = 'https://github.com/' + self.repo + '.git'
-        if url != expected or push != expected:
+        if not urls or any(url != expected for url in urls):
             raise Stop('failed', 'The agent changed the publication remote; nothing was pushed.')
         return super().publish(result, head)
