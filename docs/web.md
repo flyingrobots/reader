@@ -33,11 +33,29 @@ The web server does not rebuild indexes or download models at startup.
 **URLs are page-relative.** The page, its stylesheets, scripts, fonts, the manifest and every API call
 use URLs relative to the page (`api/library`, `assets/app.mjs`, `?pane=1`; CSS fonts resolve against the
 stylesheet), and the `file_url` and `preview_url` that the server returns as `/api/...` are resolved
-against the page. So the UI works unchanged at a path prefix such as `https://host/reader/`, provided a
-reverse proxy forwards `/reader/*` to the server with the prefix stripped. The server itself has no
-prefix option and still checks `Host` and `Origin` against its loopback address; a proxy must present
-those, or be configured as the trusted front. `tests/web_path_prefix.cjs` serves the UI this way and
-fails on any request outside the prefix.
+against the page. So the UI works unchanged at a path prefix such as `https://host/reader/`.
+
+**Behind a reverse proxy at a prefix.** Set `base_path` (or `READER_WEB_BASE_PATH`) to the prefix, for
+example `"/reader/"`; the server then answers `/reader/...` as it answers `/...` (the root keeps working
+for direct local access). A proxy such as nginx or Caddy can forward `/reader/*` unchanged, with the
+client's Host and Origin and its `X-Forwarded-*` headers, when the web config also sets
+`"trusted_proxy": "reverse"`, lists the public name in `allowed_hosts` and the public origin in
+`allowed_origins`:
+
+```json
+{"trusted_proxy": "reverse", "allowed_hosts": ["books.example.org"],
+ "allowed_origins": ["https://books.example.org"], "base_path": "/reader/"}
+```
+
+A reverse-proxied request must carry a forwarding header, a Host equal to `X-Forwarded-Host` and in
+`allowed_hosts`, any Origin in `allowed_origins`, and no `Tailscale-Funnel-Request`. It is identified as
+`{"via": "proxy"}`: never the local user, so local-only actions (delivery tokens, coding jobs, the
+private shelf) stay refused. Requests without forwarding headers keep the loopback rules below. The
+proxy must be the only way the public name reaches this port; anything on this machine that can reach
+the loopback port can present the same headers. `base_path` must look like `/reader/` (no dot
+segments); an invalid value refuses proxied requests and leaves local access at the root.
+`tests/web_path_prefix.cjs` (a stripping proxy) and `tests/web_path_prefix_proxy.cjs` (a proxy that
+forwards unchanged) fail on any request outside the prefix.
 
 ## Companion attachments
 
@@ -4088,7 +4106,8 @@ Every request, static assets included, is identified before routing
 `Tailscale-*` identity header) is *local*: its Host must be exactly
 `127.0.0.1:port` or `localhost:port`, and any Origin `http://127.0.0.1:port` or
 `http://localhost:port`. Any request carrying a proxy header is *proxied*, and is
-refused unless the web config sets `trusted_proxy` to `tailscale`, the Host and
+refused unless the web config sets `trusted_proxy` to `reverse` (see *Behind a reverse proxy at a
+prefix*) or to `tailscale`, the Host and
 `X-Forwarded-Host` agree on a name in `allowed_hosts`, there is no
 `Tailscale-Funnel-Request`, `Tailscale-User-Login` (RFC 2047-decoded, compared
 case-insensitively) is in `allowed_logins`, and any Origin is in `allowed_origins`.

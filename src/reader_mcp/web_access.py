@@ -26,6 +26,7 @@ from email.header import decode_header, make_header
 import hmac
 import json
 import os
+import re
 from pathlib import Path
 import threading
 
@@ -40,10 +41,12 @@ PROXY_HEADERS = ('X-Forwarded-For', 'X-Forwarded-Host', 'X-Forwarded-Proto', 'Fo
 FRONT_SECRET, FRONT_IDENTITY = 'X-Reader-Front-Secret', 'X-Reader-Identity'
 MIN_FRONT_SECRET = 32  # characters, for the secret and for a front-supplied write token
 MAX_FRONT_IDENTITY = 2048
+PROXIES = ('tailscale', 'reverse')
+BASE_PATH = re.compile(r'/(?:[A-Za-z0-9_~-][A-Za-z0-9._~-]*/)+')  # '/reader/', '/apps/reader/'; no dot segments
 
 
 def empty():
-    return {'allowed_hosts': [], 'allowed_origins': [], 'allowed_logins': [], 'trusted_proxy': None}
+    return {'allowed_hosts': [], 'allowed_origins': [], 'allowed_logins': [], 'trusted_proxy': None, 'base_path': None}
 
 
 def normalize(data):
@@ -56,9 +59,13 @@ def normalize(data):
             raise ValueError(f'Web config {key} must be a list of at most 64 short strings')
         config[key] = [v.strip().rstrip('.') if key == 'allowed_hosts' else v.strip() for v in values]
     proxy = data.get('trusted_proxy')
-    if proxy not in (None, '', 'tailscale'):
-        raise ValueError('Web config trusted_proxy must be "tailscale" or empty')
+    if proxy not in (None, '', *PROXIES):
+        raise ValueError('Web config trusted_proxy must be "tailscale", "reverse" or empty')
     config['trusted_proxy'] = proxy or None
+    base = data.get('base_path')
+    if base not in (None, '') and not (isinstance(base, str) and len(base) <= 200 and BASE_PATH.fullmatch(base)):
+        raise ValueError('Web config base_path must look like "/reader/"')
+    config['base_path'] = base or None
     return config
 
 
@@ -98,11 +105,20 @@ class WebAccess:
                     config[key] = normalize({key: [v for v in value.split(',') if v.strip()]})[key]
             if (value := self.environ.get('READER_WEB_TRUSTED_PROXY')) is not None:
                 config['trusted_proxy'] = normalize({'trusted_proxy': value.strip()})['trusted_proxy']
+            if (value := self.environ.get('READER_WEB_BASE_PATH')) is not None:
+                config['base_path'] = normalize({'base_path': value.strip()})['base_path']
         except ValueError as exc:
             raise PermissionError(f'{exc}; proxied requests are refused until it is fixed')
         with self.lock:
             self.cached = (identity, config)
         return config
+
+    def base_path(self):
+        """The configured path prefix ('/reader/'), or None; an unusable config serves at the root only."""
+        try:
+            return self.config()['base_path']
+        except PermissionError:
+            return None
 
     def front(self):
         """The trusted front's (secret, write token), or (None, None) when no front is configured.
@@ -135,7 +151,7 @@ class WebAccess:
                 raise PermissionError('Cross-origin requests are refused')
             return {'via': 'local', 'login': None, 'name': None}
         config = self.config()
-        if config['trusted_proxy'] != 'tailscale':
+        if config['trusted_proxy'] not in PROXIES:
             raise PermissionError('Proxied requests are refused; no trusted proxy is configured')
         if headers.get('Tailscale-Funnel-Request') is not None:
             raise PermissionError('Public (Funnel) requests are refused')
@@ -144,6 +160,12 @@ class WebAccess:
         forwarded = (headers.get('X-Forwarded-Host') or '').removesuffix(':443').rstrip('.')
         if not name or name.casefold() not in hosts or forwarded.casefold() != name.casefold():
             raise PermissionError('Unexpected Host')
+        if config['trusted_proxy'] == 'reverse':
+            # A generic reverse proxy forwards the client's Host and Origin unchanged and asserts no login: the
+            # requester is a proxied visitor, never the local user, and only listed names and origins pass.
+            if origin and origin not in config['allowed_origins']:
+                raise PermissionError('Cross-origin requests are refused')
+            return {'via': 'proxy', 'login': None, 'name': None}
         login = (headers.get('Tailscale-User-Login') or '').strip()
         login = decoded(login)
         return self.tailnet(config, login, decoded(headers.get('Tailscale-User-Name') or '')[:200] or None, origin)
