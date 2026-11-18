@@ -107,6 +107,13 @@ const {chromium}=require(process.env.READER_PLAYWRIGHT||'playwright-core');
   await page.locator('[data-activity-jump]').click();
   await page.waitForFunction(()=>{const el=document.querySelector('#inbox .activity-log');return el.scrollHeight-el.scrollTop-el.clientHeight<48;});
   assert.equal(await page.locator('[data-activity-jump]').count(),0);
+  // The latest scroll decides: down to the end and back up in one task leaves the view up, with Jump shown (#294).
+  await log.evaluate(el=>{el.scrollTop=0;el.dispatchEvent(new Event('scroll'));});await page.locator('[data-activity-jump]').waitFor();
+  await log.evaluate(el=>new Promise(done=>{el.scrollTop=el.scrollHeight;el.dispatchEvent(new Event('scroll'));el.scrollTop=0;el.dispatchEvent(new Event('scroll'));
+   requestAnimationFrame(()=>requestAnimationFrame(()=>requestAnimationFrame(done)));}));
+  assert.deepEqual(await log.evaluate(el=>({top:el.scrollTop,jump:!!document.querySelector('[data-activity-jump]')})),{top:0,jump:true},'the last scroll (up) wins over an earlier one (to the end)');
+  await page.locator('[data-activity-jump]').click();
+  await page.waitForFunction(()=>{const el=document.querySelector('#inbox .activity-log');return el.scrollHeight-el.scrollTop-el.clientHeight<48;});
   // j/k move between items inside the transcript without scrolling the page; Enter expands one.
   await log.focus();await page.keyboard.press('j');
   assert.equal(await page.evaluate(()=>document.activeElement.closest('[data-activity-item]')?.dataset.itemId),'item_0');
