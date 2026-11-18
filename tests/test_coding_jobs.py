@@ -717,3 +717,56 @@ def test_stop_of_a_queued_run_answers_stopped_not_stopping(world):
     run = w.jobs.submit(w.request())
     reply = w.jobs.stop(run['id'])
     assert (reply['stopped'], reply['stopping'], reply['outcome']) == (True, False, 'cancelled'), reply
+
+
+def lost_final_save(w, monkeypatch, **request):
+    """Run a job whose archive is sealed but whose finished record never reaches the disk, then restart Reader."""
+    write = w.jobs.store._write
+
+    def full(path, data):
+        if data.get('status') == 'finished':
+            raise OSError(28, 'synthetic full runtime disk')
+        write(path, data)
+    monkeypatch.setattr(w.jobs.store, '_write', full)
+    admitted = w.jobs.submit(w.request(**request))
+    w.wait(admitted['id'])  # Finished in memory only.
+    w.jobs.close()  # The process dies before a retry reaches the disk.
+    monkeypatch.setattr(w.jobs.store, '_write', write)
+    w.jobs = w.make()
+    assert w.jobs.own()  # Taking ownership runs recovery.
+    return w.jobs.store.load(admitted['id'])
+
+
+def test_recovery_keeps_the_outcome_a_sealed_archive_already_records(world, monkeypatch):
+    """#178 (Moriarty test_m5): a crash between sealing the archive and saving the record keeps the sealed outcome."""
+    from reader_mcp import llm_logs
+    w = world(scenario={'outcome': 'already_fixed', 'commit': False})
+    run = lost_final_save(w, monkeypatch)
+    meta = json.loads((llm_logs.safe_dir(w.vault, run['log']) / 'meta.json').read_text())
+    assert meta['status'] == 'already_fixed', meta['status']
+    assert (run['status'], run['outcome']) == ('finished', 'already_fixed'), (run['status'], run['outcome'], run['message'])
+
+
+def test_recovery_of_a_sealed_run_with_a_pending_pull_request_still_settles_it(world, monkeypatch):
+    """#178 with #173 (2): adopting the sealed outcome keeps the pending intent, which recovery then settles; the
+    record may advance to `pr_opened` while the sealed archive keeps `needs_reconciliation`, as docs/web.md says."""
+    from reader_mcp import coding_store, llm_logs
+    w = world(issue=None)
+    armed, capture_write, create = [], coding_store.Capture.write, w.github.create_pull_request
+
+    def failing(self, name, data):
+        if armed:
+            raise coding_store.CaptureFailed('synthetic archive write failure')
+        return capture_write(self, name, data)
+
+    def created(*args, **options):
+        value = create(*args, **options)
+        armed.append(True)
+        return value
+    monkeypatch.setattr(coding_store.Capture, 'write', failing)
+    monkeypatch.setattr(w.github, 'create_pull_request', created)
+    run = lost_final_save(w, monkeypatch)
+    meta = json.loads((llm_logs.safe_dir(w.vault, run['log']) / 'meta.json').read_text())
+    assert meta['status'] == 'needs_reconciliation', meta['status']
+    assert (run['status'], run['outcome'], run['pr_pending']) == ('finished', 'pr_opened', None), (run['outcome'], run['message'])
+    assert run['pr']['number'] in w.github.pulls and len(w.github.pulls) == 1
