@@ -19,7 +19,7 @@ const DELAY=2000;
     await context.addInitScript(value=>{try{localStorage.setItem('reader.preferences.v1',value);}catch{}
       // The page's own clock: when /api/versions was asked for and answered, and when the article became visible.
       const marks=window.__late={};const fetch=window.fetch;
-      window.fetch=function(input,...rest){const href=String(input?.url||input);const versions=href.includes('/api/versions?');if(versions)marks.versionsAsked??=performance.now();
+      window.fetch=function(input,...rest){const href=String(input?.url||input);const versions=href.includes('api/versions?');if(versions)marks.versionsAsked??=performance.now();
         const done=fetch.call(this,input,...rest);if(versions)done.then(()=>{marks.versionsAnswered??=performance.now();},()=>{});return done;};
       new MutationObserver(()=>{if(marks.visible===undefined&&document.querySelector('#article')&&!document.querySelector('.resume-pending')){marks.visible=performance.now();marks.chipAtVisible=!!document.querySelector('.version-line');}}).observe(document,{subtree:true,childList:true,attributes:true,attributeFilter:['class']});
     },JSON.stringify({smooth:false,theme:'user-reader-test',nextReads:false,...prefs}));

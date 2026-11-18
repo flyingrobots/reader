@@ -232,13 +232,13 @@ function announceRuns(runs:Run[],labels:Record<string,string>){
 }
 async function pollMaintenance(){
   clearTimeout(pollTimer);let status:MaintenanceStatus|null=null;
-  try{status=await controlActions.api('/api/maintenance');update({maintenance:status,maintenanceError:null});announce(status!);}catch(error){update({maintenanceError:message(error)});/* The next poll retries. */}
+  try{status=await controlActions.api('api/maintenance');update({maintenance:status,maintenanceError:null});announce(status!);}catch(error){update({maintenanceError:message(error)});/* The next poll retries. */}
   const fast=!!(status?.running||status?.checking||status?.local_model?.running);
   pollTimer=setTimeout(()=>{if(document.visibilityState==='visible'||fast)pollMaintenance();else document.addEventListener('visibilitychange',pollMaintenance,{once:true});},fast?1500:15000);
 }
 export async function startJob(kind:string){
   if(needsReader())return;   // The web demo has no server to run a job; its controls say so.
-  try{const job:Job=await controlActions.api('/api/maintenance',{action:'start',kind});
+  try{const job:Job=await controlActions.api('api/maintenance',{action:'start',kind});
     update({maintenance:model.maintenance?{...model.maintenance,running:job}:model.maintenance});
     if(job.kind!=='check'){started.add(job.id);dismissed.delete(job.id);toast.loading(`${job.label} running…`,{id:job.id,description:'You can keep reading. This updates when it finishes.',duration:Infinity,cancel:dismissAction(job.id)});}
   }catch(error){if(!(error as {offline?:boolean})?.offline)toast.error('Couldn’t start that job',{description:error instanceof Error?error.message:String(error),duration:8000});}
@@ -248,7 +248,7 @@ export async function startJob(kind:string){
 // Companions: optional tools, their setup jobs and the "not installed" prompt.
 const COMPANION_JOBS=new Set(['install-colorful','update-colorful','install-wide-md','update-wide-md','start-ai-tts']);
 export async function refreshCompanions(){
-  try{update({companions:await controlActions.api('/api/companions'),companionsError:null});}catch(error){update({companionsError:message(error)});/* The card keeps its last status. */}
+  try{update({companions:await controlActions.api('api/companions'),companionsError:null});}catch(error){update({companionsError:message(error)});/* The card keeps its last status. */}
 }
 function mergeCompanion(result:CompanionsStatus){
   const current=model.companions,item=result.companions?.[0];if(!current||!item)return;
@@ -256,7 +256,7 @@ function mergeCompanion(result:CompanionsStatus){
 }
 /** check, set-path (returns status) or install, update, start (returns a maintenance job, announced like any other). */
 export async function companionAction(name:string,action:string,extra:Record<string,unknown>={}){
-  const result=await controlActions.api('/api/companions',{action,name,...extra});
+  const result=await controlActions.api('api/companions',{action,name,...extra});
   if(result?.kind&&result?.id){
     started.add(result.id);dismissed.delete(result.id);toast.loading(`${result.label} running…`,{id:result.id,description:'Progress and the log are in Reader Admin, Service & tools.',duration:Infinity,cancel:dismissAction(result.id)});
     update({maintenance:model.maintenance?{...model.maintenance,running:result}:model.maintenance});pollMaintenance();refreshCompanions();
@@ -267,7 +267,7 @@ export async function companionAction(name:string,action:string,extra:Record<str
 export async function promptCompanion(name:string,fallback?:string){
   if(needsReader()){toast(fallback||'That feature needs Reader on your computer.',{description:NEEDS_READER+': companion tools install there.',id:'companion-'+name});return;}
   let item:Companion|undefined;
-  try{item=(await controlActions.api('/api/companions?name='+encodeURIComponent(name))).companions[0];}
+  try{item=(await controlActions.api('api/companions?name='+encodeURIComponent(name))).companions[0];}
   catch{toast.error(fallback||'That feature is unavailable.',{duration:8000});return;}
   if(!item)return;
   if(item.state==='installed'&&!item.job){if(fallback)toast.error(fallback,{duration:8000});return;}
@@ -313,7 +313,7 @@ export async function pollActivity(){
   clearTimeout(activityTimer);if(activityBusy)return;activityBusy=true;let current=model.activity;
   try{
     for(let page=0;page<64;page++){
-      const after=current.offset,result=await controlActions.api('/api/inbox/events?after='+after);
+      const after=current.offset,result=await controlActions.api('api/inbox/events?after='+after);
       if(result.run_id!==current.runId||result.reset){current=newActivity(result.run_id);if(after>0)continue;}
       const at=Date.now(),runner=model.inbox?.runner;let activity=current.activity;
       for(const raw of result.events)activity=reduce(activity,fromCodex(raw),at);
@@ -329,7 +329,7 @@ export async function pollActivity(){
 }
 async function pollInbox(){
   clearTimeout(inboxTimer);let status:InboxStatus|null=null;
-  try{status=await controlActions.api('/api/inbox');
+  try{status=await controlActions.api('api/inbox');
     for(const arrival of status!.arrivals)arrivalTitles[arrival.id]=arrival.title;
     const run=status!.runner;
     if(run?.run_id&&(run.run_id!==model.activity.runId||ACTIVE.includes(run.status)&&model.activity.done))pollActivity();
@@ -339,25 +339,25 @@ async function pollInbox(){
 }
 export async function startInbox(){
   if(model.inboxStarting||needsReader())return;update({inboxStarting:true});
-  try{const result=await controlActions.api('/api/inbox',{action:'start',sandbox_mode:'read-only'});
+  try{const result=await controlActions.api('api/inbox',{action:'start',sandbox_mode:'read-only'});
     ownRuns.add(result.run_id);
     const id='inbox-'+result.run_id;dismissed.delete(id);
     if(!result.state||ACTIVE.includes(result.state.status))toast.loading('The librarian is reading the mail…',{id,description:'You can keep reading. This updates when the librarian finishes.',duration:Infinity,cancel:dismissAction(id)});
   }catch(error){
     // Another tab or client may have started a run since our last poll (a 409): show that run instead of an error.
-    const status:InboxStatus|null=await controlActions.api('/api/inbox').catch(()=>null);
+    const status:InboxStatus|null=await controlActions.api('api/inbox').catch(()=>null);
     if(status&&ACTIVE.includes(status.runner?.status||'')){update({inbox:status});toast('The librarian is already reading the mail',{description:'Showing the run that is in progress.'});}
     else toast.error('Couldn’t start the librarian',{description:error instanceof Error?error.message:String(error),duration:10000});}
   finally{update({inboxStarting:false});}
   pollInbox();
 }
 export async function chooseArrival(arrival:string,choice:'hold'|'cloud'|null){
-  try{await controlActions.api('/api/inbox',{action:'choose',arrival,choice});}
+  try{await controlActions.api('api/inbox',{action:'choose',arrival,choice});}
   catch(error){toast.error('Couldn’t change that arrival',{description:error instanceof Error?error.message:String(error),duration:10000});}
   pollInbox();
 }
 export async function stopInbox(){
-  try{await controlActions.api('/api/inbox',{action:'stop'});toast('Stop requested',{description:'The runner stops the librarian’s process group; partial changes stay for inspection.'});}
+  try{await controlActions.api('api/inbox',{action:'stop'});toast('Stop requested',{description:'The runner stops the librarian’s process group; partial changes stay for inspection.'});}
   catch(error){toast.error('Couldn’t stop the run',{description:error instanceof Error?error.message:String(error)});}
   pollInbox();
 }
@@ -384,7 +384,7 @@ let localTimer:ReturnType<typeof setTimeout>|undefined,localHost:HTMLElement|nul
 async function pollLocalModel(){
   clearTimeout(localTimer);if(!localHost?.isConnected){localHost=null;return;}
   let status:LocalModelStatus|null=null;
-  try{status=await controlActions.api('/api/local-model');update({localModel:status,localModelError:null});announceRuns(status!.runs,status!.labels);}catch(error){update({localModelError:message(error)});/* The next poll retries. */}
+  try{status=await controlActions.api('api/local-model');update({localModel:status,localModelError:null});announceRuns(status!.runs,status!.labels);}catch(error){update({localModelError:message(error)});/* The next poll retries. */}
   const fast=!!(status?.now||status?.running||status?.server.control?.state==='running');
   localTimer=setTimeout(()=>{if(document.visibilityState==='visible')pollLocalModel();else document.addEventListener('visibilitychange',pollLocalModel,{once:true});},fast?1000:6000);
 }
@@ -394,7 +394,7 @@ const ACTION_DONE:Record<string,(result:any)=>string|null>={
   settings:()=>'Local-model settings saved.',pause:()=>'Paused. The current item finishes first.',
 };
 export async function localModelAction(action:string,payload:Record<string,unknown>={}){
-  try{const result=await controlActions.api('/api/local-model',{action,...payload});const message=ACTION_DONE[action]?.(result);if(message)toast.success(message);
+  try{const result=await controlActions.api('api/local-model',{action,...payload});const message=ACTION_DONE[action]?.(result);if(message)toast.success(message);
     if(action==='run'&&result?.run)announceRuns([result.run],model.localModel?.labels||{});
     return result;}
   catch(error){toast.error('Local model: that didn’t work',{description:error instanceof Error?error.message:String(error),duration:8000});}

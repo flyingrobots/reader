@@ -2,8 +2,8 @@
 import {occurrences} from './logic.mjs';
 export async function openPDF(container, url) {
   const pdfjs = await import('./vendor/pdf.min.mjs');
-  pdfjs.GlobalWorkerOptions.workerSrc = '/assets/vendor/pdf.worker.min.mjs';
-  const loading = pdfjs.getDocument({url, standardFontDataUrl:'/assets/vendor/standard_fonts/', cMapUrl:'/assets/vendor/cmaps/', cMapPacked:true, isEvalSupported:false, useWasm:false});
+  pdfjs.GlobalWorkerOptions.workerSrc = new URL('vendor/pdf.worker.min.mjs',import.meta.url).href;
+  const loading = pdfjs.getDocument({url, standardFontDataUrl:new URL('vendor/standard_fonts/',import.meta.url).href, cMapUrl:new URL('vendor/cmaps/',import.meta.url).href, cMapPacked:true, isEvalSupported:false, useWasm:false});
   const pdf = await loading.promise;
   if(pdf.numPages>5000){await loading.destroy();throw new Error('PDF exceeds the 5,000-page reading limit. Open the original.');}
   let disposed=false, running=false, queue=[], generation=0;
@@ -94,8 +94,8 @@ export async function pdfPage(container, url, number) {
   await new Promise(resolve=>{const observer=new IntersectionObserver(entries=>{if(entries.some(entry=>entry.isIntersecting)){observer.disconnect();resolve();}},{rootMargin:'100%'});observer.observe(container);});
   if(!container.isConnected)return;
   const pdfjs = await import('./vendor/pdf.min.mjs');
-  pdfjs.GlobalWorkerOptions.workerSrc = '/assets/vendor/pdf.worker.min.mjs';
-  const loading = pdfjs.getDocument({url, standardFontDataUrl:'/assets/vendor/standard_fonts/', cMapUrl:'/assets/vendor/cmaps/', cMapPacked:true, isEvalSupported:false, useWasm:false});
+  pdfjs.GlobalWorkerOptions.workerSrc = new URL('vendor/pdf.worker.min.mjs',import.meta.url).href;
+  const loading = pdfjs.getDocument({url, standardFontDataUrl:new URL('vendor/standard_fonts/',import.meta.url).href, cMapUrl:new URL('vendor/cmaps/',import.meta.url).href, cMapPacked:true, isEvalSupported:false, useWasm:false});
   try {
     const pdf = await loading.promise, shown = Math.min(Math.max(1, number), pdf.numPages), page = await pdf.getPage(shown);
     const raw = page.getViewport({scale:1}), width = Math.min(container.clientWidth || 560, 720), viewport = page.getViewport({scale:width/raw.width});

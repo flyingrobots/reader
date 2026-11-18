@@ -257,7 +257,7 @@ function moveToRange(range) {
 }
 async function loadLibrary() {
   const profile = state.prefs.participant ? '?participant=' + param(state.prefs.participant) : '';
-  const data = await api('/api/library' + profile);
+  const data = await api('api/library' + profile);
   state.data = localizeLibrary(data); state.token = data.token; state.prefs.participant = data.participant;
   if($('#picker'))updateExplorer();
   return data;
@@ -280,14 +280,14 @@ async function renderHome(path=null,id=state.routeId) {
   try{span=week?{...issueWindow(works,{week,exclude:options.exclude}),fallback:false}:currentIssue(works,options);}
   catch{span=currentIssue(works,options);notify('That issue does not exist; showing this week’s issue.');}
   let signals={newsletters:[],picks:[],near:[]};
-  try{signals=await api('/api/issue?start='+param(span.start)+'&end='+param(span.end));}catch{/* Selection works without newsletter picks or embeddings. */}
+  try{signals=await api('api/issue?start='+param(span.start)+'&end='+param(span.end));}catch{/* Selection works without newsletter picks or embeddings. */}
   if(id!==state.routeId)return;
   const issue=selectIssue(works,{window:span,today:state.data.today,exclude:options.exclude,picks:signals.picks,near:signals.near});
   state.issue=issue;
   const artwork=await issueArt(issue);if(id!==state.routeId)return;
   clearControlsWithin($('#main'));
   const model=issueModel({issue,weeks:issueWeeks(works,{exclude:options.exclude,through:isoWeek(state.data.today).end}),signals,prefs:state.prefs,art:artwork,artMake:state.prefs.art!==false&&!!artProducer(),sections:sectionsForIssue(issue,works)});
-  state.magazine=mountMagazine($('#main'),model,{api,openIssue,wire:wireDocumentLinks,queue:path=>queue.add(path),makeArt:commissionArt,admin:()=>openAdmin('library'),writing:needsReader()?null:()=>api('/api/writing?participant='+param(state.prefs.participant)).then(data=>(data.pieces||[]).slice(0,10).map(piece=>({path:piece.path,title:piece.title,date:formatDate(piece.date)})))});
+  state.magazine=mountMagazine($('#main'),model,{api,openIssue,wire:wireDocumentLinks,queue:path=>queue.add(path),makeArt:commissionArt,admin:()=>openAdmin('library'),writing:needsReader()?null:()=>api('api/writing?participant='+param(state.prefs.participant)).then(data=>(data.pieces||[]).slice(0,10).map(piece=>({path:piece.path,title:piece.title,date:formatDate(piece.date)})))});
   if(!reduced.matches)animateIssue($('#main'));
   prose?.attach($('#main'),{kind:'issue',issue:issue.id});  // Space c colors the issue's standfirsts and note.
   resetScroll();reading?.updateStatus();
@@ -360,7 +360,7 @@ async function showArtVersion(path,version){
   catch(error){report(error);}
 }
 async function favoriteArt(path,chosen){
-  try{await api('/api/art',{action:'favorite',path,edition:chosen.edition,generation:chosen.generation});forgetArt(path);notify('This version is the one shown from now on.','success');repaintArt();}catch(error){report(error);}
+  try{await api('api/art',{action:'favorite',path,edition:chosen.edition,generation:chosen.generation});forgetArt(path);notify('This version is the one shown from now on.','success');repaintArt();}catch(error){report(error);}
 }
 /** Show art (Space g): the open article's art above its kicker (or a calm placeholder offering to make it), for this session's articles until toggled off. */
 async function toggleArt(){
@@ -412,7 +412,7 @@ function placeArticleArt(path,hero=false){
 function heroOptions(figure){
   const book=!!reading?.hasBook(),text=selector=>$('#article '+selector)?.textContent.trim()||'';
   return {book,kicker:text('.document-kicker'),title:text('.document-title'),byline:text('.document-meta .by'),
-    standfirst:book?api('/api/standfirst?path='+param(figure.dataset.art)).then(d=>['frontmatter','local-model'].includes(d.source)?d.standfirst:null).catch(()=>null):null,
+    standfirst:book?api('api/standfirst?path='+param(figure.dataset.art)).then(d=>['frontmatter','local-model'].includes(d.source)?d.standfirst:null).catch(()=>null):null,
     go(){if(book){reading.seekSpread(1);$('#main').focus({preventScroll:true});return;}const kicker=$('#article .document-kicker')||$('#article .document-title');if(kicker)scrollToPosition(shown()+kicker.getBoundingClientRect().top-32);}};
 }
 function paintArticleArt(figure,data){
@@ -575,12 +575,13 @@ async function navigate(path,{thread=null,fragment='',record=true,commit=null,at
     // An article with art opens on it (#145): its art is asked for alongside the document, so the hero costs no extra wait.
     if(heroWanted()&&!atCommit&&!preview&&TEXTUAL.test(path))fetchArt(api,path).catch(()=>{});
     let editions=LATE;
-    const pending=preview?Promise.resolve(null):secondary('Versions',()=>api('/api/versions?path='+param(path)+'&participant='+param(state.prefs.participant))).then(found=>editions=found??null);
+    const pending=preview?Promise.resolve(null):secondary('Versions',()=>api('api/versions?path='+param(path)+'&participant='+param(state.prefs.participant))).then(found=>editions=found??null);
     // Space v pressed before a late timeline arrives waits for it (versions.mjs) instead of reporting a single version.
     state.versionsPending={path,timeline:pending.catch(()=>null)};
-    const [doc,changes]=await Promise.all([atCommit?api('/api/version?path='+param(path)+'&commit='+param(atCommit)):api('/api/document?path='+param(path)+'&participant='+param(state.prefs.participant)),
-      !atCommit&&!preview&&TEXTUAL.test(path)?api('/api/changes?path='+param(path)+'&participant='+param(state.prefs.participant)).catch(()=>null):null]); if(id!==state.routeId)return;
+    const [doc,changes]=await Promise.all([atCommit?api('api/version?path='+param(path)+'&commit='+param(atCommit)):api('api/document?path='+param(path)+'&participant='+param(state.prefs.participant)),
+      !atCommit&&!preview&&TEXTUAL.test(path)?api('api/changes?path='+param(path)+'&participant='+param(state.prefs.participant)).catch(()=>null):null]); if(id!==state.routeId)return;
     const inLayout=editions!==LATE;state.editions=state.versions=inLayout?editions:null;state.changes=changes;const historical=!!doc.historical;
+    for(const key of ['file_url','preview_url'])if(/^\/(?!\/)/.test(doc[key]||''))doc[key]=doc[key].slice(1); // The server's URLs are root-absolute; resolve them against the page (#106).
     state.doc=doc;state.threads=[];state.attention=[];state.hostAttention=[];state.embedThreads=new Map();
     const author=Array.isArray(doc.metadata.author)?doc.metadata.author.join(' · '):doc.metadata.author;
     const known=doc.preview?null:state.data.works.find(w=>w.primary===path);
@@ -658,7 +659,7 @@ async function navigate(path,{thread=null,fragment='',record=true,commit=null,at
     $('#main').innerHTML='<div class="loading-state"><h2>Document unavailable</h2><p>Try opening another document.</p></div>';report(error);}
 }
 async function markRead(doc,path,title,author){
-    await api('/api/seen',{participant:state.prefs.participant,items:[doc.item]});
+    await api('api/seen',{participant:state.prefs.participant,items:[doc.item]});
     if(state.doc===doc)youReadNow(doc,state.routeId);
     const work=state.data.works.find(w=>w.primary===path);if(work){work.read=true;work.read_at=new Date().toISOString();}
     state.data.recent=[{...(work||{}),title,primary:path,authors:author?[author]:[],read:true,read_at:new Date().toISOString()},...state.data.recent.filter(w=>w.primary!==path)].slice(0,50);
@@ -716,7 +717,7 @@ async function openChanges(kind,against){
   let data=kind==='mine'?state.changes:null;
   if(!data||!data.hunks){
     const query=kind==='successor'?'&successor=1':kind==='against'?'&against='+param(against):'';
-    try{data=await api('/api/changes?path='+param(doc.path)+'&participant='+param(state.prefs.participant)+query);}catch(error){report(error);return;}
+    try{data=await api('api/changes?path='+param(doc.path)+'&participant='+param(state.prefs.participant)+query);}catch(error){report(error);return;}
     if(state.doc!==doc)return;
   }
   if(kind==='successor'&&state.editions?.newer)data={...data,title:compareLabel(state.editions)};
@@ -767,7 +768,7 @@ async function renderMarkdown(container,raw,path,depth,{defer=false,range=null,c
     try{
       const bytes=new TextEncoder().encode(raw),hash=await crypto.subtle.digest('SHA-256',bytes);
       const sha=[...new Uint8Array(hash)].map(n=>n.toString(16).padStart(2,'0')).join('');
-      env.portableLinks=await portableEnvironment(md,source.text,await api('/api/portable-links?path='+param(path)+'&sha256='+sha),{mathDollar:env.mathDollar});
+      env.portableLinks=await portableEnvironment(md,source.text,await api('api/portable-links?path='+param(path)+'&sha256='+sha),{mathDollar:env.mathDollar});
     }catch(error){console.warn('Local link repairs unavailable',error);}
   }
   const rendered=md.render(source.text,env);
@@ -781,7 +782,7 @@ async function renderMarkdown(container,raw,path,depth,{defer=false,range=null,c
   }
   // Markdown percent-encodes a destination (`my%20pic.png`); an embed's image target is written as is.
   const located=await resolveMany(path,images.map(image=>image.hasAttribute('data-embed-image')?image.getAttribute('src'):decode(image.getAttribute('src') || '')));
-  images.forEach((image,index)=>{const resolved=located[index];if(resolved?.path)image.src='/api/file?path='+param(resolved.path)+(resolved.fragment?'#'+resolved.fragment:'');else{image.removeAttribute('src');image.alt=(image.alt || 'Image')+' (unavailable)';}});
+  images.forEach((image,index)=>{const resolved=located[index];if(resolved?.path)image.src='api/file?path='+param(resolved.path)+(resolved.fragment?'#'+resolved.fragment:'');else{image.removeAttribute('src');image.alt=(image.alt || 'Image')+' (unavailable)';}});
   clearControlsWithin(container);container.replaceChildren(template.content);slugHeadings(container);
   if(prompts&&env.prompts.blocks?.length)mountPromptCards(promptMounts(container,env.prompts),prompts);
   prepareDiagrams(container);
@@ -851,7 +852,7 @@ let mathModule=null;
 async function drawMath(container,{first,onSlice}={}){
   if(!container.querySelector('.reader-math[data-tex]:not([data-state])'))return;
   try{
-    if(!document.querySelector('link[data-katex]')){const link=document.createElement('link');link.rel='stylesheet';link.href='/assets/controls/katex/katex.css';link.dataset.katex='';const loaded=new Promise((resolve,reject)=>{link.onload=resolve;link.onerror=()=>reject(new Error('KaTeX styles did not load'));});document.head.append(link);await loaded;}
+    if(!document.querySelector('link[data-katex]')){const link=document.createElement('link');link.rel='stylesheet';link.href='assets/controls/katex/katex.css';link.dataset.katex='';const loaded=new Promise((resolve,reject)=>{link.onload=resolve;link.onerror=()=>reject(new Error('KaTeX styles did not load'));});document.head.append(link);await loaded;}
     mathModule??=await import('./controls/math.js');mathModule.installMathCopy();
   }catch(error){console.error(error);document.querySelector('link[data-katex]')?.remove();notify('Formulas couldn’t load; showing their TeX instead.','error');return;}
   const {skipped}=await mathModule.renderMath(container,{first,onSlice,onRender:()=>{refreshScroll();positionPins();}});
@@ -901,7 +902,7 @@ async function resolveMany(path,targets){
   for(const target of unique){const length=param(target).length+8;if(!batches.length||batches.at(-1).length>=64||size+length>12000){batches.push([]);size=0;}batches.at(-1).push(target);size+=length;}
   // Two batches at a time stays well inside the server's request limit.
   for(let i=0;i<batches.length;i+=2)await Promise.all(batches.slice(i,i+2).map(async batch=>{
-    try{const {results}=await api('/api/resolve-batch?from='+param(path)+batch.map(target=>'&target='+param(target)).join(''));batch.forEach((target,index)=>found.set(target,results[index]?.path?results[index]:null));}
+    try{const {results}=await api('api/resolve-batch?from='+param(path)+batch.map(target=>'&target='+param(target)).join(''));batch.forEach((target,index)=>found.set(target,results[index]?.path?results[index]:null));}
     catch{batch.forEach(target=>found.set(target,null));}
   }));
   return targets.map(target=>found.get(target)??null);
@@ -925,7 +926,7 @@ function wireArticleLinks(root,path){
     if(href.startsWith('#')){event.preventDefault();const heading=decode(href.slice(1));if(showHeading(root,heading)&&root.id==='article')history.replaceState(history.state,'',routeHash(path,null,heading));return;}
     if(/^(https?:|mailto:)/i.test(href)){link.target='_blank';link.rel='noopener noreferrer';return;}
     event.preventDefault();
-    try{const resolved=await api('/api/resolve?from='+param(path)+'&target='+param(decodeURI(href)));
+    try{const resolved=await api('api/resolve?from='+param(path)+'&target='+param(decodeURI(href)));
       // Shift-click opens the target in the other pane, splitting the window first if needed.
       if(event.shiftKey)openInSplit('#read='+param(resolved.path)+(resolved.fragment?'&h='+param(resolved.fragment):''));else navigate(resolved.path,{fragment:resolved.fragment});}catch(error){report(error);}
   }));
@@ -941,7 +942,7 @@ function refreshReadingLog(){
 }
 function loadReadingLog(doc,id){
   const key=readingLogKey(doc);
-  if(!readingLogs.has(key))readingLogs.set(key,api('/api/readers?path='+param(doc.path)+'&participant='+param(state.prefs.participant)).catch(error=>{readingLogs.delete(key);throw error;}));
+  if(!readingLogs.has(key))readingLogs.set(key,api('api/readers?path='+param(doc.path)+'&participant='+param(state.prefs.participant)).catch(error=>{readingLogs.delete(key);throw error;}));
   readingLogs.get(key).then(data=>paintReadingLog(data,id),error=>{
     if(id!==state.routeId)return;const slot=$('#main .reading-log');if(slot){renderReadingLog(slot,null,readingLogActions);slot.dataset.ready='error';}
     console.warn(error);notify('Reading log unavailable: '+(error.message||error));
@@ -964,7 +965,7 @@ function paintReadingLog(data,id){
 
 async function showNextReads(path,id){
   if(state.prefs.nextReads===false)return;
-  const [data,queued]=await Promise.all([api('/api/next?path='+param(path)+'&participant='+param(state.prefs.participant)).catch(()=>null),queue.peek()]);
+  const [data,queued]=await Promise.all([api('api/next?path='+param(path)+'&participant='+param(state.prefs.participant)).catch(()=>null),queue.peek()]);
   const items=data?.items||[];
   if(id!==state.routeId||state.doc?.path!==path||!items.length&&!queued||$('#main .next-reads'))return;
   const aside=document.createElement('aside');aside.className='next-reads';aside.dataset.readerDecoration='';aside.dataset.endOrder='2';
@@ -1068,14 +1069,14 @@ function allThreads(){const seen=new Set(),all=[];for(const thread of [...state.
 async function loadEmbedDiscussions(){
   const doc=state.doc,article=$('#article');if(!doc||!article)return;
   const paths=[...new Set(embeds.scopes(article).map(el=>el.dataset.sourcePath))].filter(path=>path!==doc.path).slice(0,24),found=new Map();
-  for(let i=0;i<paths.length;i+=4)await Promise.all(paths.slice(i,i+4).map(async path=>{try{const data=await api('/api/discussion?path='+param(path)+'&participant='+param(state.prefs.participant));found.set(path,{threads:data.threads,attention:data.attention.items});}catch{/* An embed's margins are optional. */}}));
+  for(let i=0;i<paths.length;i+=4)await Promise.all(paths.slice(i,i+4).map(async path=>{try{const data=await api('api/discussion?path='+param(path)+'&participant='+param(state.prefs.participant));found.set(path,{threads:data.threads,attention:data.attention.items});}catch{/* An embed's margins are optional. */}}));
   if(state.doc!==doc)return;
   state.embedThreads=found;state.attention=[...(state.hostAttention||[]),...[...found.values()].flatMap(v=>v.attention)];
 }
 async function loadDiscussion(){
   if(!state.doc || !['.md','.markdown'].includes(state.doc.kind))return;
   const path=state.doc.path;
-  const [data]=await Promise.all([api('/api/discussion?path='+param(path)+'&participant='+param(state.prefs.participant)),loadEmbedDiscussions()]);
+  const [data]=await Promise.all([api('api/discussion?path='+param(path)+'&participant='+param(state.prefs.participant)),loadEmbedDiscussions()]);
   if(state.doc?.path!==path)return;
   state.threads=data.threads;state.hostAttention=data.attention.items;state.attention=[...data.attention.items,...[...(state.embedThreads||new Map()).values()].flatMap(v=>v.attention)];paintAnnotations();
 }
@@ -1186,7 +1187,7 @@ function renderThread(thread){
   $('#thread-body').innerHTML=`<blockquote class="thread-quote${thread.kind==='warning'?' warning':''}">${esc(plainQuote(thread.anchor.quote))}</blockquote><div class="thread-status">${esc(thread.owner)} · ${formatDate(thread.created_at)}${thread.resolved?' · resolved':''}<br>${esc(seenLabel('thread:'+thread.id))}</div>${!['exact','relocated'].includes(thread.location?.status)?'<p class="orphan-note">This passage has moved or is ambiguous. The original quote is preserved; no inline location is guessed.</p>':''}<div class="comments">${thread.comments.map(c=>`<div class="comment${c.reply_to?' reply':''}"><div class="comment-header"><span class="comment-author">${esc(c.author)}</span><span class="comment-time">${formatDate(c.created_at)}</span></div><p>${esc(c.body)}</p><div class="comment-footer"><span>${esc(seenLabel('comment:'+thread.id+':'+c.id))}</span><button type="button" data-button="ghost xs" data-reply="${esc(c.id)}">Reply</button></div></div>`).join('') || '<p class="quiet">A passage worth returning to.</p>'}</div><form id="thread-reply" class="thread-reply"><div id="reply-context" class="reply-context" hidden></div><label class="sr-only" for="reply-body">Reply to this thread</label><textarea id="reply-body" maxlength="16000" placeholder="Continue the thought…" required></textarea><button type="submit" data-button="default" class="form-submit">Add reply</button></form>`;
   $('#reply-body').value=draft;if(wasWriting)$('#reply-body').focus();
   $('#thread-body').querySelectorAll('[data-reply]').forEach(el=>el.onclick=()=>{state.replyTo=el.dataset.reply;const parent=thread.comments.find(c=>c.id===state.replyTo);$('#reply-context').hidden=false;$('#reply-context').textContent='Replying to '+parent.author;$('#reply-body').focus();});
-  $('#thread-reply').onsubmit=async event=>{event.preventDefault();const body=$('#reply-body').value;const replyKey=JSON.stringify([thread.id,state.prefs.participant,body,state.replyTo]);state.replyRequests ||= {};state.replyRequests[replyKey] ||= crypto.randomUUID();const button=$('#thread-reply button');button.disabled=true;try{await api('/api/annotations',{operation:'reply',thread_id:thread.id,author:state.prefs.participant,body,reply_to:state.replyTo,request_id:state.replyRequests[replyKey]});state.replyTo=null;$('#reply-body').value='';await openThread(thread.id);toast('Your reply is in the margins.');}catch(error){button.disabled=false;report(error);}};
+  $('#thread-reply').onsubmit=async event=>{event.preventDefault();const body=$('#reply-body').value;const replyKey=JSON.stringify([thread.id,state.prefs.participant,body,state.replyTo]);state.replyRequests ||= {};state.replyRequests[replyKey] ||= crypto.randomUUID();const button=$('#thread-reply button');button.disabled=true;try{await api('api/annotations',{operation:'reply',thread_id:thread.id,author:state.prefs.participant,body,reply_to:state.replyTo,request_id:state.replyRequests[replyKey]});state.replyTo=null;$('#reply-body').value='';await openThread(thread.id);toast('Your reply is in the margins.');}catch(error){button.disabled=false;report(error);}};
 }
 async function openThread(id){
   try {
@@ -1195,7 +1196,7 @@ async function openThread(id){
     queue?.close(false);threadPanel();if(state.activeThread!==id){state.replyTo=null;$('#thread-body').replaceChildren();}state.activeThread=id;renderThread(thread);
     if(first)enterThreadPanel();
     const items=state.attention.filter(i=>i.thread_id===id).map(({key,version})=>({key,version}));
-    if(items.length)await api('/api/seen',{participant:state.prefs.participant,items});
+    if(items.length)await api('api/seen',{participant:state.prefs.participant,items});
     await loadDiscussion();const fresh=allThreads().find(t=>t.id===id);if(state.activeThread===id&&fresh)renderThread(fresh);
   }catch(error){report(error);}
 }
@@ -1232,7 +1233,7 @@ function captureSelection(given=null){
 async function createAnnotation(kind,comment=''){
   const selected=state.selected;if(!selected||selected.path!==state.doc?.path&&!embeds.doc(selected.path))throw new Error('Select the passage again.');
   const key=JSON.stringify([kind,comment]);selected.requests[key] ||= crypto.randomUUID();
-  const thread=await api('/api/annotations',{operation:'create',path:selected.path,start:selected.start,end:selected.end,owner:state.prefs.participant,comment,expected_sha256:selected.sha256,request_id:selected.requests[key],kind});
+  const thread=await api('api/annotations',{operation:'create',path:selected.path,start:selected.start,end:selected.end,owner:state.prefs.participant,comment,expected_sha256:selected.sha256,request_id:selected.requests[key],kind});
   annotationDialog?.close();hidePanel('selection-tools');getSelection()?.removeAllRanges();await loadDiscussion();if(comment || kind==='warning')await openThread(thread.id);else toast('Passage highlighted.');
 }
 
@@ -1354,7 +1355,7 @@ function themesChanged(themes,fonts){
   controls.update({customThemes:themes,fonts});
   if(!knownTheme(state.prefs.theme))useTheme(state.prefs.theme.endsWith('-dark')?'ink':'paper');
 }
-async function loadThemes(){try{const list=await api('/api/themes');themesChanged(list.themes,list.fonts);}catch(error){report(error);}}
+async function loadThemes(){try{const list=await api('api/themes');themesChanged(list.themes,list.fonts);}catch(error){report(error);}}
 function previewFont(href){if(!/^\/fonts\/[a-z0-9-]+\/font\.css$/.test(href)||document.querySelector(`link[data-theme-font][href="${href}"]`))return;const link=document.createElement('link');link.rel='stylesheet';link.href=href;link.dataset.themeFont='';document.head.append(link);}
 async function applyPreferences(prefs){
   await reading?.leave();if(prefs.proseColors!==state.prefs.proseColors)state.proseStyles?.clear();state.prefs={...state.prefs,...prefs};savePrefs();document.documentElement.dataset.theme=state.prefs.theme;applyArticleWidth();
@@ -1457,7 +1458,7 @@ const linkActions={
     const href=a.getAttribute('href')||'';
     if(/^(https?:|mailto:)/i.test(href)){window.open(href,'_blank','noopener,noreferrer');return;}
     if(href.startsWith('#')){a.click();return;}
-    try{const from=a.closest('[data-source-path]')?.dataset.sourcePath||state.doc.path,resolved=await api('/api/resolve?from='+param(from)+'&target='+param(decode(href)));
+    try{const from=a.closest('[data-source-path]')?.dataset.sourcePath||state.doc.path,resolved=await api('api/resolve?from='+param(from)+'&target='+param(decode(href)));
       window.open(location.pathname+'#read='+param(resolved.path)+(resolved.fragment?'&h='+param(resolved.fragment):''),'_blank','noopener');}catch(error){report(error);}
   },
 };
@@ -1662,7 +1663,7 @@ const SPEAK={article:'article',here:'from',from:'from',selection:'selection'};
 async function fuzzyRoute(text){
   const draft=SCRATCH_ROUTE.exec(text);if(draft)return draft[1]?'#scratch='+draft[1].toLowerCase():'#scratch';
   const known=state.data?.works.find(w=>w.primary===text);if(known)return '#read='+param(known.primary);
-  const {results}=await api('/api/search?q='+param(text)+'&mode=fuzzy&participant='+param(state.prefs.participant));
+  const {results}=await api('api/search?q='+param(text)+'&mode=fuzzy&participant='+param(state.prefs.participant));
   if(!results?.length){toast(`No document matches “${text}”.`);return null;}
   return '#read='+param(results[0].path||results[0].primary);
 }
@@ -1672,12 +1673,12 @@ async function openFuzzy(text){
   // :e scratch opens the latest scratch draft; :e scratch=<id> a given one.
   const draft=SCRATCH_ROUTE.exec(text);if(draft){navigate(draft[1]?SCRATCH+'='+draft[1].toLowerCase():SCRATCH);return;}
   const known=state.data?.works.find(w=>w.primary===text);if(known){navigate(known.primary);return;}
-  const {results}=await api('/api/search?q='+param(text)+'&mode=fuzzy&participant='+param(state.prefs.participant));
+  const {results}=await api('api/search?q='+param(text)+'&mode=fuzzy&participant='+param(state.prefs.participant));
   if(!results?.length){toast(`No document matches “${text}”.`);return;}
   navigate(results[0].path||results[0].primary);
 }
 /** Tab completion for a document name (:open, :vsplit). */
-async function completeDocument(typed){if(!typed.trim())return (state.data?.recent||[]).slice(0,12).map(w=>({value:w.primary,label:w.title}));try{const {results}=await api('/api/search?q='+param(typed)+'&mode=fuzzy&participant='+param(state.prefs.participant));return results.slice(0,12).map(w=>({value:w.path||w.primary,label:w.title}));}catch{return [];}}
+async function completeDocument(typed){if(!typed.trim())return (state.data?.recent||[]).slice(0,12).map(w=>({value:w.primary,label:w.title}));try{const {results}=await api('api/search?q='+param(typed)+'&mode=fuzzy&participant='+param(state.prefs.participant));return results.slice(0,12).map(w=>({value:w.path||w.primary,label:w.title}));}catch{return [];}}
 keys.command({name:'open',aliases:['e','edit'],args:'<document>',help:'Open a document by fuzzy title, author or path (`:e scratch` the scratch pad); without a name, the stacks',
   complete:completeDocument,
   run:openFuzzy});
@@ -1791,7 +1792,7 @@ async function linkInSplit(){
   if(/^(https?:|mailto:)/i.test(href)){toast('Ctrl-w f opens library links; this one leaves Reader.');return;}
   if(href.startsWith('#read=')){openInSplit(cleanRoute(href));return;}
   const from=link.closest('.embedded-content')?.dataset.sourcePath||state.doc?.path;if(!from||href.startsWith('#'))return;
-  const resolved=await api('/api/resolve?from='+param(from)+'&target='+param(decodeURI(href)));
+  const resolved=await api('api/resolve?from='+param(from)+'&target='+param(decodeURI(href)));
   openInSplit('#read='+param(resolved.path)+(resolved.fragment?'&h='+param(resolved.fragment):''));
 }
 // Split view glue ----------------------------------------------------------------------------

@@ -56,7 +56,7 @@ const shots=process.env.READER_SHOTS||'.reader/web-dev';
   const portableRequests=[];page.on('request',request=>{if(request.url().includes('/api/portable-links'))portableRequests.push(request.url());});
   await page.keyboard.press('G');await page.keyboard.press('o');await page.keyboard.type('![a pixel](library/figures/pixel.png)\n\n![[seed-note]]\n\n`file:///scratch-example`\n');await page.keyboard.press('Escape');
   await page.waitForFunction(()=>document.querySelector('.scratch-preview img[alt="a pixel"]')?.complete&&document.querySelector('.scratch-preview img[alt="a pixel"]').naturalWidth===1,null,{timeout:8000}).catch(async()=>{throw new Error('local image did not load: '+await page.locator('.scratch-preview').innerHTML());});
-  assert.equal(await page.locator('.scratch-preview img[alt="a pixel"]').getAttribute('src'),'/api/file?path=library%2Ffigures%2Fpixel.png');
+  assert.equal(await page.locator('.scratch-preview img[alt="a pixel"]').evaluate(i=>i.src),url+'/api/file?path=library%2Ffigures%2Fpixel.png');
   await page.locator('.scratch-preview .embedded-content',{hasText:'A small embedded idea.'}).waitFor({timeout:8000});
   assert.equal(await page.locator('.scratch-preview').getByText(/unavailable|couldn’t be read/).count(),0);
   assert.deepEqual(portableRequests,[],'An unsaved scratch directory must not request a source-bound link map');

@@ -21,6 +21,8 @@
     return cache.get(name);
   };
   const manifest = () => load('manifest.json');
+  /** The app's URLs are relative to the page (#106): a request under BASE answers as the server route at the root. */
+  const routed = raw => { const url = new URL(raw, location.href); if (url.origin === location.origin && url.pathname.startsWith(BASE)) url.pathname = '/' + url.pathname.slice(BASE.length); return url; };
 
   // Local state: this visitor's highlights, replies, reading positions and chats, in this browser only.
   const blank = () => ({version: 1, threads: {}, replies: {}, resolved: {}, bookmarks: {}, chats: {}});
@@ -457,7 +459,7 @@
 
   window.fetch = async function (input, init = {}) {
     const raw = typeof input === 'string' || input instanceof URL ? String(input) : input.url;
-    const url = new URL(raw, location.href);
+    const url = routed(raw);
     if (url.origin !== location.origin || !(url.pathname === '/' || url.pathname.startsWith('/api/'))) return realFetch(input, init);
     const method = (init.method || (typeof input === 'object' && !(input instanceof URL) ? input.method : 'GET') || 'GET').toUpperCase();
     try { return await (method === 'GET' ? get(url) : post(url, init.body)); }
@@ -468,7 +470,7 @@
       `hello` and a `state` snapshot of pending turns; an idle stream pings with the chat's revision. */
   class StaticEventSource extends EventTarget {
     constructor(url, options) {
-      const parsed = new URL(url, location.href);
+      const parsed = routed(url);
       if (parsed.origin !== location.origin || !parsed.pathname.startsWith('/api/') || !RealEventSource) {
         if (RealEventSource) return new RealEventSource(url, options);
       }
@@ -496,8 +498,8 @@
   // Images the app points at /api/file load the exported copy.
   const source = Object.getOwnPropertyDescriptor(HTMLImageElement.prototype, 'src');
   if (source?.set) Object.defineProperty(HTMLImageElement.prototype, 'src', {...source, set(value) {
-    const text = String(value);
-    if (text.startsWith('/api/file?path=')) { const path = new URLSearchParams(text.slice(10)).get('path') || ''; return source.set.call(this, fileURL(path)); }
+    const url = routed(String(value));
+    if (url.origin === location.origin && url.pathname === '/api/file') return source.set.call(this, fileURL(url.searchParams.get('path') || ''));
     return source.set.call(this, value);
   }});
 

@@ -200,7 +200,7 @@ export function installScratch({openSaveDialog,state,api,notify,renderMarkdown,n
           ...(draft.prompt?{prompt_id:draft.prompt.id,ask_reply:reply}:{}),
           ...(revising?{base:draft.base,...(fields.shifted?.trim()?{shifted:fields.shifted.trim()}:{})}:{slug:fields.slug})};
         let result;
-        try{result=await api('/api/writing',payload);}
+        try{result=await api('api/writing',payload);}
         catch(failure){
           if(failure.status===409&&failure.data?.suggestion&&!revising)return {error:failure.message+'. The slug now suggests a free name.',slug:failure.data.suggestion};
           return {error:failure.message||String(failure)};

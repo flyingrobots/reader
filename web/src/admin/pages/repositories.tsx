@@ -50,14 +50,14 @@ function RepositoryCard({repo,busy,onRemove}:{repo:Repository;busy:boolean;onRem
 }
 
 export function RepositoriesPage({options}:AdminPanelProps){
-  const [registry,reload]=useLoad<{configured:boolean;error:string|null;repositories:Repository[]}>(needsReader('jobs')?null:'/api/repositories',options.api);
+  const [registry,reload]=useLoad<{configured:boolean;error:string|null;repositories:Repository[]}>(needsReader('jobs')?null:'api/repositories',options.api);
   const [form,setForm]=React.useState({repo:'',base:'main',agents:['codex'] as string[],argv:'',timeout:'1800',store:'',imageId:''});
   const [inventory,setInventory]=React.useState<Inventory|null>(null),[preview,setPreview]=React.useState<Approval|null>(null);
   const [path,setPath]=React.useState(''),[consent,setConsent]=React.useState(false);
   const [busy,setBusy]=React.useState(false),[message,setMessage]=React.useState<{text:string;error:boolean}|null>(null);
   const act=async(payload:Record<string,unknown>,done:string,accept?:(data:any)=>void)=>{
     setBusy(true);setMessage(null);
-    try{const data=await options.api('/api/repositories',payload);accept?.(data);forgetArticleActions();setMessage({text:done,error:false});if(!accept)reload();}
+    try{const data=await options.api('api/repositories',payload);accept?.(data);forgetArticleActions();setMessage({text:done,error:false});if(!accept)reload();}
     catch(error){setMessage({text:error instanceof Error?error.message:String(error),error:true});}
     finally{setBusy(false);}
   };

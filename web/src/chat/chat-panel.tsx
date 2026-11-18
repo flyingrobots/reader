@@ -150,7 +150,7 @@ export function ChatPanel(props:ChatProps){
     if(message.startsWith('Another Reader server owns chat'))setReadOnly(message);notify(message,'error');},[notify]);
 
   // The server's pending turns replace ours: a turn that finished while we were not listening disappears.
-  const load=useCallback(async(id:string)=>{const data=await api('/api/chat?id='+encodeURIComponent(id));setChat(data.chat);setVoices(data.voices);setConfigured(data.configured);setCommit(data.commit);setLogs(data.llm_logs||null);owned(data);
+  const load=useCallback(async(id:string)=>{const data=await api('api/chat?id='+encodeURIComponent(id));setChat(data.chat);setVoices(data.voices);setConfigured(data.configured);setCommit(data.commit);setLogs(data.llm_logs||null);owned(data);
     const live=new Set((data.pending as Turn[]).map(t=>t.id));
     setTurns(old=>merge(Object.fromEntries(Object.entries(old).filter(([tid,t])=>t.chat_id===id&&live.has(tid))),data.pending));},[api,owned]);
   // History for this document; the newest chat reopens.
@@ -158,7 +158,7 @@ export function ChatPanel(props:ChatProps){
     if(!open||!path)return;
     if(chatRef.current&&chatRef.current.document_path===path&&(!initialId||chatRef.current.id===initialId))return;
     let live=true;setChat(null);setTurns({});setHistory([]);fresh.current=false;
-    (async()=>{try{const data=await api('/api/chats?path='+encodeURIComponent(path));if(!live)return;setHistory(data.chats);setVoices(data.voices);setConfigured(data.configured);setLogs(data.llm_logs||null);owned(data);if(initialId){if(!data.chats.some((c:Summary)=>c.id===initialId))throw Error("The requested chat does not belong to this article.");await load(initialId);}else if(data.chats[0])await load(data.chats[0].id);}catch(error){fail(error);}})();
+    (async()=>{try{const data=await api('api/chats?path='+encodeURIComponent(path));if(!live)return;setHistory(data.chats);setVoices(data.voices);setConfigured(data.configured);setLogs(data.llm_logs||null);owned(data);if(initialId){if(!data.chats.some((c:Summary)=>c.id===initialId))throw Error("The requested chat does not belong to this article.");await load(initialId);}else if(data.chats[0])await load(data.chats[0].id);}catch(error){fail(error);}})();
     return ()=>{live=false;};
   },[open,path,initialId,api,load,fail]);
   // Keep the history label of the open chat current.
@@ -168,7 +168,7 @@ export function ChatPanel(props:ChatProps){
   // One EventSource per chat, kept while the panel is open or a turn is still pending.
   useEffect(()=>{
     if(!streaming||!chat)return;
-    const id=chat.id,source=new EventSource('/api/chat/stream?id='+encodeURIComponent(id));
+    const id=chat.id,source=new EventSource('api/chat/stream?id='+encodeURIComponent(id));
     let seen=Date.now(),failedAt=0,interval=15;const checked=new Set<string>();
     // Any event proves the stream is alive again; reload what may have been missed meanwhile.
     const parse=(event:Event)=>{seen=Date.now();failedAt=0;
@@ -232,14 +232,14 @@ export function ChatPanel(props:ChatProps){
   const retried=new Set([...(chat?.messages||[]).map(m=>m.retry_of).filter(Boolean),...Object.values(turns).map(t=>t.retry_of).filter(Boolean)] as string[]);
   const ensureChat=async()=>{if(chatRef.current)return chatRef.current;const key='create:'+path;requests.current[key]||=uuid();
     // Another tab may have started this document's chat meanwhile: reuse it unless New chat was pressed.
-    const data=await api('/api/chat',{action:'create',path,participant,request_id:requests.current[key],reuse:!fresh.current});delete requests.current[key];fresh.current=false;
+    const data=await api('api/chat',{action:'create',path,participant,request_id:requests.current[key],reuse:!fresh.current});delete requests.current[key];fresh.current=false;
     setChat(data.chat);setVoices(data.voices);owned(data);setTurns(old=>merge(old,data.pending||[]));
     setHistory(old=>[{id:data.chat.id,created_at:data.chat.created_at,updated_at:data.chat.created_at,messages:data.chat.messages.length,last:null},...old.filter(c=>c.id!==data.chat.id)]);chatRef.current=data.chat;return data.chat as Chat;};
   const post=async(action:'send'|'paste',body:string)=>{
     if(!body.trim()||busy)return false;setBusy(true);
     try{const current=await ensureChat(),key=action+':'+current.id+':'+body;requests.current[key]||=uuid();
       const reply=action==='send'&&replyTo&&replyTo.id&&current.messages.some(m=>m.id===replyTo.id)?replyTo.id:undefined;
-      const data=await api('/api/chat',{action,id:current.id,body,participant,request_id:requests.current[key],...(reply?{reply_to:reply}:{}),...(action==='paste'&&pasteName?{voice:pasteName}:{})});delete requests.current[key];
+      const data=await api('api/chat',{action,id:current.id,body,participant,request_id:requests.current[key],...(reply?{reply_to:reply}:{}),...(action==='paste'&&pasteName?{voice:pasteName}:{})});delete requests.current[key];
       setChat(data.chat);owned(data);setTurns(old=>merge(old,data.pending));if(action==='send')setReplyTo(null);hushed.current=false;
       const routing=data.message?.routing;
       if(action==='send'&&!data.turns.length){const named=(data.message?.mentions||[]) as string[];
@@ -255,8 +255,8 @@ export function ChatPanel(props:ChatProps){
   const quiet=needsReader('chime-ins');
   const send=async()=>{if(offline)return;if(await post('send',draft)){setDraft('');setMention(null);}};
   const paste=async()=>{if(await post('paste',pasteText)){setPasteText('');setPasting(false);}};
-  const cancel=async(turn:Turn)=>{try{await api('/api/chat',{action:'cancel',turn_id:turn.id,id:turn.chat_id});}catch(error){fail(error);}};
-  const retry=async(message:ChatMessage)=>{if(!chat)return;try{const data=await api('/api/chat',{action:'retry',id:chat.id,message_id:message.id});setChat(data.chat);setTurns(old=>merge(old,data.pending));}catch(error){fail(error);}};
+  const cancel=async(turn:Turn)=>{try{await api('api/chat',{action:'cancel',turn_id:turn.id,id:turn.chat_id});}catch(error){fail(error);}};
+  const retry=async(message:ChatMessage)=>{if(!chat)return;try{const data=await api('api/chat',{action:'retry',id:chat.id,message_id:message.id});setChat(data.chat);setTurns(old=>merge(old,data.pending));}catch(error){fail(error);}};
   const choose=(voice:Voice|null)=>{
     const element=textarea.current;if(!voice||!mention||!element)return;
     const alias=voice.mention[0]||voice.name,at=element.selectionStart??draft.length;
@@ -265,7 +265,7 @@ export function ChatPanel(props:ChatProps){
   };
   const track=(text:string,caret:number)=>{setDraft(text);setMention(mentionAt(text,caret));
     // Typing stops pending listening checks; raised hands stay.
-    if(text&&listening.length&&chat&&!hushed.current){hushed.current=true;api('/api/chat',{action:'hush',id:chat.id}).catch(()=>{});}};
+    if(text&&listening.length&&chat&&!hushed.current){hushed.current=true;api('api/chat',{action:'hush',id:chat.id}).catch(()=>{});}};
   const aliasOf=(name:string)=>{const voice=voices.find(v=>v.name===name);return voice?.mention[0]||name.split(/\s+/).pop()||name;};
   const reply=(message:ChatMessage)=>{
     const alias=aliasOf(message.author),rest=draft.replace(/^\s*@[\w-]+\s*/,''),next='@'+alias+' '+rest;
@@ -275,8 +275,8 @@ export function ChatPanel(props:ChatProps){
   const jump=(id:string)=>{const element=document.querySelector(`#chat-panel [data-chat-message="${CSS.escape(id)}"]`);if(!element)return;
     element.scrollIntoView({block:'center',behavior:'auto'});setFlash(id);window.setTimeout(()=>setFlash(value=>value===id?null:value),1600);};
   const decide=async(hand:ChatMessage,decision:'accept'|'decline')=>{if(!chat)return;
-    try{const data=await api('/api/chat',{action:'hand',id:chat.id,message_id:hand.id,decision});setChat(data.chat);setTurns(old=>merge(old,data.pending));}catch(error){fail(error);}};
-  const configure=async(value:ChimeIns)=>{try{const current=await ensureChat();const data=await api('/api/chat',{action:'settings',id:current.id,chime_ins:value});setChat(data.chat);}catch(error){fail(error);}};
+    try{const data=await api('api/chat',{action:'hand',id:chat.id,message_id:hand.id,decision});setChat(data.chat);setTurns(old=>merge(old,data.pending));}catch(error){fail(error);}};
+  const configure=async(value:ChimeIns)=>{try{const current=await ensureChat();const data=await api('api/chat',{action:'settings',id:current.id,chime_ins:value});setChat(data.chat);}catch(error){fail(error);}};
   const isVoice=(m:ChatMessage)=>!!m.turn||!!m.runtime?.manual;
   const isMine=(m:ChatMessage)=>!m.turn&&!m.runtime?.manual;
 

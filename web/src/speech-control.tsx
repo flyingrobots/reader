@@ -29,7 +29,7 @@ function ensureAudio(s:Speaking){
     generation++;
     stopAudio();set(null);
     toast.error('Speech audio could not play',{description:'Use Read aloud to try again.',duration:8000});
-    api?.('/api/speak/'+encodeURIComponent(s.id),{action:'cancel'}).catch(()=>{});
+    api?.('api/speak/'+encodeURIComponent(s.id),{action:'cancel'}).catch(()=>{});
   });
   player.addEventListener('ended',()=>{
     if(!ownsSource()||!speaking)return;
@@ -41,7 +41,7 @@ function ensureAudio(s:Speaking){
       generation++;
       stopAudio();
       set(null);
-      api?.('/api/speak/'+encodeURIComponent(id),{action:'cancel'}).catch(()=>{});
+      api?.('api/speak/'+encodeURIComponent(id),{action:'cancel'}).catch(()=>{});
       return;
     }
     syncBrowserAudio(current);
@@ -77,7 +77,7 @@ function syncBrowserAudio(s:Speaking){
     stopAudio();set(null);return;
   }
   if(seg?.audio_ready){
-    const url='/api/speak/'+encodeURIComponent(s.id)+'/segments/'+activeSegment;
+    const url='api/speak/'+encodeURIComponent(s.id)+'/segments/'+activeSegment;
     const player=ensureAudio(s);
     if(player&&loadedUrl!==url){
       loadedUrl=url;
@@ -100,7 +100,7 @@ function schedule(delay=2000){
 async function poll(){
   const id=speaking?.id,mine=generation;if(!id||!api)return;
   try{
-    const next:Speaking=await api('/api/speak/'+encodeURIComponent(id));if(mine!==generation)return;failures=0;
+    const next:Speaking=await api('api/speak/'+encodeURIComponent(id));if(mine!==generation)return;failures=0;
     if(next.state&&TERMINAL.has(next.state)){
       if(next.state==='Failed')toast.error('AI-TTS couldn’t speak that',{description:next.error||undefined,duration:8000});
       stopAudio();set(null);return;
@@ -127,7 +127,7 @@ export function trackSpeech(submission:Speaking){
   generation++;failures=0;stopAudio();
   set({...submission,current:false});
   if(previous?.playback===false&&previous.id!==submission.id){
-    api?.('/api/speak/'+encodeURIComponent(previous.id),{action:'cancel'}).catch(()=>{});
+    api?.('api/speak/'+encodeURIComponent(previous.id),{action:'cancel'}).catch(()=>{});
   }
   schedule(submission.playback===false?200:2000);
 }
@@ -158,11 +158,11 @@ async function act(action:string){
     if(action==='skip'||action==='cancel'){
       const id=s.id;
       generation++;stopAudio();set(null);
-      try{await api('/api/speak/'+encodeURIComponent(id),{action:'cancel'});}catch{}
+      try{await api('api/speak/'+encodeURIComponent(id),{action:'cancel'});}catch{}
       return;
     }
   }
-  try{await api('/api/speak/'+encodeURIComponent(s.id),{action});}
+  try{await api('api/speak/'+encodeURIComponent(s.id),{action});}
   catch(error){toast.error(error instanceof Error?error.message:String(error),{duration:6000});}
   generation++;poll();
 }

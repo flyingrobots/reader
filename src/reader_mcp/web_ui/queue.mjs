@@ -74,7 +74,7 @@ export function installQueue({hidePanel,state, api, navigate, notify, renderPane
     const generation = ++q.generation;
     q.loading = true; render();
     try {
-      const data = await api('/api/queue?participant=' + param(participant()) + (state.doc ? '&current=' + param(state.doc.path) : ''));
+      const data = await api('api/queue?participant=' + param(participant()) + (state.doc ? '&current=' + param(state.doc.path) : ''));
       if (generation !== q.generation) return;
       q.data = data; onChange?.(data);
     } catch (error) { failed(error); }
@@ -83,7 +83,7 @@ export function installQueue({hidePanel,state, api, navigate, notify, renderPane
   async function loadHistory(more=false) {
     const cursor = more ? q.history?.next_cursor || 0 : 0;
     try {
-      const data = await api(`/api/history?participant=${param(participant())}&cursor=${cursor}&tz=${tz()}${q.filter === 'finished' ? '&filter=finished' : ''}`);
+      const data = await api(`api/history?participant=${param(participant())}&cursor=${cursor}&tz=${tz()}${q.filter === 'finished' ? '&filter=finished' : ''}`);
       if (more && q.history) {
         const days = [...q.history.days];
         for (const day of data.days) {
@@ -99,7 +99,7 @@ export function installQueue({hidePanel,state, api, navigate, notify, renderPane
   function failed(error) { notify(error.message, error.local ? 'info' : 'error'); }
   async function change(action, path, extra={}) {
     if (needsReader()) throw Object.assign(new Error('Your reading queue needs Reader on your computer: it saves into the library.'), {local:true});
-    const data = await api('/api/queue', {participant:participant(), action, path, request_id:crypto.randomUUID(), current:state.doc?.path || null, ...extra});
+    const data = await api('api/queue', {participant:participant(), action, path, request_id:crypto.randomUUID(), current:state.doc?.path || null, ...extra});
     q.data = data; onChange?.(data); render();
     return data;
   }
@@ -136,7 +136,7 @@ export function installQueue({hidePanel,state, api, navigate, notify, renderPane
     try { await change('remove', row.path); notify(row.kind === 'queued' ? 'Removed from your queue.' : 'Suggestion dismissed.'); } catch (error) { failed(error); }
   }
   async function hide(row) {
-    try { await api('/api/history', {participant:participant(), action:'hide', path:row.path}); await loadHistory(); refresh(); notify('Removed from history. Your read receipt stays.'); }
+    try { await api('api/history', {participant:participant(), action:'hide', path:row.path}); await loadHistory(); refresh(); notify('Removed from history. Your read receipt stays.'); }
     catch (error) { failed(error); }
   }
   async function pin() {
@@ -175,7 +175,7 @@ export function installQueue({hidePanel,state, api, navigate, notify, renderPane
   /** Space n: open the next queued document, like skipping to the next track. */
   async function next() {
     try {
-      const data = await api('/api/queue?participant=' + param(participant()) + (state.doc ? '&current=' + param(state.doc.path) : ''));
+      const data = await api('api/queue?participant=' + param(participant()) + (state.doc ? '&current=' + param(state.doc.path) : ''));
       q.data = data;
       const item = data.queued.find(row => row.path !== state.doc?.path);
       if (!item) { notify('Your queue is empty. Press q on anything to add it.'); return; }
@@ -184,12 +184,12 @@ export function installQueue({hidePanel,state, api, navigate, notify, renderPane
   }
   /** History log entry for an open; the server also takes it out of Up next. */
   async function opened(doc) {
-    try { await api('/api/history', {participant:participant(), action:'open', path:doc.path, sha256:doc.sha256}); } catch { /* History is a convenience; reading continues. */ }
+    try { await api('api/history', {participant:participant(), action:'open', path:doc.path, sha256:doc.sha256}); } catch { /* History is a convenience; reading continues. */ }
     if (q.data) q.data = {...q.data, queued:q.data.queued.filter(item => item.path !== doc.path)};
   }
   /** The first queued document, for the end-of-article lead. */
   async function peek() {
-    try { const data = await api('/api/queue?participant=' + param(participant()) + (state.doc ? '&current=' + param(state.doc.path) : '')); q.data = data; return data.queued.find(row => row.path !== state.doc?.path) || null; }
+    try { const data = await api('api/queue?participant=' + param(participant()) + (state.doc ? '&current=' + param(state.doc.path) : '')); q.data = data; return data.queued.find(row => row.path !== state.doc?.path) || null; }
     catch { return null; }
   }
 

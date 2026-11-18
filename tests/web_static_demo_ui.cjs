@@ -33,7 +33,7 @@ const NEEDS=/^Needs Reader on your computer/;
   await page.goto(url);await page.locator('#home-title').waitFor();
   // Every write the app asks of the shim, recorded from here on (the shim answers /api/* in the page).
   await page.evaluate(()=>{const real=window.fetch;window.__writes=[];window.fetch=function(input,init={}){const method=(init.method||'GET').toUpperCase();
-    if(method!=='GET')window.__writes.push([String(input),init.body?JSON.parse(init.body).action||JSON.parse(init.body).operation||null:null]);return real.apply(this,arguments);};});
+    if(method!=='GET')window.__writes.push(['/'+new URL(String(input),location.href).pathname.slice(new URL('.',location.href).pathname.length),init.body?JSON.parse(init.body).action||JSON.parse(init.body).operation||null:null]);return real.apply(this,arguments);};});
   // Writes the shim keeps in this browser (margins, reading positions, an art still) are fine; the rest need a server.
   const local=w=>w==='/api/art:still'||/^\/api\/(annotations|seen|bookmark|history)(:|$)/.test(w);
   const writes=()=>page.evaluate(()=>window.__writes.map(([p,a])=>p.split('?')[0]+(a?':'+a:''))).then(all=>all.filter(w=>!local(w)));

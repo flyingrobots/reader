@@ -127,13 +127,13 @@ function Checks({checks,onFix,onFixAll}:{checks:Check[];onFix:(c:Check)=>void;on
 function FontSearch({api,installed,onInstalled,error}:{api:EditorProps['api'];installed:InstalledFont[];onInstalled:(fonts:InstalledFont[],font:InstalledFont)=>void;error:(e:unknown)=>void}){
   const [query,setQuery]=useState(''),[results,setResults]=useState<{family:string;category:string}[]|null>(null),[busy,setBusy]=useState<string|null>(null);
   const searchId=useRef(0);
-  useEffect(()=>{if(!query.trim()){setResults(null);return;}const id=++searchId.current;const timer=setTimeout(()=>{api('/api/fonts?q='+encodeURIComponent(query.trim())).then(r=>{if(id===searchId.current)setResults(r.families);}).catch(error);},250);return ()=>clearTimeout(timer);},[query]);
+  useEffect(()=>{if(!query.trim()){setResults(null);return;}const id=++searchId.current;const timer=setTimeout(()=>{api('api/fonts?q='+encodeURIComponent(query.trim())).then(r=>{if(id===searchId.current)setResults(r.families);}).catch(error);},250);return ()=>clearTimeout(timer);},[query]);
   return <Field><FieldLabel htmlFor="font-search">Add a Google Font</FieldLabel>
     <Input id="font-search" placeholder="Search families, e.g. Literata" value={query} onChange={e=>setQuery(e.target.value)} autoComplete="off" spellCheck={false}/>
     <FieldDescription>Searching and adding contact Google Fonts once; the font is then stored in your vault and served locally. Reading never contacts Google.</FieldDescription>
     {results&&<ItemGroup className="gap-0 rounded-lg border" data-font-results="">{results.length===0&&<Item size="xs"><ItemDescription>No matching families.</ItemDescription></Item>}{results.slice(0,12).map(r=>{const have=installed.some(f=>f.family===r.family)||BUNDLED_FONTS.includes(r.family);return <Item key={r.family} size="xs" role="listitem" data-font={r.family}>
       <ItemContent><ItemTitle>{r.family}</ItemTitle><ItemDescription className="text-xs">{r.category}</ItemDescription></ItemContent>
-      <ItemActions><Button size="xs" variant="outline" disabled={have||busy!==null} onClick={async()=>{setBusy(r.family);try{const font=await api('/api/themes',{action:'install-font',family:r.family});const list=await api('/api/themes');onInstalled(list.fonts,font);}catch(e){error(e);}finally{setBusy(null);}}}>{have?'Added':busy===r.family?'Adding…':'Add'}</Button></ItemActions></Item>;})}</ItemGroup>}
+      <ItemActions><Button size="xs" variant="outline" disabled={have||busy!==null} onClick={async()=>{setBusy(r.family);try{const font=await api('api/themes',{action:'install-font',family:r.family});const list=await api('api/themes');onInstalled(list.fonts,font);}catch(e){error(e);}finally{setBusy(null);}}}>{have?'Added':busy===r.family?'Adding…':'Add'}</Button></ItemActions></Item>;})}</ItemGroup>}
   </Field>;
 }
 
@@ -161,7 +161,7 @@ export function ThemeEditor(props:EditorProps){
     const name=draft.name.trim();if(!name){error(new Error('Give the theme a name.'));return;}
     const taken=new Set([...themes.map(t=>t.id),...BUILT_INS.flatMap(b=>[b.key,b.light])]);let id=draft.id;
     if(!id){const base=slugify(name);id=base;for(let n=2;taken.has(id);n++)id=`${base.slice(0,34)}-${n}`;}
-    setBusy(true);try{const saved=await api('/api/themes',{action:'save',theme:{...draft,id,name}});const list=await api('/api/themes');
+    setBusy(true);try{const saved=await api('api/themes',{action:'save',theme:{...draft,id,name}});const list=await api('api/themes');
       setDraft(saved);setSource(saved.id);setDirty(false);props.onChanged(list.themes,list.fonts);if(use)props.onUse(themeId(saved,variant));}catch(e){error(e);}finally{setBusy(false);}
   }
   function remove(){
@@ -169,7 +169,7 @@ export function ThemeEditor(props:EditorProps){
     setAsk({title:`Delete “${draft.name}”?`,description:'Its file is removed from the vault’s themes folder; downloaded fonts are kept.',confirm:'Delete theme',run:()=>{void removeNow();}});
   }
   async function removeNow(){
-    setBusy(true);try{await api('/api/themes',{action:'delete',id:draft.id});const list=await api('/api/themes');props.onChanged(list.themes,list.fonts);setDirty(false);
+    setBusy(true);try{await api('api/themes',{action:'delete',id:draft.id});const list=await api('api/themes');props.onChanged(list.themes,list.fonts);setDirty(false);
       const next=list.themes[0];if(next){setSource(next.id);setDraft(structuredClone(next));}else{setSource('new');setDraft(blank(seed));}}catch(e){error(e);}finally{setBusy(false);}
   }
   const other:Variant=variant==='light'?'dark':'light';

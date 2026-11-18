@@ -27,7 +27,7 @@ type EditionStats={stats:{files:number;families:number;unresolved:number;build_m
 /** Edition links: families found and the references that could not be resolved (never guessed or repaired). */
 export function EditionLinks({api}:{api:(path:string)=>Promise<any>}){
   const [data,setData]=useState<EditionStats|null>(null),[error,setError]=useState<string|null>(null);
-  useEffect(()=>{let live=true;api('/api/editions/diagnostics').then(d=>{if(live)setData(d);},e=>{if(live)setError(e instanceof Error?e.message:String(e));});return ()=>{live=false;};},[api]);
+  useEffect(()=>{let live=true;api('api/editions/diagnostics').then(d=>{if(live)setData(d);},e=>{if(live)setError(e instanceof Error?e.message:String(e));});return ()=>{live=false;};},[api]);
   return <StatusCard id="edition-links" title={<>Edition links<IndexDocHelp title="Edition links" section="edition-link-diagnostics"/></>} data-state={data?(data.stats.unresolved?'unresolved':'current'):error?'error':'loading'}
     badge={<StatusBadge tone={error?'error':!data?'neutral':data.stats.unresolved?'attention':'ok'} busy={!data&&!error}>{error?'Error':!data?'Loading…':data.stats.unresolved?`${data.stats.unresolved} unresolved`:'All resolved'}</StatusBadge>}>
     {error?<Unavailable what="Edition links" error={error}/>:!data?<LoadingState/>:<>

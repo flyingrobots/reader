@@ -136,7 +136,7 @@ const {chromium}=require(process.env.READER_PLAYWRIGHT||'playwright-core');
    await read(page,'library/issue/keep.md');await settled(page);
    const state=await page.locator('#article .art-hero').getAttribute('data-state');assert.ok(['image','unavailable'].includes(state),state);
    if(state==='unavailable')assert.equal(await page.locator('#article .art-hero .art-note').isVisible(),true);
-   else assert.match(await page.locator('#article .art-hero img.art-still').getAttribute('src'),/^\/api\/art\/still\?/);
+   else assert.match(await page.locator('#article .art-hero img.art-still').evaluate(i=>new URL(i.src).pathname+new URL(i.src).search),/^\/api\/art\/still\?/);
    assert.deepEqual(errors,[]);await context.close();}
 
   // Motion allowed: a live scene in continuous reading; phone width keeps the hero inside the page.

@@ -23,8 +23,8 @@ import {needsReader} from '../../static-demo';
 export function JobsPage({options,go,href}:AdminPanelProps){
   const [repo,setRepo]=React.useState(''),[state,setState]=React.useState(''),[path,setPath]=React.useState(''),[cursor,setCursor]=React.useState(0);
   const query=new URLSearchParams({...(repo?{repo}:{}),...(state?{state}:{}),...(path?{path}:{}),cursor:String(cursor),limit:'25'});
-  const [list,reload]=useLoad<{runs:JobRun[];total:number;next:number|null;configured:boolean;read_only:boolean}>(needsReader('jobs')?null:'/api/jobs?'+query,options.api);
-  const [all]=useLoad<{runs:JobRun[]}>(needsReader('jobs')?null:'/api/jobs?limit=50',options.api);
+  const [list,reload]=useLoad<{runs:JobRun[];total:number;next:number|null;configured:boolean;read_only:boolean}>(needsReader('jobs')?null:'api/jobs?'+query,options.api);
+  const [all]=useLoad<{runs:JobRun[]}>(needsReader('jobs')?null:'api/jobs?limit=50',options.api);
   const repos=[...new Set((all.data?.runs||[]).map(r=>r.source.repo))],paths=[...new Set((all.data?.runs||[]).map(r=>r.source.path))];
   if(list.error||needsReader('jobs'))return <Unavailable what="Coding jobs" error={list.error}/>;
   const filter=(set:(value:string)=>void)=>(value:string)=>{set(value);setCursor(0);};

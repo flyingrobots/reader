@@ -40,7 +40,7 @@ export function PublishPage({api}:{api:Api}){
   const privacy=usePrivateStatus(api);
   const [files,setFiles]=useState<File[]>([]),[title,setTitle]=useState(''),[author,setAuthor]=useState(''),[level,setLevel]=useState('normal');
   const [defaultLevel,setDefaultLevel]=useState<string|null>(null);
-  useEffect(()=>{let active=true;api('/api/upload-settings').then(value=>{if(active){setDefaultLevel(value.default_privacy);setLevel(value.default_privacy);}},cause=>{if(active)setError(String(cause));});return()=>{active=false;};},[api]);
+  useEffect(()=>{let active=true;api('api/upload-settings').then(value=>{if(active){setDefaultLevel(value.default_privacy);setLevel(value.default_privacy);}},cause=>{if(active)setError(String(cause));});return()=>{active=false;};},[api]);
   const [stage,setStage]=useState<Stage>('idle'),[steps,setSteps]=useState<Step[]>([]),[error,setError]=useState<string|null>(null),[note,setNote]=useState<string|null>(null);
   const [dragging,setDragging]=useState(false);
   const input=useRef<HTMLInputElement>(null),timer=useRef<ReturnType<typeof setTimeout>|null>(null);
@@ -52,7 +52,7 @@ export function PublishPage({api}:{api:Api}){
   const watch=(id:string,run:string|null)=>{
     const tick=async()=>{
       try{
-        const [delivery,inbox]=await Promise.all([api('/api/inbox/deliveries?id='+encodeURIComponent(id)),api('/api/inbox')]);
+        const [delivery,inbox]=await Promise.all([api('api/inbox/deliveries?id='+encodeURIComponent(id)),api('api/inbox')]);
         const ours=!!run&&inbox.runner?.run_id===run;
         if(ours&&inbox.model_chain?.run_id===run)setSteps(inbox.model_chain.steps||[]);
         if(delivery.status==='filed'){setStage('filed');setNote(`Filed and committed to ${delivery.bundle_path}.`);return;}
@@ -69,11 +69,11 @@ export function PublishPage({api}:{api:Api}){
       const described=await Promise.all(files.map(async file=>({path:pathOf(file),bytes:file.size,sha256:await digest(file)})));
       const id=crypto.randomUUID();
       const header={upload:1,request_id:id,title:title.trim(),privacy:level,provenance:author.trim()?{author:author.trim()}:{},files:described};
-      await api('/api/inbox/deliveries',{},{contentType:CONTENT_TYPE,body:new Blob([JSON.stringify(header)+'\n',...files])});
+      await api('api/inbox/deliveries',{},{contentType:CONTENT_TYPE,body:new Blob([JSON.stringify(header)+'\n',...files])});
       if(level==='machine-only'){setStage('encrypted');setNote('Encrypted on this machine. It wasn’t added to your vault, and nothing was pushed.');privacy.refresh();return;}
       setStage('waiting');
       let run:string|null=null;
-      try{run=(await api('/api/inbox',{action:'start',arrivals:[id]})).run_id;setStage('filing');}
+      try{run=(await api('api/inbox',{action:'start',arrivals:[id]})).run_id;setStage('filing');}
       catch(cause){setStage('stopped');setNote(`It’s safely in the inbox, but filing didn’t start: ${(cause as Error).message}`);return;}
       watch(id,run);
     }catch(cause){setStage('stopped');setError((cause as Error).message);}
@@ -109,7 +109,7 @@ export function PublishPage({api}:{api:Api}){
                 <FieldContent><FieldLabel htmlFor={'publish-level-'+option.value}>{option.label}</FieldLabel><FieldDescription>{option.detail}</FieldDescription></FieldContent>
               </Field>)}
             </RadioGroup>
-            <Button type="button" variant="outline" disabled={busy||level==='machine-only'||level===defaultLevel} onClick={async()=>{try{const value=await api('/api/upload-settings',{default_privacy:level});setDefaultLevel(value.default_privacy);}catch(cause){setError(String(cause));}}}>Use this choice as the default</Button>
+            <Button type="button" variant="outline" disabled={busy||level==='machine-only'||level===defaultLevel} onClick={async()=>{try{const value=await api('api/upload-settings',{default_privacy:level});setDefaultLevel(value.default_privacy);}catch(cause){setError(String(cause));}}}>Use this choice as the default</Button>
             {level==='machine-only'&&!privacy.status?.unlocked?<Notice id="publish-locked" role="note">Set up or unlock encrypted storage below first.</Notice>:null}
           </FieldSet>
         </FieldGroup>

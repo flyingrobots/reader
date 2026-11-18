@@ -78,7 +78,7 @@ function Changes({title,items,confirm,onConfirm,onCancel,busy}:{title:string;ite
 }
 function Log({api,name,job}:{api:Api;name:string;job:Job|null}){
   const [text,setText]=useState<string|null>(null),[open,setOpen]=useState(false);
-  useEffect(()=>{if(!open)return;let live=true;const load=()=>api('/api/companions/log?name='+encodeURIComponent(name)).then(r=>{if(live)setText(r.log||'');},()=>{});load();
+  useEffect(()=>{if(!open)return;let live=true;const load=()=>api('api/companions/log?name='+encodeURIComponent(name)).then(r=>{if(live)setText(r.log||'');},()=>{});load();
     const timer=job?setInterval(load,1500):undefined;return ()=>{live=false;clearInterval(timer);};},[open,name,job?.id]);
   return <Collapsible open={open} onOpenChange={setOpen} data-companion-log="" className="rounded-lg border">
     <CollapsibleTrigger render={<Button variant="ghost" size="sm" className="w-full justify-start"/>}><ChevronRightIcon data-icon="inline-start" aria-hidden className="transition-transform in-data-[panel-open]:rotate-90"/>Install log</CollapsibleTrigger>

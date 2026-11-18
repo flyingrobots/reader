@@ -43,7 +43,7 @@ async function resync(id:string){
   const item=entry(id);if(item.resyncing)return;item.resyncing=true;
   try{
     for(let page=0;page<200;page++){
-      const result=await api(`/api/jobs/events?id=${encodeURIComponent(id)}&after=${item.state.seq}&limit=500`);
+      const result=await api(`api/jobs/events?id=${encodeURIComponent(id)}&after=${item.state.seq}&limit=500`);
       applyTo(item,result.events);publish(item,{run:result.run,error:null});
       if(!result.more)break;
     }
@@ -56,7 +56,7 @@ function connect(id:string){
   const item=entry(id);
   if(item.source||!item.listeners.size||typeof EventSource==='undefined')return;
   if(item.state.run&&!item.state.run.active&&item.loaded&&item.state.seq>=item.state.run.seq)return;
-  const source=new EventSource(`/api/jobs/stream?id=${encodeURIComponent(id)}&after=${item.state.seq}`);item.source=source;
+  const source=new EventSource(`api/jobs/stream?id=${encodeURIComponent(id)}&after=${item.state.seq}`);item.source=source;
   publish(item,{live:true});
   source.addEventListener('hello',message=>{const data=JSON.parse((message as MessageEvent).data);publish(item,{run:data.run,error:null});item.delay=1000;});
   source.addEventListener('event',message=>{
@@ -91,13 +91,13 @@ export function useJob(id:string|null):JobState{
 export function seedJob(run:JobRun){const item=entry(run.id);if(!item.state.run)publish(item,{run});}
 
 /** Active coding jobs (queued or running), for Reader Admin's Overview. Read-only. */
-export function activeJobs():Promise<{runs:JobRun[]}>{return api('/api/jobs?state=active');}
+export function activeJobs():Promise<{runs:JobRun[]}>{return api('api/jobs?state=active');}
 
 export async function submitJob(body:{request_id:string;path:string;sha256:string;block_id:string;prompt:string;agent:string;predecessor?:string|null}):Promise<JobRun>{
-  const run=await api('/api/jobs',{action:'submit',...body,...(body.predecessor?{}:{predecessor:undefined})});
+  const run=await api('api/jobs',{action:'submit',...body,...(body.predecessor?{}:{predecessor:undefined})});
   seedJob(run);return run;
 }
-export async function stopJob(id:string):Promise<JobRun>{const run=await api('/api/jobs',{action:'stop',id});const item=entry(id);publish(item,{run});resync(id).then(()=>connect(id));return run;}
+export async function stopJob(id:string):Promise<JobRun>{const run=await api('api/jobs',{action:'stop',id});const item=entry(id);publish(item,{run});resync(id).then(()=>connect(id));return run;}
 
 export type BlockInfo={id:string;title:string;repo:string;issue:number|null;line:number;prompt_sha256:string;registered:boolean;problem:string|null;base:string|null;
   agents:{name:string;label:string;mode:string;available:boolean}[];issue_url:string|null;runs:JobRun[]};
@@ -106,7 +106,7 @@ const actionsCache=new Map<string,Promise<ArticleActions>>();
 /** The server's view of an article's prompt blocks (registration, agents, history). Read-only; cached per edition. */
 export function articleActions(path:string,sha256:string,refresh=false):Promise<ArticleActions>{
   const key=path+'@'+sha256;
-  if(refresh||!actionsCache.has(key)){const loading=api('/api/jobs/actions?path='+encodeURIComponent(path));actionsCache.set(key,loading);loading.catch(()=>actionsCache.delete(key));}
+  if(refresh||!actionsCache.has(key)){const loading=api('api/jobs/actions?path='+encodeURIComponent(path));actionsCache.set(key,loading);loading.catch(()=>actionsCache.delete(key));}
   return actionsCache.get(key)!;
 }
 

@@ -32,7 +32,7 @@ const FIRST_RENDER_MS=+(process.env.READER_PERF_FIRST_RENDER_MS||5000),FIND_MS=+
    // Diagrams draw after first paint, not before it.
    await page.waitForFunction(()=>document.querySelectorAll('#article .reader-diagram-canvas[data-state=ready]').length===2,null,{timeout:20000,polling:50});timings.diagrams=Math.round(await page.evaluate(()=>performance.now()));
    const facts=await page.evaluate(()=>{const heading=[...document.querySelectorAll('#article h2')].find(h=>h.textContent==='Section 390');const images=[...document.querySelectorAll('#article img')];
-     const own=CSS.highlights?.get('reader-other');return {start:+heading.dataset.sourceStart,end:+heading.dataset.sourceEnd,images:images.length,loaded:images.filter(i=>i.getAttribute('src')?.startsWith('/api/file?path=library%2Ffigures%2Ffigure-')).length,code:document.querySelectorAll('#article .reader-code-block').length,highlight:own?[...own][0]?.toString():null};});
+     const own=CSS.highlights?.get('reader-other');return {start:+heading.dataset.sourceStart,end:+heading.dataset.sourceEnd,images:images.length,loaded:images.filter(i=>i.src.startsWith(location.origin+'/api/file?path=library%2Ffigures%2Ffigure-')).length,code:document.querySelectorAll('#article .reader-code-block').length,highlight:own?[...own][0]?.toString():null};});
    const at=text.indexOf('## Section 390\n'),cp=offset=>Array.from(text.slice(0,offset)).length;
    assert.equal(facts.start,cp(at),'heading anchor is an exact code-point offset after thousands of emoji');
    assert.equal(facts.end,cp(text.indexOf('\n',at)+1));

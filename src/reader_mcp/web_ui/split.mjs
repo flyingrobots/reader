@@ -1,4 +1,4 @@
-/** Split view: up to four panes, each the unchanged app in an embedded same-origin iframe (`/?pane=1#…`).
+/** Split view: up to four panes, each the unchanged app in an embedded same-origin iframe (`?pane=1#…`).
  *
  * The shell (the top document) owns the layout tree, the status bar and the shared panels; each pane keeps
  * its own state, #article, highlight registry, reading controller and key target. Pure layout and scroll-map
@@ -207,7 +207,7 @@ export function installSplit({notify,suspend,resume,paint,api,param,refocus,open
     const iframe=document.createElement('iframe');iframe.className='split-frame';iframe.title='Pane';iframe.setAttribute('loading','eager');
     host.append(iframe);root.append(host);
     // Panes load 250 ms apart so four apps never open together (the server admits a bounded number of requests).
-    const src='/?pane=1'+extra+(leaf.route||'');
+    const src='?pane=1'+extra+(leaf.route||'');
     if(delay)setTimeout(()=>{if(panes.has(leaf.id))iframe.src=src;},delay);else iframe.src=src;
     panes.set(leaf.id,{frame:iframe,host,status:null,doc:null});
   }
@@ -326,7 +326,7 @@ export function installSplit({notify,suspend,resume,paint,api,param,refocus,open
     hunks={a,b,list:null};
     const base=x=>String(x||'').split('@')[0];
     if(!a||!b||a===b||(!refs&&base(a)!==base(b)))return;
-    try{const data=await api('/api/changes?a='+param(a)+'&b='+param(b));if(bind===pair&&hunks?.a===a)hunks.list=data.hunks||[];}catch{/* Headings and fractions still align. */}
+    try{const data=await api('api/changes?a='+param(a)+'&b='+param(b));if(bind===pair&&hunks?.a===a)hunks.list=data.hunks||[];}catch{/* Headings and fractions still align. */}
   }
   const refOf=route=>route?.startsWith('#read=')?decodeSafe(route.slice(6).split('&')[0]):null;
   /** Side by side compare: the older version opens left of the current one, scrolling together. */

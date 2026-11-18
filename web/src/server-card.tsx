@@ -39,7 +39,7 @@ export function ServerCard({api}:{api:Api}){
   const [info,setInfo]=useState<ServiceInfo|null>(null);const [error,setError]=useState<string|null>(null);const [busy,setBusy]=useState<string|null>(null);const [pending,setPending]=useState(false);
   const seen=useRef<string|null|undefined>(undefined);const restartFrom=useRef<string|null>(null);
   async function refresh(){
-    try{const next:ServiceInfo=await api('/api/service');setInfo(next);setError(null);
+    try{const next:ServiceInfo=await api('api/service');setInfo(next);setError(null);
       const last=next.service.last_update?.at||null;
       if(seen.current!==undefined&&last&&last!==seen.current){const o=outcome(next.service.last_update!);toast.dismiss('service-update');
         setPending(false);if(o.type==='success')toast.success(o.title,{description:o.description,duration:8000});else if(o.type==='error')toast.error(o.title,{description:o.description,duration:12000});else toast(o.title,{description:o.description});}
@@ -52,7 +52,7 @@ export function ServerCard({api}:{api:Api}){
   useEffect(()=>{const timer=setInterval(()=>{if(document.visibilityState==='visible')refresh();},pending?2000:10000);return ()=>clearInterval(timer);},[pending]);
   async function act(action:'update'|'restart'|'pause'|'resume'){
     setBusy(action);
-    try{await api('/api/service',{action});if(action==='update'||action==='restart')setPending(true);
+    try{await api('api/service',{action});if(action==='update'||action==='restart')setPending(true);
       if(action==='update')toast.loading('Checking for an update…',{id:'service-update',description:'The updater smoke-tests a newer commit before switching to it.',duration:120000,cancel:{label:'Dismiss',onClick:()=>{}}});
       else if(action==='restart'){restartFrom.current=info?.health.started_at||null;toast.loading('Restarting Reader…',{id:'service-restart',duration:30000,cancel:{label:'Dismiss',onClick:()=>{}}});}
       else toast.success(action==='pause'?'Updates paused':'Updates resumed');

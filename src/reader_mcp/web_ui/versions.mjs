@@ -126,7 +126,7 @@ export function installVersions({setStatus,showPanel,hidePanel,state,api,navigat
   }
   async function compare(a,b){
     let data;
-    try{data=await api('/api/changes?a='+param(a)+'&b='+param(b));}catch(error){notify(error.message,'error');return;}
+    try{data=await api('api/changes?a='+param(a)+'&b='+param(b));}catch(error){notify(error.message,'error');return;}
     if(data.status==='unchanged'){notify(`${labelOf(a)} and ${labelOf(b)} are identical.`);return;}
     openCompare({...data,title:`${labelOf(a)} → ${labelOf(b)}`,compared:true},b===here()||(resolve(b)===here()));
   }
@@ -144,7 +144,7 @@ export function installVersions({setStatus,showPanel,hidePanel,state,api,navigat
     // Content hashes place your read marker (and other readers) on historical revisions; fetched on demand.
     const key=state.doc.path;
     if(hashedFor!==key&&state.versions.git){
-      try{const fresh=await api('/api/versions?path='+param(key)+'&participant='+param(state.prefs.participant)+'&hashes=1');
+      try{const fresh=await api('api/versions?path='+param(key)+'&participant='+param(state.prefs.participant)+'&hashes=1');
         if(state.doc?.path!==key)return;hashedFor=key;state.versions=fresh;
         // The re-render keeps the keyboard where it was, a History toggle included.
         const active=document.activeElement?.dataset?.vtKey;if($('#versions-panel')){render();focus(active||here());}update();}

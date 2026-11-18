@@ -212,11 +212,6 @@ def copy_tree(source, target, skip=lambda path: False):
         shutil.copyfile(file, destination)
 
 
-def rebase(text, base):
-    """Root-absolute asset and pane URLs, rewritten for a site served under `base`."""
-    return re.sub(r'''(["'(`])/(assets/|\?pane=1)''', lambda m: m.group(1) + base + m.group(2), text)
-
-
 def page(base, site_url, exported_at, chat=False):
     html = (STATIC / 'index.html').read_text()
     flag = json.dumps({'base': base, 'format': FORMAT, 'exported_at': exported_at, 'chat': chat})
@@ -232,15 +227,13 @@ def page(base, site_url, exported_at, chat=False):
     head = (f'<meta http-equiv="Content-Security-Policy" content="{csp}">\n  '
             f"<meta name=\"reader-static-demo\" content='{flag}'>\n  " + '\n  '.join(social) + '\n  '
             f'<script src="{base}assets/static-demo.js"></script>\n  ')
-    html = rebase(html, base).replace('<title>Reader · The library, at your pace</title>', '<title>Reader demo · The library, at your pace</title>', 1)
+    html = html.replace('<title>Reader · The library, at your pace</title>', '<title>Reader demo · The library, at your pace</title>', 1)
     return html.replace('<link rel="icon"', head + '<link rel="icon"', 1)
 
 
 def manifest(base):
     data = json.loads((STATIC / 'manifest.webmanifest').read_text())
     data.update({'id': base, 'start_url': base, 'scope': base, 'name': 'Reader demo'})
-    for icon in data.get('icons', []):
-        icon['src'] = rebase('"' + icon['src'], base)[1:]
     return json.dumps(data, indent=2) + '\n'
 
 
@@ -355,12 +348,6 @@ def export(root, out, base='/', site_url=None, say=print):
     (api / 'paths.json').write_text(json.dumps(sorted(str(p.relative_to(root)) for folder in ('library', 'inbox') for p in (root / folder).rglob('*')
                                                        if p.is_file() and not p.is_symlink() and not any(x.startswith('.') for x in p.relative_to(root).parts))))
     copy_tree(STATIC, out / 'assets', skip=lambda p: p.as_posix() in ('index.html',))
-    for file in (out / 'assets').rglob('*'):
-        if file.suffix in ('.mjs', '.css') and file.is_file():
-            text = file.read_text()
-            rebased = rebase(text, base)
-            if rebased != text:
-                file.write_text(rebased)
     (out / 'assets' / 'manifest.webmanifest').write_text(manifest(base))
     for folder in ('library', 'inbox'):
         copy_tree(root / folder, out / 'files' / folder)

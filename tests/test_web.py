@@ -2,6 +2,7 @@
 import hashlib
 from http.client import HTTPConnection
 import json
+from urllib.parse import urljoin
 import re
 from pathlib import Path
 import threading
@@ -918,9 +919,11 @@ def test_manifest_and_icons_are_served(web):
     status, body, headers = request('/assets/manifest.webmanifest', raw=True)
     assert status == 200 and headers['Content-Type'] == 'application/manifest+json'
     manifest = json.loads(body)
-    assert manifest['display'] == 'standalone' and manifest['start_url'] == '/'
+    # Browsers resolve manifest URLs against the manifest's own URL; page-relative URLs follow a path prefix (#106).
+    at = lambda url: urljoin('/assets/manifest.webmanifest', url)
+    assert manifest['display'] == 'standalone' and at(manifest['start_url']) == at(manifest['scope']) == at(manifest['id']) == '/'
     for icon in manifest['icons']:
-        status, body, headers = request(icon['src'], raw=True)
+        status, body, headers = request(at(icon['src']), raw=True)
         assert status == 200 and headers['Content-Type'] == icon['type'] and body[:8] == b'\x89PNG\r\n\x1a\n'
     _, page, _ = request('/', raw=True)
     assert b'rel="manifest"' in page and b'apple-touch-icon' in page and b'name="theme-color"' in page

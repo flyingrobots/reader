@@ -39,7 +39,7 @@ export function installSpeech({state, api, reading, notify, track, openMenu: sho
     if (!spoken()) { notify(state.doc ? 'This document has no text to speak.' : 'Open a document to send it to AI-TTS.'); return; }
     let body; try { body = request(scope); if (voice !== undefined) body.voice = voice; } catch (error) { notify(error.message, 'error'); return; }
     try {
-      const queued = await api('/api/speak', body);
+      const queued = await api('api/speak', body);
       notify(queued.held ? 'Queued for AI-TTS; it plays when the pause ends.' : 'Queued for AI-TTS.', 'success', queued.id);
       track({...queued,path:body.path,source_sha256:body.source_sha256});
     } catch (error) {

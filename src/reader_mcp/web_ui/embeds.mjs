@@ -116,10 +116,10 @@ export function installEmbeds({api,param,render,wire,pdfPage,navigate,changed=()
       if(pdfs>=LIMITS.pdf){const p=document.createElement('p');p.className='embed-note';p.dataset.readerDecoration='';p.textContent=`Only the first ${LIMITS.pdf} PDF embeds are drawn; open this one to read it`;el.append(p);return null;}
       pdfs++;const frame=document.createElement('div');frame.className='embed-pdf';frame.dataset.readerDecoration='';el.append(frame);
       // Drawn when it nears the viewport; the document never waits for it.
-      pdfPage(frame,'/api/file?path='+param(node.path),node.page||1).catch(()=>{frame.remove();const p=document.createElement('p');p.className='embed-note';p.dataset.readerDecoration='';p.textContent='This PDF page couldn’t be drawn';el.append(p);});
+      pdfPage(frame,'api/file?path='+param(node.path),node.page||1).catch(()=>{frame.remove();const p=document.createElement('p');p.className='embed-note';p.dataset.readerDecoration='';p.textContent='This PDF page couldn’t be drawn';el.append(p);});
       return null;
     }
-    if(node.kind==='image'){el.dataset.embedState='ok';el.replaceChildren();const img=document.createElement('img');img.className='embed-image';img.src='/api/file?path='+param(node.path);img.alt=node.alias||node.target;if(node.width)img.width=node.width;if(node.height)img.height=node.height;el.append(img);return null;}
+    if(node.kind==='image'){el.dataset.embedState='ok';el.replaceChildren();const img=document.createElement('img');img.className='embed-image';img.src='api/file?path='+param(node.path);img.alt=node.alias||node.target;if(node.width)img.width=node.width;if(node.height)img.height=node.height;el.append(img);return null;}
     const key=keyOf(node.path,node.fragment);
     if(chain.includes(key)){note(el,'cycle',node);return null;}
     const source=docs.get(node.path);if(!source){note(el,'error',node);return null;}
@@ -130,7 +130,7 @@ export function installEmbeds({api,param,render,wire,pdfPage,navigate,changed=()
   }
   /** Ask the server about the embeds written in `from`; documents arrive once per response. */
   async function resolve(from,raws,chain,depth){
-    const query='/api/embeds?from='+param(from)+'&depth='+(depth-1)+chain.map(key=>'&ancestor='+param(key)).join('')+raws.map(raw=>'&target='+param(raw)).join('');
+    const query='api/embeds?from='+param(from)+'&depth='+(depth-1)+chain.map(key=>'&ancestor='+param(key)).join('')+raws.map(raw=>'&target='+param(raw)).join('');
     const data=await api(query);
     for(const [path,value] of Object.entries(data.documents||{}))if(!docs.has(path))docs.set(path,{...value,path,kind:'.'+path.split('.').pop()});
     return data.nodes;

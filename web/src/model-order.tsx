@@ -26,12 +26,12 @@ const draftOf=(view:View):Draft=>({order:view.config.order,start:view.config.loc
 export function ModelOrderCard({api}:{api:Api}){
   const [view,setView]=useState<View|null>(null),[draft,setDraft]=useState<Draft|null>(null),[busy,setBusy]=useState(false),[error,setError]=useState<string|null>(null);
   const accept=(next:View)=>{setView(next);setDraft(draftOf(next));setError(null);};
-  useEffect(()=>{api('/api/model-chain').then(accept).catch((e:Error)=>setError(e.message));},[]);
+  useEffect(()=>{api('api/model-chain').then(accept).catch((e:Error)=>setError(e.message));},[]);
   const changed=!!view&&!!draft&&JSON.stringify(draft)!==JSON.stringify(draftOf(view));
   const save=async()=>{if(!draft||!view)return;setBusy(true);
     const local:Record<string,unknown>={start:draft.start,model:draft.model.trim()};
     if(view.can_edit_command)local.command=draft.command.trim().split(/\s+/).filter(Boolean);
-    try{accept(await api('/api/model-chain',{order:draft.order,local,claude:{model:draft.claude.trim()}}));}catch(e){setError((e as Error).message);}finally{setBusy(false);}};
+    try{accept(await api('api/model-chain',{order:draft.order,local,claude:{model:draft.claude.trim()}}));}catch(e){setError((e as Error).message);}finally{setBusy(false);}};
   return <form id="model-order-form" className="contents" onSubmit={e=>{e.preventDefault();save();}}>
     <StatusCard data-lm="model-order" title="Filing models" description="Filing asks each model in turn and moves on when one can’t answer. Codex is the librarian; any other model is told it is standing in. The first three send excerpts to their vendors."
       footer={<Button type="submit" size="sm" id="model-order-save" disabled={busy||!changed}>{busy?<Spinner data-icon="inline-start" aria-hidden/>:null}{busy?'Saving…':'Save filing models'}</Button>}>

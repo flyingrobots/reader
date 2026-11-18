@@ -68,7 +68,7 @@ export function installSearch({api, state, navigate, back, backstage, notify, qu
     // Local midnights bound the range, so works with an arrival time match by their local day.
     if (params.filters.from) q.set('from_at', localMidnight(params.filters.from));
     if (params.filters.to) q.set('to_at', localMidnight(addDays(params.filters.to, 1)));
-    return '/api/search/page?' + q.toString();
+    return 'api/search/page?' + q.toString();
   }
   async function run(offset = 0, attempt = 0) {
     clearTimeout(timer);

@@ -108,8 +108,8 @@ How it is made:
    (each document's link targets, resolved by the server), `data/paths.json`, `data/chat.json` (the
    scripted voices' `bin/replies.json` table and the runtime they report; a vault without
    `bin/replies.json` gets none, and chat stays off), copies of `library/`
-   and `inbox/` under `files/`, and the web UI under `assets/`, with root-absolute `/assets/` and
-   `/?pane=1` URLs rewritten for the base path.
+   and `inbox/` under `files/`, and the web UI under `assets/`, copied unchanged: its URLs are
+   page-relative, so they follow the base path without rewriting.
 4. `index.html` is the normal page plus a `<meta name="reader-static-demo">` flag (`base`,
    `format`, `exported_at`, and `chat`: whether `data/chat.json` was written), a
    Content-Security-Policy that allows only the site itself, social-preview tags, and
@@ -117,7 +117,8 @@ How it is made:
 
 **The shim** (`src/reader_mcp/web_ui/static-demo.js`) does nothing unless that flag is present, so
 the normal server, which never loads it, is unaffected. With the flag it replaces `fetch` and
-`EventSource` for same-origin `/api/*` requests:
+`EventSource` for same-origin `/api/*` requests, read relative to the base path (`/reader/api/library`
+answers as `/api/library`):
 
 | Request | Static answer |
 | --- | --- |

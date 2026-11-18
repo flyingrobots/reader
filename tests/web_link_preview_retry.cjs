@@ -100,7 +100,7 @@ test('a late failure preserves the replacement preview and its cached result',as
     globalThis.previewProbe=probe;
     installLinks({state:{doc:{path:'library/source.md'},prefs:{participant:'preview-test'}},reading:{isTurning:()=>false},
       api:async path=>{
-        if(path.startsWith('/api/resolve'))return {path:'library/thought.md'};
+        if(path.startsWith('api/resolve'))return {path:'library/thought.md'};
         probe.calls++;
         return probe.calls===1?first.promise:{title:'Newer document'};
       },

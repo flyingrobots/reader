@@ -207,7 +207,8 @@ describe('the page and its assets', () => {
     const page = await server.get('/');
     assert.equal(page.status, 200);
     assert.match(page.headers['content-type'], /^text\/html/);
-    assert.match(page.text, /<script type="module" src="\/assets\/app\.mjs"><\/script>/);
+    // Page-relative, so the shell also works under a path prefix (#106).
+    assert.match(page.text, /<script type="module" src="assets\/app\.mjs"><\/script>/);
   });
   test('GET /assets/* serves modules and the manifest', async () => {
     const app = await server.get('/assets/app.mjs');

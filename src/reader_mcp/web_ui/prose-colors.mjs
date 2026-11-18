@@ -65,7 +65,7 @@ export function installProseColors({setStatus,state,api,notify,companion=null,on
 
   async function probe(force=false){
     if(status&&(status.available||!force)&&Date.now()-statusAt<300000)return status;
-    try{status=await api('/api/prose');}catch(error){status={available:false,message:error.message};}
+    try{status=await api('api/prose');}catch(error){status={available:false,message:error.message};}
     statusAt=Date.now();return status;
   }
   function paint(){
@@ -134,7 +134,7 @@ export function installProseColors({setStatus,state,api,notify,companion=null,on
         if(!batch.length)continue;
         let result;
         const segments=batch.map(item=>({id:item.info.id,text:item.text}));
-        try{result=await api('/api/prose',doc.kind==='issue'?{issue:doc.issue,segments}:{path:doc.path,sha256:doc.sha256,segments});}
+        try{result=await api('api/prose',doc.kind==='issue'?{issue:doc.issue,segments}:{path:doc.path,sha256:doc.sha256,segments});}
         catch(error){
           if(id!==generation)return;
           if(/busy/i.test(error.message)){await new Promise(resolve=>setTimeout(resolve,800));continue;}
