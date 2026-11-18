@@ -15,7 +15,7 @@
     "../docs/topics/models.md": "525f9fb66a9565eb46a698b3a7163b890fa727b4930d922f7ebcf07ea5af4eb3",
     "../docs/topics/overview.md": "57520a0f5beb71ee8c7440c8b2c23f33b8e05a11cbbc9cc682f6db9779f67dcf",
     "../docs/topics/publish.md": "d92c6c75b26cabf519bfe6d86b27521c0612a2d18c91de4fdd8b18e745207016",
-    "../docs/topics/repositories.md": "1715837bc3df8ca9bb7fb2a35f7966b70650092842241020080ddc265d210523",
+    "../docs/topics/repositories.md": "7496d246523b7c94922c53d2d8cbaad9327d7d355b886ef4df767f3f97542757",
     "../docs/topics/service.md": "afed76a054d5ee552c72b3db60365acf11c3eefd447798a449d0c312af3d21f0",
     "../docs/topics/settings.md": "99336b16eb57868f4a2943fe5e5bf58c2d5c7196e9116f93c0f22e33f2ed8932",
     "../docs/topics/voices.md": "acdac0ea096443afeceb623a961a1ee751b3a0d65447a7a69f53159cb27372f8",
@@ -1003,8 +1003,8 @@
       "sha256": "585794388b44492cc9b410177c61e47f8fcdc26469027d8c93fbdb643d56a6b4"
     },
     "reader-controls.js": {
-      "bytes": 1433774,
-      "sha256": "c33660c0158e6429465200dbc441c4dbdca9553eeae16390dd464c43ea15847a"
+      "bytes": 1434055,
+      "sha256": "2d3730442a9016088ce6431416678e561bf37194f32bcdc6f3c721767131094d"
     },
     "reader-controls.js.LEGAL.txt": {
       "bytes": 6614,

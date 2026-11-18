@@ -3,7 +3,9 @@ a vault with an article prompt, a fake coding CLI, a fake verification command a
 
 Everything lives under the test's tmp_path (inside the bounded Docker worker's tmpfs when run by
 scripts/check_container.py). The checkout's remote is `https://github.com/acme/widget.git`, rewritten by a
-repo-local `url.<bare>.insteadOf` rule, so identity checks see GitHub while every fetch and push stays on disk."""
+repo-local `url.<bare>.insteadOf` rule so every fetch and push stays on disk. The identity check judges the rewritten
+URL (#180), so the fixture replaces its URL seam, `repositories.remote_urls`, with the raw configured URL while a
+World is open: the check sees GitHub, and Git uses the bare repository."""
 import hashlib
 import json
 import os
@@ -14,6 +16,7 @@ import sys
 import time
 
 from fake_github import FakeGitHub
+from reader_mcp import repositories
 from reader_mcp.coding_api import CodingJobs
 from reader_mcp.coding_publish import Job
 
@@ -60,9 +63,22 @@ def snapshot(folder):
             'branches': git('for-each-ref', '--format=%(refname) %(objectname)', 'refs/heads', cwd=folder)}
 
 
+REMOTE_URLS = repositories.remote_urls
+
+
+def configured_urls(checkout, remote, push=False):
+    """The raw configured URLs, before insteadOf rewrites: the fixture's stand-in for repositories.remote_urls."""
+    key = f'remote.{remote}.pushurl' if push else f'remote.{remote}.url'
+    result = subprocess.run(['git', 'config', '--get-all', key], cwd=checkout, capture_output=True, text=True)
+    if push and result.returncode:
+        return []
+    return result.stdout.splitlines() if result.returncode == 0 else None
+
+
 class World:
     def __init__(self, tmp, issue=277, entry=None, scenario=None, verify_exit=0, git_locks=False, capacity=None, limits=False, vault=None):
         self.tmp = Path(tmp)
+        repositories.remote_urls = configured_urls  # Restored by close().
         self.bare = self.tmp / 'remote.git'
         git('init', '-q', '--bare', '-b', 'main', str(self.bare), cwd=self.tmp)
         seed = self.tmp / 'seed'
@@ -180,5 +196,6 @@ class World:
         return {'github': self.github, 'environ': self.environ, 'git_locks': False, 'limits': False, 'capacity': lambda path: True}
 
     def close(self):
+        repositories.remote_urls = REMOTE_URLS
         if self.jobs:
             self.jobs.close()

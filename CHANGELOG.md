@@ -3,6 +3,7 @@
 ## Unreleased
 
 - Coding jobs: the container worker checks the effective `origin` URLs after `insteadOf`/`pushInsteadOf` rewrites before it pushes, so a rewrite the agent adds cannot send the push to another repository (closes #301).
+- Repositories: the identity check of a host checkout judges the effective remote URLs after `insteadOf`/`pushInsteadOf` rewrites, so a rewrite that points a push at another repository blocks the entry (closes #180).
 - Coding jobs: a recovered run notes a branch it pushed before Reader stopped, and its sealed `meta.json` has the same fields as a normally finished run (closes #181).
 - Coding jobs: restart recovery runs off the server start path, and a run record it cannot recover ends `needs_reconciliation` with the reason instead of stopping Reader from owning coding jobs (part of #181).
 - Coding jobs: restart recovery stops a left-over host agent process group even after its leader exited (every member must have started at or after the recorded leader start), and recognises this machine by its boot identity instead of the hostname (closes #175).
