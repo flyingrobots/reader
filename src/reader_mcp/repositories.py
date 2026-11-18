@@ -130,6 +130,13 @@ def validate(repo, raw, vault):
             'verify': {'argv': list(argv), 'timeout_seconds': timeout, 'lock': lock}}
 
 
+def remote_urls(checkout, remote, push=False):
+    """The URLs Git really fetches from (or pushes to) for `remote`, after insteadOf and pushInsteadOf rewrites
+    (#180), not the raw config values; None when there is no such remote."""
+    result = git(['remote', 'get-url', *(['--push'] if push else []), '--all', remote], checkout)
+    return result.stdout.splitlines() if result.returncode == 0 else None
+
+
 def inspect(entry):
     """Problems with an entry's Git identity, without network access. [] means it can be used."""
     if entry.get('environment'):
@@ -139,14 +146,12 @@ def inspect(entry):
     top = git(['rev-parse', '--path-format=absolute', '--show-toplevel'], checkout)
     if top.returncode or Path(top.stdout.strip()).resolve() != Path(checkout):
         return ['The checkout is not the top folder of a Git working tree.']
-    url = git(['config', '--get', f'remote.{entry["remote"]}.url'], checkout)
-    identity = github_identity(url.stdout) if url.returncode == 0 else None
-    if url.returncode:
+    fetch = remote_urls(checkout, entry['remote'])
+    if fetch is None:
         problems.append(f'The checkout has no remote named {entry["remote"]}.')
-    elif (identity or '').casefold() != entry['repo'].casefold():
+    elif not fetch or any((github_identity(line) or '').casefold() != entry['repo'].casefold() for line in fetch):
         problems.append(f'Remote {entry["remote"]} is not github.com/{entry["repo"]}.')
-    push = git(['config', '--get-all', f'remote.{entry["remote"]}.pushurl'], checkout)
-    for line in push.stdout.splitlines() if push.returncode == 0 else []:
+    for line in remote_urls(checkout, entry['remote'], push=True) or []:
         if (github_identity(line) or '').casefold() != entry['repo'].casefold():
             problems.append(f'Remote {entry["remote"]} pushes somewhere other than github.com/{entry["repo"]}.')
     common = git(['rev-parse', '--path-format=absolute', '--git-common-dir'], checkout)

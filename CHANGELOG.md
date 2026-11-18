@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Repositories: the identity check of a host checkout judges the effective remote URLs after `insteadOf`/`pushInsteadOf` rewrites, so a rewrite that points a push at another repository blocks the entry (closes #180).
 - Coding jobs: restart recovery stops a left-over host agent process group even after its leader exited (every member must have started at or after the recorded leader start), and recognises this machine by its boot identity instead of the hostname (closes #175).
 - Coding jobs: a run whose archive was sealed but whose finished record was lost in a crash recovers with the sealed outcome instead of `interrupted`; pending intents are still settled by recovery (closes #178).
 - Browser suites: `web_inbox_token` recognizes the page-relative inbox and token URLs the web UI builds since #106, so it observes the recovered inbox start instead of timing out (#287).

@@ -5,6 +5,8 @@ import pytest
 from coding_fixture import World
 from reader_mcp import repositories
 
+REMOTE_URLS = repositories.remote_urls  # The real seam, captured before any World replaces it.
+
 
 @pytest.fixture
 def w(tmp_path):
@@ -70,6 +72,7 @@ def checkout(tmp_path, monkeypatch):
     empty.write_text('')
     monkeypatch.setenv('GIT_CONFIG_GLOBAL', str(empty))
     monkeypatch.setenv('GIT_CONFIG_NOSYSTEM', '1')
+    monkeypatch.setattr(repositories, 'remote_urls', REMOTE_URLS)
     folder = tmp_path / 'widget'
     folder.mkdir()
     subprocess.run(['git', 'init', '-q'], cwd=folder, check=True)
