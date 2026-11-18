@@ -60,3 +60,42 @@ def test_a_malformed_agents_list_is_reported_on_its_entry(w):
     w.jobs.registry.write({'acme/widget': dict(w.entry, agents=[{}])})
     [row] = w.jobs.repositories()['repositories']
     assert row['error'] and 'agents' in row['error']
+
+
+@pytest.fixture
+def checkout(tmp_path, monkeypatch):
+    """A checkout whose remote is github.com/acme/widget, with Git reading only its own config (never the user's)."""
+    import subprocess
+    empty = tmp_path / 'gitconfig'
+    empty.write_text('')
+    monkeypatch.setenv('GIT_CONFIG_GLOBAL', str(empty))
+    monkeypatch.setenv('GIT_CONFIG_NOSYSTEM', '1')
+    folder = tmp_path / 'widget'
+    folder.mkdir()
+    subprocess.run(['git', 'init', '-q'], cwd=folder, check=True)
+    subprocess.run(['git', 'remote', 'add', 'origin', 'https://github.com/acme/widget.git'], cwd=folder, check=True)
+
+    def config(*args):
+        subprocess.run(['git', 'config', *args], cwd=folder, check=True)
+    return {'checkout': str(folder.resolve()), 'remote': 'origin', 'repo': 'acme/widget'}, config
+
+
+def test_a_plain_github_remote_passes_the_identity_check(checkout):
+    entry, _ = checkout
+    assert repositories.inspect(entry) == []
+
+
+@pytest.mark.parametrize('rewrite', ['pushInsteadOf', 'insteadOf'])
+def test_a_url_rewrite_to_another_repository_blocks_the_entry(checkout, rewrite):
+    """#180: Git applies insteadOf/pushInsteadOf before it pushes; the check must judge the URL Git really uses."""
+    entry, config = checkout
+    config(f'url.https://github.com/mallory/widget.git.{rewrite}', 'https://github.com/acme/widget.git')
+    problems = repositories.inspect(entry)
+    assert any('github.com/acme/widget' in p for p in problems), f'{rewrite} to mallory/widget was accepted: {problems}'
+
+
+def test_a_rewrite_that_keeps_the_same_repository_passes(checkout):
+    """#180: a rewrite from HTTPS to SSH for the same repository is not a different destination."""
+    entry, config = checkout
+    config('url.git@github.com:acme/.pushInsteadOf', 'https://github.com/acme/')
+    assert repositories.inspect(entry) == []
