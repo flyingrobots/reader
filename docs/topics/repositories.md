@@ -30,7 +30,7 @@ The workspace and tools/credentials created inside it are retained in the reposi
 
 Checking the registry reads configuration and reports legacy entries or unverified container readiness without launching a worker. It does not clone, install tools or sign in. Default views do not inspect old checkout paths or invoke host Git/agent discovery. Use the explicit local `reader container exec` and `reader container check` commands to prepare and inspect tooling/sign-in; see [terminal setup](../container-runtime.md#explicit-terminal-setup). Static validation is not execution readiness. The browser never starts setup just by viewing a registration.
 
-Job preflight rechecks GitHub publication access, the approved configuration source, local image identity, resource admission and remote base. If the base changed after approval, setup must be refreshed rather than silently reusing approval for another revision. Missing or refused prerequisites remain explicit blocked/error states.
+Job preflight rechecks GitHub publication access, the approved configuration source, local image identity, resource admission and remote base. If the base changed after approval, setup must be refreshed rather than silently reusing approval for another revision. Missing or refused prerequisites remain explicit blocked/error states. For a host checkout entry, the identity check judges the URLs Git really uses (`git remote get-url --all` and `git remote get-url --push --all`, after `insteadOf` and `pushInsteadOf` rewrites), so a rewrite that points fetch or push at another repository blocks the entry.
 
 ## Remove
 
