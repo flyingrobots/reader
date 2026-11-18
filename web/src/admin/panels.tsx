@@ -52,7 +52,7 @@ export function ServicePanel({context:c}:Props){
     <section className="flex flex-col gap-4" id="backstage-server" aria-labelledby="server-title">
       <SectionHeading id="server-title">Service</SectionHeading><ServerCard api={c.api}/></section>
     {!c.companions&&c.companionsError?<Unavailable what="Companion tools" error={c.companionsError}/>:null}
-    <CompanionsSection api={c.api} status={c.companions} busy={!!c.maintenance?.running} onRefresh={()=>{c.api('/api/companions',{action:'check',name:'colorful'}).catch(()=>{}).finally(c.refreshCompanions);}}
+    <CompanionsSection api={c.api} status={c.companions} busy={!!c.maintenance?.running} onRefresh={()=>{c.api('api/companions',{action:'check',name:'colorful'}).catch(()=>{}).finally(c.refreshCompanions);}}
       act={(name,action,extra)=>c.companionAction(name,action,extra)}/>
   </div>;
 }

@@ -37,12 +37,12 @@ export function artPalette(){
 export function fetchArt(api,path,{edition,generation,fresh=false}={}){
   const key=[path,edition||'',generation||''].join('|'),cached=cache.get(key);
   if(!fresh&&cached&&Date.now()-cached.at<30000)return cached.promise;
-  const promise=api('/api/art?path='+encodeURIComponent(path)+(edition?'&edition='+edition+'&generation='+encodeURIComponent(generation):'')).catch(error=>{cache.delete(key);throw error;});
+  const promise=api('api/art?path='+encodeURIComponent(path)+(edition?'&edition='+edition+'&generation='+encodeURIComponent(generation):'')).catch(error=>{cache.delete(key);throw error;});
   cache.set(key,{at:Date.now(),promise});return promise;
 }
 export const forgetArt=path=>{for(const key of [...cache.keys()])if(key.startsWith(path+'|'))cache.delete(key);};
 export const hasArt=data=>!!data?.art?.scene;
-const stillUrl=(path,art)=>art?.still?`/api/art/still?path=${encodeURIComponent(path)}&edition=${art.edition}&generation=${encodeURIComponent(art.generation)}`:null;
+const stillUrl=(path,art)=>art?.still?`api/art/still?path=${encodeURIComponent(path)}&edition=${art.edition}&generation=${encodeURIComponent(art.generation)}`:null;
 
 function duration(seconds){if(!Number.isFinite(seconds))return null;const s=Math.round(seconds);return s<60?`${s} s`:`${Math.floor(s/60)} min ${String(s%60).padStart(2,'0')} s`;}
 function tokens(usage){if(!usage)return null;const total=(usage.input_tokens||0)+(usage.output_tokens||0);return total?`${total>=1000?Math.round(total/1000)+'k':total} tokens`:null;}
@@ -123,7 +123,7 @@ function keepStill(api,data,stage,scene,palette){
     let image=stage.still(scene,palette,STILL.width,STILL.height,{type:'image/webp',quality:.86});
     if(!image.startsWith('data:image/webp'))image=stage.still(scene,palette,STILL.width,STILL.height);
     if(image.length>2.6e6)return;
-    await api('/api/art',{action:'still',path:data.path,edition:art.edition,generation:art.generation,image});forgetArt(data.path);
+    await api('api/art',{action:'still',path:data.path,edition:art.edition,generation:art.generation,image});forgetArt(data.path);
   }catch(error){console.warn('Article art still',error);}},1200);
 }
 
@@ -168,7 +168,7 @@ export function artJobs({api,notify}){
   const label=job=>`‘${job.title||job.path.split('/').pop()}’`;
   async function poll(){
     clearTimeout(timer);timer=0;
-    let status;try{status=await api('/api/art/jobs');}catch{timer=setTimeout(poll,8000);return;}
+    let status;try{status=await api('api/art/jobs');}catch{timer=setTimeout(poll,8000);return;}
     last=status;
     for(const job of status.jobs){
       const before=seen.get(job.id),key=job.state+'|'+(job.stage||'');
@@ -185,8 +185,8 @@ export function artJobs({api,notify}){
   return {
     poll,
     status:()=>last,
-    async generate(path,producer,direction){const {job}=await api('/api/art',{action:'generate',path,producer:producer||undefined,direction:direction||undefined});poll();return job;},
-    async commission(paths,producer){const result=await api('/api/art',{action:'commission',paths,producer:producer||undefined});if(result.queued.length)poll();return result;},
-    async cancel(id){const {job}=await api('/api/art',{action:'cancel',job:id});poll();return job;},
+    async generate(path,producer,direction){const {job}=await api('api/art',{action:'generate',path,producer:producer||undefined,direction:direction||undefined});poll();return job;},
+    async commission(paths,producer){const result=await api('api/art',{action:'commission',paths,producer:producer||undefined});if(result.queued.length)poll();return result;},
+    async cancel(id){const {job}=await api('api/art',{action:'cancel',job:id});poll();return job;},
   };
 }

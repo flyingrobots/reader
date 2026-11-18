@@ -3,7 +3,7 @@ export function createTokenFetch({getToken,setToken,fetcher=(...args)=>fetch(...
   let refreshing=null;
   async function freshToken() {
     if(!refreshing)refreshing=(async()=>{
-      const response=await fetcher('/api/token',{cache:'no-store'});
+      const response=await fetcher('api/token',{cache:'no-store'});
       const data=await response.json().catch(()=>null);
       if(!response.ok||typeof data?.token!=='string'||!data.token)return null;
       setToken(data.token);return data.token;

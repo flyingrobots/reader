@@ -64,7 +64,7 @@ export function installLists({showPanel,hidePanel,state,api,notify,openAt,positi
   };
   async function search(query,mode,name){
     let data;
-    try{data=await api('/api/search/page?q='+param(query)+'&mode='+mode+'&limit=50&participant='+param(who()));}
+    try{data=await api('api/search/page?q='+param(query)+'&mode='+mode+'&limit=50&participant='+param(who()));}
     catch(error){if(!error.offline)notify('Search didn’t run: '+(error.message||error),'error');return;}
     const items=[];for(const work of data.works||[])for(const passage of work.passages||[])items.push({path:passage.path,title:work.title,label:passage.excerpt,at:{line:passage.line,page:passage.page,terms:data.terms||[],query},source:mode});
     if(!items.length){notify(`Nothing found for “${query.slice(0,60)}”.`);return;}

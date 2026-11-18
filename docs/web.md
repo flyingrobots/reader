@@ -30,6 +30,15 @@ CDN, external analytics or hosted account. Content and semantic
 search retain the existing [search](search.md) configuration and model lifecycle.
 The web server does not rebuild indexes or download models at startup.
 
+**URLs are page-relative.** The page, its stylesheets, scripts, fonts, the manifest and every API call
+use URLs relative to the page (`api/library`, `assets/app.mjs`, `?pane=1`; CSS fonts resolve against the
+stylesheet), and the `file_url` and `preview_url` that the server returns as `/api/...` are resolved
+against the page. So the UI works unchanged at a path prefix such as `https://host/reader/`, provided a
+reverse proxy forwards `/reader/*` to the server with the prefix stripped. The server itself has no
+prefix option and still checks `Host` and `Origin` against its loopback address; a proxy must present
+those, or be configured as the trusted front. `tests/web_path_prefix.cjs` serves the UI this way and
+fails on any request outside the prefix.
+
 ## Companion attachments
 
 Article-relative links resolve against the article's folder in both filed bundles

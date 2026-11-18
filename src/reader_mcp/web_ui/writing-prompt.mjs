@@ -10,7 +10,7 @@ export function installWritingPrompts({api,document:currentDocument,participant,
   async function load(token,taskId){
     const query=new URLSearchParams({path:context.path,participant:context.participant});
     if(state.voice)query.set('voice',state.voice);if(taskId)query.set('task',taskId);
-    const data=await api('/api/prompt?'+query);if(token!==sequence||!state.open)return;
+    const data=await api('api/prompt?'+query);if(token!==sequence||!state.open)return;
     const task=data.task;update({loading:false,prompt:data.prompt,voices:(data.voices||[]).filter(v=>v.runnable),voice:data.default_voice||'',task});
     if(task&&!['done','failed','timeout','cancelled'].includes(task.state)){
       update({busy:true});timer=setTimeout(()=>load(token,task.id).catch(error=>fail(error,token)),650);
@@ -32,7 +32,7 @@ export function installWritingPrompts({api,document:currentDocument,participant,
   async function generate(regenerate=false){
     if(state.busy)return;const token=++sequence;clearTimeout(timer);update({busy:true,error:''});
     try{
-      const data=await api('/api/prompt',{action:'generate',path:context.path,participant:context.participant,voice:state.voice||undefined,request_id:crypto.randomUUID(),regenerate});
+      const data=await api('api/prompt',{action:'generate',path:context.path,participant:context.participant,voice:state.voice||undefined,request_id:crypto.randomUUID(),regenerate});
       if(token!==sequence)return;
       if(data.prompt){update({prompt:data.prompt,busy:false,task:null});return;}
       update({task:data.task});await load(token,data.task.id);

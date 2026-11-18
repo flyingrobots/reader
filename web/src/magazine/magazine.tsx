@@ -39,7 +39,7 @@ function useStandfirsts(paths:string[],api:IssueActions['api']){
     let alive=true;const queue=[...paths];
     const worker=async()=>{for(let path=queue.shift();path;path=queue.shift()){
       let entry:Standfirst=null;
-      try{const data=await api('/api/standfirst?path='+encodeURIComponent(path));if(data.standfirst)entry={text:data.standfirst,source:data.source,model:data.model};}catch{/* A missing standfirst is not an error. */}
+      try{const data=await api('api/standfirst?path='+encodeURIComponent(path));if(data.standfirst)entry={text:data.standfirst,source:data.source,model:data.model};}catch{/* A missing standfirst is not an error. */}
       if(alive)setFound(current=>({...current,[path!]:entry}));}};
     void Promise.all([worker(),worker(),worker()]);
     return ()=>{alive=false;};

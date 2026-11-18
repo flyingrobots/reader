@@ -5,7 +5,7 @@ export function installQuiz({api,document:currentDocument,participant:currentPar
   const getSnapshot=()=>state,subscribe=listener=>{listeners.add(listener);return()=>listeners.delete(listener);};
   function update(patch){const before=state.open;state={...state,...patch};if(before!==state.open)mode?.(state.open);for(const listener of listeners)listener();}
   const params=()=>new URLSearchParams({path:context.path,participant:context.participant});
-  function post(request){return api('/api/quiz',{...request,path:context.path,participant:context.participant});}
+  function post(request){return api('api/quiz',{...request,path:context.path,participant:context.participant});}
   function resetQuestions(quiz){return {quiz,setup:false,index:0,answers:{},short:{},reviews:{},result:null,task:null};}
   function close(){sequence++;clearTimeout(timer);update({open:false,loading:false,busy:false});}
   function adopt(data){
@@ -21,7 +21,7 @@ export function installQuiz({api,document:currentDocument,participant:currentPar
   }
   async function load(taskId=null,token=sequence){
     const query=params();if(taskId)query.set('task',taskId);
-    const data=await api('/api/quiz?'+query);if(token!==sequence||!state.open)return;
+    const data=await api('api/quiz?'+query);if(token!==sequence||!state.open)return;
     adopt(data);
     if(data.task){
       const task=data.task;update({task});

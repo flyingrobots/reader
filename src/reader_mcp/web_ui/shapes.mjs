@@ -19,7 +19,7 @@ let figures=0;
 /** /api/shape for a path, cached for this session (keyed by path; a changed source gets a new digest). */
 export function fetchShape(api,path){
   const cached=data.get(path);if(cached&&Date.now()-cached.at<10*60000)return cached.promise;
-  const promise=api('/api/shape?path='+encodeURIComponent(path)).catch(error=>{data.delete(path);throw error;});
+  const promise=api('api/shape?path='+encodeURIComponent(path)).catch(error=>{data.delete(path);throw error;});
   data.set(path,{at:Date.now(),promise});return promise;
 }
 export const drawable=shape=>!!shape&&Array.isArray(shape.points)&&shape.count>=(shape.min_chunks||MIN_CHUNKS)&&shape.points.length>=2;

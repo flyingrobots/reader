@@ -9,12 +9,12 @@ export function SpeechVoice({api,saveDefault=false,refreshKey='',onChange}:{api:
   const id=useId(),[voices,setVoices]=useState<string[]>([]),[voice,setVoice]=useState('');
   const [retry,setRetry]=useState(0);
   const [ready,setReady]=useState(false),[busy,setBusy]=useState(false),[error,setError]=useState(''),[saved,setSaved]=useState(false);
-  useEffect(()=>{let live=true;setReady(false);setError('');api('/api/speech-voices').then(data=>{if(!live)return;setVoices(data.voices);setVoice(data.default_voice||'');setReady(true);},failure=>{if(live)setError(failure.message||'Couldn’t load AI-TTS voices.');});return ()=>{live=false;};},[api,refreshKey,retry]);
+  useEffect(()=>{let live=true;setReady(false);setError('');api('api/speech-voices').then(data=>{if(!live)return;setVoices(data.voices);setVoice(data.default_voice||'');setReady(true);},failure=>{if(live)setError(failure.message||'Couldn’t load AI-TTS voices.');});return ()=>{live=false;};},[api,refreshKey,retry]);
   async function change(next:string){
     setError('');setSaved(false);
     if(!saveDefault){setVoice(next);onChange?.(next);return;}
     setBusy(true);
-    try{await api('/api/speech-voices',{voice:next});setVoice(next);setSaved(true);}catch(failure){setError(failure instanceof Error?failure.message:String(failure));}finally{setBusy(false);}
+    try{await api('api/speech-voices',{voice:next});setVoice(next);setSaved(true);}catch(failure){setError(failure instanceof Error?failure.message:String(failure));}finally{setBusy(false);}
   }
   return <Field data-speech-voice="">
     <FieldLabel htmlFor={id}>{saveDefault?'Default reading voice':'Reading voice'}</FieldLabel>

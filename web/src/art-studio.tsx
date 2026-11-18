@@ -30,7 +30,7 @@ export function costLine(job:{usage:ArtJob['usage'];producer:string}){
 /** The producers the server offers (voices with a CLI, the local model) for "Art made by". */
 export function useArtProducers(api:Api){
   const [status,setStatus]=useState<ArtStatus|null>(null);
-  useEffect(()=>{let live=true;api('/api/art/jobs').then(s=>{if(live)setStatus(s);},()=>{});
+  useEffect(()=>{let live=true;api('api/art/jobs').then(s=>{if(live)setStatus(s);},()=>{});
     const listen=(event:Event)=>{if(live)setStatus((event as CustomEvent<ArtStatus>).detail);};document.addEventListener('reader:art-jobs',listen);
     return ()=>{live=false;document.removeEventListener('reader:art-jobs',listen);};},[api]);
   return status;
@@ -40,12 +40,12 @@ export function ArtStudio({api,open}:{api:Api;open:(path:string)=>void}){
   const [status,setStatus]=useState<ArtStatus|null>(null),[error,setError]=useState<string|null>(null);
   useEffect(()=>{
     let live=true,timer:ReturnType<typeof setTimeout>|undefined;
-    const poll=async()=>{clearTimeout(timer);try{const s=await api('/api/art/jobs');if(!live)return;setStatus(s);setError(null);timer=setTimeout(poll,s.active?2000:10000);}catch(e){if(live){setError(e instanceof Error?e.message:String(e));timer=setTimeout(poll,10000);}}};
+    const poll=async()=>{clearTimeout(timer);try{const s=await api('api/art/jobs');if(!live)return;setStatus(s);setError(null);timer=setTimeout(poll,s.active?2000:10000);}catch(e){if(live){setError(e instanceof Error?e.message:String(e));timer=setTimeout(poll,10000);}}};
     const listen=(event:Event)=>{if(live)setStatus((event as CustomEvent<ArtStatus>).detail);};
     document.addEventListener('reader:art-jobs',listen);poll();
     return ()=>{live=false;clearTimeout(timer);document.removeEventListener('reader:art-jobs',listen);};
   },[api]);
-  const cancel=async(id:string)=>{try{await api('/api/art',{action:'cancel',job:id});setStatus(await api('/api/art/jobs'));}catch(e){setError(e instanceof Error?e.message:String(e));}};
+  const cancel=async(id:string)=>{try{await api('api/art',{action:'cancel',job:id});setStatus(await api('api/art/jobs'));}catch(e){setError(e instanceof Error?e.message:String(e));}};
   const available=status?.producers.filter(p=>p.available)||[],active=status?.jobs.filter(j=>ACTIVE.includes(j.state))||[];
   return <section className="flex flex-col gap-4" id="backstage-art" aria-labelledby="art-title">
     <SectionHeading id="art-title">Art studio</SectionHeading>

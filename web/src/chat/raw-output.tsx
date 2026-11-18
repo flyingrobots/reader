@@ -57,7 +57,7 @@ export function RawOutput({chatId,turnId,running,open,onOpenChange,api,bus,label
   const [version,setVersion]=useState(0);
   const load=useCallback(async()=>{
     queued.current=[];
-    try{const result:RawData=await api(`/api/chat/raw?id=${encodeURIComponent(chatId)}&turn=${encodeURIComponent(turnId)}`);
+    try{const result:RawData=await api(`api/chat/raw?id=${encodeURIComponent(chatId)}&turn=${encodeURIComponent(turnId)}`);
       const next={stdout:split(result.stdout),stderr:split(result.stderr)};
       for(const frame of queued.current||[])if(frame.n===next[frame.stream].length)next[frame.stream].push(frame.text);
       queued.current=null;lines.current=next;setData(result);setError(null);

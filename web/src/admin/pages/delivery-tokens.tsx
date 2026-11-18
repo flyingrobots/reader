@@ -17,9 +17,9 @@ type Token={id:string;name:string;created_at:string;last_used_at:string|null;upl
 
 export function DeliveryTokens({api}:{api:Api}){
   const [tokens,setTokens]=useState<Token[]|null>(null),[name,setName]=useState(''),[fresh,setFresh]=useState<{name:string;token:string}|null>(null),[error,setError]=useState<string|null>(null);
-  const load=useCallback(async()=>{try{setTokens((await api('/api/delivery-tokens')).tokens);}catch{setTokens(null);}},[api]);
+  const load=useCallback(async()=>{try{setTokens((await api('api/delivery-tokens')).tokens);}catch{setTokens(null);}},[api]);
   useEffect(()=>{load();},[load]);
-  const act=async(payload:Record<string,unknown>)=>{setError(null);try{const result=await api('/api/delivery-tokens',payload);await load();return result;}catch(cause){setError((cause as Error).message);return null;}};
+  const act=async(payload:Record<string,unknown>)=>{setError(null);try{const result=await api('api/delivery-tokens',payload);await load();return result;}catch(cause){setError((cause as Error).message);return null;}};
   if(tokens===null)return null;
   return <StatusCard data-delivery-tokens="" title="Delivery tokens" description="Let another machine or agent send documents to your inbox. A token can’t read your library or start filing, and it’s limited to 200 uploads and 512 MB a day.">
     {error?<Notice id="token-error" tone="error" role="alert">{error}</Notice>:null}

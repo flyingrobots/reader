@@ -23,8 +23,8 @@ export function installLinks({threadPanel,closeThreadPanel,state,api,reading,nav
       const pending=(async()=>{
         if(/^[a-z][a-z0-9+.-]*:|^\/\//i.test(href)){let host=href;try{host=new URL(href,location.href).host||href.replace(/^mailto:/i,'');}catch{}return {type:'external',host};}
         let target=href;try{target=decodeURI(href);}catch{}
-        const resolved=await api('/api/resolve?from='+param(from)+'&target='+param(target));
-        return {type:'document',...await api('/api/preview?path='+param(resolved.path)+'&fragment='+param(resolved.fragment||'')+'&participant='+param(state.prefs.participant))};
+        const resolved=await api('api/resolve?from='+param(from)+'&target='+param(target));
+        return {type:'document',...await api('api/preview?path='+param(resolved.path)+'&fragment='+param(resolved.fragment||'')+'&participant='+param(state.prefs.participant))};
       })().catch(error=>{
         // A transient refusal can retry; an older evicted request cannot delete its replacement.
         if(error.status!==404&&cache.get(key)===pending)cache.delete(key);
@@ -95,7 +95,7 @@ export function installLinks({threadPanel,closeThreadPanel,state,api,reading,nav
   }
   async function backlinks(path,routeId,attempt=0){
     if(state.prefs.backlinks===false)return;
-    let data;try{data=await api('/api/links?path='+param(path));}catch{return;}
+    let data;try{data=await api('api/links?path='+param(path));}catch{return;}
     if(routeId!==state.routeId||state.doc?.path!==path)return;
     place(data,path);
     if(data.state==='building'&&attempt<90)setTimeout(()=>backlinks(path,routeId,attempt+1),attempt<5?700:2000);

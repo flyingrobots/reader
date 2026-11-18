@@ -168,7 +168,7 @@ export function installReading({scratchStatus, statusOverride, onStatus, mayCurl
   function save(keepalive=false){
     if(!ready)return saveQueue;const snapshot=capture();if(!snapshot)return saveQueue;
     const key=JSON.stringify(snapshot);if(lastSaved===key)return saveQueue;lastSaved=key;
-    saveQueue=saveQueue.catch(()=>{}).then(()=>api('/api/bookmark',snapshot,{keepalive})).catch(error=>{if(lastSaved===key)lastSaved='';if(!error.offline)toast('Couldn’t save your place: '+error.message);});
+    saveQueue=saveQueue.catch(()=>{}).then(()=>api('api/bookmark',snapshot,{keepalive})).catch(error=>{if(lastSaved===key)lastSaved='';if(!error.offline)toast('Couldn’t save your place: '+error.message);});
     return saveQueue;
   }
   function saveWhenSettled(){

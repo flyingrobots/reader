@@ -27,7 +27,7 @@ const MIN_PASSPHRASE=12;
 
 export function usePrivateStatus(api:Api){
   const [status,setStatus]=useState<PrivateStatus|null>(null),[available,setAvailable]=useState(false),[checked,setChecked]=useState(false);
-  const refresh=useCallback(async()=>{try{setStatus(await api('/api/private'));setAvailable(true);}catch{setStatus(null);setAvailable(false);}finally{setChecked(true);}},[api]);
+  const refresh=useCallback(async()=>{try{setStatus(await api('api/private'));setAvailable(true);}catch{setStatus(null);setAvailable(false);}finally{setChecked(true);}},[api]);
   useEffect(()=>{refresh();},[refresh]);
   return {status,available,checked,refresh};
 }
@@ -37,7 +37,7 @@ export function PrivateShelf({api,privacy}:{api:Api;privacy:ReturnType<typeof us
   const [passphrase,setPassphrase]=useState(''),[again,setAgain]=useState(''),[understood,setUnderstood]=useState(false);
   const [busy,setBusy]=useState(false),[error,setError]=useState<string|null>(null);
   const act=async(payload:Record<string,unknown>)=>{setBusy(true);setError(null);
-    try{await api('/api/private',payload);setPassphrase('');setAgain('');setUnderstood(false);await refresh();return true;}
+    try{await api('api/private',payload);setPassphrase('');setAgain('');setUnderstood(false);await refresh();return true;}
     catch(cause){setError((cause as Error).message);return false;}finally{setBusy(false);}};
   const [waiting,setWaiting]=useState<Waiting[]>([]),[batchError,setBatchError]=useState<string|null>(null),[selected,setSelected]=useState<string[]>([]),[progress,setProgress]=useState<{done:number;total:number}|null>(null);
   // One at a time, in list order. A failure stops the rest, and whatever hasn't moved stays selected to try again.
@@ -45,12 +45,12 @@ export function PrivateShelf({api,privacy}:{api:Api;privacy:ReturnType<typeof us
     const chosen=waiting.filter(arrival=>selected.includes(arrival.id));
     setBusy(true);setBatchError(null);setProgress({done:0,total:chosen.length});
     try{for(const [index,arrival] of chosen.entries()){
-      try{await api('/api/private',{action:'encrypt-arrival',id:arrival.id});}
+      try{await api('api/private',{action:'encrypt-arrival',id:arrival.id});}
       catch(cause){setBatchError(`Stopped at “${arrival.title}”: ${(cause as Error).message}`);break;}
       setSelected(current=>current.filter(id=>id!==arrival.id));setProgress({done:index+1,total:chosen.length});
     }}finally{setBusy(false);setProgress(null);await refresh();}
   };
-  useEffect(()=>{if(!status?.unlocked){setWaiting([]);return;}api('/api/inbox').then(inbox=>setWaiting((inbox.arrivals||[]).filter((arrival:{bundle?:boolean;integrity?:string})=>arrival.bundle&&arrival.integrity==='intact'))).catch(()=>setWaiting([]));},[api,status]);
+  useEffect(()=>{if(!status?.unlocked){setWaiting([]);return;}api('api/inbox').then(inbox=>setWaiting((inbox.arrivals||[]).filter((arrival:{bundle?:boolean;integrity?:string})=>arrival.bundle&&arrival.integrity==='intact'))).catch(()=>setWaiting([]));},[api,status]);
   if(!available||!status)return checked?<Notice id="private-elsewhere" role="note" title="Encrypted storage isn’t available at this address.">To set a passphrase or encrypt documents, open Publish in a browser on the computer that holds your library, using its local address (for example <code className="font-mono text-xs">http://127.0.0.1:8766/#admin/publish</code>). A Tailscale address can’t reach it, even on that computer.</Notice>:null;
   const badge=status.unlocked?<StatusBadge tone="active" data-private-state="unlocked">Unlocked</StatusBadge>:status.initialized?<StatusBadge tone="neutral" data-private-state="locked">Locked</StatusBadge>:<StatusBadge tone="neutral" data-private-state="unset">Not set up</StatusBadge>;
   const mismatch=!!again&&again!==passphrase;

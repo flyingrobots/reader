@@ -79,7 +79,7 @@ export function Artifact({run,name,api}:{run:JobRun;name:string;api:JobViewOptio
   // Only the latest request may answer: a slow one for the artifact shown before never replaces the one chosen since.
   const latest=useRef(0);
   const load=(limit:number)=>{const request=++latest.current;setError(null);
-    return api(`/api/jobs/artifact?id=${encodeURIComponent(run.id)}&name=${encodeURIComponent(name)}&limit=${limit}`).then(
+    return api(`api/jobs/artifact?id=${encodeURIComponent(run.id)}&name=${encodeURIComponent(name)}&limit=${limit}`).then(
       value=>{if(request===latest.current)setData(value);},(e:unknown)=>{if(request===latest.current)setError(String(e instanceof Error?e.message:e));});};
   useEffect(()=>{setData(null);},[run.id,name]);
   useEffect(()=>{load(256*1024);return ()=>{latest.current++;};},[run.id,name,run.seq]);

@@ -105,7 +105,7 @@ const median=values=>{const s=[...values].sort((a,b)=>a-b);return s.length?s[s.l
   {const {context,page,errors}=await open({webgl:false,prefs:{artHero:false}});  // Space g's view; tests/web_hero.cjs covers the hero.
    await home(page);await settled(page);
    assert.equal(await cover(page).getAttribute('data-state'),'image');
-   assert.match(await page.locator('.cover-art img.art-still').getAttribute('src'),/^\/api\/art\/still\?path=library%2Fissue%2Fcover\.md/);
+   assert.match(await page.locator('.cover-art img.art-still').evaluate(i=>new URL(i.src).pathname+new URL(i.src).search),/^\/api\/art\/still\?path=library%2Fissue%2Fcover\.md/);
    assert.ok(await page.evaluate(()=>document.querySelector('.cover-art img.art-still').decode().then(()=>document.querySelector('.cover-art img.art-still').naturalWidth)),'the still image loads');
    assert.equal(await page.locator('.feature-art').count(),0,'a thumbnail without a still or WebGL is left out');
    await read(page,'library/issue/keep.md');await page.keyboard.press('Space');await page.keyboard.press('g');await settled(page,'.article-art');

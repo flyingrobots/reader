@@ -24,7 +24,7 @@ export function LogsPage({options,go,href}:AdminPanelProps){
   const [kind,setKind]=React.useState(''),[pages,setPages]=React.useState<(string|null)[]>([null]);
   const cursor=pages.at(-1);
   const query=new URLSearchParams({...(kind?{kind}:{}),...(cursor?{cursor}:{}),limit:'30'});
-  const [page,reload]=useLoad<{runs:LogRow[];next:string|null;kinds:string[];retention:string}>(needsReader('logs')?null:'/api/logs?'+query,options.api);
+  const [page,reload]=useLoad<{runs:LogRow[];next:string|null;kinds:string[];retention:string}>(needsReader('logs')?null:'api/logs?'+query,options.api);
   if(page.error||needsReader('logs'))return <Unavailable what="The LLM log archive" error={page.error}/>;
   return <div className="flex flex-col gap-4" data-admin-panel="logs">
     <FilterBar label="Filter LLM logs" actions={<Button size="sm" variant="outline" onClick={reload}><RefreshCwIcon data-icon="inline-start" aria-hidden/>Refresh</Button>}>
@@ -48,10 +48,10 @@ export function LogsPage({options,go,href}:AdminPanelProps){
 
 export function LogPage({params,options}:AdminPanelProps&{params:string[]}){
   const relative=logPath(params);
-  const [detail]=useLoad<{run:LogRow;meta:Record<string,unknown>;artifacts:string[]}>(needsReader('logs')?null:'/api/logs/run?path='+encodeURIComponent(relative),options.api);
+  const [detail]=useLoad<{run:LogRow;meta:Record<string,unknown>;artifacts:string[]}>(needsReader('logs')?null:'api/logs/run?path='+encodeURIComponent(relative),options.api);
   const [name,setName]=React.useState<string|null>(null);
   const chosen=name||detail.data?.artifacts.find(a=>a.startsWith('prompt'))||detail.data?.artifacts[0]||null;
-  const [artifact]=useLoad<{text:string|null;bytes:number|null;truncated:boolean;limit:number;available:boolean}>(chosen?`/api/logs/artifact?path=${encodeURIComponent(relative)}&name=${encodeURIComponent(chosen)}`:null,options.api,[relative]);
+  const [artifact]=useLoad<{text:string|null;bytes:number|null;truncated:boolean;limit:number;available:boolean}>(chosen?`api/logs/artifact?path=${encodeURIComponent(relative)}&name=${encodeURIComponent(chosen)}`:null,options.api,[relative]);
   if(detail.error||needsReader('logs'))return <Unavailable what="This LLM run" error={detail.error}/>;
   if(!detail.data)return <LoadingState>Reading the run…</LoadingState>;
   const run=detail.data.run;

@@ -22,7 +22,7 @@ function ensureCard(){
   addEventListener('scroll',()=>{if(!card.hidden&&!pinned)hide();},{passive:true});
   document.body.append(card);return card;
 }
-const promptUrl=(path,art)=>`/api/art/prompt?path=${encodeURIComponent(path)}&edition=${art.edition}&generation=${encodeURIComponent(art.generation)}`;
+const promptUrl=(path,art)=>`api/art/prompt?path=${encodeURIComponent(path)}&edition=${art.edition}&generation=${encodeURIComponent(art.generation)}`;
 export function loadPrompt(api,path,art){
   const key=path+'|'+art.generation;
   if(!answers.has(key))answers.set(key,api(promptUrl(path,art)).catch(error=>{answers.delete(key);throw error;}));

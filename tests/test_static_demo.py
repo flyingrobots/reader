@@ -43,11 +43,6 @@ def test_unsafe_base_paths_are_refused(value):
         static.normal_base(value)
 
 
-def test_rebase_rewrites_root_absolute_assets_and_panes_only():
-    text = """<link href="/assets/style.css"> url('/assets/vendor/a.woff2') const s='/?pane=1'+x; fetch('/api/library'); '/assets'"""
-    assert static.rebase(text, '/reader/') == """<link href="/reader/assets/style.css"> url('/reader/assets/vendor/a.woff2') const s='/reader/?pane=1'+x; fetch('/api/library'); '/assets'"""
-
-
 def test_output_folder_safety(tmp_path):
     mine = tmp_path / 'mine'
     mine.mkdir()
@@ -91,17 +86,18 @@ def test_the_served_page_never_loads_the_shim():
     assert 'static-demo' not in html and 'reader-static-demo' not in html
 
 
-def test_export_writes_a_flagged_page_with_rebased_assets(exported):
+def test_export_writes_a_flagged_page_with_page_relative_assets(exported):
     root, out, summary = exported
     html = (out / 'index.html').read_text()
     assert '<meta name="reader-static-demo"' in html and '<script src="/reader/assets/static-demo.js"></script>' in html
     assert 'Content-Security-Policy' in html and "connect-src 'self'" in html
     assert 'href="/assets/' not in html and 'src="/assets/' not in html
     assert '<meta property="og:image" content="https://example.invalid/reader/assets/icons/icon-512.png">' in html
-    assert "url('/reader/assets/vendor/newsreader.woff2')" in (out / 'assets/style.css').read_text()
-    assert "'/reader/?pane=1'" in (out / 'assets/split.mjs').read_text()
+    # The UI's URLs are page-relative (#106), so assets are copied byte for byte, never rewritten for the base.
+    for name in ('style.css', 'split.mjs', 'app.mjs', 'pdf.mjs'):
+        assert (out / 'assets' / name).read_bytes() == (STATIC / name).read_bytes(), name
     manifest = json.loads((out / 'assets/manifest.webmanifest').read_text())
-    assert manifest['start_url'] == manifest['scope'] == '/reader/' and manifest['icons'][0]['src'].startswith('/reader/assets/')
+    assert manifest['start_url'] == manifest['scope'] == '/reader/' and manifest['icons'][0]['src'] == 'icons/icon-192.png'
     assert (out / '.nojekyll').exists() and json.loads((out / static.MARKER).read_text())['kind'] == static.MARKER_KIND
     assert summary['base'] == '/reader/' and summary['files'] < static.MAX_FILES and summary['bytes'] < static.MAX_BYTES
 

@@ -23,10 +23,10 @@ const {chromium}=require(process.env.READER_PLAYWRIGHT||'playwright-core');
     await page.goto(url+'/#read='+encodeURIComponent(path));const doc=await (await payload).json();
     await page.waitForFunction(()=>!document.querySelector('.resume-pending'));
     const link=page.locator('.document-meta a.document-source');await link.waitFor();
-    assert.equal(await link.getAttribute('href'),doc.file_url,label+': the header link is the payload file_url');
+    assert.equal(await link.evaluate(a=>a.href),new URL(doc.file_url,url).href,label+': the header link is the payload file_url');
     assert.equal(await link.getAttribute('target'),'_blank');assert.equal(await link.getAttribute('rel'),'noopener noreferrer');
     assert.match(await link.getAttribute('title'),/Open the raw source file/);assert.equal((await link.textContent()).trim(),'Source');
-    assert.equal(await page.locator('.document-footer a',{hasText:'Open original'}).getAttribute('href'),doc.file_url,label+': the footer link stays');
+    assert.equal(await page.locator('.document-footer a',{hasText:'Open original'}).evaluate(a=>a.href),new URL(doc.file_url,url).href,label+': the footer link stays');
     const response=await page.request.get(new URL(doc.file_url,url).href);assert.equal(response.status(),200);
     assert.match(response.headers()['content-type'],/^text\/plain/,label+': served as text');assert.equal(await response.text(),bytes,label+': exact bytes, front matter included');
     // Space u opens the same URL in a new tab.
