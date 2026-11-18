@@ -27,7 +27,7 @@
     "licenses.mjs": "6d68777363b8fa9c496a32b60fab061ea62145c1a0f033014607a9ace9aa45da",
     "package-lock.json": "a4d06be3ac3f58f0947355ea9b737a0eef8475a3ba4d3bbcecfd2fbe943f095e",
     "src/activity/reducer.ts": "5694d95a7c4c44369b3e46aed7a4707077f227edf6bbe55d5f9908db7b9e531f",
-    "src/activity/transcript.tsx": "933c0a872ad590cf560bce8b2072a065745c4a159c5b259a9cbd944e93cd7f9c",
+    "src/activity/transcript.tsx": "e44cc17d5b800527effc436960701ce9608de05ecc594295d90229e4ec48424e",
     "src/admin/admin-shell.tsx": "4e270ac94e55113b90511e279088861702fe84ee264bc1d166766f381ca517d2",
     "src/admin/documentation-topics.ts": "891e8deb45fcf8e1561b8812ca954035a1a98463d4383cb7ffd854247f547d22",
     "src/admin/documentation.tsx": "62f9ad258ed87711f917baafa7990c1737b6c755b89060ce7046580d451f90eb",
@@ -1003,8 +1003,8 @@
       "sha256": "585794388b44492cc9b410177c61e47f8fcdc26469027d8c93fbdb643d56a6b4"
     },
     "reader-controls.js": {
-      "bytes": 1433774,
-      "sha256": "c33660c0158e6429465200dbc441c4dbdca9553eeae16390dd464c43ea15847a"
+      "bytes": 1433763,
+      "sha256": "e9bebf5dcf390412b851c6c127004c1ffebd4eea81d7ef1a4aa4a3ffc3ad9a31"
     },
     "reader-controls.js.LEGAL.txt": {
       "bytes": 6614,

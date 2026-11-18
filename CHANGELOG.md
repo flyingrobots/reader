@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Activity transcript: the latest scroll decides whether the transcript follows new activity. Before, a scroll up just after a scroll to the end could be ignored, and the transcript returned to the newest line without a Jump to latest button (#294).
 - Coding jobs: a run whose archive was sealed but whose finished record was lost in a crash recovers with the sealed outcome instead of `interrupted`; pending intents are still settled by recovery (closes #178).
 - Browser suites: `web_inbox_token` recognizes the page-relative inbox and token URLs the web UI builds since #106, so it observes the recovered inbox start instead of timing out (#287).
 - Browser suites: `web_container_setup` launches the shared default browser instead of `/usr/bin/chromium`, and `web_private` reports a skip with its reason (exit 77) when `.reader/npm-cache` lacks the private bridge packages; `scripts/run_browser_suites.py` counts skips apart from passes and failures, and `scripts/fetch_private_bridge.py --check` tests the cache offline (#286).

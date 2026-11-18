@@ -313,7 +313,7 @@ export function ActivityTranscript({activity,run,live,html,onOpen,onReport,label
     </div>
     <div className="activity-meta"><Steps activity={activity} finished={finished} status={run.status}/><Queue run={run} activity={activity}/></div>
     <div ref={log} className="activity-log" role="log" aria-live="polite" aria-relevant="additions" aria-label={`${labels.log}. j and k move between items; Enter opens one.`} tabIndex={0}
-      onKeyDown={move} onScroll={()=>{const el=log.current!;const atEnd=el.scrollHeight-el.scrollTop-el.clientHeight<48;if(atEnd!==follow)setFollow(atEnd);}}>
+      onKeyDown={move} onScroll={()=>{const el=log.current!;setFollow(el.scrollHeight-el.scrollTop-el.clientHeight<48);}}>
       {empty?<span className="text-xs text-[var(--muted-foreground)]" data-activity-empty="">{live?labels.waiting:'No activity was recorded for this run.'}</span>:null}
       {activity.items.map(item=><div key={item.kind+item.id} className="activity-item" data-activity-item={item.kind} data-item-id={item.id} tabIndex={-1}><Row item={item} live={live} html={html} onOpen={onOpen} onReport={onReport} labels={labels}/></div>)}
       {failed?<div className="activity-item" data-activity-item="error" tabIndex={-1}><Trace><StackTrace message={run.message||'The run failed.'} detail={run.stderr}/></Trace></div>:null}
