@@ -599,3 +599,104 @@ def test_crash_before_failed_admission_save_recovers_without_launching(world, mo
     assert retry['duplicate'] and retry['status'] == 'finished' and retry['outcome'] == 'interrupted'
     assert not w.jobs.queue and not w.record.exists(), 'recovery must not launch an unacknowledged task'
     assert len(w.jobs.store.runs()) == 1
+
+
+def orphaned_group(tmp_path):
+    """A process group whose leader exited while a member keeps running: (leader pid, leader start, member pid)."""
+    from reader_mcp.coding_workflow import process_started
+    pidfile = tmp_path / 'member.pid'
+    leader = subprocess.Popen([sys.executable, '-c', 'import subprocess,sys,time;p=subprocess.Popen(["sleep","120"]);'
+                               f'open({str(pidfile)!r},"w").write(str(p.pid));sys.stdin.read()'],
+                              stdin=subprocess.PIPE, start_new_session=True)
+    started = process_started(leader.pid)
+    deadline = time.monotonic() + 10
+    while not (pidfile.exists() and pidfile.read_text()) and time.monotonic() < deadline:
+        time.sleep(0.02)
+    leader.stdin.close()  # The barrier: the member is recorded before the leader exits.
+    leader.wait(timeout=10)
+    return leader.pid, started, int(pidfile.read_text())
+
+
+def recover_with(w, process):
+    run = interrupted_run(w, process=process)
+    w.jobs.close()
+    w.jobs = w.make()
+    assert w.jobs.own()
+    return w.jobs.store.load(run['id'])
+
+
+def reap(pid):
+    deadline = time.monotonic() + 10
+    while process_table.running(pid) and time.monotonic() < deadline:
+        time.sleep(0.02)
+    return not process_table.running(pid)
+
+
+def test_recovery_stops_a_left_group_whose_leader_already_exited(world, tmp_path):
+    """#175 (Moriarty test_m6): the agent leader died, its test run did not; recovery stops the whole group."""
+    w = world()
+    group, started, member = orphaned_group(tmp_path)
+    try:
+        done = recover_with(w, {'group': group, 'started': started, 'host': w.jobs.host, 'boot': process_table.boot_id()})
+        assert reap(member), f'member {member} of the left group {group} still runs after recovery'
+        assert 'stopped the process' in done['message'], done['message']
+    finally:
+        kill_quietly(group)
+
+
+def test_recovery_never_stops_a_group_that_started_before_the_recorded_leader(world, tmp_path):
+    """#175 negative: a member older than the recorded leader start is not ours (the group id was reused)."""
+    w = world()
+    group, started, member = orphaned_group(tmp_path)
+    try:
+        later = time.strftime(process_table.LSTART, time.localtime(time.time() + 3600))
+        recover_with(w, {'group': group, 'started': later, 'host': w.jobs.host, 'boot': process_table.boot_id()})
+        assert process_table.running(member), 'recovery killed a group that started before the recorded job'
+    finally:
+        kill_quietly(group)
+
+
+def test_recovery_never_stops_a_reused_leader_pid(world):
+    """#175 negative (Holmes-3 V.4): a live leader whose start time differs is another program that reused the pid."""
+    w = world()
+    stranger = subprocess.Popen(['sleep', '60'], start_new_session=True)
+    try:
+        earlier = time.strftime(process_table.LSTART, time.localtime(time.time() - 3600))
+        recover_with(w, {'group': stranger.pid, 'started': earlier, 'host': w.jobs.host, 'boot': process_table.boot_id()})
+        assert stranger.poll() is None, 'recovery killed a process that reused the recorded pid'
+    finally:
+        kill_quietly(stranger.pid)
+        stranger.wait()
+
+
+def test_recovery_recognises_this_boot_after_the_hostname_changed(world):
+    """#175: macOS renames the host with the network; the boot identity, not the hostname, says it is this machine."""
+    from reader_mcp.coding_workflow import process_started
+    w = world()
+    sleeper = subprocess.Popen(['sleep', '60'], start_new_session=True)
+    try:
+        recover_with(w, {'group': sleeper.pid, 'started': process_started(sleeper.pid), 'host': 'renamed-by-dhcp.local',
+                         'boot': process_table.boot_id()})
+        assert sleeper.wait(timeout=10) == -signal.SIGKILL
+    finally:
+        kill_quietly(sleeper.pid)
+
+
+def test_recovery_never_stops_a_group_recorded_in_another_boot(world):
+    """#175 negative: a record from an earlier boot names pids this boot reuses."""
+    from reader_mcp.coding_workflow import process_started
+    w = world()
+    sleeper = subprocess.Popen(['sleep', '60'], start_new_session=True)
+    try:
+        recover_with(w, {'group': sleeper.pid, 'started': process_started(sleeper.pid), 'host': w.jobs.host, 'boot': 'an-earlier-boot'})
+        assert sleeper.poll() is None, 'recovery killed a process recorded in another boot'
+    finally:
+        kill_quietly(sleeper.pid)
+        sleeper.wait()
+
+
+def kill_quietly(group):
+    try:
+        os.killpg(group, signal.SIGKILL)
+    except (ProcessLookupError, PermissionError):
+        pass

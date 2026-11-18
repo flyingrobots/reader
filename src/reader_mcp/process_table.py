@@ -155,3 +155,55 @@ def started(pid):
     except (OSError, ValueError, StopIteration):
         return None
     return None
+
+
+def boot_id():
+    """An identity of this machine's current boot, to recognise a process record after a restart: the hostname
+    changes with the network on macOS, the boot does not. None when it cannot be read."""
+    try:
+        if sys.platform == 'darwin':
+            boot = (ctypes.c_long * 2)()
+            size = ctypes.c_size_t(ctypes.sizeof(boot))
+            if ctypes.CDLL(None).sysctlbyname(b'kern.boottime', ctypes.byref(boot), ctypes.byref(size), None, 0):
+                return None
+            return f'{boot[0]}:{boot[1]}'
+        if sys.platform.startswith('linux'):
+            return Path('/proc/sys/kernel/random/boot_id').read_text().strip() or None
+    except OSError:
+        return None
+    return None
+
+
+def group_members(pgid):
+    """The running pids in one process group."""
+    return [pid for pid, parent, group, rss in rows() if group == pgid and running(pid)]
+
+
+def started_seconds(pid):
+    """started(pid) as seconds since the epoch, at its one-second resolution, or None."""
+    text = started(pid)
+    return seconds(text) if text else None
+
+
+def seconds(lstart):
+    """A `ps -o lstart=` time as seconds since the epoch, or None when it does not parse."""
+    try:
+        return time.mktime(time.strptime(' '.join(lstart.split()), ' '.join(LSTART.replace('%e', '%d').split())))
+    except (TypeError, ValueError, OverflowError):
+        return None
+
+
+def left_group(group, started_at):
+    """Whether process group `group`, recorded with leader start `started_at`, is still the recorded one: its leader
+    runs with that start time, or the leader has exited and every running member started at or after it (a pgid
+    cannot be reused while any member of the old group lives). A leader pid that a later program reused never matches."""
+    leader = started(group)
+    if leader is not None:
+        return leader == started_at
+    floor = seconds(started_at)
+    try:
+        members = group_members(group)
+    except OSError:
+        return False
+    times = [started_seconds(pid) for pid in members]
+    return floor is not None and bool(members) and all(t is not None and t >= floor for t in times)

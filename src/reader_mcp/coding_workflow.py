@@ -331,7 +331,7 @@ class Workflow:
         worker = subprocess.Popen(command, cwd=cwd, stdin=stdin, stdout=subprocess.PIPE,
                                   stderr=subprocess.PIPE if err_name else subprocess.STDOUT, env=env, start_new_session=True)
         try:
-            self.run['process'] = {'group': worker.pid, 'started': process_started(worker.pid), 'host': self.jobs.host}
+            self.run['process'] = {'group': worker.pid, 'started': process_started(worker.pid), 'host': self.jobs.host, 'boot': process_table.boot_id()}
             self.jobs.store.save(self.run)
         except BaseException:  # Not yet under the supervision below: stop the started process before the error leaves.
             kill_group(worker.pid)

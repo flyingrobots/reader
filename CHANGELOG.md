@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Coding jobs: restart recovery stops a left-over host agent process group even after its leader exited (every member must have started at or after the recorded leader start), and recognises this machine by its boot identity instead of the hostname (closes #175).
 - Coding jobs: a run whose archive was sealed but whose finished record was lost in a crash recovers with the sealed outcome instead of `interrupted`; pending intents are still settled by recovery (closes #178).
 - Browser suites: `web_inbox_token` recognizes the page-relative inbox and token URLs the web UI builds since #106, so it observes the recovered inbox start instead of timing out (#287).
 - Browser suites: `web_container_setup` launches the shared default browser instead of `/usr/bin/chromium`, and `web_private` reports a skip with its reason (exit 77) when `.reader/npm-cache` lacks the private bridge packages; `scripts/run_browser_suites.py` counts skips apart from passes and failures, and `scripts/fetch_private_bridge.py --check` tests the cache offline (#286).

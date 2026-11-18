@@ -8,7 +8,7 @@ from pathlib import PurePosixPath
 import shutil
 import subprocess
 
-from . import coding_agents
+from . import coding_agents, process_table
 from .coding_publish import Job
 from .coding_workflow import GIT_TIMEOUT, MAX_LINE, Stop, process_started
 from .container_process import ProcessError
@@ -176,7 +176,7 @@ class ContainerJob(Job):
                 if len(pending) > MAX_LINE:
                     pending.clear()
         def started(pid):
-            self.run['process'] = {'group': pid, 'started': process_started(pid), 'host': self.jobs.host}
+            self.run['process'] = {'group': pid, 'started': process_started(pid), 'host': self.jobs.host, 'boot': process_table.boot_id()}
             self.jobs.store.save(self.run)
         def finished(pid):
             self.run['process'] = None
