@@ -12,7 +12,7 @@
     "../docs/topics/jobs.md": "1890beda2added4976ee97b1ac07da6b6729ccc441c134e31a922ea2795e0ca9",
     "../docs/topics/library.md": "81ed9fe8db0587b087376b3ed78dd4c45ca9e62cf3f204d2d56dcc594db15b59",
     "../docs/topics/logs.md": "cf2d367a13620967bb12e811834c22f23a73ec11f33783bfb287bad858cdc579",
-    "../docs/topics/models.md": "3e9b68c750ec1230d7018b4f5357539a46a020baffb6d31a638365251c7cf2be",
+    "../docs/topics/models.md": "24838741e1a411535a9ee885270227991daafd685bd08eb282dc42112d065226",
     "../docs/topics/overview.md": "57520a0f5beb71ee8c7440c8b2c23f33b8e05a11cbbc9cc682f6db9779f67dcf",
     "../docs/topics/publish.md": "d92c6c75b26cabf519bfe6d86b27521c0612a2d18c91de4fdd8b18e745207016",
     "../docs/topics/repositories.md": "7496d246523b7c94922c53d2d8cbaad9327d7d355b886ef4df767f3f97542757",
@@ -1004,8 +1004,8 @@
       "sha256": "619a4f0272c9f194ff3b50151a3da12e759396ab5b10ad22ef0fec7ee36e0f0d"
     },
     "reader-controls.js": {
-      "bytes": 1440726,
-      "sha256": "451198145e3ce227956ebd932b7087747c518d1115dee6d58105a50d4e5079b3"
+      "bytes": 1441647,
+      "sha256": "d5ad6011319fecb340057c0f0cac2da4cc470d2f476bf8427212112ab9674b97"
     },
     "reader-controls.js.LEGAL.txt": {
       "bytes": 6614,
