@@ -848,7 +848,7 @@ def effective_provider(root, default_url=None, settings=None):
 def provider_client(root, default_url=None, connect=None, settings=None):
     """A Client for the configured provider; raises ValueError for a refused (non-loopback) URL."""
     local = LocalModel(root, None, url=default_url, connect=connect)
-    provider = effective_provider(root, default_url, settings)
+    provider = local.provider(settings)
     return local.client_for(provider)
 
 
@@ -957,7 +957,7 @@ class LocalModel:
 
     def client_for(self, provider):
         """Refuse a changed selection; bind its credentials before a cooperating settings writer can advance."""
-        with self.settings_guard():
+        with self.settings_guard(shared=True):
             require_complete_provider_save(self.root)
             if self.provider() != provider:
                 raise ValueError('The provider changed before the request started; refresh and try again')
@@ -1006,13 +1006,11 @@ class LocalModel:
                 'presets': {name: {'label': p['label'], 'base_url': p['base_url'] if name != 'lmstudio' else self.default_url}
                             for name, p in PRESETS.items()}}
 
-    def save_api_key(self, value):
-        """Write or clear the key file (mode 0600). Refused when git would commit it."""
+    def api_key_destination(self, value):
+        """Validate a key and its storage policy before any credential mutation begins."""
         file = api_key_file(self.root)
         if value in (None, ''):
-            if file.is_file() and not file.is_symlink():
-                file.unlink()
-            return
+            return file
         if not isinstance(value, str) or not API_KEY.fullmatch(value.strip()):
             raise ValueError('An API key is 1–1,024 printable characters without spaces')
         self.ensure_dir()
@@ -1028,6 +1026,15 @@ class LocalModel:
             if not ignored:
                 raise ValueError('Refusing to store the API key: git does not ignore .reader/ in this vault. '
                                  f'Add .reader/ to .gitignore, or set {API_KEY_ENV} instead.')
+        return file
+
+    def save_api_key(self, value):
+        """Write or clear the key file (mode 0600). Refused when git would commit it."""
+        file = self.api_key_destination(value)
+        if value in (None, ''):
+            if file.is_file() and not file.is_symlink():
+                file.unlink()
+            return
         temp = file.with_name('.api-key.next')
         temp.unlink(missing_ok=True)
         fd = os.open(temp, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
@@ -1132,13 +1139,13 @@ class LocalModel:
         return read_settings(self.root)
 
     @contextmanager
-    def settings_guard(self):
+    def settings_guard(self, *, shared=False):
         """Web and CLI instances share a fail-fast lock for provider/key selection and settings saves."""
         self.ensure_dir()
         fd = os.open(self.dir / 'settings.lock', os.O_RDWR | os.O_CREAT | os.O_NOFOLLOW, 0o600)
         with os.fdopen(fd, 'a') as handle:
             try:
-                fcntl.flock(handle, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                fcntl.flock(handle, (fcntl.LOCK_SH if shared else fcntl.LOCK_EX) | fcntl.LOCK_NB)
             except BlockingIOError:
                 raise BlockingIOError('Provider settings are changing; try again after the save completes') from None
             try:
@@ -1209,6 +1216,7 @@ class LocalModel:
         if not key_change:
             require_complete_provider_save(self.root)
         if key_change:
+            self.api_key_destination(patch['provider']['api_key'])
             # Keep this marker on every failed exit, including process interruption.
             # Recovery requires an explicit key replacement, never a task-only save.
             fd = os.open(pending, os.O_WRONLY | os.O_CREAT | os.O_NOFOLLOW, 0o600)
@@ -1530,7 +1538,7 @@ class LocalModel:
                 log, ran, failure = None, [], None
                 try:
                     with lock:
-                        self.ensure_model(batch[0]['model'])
+                        self.ensure_model(batch[0]['model'], client=client)
                         for item in batch:
                             with self.lock:
                                 if self.stopping.is_set() or item['task'] not in self.active or item['state'] != 'queued':
@@ -1538,7 +1546,7 @@ class LocalModel:
                             if log is None:  # one sealed LLM log per batch that asks the model anything
                                 log = self.open_log(run, number, client, batch[0]['model'])
                             ran.append(item)
-                            self.process(run, item, log, len(ran))
+                            self.process(run, item, log, len(ran), client=client)
                 except Exception as exc:
                     failure = exc
                     raise
@@ -1567,14 +1575,15 @@ class LocalModel:
                 self.active &= {i['task'] for i in self.waiting()}  # a drained task is idle again
             self.outputs_cache = None
 
-    def ensure_model(self, model):
+    def ensure_model(self, model, client=None):
         """Load the batch's model if nothing equivalent is loaded; Reader keeps at most one of its own.
 
         Only for LM Studio; other servers load on request (Ollama) or serve one model (llama.cpp)."""
-        if not self.lms_enabled():
+        client = client or self.client
+        if not self.lms_enabled(client):
             return
         try:
-            native = self.client.native_models()
+            native = client.native_models()
         except ServerGone:
             raise
         loaded = [m['id'] for m in native if m.get('state') == 'loaded'] if native is not None else None
@@ -1599,7 +1608,8 @@ class LocalModel:
                 pass  # Reported as still loaded on the card; the user can unload it.
             self.cli_cache.pop('ps', None)
 
-    def process(self, run, item, log=None, index=1):
+    def process(self, run, item, log=None, index=1, client=None):
+        client = client or self.client
         task = TASKS[item['task']]
         started = time.monotonic()
         with self.lock:
@@ -1625,14 +1635,14 @@ class LocalModel:
                 self.archive(log, f'item-{index:02d}-request.json', {
                     'index': index, 'id': item['id'], 'task': task.name, 'path': item['path'], 'title': title,
                     'source_sha256': sha, 'model': item['model'], 'prompt_version': task.version, 'truncated': truncated,
-                    'messages': messages})
+                    'messages': messages}, client)
 
             def delta(text, thinking, tokens, rate):
                 streamed.update(text=text, reasoning=thinking)
                 with self.lock:
                     if self.current and self.current['id'] == item['id']:
                         self.current.update(preview=text[-PREVIEW_CHARS:], thinking=thinking[-400:], tokens=tokens, tokens_per_second=rate)
-            result = self.client.chat(item['model'], messages, on_delta=delta, cancelled=cancelled)
+            result = client.chat(item['model'], messages, on_delta=delta, cancelled=cancelled)
             item.update(output=result['text'][:KEPT_OUTPUT], tokens_per_second=result['tokens_per_second'],
                         tokens=result['tokens'], truncated=truncated)
             value = task.validate(result['text'], title + '\n' + body)  # the model's answer, as Reader accepted it
@@ -1645,7 +1655,7 @@ class LocalModel:
         except Rejected as exc:
             item.update(state='rejected', error=short(exc))
         except ServerGone as exc:
-            item.update(state='failed', error=f'{self.client.name} stopped while this item ran')
+            item.update(state='failed', error=f'{client.name} stopped while this item ran')
             gone = exc
         except TimeoutError as exc:
             item.update(state='failed', error=short(exc))
@@ -1658,7 +1668,7 @@ class LocalModel:
                 answer.update({k: result.get(k) for k in ('text', 'reasoning', 'finish_reason', 'usage', 'tokens', 'tokens_per_second', 'rate_reported')})
             else:  # what streamed before the request failed or was cancelled
                 answer.update(text=streamed['text'], reasoning=streamed['reasoning'], partial=True)
-            self.archive(log, f'item-{index:02d}-response.json', answer)
+            self.archive(log, f'item-{index:02d}-response.json', answer, client)
         with self.lock:
             if item['state'] == 'cancelled' and self.stopping.is_set() and item['id'] not in self.cancel_ids:
                 item.update(state='queued', started_at=None, error=None)  # shutdown returns it to the queue
@@ -1673,9 +1683,9 @@ class LocalModel:
 
     # LLM logs -----------------------------------------------------------
 
-    def archive(self, log, name, data):
+    def archive(self, log, name, data, client):
         """One JSON artifact, with the API key scrubbed from anything a server echoed."""
-        log.write(name, self.client.scrub(json.dumps(data, ensure_ascii=False, indent=1)) + '\n')
+        log.write(name, client.scrub(json.dumps(data, ensure_ascii=False, indent=1)) + '\n')
 
     def open_log(self, run, number, client, model):
         """The batch's run directory under logs/llm/local-model/. The provider is named by preset and host only."""
