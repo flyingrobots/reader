@@ -144,12 +144,13 @@ class Catalog:
             raise ValueError(f'Library changed during planning: {path}; retry after the writer finishes')
         return data
 
-    def sidecars(self):
-        records = {}
+    def sidecar_sources(self) -> dict[str, bytes]:
+        """Read bounded sidecar bytes without parsing; reject unsafe inventory entries."""
+        sources: dict[str, bytes] = {}
         total = 0
         parent = self.root / 'catalog/metadata'
         if not parent.exists():
-            return records
+            return sources
         for p in sorted(parent.rglob('*')):
             if p.is_symlink():
                 raise ValueError(f'Metadata symlink: {p}')
@@ -159,17 +160,24 @@ class Catalog:
                 raise ValueError(f'Unexpected metadata file: {p}')
             data = p.read_bytes()
             total += len(data)
-            if total > MAX_GENERATED_BYTES or len(records) >= MAX_FILES:
+            if total > MAX_GENERATED_BYTES or len(sources) >= MAX_FILES:
                 raise ValueError(f'Metadata inventory exceeds {MAX_GENERATED_BYTES // 1024 ** 2} MiB or {MAX_FILES:,} records')
             if len(data) > MAX_METADATA_BYTES:
                 raise ValueError(f'Metadata file too large: {p}')
-            meta = validated(frontmatter(data)[0])
+            sources[p.relative_to(self.root).as_posix()] = data
+        return sources
+
+    def sidecars(self):
+        records = {}
+        for path, data in self.sidecar_sources().items():
+            original, body = frontmatter(data)
+            meta = validated(original)
             target = meta['document_path']
-            if f'![[{target}]]' not in frontmatter(data)[1].decode('utf-8'):
-                raise ValueError(f'Missing Obsidian source embed: {p}')
+            if f'![[{target}]]' not in body.decode('utf-8'):
+                raise ValueError(f'Missing Obsidian source embed: {path}')
             if target in records:
                 raise ValueError(f'Duplicate metadata owners: {target}')
-            records[target] = (p.relative_to(self.root).as_posix(), data, meta)
+            records[target] = (path, data, meta)
         return records
 
     def protected(self, files):

@@ -10,6 +10,11 @@ Reader separates delivery, filing, actual reading and curatorial review. A packe
 
 The version binds current source hashes, receipt/catalog-context bytes and owning metadata hashes. Changing any of these returns an earlier reviewed work as `changed`. Path reconciliation can change a version even when its stable catalog/receipt key survives. Missing/invalid catalog records, duplicate receipts, unsafe paths and a detected concurrent snapshot change refuse discovery explicitly; do not interpret an unavailable queue as empty. Finish catalog migration or reconcile the source before retrying. Discovery does not migrate files or require a fresh SQL/search projection.
 
+Each discovery validates the catalog once, then rehashes the library and metadata
+sidecars before returning the queue. The second pass compares bytes and membership
+without reparsing unchanged YAML. Sidecar additions, removals and edits still
+invalidate the snapshot; there is no persistent cache that can hide source changes.
+
 The default list contains unscanned, explicitly reopened and changed works, newest receipt arrival/catalog date first. It includes historical unreviewed works on first use; there is no timestamp watermark that can skip material filed by other sessions. Pagination returns `total`, `pending`, `next_offset` and `snapshot_version`. Pass that token as `expected_snapshot` (CLI `--expected-snapshot`; Upkeep `--curation-snapshot`) on later pages. A concurrent insertion, source change or disposition change refuses the stale page and asks for offset zero, preventing silent offset skips. Omitting the token gives best-effort paging only.
 
 ## Dispositions and coverage
@@ -69,4 +74,4 @@ Curator writes serialize through `.reader/curation.lock` and atomically replace 
 
 Commit/back up `curation/` with the private vault. Do not delete it as a disposable index repair. Preserve malformed or oversized records for investigation and restore an individually verified version from Git/backups. A lost/corrupt record must not silently mark works reviewed. Existing documents and other participants' records remain unchanged.
 
-Run the curation, upkeep and MCP-delivery tests with the project's guarded Docker workflow. They cover empty-inbox discovery, grouping, participant independence, source/context changes, stale writes, explicit coverage, concurrent writers, pagination/timezones, corrupt state, CLI and MCP boundaries.
+Run the curation, upkeep and MCP-delivery tests through the project's [test jail](testing.md). They cover empty-inbox discovery, grouping, participant independence, source/context changes, stale writes, explicit coverage, concurrent writers, pagination/timezones, corrupt state, CLI and MCP boundaries.

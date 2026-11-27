@@ -218,7 +218,13 @@ class Curation:
             make('catalog:' + meta['document_id'], 'standalone', meta['title'], path, [path])
 
         # A concurrent filing/edit must not publish a supposedly complete snapshot.
-        if self.catalog.inventory() != files or self.catalog.prepare()[2] != rows:
+        # Equal source and metadata-owner bytes imply the same validated rows.
+        # Rehash both inventories, including sidecar additions/removals, without
+        # decoding every YAML header a second time or trusting the SQL mirror.
+        expected_sidecars = {r[-3]: r[-1] for r in rows if r[-3] != r[2]}
+        if (self.catalog.inventory() != files
+                or {p: sha(data) for p, data in self.catalog.sidecar_sources().items()}
+                != expected_sidecars):
             raise ValueError('Library/catalog changed during curation discovery; retry after filing')
         units.sort(key=lambda u: (u['received_at'] or u['cataloged_on'] or '', u['key']), reverse=True)
         return units, ungrouped

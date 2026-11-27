@@ -8,7 +8,7 @@ from uuid import uuid4
 
 import pytest
 
-from reader_mcp.catalog import Catalog
+from reader_mcp.catalog import Catalog, Entry
 from reader_mcp.curation import Curation
 from reader_mcp.engagement import Engagement
 from reader_mcp.store import Store, Submission
@@ -252,3 +252,58 @@ def test_semantically_corrupt_disposition_cannot_clear_the_queue(vault):
     p=next((vault/'curation').glob('*.json'));record=json.loads(p.read_text())
     record['items'][key]['coverage']=[];p.write_text(json.dumps(record))
     with pytest.raises(ValueError,match='missing coverage'):c.pending('A')
+
+
+@pytest.mark.parametrize('count', [1, 3, 12])
+def test_discovery_parses_each_sidecar_once(vault: Path, monkeypatch: pytest.MonkeyPatch,
+                                           count: int) -> None:
+    """Discovery has one YAML decode per metadata owner, not per verification pass."""
+    import reader_mcp.catalog as module
+    folder = vault / 'library/books/example'
+    folder.mkdir(parents=True)
+    (folder / 'index.md').write_text('# Book\n')
+    for index in range(count):
+        (folder / f'chapter-{index}.txt').write_text('Chapter\n')
+    Catalog(vault).run('migrate')
+    sidecars = {p.read_bytes(): 0 for p in (vault / 'catalog/metadata').rglob('*.md')}
+    decode = module.frontmatter
+
+    def counted(data: bytes) -> tuple[dict[str, object], bytes]:
+        if data in sidecars:
+            sidecars[data] += 1
+        return decode(data)
+
+    monkeypatch.setattr(module, 'frontmatter', counted)
+    result = Curation(vault).pending('Curator')
+    assert result['total'] == 1
+    assert result['pending'][0]['source_count'] == count
+    assert len(sidecars) == count
+    assert set(sidecars.values()) == {1}, 'Discovery must decode each sidecar only once'
+
+
+@pytest.mark.parametrize('change', ['edit', 'insert', 'delete'])
+def test_discovery_refuses_sidecar_changes_during_recheck(
+    vault: Path, monkeypatch: pytest.MonkeyPatch, change: str,
+) -> None:
+    filed(vault)
+    curation = Curation(vault)
+    sidecar = next((vault / 'catalog/metadata').rglob('report.md.md'))
+    inventory = curation.catalog.inventory
+    calls = 0
+
+    def changing_inventory() -> dict[str, Entry]:
+        nonlocal calls
+        calls += 1
+        if calls == 2:
+            if change == 'edit':
+                sidecar.write_bytes(sidecar.read_bytes() + b'Changed context\n')
+            elif change == 'insert':
+                (sidecar.parent / 'extra.md').write_bytes(sidecar.read_bytes())
+            else:
+                sidecar.unlink()
+        return inventory()
+
+    monkeypatch.setattr(curation.catalog, 'inventory', changing_inventory)
+    with pytest.raises(ValueError, match='changed during curation discovery'):
+        curation.pending('Curator')
+    assert not (vault / 'curation').exists()
