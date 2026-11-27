@@ -38,6 +38,7 @@ from .writing import NOTEBOOK, Writing, WritingConflict
 from . import delivery_tokens, model_chain, private_store, uploads
 from .inbox_paths import physical
 from .local_model import LocalModel
+from .llm_check import LLMCheck
 from .links import LinkError, LinkGraph, Resolver, excerpt, title_of
 from .magazine import Magazine
 from .maintenance import COMPANION_JOBS, Maintenance
@@ -195,6 +196,7 @@ class WebLibrary:
         self.links = LinkGraph(self.root, primaries=lambda: [w['primary'] for w in self.works()[0]])
         self.maintenance = Maintenance(self.root, maintenance_runners, links=self.links)
         self.local_model = LocalModel(self.root, self, **(local_model or {}))
+        self.llm_check = LLMCheck(self.local_model)
         self.private = private_store.PrivateStore()
         self.delivery_tokens = delivery_tokens.DeliveryTokens(self.root)
         self.prose = prose or Prose()
@@ -1660,6 +1662,8 @@ class WebHandler(BaseHTTPRequestHandler):
                         raise ValueError('Expected {"action": "start", "sandbox_mode": ...}, {"action": "stop"} or {"action": "choose", "arrival": ..., "choice": ...}')
                 elif parsed.path == '/api/local-model':
                     self.json(library.local_model.dispatch(request))
+                elif parsed.path == '/api/llm-check':
+                    self.json(library.llm_check.run(request))
                 elif parsed.path == '/api/upload-settings':
                     self.json(uploads.settings(library.root, request))
                 elif parsed.path == '/api/model-chain':
@@ -1799,6 +1803,8 @@ class WebHandler(BaseHTTPRequestHandler):
                 self.json({'participant': participant, 'pieces': library.writing.list(participant, args.get('responds_to'))})
             elif parsed.path == '/api/local-model':
                 self.json(library.local_model.status())
+            elif parsed.path == '/api/llm-check':
+                self.json(library.llm_check.status(args.get('id', '')))
             elif parsed.path == '/api/inbox/events':
                 after = args.get('after', '0')
                 if not after.isdigit() or len(after) > 9:

@@ -62,6 +62,20 @@ def calls(state):
     return [json.loads(line) for line in file.read_text().splitlines()] if file.exists() else []
 
 
+def test_sanity_voice_command_starts_and_answers_with_selected_provider(setup, monkeypatch):
+    import os
+    import subprocess
+    root, local, state, lock, port = setup
+    monkeypatch.setenv('READER_LMSTUDIO_URL', f'http://127.0.0.1:{port}')
+    monkeypatch.setenv('READER_LMS', str(state.parent / 'bin/lms'))
+    result = subprocess.run([sys.executable, '-m', 'reader_mcp.llm_check', '--root', str(root)],
+                            input='A quick local chat', capture_output=True, text=True, timeout=30, env=os.environ.copy())
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.strip() == 'A quick local chat.'
+    assert 'Starting the local model' in result.stderr
+    assert any(row[:2] == ['load', 'google/gemma-4-e4b'] for row in calls(state))
+
+
 def wait_for(predicate, timeout=20):
     deadline = time.monotonic() + timeout
     while time.monotonic() < deadline:

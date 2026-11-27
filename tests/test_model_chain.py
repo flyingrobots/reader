@@ -35,7 +35,7 @@ def json_result(path, extra=''):
 
 class FakeClient:
     lmstudio = True
-    base = 'http://127.0.0.1:1234/v1'
+    port = 1234
 
     def __init__(self, text=json.dumps(ANSWER), up=True, loaded=()):
         self.text, self.up, self.loaded_models, self.asked = text, up, list(loaded), []
@@ -224,6 +224,29 @@ def test_reader_starts_lm_studio_when_it_is_down_and_loads_the_chosen_model(setu
     assert fake.calls == [('start', 1234), ('load', 'big-model')]
     assert client.asked[0][0] == 'big-model'
     assert ('local', 'starting') in states(runtime)
+
+
+def test_local_start_uses_real_client_port(setup, tmp_path: Path,
+                                         monkeypatch: pytest.MonkeyPatch) -> None:
+    from reader_mcp.local_model import CLI, Client
+    import fake_lmstudio
+
+    root, runtime, _, make = setup
+    state = tmp_path / 'lms-state'
+    monkeypatch.setenv('FAKE_LMS_STATE', str(state))
+    executable = fake_lmstudio.install(tmp_path / 'lms-bin')
+    port = fake_lmstudio.free_port()
+    client = Client(f'http://127.0.0.1:{port}/v1', lmstudio=True)
+    chain = make(client=client, cli=CLI(str(executable)))
+    write_config(root, {'order': ['local'], 'local': {'model': 'google/gemma-4-e4b'}})
+    monkeypatch.setattr(client, 'chat', lambda model, messages, **options: {'text': json.dumps(ANSWER)})
+    try:
+        assert decide(chain, runtime) == (ANSWER, 'local')
+        assert client.models() == ['google/gemma-4-e4b']
+        calls = [json.loads(line) for line in (state / 'calls.jsonl').read_text().splitlines()]
+        assert ['server', 'start', '--port', str(port), '--bind', '127.0.0.1'] in calls
+    finally:
+        fake_lmstudio.stop(state)
 
 
 def test_starting_off_refuses_and_says_so(setup):

@@ -20,6 +20,31 @@ The GPU notice describes local-model coordination, not the identity of a chat vo
 
 Each configured voice keeps its own authorship, namespace and read/discussion state. Sharing a CLI does not merge those identities or establish agreement among them. Agent filesystem/approval modes belong to the invoking workflow’s policy. A local CLI’s presence does not prove an isolated dev container contains or can authenticate that CLI.
 
+## LLM voice
+
+The selected provider does not automatically become a named article-chat voice. To expose it as `@llm`, add a
+voice to the private vault's `voices.json` using Reader's installed Python executable as `cli`:
+
+```json
+{
+  "name": "LLM",
+  "mention": ["llm"],
+  "cli": "/path/to/reader/python",
+  "argv": ["-m", "reader_mcp.llm_check", "--root", "{vault}"],
+  "stream": "text",
+  "version_argv": null,
+  "inline_document": true,
+  "timeout_seconds": 900
+}
+```
+
+That interpreter must import the installed Reader package (or inherit the service's `PYTHONPATH`). The command
+reads a prompt from stdin, uses the provider and model saved in Models, starts a local server through the saved
+startup settings, and prints the answer. Diagnostics go to stderr and appear in the article chat's raw output.
+It has no model tools and does not impersonate another registered voice. The full article prompt and history must
+fit the Sanity Check's 24,000-character input bound; longer prompts fail explicitly. Article chat retains its usual
+transcript and raw archive, unlike the ephemeral Admin panel. A configured remote provider receives this prompt.
+
 ## Troubleshooting
 
 If a voice cannot run, distinguish executable discovery, authentication, requested model availability, repository permission mode and runtime location. Use the exact source/run identity when stopping unexpected activity. Do not stop shared Reader or AI-TTS infrastructure merely because one voice’s stream is stale.

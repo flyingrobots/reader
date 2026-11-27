@@ -226,6 +226,77 @@ def test_api_key_refused_when_git_would_commit_it(vault):
     assert 'api-key' not in tracked
 
 
+@pytest.mark.parametrize('value', ['has space', 42, 'x' * 1025])
+def test_invalid_key_keeps_keyless_provider_usable(vault, value):
+    model, _ = make(vault)
+    before = model.settings()
+    with pytest.raises(ValueError, match='printable'):
+        model.save_settings({'provider': {'api_key': value}})
+    assert model.settings() == before
+    assert model.client.api_key is None
+    model.save_settings({'provider': {'model': 'chosen'}})
+    assert model.client_for(model.provider()).api_key is None
+
+
+@pytest.mark.parametrize('url', ['http://127.0.0.1:1234', 'http://127.0.0.1:1234/v1/'])
+def test_client_factory_normalizes_default_url(vault, monkeypatch, url):
+    monkeypatch.setenv('READER_LMSTUDIO_URL', url)
+    assert lm.provider_client(vault).parts['base'] == 'http://127.0.0.1:1234/v1'
+    assert lm.provider_client(vault, default_url=url).parts['base'] == 'http://127.0.0.1:1234/v1'
+
+
+def test_queue_completes_with_bound_client_during_settings_lock(vault, monkeypatch):
+    with FakeServer('ollama') as fake:
+        model, _ = make(vault)
+        use(model, 'ollama', fake.url, model='llama3.2:3b')
+        client = model.client
+        chat = client.chat
+        writer = lm.LocalModel(vault, None)
+        guard = writer.settings_guard()
+        held = []
+
+        def response_with_save_in_progress(*args, **kwargs):
+            result = chat(*args, **kwargs)
+            guard.__enter__()
+            held.append(True)
+            return result
+
+        monkeypatch.setattr(client, 'chat', response_with_save_in_progress)
+        model.dispatch({'action': 'enqueue', 'task': 'standfirst', 'scope': 'path', 'path': 'library/note-0.md'})
+        model.dispatch({'action': 'run', 'task': 'standfirst'})
+        try:
+            model.worker.join(10)
+            assert not model.worker.is_alive()
+            assert held, 'The response crossed the controlled settings-save boundary'
+            assert model.run['state'] == 'finished'
+            records = [json.loads(line) for line in model.journal.read_text().splitlines()]
+            assert records[-1]['state'] == 'done' and records[-1]['finished_at']
+        finally:
+            if held:
+                guard.__exit__(None, None, None)
+            model.close()
+
+
+def test_overlapping_client_reads_do_not_interrupt_each_other(vault, monkeypatch):
+    first, _ = make(vault)
+    first.save_settings({'provider': {'api_key': 'example-key'}})
+    second = lm.LocalModel(vault, None)
+    read_text = Path.read_text
+    nested = []
+    armed = [True]
+
+    def overlapping_read(path, *args, **kwargs):
+        if path == lm.api_key_file(vault) and armed[0]:
+            armed[0] = False
+            nested.append(second.client)
+        return read_text(path, *args, **kwargs)
+
+    monkeypatch.setattr(Path, 'read_text', overlapping_read)
+    selected = first.client
+    assert len(nested) == 1
+    assert selected.api_key == nested[0].api_key == 'example-key'
+
+
 def test_remote_needs_explicit_opt_in_shows_notice_and_skips_gpu_lock(vault):
     with FakeServer('ollama') as fake:
         model, lock = make(vault, connect=loopback_connect(fake.port))  # "remote" traffic still lands on loopback

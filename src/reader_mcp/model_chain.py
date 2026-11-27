@@ -22,7 +22,6 @@ import subprocess
 import sys
 import threading
 import time
-from urllib.parse import urlsplit
 
 from .portable_links import atomic
 
@@ -325,12 +324,13 @@ def call_agy(executable, work, schema, prompt):
 class Chain:
     """One worker's walk down the order. It remembers who cannot answer, so later documents do not retry them."""
 
-    def __init__(self, root, runtime, run_id, *, codex=None, environ=None, gpu=None, client=None, cli=None, on_step=lambda: None):
+    def __init__(self, root, runtime, run_id, *, codex=None, environ=None, gpu=None, client=None, cli=None, on_step=lambda: None, reporter=None):
         self.root, self.runtime, self.run_id = Path(root), Path(runtime), run_id
         self.environ = os.environ if environ is None else environ
         self.codex, self.gpu, self.client, self.cli, self.on_step = codex, gpu, client, cli, on_step
         self.unusable, self.attempts, self.logs, self.calls = {}, [], [], 0
         self.current = None
+        self.reporter = reporter
 
     # Reporting -----------------------------------------------------------
 
@@ -344,6 +344,9 @@ class Chain:
     def say(self, text, **fields):
         """A line in the live transcript and the inbox status. It names providers and reasons, never source text."""
         record = {'at': datetime.now(timezone.utc).isoformat(), 'message': text, **fields}
+        if self.reporter is not None:
+            self.reporter(record)
+            return
         self.attempts = (self.attempts + [record])[-MAX_ATTEMPTS_KEPT:]
         atomic(self.runtime / STATE, {'schema_version': 1, 'run_id': self.run_id, 'order': self.order, 'current': self.current,
                                       'steps': self.attempts}, limit=1024 ** 2)
@@ -417,8 +420,11 @@ class Chain:
             directories = [str(Path.home() / '.lmstudio/bin'), *(os.path.expanduser(d) for d in DIRECTORIES), self.environ.get('PATH', '')]
             done = subprocess.run([os.path.expanduser(local['command'][0]), *local['command'][1:]], stdin=subprocess.DEVNULL, capture_output=True,
                                   timeout=START_TIMEOUT, env=dict(self.environ, PATH=':'.join(p for p in directories if p)))
-            sys.stderr.buffer.write(done.stderr[-8192:])
-            sys.stderr.buffer.flush()
+            if self.reporter is not None:
+                self.say((done.stdout[-8192:] + done.stderr[-8192:]).decode('utf-8', errors='replace'), state='output')
+            else:
+                sys.stderr.buffer.write(done.stderr[-8192:])
+                sys.stderr.buffer.flush()
             if done.returncode:
                 raise ModelFailure('unavailable', f'start command exited with status {done.returncode}')
         else:
@@ -430,9 +436,13 @@ class Chain:
                 raise ModelFailure('missing', 'needs the lms command, which is not installed')
             self.say('Starting the local model…', provider='local', state='starting')
             if not reachable:
-                cli.server_start(urlsplit(client.base).port or 1234)
+                output = cli.server_start(client.port)
+                if self.reporter is not None and output:
+                    self.say(output[-16384:], state='output')
             if local['model']:
-                cli.load(local['model'])
+                output = cli.load(local['model'])
+                if self.reporter is not None and output:
+                    self.say(output[-16384:], state='output')
         deadline = time.monotonic() + SERVER_WAIT
         while True:
             try:
