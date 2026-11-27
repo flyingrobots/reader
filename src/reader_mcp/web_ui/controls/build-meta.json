@@ -12,13 +12,13 @@
     "../docs/topics/jobs.md": "1890beda2added4976ee97b1ac07da6b6729ccc441c134e31a922ea2795e0ca9",
     "../docs/topics/library.md": "81ed9fe8db0587b087376b3ed78dd4c45ca9e62cf3f204d2d56dcc594db15b59",
     "../docs/topics/logs.md": "cf2d367a13620967bb12e811834c22f23a73ec11f33783bfb287bad858cdc579",
-    "../docs/topics/models.md": "525f9fb66a9565eb46a698b3a7163b890fa727b4930d922f7ebcf07ea5af4eb3",
+    "../docs/topics/models.md": "3e9b68c750ec1230d7018b4f5357539a46a020baffb6d31a638365251c7cf2be",
     "../docs/topics/overview.md": "57520a0f5beb71ee8c7440c8b2c23f33b8e05a11cbbc9cc682f6db9779f67dcf",
     "../docs/topics/publish.md": "d92c6c75b26cabf519bfe6d86b27521c0612a2d18c91de4fdd8b18e745207016",
     "../docs/topics/repositories.md": "7496d246523b7c94922c53d2d8cbaad9327d7d355b886ef4df767f3f97542757",
     "../docs/topics/service.md": "afed76a054d5ee552c72b3db60365acf11c3eefd447798a449d0c312af3d21f0",
     "../docs/topics/settings.md": "99336b16eb57868f4a2943fe5e5bf58c2d5c7196e9116f93c0f22e33f2ed8932",
-    "../docs/topics/voices.md": "acdac0ea096443afeceb623a961a1ee751b3a0d65447a7a69f53159cb27372f8",
+    "../docs/topics/voices.md": "a2b5d8fb03dd83fc3636fd2c3d8bbd8a5687c9a5ec9b11726af88ca7595ff1de",
     "../src/reader_mcp/web_ui/art-scene.v1.json": "704fc555d474df965a7c676d9dbe518f532149a1e65132e2c72c1859a3521eb1",
     "../src/reader_mcp/web_ui/famous-themes.json": "8069753f622d2f35e21e64409880729aa9eb19dd13fb50e59af217ad53c92135",
     "../src/reader_mcp/web_ui/theme-tokens.json": "990e49d79056033b9bb8d851081107612407c3add2593543ba643755e1358517",
@@ -47,7 +47,7 @@
     "src/admin/pages/repositories.tsx": "de8928d776739c03c31e5eabd8724bdc89fbf874577901efdefe521450338969",
     "src/admin/pages/shelves.tsx": "938f5d08fea80cce14ae564ca9dbe865596c2250bd8d1a4d8010baa84f01a29d",
     "src/admin/pages/voices.tsx": "2c2ab2da0029eb1209922b79927799da6734a68a5867bf9a7c0d0e61ca3e31bb",
-    "src/admin/panels.tsx": "202ad07120770f0a044af2c95539e4fdaf5895af9710b80ca25f94f2db8d8502",
+    "src/admin/panels.tsx": "759d00296e36c6d79f6a4b50be1a6bac2d4e0a62483cba6a157a5fdff3833256",
     "src/admin/sections.tsx": "4e388ec1c6378d1c4e01ed17dbb1ed36728fa35267e5a4d322d67730598e3e5a",
     "src/art-focus-chrome.tsx": "51fd02526aea995a20a91490da61ca3d31cf25d06eda9fb30e8bce82fed457fa",
     "src/art-prompt-card.tsx": "8b8947c727c274404b296509c63a9ca67524d122728c602816ecf87123a233bb",
@@ -129,13 +129,14 @@
     "src/jobs/store.ts": "75e4a95aed21be4e8c4f536096d6dd570159b50c731b6d6d6600be8545192864",
     "src/library-sections.tsx": "0e3ed24a570afe8a95a6b1068995fbb6857561b1afa8495225886e3a13c8816c",
     "src/link-preview.tsx": "88af44ccac760a52abc419a82f9f3828c60b8cb15c641891c9632db8d5ec61f9",
+    "src/llm-check.tsx": "f8c256466a02f3dc9463239fbc58284bb40e34afdd216c05295980dd184308e1",
     "src/local-model.tsx": "84cf2e880ed018b4ac1ad30761ceca6cf33e54a3cfaadc4b5f90617ecba60881",
     "src/log-block.tsx": "514b773a5291e22a958b25a92ffc0e81f48d3caae3507cefefeda57bc0cd3b9a",
     "src/magazine/issue-makeup.tsx": "72d9193dc354c08abe23e9333856134336bd12dcd6279f2452561027063ace3c",
     "src/magazine/magazine.tsx": "c88277cee096b195e2fa5ad071193d8408bb63a841712140402ff83ca5a50312",
     "src/markdown-editor.ts": "84f6a2f85a3ba2e7b5c387ff6e86378ccf5753672eb0b558151e352653142a20",
     "src/math.ts": "f4ebd1d4e82c2cb58a1e1ff0cc119f39951e422bbb7057abaf51903d92334e21",
-    "src/model-order.tsx": "5661b3a0a1e41b1f8d57af5fc22499a811c973f53b93fa95f19db68b423ef1f8",
+    "src/model-order.tsx": "2d899290bc100ca6984fc837201d8939c90192af238e674ee7bd9da84fa80d50",
     "src/notify.ts": "792ebb9eb5e43bae5327e5b3c40814e3122d776dd5ac2934f10784dac8cacb2f",
     "src/outline.tsx": "24bec26b51b1b5e487d6604983cb4eb75bc30a9f68b097717165c51cdfcfd5ac",
     "src/page-turn/page-turn.ts": "8ef6979ba4cc6f6a944994326d47abcbd97688ee549eda5b947ba157e3ae0a6e",
@@ -999,12 +1000,12 @@
       "sha256": "81af208706838cea41272dc94c876c36a4680e3b692562cb0be12711f5c88dec"
     },
     "reader-controls.css": {
-      "bytes": 203124,
-      "sha256": "585794388b44492cc9b410177c61e47f8fcdc26469027d8c93fbdb643d56a6b4"
+      "bytes": 203171,
+      "sha256": "619a4f0272c9f194ff3b50151a3da12e759396ab5b10ad22ef0fec7ee36e0f0d"
     },
     "reader-controls.js": {
-      "bytes": 1434055,
-      "sha256": "2d3730442a9016088ce6431416678e561bf37194f32bcdc6f3c721767131094d"
+      "bytes": 1440726,
+      "sha256": "451198145e3ce227956ebd932b7087747c518d1115dee6d58105a50d4e5079b3"
     },
     "reader-controls.js.LEGAL.txt": {
       "bytes": 6614,

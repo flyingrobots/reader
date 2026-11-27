@@ -1,6 +1,7 @@
 # Design sheet: Admin › Models
 
-Route `#admin/models`. Source: `web/src/local-model.tsx` (`LocalModelSection` and its cards).
+Route `#admin/models`. Sources: `web/src/local-model.tsx` (`LocalModelSection` and its cards),
+`web/src/llm-check.tsx` (Sanity Check), and `web/src/model-order.tsx` (filing and startup settings).
 
 ## Focused activity
 
@@ -13,8 +14,11 @@ Route `#admin/models`. Source: `web/src/local-model.tsx` (`LocalModelSection` an
 5. What finished, and why was anything rejected? (Recent)
 6. Which outputs are current or stale? (Outputs in use)
 7. Which tasks may run, on which model? (Tasks)
+8. Can the selected model answer me, and what did startup/inference report? (LLM Sanity Check)
 
-Nothing runs until you press Run. A remote server is refused unless you allow it, and the page says plainly that text then leaves the machine.
+Work starts through an explicit Run, server control, or Sanity Check Send action. A remote server is refused unless
+you allow it, and the page says plainly that text then leaves the machine. Sanity Check composes the installed
+shadcn `Message`, `Bubble`, `InputGroup` and `CodeBlock` primitives; it shares the saved startup settings with filing.
 
 ## Layout
 

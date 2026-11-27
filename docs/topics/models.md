@@ -16,6 +16,28 @@ Server state reports whether the configured provider can be reached and which mo
 
 Unavailable, Off, Starting, Busy and Error are different states. An unreadable provider is not an empty model catalog. Inspect the returned message and endpoint rather than reinstalling unrelated companions.
 
+## LLM Sanity Check
+
+Save the provider and model above, then use **LLM Sanity Check** to send a short message directly to that selection.
+The panel shows replies, streamed reasoning when supplied, and startup diagnostics. Startup command output appears
+when the command finishes. This check has no document access or tools and never falls through to another provider.
+New chat clears the browser conversation; changing provider/model also starts a new conversation.
+
+When a loopback server or selected LM Studio model is unavailable, the check uses the separate startup settings in
+**Filing models**: LM Studio, a saved executable with arguments, or no startup. Custom commands run without a shell;
+use the executable behind a shell alias. Only a browser on the vault machine can edit that command. Remote endpoints
+are never started by local commands. Startup and inference share the existing GPU admission mechanism.
+
+`POST /api/llm-check` accepts `id` (a fresh UUID), `model`, `base_url`, and alternating `messages` with `role` and
+`content`, ending in a user message. The provider and model must match saved settings. It returns `state`, `text`,
+`reasoning`, `output`, and `error`. `GET /api/llm-check?id=…` returns the current request's bounded preview; another id
+returns `idle`. The API uses Reader's normal HTTP access and POST-token checks. Only one check runs at a time.
+The last check stays in server memory until replaced or restarted; no transcript is written to the vault.
+Limits are seven prior exchanges, 24,000 input characters, 2,048 output tokens and 90 seconds for inference, plus
+the existing startup and GPU admission deadlines. A failed attempt preserves the draft for retry.
+
+Article-chat mentions are configured separately in `voices.json`; see [the LLM voice command](voices.md#llm-voice).
+
 ## GPU coordination
 
 GPU coordination reports whether Reader can participate in the workstation’s resource protocol. It is not a guarantee that every external application cooperates. Respect the displayed unavailable/busy state and existing worker budgets. Changing provider or model does not authorize lifting memory, disk or concurrency limits. A refused resource admission must not fall back to an uncoordinated duplicate run.

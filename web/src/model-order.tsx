@@ -53,7 +53,7 @@ export function ModelOrderCard({api}:{api:Api}){
         </div>
         {draft.start==='command'?<Field><FieldLabel htmlFor="model-order-command">Start command</FieldLabel>
           <Input id="model-order-command" className={mono} value={draft.command} disabled={!view.can_edit_command} spellCheck={false} autoComplete="off" placeholder="/absolute/path/to/script argument" onChange={e=>setDraft({...draft,command:e.target.value})}/>
-          <FieldDescription>{view.can_edit_command?'An absolute path and its arguments, split on spaces and run without a shell, so aliases won’t work.':'This runs a program on the vault machine, so it can only be changed in a browser there.'}</FieldDescription></Field>:null}
+          <FieldDescription>{view.can_edit_command?'Used by filing and LLM Sanity Check. An absolute path and its arguments, split on spaces and run without a shell, so aliases won’t work.':'This runs a program on the vault machine, so it can only be changed in a browser there.'}</FieldDescription></Field>:null}
       </FieldGroup>}
     </StatusCard>
   </form>;

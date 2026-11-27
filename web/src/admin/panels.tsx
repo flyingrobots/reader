@@ -1,6 +1,7 @@
 /* Reader Admin section bodies. Each wraps an existing Behind the scenes panel unchanged (its handlers, busy states,
    local-only restrictions and error displays), and starts only the status reads that panel already relied on. */
 import {ModelOrderCard} from '../model-order';
+import {LLMCheckCard} from '../llm-check';
 import {useEffect, useRef} from 'react';
 import {MonitorIcon, PaletteIcon} from 'lucide-react';
 import {Button} from '../components/ui/button';
@@ -68,6 +69,7 @@ export function ModelsPanel({context:c}:Props){
   return <div ref={ref} id="backstage-models">
     {!c.localModel&&c.localModelError?<Unavailable id="local-model-unavailable" what="The local-model status" error={c.localModelError}/>
       :<LocalModelSection status={c.localModel} act={c.localModelAction}/>}
+    {!c.local&&c.localModel?<div className="mt-6"><LLMCheckCard key={c.localModel.provider.base_url+'|'+c.localModel.provider.model} api={c.api} provider={c.localModel.provider}/></div>:null}
     {c.local?null:<div className="mt-6"><ModelOrderCard api={c.api}/></div>}
   </div>;
 }
