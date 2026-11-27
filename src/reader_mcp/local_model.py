@@ -847,10 +847,16 @@ def effective_provider(root, default_url=None, settings=None):
 
 def provider_client(root, default_url=None, connect=None, settings=None):
     """A Client for the configured provider; raises ValueError for a refused (non-loopback) URL."""
+    local = LocalModel(root, None, url=default_url, connect=connect)
     provider = effective_provider(root, default_url, settings)
-    key, _ = read_api_key(root)
-    return Client(provider['base_url'], api_key=key, allow_remote=provider['allow_remote'], label=provider['label'],
-                  lmstudio=provider['preset'] == 'lmstudio', connect=connect)
+    return local.client_for(provider)
+
+
+def require_complete_provider_save(root):
+    """An interrupted two-file update cannot supply credentials to a new request."""
+    pending = Path(root) / '.reader' / 'local-model' / 'provider-save.pending'
+    if pending.exists() or pending.is_symlink():
+        raise ValueError('Provider settings save is incomplete; select the intended endpoint and save its API key again')
 
 
 def embedding_backend(root):
@@ -952,6 +958,7 @@ class LocalModel:
     def client_for(self, provider):
         """Refuse a changed selection; bind its credentials before a cooperating settings writer can advance."""
         with self.settings_guard():
+            require_complete_provider_save(self.root)
             if self.provider() != provider:
                 raise ValueError('The provider changed before the request started; refresh and try again')
             return self._client_for(provider)
@@ -1198,12 +1205,24 @@ class LocalModel:
             if self.worker and self.worker.is_alive() and self.provider(settings) != self.provider():
                 raise BlockingIOError('Pause the local-model queue before changing the provider')
             key_change = 'api_key' in change
+        pending = self.dir / 'provider-save.pending'
+        if not key_change:
+            require_complete_provider_save(self.root)
         if key_change:
+            # Keep this marker on every failed exit, including process interruption.
+            # Recovery requires an explicit key replacement, never a task-only save.
+            fd = os.open(pending, os.O_WRONLY | os.O_CREAT | os.O_NOFOLLOW, 0o600)
+            with os.fdopen(fd, 'w') as stream:
+                stream.write('Provider and credential save incomplete\n')
+                stream.flush()
+                os.fsync(stream.fileno())
             self.save_api_key(patch['provider']['api_key'])
         self.ensure_dir()
         temp = self.settings_file.with_suffix('.tmp')
         temp.write_text(json.dumps(settings, indent=2) + '\n')
         os.replace(temp, self.settings_file)
+        if key_change:
+            pending.unlink()
         self.cli_cache.clear()
         return settings
 

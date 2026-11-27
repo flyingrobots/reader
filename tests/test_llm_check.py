@@ -213,3 +213,39 @@ def test_key_and_endpoint_transition_refuses_contact_until_save_completes(tmp_pa
         reader.close()
         writer.close()
     assert not thread.is_alive() and not errors
+
+
+@pytest.mark.parametrize('failed_target', ['api-key', 'settings.json'])
+def test_interrupted_provider_save_refuses_new_clients_until_explicit_recovery(tmp_path, monkeypatch, failed_target):
+    import os
+    from pathlib import Path
+    from reader_mcp.local_model import LocalModel, provider_client
+    local = LocalModel(tmp_path, None)
+    old = {'preset': 'custom', 'base_url': 'https://old.example/v1', 'allow_remote': True,
+           'model': 'chosen', 'api_key': 'old-key'}
+    new = {**old, 'base_url': 'https://new.example/v1', 'api_key': 'new-key'}
+    local.save_settings({'provider': old})
+    replace = os.replace
+
+    def fail_write(source, destination):
+        if Path(destination).name == failed_target:
+            raise OSError('Injected persistence failure')
+        return replace(source, destination)
+
+    with monkeypatch.context() as fault:
+        fault.setattr(os, 'replace', fail_write)
+        with pytest.raises(OSError, match='Injected persistence failure'):
+            local.save_settings({'provider': new})
+        # A second failed recovery must retain the refusal across fresh instances.
+        with pytest.raises(OSError, match='Injected persistence failure'):
+            LocalModel(tmp_path, None).save_settings({'provider': new})
+    restarted = LocalModel(tmp_path, None)
+    with pytest.raises(ValueError, match='incomplete'):
+        _ = restarted.client
+    with pytest.raises(ValueError, match='incomplete'):
+        provider_client(tmp_path)
+    with pytest.raises(ValueError, match='incomplete'):
+        restarted.save_settings({'provider': {'model': 'another'}})
+    restarted.save_settings({'provider': new})
+    assert restarted.client.parts['base'] == 'https://new.example:443/v1'
+    assert restarted.client.api_key == 'new-key'

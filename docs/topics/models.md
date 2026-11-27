@@ -30,8 +30,8 @@ are never started by local commands. Startup and inference share the existing GP
 
 `POST /api/llm-check` accepts `id` (a fresh UUID), `model`, `base_url`, and alternating `messages` with `role` and
 `content`, ending in a user message. The provider and model must match saved settings. Client and credential selection
-share a fail-fast file lock with settings saves across web/CLI instances; a concurrent or intervening save is refused
-before provider contact. Once selected, the client/model remain fixed for that request. Manual edits outside Reader
+share a fail-fast file lock with settings saves across web/CLI instances; lock contention or a changed provider selection
+refuses the request before provider contact. Once selected, the client/model remain fixed for that request. Manual edits outside Reader
 do not participate in this lock. The API returns `state`, `text`,
 `reasoning`, `output`, and `error`. `GET /api/llm-check?id=…` returns the current request's bounded preview; another id
 returns `idle`. The API uses Reader's normal HTTP access and POST-token checks. Only one check runs at a time.
@@ -40,6 +40,12 @@ Limits are seven prior exchanges, 24,000 input characters, 2,048 output tokens a
 the existing startup and GPU admission deadlines. A failed attempt preserves the draft for retry.
 
 Article-chat mentions are configured separately in `voices.json`; see [the LLM voice command](voices.md#llm-voice).
+
+Settings and the file-based key are separate files, not a database transaction. Before replacing a key, Reader creates
+`provider-save.pending` in its local-model state directory. A failed or interrupted save leaves this marker and refuses
+new provider clients, including after restarting Reader. To recover, select the intended provider endpoint and explicitly
+replace or remove its API key, then save successfully. A task-only save cannot clear the refusal. Already-bound requests
+retain their selected client. This is process-interruption recovery, not a power-loss durability guarantee.
 
 ## GPU coordination
 
