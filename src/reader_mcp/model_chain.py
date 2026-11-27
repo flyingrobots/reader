@@ -22,7 +22,6 @@ import subprocess
 import sys
 import threading
 import time
-from urllib.parse import urlsplit
 
 from .portable_links import atomic
 
@@ -430,7 +429,7 @@ class Chain:
                 raise ModelFailure('missing', 'needs the lms command, which is not installed')
             self.say('Starting the local model…', provider='local', state='starting')
             if not reachable:
-                cli.server_start(urlsplit(client.base).port or 1234)
+                cli.server_start(client.port)
             if local['model']:
                 cli.load(local['model'])
         deadline = time.monotonic() + SERVER_WAIT
