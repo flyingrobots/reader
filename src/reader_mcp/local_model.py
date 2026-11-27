@@ -947,7 +947,16 @@ class LocalModel:
     @property
     def client(self):
         """The configured provider's client (rebuilt when the settings or key change). Raises for a refused URL."""
-        provider = self.provider()
+        return self.client_for(self.provider())
+
+    def client_for(self, provider):
+        """Refuse a changed selection; bind its credentials before a cooperating settings writer can advance."""
+        with self.settings_guard():
+            if self.provider() != provider:
+                raise ValueError('The provider changed before the request started; refresh and try again')
+            return self._client_for(provider)
+
+    def _client_for(self, provider):
         key, _ = read_api_key(self.root)
         signature = (provider['preset'], provider['base_url'], provider['allow_remote'], key)
         client = self.clients.get(signature)
@@ -1115,7 +1124,26 @@ class LocalModel:
     def settings(self):
         return read_settings(self.root)
 
+    @contextmanager
+    def settings_guard(self):
+        """Web and CLI instances share a fail-fast lock for provider/key selection and settings saves."""
+        self.ensure_dir()
+        fd = os.open(self.dir / 'settings.lock', os.O_RDWR | os.O_CREAT | os.O_NOFOLLOW, 0o600)
+        with os.fdopen(fd, 'a') as handle:
+            try:
+                fcntl.flock(handle, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            except BlockingIOError:
+                raise BlockingIOError('Provider settings are changing; try again after the save completes') from None
+            try:
+                yield
+            finally:
+                fcntl.flock(handle, fcntl.LOCK_UN)
+
     def save_settings(self, patch):
+        with self.settings_guard():
+            return self._save_settings(patch)
+
+    def _save_settings(self, patch):
         if not isinstance(patch, dict) or set(patch) - {'tasks', 'embedding_backend', 'provider'}:
             raise ValueError('Expected {"tasks": {...}, "embedding_backend": ..., "provider": {...}}')
         settings = self.settings()

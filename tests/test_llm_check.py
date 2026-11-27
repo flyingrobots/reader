@@ -38,7 +38,7 @@ def test_selected_model_streams_under_gpu_lock(tmp_path):
             return {'text': 'Hello back'}
 
     local = SimpleNamespace(root=tmp_path, provider=lambda: {'model': 'chosen', 'base_url': 'http://localhost:1234'},
-                            client=Client(), gpu_lock=gpu, cli=None)
+                            client_for=lambda provider: Client(), gpu_lock=gpu, cli=None)
     check = LLMCheck(local)
     result = check.run({'id': check_id, 'model': 'chosen', 'base_url': 'http://localhost:1234',
                         'messages': [{'role': 'user', 'content': 'Hello'}]})
@@ -74,7 +74,7 @@ def test_failed_start_command_keeps_output_and_releases_admission(tmp_path):
             raise ConnectionError('offline')
 
     local = SimpleNamespace(root=tmp_path, provider=lambda: {'model': 'chosen', 'base_url': 'http://localhost:1'},
-                            client=Offline('http://localhost:1'), gpu_lock=lambda note: nullcontext(), cli=None)
+                            client_for=lambda provider: Offline('http://localhost:1'), gpu_lock=lambda note: nullcontext(), cli=None)
     check = LLMCheck(local)
     for _ in range(2):
         result = check.run({'id': str(uuid4()), 'model': 'chosen', 'base_url': 'http://localhost:1',
@@ -100,5 +100,116 @@ def test_concurrent_check_does_not_replace_active_output(tmp_path):
             return {'text': 'Only one'}
 
     check = LLMCheck(SimpleNamespace(root=tmp_path, provider=lambda: {'model': 'chosen', 'base_url': 'http://localhost:1'},
-                                    client=Client(), gpu_lock=lambda note: nullcontext(), cli=None))
+                                    client_for=lambda provider: Client(), gpu_lock=lambda note: nullcontext(), cli=None))
     assert check.run(request)['text'] == 'Only one'
+
+
+@pytest.mark.parametrize('replacement', ['http://127.0.0.1:19002/v1', 'http://example.invalid:19002/v1'])
+def test_provider_change_cannot_redirect_an_admitted_prompt(tmp_path, monkeypatch, replacement):
+    from contextlib import nullcontext
+    from reader_mcp.local_model import Client, LocalModel
+    local = LocalModel(tmp_path, None, gpu_lock=lambda note: nullcontext())
+    local.save_settings({'provider': {'preset': 'custom', 'base_url': 'http://127.0.0.1:19001/v1', 'model': 'chosen'}})
+    original = local.provider
+    selected = original()
+    changed = False
+
+    def change_after_read(settings=None):
+        nonlocal changed
+        snapshot = original(settings)
+        if settings is None and not changed:
+            changed = True
+            local.save_settings({'provider': {'base_url': replacement, 'allow_remote': True}})
+        return snapshot
+
+    sent = []
+    def chat(client, model, messages, **options):
+        sent.append((client.url, model, messages))
+        return {'text': 'Selected provider answered'}
+
+    monkeypatch.setattr(local, 'provider', change_after_read)
+    monkeypatch.setattr(Client, 'models', lambda client: ['chosen'])
+    monkeypatch.setattr(Client, 'chat', chat)
+    message = {'role': 'user', 'content': 'Only for selected endpoint'}
+    try:
+        result = LLMCheck(local).run({'id': str(uuid4()), 'model': selected['model'],
+                                    'base_url': selected['base_url'], 'messages': [message]})
+        assert result['state'] == 'failed' and 'provider changed' in result['error'].lower()
+        assert sent == []
+    finally:
+        local.close()
+
+
+def test_completed_request_keeps_its_result_when_next_request_starts(tmp_path):
+    from contextlib import nullcontext
+    import threading
+    request = {'id': str(uuid4()), 'model': 'chosen', 'base_url': 'http://localhost:1',
+               'messages': [{'role': 'user', 'content': 'First'}]}
+
+    class Client:
+        loopback = True
+        def models(self): return ['chosen']
+        def native_models(self): return [{'id': 'chosen', 'state': 'loaded'}]
+        def scrub(self, text): return text
+        def chat(self, model, messages, **kwargs): return {'text': messages[-1]['content'] + ' reply'}
+
+    check = LLMCheck(SimpleNamespace(root=tmp_path, provider=lambda: {'model': 'chosen', 'base_url': 'http://localhost:1'},
+                                    client_for=lambda provider: Client(), gpu_lock=lambda note: nullcontext(), cli=None))
+
+    class HandoffLock:
+        """Schedule the next real API call at the mutex's release boundary."""
+        lock = threading.Lock()
+        armed = True
+        def acquire(self, **kwargs): return self.lock.acquire(**kwargs)
+        def release(self):
+            self.lock.release()
+            if self.armed:
+                self.armed = False
+                second = check.run({**request, 'id': str(uuid4()), 'messages': [{'role': 'user', 'content': 'Second'}]})
+                assert second['text'] == 'Second reply'
+
+    check.gate = HandoffLock()
+    first = check.run(request)
+    assert first['state'] == 'succeeded' and first['text'] == 'First reply'
+
+
+def test_key_and_endpoint_transition_refuses_contact_until_save_completes(tmp_path, monkeypatch):
+    from contextlib import nullcontext
+    import threading
+    from reader_mcp.local_model import LocalModel
+    contacted = []
+    def transport(parts, timeout):
+        contacted.append(parts['base'])
+        raise ConnectionRefusedError('Synthetic transport must not be used during a settings save')
+
+    writer = LocalModel(tmp_path, None)
+    reader = LocalModel(tmp_path, None, connect=transport, gpu_lock=lambda note: nullcontext())
+    writer.save_settings({'provider': {'preset': 'custom', 'base_url': 'http://127.0.0.1:19001/v1', 'model': 'chosen', 'api_key': 'old-key'}})
+    selected = reader.provider()
+    key_written, finish = threading.Event(), threading.Event()
+    write_key = writer.save_api_key
+    errors = []
+    def paused_key(value):
+        write_key(value)
+        key_written.set()
+        assert finish.wait(5)
+    def change():
+        try:
+            writer.save_settings({'provider': {'base_url': 'http://127.0.0.1:19002/v1', 'api_key': 'new-key'}})
+        except Exception as exc:
+            errors.append(exc)
+    monkeypatch.setattr(writer, 'save_api_key', paused_key)
+    thread = threading.Thread(target=change)
+    thread.start()
+    try:
+        assert key_written.wait(5)
+        result = LLMCheck(reader).run({'id': str(uuid4()), 'model': selected['model'], 'base_url': selected['base_url'],
+                                     'messages': [{'role': 'user', 'content': 'Stay with selected credentials'}]})
+        assert result['state'] == 'failed'
+        assert contacted == []
+    finally:
+        finish.set()
+        thread.join(5)
+        reader.close()
+        writer.close()
+    assert not thread.is_alive() and not errors

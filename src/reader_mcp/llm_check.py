@@ -50,7 +50,7 @@ class LLMCheck:
         client = None
         self.update(id=ident, state='running', text='', reasoning='', output='', error=None)
         try:
-            client = self.local.client
+            client = self.local.client_for(provider)
 
             def report(record):
                 with self.lock:
@@ -74,8 +74,11 @@ class LLMCheck:
             scrub = client.scrub if client else str
             self.update(id=ident, state='failed', error=scrub(str(exc))[-2000:])
         finally:
-            self.gate.release()
-        return self.status(ident)
+            try:
+                snapshot = self.status(ident)
+            finally:
+                self.gate.release()
+        return snapshot
 
 
 def main(argv=None):
