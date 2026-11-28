@@ -56,9 +56,9 @@ export function LLMCheckCard({api,provider}:{api:Api;provider:Provider}){
         <div className="flex gap-2"><Button type="submit" disabled={busy||!prompt.trim()}>{busy?'Checking…':'Send to selected LLM'}</Button>
           <Button type="button" variant="outline" disabled={busy} onClick={()=>{setMessages([]);setResult({state:'idle'});setError('');}}>New chat</Button></div>
       </form>
-      {error?<Notice tone="error" role="alert">{error} Check the startup settings below if the server is unavailable.</Notice>:null}
+      {error?<Notice tone="error" role="alert">{error} Check the startup settings in Filing models if the server is unavailable.</Notice>:null}
       <CodeBlock><CodeBlockHeader><CodeBlockTitle>LLM output</CodeBlockTitle></CodeBlockHeader><CodeBlockContent className="max-h-64 overflow-auto whitespace-pre-wrap" data-lm="sanity-output">{[result.output,result.reasoning&&'Reasoning:\n'+result.reasoning,result.text&&'Response:\n'+result.text].filter(Boolean).join('\n')||'Startup diagnostics and model output appear here.'}</CodeBlockContent></CodeBlock>
-      <p className="text-sm text-muted-foreground">Startup uses the separately saved command below. Startup output appears when the command finishes; model output streams while it answers.</p>
+      <p className="text-sm text-muted-foreground">Startup uses the separately saved command in Filing models. Startup output appears when the command finishes; model output streams while it answers.</p>
     </div>
   </StatusCard>;
 }

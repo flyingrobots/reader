@@ -4,6 +4,18 @@
 
 Voices reports the coding/chat agent CLIs used by Reader and the registered voices that depend on them. This page is different from AI-TTS reading voices, which are chosen in Service & tools and the Speak popup. A voice name is an identity; finding a CLI does not authorize impersonating another voice.
 
+## Configure a local LLM
+
+Open **Admin → Voices → Local LLM**. Choose the provider, enter the model and select **Save provider**.
+The server card shows availability and, for LM Studio, offers server start and model load controls.
+In **Filing models**, enable **Local model** to include it in fallback, choose what happens when it is not ready,
+then select **Save filing models**. Editing a custom executable requires opening Reader through localhost on
+the server machine; a Tailscale browser cannot edit that command.
+
+Send a short message in **LLM Sanity Check**. The output panel shows startup diagnostics and model output.
+These controls share their saved state with **Models**; there is no second provider configuration.
+The bulk-work queue and task settings remain on Models. See [Models](models.md) for limits and recovery.
+
 ## Agent command lines
 
 The page discovers supported executables such as Codex, Claude Code and Agy and shows paths, discovery status and related voices. Found means Reader located a command; it is not proof of valid authentication, compatible permission settings or successful execution for every repository. Not found is a dependency state rather than an empty list of voices.
@@ -49,4 +61,4 @@ transcript and raw archive, unlike the ephemeral Admin panel. A configured remot
 
 If a voice cannot run, distinguish executable discovery, authentication, requested model availability, repository permission mode and runtime location. Use the exact source/run identity when stopping unexpected activity. Do not stop shared Reader or AI-TTS infrastructure merely because one voice’s stream is stale.
 
-Implementation: CLI discovery in voices/companion helpers and `web/src/admin/pages/voices.tsx`. This page is informational; it has no agent install or login button.
+Implementation: CLI discovery in voices/companion helpers and `web/src/admin/pages/voices.tsx`; shared model controls in `web/src/admin/panels.tsx`. CLI discovery has no agent install or login button.

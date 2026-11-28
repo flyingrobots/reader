@@ -8,12 +8,19 @@ Route `#admin/voices`. Source: `web/src/admin/pages/voices.tsx`.
 
 There is intentionally no install button. A missing CLI shows a *Setup* link to its own instructions.
 
+Below CLI discovery, **Local LLM** exposes the shared provider and server controls, filing fallback/startup settings,
+and LLM Sanity Check with output. `VoicesPanel` starts the same status polling as Models. Provider saves are shared
+between both routes; bulk queue controls remain on Models. A failed CLI discovery does not hide model controls.
+
 ## Layout
 
 ```mermaid
 flowchart TB
   card[StatusCard Agent command lines] --> items[Item per CLI: terminal icon · title + command · path or Not found · voices · StatusBadge · Setup link]
   card --> gpu[Notice GPU coordination]
+  gpu --> model[Local LLM: provider and server controls]
+  model --> filing[Filing models: fallback and startup]
+  filing --> chat[LLM Sanity Check and output]
 ```
 
 ## Atomic composition
