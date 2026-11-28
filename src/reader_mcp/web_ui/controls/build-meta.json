@@ -129,7 +129,7 @@
     "src/jobs/store.ts": "75e4a95aed21be4e8c4f536096d6dd570159b50c731b6d6d6600be8545192864",
     "src/library-sections.tsx": "0e3ed24a570afe8a95a6b1068995fbb6857561b1afa8495225886e3a13c8816c",
     "src/link-preview.tsx": "88af44ccac760a52abc419a82f9f3828c60b8cb15c641891c9632db8d5ec61f9",
-    "src/llm-check.tsx": "3f93592ab6c9ae77a8881bf8a751336d88b28c563fc2ce38cd66ab965e22e1d1",
+    "src/llm-check.tsx": "a736998a2f09058808f145b54747d66e0749bf97389b0bda8bf4c49d24e7d1fc",
     "src/local-model.tsx": "95a38264e4e7747dd864eca9ca190bb466a0778163b34012c8de80ae92edf839",
     "src/log-block.tsx": "514b773a5291e22a958b25a92ffc0e81f48d3caae3507cefefeda57bc0cd3b9a",
     "src/magazine/issue-makeup.tsx": "72d9193dc354c08abe23e9333856134336bd12dcd6279f2452561027063ace3c",
@@ -1004,8 +1004,8 @@
       "sha256": "e7b2729b451c663d9bf6d9d7fb1ee9f5bf79b6ad30e92296e915ba1a8834e534"
     },
     "reader-controls.js": {
-      "bytes": 1444973,
-      "sha256": "74cedda848f78f6ac0c6f932090c5244c8e087c431a87c6ed168aa76c07faa3e"
+      "bytes": 1445028,
+      "sha256": "cd525dcb502a93fcbdc94e94a66a6fc86c4d0e4001c2a45f2e123fe5324cef7e"
     },
     "reader-controls.js.LEGAL.txt": {
       "bytes": 6614,

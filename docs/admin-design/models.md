@@ -19,6 +19,8 @@ Route `#admin/models`. Sources: `web/src/local-model.tsx` (`LocalModelSection` a
 Work starts through an explicit Run, server control, or Sanity Check Send action. A remote server is refused unless
 you allow it, and the page says plainly that text then leaves the machine. Sanity Check composes the installed
 shadcn `Message`, `Bubble`, `InputGroup` and `CodeBlock` primitives; it shares the saved startup settings with filing.
+The output panel's Copy action appears on hover or keyboard focus and stays visible on touch devices. It copies
+the complete displayed output, including startup diagnostics, reasoning and response, with a copied confirmation.
 
 ## Layout
 

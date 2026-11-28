@@ -4,7 +4,7 @@ import {Button} from './components/ui/button';
 import {Bubble, BubbleContent} from './components/ui/bubble';
 import {Message, MessageContent, MessageGroup, MessageHeader} from './components/ui/message';
 import {InputGroup, InputGroupTextarea} from './components/ui/input-group';
-import {CodeBlock, CodeBlockContent, CodeBlockHeader, CodeBlockTitle} from './components/ui/code-block';
+import {CodeBlock, CodeBlockActions, CodeBlockCopyButton, CodeBlockContent, CodeBlockHeader, CodeBlockTitle} from './components/ui/code-block';
 import {Field, FieldLabel} from './components/ui/field';
 import {Notice} from './theme/molecules/notice';
 import {StatusCard} from './theme/organisms/status-card';
@@ -18,6 +18,7 @@ export function LLMCheckCard({api,provider}:{api:Api;provider:Provider}){
   const [messages,setMessages]=useState<Turn[]>([]),[prompt,setPrompt]=useState(''),[result,setResult]=useState<Result>({state:'idle'});
   const [busy,setBusy]=useState(false),[error,setError]=useState('');
   const active=useRef<string|null>(null);
+  const output=[result.output,result.reasoning&&'Reasoning:\n'+result.reasoning,result.text&&'Response:\n'+result.text].filter(Boolean).join('\n');
   useEffect(()=>()=>{active.current=null;},[]);
   const send=async()=>{
     if(busy||!prompt.trim())return;
@@ -57,7 +58,10 @@ export function LLMCheckCard({api,provider}:{api:Api;provider:Provider}){
           <Button type="button" variant="outline" disabled={busy} onClick={()=>{setMessages([]);setResult({state:'idle'});setError('');}}>New chat</Button></div>
       </form>
       {error?<Notice tone="error" role="alert">{error} Check the startup settings in Filing models if the server is unavailable.</Notice>:null}
-      <CodeBlock><CodeBlockHeader><CodeBlockTitle>LLM output</CodeBlockTitle></CodeBlockHeader><CodeBlockContent className="max-h-64 overflow-auto whitespace-pre-wrap" data-lm="sanity-output">{[result.output,result.reasoning&&'Reasoning:\n'+result.reasoning,result.text&&'Response:\n'+result.text].filter(Boolean).join('\n')||'Startup diagnostics and model output appear here.'}</CodeBlockContent></CodeBlock>
+      <CodeBlock><CodeBlockHeader><CodeBlockTitle>LLM output</CodeBlockTitle></CodeBlockHeader>
+        <CodeBlockActions><CodeBlockCopyButton value={output} disabled={!output}/></CodeBlockActions>
+        <CodeBlockContent wrap className="max-h-64 overflow-auto" data-lm="sanity-output">{output||'Startup diagnostics and model output appear here.'}</CodeBlockContent>
+      </CodeBlock>
       <p className="text-sm text-muted-foreground">Startup uses the separately saved command in Filing models. Startup output appears when the command finishes; model output streams while it answers.</p>
     </div>
   </StatusCard>;
