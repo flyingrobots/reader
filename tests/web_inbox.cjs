@@ -100,8 +100,9 @@ const {chromium}=require(process.env.READER_PLAYWRIGHT||'playwright-core');
   assert.match(await item('item_7').locator('[data-activity-terminal]').textContent(),/^line 51\nline 52/);
   await item('item_7').locator('[data-activity-full]').click();assert.match(await item('item_7').locator('[data-activity-terminal]').textContent(),/^line 1\nline 2\n/);
   await item('item_7').locator('[data-slot=trace-collapsible-trigger]').click();
+  await item('item_7').locator('[data-activity-terminal]').waitFor({state:'detached'});
   // Follow the newest item; Jump to latest after scrolling up.
-  await page.waitForFunction(()=>{const el=document.querySelector('#inbox .activity-log');return el.scrollHeight>el.clientHeight;});
+  await page.waitForFunction(()=>{const el=document.querySelector('#inbox .activity-log');return el.scrollHeight-el.clientHeight>=48;});
   await page.waitForFunction(()=>{const el=document.querySelector('#inbox .activity-log');return el.scrollHeight-el.scrollTop-el.clientHeight<48;});
   await log.evaluate(el=>{el.scrollTop=0;el.dispatchEvent(new Event('scroll'));});
   await page.locator('[data-activity-jump]').click();
@@ -137,7 +138,7 @@ const {chromium}=require(process.env.READER_PLAYWRIGHT||'playwright-core');
   assert.equal(result.status,'verified');assert.equal(result.filed.length,3);assert.match(result.commit,/^[a-f0-9]{40}$/);
   const loose='library/filed/'+readdirSync(join(root,'library/filed')).find(p=>p.startsWith('loose-note-md-'))+'/originals/loose-note.md';
   assert.equal(await page.locator('#inbox-report').getAttribute('data-reader-decoration'),'');
-  // A report that opens with `# Title` stays at transcript scale in the log (#79); the report view keeps its own heading size.
+  // A report that opens with `# Title` stays at the same Admin scale in the log and report view (#79).
   const heads=await page.evaluate(()=>{const px=el=>parseFloat(getComputedStyle(el).fontSize),log=document.querySelector('#inbox .activity-log'),body=log.querySelector('.activity-prose');
     return {body:px(body),h1:px(log.querySelector('.activity-prose h1')),h2:px(log.querySelector('.activity-prose h2')),report:px(document.querySelector('#inbox-report h1')),
       proseFont:getComputedStyle(body).fontFamily,reportFont:getComputedStyle(document.querySelector('#inbox-report')).fontFamily,headingFont:getComputedStyle(document.querySelector('#inbox-report h1')).fontFamily,adminFont:getComputedStyle(document.querySelector('.reader-admin')).fontFamily};});
