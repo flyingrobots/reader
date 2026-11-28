@@ -136,7 +136,7 @@
     "src/magazine/magazine.tsx": "c88277cee096b195e2fa5ad071193d8408bb63a841712140402ff83ca5a50312",
     "src/markdown-editor.ts": "84f6a2f85a3ba2e7b5c387ff6e86378ccf5753672eb0b558151e352653142a20",
     "src/math.ts": "f4ebd1d4e82c2cb58a1e1ff0cc119f39951e422bbb7057abaf51903d92334e21",
-    "src/mobile-dock.tsx": "ae2b5692ddf0e393d693390c59c222dac02ed7554f1dc879cd8bc7ad5864a076",
+    "src/mobile-dock.tsx": "6544b1b9307af8af398cda955fa725d1638f3024ead014dcbc0adef6879ee0a3",
     "src/model-order.tsx": "2d899290bc100ca6984fc837201d8939c90192af238e674ee7bd9da84fa80d50",
     "src/notify.ts": "792ebb9eb5e43bae5327e5b3c40814e3122d776dd5ac2934f10784dac8cacb2f",
     "src/outline.tsx": "24bec26b51b1b5e487d6604983cb4eb75bc30a9f68b097717165c51cdfcfd5ac",
@@ -158,8 +158,8 @@
     "src/speech-control.tsx": "b389d0f7512d5238752ff7b1b4936b487aba5e08c12cd9f04a81d7d2ecf1aa63",
     "src/speech-voice.tsx": "a04a241067fc4b02b24e88b89517c6468e5d3ea3be12d5ac3adf161273e1a42a",
     "src/static-demo.ts": "036a0b4413452d2ec8f7a51248157340082f3c030fc51d3237275021340e8810",
-    "src/status-line.tsx": "aacbbf729f9ca5cedf338196a2034610363e3e3a18d0c03d7e1baa321d3fd29c",
-    "src/styles.css": "ae9caf379c7e5a738325c78502a1ab2fcf6c43855aec89071984276948473655",
+    "src/status-line.tsx": "52eca758e94cf56df2b2ff13db9cc09b4fa4cab65be6e2c8163edad0722a8afb",
+    "src/styles.css": "5c855faeef0f2844cd69af4bbcce096f3c368b94946c1b738d801806b2cceea0",
     "src/theme/atoms/run-state-icon.tsx": "7898209e6e1893b71c6c38a94dde6c3a83e1ffd19344382e48dca151cf361b06",
     "src/theme/atoms/section-heading.tsx": "47390df21cea8262baad84426e0af328b55e8f88673edd1833078e9f842b5790",
     "src/theme/atoms/status-badge.tsx": "8b6e9f9c0de4921c3cba50a7972392e759f566a4f5b5a6c7580128ebaa959ba3",
@@ -1001,12 +1001,12 @@
       "sha256": "81af208706838cea41272dc94c876c36a4680e3b692562cb0be12711f5c88dec"
     },
     "reader-controls.css": {
-      "bytes": 203898,
-      "sha256": "03906c5761bfc0273273c975418e67c1d862c42f7a9c44577d1779048b7ca5c0"
+      "bytes": 203959,
+      "sha256": "e0b58b426b02ba5b9187d92e2ee576d823a689f4b4c67efdb962e1f7e47f8095"
     },
     "reader-controls.js": {
-      "bytes": 1449921,
-      "sha256": "e36865f07d7a705846b75b0f2129a3de05a9f69e7f73bdc8c032af3cadbcacef"
+      "bytes": 1450070,
+      "sha256": "a3081285befc4eca10fbeabb482d759ed5941ab7a65cae58b3adf0c3b7954de4"
     },
     "reader-controls.js.LEGAL.txt": {
       "bytes": 6705,

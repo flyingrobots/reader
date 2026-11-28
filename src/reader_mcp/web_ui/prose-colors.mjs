@@ -55,6 +55,7 @@ export function installProseColors({setStatus,state,api,notify,companion=null,on
   const highlights=Object.fromEntries(PAINTED.map(role=>[role,window.Highlight?new Highlight():null]));
   for(const h of Object.values(highlights))if(h)h.priority=-1; // find, annotations and selection paint over prose
   const cache=new Map();let cachedUnits=0;
+  let intensityRequest=0;
   let style='off',doc=null,article=null,generation=0,status=null,statusAt=0,observer=null,mutations=null,running=false,stopped=false;
   let blocks=new Map(),urgent=new Set(),pending=[],done=new WeakSet(),pageRanges=new Map(),nextId=0;
   // The server colors only the open, current edition (never a historical version or an inbox preview),
@@ -149,7 +150,8 @@ export function installProseColors({setStatus,state,api,notify,companion=null,on
   }
   // quiet: the Settings default turning colors on as a document opens says nothing when Colorful is missing.
   async function enable(next,quiet=false){
-    const value=await probe(!quiet);
+    const request=++intensityRequest,value=await probe(!quiet);
+    if(request!==intensityRequest)return false;
     if(!value.available){style='off';paint();if(!quiet){if(companion)companion('colorful',value.message);else notify(value.message||'Colorful Language is unavailable.','error');}return false;}
     style=next;paint();if(!blocks.size)scan();pump();return true;
   }
@@ -172,7 +174,7 @@ export function installProseColors({setStatus,state,api,notify,companion=null,on
       style='off';if(initial!=='off')enable(initial,true);else paint();
     },
     detach(){
-      generation++;running=false;observer?.disconnect();observer=null;mutations?.disconnect();mutations=null;article?.removeEventListener('reader-textlayer',onLayer);
+      intensityRequest++;generation++;running=false;observer?.disconnect();observer=null;mutations?.disconnect();mutations=null;article?.removeEventListener('reader-textlayer',onLayer);
       for(const h of Object.values(highlights))h?.clear();
       blocks=new Map();urgent=new Set();pending=[];done=new WeakSet();pageRanges=new Map();article=null;doc=null;paint();
     },
@@ -186,7 +188,7 @@ export function installProseColors({setStatus,state,api,notify,companion=null,on
     async set(next){
       if(!INTENSITIES.includes(next))return;
       if(!supported(doc)){notify(state.doc?.historical?'Prose colors work on the current edition, not a past version.':'Prose colors work in Markdown documents, PDF text and the home issue.');return;}
-      (state.proseStyles??=new Map()).set(key(doc),next);
+      intensityRequest++;(state.proseStyles??=new Map()).set(key(doc),next);
       if(next==='off'){style='off';paint();notify('Prose colors off.');return;}
       if(on()){style=next;paint();notify(`Prose colors: ${LABELS[next]}.`);return;}
       if(await enable(next))notify(`Prose colors: ${LABELS[next]}.`);

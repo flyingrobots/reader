@@ -64,6 +64,7 @@ export function StatusLine({actions,progress,pages,outline,width,theme,dock}:{ac
     <div id="key-feedback" data-status-priority="3" className="relative flex items-center gap-1" aria-label="Keyboard feedback">
       {s.lastKey?<Kbd title="Last recognized key">{s.lastKey}</Kbd>:null}
       {s.pending?<Kbd id="status-pending" aria-label="Current chord">{s.pending}</Kbd>:null}
+      <span id="key-suggestions-live" className="sr-only" aria-live="polite" aria-atomic="true">{s.pending?hints(s.keySuggestions):null}</span>
       {s.pending&&s.keySuggestions?<Card id="key-suggestions" className="absolute bottom-full left-0 mb-8 max-h-64 w-72 flex-row flex-wrap items-center gap-2 overflow-auto p-3" aria-label="Next keys">{hints(s.keySuggestions)}</Card>:null}
     </div>
     <span id="vim-mode" data-status-priority="1" hidden aria-hidden="true">{s.mode}</span>

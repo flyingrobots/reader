@@ -1414,7 +1414,7 @@ function syncChips(){
 }
 keys=createKeys({drawHelp:renderHelpKeys,showPending:text=>setStatus({pending:text}),showLine:showCommandLine,guard:typing,escape:pageEscape,notify,suggestions:renderCommandSuggestions,changed(){
   const pending=keys?.pending();state.leader=pending?.keys[0]==='<Space>'?(pending.keys[1]===','?',':true):null;state.windowKey=pending?.keys[0]==='<C-w>';
-  if(!matchMedia('(max-width:700px)').matches)setStatus(keys?.feedback()||{});
+  setStatus(keys?.feedback()||{});
   syncChips();reading?.updateStatus();
 }});
 const article=()=>$('#article');

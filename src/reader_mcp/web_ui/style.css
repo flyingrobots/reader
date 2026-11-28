@@ -68,7 +68,7 @@ body.two-page .pdf-page{height:100%;margin:0;aspect-ratio:auto!important;break-a
 @media(min-width:701px){#mobile-dock,#dock-configure{display:none!important}}
 @media(max-width:700px){
 .statusline{display:grid;grid-template-columns:44px minmax(0,1fr) 44px 44px;grid-template-rows:44px 64px;gap:0 4px;padding-top:3px;min-height:calc(112px + env(safe-area-inset-bottom,0px));font-size:12px}
-.statusline>:not(#reader-home):not(#status-location):not(#settings-open):not(#dock-configure):not(#mobile-dock):not(#reading-progress):not(#command-line){display:none!important}
+.statusline>:not(#mode-live):not(#reader-home):not(#status-location):not(#settings-open):not(#dock-configure):not(#mobile-dock):not(#reading-progress):not(#command-line){display:none!important}
 .statusline:before{display:none}.statusline #reader-home{grid-column:1;grid-row:1}.statusline #status-location{grid-column:2;grid-row:1;min-width:0;max-width:none}
 .statusline #dock-configure{display:flex;grid-column:3;grid-row:1}.statusline #settings-open{grid-column:4;grid-row:1}
 .statusline #mobile-dock{display:grid;grid-column:1/-1;grid-row:2;align-items:center;width:100%;border-top:1px solid var(--border)}

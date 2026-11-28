@@ -149,7 +149,7 @@ a **Find a document** button, without an error toast; the API answers it with 40
 
 Commands yield to text fields, selects, composition and dialogs. Standard browser
 selection, copying and context menus remain available. The sticky footer reports
-the last recognized shortcut key, the chord being formed and applicable next-key suggestions on desktop. Modal input remains active; keyboard feedback is hidden on phones. It offers layout,
+the last recognized shortcut key, the chord being formed and applicable next-key suggestions on desktop. Modal input remains active; keyboard feedback is hidden on phones. Existing mode announcements remain available to screen readers, and next-key suggestions have a separate polite announcement. It offers layout,
 the quick theme picker and light/dark switch, an **Outline** button when the document has an outline, the current section title, and a **Backstage** button that opens Reader Admin's Overview. In zen mode the chrome reappears on keyboard
 focus or when the pointer reaches the lower-right corner.
 
@@ -535,7 +535,7 @@ The footer (#226) is one compact 48 px row on wider screens, with 36 px controls
 
 `tests/web_mobile_dock.cjs` checks chord feedback, touch colors and dock customization across reloads.
 
-Colors opens a touch-accessible Off/Subtle/Clear/Vivid menu for the current document or issue, including when colors are off. The default intensity remains in Settings. Desktop has the same menu in the footer.
+Colors opens a touch-accessible Off/Subtle/Clear/Vivid menu for the current document or issue, including when colors are off. The default intensity remains in Settings. Desktop has the same menu in the footer. A newer selection cancels a pending enable check, so a delayed availability response cannot undo Off.
 
 `tests/web_footer_targets.cjs` checks heights, rows, targets and caption size at 195x422, 320, 390, 834 and 1440 px, with long
 breadcrumbs, the version, split and speech states, every shipped theme and the safe area.

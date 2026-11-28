@@ -350,7 +350,7 @@ html.embedded-pane [data-panel-sheet] { bottom: 0; }
 :root[data-dock] [data-panel-sheet] { top: 0; bottom: 0; width: var(--dock-width); box-shadow: none; }
 @media (max-width: 700px) { [data-panel-sheet] { bottom: calc(112px + env(safe-area-inset-bottom,0px)); } }
 @media (max-width: 640px) {
-  [data-panel-sheet="versions-panel"] { inset: auto 0 calc(112px + env(safe-area-inset-bottom,0px)) 0; width: auto; max-height: 72vh; border-left: 0; border-top: 1px solid var(--border); border-radius: 16px 16px 0 0; }
+  [data-panel-sheet="versions-panel"] { inset: auto 0 calc(112px + env(safe-area-inset-bottom,0px)) 0; width: auto; max-height: min(72vh, calc(100dvh - 112px - env(safe-area-inset-bottom,0px))); border-left: 0; border-top: 1px solid var(--border); border-radius: 16px 16px 0 0; }
 }
 
 /* Index documentation is prose inside its own scrolling pane, independent of the dashboard. */

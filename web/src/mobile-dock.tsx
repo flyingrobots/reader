@@ -14,8 +14,8 @@ export const dockSlots=(value:unknown):string[]=>Array.isArray(value)?Array.from
 export function ColorControl({intensity,onChange,dock=false,disabled=false}:{intensity:string;onChange:(value:string)=>void;dock?:boolean;disabled?:boolean}){
   const [open,setOpen]=useState(false);
   return <DropdownMenu open={open} onOpenChange={setOpen}><DropdownMenuTrigger render={<Button variant="ghost" size={dock?'default':'xs'} disabled={disabled} aria-label="Colorful Language" className={dock?'h-14 min-w-0 flex-col gap-1':'status-button'} />}><PaletteIcon aria-hidden/>{dock?<span className="text-xs">Colors</span>:<span>Colors: {intensity}</span>}</DropdownMenuTrigger>
-    <DropdownMenuContent side="top" align="end"><DropdownMenuRadioGroup value={intensity} onValueChange={value=>{onChange(value);setOpen(false);}}>
-      {['off','subtle','clear','vivid'].map(value=><DropdownMenuRadioItem key={value} value={value}>{value[0].toUpperCase()+value.slice(1)}</DropdownMenuRadioItem>)}
+    <DropdownMenuContent side="top" align="end"><DropdownMenuRadioGroup value={intensity}>
+      {['off','subtle','clear','vivid'].map(value=><DropdownMenuRadioItem key={value} value={value} onClick={()=>{onChange(value);setOpen(false);}}>{value[0].toUpperCase()+value.slice(1)}</DropdownMenuRadioItem>)}
     </DropdownMenuRadioGroup></DropdownMenuContent>
   </DropdownMenu>;
 }
