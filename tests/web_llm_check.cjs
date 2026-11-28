@@ -22,7 +22,13 @@ const {chromium}=require(process.env.READER_PLAYWRIGHT||'playwright-core');
   });
   const filing=page.locator('[data-lm=model-order]');await filing.waitFor();
   await filing.locator('[data-provider=local] [data-slot=switch]').click();
+  const firstSave=page.waitForResponse(response=>response.url().endsWith('/api/model-chain')&&response.request().method()==='POST');
   await filing.locator('#model-order-save').click();
+  await (await firstSave).finished();
+  await page.waitForFunction(()=>{
+    const button=document.querySelector('#model-order-save');
+    return button?.disabled&&button.textContent==='Save filing models';
+  });
   await page.waitForFunction(async()=>!(await (await fetch('/api/model-chain')).json()).config.order.includes('local'));
   await filing.locator('[data-provider=local] [data-slot=switch]').click();
   await filing.locator('#model-order-save').click();
