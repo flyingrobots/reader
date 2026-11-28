@@ -222,13 +222,17 @@ function SettingsCard({status,act}:{status:LocalModelStatus;act:Act}){
   </form>;
 }
 
+export function ModelConnection({status,act}:{status:LocalModelStatus;act:Act}){
+  return <CardGrid><ProviderCard status={status} act={act}/><ServerCard server={status.server} act={act}/></CardGrid>;
+}
+
 export function LocalModelSection({status,act}:{status:LocalModelStatus|null;act:Act}){
   return <section className="flex flex-col gap-6" id="local-model" aria-label="Local model">
     <Toolbar media={status?.running?<Spinner aria-hidden/>:null} status={<>{status?status.running?'Working through the queue':status.server.label:'Loading…'}<span className="mt-1 block text-muted-foreground">Bulk, private, judgment-light language work on a model you run. Outputs are suggestions labelled with their model; filing, catalog writes and anything signed by a voice stay with the voices.</span></>}/>
     {status?.gpu&&status.provider?.loopback?<Notice id="lm-gpu" data-gpu={status.gpu.mode} title={`GPU coordination: ${status.gpu.label}.`}>{status.gpu.message}</Notice>:null}
     {status?.provider?.remote_notice?<Notice id="lm-remote-notice" tone="error" role="alert" title="Text leaves this machine.">{status.provider.remote_notice}</Notice>:null}
     {status?<>
-      <CardGrid><ProviderCard status={status} act={act}/><ServerCard server={status.server} act={act}/></CardGrid>
+      <ModelConnection status={status} act={act}/>
       <CardGrid><NowCard status={status} act={act}/><QueueCard status={status} act={act}/></CardGrid>
       <CardGrid><RecentCard items={status.recent}/><OutputsCard outputs={status.outputs} act={act}/></CardGrid>
       <SettingsCard status={status} act={act}/></>

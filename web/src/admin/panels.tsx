@@ -8,14 +8,14 @@ import {Button} from '../components/ui/button';
 import {Toolbar} from '../theme/molecules/toolbar';
 import {EditionLinks, IndexesPage} from './pages/indexes';
 import {InboxPage} from './pages/inbox';
-import {LocalModelSection} from '../local-model';
+import {LocalModelSection, ModelConnection} from '../local-model';
 import {CompanionsSection} from '../companions';
 import {VoicesPage} from './pages/voices';
 import {ServerCard} from '../server-card';
 import {SectionHeading} from '../theme/atoms/section-heading';
 import {Notice} from '../theme/molecules/notice';
 import {LibraryPage} from './pages/library';
-import {EmptyState, Unavailable} from '../theme/molecules/states';
+import {EmptyState, LoadingState, Unavailable} from '../theme/molecules/states';
 import {ArtStudio} from '../art-studio';
 import type {AdminContext} from './sections';
 
@@ -59,8 +59,17 @@ export function ServicePanel({context:c}:Props){
 }
 
 export function VoicesPanel({context:c}:Props){
-  useEffect(()=>{if(!c.local)c.refreshCompanions();},[]);
-  return <section id="backstage-voices" aria-label="Agents and models"><VoicesPage status={c.companions} error={c.companionsError}/></section>;
+  const ref=useRef<HTMLElement>(null);
+  useEffect(()=>{if(!c.local){c.refreshCompanions();if(ref.current)c.watchLocalModel(ref.current);}},[]);
+  return <section ref={ref} id="backstage-voices" aria-label="Agents and models" className="flex flex-col gap-6">
+    <VoicesPage status={c.companions} error={c.companionsError}/>
+    <SectionHeading id="voices-llm-title">Local LLM</SectionHeading>
+    <Notice title="Choose, start and test your LLM">These are the same saved provider and startup settings used in Models. Enable Local model in Filing models to include it in the fallback chain. A registered @llm article-chat voice uses the selected provider too.</Notice>
+    {!c.localModel&&c.localModelError?<Unavailable what="The local-model status" error={c.localModelError}/>
+      :c.localModel?<ModelConnection status={c.localModel} act={c.localModelAction}/>:<LoadingState>Loading local-model status…</LoadingState>}
+    {!c.local?<ModelOrderCard api={c.api}/>:null}
+    {!c.local&&c.localModel?<LLMCheckCard key={c.localModel.provider.base_url+'|'+c.localModel.provider.model} api={c.api} provider={c.localModel.provider}/>:null}
+  </section>;
 }
 
 export function ModelsPanel({context:c}:Props){
