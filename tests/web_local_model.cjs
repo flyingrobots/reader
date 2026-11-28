@@ -16,6 +16,12 @@ const {chromium}=require(process.env.READER_PLAYWRIGHT||'playwright-core');
   await context.addInitScript(()=>{try{localStorage.setItem('reader.preferences.v1',JSON.stringify({smooth:false,theme:'user-reader-test'}));}catch{}});
   const page=await context.newPage();page.on('pageerror',e=>errors.push(e.message));page.on('console',m=>{if(m.type()==='error')errors.push(m.text());});page.on('request',r=>{if(!r.url().startsWith(url))external.push(r.url());});
   const toast=text=>page.locator('[data-sonner-toast]').filter({hasText:text});
+  const assertMessage=async locator=>{
+    assert.equal(await locator.getAttribute('data-slot'),'message','model output uses shadcn Message');
+    assert.equal(await locator.locator('[data-slot=bubble-content]').count(),1,'model output uses shadcn Bubble');
+    const fonts=await locator.locator('[data-model-text]').evaluate(el=>({output:getComputedStyle(el).fontFamily,admin:getComputedStyle(document.querySelector('.reader-admin')).fontFamily}));
+    assert.equal(fonts.output,fonts.admin,'model output uses the Admin font token');
+  };
   await page.goto(url+'#admin/models');await page.locator('#local-model').waitFor();
   // Server card: off, then Start goes to Ready, then a model loads.
   const card=page.locator('[data-lm=server]');
@@ -49,7 +55,8 @@ const {chromium}=require(process.env.READER_PLAYWRIGHT||'playwright-core');
   await page.locator('#lm-preview p:not(.lm-thinking)').waitFor({timeout:10000});
   const first=await page.locator('#lm-preview p').textContent();
   await page.waitForFunction(before=>document.querySelector('#lm-preview p')?.textContent!==before,first,{timeout:5000});
-  assert.equal(await page.locator('#lm-preview .lm-mark').textContent(),'local model · gemma-4-e4b');
+  await assertMessage(page.locator('#lm-preview'));
+  assert.equal(await page.locator('#lm-preview [data-lm=mark]').textContent(),'local model · gemma-4-e4b');
   assert.ok(await page.locator('#lm-preview').evaluate(el=>el.hasAttribute('data-reader-decoration')));
   assert.ok(await page.locator('#lm-pause').isVisible()&&await page.locator('#lm-cancel').isVisible());
   await page.locator('[data-lm=server][data-server-state=busy]').waitFor();
@@ -67,11 +74,13 @@ const {chromium}=require(process.env.READER_PLAYWRIGHT||'playwright-core');
   await rejected.locator('[data-lm=item-trigger]').click();
   await rejected.locator('[data-lm=reason]').waitFor();
   assert.equal(await rejected.locator('[data-lm=reason]').textContent(),'Rejected: Number “1999” is not in the source');
-  assert.match(await rejected.locator('.lm-output').textContent(),/Zanzibar reports 1999.*local model · gemma-4-e4b/);
+  assert.match(await rejected.locator('[data-lm=output]').textContent(),/Zanzibar reports 1999.*local model · gemma-4-e4b/);
+  await assertMessage(rejected.locator('[data-lm=output]'));
   assert.match(await rejected.textContent(),/standfirst-v1/);
   // Outputs in use count the four accepted standfirsts, with samples marked.
   await page.waitForFunction(()=>document.querySelector('[data-outputs=standfirst] [data-current]')?.textContent==='4',null,{timeout:40000});
-  assert.ok(await page.locator('[data-outputs=standfirst] [data-lm=sample] .lm-mark').first().isVisible());
+  assert.ok(await page.locator('[data-outputs=standfirst] [data-lm=sample] [data-lm=mark]').first().isVisible());
+  for(const sample of await page.locator('[data-lm=sample]').all())await assertMessage(sample);
   // Reader loaded nothing itself here (the model was already loaded), so it stays loaded.
   assert.equal(await page.locator('[data-model="google/gemma-4-e4b"]').getAttribute('data-loaded'),'true');
   // The magazine cover uses a current local-model standfirst after an authored one and before the opening paragraph, with its mark.

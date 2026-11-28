@@ -44,7 +44,7 @@ Two cards share each row on a wide screen and stack on tablets and phones. Forms
 | Template | `AdminPage`, `CardGrid` |
 | Page | `LocalModelSection` binds `context.localModel` and `localModelAction` |
 
-The machine-written text styles stay as content styles, not components: `.lm-mark` (also used by the magazine), the live `.lm-preview` with its caret, and the `.lm-output` quote.
+Live previews, recent-run output and cached samples compose shadcn `Message`, `MessageContent`, `Bubble` and `Badge` with the Admin font token. Sample source paths use `MessageHeader`. Output stays escaped plain text with line breaks preserved; it does not inherit article serif typography. The live preview has a bounded scroll area and a caret that respects reduced motion. Reading surfaces retain their separate `.lm-mark` attribution style.
 
 ## Test hooks
 

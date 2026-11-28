@@ -1,8 +1,7 @@
 /* Admin › Models (#admin/models): a local model for bulk, private work. The OpenAI-compatible provider (LM Studio, Ollama,
    llama.cpp or any other), its server, the supervised queue, recent items, cached outputs and task settings.
-   Design sheet: docs/admin-design/models.md. Tests find parts by data-lm hooks; the only classes left are the
-   machine-text styles (lm-mark, lm-preview, lm-output) that the magazine shares. */
-import {Fragment, useEffect, useState} from 'react';
+   Design sheet: docs/admin-design/models.md. Tests find parts by data-lm hooks. */
+import {Fragment, useEffect, useState, type ReactNode} from 'react';
 import {ChevronRightIcon} from 'lucide-react';
 import {Button} from './components/ui/button';
 import {ButtonGroup} from './components/ui/button-group';
@@ -10,6 +9,9 @@ import {Collapsible, CollapsibleTrigger, CollapsibleContent} from './components/
 import {Item as UiItem, ItemActions, ItemContent, ItemDescription, ItemFooter, ItemGroup, ItemMedia, ItemSeparator, ItemTitle} from './components/ui/item';
 import {Select, SelectTrigger, SelectValue, SelectContent, SelectGroup, SelectItem} from './components/ui/select';
 import {Spinner} from './components/ui/spinner';
+import {Message, MessageContent, MessageHeader} from './components/ui/message';
+import {Bubble, BubbleContent} from './components/ui/bubble';
+import {Badge} from './components/ui/badge';
 import {Switch} from './components/ui/switch';
 import {Field, FieldGroup, FieldLabel, FieldDescription} from './components/ui/field';
 import {Input} from './components/ui/input';
@@ -48,6 +50,18 @@ export const bytes=(n?:number|null)=>n==null?null:n>=1e9?`${(n/1e9).toFixed(1)} 
 const mib=(n:number)=>n>=1024**2?`${(n/1024**2).toFixed(n>=10*1024**2?0:1)} MiB`:`${Math.max(1,Math.round(n/1024))} KiB`;
 /** Every piece of machine-written text carries this mark. */
 export function MachineMark({model}:{model:string}){return <span className="lm-mark" data-lm="mark" data-reader-decoration="">local model · {shortModel(model)}</span>;}
+
+function ModelMessage({model,source,id,kind,children}:{model:string;source?:string;id?:string;kind:'preview'|'output'|'sample';children:ReactNode}){
+  return <Message id={id} data-lm={kind} data-reader-decoration="" className="font-sans">
+    <MessageContent>
+      {source?<MessageHeader><span className="font-mono [overflow-wrap:anywhere]">{source}</span></MessageHeader>:null}
+      <Bubble variant="muted" className="max-w-full"><BubbleContent>
+        <div data-model-text="" className={kind==='preview'?'max-h-52 overflow-auto overscroll-contain whitespace-pre-wrap [overflow-wrap:anywhere]':'whitespace-pre-wrap [overflow-wrap:anywhere]'}>{children}</div>
+      </BubbleContent></Bubble>
+      <Badge variant="outline" className="self-start" data-lm="mark" data-reader-decoration="">local model · {shortModel(model)}</Badge>
+    </MessageContent>
+  </Message>;
+}
 /** A plural-aware batch summary for the run toast: "Standfirsts: 20 done, 2 rejected". */
 export function runSummary(run:Run,labels:Record<string,string>){
   return Object.entries(run.counts).map(([task,c])=>`${labels[task]||task}: ${[['done',c.done],['rejected',c.rejected],['failed',c.failed],['cancelled',c.cancelled]].filter(([,n])=>n).map(([k,n])=>`${n} ${k}`).join(', ')||'nothing finished'}`).join('; ')||'Nothing finished.';
@@ -137,7 +151,7 @@ function NowCard({status,act}:{status:LocalModelStatus;act:Act}){
     {now?<>
       <UiItem size="xs" className="px-0"><ItemContent className="min-w-0"><ItemTitle className="[overflow-wrap:anywhere]">{now.title}</ItemTitle><ItemDescription className={mono+' [overflow-wrap:anywhere]'}>{now.path}</ItemDescription></ItemContent></UiItem>
       <FactList facts={[{label:'Model',value:shortModel(now.model)},{label:'Elapsed',value:<Ticking since={now.started_at}/>},{key:'Speed',label:'Speed',value:<span id="lm-rate">{now.tokens_per_second?`${now.tokens_per_second} tok/s`:'—'}</span>},{label:'Tokens',value:now.tokens}]}/>
-      <UiItem variant="muted" size="sm" className="lm-preview" id="lm-preview" aria-live="off" data-reader-decoration=""><ItemContent className="min-w-0">{now.preview?<p>{now.preview}<span className="lm-caret" aria-hidden/></p>:<p className="lm-thinking" data-lm="thinking">{now.thinking?'Thinking… '+now.thinking.slice(-160):'Waiting for the first token…'}</p>}<MachineMark model={now.model}/></ItemContent></UiItem>
+      <ModelMessage kind="preview" id="lm-preview" model={now.model}>{now.preview?<p>{now.preview}<span className="lm-caret" aria-hidden/></p>:<p className="lm-thinking text-muted-foreground" data-lm="thinking">{now.thinking?'Thinking… '+now.thinking.slice(-160):'Waiting for the first token…'}</p>}</ModelMessage>
     </>:<>
       <span className="text-sm text-muted-foreground">{waiting?`Nothing running. ${waiting.toLocaleString()} waiting; press Run on a task below.`:'Nothing running and nothing waiting.'}</span>
       {last?<UiItem size="xs" variant="muted" data-last-run={last.state}><ItemContent><ItemDescription className="text-xs">Last run · {ago(last.finished_at)}</ItemDescription>
@@ -179,7 +193,7 @@ function RecentCard({items}:{items:Item[]}){
         <CollapsibleContent className="flex flex-col gap-3 pb-3 pl-8">
           <FactList facts={[{label:'Prompt',value:item.prompt_version},{label:'Source',value:<span className={mono+' [overflow-wrap:anywhere]'}>{item.path}</span>},{label:'Speed',value:item.tokens_per_second?`${item.tokens_per_second} tok/s`:null},{label:'Input',value:item.truncated?'Truncated at a heading':null}]}/>
           {item.error?<Notice data-lm="reason" tone={item.state==='cancelled'?'info':'error'} title={(item.state==='rejected'?'Rejected: ':'')+item.error}/>:null}
-          {item.display||item.output?<UiItem variant="muted" size="sm" render={<blockquote/>} className="lm-output m-0" data-lm="output" data-reader-decoration=""><ItemContent className="min-w-0">{item.display||item.output}<MachineMark model={item.model}/></ItemContent></UiItem>:null}
+          {item.display||item.output?<ModelMessage kind="output" model={item.model}>{item.display||item.output}</ModelMessage>:null}
         </CollapsibleContent>
       </Collapsible></Fragment>)}</ItemGroup>:<span className="text-sm text-muted-foreground">No local-model items have finished yet.</span>}
   </StatusCard>;
@@ -191,7 +205,7 @@ function OutputsCard({outputs,act}:{outputs:Outputs;act:Act}){
     <ItemGroup className="gap-4">{Object.entries(outputs.tasks).map(([task,o])=><div key={task} role="listitem" className="flex flex-col gap-2" data-outputs={task}>
       <div className="flex flex-wrap items-center justify-between gap-2"><span className="text-sm font-medium">{o.label}</span>{o.stale?<Button size="xs" variant="outline" data-prune={task} onClick={()=>act('prune',{task})}>Remove {o.stale} stale</Button>:null}</div>
       <FactList facts={[{label:'Current',value:<span data-current={o.current}>{o.current.toLocaleString()}</span>},{label:'Stale',value:<span data-stale={o.stale}>{o.stale.toLocaleString()}</span>},{label:'Cached',value:o.cached}]}/>
-      {o.samples.slice(0,2).map(s=><UiItem key={s.path+s.created_at} variant="muted" size="sm" render={<blockquote/>} className="lm-output m-0" data-lm="sample" data-reader-decoration=""><ItemContent className="min-w-0"><ItemDescription className="line-clamp-none font-mono text-[10px]">{s.path}</ItemDescription>{s.text}<MachineMark model={s.model}/></ItemContent></UiItem>)}</div>)}</ItemGroup>
+      {o.samples.slice(0,2).map(s=><ModelMessage key={s.path+s.created_at} kind="sample" source={s.path} model={s.model}>{s.text}</ModelMessage>)}</div>)}</ItemGroup>
   </StatusCard>;
 }
 
