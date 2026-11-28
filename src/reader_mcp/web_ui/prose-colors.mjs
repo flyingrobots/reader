@@ -71,7 +71,7 @@ export function installProseColors({setStatus,state,api,notify,companion=null,on
   function paint(){
     for(const level of INTENSITIES.slice(1))document.body.classList.toggle('prose-'+level,style===level&&!!doc);
     if(CSS.highlights)for(const role of PAINTED){if(on()&&doc&&highlights[role])CSS.highlights.set('reader-prose-'+role,highlights[role]);else CSS.highlights.delete('reader-prose-'+role);}
-    setStatus(on()&&doc?{prose:{label:LABELS[style],intensity:style}}:{prose:null});
+    setStatus(doc?{prose:{label:LABELS[style]||'Off',intensity:style}}:{prose:null});
     onChange(style);
   }
   // A block owns the text whose nearest block ancestor is itself (a list item, not its nested list).
@@ -180,8 +180,12 @@ export function installProseColors({setStatus,state,api,notify,companion=null,on
     rescan(){if(!article||!on()||doc?.kind==='.pdf')return;scan();pump();},
     /** Space c: step Off → Subtle → Clear → Vivid → Off for this document or the home issue. */
     async press(){
+      return this.set(INTENSITIES[(INTENSITIES.indexOf(style)+1)%INTENSITIES.length]);
+    },
+    /** Touch and keyboard controls share the same per-document intensity action. */
+    async set(next){
+      if(!INTENSITIES.includes(next))return;
       if(!supported(doc)){notify(state.doc?.historical?'Prose colors work on the current edition, not a past version.':'Prose colors work in Markdown documents, PDF text and the home issue.');return;}
-      const next=INTENSITIES[(INTENSITIES.indexOf(style)+1)%INTENSITIES.length];
       (state.proseStyles??=new Map()).set(key(doc),next);
       if(next==='off'){style='off';paint();notify('Prose colors off.');return;}
       if(on()){style=next;paint();notify(`Prose colors: ${LABELS[next]}.`);return;}

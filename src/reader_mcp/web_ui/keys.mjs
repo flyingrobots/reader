@@ -50,7 +50,7 @@ export const LIMITS={sequenceMs:650,leaderMs:1200,history:100,count:9999};
  */
 export function createKeys({drawHelp=()=>{},guard=()=>false,escape=()=>{},changed=()=>{},notify=()=>{},storage=globalThis.localStorage,suggestions=null,showPending=null,showLine=null}={}){
   const table=[],commands=[],modes=new Map(),before=[],groups=new Map(),prefixes=new Map();
-  const stack=['normal'];let sectionOrder=[];let pending=[],count='',register=null,timer=0;
+  const stack=['normal'];let sectionOrder=[];let pending=[],count='',register=null,timer=0,lastKey='';
   const mode=()=>stack.at(-1);
   const emit=()=>{changed();renderPending();};
   /** Add bindings: {mode:'normal'|'visual'|[…], keys:'gg', when?, run({count,register,args,event}), help?, hint?, group?, display?, global?}.
@@ -94,9 +94,9 @@ export function createKeys({drawHelp=()=>{},guard=()=>false,escape=()=>{},change
     const counting=mode()==='normal'||mode()==='visual';
     if(!pending.length&&counting){
       // "a names the register for the next action; an invalid name cancels it.
-      if(register===''){register=/^[a-z"]$/.test(token)?token:null;emit();return true;}
-      if(token==='"'&&register===null){register='';emit();return true;}
-      if(/^[1-9]$/.test(token)||count&&/^[0-9]$/.test(token)){count+=token;emit();return true;}
+      if(register===''){register=/^[a-z"]$/.test(token)?token:null;lastKey=keyLabel(token);emit();return true;}
+      if(token==='"'&&register===null){register='';lastKey=keyLabel(token);emit();return true;}
+      if(/^[1-9]$/.test(token)||count&&/^[0-9]$/.test(token)){count+=token;lastKey=keyLabel(token);emit();return true;}
     }
     if(!pending.length&&token===','&&mode()==='normal')token='<Space>';
     if(!pending.length&&lapsed&&Number.isFinite(event?.timeStamp)&&event.timeStamp<=lapsed.until)({keys:pending,count,register}=lapsed);
@@ -108,8 +108,8 @@ export function createKeys({drawHelp=()=>{},guard=()=>false,escape=()=>{},change
       if(leader)return true;  // An unknown key after the leader is swallowed, never typed into the page.
       return had?feed(token,event):false;
     }
-    if(exact.length&&!longer.length){const ran=runExact(exact,event);emit();if(!ran&&typed.length===1)return false;return true;}
-    pending=typed;clearTimeout(timer);
+    if(exact.length&&!longer.length){const ran=runExact(exact,event);if(ran)lastKey=keyLabel(token);emit();if(!ran&&typed.length===1)return false;return true;}
+    lastKey=keyLabel(token);pending=typed;clearTimeout(timer);
     const ms=pending[0]==='<Space>'?LIMITS.leaderMs:prefixes.get(pending[0])?.ms??LIMITS.sequenceMs,until=Number.isFinite(event?.timeStamp)?event.timeStamp+ms:-Infinity;
     timer=setTimeout(()=>{timer=0;const waiting=candidates(pending,event).filter(c=>c.kind==='exact');
       if(waiting.length)runExact(waiting,event);else{const kept={keys:pending,count,register,until};clearPending();lapsed=kept;}emit();},ms);
@@ -121,8 +121,9 @@ export function createKeys({drawHelp=()=>{},guard=()=>false,escape=()=>{},change
     for(const hook of before)if(hook(event))return;
     const token=keyToken(event);if(!token)return;
     const global=table.find(entry=>entry.global&&live(entry,event)&&entry.keys===token&&!event.metaKey&&!event.altKey);
-    if(global){event.preventDefault();clearPending();call(global,[],event);emit();return;}
+    if(global){lastKey=keyLabel(token);event.preventDefault();clearPending();call(global,[],event);emit();return;}
     if(token==='<Esc>'){
+      if(!guard(event)){lastKey=keyLabel(token);emit();}
       // One step toward NORMAL: pending keys first, then the current mode, then the page's own Escape.
       if(pending.length||count||register!==null){clearPending();emit();if(!guard(event)){event.preventDefault();return;}}
       const spec=modes.get(mode());
@@ -151,7 +152,8 @@ export function createKeys({drawHelp=()=>{},guard=()=>false,escape=()=>{},change
     if(mode()!=='normal'&&spec)return {mode:spec.label(),keys:spec.hints?.()||''};
     return null;
   }
-  function renderPending(){showPending?.((count||'')+(register!==null?'"'+register:'')+(leads(pending[0])?'':pending.map(keyLabel).join('')));}
+  function renderPending(){showPending?.((count||'')+(register!==null?'"'+register:'')+pending.map(keyLabel).join(' '));}
+  const feedback=()=>({lastKey,keySuggestions:pending.length?hintsFor(pending):''});
 
   // Command line --------------------------------------------------------------
   /** Register an Ex command: {name, aliases?, args?, help, complete?(prefix)→[{value,label?}]|Promise, run(args, {bang})}. */
@@ -289,6 +291,6 @@ export function createKeys({drawHelp=()=>{},guard=()=>false,escape=()=>{},change
   defineMode('command',{label:()=>'COMMAND',hints:()=>'',escape:()=>closeLine()});
   /** The help's section order; sections not named follow in the order their first key was mapped. */
   function order(names){sectionOrder=[...names];scheduleHelp();}
-  const api={map,group,prefix,order,defineMode,enter,leave,mode,handle,intercept,status,command,openLine,closeLine,execute,renderHelp,listed,feed,clear(){clearPending();emit();},pending:()=>({keys:[...pending],count,register}),commands:()=>visibleCommands().map(c=>c.name)};
+  const api={map,group,prefix,order,defineMode,enter,leave,mode,handle,intercept,status,feedback,command,openLine,closeLine,execute,renderHelp,listed,feed,clear(){clearPending();emit();},pending:()=>({keys:[...pending],count,register}),commands:()=>visibleCommands().map(c=>c.name)};
   return api;
 }

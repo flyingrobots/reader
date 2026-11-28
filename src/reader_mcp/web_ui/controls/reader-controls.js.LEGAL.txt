@@ -92,6 +92,7 @@ lucide-react/dist/esm/icons/arrow-left.js:
 lucide-react/dist/esm/icons/arrow-right.js:
 lucide-react/dist/esm/icons/arrow-up-right.js:
 lucide-react/dist/esm/icons/arrow-up.js:
+lucide-react/dist/esm/icons/audio-lines.js:
 lucide-react/dist/esm/icons/book-open.js:
 lucide-react/dist/esm/icons/bot.js:
 lucide-react/dist/esm/icons/bug.js:
@@ -145,6 +146,7 @@ lucide-react/dist/esm/icons/loader-circle.js:
 lucide-react/dist/esm/icons/lock.js:
 lucide-react/dist/esm/icons/mail.js:
 lucide-react/dist/esm/icons/message-square-text.js:
+lucide-react/dist/esm/icons/message-square.js:
 lucide-react/dist/esm/icons/monitor.js:
 lucide-react/dist/esm/icons/octagon-x.js:
 lucide-react/dist/esm/icons/palette.js:

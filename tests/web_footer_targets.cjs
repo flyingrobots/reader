@@ -1,5 +1,5 @@
-/* Phone footer targets (#226), using only a disposable synthetic vault: at 700 px and narrower the status line is an 80 px
-   footer with two rows, the context (mode, breadcrumb, section, position) above 44 px action targets, with 12 px context
+/* Phone footer targets (#226), using only a disposable synthetic vault: at 700 px and narrower the status line is a 112 px
+   footer with two rows, the context (logo, breadcrumb, customization, Admin) above 44 px action targets, with 12 px context
    text. Wider, it stays one compact 48 px row with 36 px controls. The conditional version, speech and split states keep
    their controls through the existing priority pass; nothing spills into a third row or off screen; the safe area counts
    once; every shipped theme and 200% zoom (195x422) keep the contract. Accessible names do not change. */
@@ -9,8 +9,8 @@ const {spawn}=require('node:child_process');
 const {createInterface}=require('node:readline');
 const {mkdirSync}=require('node:fs');
 const {chromium}=require(process.env.READER_PLAYWRIGHT||'playwright-core');
-const PHONE={height:80,target:44,caption:12},DESK={height:48,target:36};
-const CONTEXT=['vim-mode','split-indicator','status-pending','status-location','status-section','status-position'];
+const PHONE={height:112,target:44,caption:12},DESK={height:48,target:36};
+const CONTEXT=['reader-home','dock-configure','settings-open','status-location'];
 const NAMES=['Back to library','Document outline','Switch to Pages layout','Switch theme','Open Reader Admin'];
 (async()=>{
  const fixture=spawn(process.env.READER_PYTHON||'.venv/bin/python',['tests/web_fixture.py','--editions','--versions','--breadcrumbs','--speech'],{stdio:['ignore','pipe','inherit']});let browser;
@@ -35,8 +35,8 @@ const NAMES=['Back to library','Document outline','Switch to Pages layout','Swit
    return {top:l.top,bottom:l.bottom,height:l.height-pad,pad,flow,controls,scroll:document.documentElement.scrollWidth<=innerWidth+1,
     fonts:{mode:font('#vim-mode'),crumb:font('#status-location [aria-current]'),position:font('#status-position'),section:font('#status-section')},
     all:[...line.querySelectorAll('[aria-label]')].map(e=>e.getAttribute('aria-label'))};});
-  const check=async(page,label,phone,essentials=['vim-mode','status-location','settings-open'])=>{const m=await measure(page),want=phone?PHONE:DESK;
-   assert.ok(Math.abs(m.height-want.height)<1.5,`${label}: the footer is ${want.height}px without the safe area (${m.height})`);
+  const check=async(page,label,phone,essentials=['reader-home','status-location','settings-open'])=>{const m=await measure(page),want=phone?PHONE:DESK;
+   assert.ok(Math.abs(m.height-want.height)<1.5,`${label}: the footer is ${want.height}px without the safe area (${m.height}; ${JSON.stringify(m.flow)})`);
    assert.ok(m.scroll,`${label}: no horizontal page scroll`);
    for(const id of essentials)assert.ok(m.flow.some(f=>f.id===id),`${label}: ${id} stays shown (${m.flow.map(f=>f.id)})`);
    for(const f of m.flow)assert.ok(f.top>=m.top-.5&&f.bottom<=m.bottom-m.pad+.5&&f.left>=-.5&&f.right<=viewportWidth+.5,`${label}: ${f.id} ${JSON.stringify(f)} stays inside the footer`);
@@ -78,18 +78,18 @@ const NAMES=['Back to library','Document outline','Switch to Pages layout','Swit
    await page.waitForFunction(()=>document.querySelectorAll('.split-pane iframe').length===2);await page.keyboard.press('Escape');
    await page.locator('#split-indicator').waitFor();await page.setViewportSize({width,height:844});await page.waitForTimeout(400);
    // The new pane's picker leaves it without a document, so it has no breadcrumb.
-   const m=await check(page,`${width} split view`,width<=700,['vim-mode','split-indicator','settings-open']);
-   assert.ok(m.flow.some(f=>f.id==='split-indicator'),`${width}: the split indicator is shown`);await context.close();}
+   const m=await check(page,`${width} split view`,width<=700,width<=700?['reader-home','mobile-dock','settings-open']:['reader-home','split-indicator','settings-open']);
+   assert.ok(m.flow.some(f=>f.id===(width<=700?'mobile-dock':'split-indicator')),`${width}: the appropriate controls are shown`);await context.close();}
 
   // Speech: the transport joins the action row with the same targets.
   for(const width of [390,1440]){viewportWidth=width;const {page,context}=await open({width,height:844});
    await page.evaluate(()=>{const Native=window.Audio;window.Audio=function(src){const a=src===undefined?new Native():new Native(src);a.loop=true;return a;};window.Audio.prototype=Native.prototype;});
-   await page.locator('#speak-article').click();await page.locator('#speech-slot [data-speech-control]').waitFor({timeout:15000});await page.waitForTimeout(300);
+   await page.locator('#speak-article').click();if(width<=700){await page.locator('[data-dock-tool=speak]').click();await page.getByRole('heading',{name:'Playback',exact:true}).waitFor();await page.locator('[data-slot=popover-content] [data-speech-control]').waitFor({timeout:15000});await page.keyboard.press('Escape');}else await page.locator('#speech-slot [data-speech-control]').waitFor({timeout:15000});await page.waitForTimeout(300);
    const m=await check(page,`${width} speech`,width<=700);
    assert.ok(m.flow.some(f=>f.id==='speech-slot')||width<=700,`${width}: the speech control is shown`);
    if(width===390)await page.screenshot({path:'.reader/web-dev/footer-targets-390-speech.png',clip:{x:0,y:844-140,width,height:140}});
    await context.close();}
   assert.deepEqual(errors,[]);
-  console.log('Footer targets passed: 80px two-row phone footer with 44px actions and 12px context, 48px desktop row with 36px controls, version, split and speech states, every theme, 200% zoom, safe area once.');
+  console.log('Footer targets passed: 112px two-row phone footer with 44px actions and 12px context, 48px desktop row with 36px controls, version, split and speech states, every theme, 200% zoom, safe area once.');
  }finally{await browser?.close();fixture.kill();}
 })().catch(e=>{console.error(e);process.exit(1);});
