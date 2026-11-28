@@ -19,6 +19,8 @@ Route `#admin/models`. Sources: `web/src/local-model.tsx` (`LocalModelSection` a
 Work starts through an explicit Run, server control, or Sanity Check Send action. A remote server is refused unless
 you allow it, and the page says plainly that text then leaves the machine. Sanity Check composes the installed
 shadcn `Message`, `Bubble`, `InputGroup` and `CodeBlock` primitives; it shares the saved startup settings with filing.
+The output panel's Copy action appears on hover or keyboard focus and stays visible on touch devices. It copies
+the complete displayed output, including startup diagnostics, reasoning and response, with a copied confirmation.
 
 ## Layout
 
@@ -44,7 +46,7 @@ Two cards share each row on a wide screen and stack on tablets and phones. Forms
 | Template | `AdminPage`, `CardGrid` |
 | Page | `LocalModelSection` binds `context.localModel` and `localModelAction` |
 
-The machine-written text styles stay as content styles, not components: `.lm-mark` (also used by the magazine), the live `.lm-preview` with its caret, and the `.lm-output` quote.
+Live previews, recent-run output and cached samples compose shadcn `Message`, `MessageContent`, `Bubble` and `Badge` with the Admin font token. Sample source paths use `MessageHeader`. Output stays escaped plain text with line breaks preserved; it does not inherit article serif typography. The live preview has a bounded scroll area and a caret that respects reduced motion. Reading surfaces retain their separate `.lm-mark` attribution style.
 
 ## Test hooks
 
