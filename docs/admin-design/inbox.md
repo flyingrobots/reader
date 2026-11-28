@@ -49,7 +49,7 @@ The run card comes first because it holds the page's one primary action. On a ph
 
 ## Theme and tokens
 
-Only semantic utilities are used (`bg-card`, `text-muted-foreground`, `text-destructive`, `border-border`). They resolve to Reader theme tokens through `@theme inline` in `web/src/styles.css`, so every built-in, famous and custom theme applies. The sanitized report keeps its own prose styles (`.inbox-report`), because it is rendered Markdown and not a component.
+Semantic utilities (`bg-card`, `text-muted-foreground`, `text-destructive`, `border-border`) resolve to Reader theme tokens through `@theme inline` in `web/src/styles.css`. Agent turns and the sanitized report use shadcn `Message`, `MessageContent` and `Bubble` composition. Their Markdown uses the shared `.agent-markdown` Admin typography, not article serif settings. Structured JSON output keeps its complete fields in an expandable Trace/CodeBlock; any disposition is labelled as a model proposal, not a filing result.
 
 ## Test hooks
 

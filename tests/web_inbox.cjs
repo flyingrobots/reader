@@ -3,7 +3,7 @@ require('./jail_guard.cjs');
 const assert=require('node:assert/strict');
 const {spawn}=require('node:child_process');
 const {createInterface}=require('node:readline');
-const {mkdirSync,writeFileSync,rmSync,existsSync,readFileSync,readdirSync}=require('node:fs');
+const {mkdirSync,writeFileSync,appendFileSync,rmSync,existsSync,readFileSync,readdirSync}=require('node:fs');
 const {join}=require('node:path');
 const {chromium}=require(process.env.READER_PLAYWRIGHT||'playwright-core');
 (async()=>{
@@ -81,7 +81,7 @@ const {chromium}=require(process.env.READER_PLAYWRIGHT||'playwright-core');
   assert.equal(await log.getAttribute('role'),'log');assert.equal(await log.getAttribute('aria-live'),'polite');
   assert.equal(await page.locator('#inbox .activity').getAttribute('data-reader-decoration'),'');
   assert.match(await item('item_0').textContent(),/I’ll file the three synthetic arrivals/);
-  assert.equal(await item('item_0').locator('[data-slot=item][data-activity-message]').count(),1,'agent messages are a shadcn Item');
+  assert.equal(await item('item_0').locator('[data-slot=message][data-activity-message] [data-slot=bubble-content]').count(),1,'agent messages use shadcn Message and Bubble');
   assert.match(await item('item_2').textContent(),/^Thought/,'reasoning is collapsed to its line');
   assert.match(await item('item_1').textContent(),/Plan1 of 3 done/);
   assert.match(await page.locator('[data-activity-step-label]').textContent(),/Step 2 of 3: File the documents/);
@@ -115,6 +115,21 @@ const {chromium}=require(process.env.READER_PLAYWRIGHT||'playwright-core');
   await page.keyboard.press('Enter');await item('item_3').locator('[data-activity-terminal]').waitFor();
   await page.keyboard.press('k');assert.equal(await page.evaluate(()=>document.activeElement.closest('[data-activity-item]')?.dataset.itemId),'item_2');
   await page.screenshot({path:'.reader/web-dev/inbox-running.png'});
+  // Inspect structured output after the follow/keyboard checks: opening a row intentionally changes scroll position.
+  const structured={title:'Synthetic proposal',disposition:'defer',reason:'Needs a source date.',summary:'A synthetic report.',extra:'<img src=x onerror=alert(1)>'};
+  appendFileSync(join(root,'.reader/inbox-runner/events.jsonl'),JSON.stringify({type:'item.completed',item:{id:'structured-proposal',type:'agent_message',text:JSON.stringify(structured)}})+'\n');
+  await item('structured-proposal').getByText('Needs a source date.',{exact:true}).waitFor();
+  assert.equal(await item('structured-proposal').locator('.activity-prose').count(),0,'JSON is not passed to the prose renderer');
+  await item('structured-proposal').getByRole('button',{name:'Raw model output',exact:true}).click();
+  assert.deepEqual(JSON.parse(await item('structured-proposal').locator('[data-slot=code-block-content]').textContent()),structured,'raw model output retains every field');
+  assert.equal(await item('structured-proposal').locator('[data-slot=code-block-content]').textContent(),JSON.stringify(structured),'raw output preserves the original text');
+  assert.equal(await item('structured-proposal').locator('img').count(),0,'structured output is escaped');
+  const structuredList='[ {"note":"<script>not executable</script>","count":9007199254740993}, "Synthetic array output" ]';
+  appendFileSync(join(root,'.reader/inbox-runner/events.jsonl'),JSON.stringify({type:'item.completed',item:{id:'structured-list',type:'agent_message',text:structuredList}})+'\n');
+  await item('structured-list').getByRole('button',{name:'Raw model output',exact:true}).click();
+  assert.equal(await item('structured-list').locator('[data-slot=code-block-content]').textContent(),structuredList,'raw arrays preserve whitespace and integers beyond JavaScript precision');
+  assert.equal(await item('structured-list').locator('script').count(),0,'array values are escaped');
+  await item('structured-proposal').screenshot({path:'.reader/web-dev/inbox-structured-output.png'});
   rmSync(join(root,'.fake-pause'));
   await toast('Added to the library: 3 arrivals').waitFor({timeout:15000});assert.equal(await toast('Added to the library').getAttribute('data-type'),'success');
   await page.locator('#inbox-report').filter({hasText:'Filed 3 arrivals; deferred 0'}).waitFor();
@@ -124,8 +139,12 @@ const {chromium}=require(process.env.READER_PLAYWRIGHT||'playwright-core');
   assert.equal(await page.locator('#inbox-report').getAttribute('data-reader-decoration'),'');
   // A report that opens with `# Title` stays at transcript scale in the log (#79); the report view keeps its own heading size.
   const heads=await page.evaluate(()=>{const px=el=>parseFloat(getComputedStyle(el).fontSize),log=document.querySelector('#inbox .activity-log'),body=log.querySelector('.activity-prose');
-    return {body:px(body),h1:px(log.querySelector('.activity-prose h1')),h2:px(log.querySelector('.activity-prose h2')),report:px(document.querySelector('#inbox-report h1'))};});
-  assert.ok(heads.h1<=heads.body*1.25&&heads.h2<=heads.h1,JSON.stringify(heads));assert.equal(heads.report,17,JSON.stringify(heads));
+    return {body:px(body),h1:px(log.querySelector('.activity-prose h1')),h2:px(log.querySelector('.activity-prose h2')),report:px(document.querySelector('#inbox-report h1')),
+      proseFont:getComputedStyle(body).fontFamily,reportFont:getComputedStyle(document.querySelector('#inbox-report')).fontFamily,headingFont:getComputedStyle(document.querySelector('#inbox-report h1')).fontFamily,adminFont:getComputedStyle(document.querySelector('.reader-admin')).fontFamily};});
+  assert.ok(heads.h1<=heads.body*1.25&&heads.h2<=heads.h1,JSON.stringify(heads));assert.equal(heads.report,heads.h1,JSON.stringify(heads));
+  assert.equal(heads.proseFont,heads.adminFont,'activity messages use the Admin font token');
+  assert.equal(heads.reportFont,heads.adminFont,'the report uses the Admin font token');
+  assert.equal(heads.headingFont,heads.adminFont,'report headings use the Admin font token');
   // The finished transcript ends with the commit Checkpoint and Context.
   await page.locator('#inbox [data-activity-item=context]').waitFor();
   const kinds=await log.locator('[data-activity-item]').evaluateAll(rows=>rows.map(r=>r.dataset.activityItem));

@@ -16,6 +16,8 @@ import {EmptyState, LoadingState, Unavailable} from '@/theme/molecules/states';
 import {StatusCard} from '@/theme/organisms/status-card';
 import {ConfirmAction} from '@/theme/organisms/confirm-action';
 import {ActivityTranscript} from '../../activity/transcript';
+import {Message, MessageContent} from '../../components/ui/message';
+import {Bubble, BubbleContent} from '../../components/ui/bubble';
 import type {Arrival, InboxRun, InboxStatus, RetainedArrival} from '../../backstage';
 import type {ActivityModel} from '../../reader-controls';
 import {plural} from '../../plural';
@@ -59,7 +61,7 @@ function Report({markdown,html,onOpen}:{markdown:string;html:(text:string)=>stri
     const path=decodeURIComponent(href.split('#')[0]);
     if(/^(library|inbox)\//.test(path))onOpen(path);else toast(`${path} is outside the library; open it in the vault.`);
   };
-  return <div id="inbox-report" className="inbox-report" data-reader-decoration="" onClick={click} dangerouslySetInnerHTML={{__html:html(markdown)}}/>;
+  return <Message><MessageContent><Bubble variant="ghost"><BubbleContent id="inbox-report" className="inbox-report agent-markdown" data-reader-decoration="" onClick={click} dangerouslySetInnerHTML={{__html:html(markdown)}}/></Bubble></MessageContent></Message>;
 }
 
 /** What the next run does before and besides the arrivals: resume a retained batch, then commit others' pending library work. */
