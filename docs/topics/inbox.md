@@ -57,6 +57,10 @@ The page explains active claims, another owner, missing coding CLI, interrupted 
 
 The transcript and elapsed clock show the runner’s observed activity. Events and narrative are evidence of what was captured, not proof of a successful final commit or complete source preservation. A final report can be expanded as sanitized Markdown. The commit line identifies a recorded result; verification still follows the receipt/catalog contracts.
 
+Agent messages and the final report use the Admin interface's typography and theme tokens. Structured JSON
+messages show any supplied title, summary, reason and proposed disposition; **Raw model output** expands the full
+JSON in a code panel. A model proposal is not a filed result. Other message text remains sanitized Markdown.
+
 ## Stop
 
 Stop requests cancellation of this owned run. It does not undo completed imports, commits or other already-completed effects. Preserve partial evidence and inspect the final status before starting another batch. Never kill a shared service merely because one intake view is stale.

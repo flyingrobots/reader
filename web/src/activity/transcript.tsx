@@ -1,12 +1,13 @@
 /* The activity transcript: agent events as shadcn AI Elements (Base UI), composed from the registry's Trace,
- * Item, Marker, Hover Card, Code Block, Collapsible, Button and Progress items as the AI Elements docs
+ * Message, Bubble, Marker, Hover Card, Code Block, Collapsible, Button and Progress items as the AI Elements docs
  * describe. Text renders as text; agent messages go through the app's DOMPurify-sanitized Markdown.
  * Producer-neutral: the inbox runner and coding jobs (RW-44) pass their own `labels`; the defaults are the inbox's. */
 import {useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode} from 'react';
 import {ArrowDownIcon, BotIcon, GitPullRequestIcon, ChevronRightIcon, CircleCheckIcon, CircleDotIcon, CircleIcon, CircleXIcon, FileIcon, FileMinusIcon, FilePenIcon, FilePlusIcon,
   FlaskConicalIcon, FolderIcon, GaugeIcon, GitCommitHorizontalIcon, GlobeIcon, InboxIcon, ListChecksIcon, RouteIcon, TerminalIcon, TriangleAlertIcon, WrenchIcon, XIcon, ArrowUpRightIcon} from 'lucide-react';
 import {Trace, TraceCollapsible, TraceCollapsibleContent, TraceCollapsibleTrigger, TraceDescription, TraceIcon, TraceLine, TraceTitle} from '../components/ui/trace';
-import {Item as UiItem, ItemContent, ItemTitle} from '../components/ui/item';
+import {Message, MessageContent, MessageHeader} from '../components/ui/message';
+import {Bubble, BubbleContent} from '../components/ui/bubble';
 import {Marker, MarkerContent, MarkerIcon} from '../components/ui/marker';
 import {HoverCard, HoverCardContent, HoverCardTrigger} from '../components/ui/hover-card';
 import {CodeBlock, CodeBlockContent} from '../components/ui/code-block';
@@ -158,19 +159,42 @@ function Citation({path,onOpen}:{path:string;onOpen:(path:string)=>void}){
   </HoverCard>;
 }
 
+function structuredOutput(text:string){
+  try{
+    const value:unknown=JSON.parse(text);
+    if(value===null||typeof value!=='object')return null;
+    const field=(key:string)=>{
+      const entry:unknown=Reflect.get(value,key);
+      return typeof entry==='string'?entry:null;
+    };
+    return {raw:text,title:field('title'),summary:field('summary'),reason:field('reason'),disposition:field('disposition')};
+  }catch{return null;}
+}
+
 function MessageRow({item,html,onOpen,speaker}:{item:Extract<Item,{kind:'message'}>;html:(text:string)=>string;onOpen:(path:string)=>void;speaker:string}){
+  const structured=useMemo(()=>structuredOutput(item.text),[item.text]);
   const click=(event:React.MouseEvent<HTMLDivElement>)=>{
     const link=(event.target as HTMLElement).closest('a');if(!link)return;event.preventDefault();
     const href=link.getAttribute('href')||'',path=decodeURIComponent(href.split('#')[0]);
     if(/^https?:/i.test(href))window.open(href,'_blank','noopener,noreferrer');else if(openable(path))onOpen(path);
   };
-  return <UiItem variant="muted" className="items-start" data-activity-message="">
-    <ItemContent className="min-w-0 gap-1.5">
-      <ItemTitle className="text-xs text-muted-foreground">{speaker}</ItemTitle>
-      <div className="activity-prose" onClick={click} dangerouslySetInnerHTML={{__html:html(item.text)}}/>
+  return <Message data-activity-message="">
+    <MessageContent>
+      <MessageHeader>{speaker}</MessageHeader>
+      <Bubble variant="muted" className="max-w-full"><BubbleContent>
+        {structured?<div className="flex min-w-0 flex-col gap-3" data-activity-structured="">
+          {structured.title?<p className="font-medium">{structured.title}</p>:null}
+          {structured.disposition?<Badge variant="outline" className="self-start">Model proposal: {structured.disposition}</Badge>:null}
+          {structured.summary?<p>{structured.summary}</p>:null}
+          {structured.reason?<p>{structured.reason}</p>:null}
+          <Trace><TraceCollapsible><TraceCollapsibleTrigger><TraceLine><TraceIcon><BotIcon/></TraceIcon><TraceTitle>Raw model output</TraceTitle></TraceLine></TraceCollapsibleTrigger>
+            <TraceCollapsibleContent><CodeBlock size="sm"><CodeBlockContent wrap className="max-h-64">{structured.raw}</CodeBlockContent></CodeBlock></TraceCollapsibleContent>
+          </TraceCollapsible></Trace>
+        </div>:<div className="activity-prose agent-markdown" onClick={click} dangerouslySetInnerHTML={{__html:html(item.text)}}/>}
+      </BubbleContent></Bubble>
       {item.cites.length?<div className="activity-cites" aria-label="Documents mentioned">{item.cites.map(path=><Citation key={path} path={path} onOpen={onOpen}/>)}</div>:null}
-    </ItemContent>
-  </UiItem>;
+    </MessageContent>
+  </Message>;
 }
 
 function ReasoningRow({item}:{item:Extract<Item,{kind:'reasoning'}>}){
