@@ -89,6 +89,6 @@ export function StatusLine({actions,progress,pages,outline,width,theme,dock}:{ac
     <Tip label="Reading layout"><Button id="layout-swap" data-status-priority="2" variant="ghost" size="xs" className="status-button" aria-label={spread?'Switch to Scroll layout':'Switch to Pages layout'} onClick={actions.layoutSwap}>{spread?'Scroll':'Pages'}</Button></Tip>
     <span id="theme-switch-slot" data-status-priority="1">{theme}</span>
     <Tip label="Behind the scenes: indexes and settings · Space p"><Button id="settings-open" data-status-priority="1" variant="ghost" size="xs" className="status-button" data-inbox={String(waiting)} aria-label={`Open Reader Admin${waiting?`; ${waiting} inbox arrival${waiting===1?'':'s'} waiting`:''}`} onClick={actions.backstage}><SettingsIcon data-icon="inline-start" aria-hidden/><span>{waiting?`Backstage · ${waiting}`:'Backstage'}</span></Button></Tip>
-    <MobileDock slots={dock} reading={s.reading} prose={s.prose} run={actions.dockTool} save={actions.dockSave} setProse={actions.proseSet}/>
+    <MobileDock slots={dock} reading={s.reading} chatAvailable={s.reading||!!(s.split&&s.trail.path?.startsWith('library/'))} prose={s.prose} run={actions.dockTool} save={actions.dockSave} setProse={actions.proseSet}/>
   </TooltipProvider>;
 }

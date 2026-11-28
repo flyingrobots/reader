@@ -20,7 +20,7 @@ export function ColorControl({intensity,onChange,dock=false,disabled=false}:{int
   </DropdownMenu>;
 }
 
-export function MobileDock({slots,reading,prose,run,save,setProse}:{slots:unknown;reading:boolean;prose:{intensity:string}|null;run:(tool:string)=>void;save:(slots:string[])=>void;setProse:(value:string)=>void}){
+export function MobileDock({slots,reading,chatAvailable,prose,run,save,setProse}:{slots:unknown;reading:boolean;chatAvailable:boolean;prose:{intensity:string}|null;run:(tool:string)=>void;save:(slots:string[])=>void;setProse:(value:string)=>void}){
   const [open,setOpen]=useState(false),[draft,setDraft]=useState<string[]>([]),selected=dockSlots(slots);
   const speaking=useSpeaking();
   const configure=()=>{setDraft(selected);setOpen(true);};
@@ -31,7 +31,7 @@ export function MobileDock({slots,reading,prose,run,save,setProse}:{slots:unknow
         {!tool?<Button variant="ghost" className="h-14 w-full flex-col gap-1" aria-label={`Choose tool for slot ${index+1}`} onClick={configure}><PlusIcon/><span className="text-xs">Add tool</span></Button>
           :tool.id==='speak'&&speaking?<Popover><PopoverTrigger render={<Button variant="ghost" className="h-14 w-full min-w-0 flex-col gap-1" data-dock-tool="speak"/>}><AudioLinesIcon aria-hidden/><span className="text-xs">Speak</span></PopoverTrigger><PopoverContent side="top" align="start" className="max-w-[calc(100vw-16px)] [&_button]:min-h-11 [&_button]:min-w-11"><PopoverHeader><PopoverTitle>Playback</PopoverTitle></PopoverHeader><SpeechControl expanded/><Button variant="outline" onClick={()=>run('speak')}>Choose passage to speak</Button></PopoverContent></Popover>
           :tool.id==='colors'?<ColorControl dock disabled={!prose} intensity={prose?.intensity||'off'} onChange={setProse}/>
-          :<Button variant="ghost" className="h-14 w-full min-w-0 flex-col gap-1" data-dock-tool={tool.id} disabled={['speak','chat','outline'].includes(tool.id)&&!reading} onClick={()=>run(tool.id)}><tool.icon aria-hidden/><span className="text-xs">{tool.label}</span></Button>}
+          :<Button variant="ghost" className="h-14 w-full min-w-0 flex-col gap-1" data-dock-tool={tool.id} disabled={tool.id==='chat'?!chatAvailable:['speak','outline'].includes(tool.id)&&!reading} onClick={()=>run(tool.id)}><tool.icon aria-hidden/><span className="text-xs">{tool.label}</span></Button>}
       </div>;})}
     </nav>
     <Dialog open={open} onOpenChange={setOpen}><DialogContent><DialogHeader><DialogTitle>Customize dock</DialogTitle><DialogDescription>Choose up to four tools. These choices are saved on this device.</DialogDescription></DialogHeader>

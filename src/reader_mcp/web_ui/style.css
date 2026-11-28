@@ -421,7 +421,7 @@ body{margin-right:var(--dock-width,0px);transition-property:none}#smooth-wrapper
 .file-explorer [data-slot=select-trigger]{overflow:hidden}
 .file-explorer [data-slot=item-group]{gap:2px}
 :root[data-explorer-open] .article-art.art-hero{width:calc(100vw - var(--dock-width,0px) - min(22rem,46vw));margin-left:calc(50% - (100vw - var(--dock-width,0px) - min(22rem,46vw))/2)}
-@media(max-width:700px){.file-explorer{bottom:83px}.file-explorer>div>header{padding:12px}.file-explorer [data-slot=field-group]>div:last-child{grid-template-columns:1fr}.file-explorer [data-slot=pagination-content]{flex-wrap:wrap;gap:6px}.file-explorer [data-slot=pagination-item]:nth-child(2){order:-1;width:100%;text-align:center}}
+@media(max-width:700px){.file-explorer{bottom:calc(115px + env(safe-area-inset-bottom,0px))}.file-explorer>div>header{padding:12px}.file-explorer [data-slot=field-group]>div:last-child{grid-template-columns:1fr}.file-explorer [data-slot=pagination-content]{flex-wrap:wrap;gap:6px}.file-explorer [data-slot=pagination-item]:nth-child(2){order:-1;width:100%;text-align:center}}
 html.embedded-pane .file-explorer{bottom:0}
 }
 
