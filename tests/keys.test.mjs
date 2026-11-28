@@ -159,3 +159,14 @@ test('a key typed in time continues its sequence even when the timeout ran first
   assert.deepEqual(calls.map(c=>c.name),['top'],'too late: no second gg');
   assert.deepEqual(keys.pending().keys,['g'],'the late g is pending on its own');
 });
+
+ test('feedback records recognized shortcuts and prefixes, never typing or declined bindings',()=>{
+  let typing=false;const {keys,type}=setup({guard:()=>typing});
+  keys.map({keys:'j',run:()=>{}},{keys:'gg',hint:'top',run:()=>{}},{keys:'x',run:()=>false},{keys:'<F10>',global:true,run:()=>{}});
+  type('j');assert.equal(keys.feedback().lastKey,'j');
+  typing=true;type('g');assert.equal(keys.feedback().lastKey,'j');assert.deepEqual(keys.pending().keys,[]);
+  typing=false;type('x');assert.equal(keys.feedback().lastKey,'j');
+  type('g');assert.match(keys.feedback().keySuggestions,/top/);
+  type('Escape');assert.equal(keys.feedback().lastKey,'Escape');assert.equal(keys.feedback().keySuggestions,'');
+  type('F10');assert.equal(keys.feedback().lastKey,'F10');
+ });

@@ -149,15 +149,11 @@ a **Find a document** button, without an error toast; the API answers it with 40
 
 Commands yield to text fields, selects, composition and dialogs. Standard browser
 selection, copying and context menus remain available. The sticky footer reports
-the active interaction mode and its applicable shortcuts. It offers layout,
+the last recognized shortcut key, the chord being formed and applicable next-key suggestions on desktop. Modal input remains active; keyboard feedback is hidden on phones. Existing mode announcements remain available to screen readers, and next-key suggestions have a separate polite announcement. It offers layout,
 the quick theme picker and light/dark switch, an **Outline** button when the document has an outline, the current section title, and a **Backstage** button that opens Reader Admin's Overview. In zen mode the chrome reappears on keyboard
 focus or when the pointer reaches the lower-right corner.
 
-The mode corner has a distinct background for Normal, Browse, Search, Insert,
-Leader, Settings (the Theme Editor and Backstage share one color), Help and Thread;
-VISUAL shares Thread's color, COMMAND Leader's and the list panels Browse's. Semantic mode colors mix with the selected
-palette and use separate light/dark lightness levels. The printed mode remains
-the primary label; recognizing a color is not required to use it.
+The persistent mode badge is not displayed. Mode state and the existing modal key bindings remain intact; text typed in an input is not recorded as shortcut feedback.
 
 File Explorer is a nonmodal left column, opened with `:files` (`:ls`) and toggled
 with leader-e (Space or comma; Space-comma-e also works). Escape closes it, including
@@ -421,7 +417,7 @@ in `web_ui/theme-tokens.json`, which both the server validator and the editor re
 | Charts | `--chart-1` … `--chart-8` |
 | Fonts | `--font-serif` (reading), `--font-sans` (interface), `--font-mono` (code) |
 
-Highlights, code colors, callouts and the footer's mode labels mix from the chart colors, so they follow a theme's palette and aren't edited on their own. A theme saved with the retired `faint`, `rust`, `selection`, `own`, `other` or `chart-stroke` values still loads, and those values are dropped.
+Highlights, code colors and callouts mix from the chart colors, so they follow a theme's palette and aren't edited on their own. A theme saved with the retired `faint`, `rust`, `selection`, `own`, `other` or `chart-stroke` values still loads, and those values are dropped.
 Tailwind semantic colors (`--color-primary` and so on) map onto the same tokens.
 A dark variant is any `data-theme` that is `ink` or ends in `-dark`.
 
@@ -523,7 +519,7 @@ binds it by id each time.
 
 Everything that floats above the status line or ends at it uses one bottom inset, written
 as literal `calc()` values in `style.css` (the UI-debt ratchet allows no custom
-properties). The constants: the status line is 48 px (80 px at 700 px and narrower), the
+properties). The constants: the status line is 48 px (112 px at 700 px and narrower), the
 reading progress 18 px (25 px), and `env(safe-area-inset-bottom)` is counted once, by the
 status line's padding. The queue and Chat sheets end at status + progress + safe area; the
 Find bar shares that bottom and floats 12 px above it through its `margin-bottom`. When
@@ -535,12 +531,13 @@ the file explorer, two-page reading, the scratch pad, the narrow split pane and 
 update every literal. On phones the Find input and its three buttons are 44 px targets.
 
 The footer (#226) is one compact 48 px row on wider screens, with 36 px controls. At
-700 px and narrower it is 80 px in two rows: the context (mode, split indicator, pending
-keys, breadcrumb, section and position, in 12 px text) fills a 35 px row, and the actions
-below it are 44 px targets. CSS `order` and a full-width `:before` break make the rows,
-so the markup and the priority ranks stay as they are. Breadcrumb folder links are on the
-context row and are 35 px tall. `tests/web_footer_targets.cjs` checks the heights, the
-rows, the targets and the caption size at 195x422, 320, 390, 834 and 1440 px, with long
+700 px and narrower it is 112 px in two rows: a context row with the logo, breadcrumb, dock customization and Admin access, followed by four touch-tool slots. Every dock target is at least 44 px. The default tools are Speak, Chat, Search and Colors. Customize dock can replace each slot with Speak, Chat, Search, Colors, Outline or Settings, or leave it empty. Choices are saved in this device's reading preferences as `mobileDock`; invalid entries become empty slots. Document-only actions are disabled outside a document. While speech is active, Speak opens its playback controls, including pause and stop.
+
+`tests/web_mobile_dock.cjs` checks chord feedback, touch colors and dock customization across reloads.
+
+Colors opens a touch-accessible Off/Subtle/Clear/Vivid menu for the current document or issue, including when colors are off. The default intensity remains in Settings. Desktop has the same menu in the footer. A newer selection cancels a pending enable check, so a delayed availability response cannot undo Off.
+
+`tests/web_footer_targets.cjs` checks heights, rows, targets and caption size at 195x422, 320, 390, 834 and 1440 px, with long
 breadcrumbs, the version, split and speech states, every shipped theme and the safe area.
 `tests/web_bottom_inset.cjs` is the contract: it compares rendered rectangles at 195x422
 (200% zoom of a phone), 320, 390, landscape and desktop widths in every shipped theme,
@@ -554,26 +551,22 @@ line's items, one pass brings back what gave way and hides items until nothing
 reaches past the line's right edge, the current breadcrumb shows at least 64 px
 (or all of its name), and a wrapping line (the phone footer) is no taller than its
 `min-height`. Items keep their content width (only the breadcrumb shrinks),
-so a crowded line overflows, which the pass sees, instead of crushing the mode
-label. Text-only changes, such as the position while scrolling, only hide more,
+so a crowded line overflows, which the pass sees, instead of crushing controls. Text-only changes, such as the position while scrolling, only hide more,
 never bring items back. The current ranks:
 
 | Priority | Items |
 |---|---|
-| 1 (always shown) | mode, split indicator, pending keys, command line, breadcrumb, quick theme picker (with the Dark switch, which CSS hides below 700 px), Backstage |
+| 1 (never hidden by priority) | logo, split indicator, command line, breadcrumb, quick theme picker, Backstage, mobile dock and its customization button |
 | 2 | search chip, location list, pagination, speech, version chip, layout switch |
-| 3 | outline button |
-| 4 | prose-color chip |
+| 3 | keyboard feedback and outline button |
+| 4 | Colors menu and article width |
 | 5 | scratchpad cursor position |
 | 6 | section label (the outline button lists the sections) |
 | 7 | keys hint |
 | none declared | gives way before every declared item |
 
 A new status item declares its own priority; one without a declaration gives way
-first, so it can never push the mode or Backstage off screen. Media queries only
-compact labels: below 700 px Backstage drops its text and the dark-mode switch is hidden (the
-theme picker beside it still offers every light and dark variant), and
-below 520 px the version chip drops its icon and speech drops its label. CSS
+first, so it can never push the logo or Backstage off screen. On phones, media queries select the context row and dock instead of the desktop controls; theme and layout settings remain available in Admin. CSS
 breakpoints alone cannot choose what stays, because they see the viewport, not how
 wide the breadcrumb, speech label or version chip is; the line also cannot clip or
 scroll, because the breadcrumb's folder menu opens above it. `tests/web_status_priority.cjs`

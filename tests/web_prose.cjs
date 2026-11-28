@@ -44,7 +44,7 @@ const covered=page=>page.evaluate(()=>Object.fromEntries([...CSS.highlights].fil
    assert.equal(await prompt.locator('a').getAttribute('href'),'https://github.com/flyingrobots/colorful-language');
    assert.equal(await prompt.locator('[data-prompt-action=setup]').count(),1,'no cargo: guided setup, not Install');
    await prompt.locator('[data-prompt-action=dismiss]').click();await prompt.waitFor({state:'detached'});
-   assert.deepEqual(await covered(page),{},'no prose highlights');assert.equal(await page.locator('#prose-chip').isHidden(),true);
+   assert.deepEqual(await covered(page),{},'no prose highlights');assert.equal(await page.locator('#prose-chip').getAttribute('data-intensity'),'off');
    assert.equal(await page.evaluate(()=>/prose-(subtle|clear|vivid)/.test(document.body.className)),false);
    await leader(page,'p');await page.locator('#prose-status').filter({hasText:"isn't installed"}).waitFor();
    assert.deepEqual(errors,[]);assert.deepEqual(external,[]);await context.close();}
@@ -84,12 +84,11 @@ const covered=page=>page.evaluate(()=>Object.fromEntries([...CSS.highlights].fil
      const sheet=document.querySelector('#reader-prose-tokens').textContent,level=document.body.className.match(/prose-(subtle|clear|vivid)/)[1],probe=document.createElement('canvas').getContext('2d');
      const literal=role=>{const m=sheet.match(new RegExp(':where\\(:root\\[data-theme="user-reader-test"\\]\\) body\\.prose-'+level+' ::highlight\\(reader-prose-'+role+'\\)\\{(?:color|background-color):(#[0-9a-f]+)'));return m&&m[1];};
      const hex=value=>{probe.fillStyle='#000';probe.fillStyle=value;return probe.fillStyle;};
-     return {fn:hex(style('function').color),ruleFn:literal('function'),properInk:style('proper').color,quoteInk:style('quote').color,line:proper.textDecorationLine,lineColor:proper.textDecorationColor,wash:style('quoted').backgroundColor,ruleWash:literal('quoted'),chipProper:getComputedStyle(document.querySelector('#prose-chip b')||document.body).color,chipNumber:getComputedStyle(document.querySelector('#prose-chip i')||document.body).color,numberInk:style('number').color};});
+     return {fn:hex(style('function').color),ruleFn:literal('function'),properInk:style('proper').color,quoteInk:style('quote').color,line:proper.textDecorationLine,lineColor:proper.textDecorationColor,wash:style('quoted').backgroundColor,ruleWash:literal('quoted'),numberInk:style('number').color};});
    const sameRgb=(alpha,ink)=>alpha.match(/[\d.]+/g).slice(0,3).join()===ink.match(/[\d.]+/g).slice(0,3).join();
    await leader(page,'c');await page.waitForFunction(()=>document.body.classList.contains('prose-clear'));
    assert.equal(await page.locator('#prose-chip').getAttribute('aria-label'),'Prose colors: Clear');
    let paint=await paints();const clearFn=paint.fn;assert.equal(paint.fn,paint.ruleFn,'Clear recedes function words');assert.equal(paint.line,'none','Clear underlines nothing');assert.equal(paint.wash,'rgba(0, 0, 0, 0)','Clear washes nothing');
-   assert.equal(paint.chipProper,paint.properInk,'the chip shows the names color');assert.equal(paint.chipNumber,paint.numberInk,'the chip shows the numbers color');
    await leader(page,'c');await page.waitForFunction(()=>document.body.classList.contains('prose-vivid'));
    assert.equal(await page.locator('#prose-chip').getAttribute('aria-label'),'Prose colors: Vivid');
    paint=await paints();assert.equal(paint.fn,paint.ruleFn,'Vivid paints the derived role color');assert.notEqual(paint.fn,clearFn,'Vivid and Clear paint function words differently');
@@ -97,7 +96,7 @@ const covered=page=>page.evaluate(()=>Object.fromEntries([...CSS.highlights].fil
    assert.ok(sameRgb(paint.wash,paint.quoteInk)&&/, 0\.\d+\)$/.test(paint.wash),'Vivid washes quoted passages in the quote color: '+paint.wash);
    await page.screenshot({path:'.reader/web-dev/prose-vivid.png'});
    await leader(page,'c');await page.waitForFunction(()=>!/prose-(subtle|clear|vivid)/.test(document.body.className)&&!CSS.highlights.has('reader-prose-function'));
-   assert.equal(await page.locator('#prose-chip').isHidden(),true);
+   assert.equal(await page.locator('#prose-chip').getAttribute('data-intensity'),'off');
    await leader(page,'c');await page.waitForFunction(()=>document.body.classList.contains('prose-subtle')&&CSS.highlights.has('reader-prose-function'));
    await page.waitForTimeout(300);assert.equal(posts.length,requests,'switching styles sends no request');
    // Find still works over colored text, and the DOM is unchanged.
@@ -225,7 +224,7 @@ const covered=page=>page.evaluate(()=>Object.fromEntries([...CSS.highlights].fil
   // 6. Phone width: no horizontal scroll, the chip still shows.
   {const {page,context,errors,external}=await open({},'library/prose.md',{width:390,height:844});
    await settled(page);assert.ok(await page.evaluate(()=>document.body.classList.contains('prose-clear')),'Clear is the default');assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),'no horizontal page scroll');
-   assert.equal(await page.locator('#prose-chip').isVisible(),true);await page.screenshot({path:'.reader/web-dev/prose-phone.png'});
+   assert.equal(await page.locator('#mobile-dock').getByRole('button',{name:'Colorful Language'}).isVisible(),true);await page.screenshot({path:'.reader/web-dev/prose-phone.png'});
    assert.deepEqual(errors,[]);assert.deepEqual(external,[]);await context.close();}
 
   // 7. PDF text layers are colored, the canvas is untouched.
